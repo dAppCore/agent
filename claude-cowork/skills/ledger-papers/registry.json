@@ -1,0 +1,1487 @@
+{
+  "version": "2.0.0",
+  "description": "Comprehensive blockchain/ledger whitepapers archive - EUPL-1.2 CIC",
+  "categories": {
+    "genesis": {
+      "name": "Genesis Papers",
+      "description": "The foundational papers that started it all",
+      "papers": [
+        {
+          "id": "bitcoin",
+          "title": "Bitcoin: A Peer-to-Peer Electronic Cash System",
+          "author": "Satoshi Nakamoto",
+          "year": 2008,
+          "url": "https://bitcoin.org/bitcoin.pdf",
+          "topics": [
+            "pow",
+            "utxo",
+            "p2p",
+            "digital-cash"
+          ],
+          "significance": "THE genesis paper"
+        },
+        {
+          "id": "b-money",
+          "title": "b-money",
+          "author": "Wei Dai",
+          "year": 1998,
+          "url": "http://www.weidai.com/bmoney.txt",
+          "topics": [
+            "digital-cash",
+            "pre-bitcoin"
+          ]
+        },
+        {
+          "id": "hashcash",
+          "title": "Hashcash - A Denial of Service Counter-Measure",
+          "author": "Adam Back",
+          "year": 2002,
+          "url": "http://www.hashcash.org/papers/hashcash.pdf",
+          "topics": [
+            "pow",
+            "pre-bitcoin"
+          ]
+        },
+        {
+          "id": "bitgold",
+          "title": "Bit Gold",
+          "author": "Nick Szabo",
+          "year": 2005,
+          "url": "https://nakamotoinstitute.org/bit-gold/",
+          "topics": [
+            "digital-gold",
+            "pre-bitcoin"
+          ]
+        }
+      ]
+    },
+    "cryptonote": {
+      "name": "CryptoNote Family",
+      "description": "CryptoNote protocol and derivatives",
+      "papers": [
+        {
+          "id": "cn-whitepaper",
+          "title": "CryptoNote v2.0",
+          "author": "Nicolas van Saberhagen",
+          "year": 2013,
+          "urls": [
+            "https://cryptonote.org/whitepaper.pdf",
+            "https://web.archive.org/web/2020/https://cryptonote.org/whitepaper.pdf"
+          ],
+          "topics": [
+            "ring-signatures",
+            "stealth-addresses",
+            "unlinkability"
+          ]
+        },
+        {
+          "id": "cn-standards",
+          "title": "CryptoNote Standards",
+          "urls": [
+            "https://cryptonote.org/cns/cns001.txt",
+            "https://cryptonote.org/cns/cns002.txt",
+            "https://cryptonote.org/cns/cns003.txt",
+            "https://cryptonote.org/cns/cns004.txt",
+            "https://cryptonote.org/cns/cns005.txt",
+            "https://cryptonote.org/cns/cns006.txt",
+            "https://cryptonote.org/cns/cns007.txt",
+            "https://cryptonote.org/cns/cns008.txt",
+            "https://cryptonote.org/cns/cns009.txt",
+            "https://cryptonote.org/cns/cns010.txt"
+          ],
+          "topics": [
+            "standards",
+            "protocol-spec"
+          ]
+        }
+      ]
+    },
+    "mrl": {
+      "name": "Monero Research Lab",
+      "description": "Monero's research publications",
+      "base_url": "https://lab.getmonero.org/pubs/",
+      "papers": [
+        {
+          "id": "MRL-0001",
+          "title": "A Note on Chain Reactions in Traceability in CryptoNote 2.0",
+          "year": 2014,
+          "url": "https://lab.getmonero.org/pubs/MRL-0001.pdf"
+        },
+        {
+          "id": "MRL-0002",
+          "title": "Counterfeiting via Merkle Tree Exploits",
+          "year": 2014,
+          "url": "https://lab.getmonero.org/pubs/MRL-0002.pdf"
+        },
+        {
+          "id": "MRL-0003",
+          "title": "Monero is Not That Mysterious",
+          "year": 2014,
+          "url": "https://lab.getmonero.org/pubs/MRL-0003.pdf"
+        },
+        {
+          "id": "MRL-0004",
+          "title": "Improving Obfuscation in the CryptoNote Protocol",
+          "year": 2015,
+          "url": "https://lab.getmonero.org/pubs/MRL-0004.pdf"
+        },
+        {
+          "id": "MRL-0005",
+          "title": "Ring Confidential Transactions (RingCT)",
+          "year": 2016,
+          "url": "https://lab.getmonero.org/pubs/MRL-0005.pdf",
+          "topics": [
+            "ringct"
+          ]
+        },
+        {
+          "id": "MRL-0006",
+          "title": "Efficient Implementation of Monero Subaddresses",
+          "year": 2017,
+          "url": "https://lab.getmonero.org/pubs/MRL-0006.pdf"
+        },
+        {
+          "id": "MRL-0007",
+          "title": "Sets of Spent Outputs",
+          "year": 2018,
+          "url": "https://lab.getmonero.org/pubs/MRL-0007.pdf"
+        },
+        {
+          "id": "MRL-0008",
+          "title": "Dual Linkable Ring Signatures",
+          "year": 2018,
+          "url": "https://lab.getmonero.org/pubs/MRL-0008.pdf"
+        },
+        {
+          "id": "MRL-0009",
+          "title": "Thring Signatures",
+          "year": 2018,
+          "url": "https://lab.getmonero.org/pubs/MRL-0009.pdf"
+        },
+        {
+          "id": "MRL-0010",
+          "title": "Triptych",
+          "year": 2020,
+          "url": "https://lab.getmonero.org/pubs/MRL-0010.pdf"
+        },
+        {
+          "id": "MRL-0011",
+          "title": "Triptych-2",
+          "year": 2021,
+          "url": "https://lab.getmonero.org/pubs/MRL-0011.pdf"
+        }
+      ]
+    },
+    "privacy": {
+      "name": "Confidentiality Coins",
+      "description": "Privacy/confidentiality focused protocols",
+      "papers": [
+        {
+          "id": "zerocoin",
+          "title": "Zerocoin: Anonymous Distributed E-Cash from Bitcoin",
+          "year": 2013,
+          "url": "https://zerocoin.org/media/pdf/ZesrocoinOakland.pdf",
+          "topics": [
+            "zero-knowledge",
+            "mixing"
+          ]
+        },
+        {
+          "id": "zerocash",
+          "title": "Zerocash: Decentralized Anonymous Payments from Bitcoin",
+          "year": 2014,
+          "url": "http://zerocash-project.org/media/pdf/zerocash-extended-20140518.pdf",
+          "topics": [
+            "zk-snarks",
+            "shielded"
+          ]
+        },
+        {
+          "id": "zcash-protocol",
+          "title": "Zcash Protocol Specification",
+          "url": "https://zips.z.cash/protocol/protocol.pdf",
+          "topics": [
+            "zk-snarks",
+            "sapling",
+            "orchard"
+          ]
+        },
+        {
+          "id": "dash",
+          "title": "Dash: A Payments-Focused Cryptocurrency",
+          "author": "Evan Duffield",
+          "url": "https://github.com/dashpay/dash/wiki/Whitepaper",
+          "topics": [
+            "masternodes",
+            "instantsend",
+            "privatesend"
+          ]
+        },
+        {
+          "id": "grin-mimblewimble",
+          "title": "Grin - Mimblewimble Implementation",
+          "url": "https://github.com/mimblewimble/grin/blob/master/doc/intro.md",
+          "topics": [
+            "mimblewimble",
+            "confidential-tx"
+          ]
+        },
+        {
+          "id": "mimblewimble",
+          "title": "Mimblewimble",
+          "author": "Tom Elvis Jedusor",
+          "year": 2016,
+          "url": "https://scalingbitcoin.org/papers/mimblewimble.txt",
+          "topics": [
+            "mimblewimble",
+            "cut-through"
+          ]
+        },
+        {
+          "id": "beam",
+          "title": "BEAM: Confidential Cryptocurrency and DeFi Platform",
+          "url": "https://github.com/BeamMW/beam/wiki/BEAM-Technical-Specifications",
+          "topics": [
+            "mimblewimble",
+            "lelantus-mw"
+          ]
+        },
+        {
+          "id": "firo-lelantus",
+          "title": "Lelantus: Towards Confidentiality and Anonymity of Blockchain Transactions",
+          "year": 2019,
+          "url": "https://eprint.iacr.org/2019/373.pdf",
+          "topics": [
+            "lelantus",
+            "one-out-of-many"
+          ]
+        },
+        {
+          "id": "firo-spark",
+          "title": "Spark: A Privacy-Preserving Token Protocol",
+          "year": 2021,
+          "url": "https://eprint.iacr.org/2021/1173.pdf",
+          "topics": [
+            "spark",
+            "lelantus-v2"
+          ]
+        }
+      ]
+    },
+    "smart-contracts": {
+      "name": "Smart Contract Platforms",
+      "description": "Programmable blockchain papers",
+      "papers": [
+        {
+          "id": "ethereum",
+          "title": "Ethereum: A Next-Generation Smart Contract and Decentralized Application Platform",
+          "author": "Vitalik Buterin",
+          "year": 2013,
+          "url": "https://ethereum.org/en/whitepaper/",
+          "topics": [
+            "smart-contracts",
+            "evm",
+            "gas"
+          ]
+        },
+        {
+          "id": "ethereum-yellowpaper",
+          "title": "Ethereum Yellow Paper",
+          "author": "Gavin Wood",
+          "url": "https://ethereum.github.io/yellowpaper/paper.pdf",
+          "topics": [
+            "evm-spec",
+            "formal"
+          ]
+        },
+        {
+          "id": "solana",
+          "title": "Solana: A new architecture for a high performance blockchain",
+          "url": "https://solana.com/solana-whitepaper.pdf",
+          "topics": [
+            "poh",
+            "high-throughput"
+          ]
+        },
+        {
+          "id": "cardano",
+          "title": "Ouroboros: A Provably Secure Proof-of-Stake Blockchain Protocol",
+          "year": 2017,
+          "url": "https://eprint.iacr.org/2016/889.pdf",
+          "topics": [
+            "pos",
+            "ouroboros"
+          ]
+        },
+        {
+          "id": "polkadot",
+          "title": "Polkadot: Vision for a Heterogeneous Multi-Chain Framework",
+          "author": "Gavin Wood",
+          "url": "https://polkadot.network/PolkaDotPaper.pdf",
+          "topics": [
+            "parachains",
+            "relay-chain",
+            "interop"
+          ]
+        },
+        {
+          "id": "cosmos",
+          "title": "Cosmos: A Network of Distributed Ledgers",
+          "url": "https://v1.cosmos.network/resources/whitepaper",
+          "topics": [
+            "tendermint",
+            "ibc",
+            "zones"
+          ]
+        },
+        {
+          "id": "avalanche",
+          "title": "Avalanche: A Novel Metastable Consensus Protocol Family",
+          "year": 2018,
+          "url": "https://assets.website-files.com/5d80307810123f5ffbb34d6e/6008d7bbf8b10d1eb01e7e16_Avalanche%20Platform%20Whitepaper.pdf",
+          "topics": [
+            "snowball",
+            "subnets"
+          ]
+        },
+        {
+          "id": "near",
+          "title": "NEAR Protocol Specification",
+          "url": "https://near.org/papers/the-official-near-white-paper/",
+          "topics": [
+            "sharding",
+            "nightshade"
+          ]
+        },
+        {
+          "id": "tezos",
+          "title": "Tezos: A Self-Amending Crypto-Ledger",
+          "url": "https://tezos.com/whitepaper.pdf",
+          "topics": [
+            "self-amendment",
+            "liquid-pos"
+          ]
+        },
+        {
+          "id": "algorand",
+          "title": "Algorand: Scaling Byzantine Agreements for Cryptocurrencies",
+          "year": 2017,
+          "url": "https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf",
+          "topics": [
+            "pure-pos",
+            "vrf"
+          ]
+        }
+      ]
+    },
+    "layer2": {
+      "name": "Layer 2 & Scaling",
+      "description": "Scaling solutions and layer 2 protocols",
+      "papers": [
+        {
+          "id": "lightning",
+          "title": "The Bitcoin Lightning Network: Scalable Off-Chain Instant Payments",
+          "year": 2016,
+          "url": "https://lightning.network/lightning-network-paper.pdf",
+          "topics": [
+            "payment-channels",
+            "htlc"
+          ]
+        },
+        {
+          "id": "plasma",
+          "title": "Plasma: Scalable Autonomous Smart Contracts",
+          "year": 2017,
+          "url": "https://plasma.io/plasma-deprecated.pdf",
+          "topics": [
+            "child-chains",
+            "fraud-proofs"
+          ]
+        },
+        {
+          "id": "rollups",
+          "title": "An Incomplete Guide to Rollups",
+          "author": "Vitalik Buterin",
+          "url": "https://vitalik.ca/general/2021/01/05/rollup.html",
+          "topics": [
+            "optimistic",
+            "zk-rollups"
+          ]
+        },
+        {
+          "id": "starkware",
+          "title": "STARK-Friendly Hash Survey",
+          "url": "https://eprint.iacr.org/2020/948.pdf",
+          "topics": [
+            "starks",
+            "zk-proofs"
+          ]
+        },
+        {
+          "id": "zkSync",
+          "title": "zkSync: Scaling and Privacy Engine for Ethereum",
+          "url": "https://github.com/matter-labs/zksync/blob/master/docs/protocol.md",
+          "topics": [
+            "zk-rollup",
+            "plonk"
+          ]
+        },
+        {
+          "id": "optimism",
+          "title": "Optimism: A Cheap, Instant Ethereum L2",
+          "url": "https://github.com/ethereum-optimism/optimism/blob/develop/specs/README.md",
+          "topics": [
+            "optimistic-rollup",
+            "fraud-proofs"
+          ]
+        },
+        {
+          "id": "arbitrum",
+          "title": "Arbitrum Rollup Protocol",
+          "url": "https://github.com/OffchainLabs/arbitrum/blob/master/docs/Arbitrum_Rollup_Protocol.pdf",
+          "topics": [
+            "optimistic-rollup",
+            "interactive-fraud"
+          ]
+        }
+      ]
+    },
+    "consensus": {
+      "name": "Consensus Mechanisms",
+      "description": "Consensus algorithm research",
+      "papers": [
+        {
+          "id": "pbft",
+          "title": "Practical Byzantine Fault Tolerance",
+          "author": "Castro, Liskov",
+          "year": 1999,
+          "url": "https://pmg.csail.mit.edu/papers/osdi99.pdf",
+          "topics": [
+            "bft",
+            "classic"
+          ]
+        },
+        {
+          "id": "tendermint",
+          "title": "Tendermint: Byzantine Fault Tolerance in the Age of Blockchains",
+          "year": 2016,
+          "url": "https://knowen-production.s3.amazonaws.com/uploads/attachment/file/1814/Tendermint.pdf",
+          "topics": [
+            "bft",
+            "pos"
+          ]
+        },
+        {
+          "id": "hotstuff",
+          "title": "HotStuff: BFT Consensus with Linearity and Responsiveness",
+          "year": 2019,
+          "url": "https://arxiv.org/pdf/1803.05069.pdf",
+          "topics": [
+            "bft",
+            "linear"
+          ]
+        },
+        {
+          "id": "casper",
+          "title": "Casper the Friendly Finality Gadget",
+          "year": 2017,
+          "url": "https://arxiv.org/pdf/1710.09437.pdf",
+          "topics": [
+            "pos",
+            "finality",
+            "eth2"
+          ]
+        },
+        {
+          "id": "gasper",
+          "title": "Combining GHOST and Casper",
+          "year": 2020,
+          "url": "https://arxiv.org/pdf/2003.03052.pdf",
+          "topics": [
+            "eth2",
+            "lmd-ghost"
+          ]
+        },
+        {
+          "id": "raft",
+          "title": "In Search of an Understandable Consensus Algorithm (Raft)",
+          "year": 2014,
+          "url": "https://raft.github.io/raft.pdf",
+          "topics": [
+            "cft",
+            "leader-election"
+          ]
+        },
+        {
+          "id": "nakamoto",
+          "title": "Analysis of the Blockchain Protocol in Asynchronous Networks",
+          "year": 2016,
+          "url": "https://eprint.iacr.org/2016/454.pdf",
+          "topics": [
+            "pow",
+            "analysis"
+          ]
+        }
+      ]
+    },
+    "cryptography": {
+      "name": "Cryptographic Foundations",
+      "description": "Core cryptographic papers used in blockchains",
+      "papers": [
+        {
+          "id": "bulletproofs",
+          "title": "Bulletproofs: Short Proofs for Confidential Transactions and More",
+          "year": 2017,
+          "url": "https://eprint.iacr.org/2017/1066.pdf",
+          "topics": [
+            "range-proofs",
+            "zk"
+          ]
+        },
+        {
+          "id": "bulletproofs-plus",
+          "title": "Bulletproofs+: Shorter Proofs for Cryptocurrency",
+          "year": 2020,
+          "url": "https://eprint.iacr.org/2020/493.pdf",
+          "topics": [
+            "range-proofs",
+            "improved"
+          ]
+        },
+        {
+          "id": "clsag",
+          "title": "Concise Linkable Ring Signatures (CLSAG)",
+          "year": 2019,
+          "url": "https://eprint.iacr.org/2019/654.pdf",
+          "topics": [
+            "ring-signatures",
+            "linkable"
+          ]
+        },
+        {
+          "id": "triptych",
+          "title": "Triptych: Logarithmic-sized Linkable Ring Signatures",
+          "year": 2020,
+          "url": "https://eprint.iacr.org/2020/018.pdf",
+          "topics": [
+            "ring-signatures",
+            "logarithmic"
+          ]
+        },
+        {
+          "id": "seraphis",
+          "title": "Seraphis",
+          "year": 2021,
+          "url": "https://eprint.iacr.org/2021/1593.pdf",
+          "topics": [
+            "next-gen",
+            "monero"
+          ]
+        },
+        {
+          "id": "plonk",
+          "title": "PLONK: Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge",
+          "year": 2019,
+          "url": "https://eprint.iacr.org/2019/953.pdf",
+          "topics": [
+            "zk-snarks",
+            "universal"
+          ]
+        },
+        {
+          "id": "groth16",
+          "title": "On the Size of Pairing-Based Non-Interactive Arguments",
+          "year": 2016,
+          "url": "https://eprint.iacr.org/2016/260.pdf",
+          "topics": [
+            "zk-snarks",
+            "succinct"
+          ]
+        },
+        {
+          "id": "schnorr",
+          "title": "Efficient Signature Generation by Smart Cards",
+          "author": "Claus Schnorr",
+          "year": 1991,
+          "url": "https://link.springer.com/content/pdf/10.1007/BF00196725.pdf",
+          "topics": [
+            "signatures",
+            "schnorr"
+          ]
+        },
+        {
+          "id": "bls",
+          "title": "Short Signatures from the Weil Pairing",
+          "year": 2001,
+          "url": "https://www.iacr.org/archive/asiacrypt2001/22480516.pdf",
+          "topics": [
+            "signatures",
+            "aggregation"
+          ]
+        },
+        {
+          "id": "pedersen",
+          "title": "Non-Interactive and Information-Theoretic Secure Verifiable Secret Sharing",
+          "year": 1991,
+          "url": "https://link.springer.com/content/pdf/10.1007/3-540-46766-1_9.pdf",
+          "topics": [
+            "commitments",
+            "secret-sharing"
+          ]
+        }
+      ]
+    },
+    "defi": {
+      "name": "DeFi Protocols",
+      "description": "Decentralized finance whitepapers",
+      "papers": [
+        {
+          "id": "uniswap-v2",
+          "title": "Uniswap v2 Core",
+          "year": 2020,
+          "url": "https://uniswap.org/whitepaper.pdf",
+          "topics": [
+            "amm",
+            "dex"
+          ]
+        },
+        {
+          "id": "uniswap-v3",
+          "title": "Uniswap v3 Core",
+          "year": 2021,
+          "url": "https://uniswap.org/whitepaper-v3.pdf",
+          "topics": [
+            "concentrated-liquidity",
+            "amm"
+          ]
+        },
+        {
+          "id": "compound",
+          "title": "Compound: The Money Market Protocol",
+          "url": "https://compound.finance/documents/Compound.Whitepaper.pdf",
+          "topics": [
+            "lending",
+            "ctokens"
+          ]
+        },
+        {
+          "id": "aave",
+          "title": "Aave Protocol Whitepaper",
+          "url": "https://github.com/aave/aave-protocol/blob/master/docs/Aave_Protocol_Whitepaper_v1_0.pdf",
+          "topics": [
+            "lending",
+            "flash-loans"
+          ]
+        },
+        {
+          "id": "makerdao",
+          "title": "The Maker Protocol: MakerDAO's Multi-Collateral Dai System",
+          "url": "https://makerdao.com/en/whitepaper/",
+          "topics": [
+            "stablecoin",
+            "cdp"
+          ]
+        },
+        {
+          "id": "curve",
+          "title": "Curve Finance StableSwap",
+          "url": "https://curve.fi/files/stableswap-paper.pdf",
+          "topics": [
+            "stableswap",
+            "amm"
+          ]
+        },
+        {
+          "id": "balancer",
+          "title": "Balancer: A Non-Custodial Portfolio Manager",
+          "url": "https://balancer.fi/whitepaper.pdf",
+          "topics": [
+            "weighted-pools",
+            "amm"
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "name": "Decentralized Storage",
+      "description": "Storage and data availability networks",
+      "papers": [
+        {
+          "id": "ipfs",
+          "title": "IPFS - Content Addressed, Versioned, P2P File System",
+          "author": "Juan Benet",
+          "year": 2014,
+          "url": "https://ipfs.io/ipfs/QmR7GSQM93Cx5eAg6a6yRzNde1FQv7uL6X1o4k7zrJa3LX/ipfs.draft3.pdf",
+          "topics": [
+            "content-addressing",
+            "dht"
+          ]
+        },
+        {
+          "id": "filecoin",
+          "title": "Filecoin: A Decentralized Storage Network",
+          "year": 2017,
+          "url": "https://filecoin.io/filecoin.pdf",
+          "topics": [
+            "proof-of-storage",
+            "retrieval"
+          ]
+        },
+        {
+          "id": "arweave",
+          "title": "Arweave: A Protocol for Economically Sustainable Information Permanence",
+          "url": "https://www.arweave.org/yellow-paper.pdf",
+          "topics": [
+            "permanent-storage",
+            "blockweave"
+          ]
+        },
+        {
+          "id": "sia",
+          "title": "Sia: Simple Decentralized Storage",
+          "year": 2014,
+          "url": "https://sia.tech/sia.pdf",
+          "topics": [
+            "file-contracts",
+            "storage-proofs"
+          ]
+        },
+        {
+          "id": "storj",
+          "title": "Storj: A Decentralized Cloud Storage Network Framework",
+          "url": "https://www.storj.io/storjv3.pdf",
+          "topics": [
+            "erasure-coding",
+            "satellite"
+          ]
+        }
+      ]
+    },
+    "identity": {
+      "name": "Identity & Credentials",
+      "description": "Decentralized identity systems",
+      "papers": [
+        {
+          "id": "did-spec",
+          "title": "Decentralized Identifiers (DIDs) v1.0",
+          "url": "https://www.w3.org/TR/did-core/",
+          "topics": [
+            "w3c",
+            "did"
+          ]
+        },
+        {
+          "id": "verifiable-credentials",
+          "title": "Verifiable Credentials Data Model 1.0",
+          "url": "https://www.w3.org/TR/vc-data-model/",
+          "topics": [
+            "w3c",
+            "credentials"
+          ]
+        },
+        {
+          "id": "semaphore",
+          "title": "Semaphore: Zero-Knowledge Signaling on Ethereum",
+          "url": "https://semaphore.appliedzkp.org/",
+          "topics": [
+            "zk-identity",
+            "signaling"
+          ]
+        }
+      ]
+    },
+    "cryptonote-projects": {
+      "name": "CryptoNote Project Extensions",
+      "description": "Papers from CryptoNote-based projects",
+      "papers": [
+        {
+          "id": "haven-xassets",
+          "title": "Haven Protocol - Confidential Assets",
+          "project": "haven",
+          "urls": [
+            "https://havenprotocol.org/whitepaper/"
+          ],
+          "topics": [
+            "confidential-assets",
+            "synthetic-stablecoin"
+          ]
+        },
+        {
+          "id": "masari-secor",
+          "title": "SECOR - Simple Extended Consensus Resolution",
+          "project": "masari",
+          "urls": [
+            "https://getmasari.org/research"
+          ],
+          "topics": [
+            "uncle-mining",
+            "consensus"
+          ]
+        },
+        {
+          "id": "turtle-karai",
+          "title": "Karai - Programmable Sidechains",
+          "project": "turtlecoin",
+          "urls": [
+            "https://github.com/karai/go-karai"
+          ],
+          "topics": [
+            "sidechains"
+          ],
+          "status": "abandoned"
+        },
+        {
+          "id": "wownero-randomwow",
+          "title": "RandomWOW - CPU Mining Algorithm",
+          "project": "wownero",
+          "urls": [
+            "https://git.wownero.com/wownero/RandomWOW"
+          ],
+          "topics": [
+            "pow",
+            "randomx-variant"
+          ]
+        },
+        {
+          "id": "dero-stargate",
+          "title": "DERO Stargate - Homomorphic Encryption",
+          "project": "dero",
+          "urls": [
+            "https://github.com/deroproject/documentation"
+          ],
+          "topics": [
+            "homomorphic",
+            "smart-contracts"
+          ]
+        },
+        {
+          "id": "graft-rfc-001-gsd",
+          "title": "RFC 001 GSD - General Supernode Design",
+          "project": "graft",
+          "year": 2018,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/187"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/RFC-001-GSD-general-supernode-design.md",
+          "topics": [
+            "supernodes",
+            "announce-protocol",
+            "key-management"
+          ],
+          "status": "dead"
+        },
+        {
+          "id": "graft-rfc-002-sls",
+          "title": "RFC 002 SLS - Supernode List Selection",
+          "project": "graft",
+          "year": 2018,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/185"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/RFC-002-SLS-supernode-list-selection.md",
+          "topics": [
+            "auth-sample",
+            "selection-algorithm",
+            "stake-weighting"
+          ],
+          "status": "dead"
+        },
+        {
+          "id": "graft-rfc-003-rtvf",
+          "title": "RFC 003 RTVF - RTA Transaction Validation Flow",
+          "project": "graft",
+          "year": 2019,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/191"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/RFC-003-RTVF-rta-transaction-validation.md",
+          "topics": [
+            "rta",
+            "real-time-authorization",
+            "privacy-analysis"
+          ],
+          "status": "dead",
+          "notes": "Contains jagerman's security critique - privacy leaks, centralization risks"
+        },
+        {
+          "id": "graft-auth-sample",
+          "title": "Authorization Sample Selection Algorithm",
+          "project": "graft",
+          "year": 2018,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/182"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/auth-sample-selection-algorithm.md",
+          "topics": [
+            "randomness",
+            "stake-weighting",
+            "sybil-resistance"
+          ],
+          "status": "dead"
+        },
+        {
+          "id": "graft-udht",
+          "title": "UDHT - Unstructured Distributed Hash Table",
+          "project": "graft",
+          "year": 2019,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/341"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/udht-implementation.md",
+          "topics": [
+            "dht",
+            "p2p",
+            "service-discovery"
+          ],
+          "status": "dead"
+        },
+        {
+          "id": "graft-double-spend",
+          "title": "Graft RTA Double Spend Attack Vectors and Solutions",
+          "project": "graft",
+          "year": 2020,
+          "urls": [
+            "https://github.com/graft-project/graft-ng/issues/425"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/rta-double-spend-attack-vectors.md",
+          "topics": [
+            "double-spend",
+            "attacks",
+            "rta-security"
+          ],
+          "status": "dead"
+        },
+        {
+          "id": "graft-rfc-005-df",
+          "title": "RFC 005 DF - Disqualification Flow",
+          "project": "graft",
+          "year": 2019,
+          "urls": [
+            "https://github.com/graft-project/DesignDocuments/issues/2"
+          ],
+          "local": "archive/20-cryptonote-projects/graft/RFC-005-DF-disqualification-flow.md",
+          "topics": [
+            "disqualification",
+            "scoring",
+            "penalties",
+            "quorum-voting"
+          ],
+          "status": "dead",
+          "notes": "jagerman critique: use simple rejection rules, fixed stake periods like Loki"
+        }
+      ]
+    },
+    "attacks": {
+      "name": "Security Research & Attacks",
+      "description": "Security analysis and attack papers",
+      "papers": [
+        {
+          "id": "selfish-mining",
+          "title": "Majority is not Enough: Bitcoin Mining is Vulnerable",
+          "year": 2013,
+          "url": "https://arxiv.org/pdf/1311.0243.pdf",
+          "topics": [
+            "selfish-mining",
+            "attacks"
+          ]
+        },
+        {
+          "id": "eclipse-attack",
+          "title": "Eclipse Attacks on Bitcoin's Peer-to-Peer Network",
+          "year": 2015,
+          "url": "https://eprint.iacr.org/2015/263.pdf",
+          "topics": [
+            "network",
+            "attacks"
+          ]
+        },
+        {
+          "id": "monero-traceability",
+          "title": "An Empirical Analysis of Traceability in the Monero Blockchain",
+          "year": 2017,
+          "url": "https://arxiv.org/pdf/1704.04299.pdf",
+          "topics": [
+            "traceability",
+            "analysis"
+          ]
+        },
+        {
+          "id": "flash-loans-attack",
+          "title": "Flash Boys 2.0: Frontrunning in Decentralized Exchanges",
+          "year": 2019,
+          "url": "https://arxiv.org/pdf/1904.05234.pdf",
+          "topics": [
+            "mev",
+            "frontrunning"
+          ]
+        },
+        {
+          "id": "51-attack-analysis",
+          "title": "Double-Spending Attacks on Fast Payments in Bitcoin",
+          "year": 2012,
+          "url": "https://eprint.iacr.org/2012/248.pdf",
+          "topics": [
+            "double-spend",
+            "attacks"
+          ]
+        }
+      ]
+    },
+    "oracles": {
+      "name": "Oracle Networks",
+      "description": "Blockchain oracle solutions",
+      "papers": [
+        {
+          "id": "chainlink",
+          "title": "Chainlink: A Decentralized Oracle Network",
+          "url": "https://chain.link/whitepaper",
+          "topics": [
+            "oracles",
+            "data-feeds"
+          ]
+        },
+        {
+          "id": "chainlink-2",
+          "title": "Chainlink 2.0: Next Steps in the Evolution of Decentralized Oracle Networks",
+          "url": "https://research.chain.link/whitepaper-v2.pdf",
+          "topics": [
+            "ocr",
+            "ccip"
+          ]
+        },
+        {
+          "id": "band-protocol",
+          "title": "Band Protocol Whitepaper",
+          "url": "https://whitepaper.bandprotocol.com/",
+          "topics": [
+            "oracles",
+            "cosmos"
+          ]
+        }
+      ]
+    },
+    "bridges": {
+      "name": "Cross-Chain Bridges",
+      "description": "Interoperability and bridge protocols",
+      "papers": [
+        {
+          "id": "atomic-swaps",
+          "title": "Atomic Cross-Chain Swaps",
+          "year": 2018,
+          "url": "https://arxiv.org/pdf/1801.09515.pdf",
+          "topics": [
+            "htlc",
+            "cross-chain"
+          ]
+        },
+        {
+          "id": "xclaim",
+          "title": "XCLAIM: Trustless, Interoperable Cryptocurrency-Backed Assets",
+          "year": 2019,
+          "url": "https://eprint.iacr.org/2018/643.pdf",
+          "topics": [
+            "wrapped-assets",
+            "trustless"
+          ]
+        },
+        {
+          "id": "thorchain",
+          "title": "THORChain: A Decentralized Liquidity Network",
+          "url": "https://github.com/thorchain/Resources/blob/master/Whitepapers/THORChain-Whitepaper-May2020.pdf",
+          "topics": [
+            "cross-chain-swaps",
+            "liquidity"
+          ]
+        }
+      ]
+    },
+    "dag": {
+      "name": "DAG-Based Ledgers",
+      "description": "Directed Acyclic Graph structures",
+      "papers": [
+        {
+          "id": "iota-tangle",
+          "title": "The Tangle",
+          "author": "Serguei Popov",
+          "year": 2016,
+          "url": "https://assets.ctfassets.net/r1dr6vzfxhev/2t4uxvsIqk0EUau6g2sw0g/45eae33637ca92f85dd9f4a3a218e1ec/iota1_4_3.pdf",
+          "topics": [
+            "dag",
+            "tangle",
+            "feeless"
+          ]
+        },
+        {
+          "id": "nano",
+          "title": "Nano: A Feeless Distributed Cryptocurrency Network",
+          "year": 2018,
+          "url": "https://nano.org/en/whitepaper",
+          "topics": [
+            "dag",
+            "block-lattice",
+            "feeless"
+          ]
+        },
+        {
+          "id": "fantom-lachesis",
+          "title": "Lachesis: Scalable Asynchronous BFT",
+          "year": 2019,
+          "url": "https://arxiv.org/pdf/1908.00853.pdf",
+          "topics": [
+            "dag",
+            "abft"
+          ]
+        },
+        {
+          "id": "hedera-hashgraph",
+          "title": "Hedera: A Governing Council & Public Hashgraph Network",
+          "url": "https://hedera.com/papers",
+          "topics": [
+            "dag",
+            "hashgraph",
+            "gossip"
+          ]
+        },
+        {
+          "id": "avalanche-snowflake",
+          "title": "Scalable and Probabilistic Leaderless BFT Consensus through Metastability",
+          "year": 2019,
+          "url": "https://assets.website-files.com/5d80307810123f5ffbb34d6e/6009805681b416f34dcae012_Avalanche%20Consensus%20Whitepaper.pdf",
+          "topics": [
+            "dag",
+            "snowball",
+            "metastability"
+          ]
+        }
+      ]
+    },
+    "mev": {
+      "name": "MEV & Transaction Ordering",
+      "description": "Maximal Extractable Value research",
+      "papers": [
+        {
+          "id": "flashbots-mev",
+          "title": "Flash Boys 2.0: Frontrunning in Decentralized Exchanges",
+          "year": 2019,
+          "url": "https://arxiv.org/pdf/1904.05234.pdf",
+          "topics": [
+            "mev",
+            "frontrunning",
+            "dex"
+          ]
+        },
+        {
+          "id": "flashbots-protect",
+          "title": "Flashbots: Frontrunning the MEV Crisis",
+          "url": "https://writings.flashbots.net/",
+          "topics": [
+            "mev",
+            "pbs"
+          ]
+        },
+        {
+          "id": "mev-boost",
+          "title": "MEV-Boost: Proposer-Builder Separation",
+          "url": "https://github.com/flashbots/mev-boost",
+          "topics": [
+            "pbs",
+            "mev"
+          ]
+        },
+        {
+          "id": "order-fairness",
+          "title": "Order-Fairness for Byzantine Consensus",
+          "year": 2020,
+          "url": "https://eprint.iacr.org/2020/269.pdf",
+          "topics": [
+            "ordering",
+            "fairness"
+          ]
+        },
+        {
+          "id": "clockwork-finance",
+          "title": "Clockwork Finance: Automated Analysis of Economic Security",
+          "year": 2021,
+          "url": "https://arxiv.org/pdf/2109.04347.pdf",
+          "topics": [
+            "mev",
+            "defi-security"
+          ]
+        }
+      ]
+    },
+    "standards-btc": {
+      "name": "Bitcoin Standards (BIPs)",
+      "description": "Bitcoin Improvement Proposals",
+      "papers": [
+        {
+          "id": "bip-0001",
+          "title": "BIP Purpose and Guidelines",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0001.mediawiki",
+          "topics": [
+            "process"
+          ]
+        },
+        {
+          "id": "bip-0032",
+          "title": "Hierarchical Deterministic Wallets",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki",
+          "topics": [
+            "hd-wallets"
+          ]
+        },
+        {
+          "id": "bip-0039",
+          "title": "Mnemonic Code for Generating Deterministic Keys",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki",
+          "topics": [
+            "seed-phrases"
+          ]
+        },
+        {
+          "id": "bip-0141",
+          "title": "Segregated Witness (Consensus layer)",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki",
+          "topics": [
+            "segwit"
+          ]
+        },
+        {
+          "id": "bip-0340",
+          "title": "Schnorr Signatures for secp256k1",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki",
+          "topics": [
+            "schnorr",
+            "taproot"
+          ]
+        },
+        {
+          "id": "bip-0341",
+          "title": "Taproot: SegWit version 1 spending rules",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki",
+          "topics": [
+            "taproot"
+          ]
+        },
+        {
+          "id": "bip-0174",
+          "title": "Partially Signed Bitcoin Transactions (PSBT)",
+          "url": "https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki",
+          "topics": [
+            "psbt",
+            "multisig"
+          ]
+        }
+      ]
+    },
+    "standards-eth": {
+      "name": "Ethereum Standards (EIPs/ERCs)",
+      "description": "Ethereum Improvement Proposals",
+      "papers": [
+        {
+          "id": "eip-1",
+          "title": "EIP Purpose and Guidelines",
+          "url": "https://eips.ethereum.org/EIPS/eip-1",
+          "topics": [
+            "process"
+          ]
+        },
+        {
+          "id": "erc-20",
+          "title": "Token Standard",
+          "url": "https://eips.ethereum.org/EIPS/eip-20",
+          "topics": [
+            "tokens",
+            "fungible"
+          ]
+        },
+        {
+          "id": "erc-721",
+          "title": "Non-Fungible Token Standard",
+          "url": "https://eips.ethereum.org/EIPS/eip-721",
+          "topics": [
+            "nft"
+          ]
+        },
+        {
+          "id": "erc-1155",
+          "title": "Multi Token Standard",
+          "url": "https://eips.ethereum.org/EIPS/eip-1155",
+          "topics": [
+            "tokens",
+            "multi"
+          ]
+        },
+        {
+          "id": "eip-1559",
+          "title": "Fee market change for ETH 1.0 chain",
+          "url": "https://eips.ethereum.org/EIPS/eip-1559",
+          "topics": [
+            "gas",
+            "fee-market"
+          ]
+        },
+        {
+          "id": "eip-4844",
+          "title": "Proto-Danksharding",
+          "url": "https://eips.ethereum.org/EIPS/eip-4844",
+          "topics": [
+            "blobs",
+            "danksharding"
+          ]
+        },
+        {
+          "id": "erc-4337",
+          "title": "Account Abstraction",
+          "url": "https://eips.ethereum.org/EIPS/eip-4337",
+          "topics": [
+            "account-abstraction"
+          ]
+        }
+      ]
+    },
+    "p2p": {
+      "name": "P2P & Networking",
+      "description": "Peer-to-peer networking protocols",
+      "papers": [
+        {
+          "id": "libp2p",
+          "title": "libp2p Specification",
+          "url": "https://github.com/libp2p/specs",
+          "topics": [
+            "p2p",
+            "modular"
+          ]
+        },
+        {
+          "id": "kademlia",
+          "title": "Kademlia: A Peer-to-peer Information System Based on the XOR Metric",
+          "year": 2002,
+          "url": "https://pdos.csail.mit.edu/~petar/papers/maymounkov-kademlia-lncs.pdf",
+          "topics": [
+            "dht",
+            "routing"
+          ]
+        },
+        {
+          "id": "gossipsub",
+          "title": "GossipSub: Attack-Resilient Message Propagation",
+          "url": "https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md",
+          "topics": [
+            "gossip",
+            "pubsub"
+          ]
+        },
+        {
+          "id": "dandelion",
+          "title": "Dandelion: Redesigning the Bitcoin Network for Anonymity",
+          "year": 2017,
+          "url": "https://arxiv.org/pdf/1701.04439.pdf",
+          "topics": [
+            "dandelion",
+            "tx-propagation"
+          ]
+        },
+        {
+          "id": "dandelion-pp",
+          "title": "Dandelion++: Lightweight Cryptocurrency Networking with Formal Anonymity Guarantees",
+          "year": 2018,
+          "url": "https://arxiv.org/pdf/1805.11060.pdf",
+          "topics": [
+            "dandelion",
+            "improved"
+          ]
+        }
+      ]
+    },
+    "zk-advanced": {
+      "name": "Advanced ZK Systems",
+      "description": "Next-generation zero-knowledge proofs",
+      "papers": [
+        {
+          "id": "halo",
+          "title": "Halo: Recursive Proof Composition without a Trusted Setup",
+          "year": 2019,
+          "url": "https://eprint.iacr.org/2019/1021.pdf",
+          "topics": [
+            "halo",
+            "recursive",
+            "no-trusted-setup"
+          ]
+        },
+        {
+          "id": "halo2",
+          "title": "The halo2 Book",
+          "url": "https://zcash.github.io/halo2/",
+          "topics": [
+            "halo2",
+            "plonkish"
+          ]
+        },
+        {
+          "id": "nova",
+          "title": "Nova: Recursive Zero-Knowledge Arguments from Folding Schemes",
+          "year": 2021,
+          "url": "https://eprint.iacr.org/2021/370.pdf",
+          "topics": [
+            "nova",
+            "folding",
+            "recursive"
+          ]
+        },
+        {
+          "id": "supernova",
+          "title": "SuperNova: Proving Universal Machine Executions without Universal Circuits",
+          "year": 2022,
+          "url": "https://eprint.iacr.org/2022/1758.pdf",
+          "topics": [
+            "supernova",
+            "folding"
+          ]
+        },
+        {
+          "id": "plonky2",
+          "title": "Plonky2: Fast Recursive Arguments with PLONK and FRI",
+          "url": "https://github.com/0xPolygonZero/plonky2/blob/main/plonky2/plonky2.pdf",
+          "topics": [
+            "plonky2",
+            "fri",
+            "recursive"
+          ]
+        },
+        {
+          "id": "stark",
+          "title": "Scalable, transparent, and post-quantum secure computational integrity",
+          "year": 2018,
+          "url": "https://eprint.iacr.org/2018/046.pdf",
+          "topics": [
+            "stark",
+            "post-quantum"
+          ]
+        }
+      ]
+    }
+  },
+  "search_patterns": {
+    "iacr": [
+      "cryptonote",
+      "ring signature",
+      "bulletproof",
+      "confidential transaction",
+      "zk-snark",
+      "zk-stark",
+      "blockchain consensus"
+    ],
+    "arxiv": [
+      "cryptocurrency",
+      "blockchain security",
+      "smart contract",
+      "decentralized finance"
+    ],
+    "github": [
+      "whitepaper.pdf",
+      "protocol.pdf",
+      "yellowpaper.pdf"
+    ]
+  }
+}
