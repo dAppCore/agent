@@ -1,0 +1,25 @@
+{
+  "name": "core-agent",
+  "description": "Advanced Claude Code plugin for Host UK monorepo - core CLI integration, data collection skills, and autonomous workflows",
+  "version": "0.1.0",
+  "author": {
+    "name": "Host UK",
+    "email": "hello@host.uk.com"
+  },
+  "homepage": "https://github.com/host-uk/core-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/host-uk/core-agent.git"
+  },
+  "license": "EUPL-1.2",
+  "keywords": [
+    "devops",
+    "monorepo",
+    "go",
+    "php",
+    "laravel",
+    "data-collection",
+    "cryptocurrency",
+    "archive"
+  ]
+}

@@ -90,33 +90,51 @@ If `core` doesn't have what you need:
 3. **Write a TDD test** for the expected behaviour
 4. The feature will get implemented and your code will work
 
+## Installation
+
+```bash
+claude plugin add host-uk/core-agent
+```
+
+Or for local development:
+```bash
+claude plugin add /path/to/core-agent
+```
+
 ## Repository Structure
 
 ```
 core-agent/
-└── claude/
-    ├── hooks/                 # Claude Code hooks
-    │   ├── hooks.json         # Hook definitions
-    │   └── prefer-core.sh     # PreToolUse: enforce core CLI
-    ├── scripts/               # Automation scripts
-    │   ├── pre-compact.sh     # Save state before compaction
-    │   ├── session-start.sh   # Restore context on startup
-    │   ├── php-format.sh      # Auto-format PHP after edits
-    │   ├── go-format.sh       # Auto-format Go after edits
-    │   └── check-debug.sh     # Warn about debug statements
-    ├── commands/
-    │   └── remember.md        # /core:remember command
-    ├── collection/            # Data collection event hooks
-    │   ├── hooks.json         # Collection hook registration
-    │   ├── dispatch.sh        # Hook dispatcher
-    │   └── *.sh               # Event handlers
-    └── skills/                # Data collection skills
-        ├── ledger-papers/     # Whitepaper archive (91+ papers)
-        ├── project-archaeology/ # Dead project excavation
-        ├── bitcointalk/       # BitcoinTalk thread collection
-        ├── coinmarketcap/     # Market data collection
-        ├── github-history/    # Git history preservation
-        └── ...                # Other collectors
+├── .claude-plugin/
+│   └── plugin.json        # Plugin manifest (enables auto-updates)
+├── hooks.json             # Hook definitions
+├── hooks/                 # Hook scripts
+│   └── prefer-core.sh     # PreToolUse: enforce core CLI
+├── scripts/               # Automation scripts
+│   ├── pre-compact.sh     # Save state before compaction
+│   ├── session-start.sh   # Restore context on startup
+│   ├── php-format.sh      # Auto-format PHP after edits
+│   ├── go-format.sh       # Auto-format Go after edits
+│   ├── check-debug.sh     # Warn about debug statements
+│   ├── auto-approve.sh    # /core:yes PermissionRequest hook
+│   ├── ensure-commit.sh   # /core:yes Stop hook
+│   ├── qa-filter.sh       # /core:qa PostToolUse hook
+│   └── qa-verify.sh       # /core:qa Stop hook
+├── commands/              # Slash commands (skills)
+│   ├── remember.md        # /core:remember - persist facts
+│   ├── yes.md             # /core:yes - auto-approve mode
+│   └── qa.md              # /core:qa - iterative QA fix loop
+├── collection/            # Data collection event hooks
+│   ├── hooks.json         # Collection hook registration
+│   ├── dispatch.sh        # Hook dispatcher
+│   └── *.sh               # Event handlers
+└── skills/                # Data collection skills
+    ├── ledger-papers/     # Whitepaper archive (91+ papers)
+    ├── project-archaeology/ # Dead project excavation
+    ├── bitcointalk/       # BitcoinTalk thread collection
+    ├── coinmarketcap/     # Market data collection
+    ├── github-history/    # Git history preservation
+    └── ...                # Other collectors
 ```
 
 ## Claude Plugin Features
@@ -151,9 +169,11 @@ The plugin blocks dangerous patterns and enforces `core` CLI:
 - `./vendor/bin/pint` → `core php fmt`
 - `php artisan serve` → `core php dev`
 
-### Commands
+### Commands (Skills)
 
 - `/core:remember <fact>` - Save context that persists across compaction
+- `/core:yes <task>` - Auto-approve mode with commit requirement
+- `/core:qa` - Iterative QA fix loop (runs until all checks pass)
 
 ### Context Preservation
 
@@ -197,19 +217,19 @@ Excavates abandoned CryptoNote projects before data is lost.
 
 ```bash
 # Simulate PreToolUse hook input
-echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/hooks/prefer-core.sh
+echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./hooks/prefer-core.sh
 ```
 
 ### Adding new hooks
 
-1. Add script to `claude/scripts/`
-2. Register in `claude/hooks/hooks.json`
+1. Add script to `scripts/`
+2. Register in `hooks.json` using `${CLAUDE_PLUGIN_ROOT}/scripts/yourscript.sh`
 3. Test with simulated input
 
 ### Collection skill structure
 
 ```
-claude/skills/<name>/
+skills/<name>/
 ├── SKILL.md           # Documentation
 ├── discover.sh        # Job generator (outputs URL|FILENAME|TYPE|METADATA)
 ├── process.sh         # Job processor (optional)

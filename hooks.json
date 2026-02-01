@@ -7,10 +7,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./hooks/prefer-core.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prefer-core.sh"
           }
         ],
         "description": "Block destructive commands (rm -rf, sed -i, xargs rm) and enforce core CLI"
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/block-docs.sh"
+          }
+        ],
+        "description": "Block random .md file creation"
       }
     ],
     "PostToolUse": [
@@ -19,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/go-format.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/go-format.sh"
           }
         ],
         "description": "Auto-format Go files after edits"
@@ -29,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/php-format.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/php-format.sh"
           }
         ],
         "description": "Auto-format PHP files after edits"
@@ -39,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/check-debug.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-debug.sh"
           }
         ],
         "description": "Warn about debug statements (dd, dump, fmt.Println)"
@@ -49,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/post-commit-check.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-commit-check.sh"
           }
         ],
         "description": "Warn about uncommitted work after git commit"
@@ -61,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/pre-compact.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact.sh"
           }
         ],
         "description": "Save state before auto-compact to prevent amnesia"
@@ -73,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./scripts/session-start.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"
           }
         ],
         "description": "Restore recent session context on startup"
