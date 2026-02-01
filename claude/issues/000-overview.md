@@ -69,10 +69,18 @@ No shell scripts. Just JSON config + markdown docs + `core` CLI calls.
 | #016 | Silent formatting | Auto-format without output noise |
 | #017 | Expose/hide policy | Define what to show vs suppress |
 
+### Skills (autonomous workflows)
+
+| Issue | Skill | Purpose |
+|-------|-------|---------|
+| #018 | `/core:yes` | Auto-approve all, ensure commit before stop |
+| #019 | `/core:qa` | Run QA, fix issues iteratively until clean |
+
 ## Implementation Order
 
 1. **Phase 1**: `core ai session` + `core ai context` (enables hooks to work)
 2. **Phase 2**: `core ai hook` + `core qa debug` (safety + quality)
 3. **Phase 3**: Hook improvements (012-017) - better feedback cycle
-4. **Phase 4**: `core collect github` + `core collect bitcointalk` (most used)
-5. **Phase 5**: Remaining collection commands
+4. **Phase 4**: Skills (018-019) - autonomous workflows
+5. **Phase 5**: `core collect github` + `core collect bitcointalk` (most used)
+6. **Phase 6**: Remaining collection commands
