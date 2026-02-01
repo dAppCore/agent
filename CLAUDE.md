@@ -4,32 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**core-agent** contains Claude Code plugins and data collection skills for the Host UK federated monorepo. It has two main components:
+**core-agent** is the advanced in-house Claude Code plugin for the Host UK federated monorepo. The public version lives at `core-claude`.
 
-1. **claude/** - Claude Code plugin with hooks, commands, and automation scripts
-2. **claude-cowork/** - Data collection skills for archiving blockchain/cryptocurrency research
+This repository contains:
+- Claude Code hooks, commands, and automation scripts
+- Data collection skills for archiving OSS project data across platforms (since 2019)
 
 ## Repository Structure
 
 ```
 core-agent/
-├── claude/                    # Claude Code plugin
-│   ├── hooks/hooks.json       # Hook definitions
-│   ├── hooks/prefer-core.sh   # PreToolUse: block dangerous commands
-│   ├── scripts/               # Automation scripts
-│   │   ├── pre-compact.sh     # Save state before compaction
-│   │   ├── session-start.sh   # Restore context on startup
-│   │   ├── php-format.sh      # Auto-format PHP after edits
-│   │   ├── go-format.sh       # Auto-format Go after edits
-│   │   └── check-debug.sh     # Warn about debug statements
-│   └── commands/
-│       └── remember.md        # /core:remember command
-│
-└── claude-cowork/             # Data collection skills
-    ├── hooks/                 # Collection event hooks
-    │   ├── hooks.json         # Hook registration
-    │   └── dispatch.sh        # Hook dispatcher
-    └── skills/                # Collection skills
+└── claude/
+    ├── hooks/                 # Claude Code hooks
+    │   ├── hooks.json         # Hook definitions
+    │   └── prefer-core.sh     # PreToolUse: block dangerous commands
+    ├── scripts/               # Automation scripts
+    │   ├── pre-compact.sh     # Save state before compaction
+    │   ├── session-start.sh   # Restore context on startup
+    │   ├── php-format.sh      # Auto-format PHP after edits
+    │   ├── go-format.sh       # Auto-format Go after edits
+    │   └── check-debug.sh     # Warn about debug statements
+    ├── commands/
+    │   └── remember.md        # /core:remember command
+    ├── collection/            # Data collection event hooks
+    │   ├── hooks.json         # Collection hook registration
+    │   ├── dispatch.sh        # Hook dispatcher
+    │   └── *.sh               # Event handlers
+    └── skills/                # Data collection skills
         ├── ledger-papers/     # Whitepaper archive (91+ papers)
         ├── project-archaeology/ # Dead project excavation
         ├── bitcointalk/       # BitcoinTalk thread collection
@@ -124,7 +125,7 @@ echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/hooks/prefer-core
 Each skill follows this pattern:
 
 ```
-skills/<name>/
+claude/skills/<name>/
 ├── SKILL.md           # Documentation
 ├── discover.sh        # Job generator (outputs URL|FILENAME|TYPE|METADATA)
 ├── process.sh         # Job processor (optional)
