@@ -10,6 +10,86 @@ This repository contains:
 - Claude Code hooks, commands, and automation scripts
 - Data collection skills for archiving OSS project data across platforms (since 2019)
 
+## Core CLI Philosophy
+
+**Always use `core` CLI instead of raw commands.** The `core` binary is a Go framework and CLI that handles the full E2E development lifecycle for Go and PHP ecosystems.
+
+Why this matters:
+- Every agent using `core` is testing the framework
+- Missing features get raised as issues on `host-uk/core`
+- Code as if functionality exists (TDD approach)
+- The CLI becomes battle-tested and eventually bulletproof
+
+### Command Mappings
+
+| Instead of... | Use... |
+|---------------|--------|
+| `go test` | `core go test` |
+| `go build` | `core build` |
+| `go fmt` | `core go fmt` |
+| `go mod tidy` | `core go mod tidy` |
+| `golangci-lint` | `core go lint` |
+| `composer test` | `core php test` |
+| `./vendor/bin/pint` | `core php fmt` |
+| `./vendor/bin/phpstan` | `core php stan` |
+| `php artisan serve` | `core php dev` |
+| `git status` (multi-repo) | `core dev health` |
+| `git commit` (multi-repo) | `core dev commit` |
+| `git push` (multi-repo) | `core dev push` |
+| `gh pr create` | `core ai task:pr` |
+
+### Key Commands
+
+```bash
+# Development workflow
+core dev health              # Quick status across all repos
+core dev work                # Full workflow: status → commit → push
+core dev commit              # Claude-assisted commits
+core dev apply --command     # Run command across repos (agent-safe)
+
+# Go development
+core go test                 # Run tests
+core go test --filter=Name   # Single test
+core go cov                  # Coverage report
+core go fmt                  # Format code
+core go lint                 # Lint with golangci-lint
+core go qa                   # Full QA pipeline
+
+# PHP development
+core php test                # Run Pest tests
+core php fmt                 # Format with Pint
+core php stan                # PHPStan analysis
+core php qa                  # Full QA pipeline
+core php dev                 # Start dev server
+
+# Building & releases
+core build                   # Auto-detect and build
+core build --targets=...     # Cross-compile
+core ci --we-are-go-for-launch  # Publish release
+
+# AI integration
+core ai tasks                # List available tasks
+core ai task                 # Auto-select a task
+core ai task:commit          # Commit with task reference
+core ai task:pr              # Create PR for task
+core ai task:complete        # Mark task done
+
+# Quality & security
+core qa health               # Aggregate CI health
+core security alerts         # All security alerts
+core security deps           # Dependabot alerts
+core doctor                  # Check environment
+```
+
+### Missing Features?
+
+If `core` doesn't have what you need:
+
+1. **Raise an issue** on `host-uk/core` describing the feature
+2. **Code as if it exists** - write the call you wish existed
+3. **Write a TDD test** for the expected behaviour
+4. The feature will get implemented and your code will work
+
 ## Repository Structure
 
 ```
@@ -17,7 +97,7 @@ core-agent/
 └── claude/
     ├── hooks/                 # Claude Code hooks
     │   ├── hooks.json         # Hook definitions
-    │   └── prefer-core.sh     # PreToolUse: block dangerous commands
+    │   └── prefer-core.sh     # PreToolUse: enforce core CLI
     ├── scripts/               # Automation scripts
     │   ├── pre-compact.sh     # Save state before compaction
     │   ├── session-start.sh   # Restore context on startup
@@ -45,25 +125,31 @@ core-agent/
 
 | Hook | File | Purpose |
 |------|------|---------|
-| PreToolUse | `prefer-core.sh` | Block destructive commands, enforce `core` CLI |
-| PostToolUse | `php-format.sh` | Auto-format PHP files after edits |
-| PostToolUse | `go-format.sh` | Auto-format Go files after edits |
+| PreToolUse | `prefer-core.sh` | Block dangerous commands, enforce `core` CLI |
+| PostToolUse | `php-format.sh` | Auto-format PHP via `core php fmt` |
+| PostToolUse | `go-format.sh` | Auto-format Go via `core go fmt` |
 | PostToolUse | `check-debug.sh` | Warn about debug statements |
 | PreCompact | `pre-compact.sh` | Save state before compaction |
 | SessionStart | `session-start.sh` | Restore context on startup |
 
-### Blocked Commands
+### Blocked Patterns
 
-The plugin blocks these patterns to prevent accidental damage:
+The plugin blocks dangerous patterns and enforces `core` CLI:
 
+**Destructive operations:**
 - `rm -rf` / `rm -r` (except node_modules, vendor, .cache)
 - `mv`/`cp` with wildcards
 - `xargs` with rm/mv/cp
 - `find -exec` with file operations
 - `sed -i` (in-place editing)
 - `grep -l | ...` (mass file targeting)
-- Raw `go` commands (use `core go *`)
-- Raw `php artisan` / `composer test` (use `core php *`)
+
+**Raw commands (use core instead):**
+- `go test/build/fmt/mod` → `core go *`
+- `golangci-lint` → `core go lint`
+- `composer test` → `core php test`
+- `./vendor/bin/pint` → `core php fmt`
+- `php artisan serve` → `core php dev`
 
 ### Commands
 
@@ -81,7 +167,7 @@ State is saved to `~/.claude/sessions/` before compaction:
 
 ### ledger-papers
 
-Archive of 91+ distributed ledger whitepapers across 15 categories (genesis, cryptonote, MRL, privacy, smart-contracts, etc).
+Archive of 91+ distributed ledger whitepapers across 15 categories.
 
 ```bash
 ./discover.sh --all              # List all papers
@@ -122,8 +208,6 @@ echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/hooks/prefer-core
 
 ### Collection skill structure
 
-Each skill follows this pattern:
-
 ```
 claude/skills/<name>/
 ├── SKILL.md           # Documentation
@@ -141,4 +225,6 @@ claude/skills/<name>/
 
 ## Integration with Host UK
 
-This plugin is designed for use across the Host UK federated monorepo. It enforces the `core` CLI for multi-repo operations instead of raw git/go/php commands. See the parent `/Users/snider/Code/host-uk/CLAUDE.md` for full monorepo documentation.
+This plugin is designed for use across the Host UK federated monorepo. It enforces the `core` CLI for multi-repo operations. See `/Users/snider/Code/host-uk/CLAUDE.md` for full monorepo documentation.
+
+The `core` CLI source lives at `host-uk/core` - raise issues there for missing features.
