@@ -6,11 +6,11 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "core ai qa-filter"
+          command: "${CLAUDE_PLUGIN_ROOT}/scripts/qa-filter.sh"
   Stop:
     - hooks:
         - type: command
-          command: "core ai qa-verify"
+          command: "${CLAUDE_PLUGIN_ROOT}/scripts/qa-verify.sh"
           once: true
 ---
 

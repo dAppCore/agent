@@ -6,11 +6,11 @@ hooks:
   PermissionRequest:
     - hooks:
         - type: command
-          command: "core ai auto-approve"
+          command: "${CLAUDE_PLUGIN_ROOT}/scripts/auto-approve.sh"
   Stop:
     - hooks:
         - type: command
-          command: "core ai ensure-commit"
+          command: "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-commit.sh"
           once: true
 ---
 
