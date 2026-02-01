@@ -1,0 +1,40 @@
+{
+  "name": "core-agent",
+  "description": "Host UK Claude Code plugin collection",
+  "owner": {
+    "name": "Host UK",
+    "email": "hello@host.uk.com"
+  },
+  "plugins": [
+    {
+      "name": "code",
+      "source": "./claude/code",
+      "description": "Core development plugin - hooks, scripts, data collection skills",
+      "version": "0.1.0"
+    },
+    {
+      "name": "review",
+      "source": "./claude/review",
+      "description": "Code review automation - PR review, security checks",
+      "version": "0.1.0"
+    },
+    {
+      "name": "verify",
+      "source": "./claude/verify",
+      "description": "Work verification - ensure tests pass, no debug statements",
+      "version": "0.1.0"
+    },
+    {
+      "name": "qa",
+      "source": "./claude/qa",
+      "description": "Quality assurance - iterative fix loops, lint enforcement",
+      "version": "0.1.0"
+    },
+    {
+      "name": "ci",
+      "source": "./claude/ci",
+      "description": "CI integration - GitHub Actions, test automation",
+      "version": "0.1.0"
+    }
+  ]
+}

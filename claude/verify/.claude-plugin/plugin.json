@@ -1,0 +1,8 @@
+{
+  "name": "verify",
+  "description": "Work verification - ensure tests pass, code quality checks complete",
+  "version": "0.1.0",
+  "author": {
+    "name": "Host UK"
+  }
+}

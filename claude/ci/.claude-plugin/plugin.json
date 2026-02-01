@@ -1,0 +1,8 @@
+{
+  "name": "ci",
+  "description": "CI integration - GitHub Actions status, workflow management",
+  "version": "0.1.0",
+  "author": {
+    "name": "Host UK"
+  }
+}

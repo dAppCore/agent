@@ -1,0 +1,8 @@
+{
+  "name": "review",
+  "description": "Code review automation - PR review, security checks, best practices",
+  "version": "0.1.0",
+  "author": {
+    "name": "Host UK"
+  }
+}

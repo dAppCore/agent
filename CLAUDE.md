@@ -4,21 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**core-agent** is the advanced in-house Claude Code plugin for the Host UK federated monorepo. The public version lives at `core-claude`.
+**core-agent** is a monorepo of Claude Code plugins for the Host UK federated monorepo. It contains multiple focused plugins that can be installed individually or together.
 
-This repository contains:
-- Claude Code hooks, commands, and automation scripts
-- Data collection skills for archiving OSS project data across platforms (since 2019)
+## Plugins
+
+| Plugin | Description | Install |
+|--------|-------------|---------|
+| **code** | Core development - hooks, scripts, data collection | `claude plugin add host-uk/core-agent/claude/code` |
+| **review** | Code review automation | `claude plugin add host-uk/core-agent/claude/review` |
+| **verify** | Work verification | `claude plugin add host-uk/core-agent/claude/verify` |
+| **qa** | Quality assurance loops | `claude plugin add host-uk/core-agent/claude/qa` |
+| **ci** | CI/CD integration | `claude plugin add host-uk/core-agent/claude/ci` |
+
+Or install all via marketplace:
+```bash
+claude plugin add host-uk/core-agent
+```
+
+## Repository Structure
+
+```
+core-agent/
+├── .claude-plugin/
+│   └── marketplace.json     # Plugin registry (enables auto-updates)
+├── claude/
+│   ├── code/                # Core development plugin
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   ├── hooks.json
+│   │   ├── hooks/
+│   │   ├── scripts/
+│   │   ├── commands/        # /code:remember, /code:yes
+│   │   ├── skills/          # Data collection skills
+│   │   └── collection/      # Collection event hooks
+│   ├── review/              # Code review plugin
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   └── commands/        # /review:review
+│   ├── verify/              # Verification plugin
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   └── commands/        # /verify:verify
+│   ├── qa/                  # QA plugin
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   ├── scripts/
+│   │   └── commands/        # /qa:qa, /qa:fix
+│   └── ci/                  # CI plugin
+│       ├── .claude-plugin/
+│       │   └── plugin.json
+│       └── commands/        # /ci:ci, /ci:workflow
+├── CLAUDE.md
+└── .gitignore
+```
+
+## Plugin Commands
+
+### code
+- `/code:remember <fact>` - Save context that persists across compaction
+- `/code:yes <task>` - Auto-approve mode with commit requirement
+
+### review
+- `/review:review [range]` - Code review on staged changes or commits
+
+### verify
+- `/verify:verify [--quick|--full]` - Verify work is complete
+
+### qa
+- `/qa:qa` - Iterative QA fix loop (runs until all checks pass)
+- `/qa:fix <issue>` - Fix a specific QA issue
+
+### ci
+- `/ci:ci [status|run|logs|fix]` - CI status and management
+- `/ci:workflow <type>` - Generate GitHub Actions workflows
 
 ## Core CLI Philosophy
 
-**Always use `core` CLI instead of raw commands.** The `core` binary is a Go framework and CLI that handles the full E2E development lifecycle for Go and PHP ecosystems.
-
-Why this matters:
-- Every agent using `core` is testing the framework
-- Missing features get raised as issues on `host-uk/core`
-- Code as if functionality exists (TDD approach)
-- The CLI becomes battle-tested and eventually bulletproof
+**Always use `core` CLI instead of raw commands.** The `core` binary handles the full E2E development lifecycle for Go and PHP ecosystems.
 
 ### Command Mappings
 
@@ -27,132 +89,48 @@ Why this matters:
 | `go test` | `core go test` |
 | `go build` | `core build` |
 | `go fmt` | `core go fmt` |
-| `go mod tidy` | `core go mod tidy` |
 | `golangci-lint` | `core go lint` |
 | `composer test` | `core php test` |
 | `./vendor/bin/pint` | `core php fmt` |
 | `./vendor/bin/phpstan` | `core php stan` |
-| `php artisan serve` | `core php dev` |
-| `git status` (multi-repo) | `core dev health` |
-| `git commit` (multi-repo) | `core dev commit` |
-| `git push` (multi-repo) | `core dev push` |
-| `gh pr create` | `core ai task:pr` |
 
 ### Key Commands
 
 ```bash
-# Development workflow
-core dev health              # Quick status across all repos
+# Development
+core dev health              # Status across repos
 core dev work                # Full workflow: status → commit → push
-core dev commit              # Claude-assisted commits
-core dev apply --command     # Run command across repos (agent-safe)
 
-# Go development
+# Go
 core go test                 # Run tests
-core go test --filter=Name   # Single test
-core go cov                  # Coverage report
-core go fmt                  # Format code
-core go lint                 # Lint with golangci-lint
 core go qa                   # Full QA pipeline
 
-# PHP development
+# PHP
 core php test                # Run Pest tests
-core php fmt                 # Format with Pint
-core php stan                # PHPStan analysis
 core php qa                  # Full QA pipeline
-core php dev                 # Start dev server
 
-# Building & releases
+# Building
 core build                   # Auto-detect and build
-core build --targets=...     # Cross-compile
-core ci --we-are-go-for-launch  # Publish release
 
-# AI integration
-core ai tasks                # List available tasks
+# AI
 core ai task                 # Auto-select a task
-core ai task:commit          # Commit with task reference
 core ai task:pr              # Create PR for task
-core ai task:complete        # Mark task done
-
-# Quality & security
-core qa health               # Aggregate CI health
-core security alerts         # All security alerts
-core security deps           # Dependabot alerts
-core doctor                  # Check environment
 ```
 
-### Missing Features?
-
-If `core` doesn't have what you need:
-
-1. **Raise an issue** on `host-uk/core` describing the feature
-2. **Code as if it exists** - write the call you wish existed
-3. **Write a TDD test** for the expected behaviour
-4. The feature will get implemented and your code will work
-
-## Installation
-
-```bash
-claude plugin add host-uk/core-agent
-```
-
-Or for local development:
-```bash
-claude plugin add /path/to/core-agent
-```
-
-## Repository Structure
-
-```
-core-agent/
-├── .claude-plugin/
-│   └── plugin.json        # Plugin manifest (enables auto-updates)
-├── hooks.json             # Hook definitions
-├── hooks/                 # Hook scripts
-│   └── prefer-core.sh     # PreToolUse: enforce core CLI
-├── scripts/               # Automation scripts
-│   ├── pre-compact.sh     # Save state before compaction
-│   ├── session-start.sh   # Restore context on startup
-│   ├── php-format.sh      # Auto-format PHP after edits
-│   ├── go-format.sh       # Auto-format Go after edits
-│   ├── check-debug.sh     # Warn about debug statements
-│   ├── auto-approve.sh    # /core:yes PermissionRequest hook
-│   ├── ensure-commit.sh   # /core:yes Stop hook
-│   ├── qa-filter.sh       # /core:qa PostToolUse hook
-│   └── qa-verify.sh       # /core:qa Stop hook
-├── commands/              # Slash commands (skills)
-│   ├── remember.md        # /core:remember - persist facts
-│   ├── yes.md             # /core:yes - auto-approve mode
-│   └── qa.md              # /core:qa - iterative QA fix loop
-├── collection/            # Data collection event hooks
-│   ├── hooks.json         # Collection hook registration
-│   ├── dispatch.sh        # Hook dispatcher
-│   └── *.sh               # Event handlers
-└── skills/                # Data collection skills
-    ├── ledger-papers/     # Whitepaper archive (91+ papers)
-    ├── project-archaeology/ # Dead project excavation
-    ├── bitcointalk/       # BitcoinTalk thread collection
-    ├── coinmarketcap/     # Market data collection
-    ├── github-history/    # Git history preservation
-    └── ...                # Other collectors
-```
-
-## Claude Plugin Features
+## code Plugin Features
 
 ### Hooks
 
 | Hook | File | Purpose |
 |------|------|---------|
 | PreToolUse | `prefer-core.sh` | Block dangerous commands, enforce `core` CLI |
-| PostToolUse | `php-format.sh` | Auto-format PHP via `core php fmt` |
-| PostToolUse | `go-format.sh` | Auto-format Go via `core go fmt` |
+| PostToolUse | `php-format.sh` | Auto-format PHP |
+| PostToolUse | `go-format.sh` | Auto-format Go |
 | PostToolUse | `check-debug.sh` | Warn about debug statements |
 | PreCompact | `pre-compact.sh` | Save state before compaction |
 | SessionStart | `session-start.sh` | Restore context on startup |
 
 ### Blocked Patterns
-
-The plugin blocks dangerous patterns and enforces `core` CLI:
 
 **Destructive operations:**
 - `rm -rf` / `rm -r` (except node_modules, vendor, .cache)
@@ -160,80 +138,33 @@ The plugin blocks dangerous patterns and enforces `core` CLI:
 - `xargs` with rm/mv/cp
 - `find -exec` with file operations
 - `sed -i` (in-place editing)
-- `grep -l | ...` (mass file targeting)
 
 **Raw commands (use core instead):**
 - `go test/build/fmt/mod` → `core go *`
-- `golangci-lint` → `core go lint`
 - `composer test` → `core php test`
-- `./vendor/bin/pint` → `core php fmt`
-- `php artisan serve` → `core php dev`
 
-### Commands (Skills)
+### Data Collection Skills
 
-- `/core:remember <fact>` - Save context that persists across compaction
-- `/core:yes <task>` - Auto-approve mode with commit requirement
-- `/core:qa` - Iterative QA fix loop (runs until all checks pass)
-
-### Context Preservation
-
-State is saved to `~/.claude/sessions/` before compaction:
-- Working directory and branch
-- Git status (modified files)
-- In-progress todos
-- User-saved context facts
-
-## Data Collection Skills
-
-### ledger-papers
-
-Archive of 91+ distributed ledger whitepapers across 15 categories.
-
-```bash
-./discover.sh --all              # List all papers
-./discover.sh --category=privacy # Filter by category
-```
-
-### project-archaeology
-
-Excavates abandoned CryptoNote projects before data is lost.
-
-```bash
-./excavate.sh masari             # Full dig
-./excavate.sh masari --scan-only # Check what's accessible
-```
-
-### Other collectors
-
-- `bitcointalk/` - BitcoinTalk thread archival
-- `coinmarketcap/` - Historical price data
-- `github-history/` - Repository history preservation
-- `wallet-releases/` - Binary release archival
-- `block-explorer/` - Blockchain data indexing
+| Skill | Purpose |
+|-------|---------|
+| `ledger-papers/` | 91+ distributed ledger whitepapers |
+| `project-archaeology/` | Dead project excavation |
+| `bitcointalk/` | Forum thread archival |
+| `coinmarketcap/` | Historical price data |
+| `github-history/` | Repository history preservation |
 
 ## Development
+
+### Adding a new plugin
+
+1. Create `claude/<name>/.claude-plugin/plugin.json`
+2. Add commands to `claude/<name>/commands/`
+3. Register in `.claude-plugin/marketplace.json`
 
 ### Testing hooks locally
 
 ```bash
-# Simulate PreToolUse hook input
-echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./hooks/prefer-core.sh
-```
-
-### Adding new hooks
-
-1. Add script to `scripts/`
-2. Register in `hooks.json` using `${CLAUDE_PLUGIN_ROOT}/scripts/yourscript.sh`
-3. Test with simulated input
-
-### Collection skill structure
-
-```
-skills/<name>/
-├── SKILL.md           # Documentation
-├── discover.sh        # Job generator (outputs URL|FILENAME|TYPE|METADATA)
-├── process.sh         # Job processor (optional)
-└── registry.json      # Data registry (optional)
+echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/code/hooks/prefer-core.sh
 ```
 
 ## Coding Standards
@@ -242,9 +173,3 @@ skills/<name>/
 - **Shell scripts**: Use `#!/bin/bash`, read JSON with `jq`
 - **Hook output**: JSON with `decision` (approve/block) and optional `message`
 - **License**: EUPL-1.2 CIC
-
-## Integration with Host UK
-
-This plugin is designed for use across the Host UK federated monorepo. It enforces the `core` CLI for multi-repo operations. See `/Users/snider/Code/host-uk/CLAUDE.md` for full monorepo documentation.
-
-The `core` CLI source lives at `host-uk/core` - raise issues there for missing features.
