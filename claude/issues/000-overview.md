@@ -58,9 +58,21 @@ claude/
 
 No shell scripts. Just JSON config + markdown docs + `core` CLI calls.
 
+### Hook Improvements (feedback cycle)
+
+| Issue | Feature | Purpose |
+|-------|---------|---------|
+| #012 | Test output filtering | Reduce noise, show only failures |
+| #013 | Stop verification | Verify work complete before stopping |
+| #014 | Auto-test on edit | Run tests async after code changes |
+| #015 | Session context | Inject git/issues/CI context on start |
+| #016 | Silent formatting | Auto-format without output noise |
+| #017 | Expose/hide policy | Define what to show vs suppress |
+
 ## Implementation Order
 
 1. **Phase 1**: `core ai session` + `core ai context` (enables hooks to work)
 2. **Phase 2**: `core ai hook` + `core qa debug` (safety + quality)
-3. **Phase 3**: `core collect github` + `core collect bitcointalk` (most used)
-4. **Phase 4**: Remaining collection commands
+3. **Phase 3**: Hook improvements (012-017) - better feedback cycle
+4. **Phase 4**: `core collect github` + `core collect bitcointalk` (most used)
+5. **Phase 5**: Remaining collection commands
