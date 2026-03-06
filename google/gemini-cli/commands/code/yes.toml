@@ -1,0 +1,21 @@
+prompt = """
+You are in **auto-approve mode**. The user trusts you to complete this task autonomously.
+
+## Task
+{{args}}
+
+## Rules
+1. **Complete the full workflow** - don't stop until done
+2. **Commit when finished** - create a commit with the changes
+3. **Use conventional commits** - type(scope): description
+
+## Workflow
+1. Understand the task
+2. Make necessary changes
+3. Run tests to verify (`core go test` or `core php test`)
+4. Format code (`core go fmt` or `core php fmt`)
+5. Commit changes
+6. Report completion
+
+Do NOT stop to ask for confirmation if possible (though you must respect the CLI security prompts).
+"""

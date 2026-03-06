@@ -1,0 +1,137 @@
+# Host UK Developer Workspace
+# Clone this repo and run `core setup` to bootstrap your environment
+version: 1
+org: host-uk
+base_path: ./packages
+
+repos:
+  # Foundation
+  core-php:
+    type: foundation
+    description: Core PHP framework - events, modules, lifecycle
+    docs: true
+    ci: github-actions
+
+  # Infrastructure modules
+  core-tenant:
+    type: module
+    depends_on: [core-php]
+    description: Multi-tenancy, workspaces, users, namespaces
+    docs: true
+
+  core-admin:
+    type: module
+    depends_on: [core-php]
+    description: Admin panel, Livewire modals, Flux UI
+    docs: true
+
+  core-api:
+    type: module
+    depends_on: [core-php, core-tenant]
+    description: REST API, scopes, rate limiting, webhooks
+    docs: true
+
+  core-mcp:
+    type: module
+    depends_on: [core-php]
+    description: Model Context Protocol server framework
+    docs: true
+
+  # AI/Agent modules
+  core-agentic:
+    type: module
+    depends_on: [core-php, core-tenant, core-mcp]
+    description: AI agent orchestration, sessions, plans, tasks
+    docs: true
+
+  # Product modules
+  core-bio:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: BioHost - link-in-bio pages
+    docs: true
+    domain: bio.host.uk.com
+
+  core-social:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: SocialHost - social media scheduling
+    docs: true
+    domain: social.host.uk.com
+
+  core-analytics:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: AnalyticsHost - privacy-first analytics
+    docs: true
+    domain: analytics.host.uk.com
+
+  core-notify:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: NotifyHost - push notifications
+    docs: true
+    domain: notify.host.uk.com
+
+  core-trust:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: TrustHost - social proof widgets
+    docs: true
+    domain: trust.host.uk.com
+
+  core-support:
+    type: product
+    depends_on: [core-php, core-tenant]
+    description: Support - helpdesk, tickets, mailboxes
+    docs: true
+
+  # Utility modules
+  core-commerce:
+    type: module
+    depends_on: [core-php, core-tenant]
+    description: Billing, subscriptions, Stripe integration
+    docs: true
+
+  core-content:
+    type: module
+    depends_on: [core-php, core-tenant]
+    description: CMS, pages, blog posts
+    docs: true
+
+  core-tools:
+    type: module
+    depends_on: [core-php]
+    description: Developer utilities (hash, encode, etc.)
+    docs: true
+
+  core-uptelligence:
+    type: module
+    depends_on: [core-php, core-tenant]
+    description: Server monitoring, uptime checks
+    docs: true
+
+  core-developer:
+    type: module
+    depends_on: [core-php, core-tenant, core-api]
+    description: Developer portal, API docs, OAuth apps
+    docs: true
+
+  core-template:
+    type: template
+    depends_on: []
+    description: Starter template for new projects
+    docs: false
+
+  # This repo (meta)
+  core-devops:
+    type: meta
+    depends_on: []
+    description: Developer workspace orchestrator
+    docs: false
+    clone: false  # Don't clone self
+
+defaults:
+  ci: github-actions
+  license: EUPL-1.2
+  branch: main

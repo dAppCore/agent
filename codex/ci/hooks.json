@@ -1,0 +1,17 @@
+{
+  "$schema": "https://claude.ai/schemas/hooks.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"^git push\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-push-ci.sh"
+          }
+        ],
+        "description": "Show CI status after push"
+      }
+    ]
+  }
+}

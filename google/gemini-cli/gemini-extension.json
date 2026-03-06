@@ -1,0 +1,15 @@
+{
+    "name": "host-uk-core-agent",
+    "version": "0.1.1",
+    "description": "Host UK Core Agent Extension for Gemini CLI (with Codex awareness)",
+    "contextFileName": "GEMINI.md",
+    "mcpServers": {
+        "core-agent": {
+            "command": "node",
+            "args": [
+                "${extensionPath}/src/index.js"
+            ],
+            "cwd": "${extensionPath}"
+        }
+    }
+}
