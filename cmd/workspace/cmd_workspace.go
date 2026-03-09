@@ -4,18 +4,17 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
-	"github.com/spf13/cobra"
 )
 
 // AddWorkspaceCommands registers workspace management commands.
-func AddWorkspaceCommands(root *cobra.Command) {
-	wsCmd := &cobra.Command{
+func AddWorkspaceCommands(root *cli.Command) {
+	wsCmd := &cli.Command{
 		Use:   "workspace",
 		Short: "Manage workspace configuration",
 		RunE:  runWorkspaceInfo,
 	}
 
-	wsCmd.AddCommand(&cobra.Command{
+	wsCmd.AddCommand(&cli.Command{
 		Use:   "active [package]",
 		Short: "Show or set the active package",
 		RunE:  runWorkspaceActive,
@@ -26,7 +25,7 @@ func AddWorkspaceCommands(root *cobra.Command) {
 	root.AddCommand(wsCmd)
 }
 
-func runWorkspaceInfo(cmd *cobra.Command, args []string) error {
+func runWorkspaceInfo(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")
@@ -49,7 +48,7 @@ func runWorkspaceInfo(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runWorkspaceActive(cmd *cobra.Command, args []string) error {
+func runWorkspaceActive(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")

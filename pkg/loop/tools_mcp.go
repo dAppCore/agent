@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	aimcp "forge.lthn.ai/core/go-ai/mcp"
+	aimcp "forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
 // LoadMCPTools converts all tools from a go-ai MCP Service into loop.Tool values.

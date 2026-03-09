@@ -20,7 +20,6 @@ import (
 	"forge.lthn.ai/core/cli/pkg/cli"
 	coreio "forge.lthn.ai/core/go-io"
 	"forge.lthn.ai/core/go-scm/repos"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -31,13 +30,13 @@ var (
 	taskBranch string
 )
 
-func addTaskCommands(parent *cobra.Command) {
-	taskCmd := &cobra.Command{
+func addTaskCommands(parent *cli.Command) {
+	taskCmd := &cli.Command{
 		Use:   "task",
 		Short: "Manage isolated task workspaces for agents",
 	}
 
-	createCmd := &cobra.Command{
+	createCmd := &cli.Command{
 		Use:   "create",
 		Short: "Create an isolated task workspace with git worktrees",
 		Long: `Creates a workspace at .core/workspace/p{epic}/i{issue}/ with git
@@ -52,7 +51,7 @@ worktrees for each specified repo. Each worktree gets a fresh branch
 	_ = createCmd.MarkFlagRequired("epic")
 	_ = createCmd.MarkFlagRequired("issue")
 
-	removeCmd := &cobra.Command{
+	removeCmd := &cli.Command{
 		Use:   "remove",
 		Short: "Remove a task workspace (with safety checks)",
 		Long: `Removes a task workspace after checking for uncommitted changes and
@@ -65,13 +64,13 @@ unpushed branches. Use --force to skip safety checks.`,
 	_ = removeCmd.MarkFlagRequired("epic")
 	_ = removeCmd.MarkFlagRequired("issue")
 
-	listCmd := &cobra.Command{
+	listCmd := &cli.Command{
 		Use:   "list",
 		Short: "List all task workspaces",
 		RunE:  runTaskList,
 	}
 
-	statusCmd := &cobra.Command{
+	statusCmd := &cli.Command{
 		Use:   "status",
 		Short: "Show status of a task workspace",
 		RunE:  runTaskStatus,
@@ -92,7 +91,7 @@ func taskWorkspacePath(root string, epic, issue int) string {
 	return filepath.Join(root, ".core", "workspace", fmt.Sprintf("p%d", epic), fmt.Sprintf("i%d", issue))
 }
 
-func runTaskCreate(cmd *cobra.Command, args []string) error {
+func runTaskCreate(cmd *cli.Command, args []string) error {
 	ctx := context.Background()
 	root, err := FindWorkspaceRoot()
 	if err != nil {
@@ -172,7 +171,7 @@ func runTaskCreate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runTaskRemove(cmd *cobra.Command, args []string) error {
+func runTaskRemove(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")
@@ -238,7 +237,7 @@ func runTaskRemove(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runTaskList(cmd *cobra.Command, args []string) error {
+func runTaskList(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")
@@ -301,7 +300,7 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runTaskStatus(cmd *cobra.Command, args []string) error {
+func runTaskStatus(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")

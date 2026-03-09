@@ -31,7 +31,6 @@ import (
 
 	"forge.lthn.ai/core/cli/pkg/cli"
 	coreio "forge.lthn.ai/core/go-io"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -39,19 +38,19 @@ var (
 	agentName     string
 )
 
-func addAgentCommands(parent *cobra.Command) {
-	agentCmd := &cobra.Command{
+func addAgentCommands(parent *cli.Command) {
+	agentCmd := &cli.Command{
 		Use:   "agent",
 		Short: "Manage persistent agent context within task workspaces",
 	}
 
-	initCmd := &cobra.Command{
+	initCmd := &cli.Command{
 		Use:   "init <provider/agent-name>",
 		Short: "Initialize an agent's context directory in the task workspace",
 		Long: `Creates agents/{provider}/{agent-name}/ with memory.md and artifacts/
 directory. The agent can read/write memory.md across invocations to
 build understanding over time.`,
-		Args: cobra.ExactArgs(1),
+		Args: cli.ExactArgs(1),
 		RunE: runAgentInit,
 	}
 	initCmd.Flags().IntVar(&taskEpic, "epic", 0, "Epic/project number")
@@ -59,7 +58,7 @@ build understanding over time.`,
 	_ = initCmd.MarkFlagRequired("epic")
 	_ = initCmd.MarkFlagRequired("issue")
 
-	agentListCmd := &cobra.Command{
+	agentListCmd := &cli.Command{
 		Use:   "list",
 		Short: "List agents in a task workspace",
 		RunE:  runAgentList,
@@ -69,10 +68,10 @@ build understanding over time.`,
 	_ = agentListCmd.MarkFlagRequired("epic")
 	_ = agentListCmd.MarkFlagRequired("issue")
 
-	pathCmd := &cobra.Command{
+	pathCmd := &cli.Command{
 		Use:   "path <provider/agent-name>",
 		Short: "Print the agent's context directory path",
-		Args:  cobra.ExactArgs(1),
+		Args:  cli.ExactArgs(1),
 		RunE:  runAgentPath,
 	}
 	pathCmd.Flags().IntVar(&taskEpic, "epic", 0, "Epic/project number")
@@ -106,7 +105,7 @@ type AgentManifest struct {
 	LastSeen  time.Time `json:"last_seen"`
 }
 
-func runAgentInit(cmd *cobra.Command, args []string) error {
+func runAgentInit(cmd *cli.Command, args []string) error {
 	provider, name, err := parseAgentID(args[0])
 	if err != nil {
 		return err
@@ -169,7 +168,7 @@ func runAgentInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runAgentList(cmd *cobra.Command, args []string) error {
+func runAgentList(cmd *cli.Command, args []string) error {
 	root, err := FindWorkspaceRoot()
 	if err != nil {
 		return cli.Err("not in a workspace")
@@ -241,7 +240,7 @@ func runAgentList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runAgentPath(cmd *cobra.Command, args []string) error {
+func runAgentPath(cmd *cli.Command, args []string) error {
 	provider, name, err := parseAgentID(args[0])
 	if err != nil {
 		return err
