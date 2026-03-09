@@ -168,14 +168,6 @@ class Boot extends ServiceProvider
     }
 
     /**
-     * Handle API routes registration event.
-     */
-    public function onApiRoutes(ApiRoutesRegistering $event): void
-    {
-        $event->routes(fn () => require __DIR__.'/Routes/api.php');
-    }
-
-    /**
      * Handle console booting event.
      */
     public function onConsole(ConsoleBooting $event): void
