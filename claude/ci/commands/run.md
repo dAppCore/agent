@@ -6,71 +6,28 @@ args: [workflow-name]
 
 # Run Workflow
 
-Manually trigger a GitHub Actions workflow.
+Trigger a CI workflow or view available workflows.
 
 ## Usage
 
 ```
-/ci:run              # Run default workflow
-/ci:run tests        # Run specific workflow
-/ci:run release      # Trigger release workflow
+/ci:run              # List available workflows
+/ci:run tests        # Trigger specific workflow
 ```
 
-## Process
-
-1. **List available workflows**
-   ```bash
-   gh workflow list
-   ```
-
-2. **Trigger workflow**
-   ```bash
-   gh workflow run tests.yml
-   gh workflow run tests.yml --ref feature-branch
-   ```
-
-3. **Watch progress**
-   ```bash
-   gh run watch
-   ```
-
-## Common Workflows
-
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `tests.yml` | Push, PR | Run test suite |
-| `lint.yml` | Push, PR | Run linters |
-| `build.yml` | Push | Build artifacts |
-| `release.yml` | Tag | Create release |
-| `deploy.yml` | Manual | Deploy to environment |
-
-## Output
-
-```markdown
-## Workflow Triggered
-
-**Workflow**: tests.yml
-**Branch**: feature/add-auth
-**Run ID**: 12345
-
-Watching progress...
-
-```
-⠋ Tests running...
-  ✓ Setup (12s)
-  ✓ Install dependencies (45s)
-  ⠋ Run tests (running)
-```
-
-**Run completed in 2m 34s** ✓
-```
-
-## Options
+## Commands
 
 ```bash
-# Run with inputs (for workflows that accept them)
-gh workflow run deploy.yml -f environment=staging
+# List available workflows
+core dev workflow list
 
-# Run on specific ref
-gh workflow run tests.yml --ref main
+# Sync workflows across repos
+core dev workflow sync
 ```
+
+## Notes
+
+- Forgejo Actions uses `.forgejo/workflows/` or `.github/workflows/` (both supported)
+- Workflows are triggered automatically on push/PR/tag
+- Manual dispatch: use the Forgejo web UI at `forge.lthn.ai/{owner}/{repo}/actions`
+- Runner: `build-noc` on the noc server

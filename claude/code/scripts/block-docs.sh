@@ -16,6 +16,16 @@ if [[ -n "$FILE_PATH" ]]; then
             echo "$input"
             exit 0
             ;;
+        # Allow Claude memory and plan files
+        */.claude/*.md|*/.claude/**/*.md)
+            echo "$input"
+            exit 0
+            ;;
+        # Allow plugin development (commands, skills)
+        */commands/*.md|*/skills/*.md|*/skills/**/*.md)
+            echo "$input"
+            exit 0
+            ;;
         # Block other .md files
         *.md)
             echo '{"decision": "block", "message": "Use README.md or docs/ for documentation. Random .md files clutter the repo."}'

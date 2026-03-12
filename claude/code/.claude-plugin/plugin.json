@@ -1,16 +1,13 @@
 {
-  "name": "core-agent",
+  "name": "code",
   "description": "Advanced Claude Code plugin for Host UK monorepo - core CLI integration, data collection skills, and autonomous workflows",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "author": {
     "name": "Lethean",
     "email": "hello@host.uk.com"
   },
-  "homepage": "https://github.com/host-uk/core-agent",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/host-uk/core-agent.git"
-  },
+  "homepage": "https://forge.lthn.ai/core/agent",
+  "repository": "ssh://git@forge.lthn.ai:2223/core/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
     "devops",

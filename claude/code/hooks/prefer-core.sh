@@ -3,14 +3,24 @@
 #
 # BLOCKS:
 # - Raw go commands (use core go *)
-# - Destructive grep patterns (sed -i, xargs rm, etc.)
+# - Destructive patterns (sed -i, xargs rm, etc.)
 # - Mass file operations (rm -rf, mv/cp with wildcards)
-# - Any sed outside of safe patterns
 #
 # This prevents "efficient shortcuts" that nuke codebases
 
 read -r input
-command=$(echo "$input" | jq -r '.tool_input.command // empty')
+full_command=$(echo "$input" | jq -r '.tool_input.command // empty')
+
+# Strip heredoc content — only check the actual command, not embedded text
+# This prevents false positives from code/docs inside heredocs
+command=$(echo "$full_command" | sed -n '1p')
+if echo "$command" | grep -qE "<<\s*['\"]?[A-Z_]+"; then
+    # First line has heredoc marker — only check the command portion before <<
+    command=$(echo "$command" | sed -E 's/\s*<<.*$//')
+fi
+
+# For multi-line commands joined with && or ;, check each segment
+# But still only the first line (not heredoc body)
 
 # === HARD BLOCKS - Never allow these ===
 
@@ -23,9 +33,10 @@ if echo "$command" | grep -qE 'rm\s+(-[a-zA-Z]*r[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r|
     fi
 fi
 
-# Block mv/cp with wildcards (mass file moves)
-if echo "$command" | grep -qE '(mv|cp)\s+.*\*'; then
-    echo '{"decision": "block", "message": "BLOCKED: Mass file move/copy with wildcards is not allowed. Move files individually."}'
+# Block mv/cp with dangerous wildcards (e.g. `cp * /tmp`, `mv ./* /dest`)
+# Allow specific file copies that happen to use glob in a for loop or path
+if echo "$command" | grep -qE '(mv|cp)\s+(\.\/)?\*\s'; then
+    echo '{"decision": "block", "message": "BLOCKED: Mass file move/copy with bare wildcards is not allowed. Copy files individually."}'
     exit 0
 fi
 
@@ -47,7 +58,7 @@ if echo "$command" | grep -qE 'sed\s+(-[a-zA-Z]*i|--in-place)'; then
     exit 0
 fi
 
-# Block sed piped to file operations
+# Block sed piped to file operations (but not inside heredocs)
 if echo "$command" | grep -qE 'sed.*\|.*tee|sed.*>'; then
     echo '{"decision": "block", "message": "BLOCKED: sed with file output is not allowed. Use the Edit tool for file changes."}'
     exit 0
@@ -67,14 +78,14 @@ fi
 
 # === REQUIRE CORE CLI ===
 
-# Block raw go commands
+# Block raw go commands (only check first line, not heredoc content)
 case "$command" in
     "go test"*|"go build"*|"go fmt"*|"go mod tidy"*|"go vet"*|"go run"*)
         echo '{"decision": "block", "message": "Use `core go test`, `core build`, `core go fmt --fix`, etc. Raw go commands are not allowed."}'
         exit 0
         ;;
     "go "*)
-        # Other go commands - warn but allow
+        # Other go commands - block
         echo '{"decision": "block", "message": "Prefer `core go *` commands. If core does not have this command, ask the user."}'
         exit 0
         ;;

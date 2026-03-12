@@ -6,7 +6,7 @@ args: [status|run|logs|fix]
 
 # CI Integration
 
-Check GitHub Actions status and manage CI workflows.
+Check CI status and manage workflows using the `core` CLI (supports Forgejo and GitHub).
 
 ## Commands
 
@@ -15,66 +15,40 @@ Check GitHub Actions status and manage CI workflows.
 /ci:ci
 /ci:ci status
 ```
-
-Check current CI status for the repo/branch.
-
-### Run workflow
-```
-/ci:ci run
-/ci:ci run tests
+```bash
+core dev ci
+core dev ci --branch $(git branch --show-current)
+core dev ci --failed
 ```
 
-Trigger a workflow run.
-
-### View logs
+### List workflows
 ```
-/ci:ci logs
-/ci:ci logs 12345
+/ci:ci workflows
+```
+```bash
+core dev workflow list
 ```
 
-View logs from a workflow run.
+### Issues
+```
+/ci:ci issues
+```
+```bash
+core dev issues
+core dev issues --assignee @me
+```
+
+### Reviews / PRs
+```
+/ci:ci reviews
+```
+```bash
+core dev reviews
+core dev reviews --all
+```
 
 ### Fix failing CI
 ```
 /ci:ci fix
 ```
-
-Analyse failing CI and suggest fixes.
-
-## Implementation
-
-### Check status
-```bash
-gh run list --limit 5
-gh run view --log-failed
-```
-
-### Trigger workflow
-```bash
-gh workflow run tests.yml
-```
-
-### View logs
-```bash
-gh run view 12345 --log
-```
-
-## CI Status Report
-
-```markdown
-## CI Status: main
-
-| Workflow | Status | Duration | Commit |
-|----------|--------|----------|--------|
-| Tests | ✓ passing | 2m 34s | abc123 |
-| Lint | ✓ passing | 45s | abc123 |
-| Build | ✗ failed | 1m 12s | abc123 |
-
-### Failing: Build
-```
-Error: go build failed
-  pkg/api/handler.go:42: undefined: ErrNotFound
-```
-
-**Suggested fix**: Add missing error definition
-```
+Analyse failing CI and suggest fixes. See `/ci:fix`.

@@ -1,26 +1,12 @@
 ---
 name: workflow
-description: Create or update GitHub Actions workflow
+description: Create or update CI workflow
 args: <workflow-type>
 ---
 
 # Workflow Generator
 
-Create or update GitHub Actions workflows.
-
-## Workflow Types
-
-### test
-Standard test workflow for Go/PHP projects.
-
-### lint
-Linting workflow with golangci-lint or PHPStan.
-
-### release
-Release workflow with goreleaser or similar.
-
-### deploy
-Deployment workflow (requires configuration).
+Create or update CI workflows. Forgejo Actions uses the same YAML format as GitHub Actions.
 
 ## Usage
 
@@ -29,6 +15,24 @@ Deployment workflow (requires configuration).
 /ci:workflow lint
 /ci:workflow release
 ```
+
+## List existing workflows
+
+```bash
+core dev workflow list
+```
+
+## Sync workflows across repos
+
+```bash
+core dev workflow sync
+```
+
+## Workflow directory
+
+Forgejo supports both:
+- `.forgejo/workflows/` (preferred)
+- `.github/workflows/` (also works)
 
 ## Templates
 
@@ -49,28 +53,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
-      - run: go test -v ./...
+          go-version-file: go.mod
+      - run: go test -v -race ./...
 ```
 
-### PHP Test Workflow
+### Go Release Workflow (core build)
 ```yaml
-name: Tests
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ['v*']
 
 jobs:
-  test:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-      - run: composer install
-      - run: composer test
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build and release
+        run: core build release --we-are-go-for-launch
 ```
+
+## Forgejo Notes
+
+- Runner label: `ubuntu-latest` (maps to Forgejo runner labels)
+- Secrets: Set via repo Settings → Actions → Secrets
+- Runner: `build-noc` on the noc server
+- Web UI: `forge.lthn.ai/{owner}/{repo}/actions`
