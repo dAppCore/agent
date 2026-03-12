@@ -1,8 +1,8 @@
 {
   "name": "review",
-  "description": "Code review automation - PR review, security checks, best practices",
-  "version": "0.1.0",
+  "description": "Code review automation — 5-agent review pipeline, PR review, security checks, architecture validation",
+  "version": "0.2.0",
   "author": {
-    "name": "Host UK"
+    "name": "Lethean"
   }
 }
