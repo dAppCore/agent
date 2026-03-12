@@ -7,7 +7,7 @@
     "email": "hello@host.uk.com"
   },
   "homepage": "https://forge.lthn.ai/core/agent",
-  "repository": "ssh://git@forge.lthn.ai:2223/core/agent.git",
+  "repository": "https://forge.lthn.ai/core/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
     "devops",
