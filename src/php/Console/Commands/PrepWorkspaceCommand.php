@@ -30,7 +30,7 @@ class PrepWorkspaceCommand extends Command
         {--repo= : Forge repo (e.g. go-ai)}
         {--issue= : Issue number to build TODO from}
         {--org=core : Forge organisation}
-        {--output= : Output directory (default: ./workspace)}
+        {--output= : Output directory (default: ./.core)}
         {--specs-path= : Path to specs dir (default: ~/Code/host-uk/specs)}
         {--dry-run : Preview without writing files}';
 
@@ -51,7 +51,7 @@ class PrepWorkspaceCommand extends Command
         $this->baseUrl = rtrim((string) config('upstream.gitea.url', 'https://forge.lthn.ai'), '/');
         $this->token = (string) config('upstream.gitea.token', config('agentic.forge_token', ''));
         $this->org = (string) $this->option('org');
-        $this->outputDir = (string) ($this->option('output') ?? getcwd() . '/workspace');
+        $this->outputDir = (string) ($this->option('output') ?? getcwd() . '/.core');
         $this->dryRun = (bool) $this->option('dry-run');
 
         $repo = $this->option('repo');
@@ -298,13 +298,13 @@ class PrepWorkspaceCommand extends Command
         $todoContent .= "</details>\n";
 
         if ($this->dryRun) {
-            $this->line('  [would write] TODO.md from: ' . $title);
+            $this->line('  [would write] todo.md from: ' . $title);
             if (! empty($checklistItems)) {
                 $this->line('  Checklist items: ' . count($checklistItems));
             }
         } else {
-            File::put($this->outputDir . '/TODO.md', $todoContent);
-            $this->line('  TODO.md generated from: ' . $title);
+            File::put($this->outputDir . '/todo.md', $todoContent);
+            $this->line('  todo.md generated from: ' . $title);
         }
 
         return [$title, $body];
@@ -327,10 +327,10 @@ class PrepWorkspaceCommand extends Command
         $content .= "## Implementation Checklist\n\n_To be filled by the agent._\n";
 
         if ($this->dryRun) {
-            $this->line('  [would write] TODO.md skeleton');
+            $this->line('  [would write] todo.md skeleton');
         } else {
-            File::put($this->outputDir . '/TODO.md', $content);
-            $this->line('  TODO.md skeleton generated (no --issue provided)');
+            File::put($this->outputDir . '/todo.md', $content);
+            $this->line('  todo.md skeleton generated (no --issue provided)');
         }
     }
 
@@ -403,10 +403,10 @@ class PrepWorkspaceCommand extends Command
             }
 
             if ($this->dryRun) {
-                $this->line('  [would write] CONTEXT.md with ' . $totalMemories . ' memories');
+                $this->line('  [would write] context.md with ' . $totalMemories . ' memories');
             } else {
-                File::put($this->outputDir . '/CONTEXT.md', $content);
-                $this->line('  CONTEXT.md generated with ' . $totalMemories . ' memories');
+                File::put($this->outputDir . '/context.md', $content);
+                $this->line('  context.md generated with ' . $totalMemories . ' memories');
             }
 
             return $totalMemories;
@@ -418,7 +418,7 @@ class PrepWorkspaceCommand extends Command
             $content .= "> Run `agentic:prep-workspace` again once Ollama/Qdrant are reachable.\n";
 
             if (! $this->dryRun) {
-                File::put($this->outputDir . '/CONTEXT.md', $content);
+                File::put($this->outputDir . '/context.md', $content);
             }
 
             return 0;
@@ -463,18 +463,6 @@ class PrepWorkspaceCommand extends Command
         }
 
         return $items;
-    }
-
-    /**
-     * Truncate a string to a maximum length.
-     */
-    private function truncate(string $text, int $length): string
-    {
-        if (mb_strlen($text) <= $length) {
-            return $text;
-        }
-
-        return mb_substr($text, 0, $length - 3) . '...';
     }
 
     /**

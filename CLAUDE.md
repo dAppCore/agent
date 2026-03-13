@@ -4,172 +4,160 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**core-agent** is a monorepo of Claude Code plugins for the Host UK federated monorepo. It contains multiple focused plugins that can be installed individually or together.
+**core-agent** is a polyglot monorepo (Go + PHP) for AI agent orchestration. The Go side handles agent-side execution, CLI commands, and autonomous agent loops. The PHP side (Laravel package `lthn/agent`) provides the backend API, persistent storage, multi-provider AI services, and admin panel. They communicate via REST API.
 
-## Plugins
+The repo also contains Claude Code plugins (5), Codex plugins (13), a Gemini CLI extension, and two MCP servers.
 
-| Plugin | Description | Install |
-|--------|-------------|---------|
-| **code** | Core development - hooks, scripts, data collection | `claude plugin add host-uk/core-agent/claude/code` |
-| **review** | Code review automation | `claude plugin add host-uk/core-agent/claude/review` |
-| **verify** | Work verification | `claude plugin add host-uk/core-agent/claude/verify` |
-| **qa** | Quality assurance loops | `claude plugin add host-uk/core-agent/claude/qa` |
-| **ci** | CI/CD integration | `claude plugin add host-uk/core-agent/claude/ci` |
+## Core CLI — Always Use It
 
-Or install all via marketplace:
-```bash
-claude plugin add host-uk/core-agent
-```
-
-## Repository Structure
-
-```
-core-agent/
-├── .claude-plugin/
-│   └── marketplace.json     # Plugin registry (enables auto-updates)
-├── claude/
-│   ├── code/                # Core development plugin
-│   │   ├── .claude-plugin/
-│   │   │   └── plugin.json
-│   │   ├── hooks.json
-│   │   ├── hooks/
-│   │   ├── scripts/
-│   │   ├── commands/        # /code:remember, /code:yes
-│   │   ├── skills/          # Data collection skills
-│   │   └── collection/      # Collection event hooks
-│   ├── review/              # Code review plugin
-│   │   ├── .claude-plugin/
-│   │   │   └── plugin.json
-│   │   └── commands/        # /review:review
-│   ├── verify/              # Verification plugin
-│   │   ├── .claude-plugin/
-│   │   │   └── plugin.json
-│   │   └── commands/        # /verify:verify
-│   ├── qa/                  # QA plugin
-│   │   ├── .claude-plugin/
-│   │   │   └── plugin.json
-│   │   ├── scripts/
-│   │   └── commands/        # /qa:qa, /qa:fix
-│   └── ci/                  # CI plugin
-│       ├── .claude-plugin/
-│       │   └── plugin.json
-│       └── commands/        # /ci:ci, /ci:workflow
-├── CLAUDE.md
-└── .gitignore
-```
-
-## Plugin Commands
-
-### code
-- `/code:remember <fact>` - Save context that persists across compaction
-- `/code:yes <task>` - Auto-approve mode with commit requirement
-
-### review
-- `/review:review [range]` - Code review on staged changes or commits
-
-### verify
-- `/verify:verify [--quick|--full]` - Verify work is complete
-
-### qa
-- `/qa:qa` - Iterative QA fix loop (runs until all checks pass)
-- `/qa:fix <issue>` - Fix a specific QA issue
-
-### ci
-- `/ci:ci [status|run|logs|fix]` - CI status and management
-- `/ci:workflow <type>` - Generate GitHub Actions workflows
-
-## Core CLI Philosophy
-
-**Always use `core` CLI instead of raw commands.** The `core` binary handles the full E2E development lifecycle for Go and PHP ecosystems.
-
-### Command Mappings
+**Never use raw `go`, `php`, or `composer` commands.** The `core` CLI wraps both toolchains and is enforced by PreToolUse hooks that will block violations.
 
 | Instead of... | Use... |
 |---------------|--------|
 | `go test` | `core go test` |
 | `go build` | `core build` |
 | `go fmt` | `core go fmt` |
+| `go vet` | `core go vet` |
 | `golangci-lint` | `core go lint` |
-| `composer test` | `core php test` |
-| `./vendor/bin/pint` | `core php fmt` |
+| `composer test` / `./vendor/bin/pest` | `core php test` |
+| `./vendor/bin/pint` / `composer lint` | `core php fmt` |
 | `./vendor/bin/phpstan` | `core php stan` |
+| `php artisan serve` | `core php dev` |
 
-### Key Commands
+## Build & Test Commands
 
 ```bash
-# Development
-core dev health              # Status across repos
-core dev work                # Full workflow: status → commit → push
-
 # Go
-core go test                 # Run tests
-core go qa                   # Full QA pipeline
+core go test                                        # Run all Go tests
+core go test --run TestMemoryRegistry_Register_Good # Run single test
+core go qa                                          # Full QA: fmt + vet + lint + test
+core go qa full                                     # QA + race detector + vuln scan
+core go cov                                         # Test coverage
+core build                                          # Verify Go packages compile
 
 # PHP
-core php test                # Run Pest tests
-core php qa                  # Full QA pipeline
+core php test                                       # Run Pest suite
+core php test --filter=AgenticManagerTest            # Run specific test file
+core php fmt                                        # Format (Laravel Pint)
+core php stan                                       # Static analysis (PHPStan)
+core php qa                                         # Full PHP QA pipeline
 
-# Building
-core build                   # Auto-detect and build
+# MCP servers (standalone builds)
+cd cmd/mcp && go build -o agent-mcp .               # Stdio MCP server
+cd google/mcp && go build -o google-mcp .           # HTTP MCP server (port 8080)
 
-# AI
-core ai task                 # Auto-select a task
-core ai task:pr              # Create PR for task
+# Workspace
+make setup                                          # Full bootstrap (deps + core + clone repos)
+core dev health                                     # Status across repos
 ```
 
-## code Plugin Features
+## Architecture
 
-### Hooks
-
-| Hook | File | Purpose |
-|------|------|---------|
-| PreToolUse | `prefer-core.sh` | Block dangerous commands, enforce `core` CLI |
-| PostToolUse | `php-format.sh` | Auto-format PHP |
-| PostToolUse | `go-format.sh` | Auto-format Go |
-| PostToolUse | `check-debug.sh` | Warn about debug statements |
-| PreCompact | `pre-compact.sh` | Save state before compaction |
-| SessionStart | `session-start.sh` | Restore context on startup |
-
-### Blocked Patterns
-
-**Destructive operations:**
-- `rm -rf` / `rm -r` (except node_modules, vendor, .cache)
-- `mv`/`cp` with wildcards
-- `xargs` with rm/mv/cp
-- `find -exec` with file operations
-- `sed -i` (in-place editing)
-
-**Raw commands (use core instead):**
-- `go test/build/fmt/mod` → `core go *`
-- `composer test` → `core php test`
-
-### Data Collection Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `ledger-papers/` | 91+ distributed ledger whitepapers |
-| `project-archaeology/` | Dead project excavation |
-| `bitcointalk/` | Forum thread archival |
-| `coinmarketcap/` | Historical price data |
-| `github-history/` | Repository history preservation |
-
-## Development
-
-### Adding a new plugin
-
-1. Create `claude/<name>/.claude-plugin/plugin.json`
-2. Add commands to `claude/<name>/commands/`
-3. Register in `.claude-plugin/marketplace.json`
-
-### Testing hooks locally
-
-```bash
-echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/code/hooks/prefer-core.sh
 ```
+                Forgejo
+                  |
+         [ForgejoSource polls]
+                  |
+                  v
++-- Go: jobrunner Poller --+      +-- PHP: Laravel Backend --+
+| ForgejoSource            |      | AgentApiController       |
+| DispatchHandler ---------|----->| /v1/plans                |
+| CompletionHandler        |      | /v1/sessions             |
+| ResolveThreadsHandler    |      | /v1/plans/*/phases       |
++--------------------------+      +-------------+------------+
+                                                |
+                                        [Eloquent models]
+                                        AgentPlan, AgentPhase,
+                                        AgentSession, BrainMemory
+```
+
+### Go Packages (`pkg/`)
+
+- **`lifecycle/`** — Core domain layer. Task, AgentInfo, Plan, Phase, Session types. Agent registry (Memory/SQLite/Redis backends), task router (capability matching + load scoring), allowance system (quota enforcement), dispatcher (orchestrates dispatch with exponential backoff), event system, brain (vector store), context (git integration).
+- **`loop/`** — Autonomous agent reasoning engine. Prompt-parse-execute cycle against any `inference.TextModel` with tool calling and streaming.
+- **`orchestrator/`** — Clotho protocol for dual-run verification and agent orchestration.
+- **`jobrunner/`** — Poll-dispatch engine for agent-side work execution. Polls Forgejo for work items, executes phases, reports results.
+
+### Go Commands (`cmd/`)
+
+- **`tasks/`** — `core ai tasks`, `core ai task [id]` — task management
+- **`agent/`** — `core ai agent` — agent machine management (add, list, status, fleet)
+- **`dispatch/`** — `core ai dispatch` — work queue processor (watch, run)
+- **`workspace/`** — `core workspace task`, `core workspace agent` — git worktree isolation
+- **`mcp/`** — Standalone stdio MCP server exposing `marketplace_list`, `marketplace_plugin_info`, `core_cli`, `ethics_check`
+
+### PHP (`src/php/`)
+
+- **Namespace**: `Core\Mod\Agentic\` (service provider: `Boot`)
+- **Models/** — 19 Eloquent models (AgentPlan, AgentPhase, AgentSession, BrainMemory, Task, Prompt, etc.)
+- **Services/** — AgenticManager (multi-provider: Claude/Gemini/OpenAI), BrainService (Ollama+Qdrant), ForgejoService, AI services with stream parsing and retry traits
+- **Controllers/** — AgentApiController (REST endpoints)
+- **Actions/** — Single-purpose action classes (Brain, Forge, Phase, Plan, Session, Task)
+- **View/** — Livewire admin panel components (Dashboard, Plans, Sessions, ApiKeys, Templates, Playground, etc.)
+- **Mcp/** — MCP tool implementations (Brain, Content, Phase, Plan, Session, State, Task, Template)
+- **Migrations/** — 10 migrations (run automatically on boot)
+
+## Claude Code Plugins (`claude/`)
+
+Five plugins installable individually or via marketplace:
+
+| Plugin | Commands |
+|--------|----------|
+| **code** | `/code:remember`, `/code:yes`, `/code:qa` |
+| **review** | `/review:review`, `/review:security`, `/review:pr`, `/review:pipeline` |
+| **verify** | `/verify:verify`, `/verify:ready`, `/verify:tests` |
+| **qa** | `/qa:qa`, `/qa:fix`, `/qa:check`, `/qa:lint` |
+| **ci** | `/ci:ci`, `/ci:workflow`, `/ci:fix`, `/ci:run`, `/ci:status` |
+
+### Hooks (code plugin)
+
+**PreToolUse**: `prefer-core.sh` blocks destructive operations (`rm -rf`, `sed -i`, `xargs rm`, `find -exec rm`, `grep -l | ...`, `mv/cp *`) and raw go/php commands. `block-docs.sh` prevents random `.md` file creation.
+
+**PostToolUse**: Auto-formats Go (`gofmt`) and PHP (`pint`) after edits. Warns about debug statements (`dd()`, `dump()`, `fmt.Println()`).
+
+**PreCompact**: Saves session state. **SessionStart**: Restores session context.
+
+## Other Directories
+
+- **`codex/`** — 13 Codex plugins mirroring Claude structure plus ethics, guardrails, perf, issue, coolify, awareness
+- **`agents/`** — 13 specialist agent categories (design, engineering, marketing, product, testing, etc.) with example configs and system prompts
+- **`google/gemini-cli/`** — Gemini CLI extension (TypeScript, `npm run build`)
+- **`google/mcp/`** — HTTP MCP server exposing `core_go_test`, `core_dev_health`, `core_dev_commit`
+- **`docs/`** — `architecture.md` (deep dive), `development.md` (comprehensive dev guide), `docs/plans/` (design documents)
+- **`scripts/`** — Environment setup scripts (`install-core.sh`, `install-deps.sh`, `agent-runner.sh`, etc.)
+
+## Testing Conventions
+
+### Go
+
+Uses `testify/assert` and `testify/require`. Name tests with suffixes:
+- `_Good` — happy path
+- `_Bad` — expected error conditions
+- `_Ugly` — panics and edge cases
+
+Use `require` for preconditions (stops on failure), `assert` for verifications (reports all failures).
+
+### PHP
+
+Pest with Orchestra Testbench. Feature tests use `RefreshDatabase`. Helpers: `createWorkspace()`, `createApiKey($workspace, ...)`.
 
 ## Coding Standards
 
-- **UK English**: colour, organisation, centre
-- **Shell scripts**: Use `#!/bin/bash`, read JSON with `jq`
-- **Hook output**: JSON with `decision` (approve/block) and optional `message`
-- **License**: EUPL-1.2 CIC
+- **UK English**: colour, organisation, centre, licence, behaviour
+- **Go**: standard `gofmt`, errors via `core.E("scope.Method", "what failed", err)`
+- **PHP**: `declare(strict_types=1)`, full type hints, PSR-12 via Pint, Pest syntax for tests
+- **Shell**: `#!/bin/bash`, JSON input via `jq`, output `{"decision": "approve"|"block", "message": "..."}`
+- **Commits**: conventional — `type(scope): description` (e.g. `feat(lifecycle): add exponential backoff`)
+- **Licence**: EUPL-1.2 CIC
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Go | 1.26+ | Go packages, CLI, MCP servers |
+| PHP | 8.2+ | Laravel package, Pest tests |
+| Composer | 2.x | PHP dependencies |
+| `core` CLI | latest | Wraps Go/PHP toolchains (enforced by hooks) |
+| `jq` | any | JSON parsing in shell hooks |
+
+Go module is `forge.lthn.ai/core/agent`, participates in a Go workspace (`go.work`) resolving all `forge.lthn.ai/core/*` dependencies locally.

@@ -25,9 +25,13 @@ fi
 # === HARD BLOCKS - Never allow these ===
 
 # Block rm -rf, rm -r (except for known safe paths like node_modules, vendor, .cache)
+# Allow git rm -r (safe — git tracks everything, easily reversible)
 if echo "$command" | grep -qE 'rm\s+(-[a-zA-Z]*r[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r|--recursive)'; then
-    # Allow only specific safe directories
-    if ! echo "$command" | grep -qE 'rm\s+(-rf|-r)\s+(node_modules|vendor|\.cache|dist|build|__pycache__|\.pytest_cache|/tmp/)'; then
+    # git rm -r is safe — everything is tracked and recoverable
+    if echo "$command" | grep -qE 'git\s+rm\s'; then
+        : # allow git rm through
+    # Allow only specific safe directories for raw rm
+    elif ! echo "$command" | grep -qE 'rm\s+(-rf|-r)\s+(node_modules|vendor|\.cache|dist|build|__pycache__|\.pytest_cache|/tmp/)'; then
         echo '{"decision": "block", "message": "BLOCKED: Recursive delete is not allowed. Delete files individually or ask the user to run this command."}'
         exit 0
     fi

@@ -21,6 +21,7 @@ func AddWorkspaceCommands(root *cli.Command) {
 	})
 
 	addTaskCommands(wsCmd)
+	addPrepCommands(wsCmd)
 
 	root.AddCommand(wsCmd)
 }
