@@ -1,8 +1,0 @@
-{
-  "name": "qa",
-  "description": "Quality assurance - iterative fix loops, lint enforcement, test coverage",
-  "version": "0.1.0",
-  "author": {
-    "name": "Lethean"
-  }
-}

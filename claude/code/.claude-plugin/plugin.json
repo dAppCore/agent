@@ -1,7 +1,7 @@
 {
   "name": "code",
-  "description": "Advanced Claude Code plugin for Host UK monorepo - core CLI integration, data collection skills, and autonomous workflows",
-  "version": "0.1.3",
+  "description": "Core development hooks, auto-approve workflow, and cryptocurrency research data collection skills",
+  "version": "0.2.0",
   "author": {
     "name": "Lethean",
     "email": "hello@host.uk.com"
@@ -10,11 +10,8 @@
   "repository": "https://forge.lthn.ai/core/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
-    "devops",
-    "monorepo",
-    "go",
-    "php",
-    "laravel",
+    "hooks",
+    "auto-approve",
     "data-collection",
     "cryptocurrency",
     "archive"

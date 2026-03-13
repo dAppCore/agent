@@ -9,14 +9,14 @@
     {
       "name": "code",
       "source": "./claude/code",
-      "description": "Core development plugin - hooks, scripts, data collection skills",
-      "version": "0.1.0"
+      "description": "Core development hooks, auto-approve workflow, and research data collection",
+      "version": "0.2.0"
     },
     {
       "name": "review",
       "source": "./claude/review",
       "description": "Code review automation - PR review, security checks",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "verify",
@@ -25,15 +25,21 @@
       "version": "0.1.0"
     },
     {
-      "name": "qa",
-      "source": "./claude/qa",
-      "description": "Quality assurance - iterative fix loops, lint enforcement",
+      "name": "core-php",
+      "source": "forge.lthn.ai/core/php",
+      "description": "PHP/Laravel development skills, API generation, and formatting",
       "version": "0.1.0"
     },
     {
-      "name": "ci",
-      "source": "./claude/ci",
-      "description": "CI integration - GitHub Actions, test automation",
+      "name": "go-build",
+      "source": "forge.lthn.ai/core/go-build",
+      "description": "Go QA pipeline, build tooling, and development skills",
+      "version": "0.1.0"
+    },
+    {
+      "name": "devops",
+      "source": "forge.lthn.ai/core/go-devops",
+      "description": "CI/CD, deployment, issue tracking, and Coolify integration",
       "version": "0.1.0"
     }
   ]
