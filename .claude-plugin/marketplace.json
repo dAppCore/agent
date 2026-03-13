@@ -26,19 +26,28 @@
     },
     {
       "name": "core-php",
-      "source": "forge.lthn.ai/core/php",
+      "source": {
+        "source": "url",
+        "url": "https://forge.lthn.ai/core/php.git"
+      },
       "description": "PHP/Laravel development skills, API generation, and formatting",
       "version": "0.1.0"
     },
     {
       "name": "go-build",
-      "source": "forge.lthn.ai/core/go-build",
+      "source": {
+        "source": "url",
+        "url": "https://forge.lthn.ai/core/go-build.git"
+      },
       "description": "Go QA pipeline, build tooling, and development skills",
       "version": "0.1.0"
     },
     {
       "name": "devops",
-      "source": "forge.lthn.ai/core/go-devops",
+      "source": {
+        "source": "url",
+        "url": "https://forge.lthn.ai/core/go-devops.git"
+      },
       "description": "CI/CD, deployment, issue tracking, and Coolify integration",
       "version": "0.1.0"
     }
