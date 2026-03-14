@@ -55,6 +55,20 @@
         "description": "Warn about uncommitted work after git commit"
       }
     ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-save.sh",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "Save session context to OpenBrain (async, only when git changes exist)"
+      }
+    ],
     "PreCompact": [
       {
         "matcher": "*",
