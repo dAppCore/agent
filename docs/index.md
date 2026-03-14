@@ -127,7 +127,7 @@ The `codex/` directory mirrors the Claude plugin structure for OpenAI Codex, plu
 | `forge.lthn.ai/core/go` | DI container and service lifecycle |
 | `forge.lthn.ai/core/cli` | CLI framework (cobra + bubbletea TUI) |
 | `forge.lthn.ai/core/go-ai` | AI meta-hub (MCP facade) |
-| `forge.lthn.ai/core/go-config` | Configuration management (viper) |
+| `forge.lthn.ai/core/config` | Configuration management (viper) |
 | `forge.lthn.ai/core/go-inference` | TextModel/Backend interfaces |
 | `forge.lthn.ai/core/go-io` | Filesystem abstraction |
 | `forge.lthn.ai/core/go-log` | Structured logging |

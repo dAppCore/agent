@@ -12,7 +12,7 @@ import (
 	"forge.lthn.ai/core/cli/pkg/cli"
 	agentic "forge.lthn.ai/core/agent/pkg/lifecycle"
 	"forge.lthn.ai/core/go-scm/agentci"
-	"forge.lthn.ai/core/go-config"
+	"forge.lthn.ai/core/config"
 )
 
 func init() {

@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"testing"
 
-	"forge.lthn.ai/core/go-config"
+	"forge.lthn.ai/core/config"
 	"forge.lthn.ai/core/go-io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
