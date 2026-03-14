@@ -12,16 +12,6 @@
         ],
         "description": "Block destructive commands (rm -rf, sed -i, xargs rm) and enforce core CLI"
       },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/block-docs.sh"
-          }
-        ],
-        "description": "Block random .md file creation"
-      }
     ],
     "PostToolUse": [
       {
