@@ -56,44 +56,35 @@ if echo "$command" | grep -qE 'find\s+.*-exec\s+.*(rm|mv|cp)'; then
     exit 0
 fi
 
-# Block ALL sed -i (in-place editing)
-if echo "$command" | grep -qE 'sed\s+(-[a-zA-Z]*i|--in-place)'; then
-    echo '{"decision": "block", "message": "BLOCKED: sed -i (in-place edit) is never allowed. Use the Edit tool for file changes."}'
+# Block sed -i on LOCAL files only (allow on remote via ssh/docker exec)
+if echo "$command" | grep -qE '^sed\s+(-[a-zA-Z]*i|--in-place)'; then
+    echo '{"decision": "block", "message": "BLOCKED: sed -i (in-place edit) on local files. Use the Edit tool."}'
     exit 0
 fi
 
-# Block sed piped to file operations (but not inside heredocs)
-if echo "$command" | grep -qE 'sed.*\|.*tee|sed.*>'; then
-    echo '{"decision": "block", "message": "BLOCKED: sed with file output is not allowed. Use the Edit tool for file changes."}'
+# Block grep -l piped to destructive commands only (not head, wc, etc.)
+if echo "$command" | grep -qE 'grep\s+.*-l.*\|\s*(xargs|sed|rm|mv)'; then
+    echo '{"decision": "block", "message": "BLOCKED: grep -l piped to destructive commands. Too risky."}'
     exit 0
 fi
 
-# Block grep with -l piped to xargs/rm/sed (the classic codebase nuke pattern)
-if echo "$command" | grep -qE 'grep\s+.*-l.*\|'; then
-    echo '{"decision": "block", "message": "BLOCKED: grep -l piped to other commands is the classic codebase nuke pattern. Not allowed."}'
-    exit 0
-fi
-
-# Block perl -i, awk with file redirection (sed alternatives)
-if echo "$command" | grep -qE 'perl\s+-[a-zA-Z]*i|awk.*>'; then
-    echo '{"decision": "block", "message": "BLOCKED: In-place file editing with perl/awk is not allowed. Use the Edit tool."}'
+# Block perl -i on local files
+if echo "$command" | grep -qE '^perl\s+-[a-zA-Z]*i'; then
+    echo '{"decision": "block", "message": "BLOCKED: In-place file editing with perl. Use the Edit tool."}'
     exit 0
 fi
 
 # === REQUIRE CORE CLI ===
 
-# Block raw go commands (only check first line, not heredoc content)
+# Suggest core CLI for common go commands, but don't block
+# go work sync, go mod edit, go get, go install, go list etc. have no core wrapper
 case "$command" in
-    "go test"*|"go build"*|"go fmt"*|"go mod tidy"*|"go vet"*|"go run"*)
-        echo '{"decision": "block", "message": "Use `core go test`, `core build`, `core go fmt --fix`, etc. Raw go commands are not allowed."}'
-        exit 0
-        ;;
-    "go "*)
-        # Other go commands - block
-        echo '{"decision": "block", "message": "Prefer `core go *` commands. If core does not have this command, ask the user."}'
+    "go test"*|"go build"*|"go fmt"*|"go vet"*)
+        echo '{"decision": "block", "message": "Use `core go test`, `core build`, `core go fmt --fix`, `core go vet`. Raw go commands bypass quality checks."}'
         exit 0
         ;;
 esac
+# Allow all other go commands (go mod tidy, go work sync, go get, go run, etc.)
 
 # Block raw php commands
 case "$command" in

@@ -7,10 +7,10 @@ FILE_PATH=$(echo "$input" | jq -r '.tool_input.file_path // empty')
 if [[ -n "$FILE_PATH" && -f "$FILE_PATH" ]]; then
     case "$FILE_PATH" in
         *.go)
-            # Check for fmt.Println, log.Println debug statements
-            if grep -n "fmt\.Println\|log\.Println" "$FILE_PATH" 2>/dev/null | head -3 | grep -q .; then
-                echo "[Hook] WARNING: Debug prints found in $FILE_PATH" >&2
-                grep -n "fmt\.Println\|log\.Println" "$FILE_PATH" 2>/dev/null | head -3 >&2
+            # Check for fmt.Print* (debug prints — log.* is fine, it's proper logging)
+            if grep -n 'fmt\.Print\|fmt\.Fprint' "$FILE_PATH" 2>/dev/null | grep -v 'fmt\.Fprintf(w' | head -3 | grep -q .; then
+                echo "[Hook] WARNING: fmt.Print* found in $FILE_PATH (use log.* or go-log instead)" >&2
+                grep -n 'fmt\.Print\|fmt\.Fprint' "$FILE_PATH" 2>/dev/null | grep -v 'fmt\.Fprintf(w' | head -3 >&2
             fi
             ;;
         *.php)
