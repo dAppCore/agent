@@ -24,7 +24,7 @@ require (
 
 require (
 	forge.lthn.ai/core/go v0.1.0 // indirect
-	forge.lthn.ai/core/go-api v0.0.3 // indirect
+	forge.lthn.ai/core/api v0.1.0 // indirect
 	forge.lthn.ai/core/go-crypt v0.1.0 // indirect
 	forge.lthn.ai/core/go-ml v0.0.3 // indirect
 	forge.lthn.ai/core/go-mlx v0.0.2 // indirect
