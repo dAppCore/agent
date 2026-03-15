@@ -2,7 +2,7 @@
   "mcpServers": {
     "core": {
       "type": "http",
-      "url": "https://api.lthn.sh/mcp",
+      "url": "https://mcp.lthn.sh",
       "headers": {
         "Authorization": "Bearer $CORE_BRAIN_KEY"
       },
