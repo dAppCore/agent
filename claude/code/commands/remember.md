@@ -1,5 +1,5 @@
 ---
-name: remember
+name: core:remember
 description: Save a fact or decision to context for persistence across compacts
 args: <fact to remember>
 ---

@@ -1,5 +1,5 @@
 ---
-name: recall
+name: core:recall
 description: Search OpenBrain for memories and context
 arguments:
   - name: query
