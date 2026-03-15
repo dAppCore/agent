@@ -16,6 +16,8 @@ arguments:
     default: coding
   - name: plan
     description: Plan template (bug-fix, code-review, new-feature, refactor, feature-port)
+  - name: persona
+    description: Persona slug (e.g. engineering/engineering-backend-architect)
 ---
 
 Dispatch a subagent to work on `$ARGUMENTS.repo` with task: `$ARGUMENTS.task`
@@ -26,5 +28,6 @@ Use the `mcp__core__agentic_dispatch` tool with:
 - agent: $ARGUMENTS.agent
 - template: $ARGUMENTS.template
 - plan_template: $ARGUMENTS.plan (if provided)
+- persona: $ARGUMENTS.persona (if provided)
 
-After dispatching, report the workspace dir and PID.
+After dispatching, report the workspace dir, PID, and whether it was queued or started immediately.
