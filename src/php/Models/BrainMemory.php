@@ -42,6 +42,7 @@ class BrainMemory extends Model
 
     /** Valid memory types. */
     public const VALID_TYPES = [
+        'fact',
         'decision',
         'observation',
         'convention',
@@ -49,6 +50,11 @@ class BrainMemory extends Model
         'plan',
         'bug',
         'architecture',
+        'documentation',
+        'service',
+        'pattern',
+        'context',
+        'procedure',
     ];
 
     protected $connection = 'brain';
@@ -65,6 +71,7 @@ class BrainMemory extends Model
         'confidence',
         'supersedes_id',
         'expires_at',
+        'source',
     ];
 
     protected $casts = [
@@ -171,7 +178,7 @@ class BrainMemory extends Model
     }
 
     /** Format the memory for MCP tool responses. */
-    public function toMcpContext(): array
+    public function toMcpContext(float $score = 0.0): array
     {
         return [
             'id' => $this->id,
@@ -181,6 +188,8 @@ class BrainMemory extends Model
             'tags' => $this->tags,
             'project' => $this->project,
             'confidence' => $this->confidence,
+            'score' => round($score, 4),
+            'source' => $this->source ?? 'manual',
             'supersedes_id' => $this->supersedes_id,
             'expires_at' => $this->expires_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

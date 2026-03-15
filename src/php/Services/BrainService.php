@@ -85,6 +85,7 @@ class BrainService
                 'tags' => $memory->tags ?? [],
                 'project' => $memory->project,
                 'confidence' => $memory->confidence,
+                'source' => $memory->source ?? 'manual',
                 'created_at' => $memory->created_at->toIso8601String(),
             ]);
             $payload['vector'] = $vector;
@@ -146,8 +147,9 @@ class BrainService
             ->values();
 
         return [
-            'memories' => $memories->map(fn (BrainMemory $m) => $m->toMcpContext())->all(),
-            'scores' => $scoreMap,
+            'memories' => $memories->map(fn (BrainMemory $m) => $m->toMcpContext(
+                (float) ($scoreMap[$m->id] ?? 0.0)
+            ))->all(),
         ];
     }
 

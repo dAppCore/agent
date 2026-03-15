@@ -128,14 +128,33 @@ class BrainIngestCommand extends Command
         }
 
         foreach ($sections as $section) {
-            if (trim($section['content']) === '') {
+            $content = trim($section['content']);
+
+            // Skip sections that are too short to be useful
+            if ($content === '' || strlen($content) < 50) {
                 $this->stats['skipped']++;
 
                 continue;
             }
 
-            $type = $this->inferType($section['heading'], $section['content'], $source);
+            $type = $this->inferType($section['heading'], $content, $source);
             $tags = $this->buildTags($section['heading'], $filename, $source, $project);
+
+            $text = $section['heading']."\n\n".$content;
+
+            // Content hash dedup — skip if identical content already exists
+            if (! $isDryRun) {
+                $contentHash = md5($text);
+                $exists = \Core\Mod\Agentic\Models\BrainMemory::where('workspace_id', $workspaceId)
+                    ->whereRaw('MD5(content) = ?', [$contentHash])
+                    ->exists();
+
+                if ($exists) {
+                    $this->stats['skipped']++;
+
+                    continue;
+                }
+            }
 
             if ($isDryRun) {
                 $this->line(sprintf(
@@ -143,7 +162,7 @@ class BrainIngestCommand extends Command
                     $filename,
                     $section['heading'],
                     $type,
-                    strlen($section['content']),
+                    strlen($content),
                     implode(', ', $tags),
                 ));
                 $this->stats['imported']++;
@@ -152,7 +171,6 @@ class BrainIngestCommand extends Command
             }
 
             try {
-                $text = $section['heading']."\n\n".$section['content'];
 
                 // embeddinggemma has a 2048-token context (~4K chars).
                 // Truncate oversized sections to avoid Ollama 500 errors.
@@ -168,6 +186,7 @@ class BrainIngestCommand extends Command
                     'tags' => $tags,
                     'project' => $project,
                     'confidence' => $this->confidenceForSource($source),
+                    'source' => 'ingest:'.$source,
                 ]);
                 $this->stats['imported']++;
             } catch (\Throwable $e) {
