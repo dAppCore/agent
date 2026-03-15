@@ -1,5 +1,5 @@
 ---
-name: core:status
+name: status
 description: Show status of all agent workspaces (running, completed, blocked, failed)
 ---
 

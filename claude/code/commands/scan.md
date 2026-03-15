@@ -1,5 +1,5 @@
 ---
-name: core:scan
+name: scan
 description: Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug)
 arguments:
   - name: org

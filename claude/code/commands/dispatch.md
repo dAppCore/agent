@@ -1,5 +1,5 @@
 ---
-name: core:dispatch
+name: dispatch
 description: Dispatch a subagent to work on a task in a sandboxed workspace
 arguments:
   - name: repo
