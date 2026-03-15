@@ -1,0 +1,72 @@
+name: Bug Fix
+description: Investigate and fix a bug
+category: development
+
+variables:
+  bug_description:
+    description: Brief description of the bug
+    required: true
+  location:
+    description: Where the bug occurs (file, component, etc.)
+    required: false
+
+guidelines:
+  - Reproduce the bug before fixing
+  - Understand the root cause, not just symptoms
+  - Write a failing test first
+  - Consider related edge cases
+
+phases:
+  - name: Investigation
+    description: Understand and reproduce the bug
+    tasks:
+      - Reproduce the bug locally
+      - Gather error logs and stack traces
+      - Identify the affected code paths
+      - Check for related issues
+      - Document reproduction steps
+
+  - name: Root Cause Analysis
+    description: Find the underlying cause
+    tasks:
+      - Trace the code execution
+      - Identify the exact failure point
+      - Understand why the bug occurs
+      - Check for similar patterns elsewhere
+      - Document findings
+
+  - name: Solution Design
+    description: Plan the fix
+    tasks:
+      - Consider multiple approaches
+      - Evaluate impact of each approach
+      - Choose the best solution
+      - Identify potential side effects
+      - Plan regression testing
+
+  - name: Implementation
+    description: Fix the bug
+    tasks:
+      - Write a failing test that reproduces the bug
+      - Implement the fix
+      - Verify the test passes
+      - Check for edge cases
+      - Update any affected tests
+
+  - name: Verification
+    description: Ensure the fix works
+    tasks:
+      - Run full test suite
+      - Manual testing in development
+      - Test related functionality
+      - Performance check if relevant
+      - Check for regressions
+
+  - name: Release
+    description: Deploy the fix
+    tasks:
+      - Create pull request with clear description
+      - Include reproduction steps and solution
+      - Address review feedback
+      - Merge and deploy
+      - Monitor production for issues
