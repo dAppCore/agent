@@ -1,5 +1,5 @@
 ---
-name: core:review
+name: review
 description: Review completed agent workspace — show output, git diff, and merge options
 arguments:
   - name: workspace

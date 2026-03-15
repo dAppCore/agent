@@ -1,5 +1,5 @@
 ---
-name: core:sweep
+name: sweep
 description: Dispatch a batch audit across all Go repos in the ecosystem
 arguments:
   - name: template
