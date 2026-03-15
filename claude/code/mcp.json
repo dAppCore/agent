@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "core": {
+      "type": "http",
+      "url": "https://api.lthn.sh/mcp",
+      "headers": {
+        "Authorization": "Bearer $CORE_BRAIN_KEY"
+      },
+      "allowedEnvVars": ["CORE_BRAIN_KEY"]
+    }
+  }
+}
