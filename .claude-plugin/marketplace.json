@@ -7,10 +7,10 @@
   },
   "plugins": [
     {
-      "name": "code",
-      "source": "./claude/code",
-      "description": "Core development hooks, auto-approve workflow, and research data collection",
-      "version": "0.2.0"
+      "name": "core",
+      "source": "./claude/core",
+      "description": "Core agent platform — dispatch, status, review, sweep, recall, scan, conventions enforcement",
+      "version": "0.3.0"
     },
     {
       "name": "review",
