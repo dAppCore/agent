@@ -1,6 +1,6 @@
 {
-  "name": "code",
-  "description": "Core development hooks, auto-approve workflow, and cryptocurrency research data collection skills",
+  "name": "core",
+  "description": "Core agent platform — dispatch, status, review, sweep, recall, scan, conventions enforcement",
   "version": "0.2.0",
   "author": {
     "name": "Lethean",
