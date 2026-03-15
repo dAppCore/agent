@@ -15,6 +15,39 @@ concurrency:
   gemini: 3
   codex: 1
 
+# Rate limiting / quota management
+# Controls pacing between task dispatches to stay within daily quotas.
+# The scheduler calculates delay based on: time remaining in window,
+# tasks remaining, and burst vs sustained mode.
+rates:
+  gemini:
+    # Daily quota resets at this time (UTC)
+    reset_utc: "06:00"
+    # Maximum requests per day (0 = unlimited / unknown)
+    daily_limit: 0
+    # Minimum delay between task starts (seconds)
+    min_delay: 30
+    # Delay between tasks when pacing for sustained use (seconds)
+    sustained_delay: 120
+    # Hours before reset where burst mode kicks in
+    burst_window: 3
+    # Delay during burst window (seconds)
+    burst_delay: 30
+  claude:
+    reset_utc: "00:00"
+    daily_limit: 0
+    min_delay: 0
+    sustained_delay: 0
+    burst_window: 0
+    burst_delay: 0
+  codex:
+    reset_utc: "00:00"
+    daily_limit: 0
+    min_delay: 60
+    sustained_delay: 300
+    burst_window: 0
+    burst_delay: 60
+
 # Agent identities (which agents can dispatch)
 agents:
   cladius:
