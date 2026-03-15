@@ -1,0 +1,37 @@
+name: Dead Code Scan
+description: Find unreachable functions, unused exports, and orphaned files
+category: audit
+
+guidelines:
+  - Only flag code that is genuinely unused, not just potentially unused
+  - Check go.work and cross-repo imports before flagging exports as unused
+  - Orphaned files include leftover migrations, unused configs, stale test fixtures
+
+phases:
+  - name: Unused Exports
+    description: Find exported functions/types with no callers
+    tasks:
+      - "List all exported functions and types"
+      - "Search for callers within the package and known consumers"
+      - "Flag exports with zero callers (check CONSUMERS.md for cross-repo usage)"
+
+  - name: Dead Functions
+    description: Find unexported functions with no internal callers
+    tasks:
+      - "List unexported (lowercase) functions"
+      - "Check for callers within the same package"
+      - "Flag functions with zero callers"
+
+  - name: Orphaned Files
+    description: Find files that serve no purpose
+    tasks:
+      - "Check for .go files not imported by any other file in the package"
+      - "Check for test fixtures not referenced by any test"
+      - "Check for config files not loaded by any code"
+      - "Check for documentation files referencing deleted code"
+
+  - name: Report
+    description: Document findings
+    tasks:
+      - "List each dead code item with file:line and last git commit that touched it"
+      - "Classify as safe-to-remove or needs-investigation"

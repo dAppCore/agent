@@ -1,0 +1,40 @@
+name: Test Coverage Gaps
+description: Find functions without test coverage and missing edge case tests
+category: audit
+
+guidelines:
+  - Focus on exported functions first (public API)
+  - Error paths are more important than happy paths (they're usually untested)
+  - Tests should follow _Good/_Bad/_Ugly naming convention
+  - Use testify assert/require, table-driven preferred
+
+phases:
+  - name: Coverage Analysis
+    description: Identify untested exported functions
+    tasks:
+      - "List all exported functions and methods"
+      - "Check each has at least one test calling it"
+      - "Flag functions with zero test coverage"
+      - "Note which are critical paths (called by many consumers)"
+
+  - name: Error Path Analysis
+    description: Find untested error conditions
+    tasks:
+      - "For each function that returns error, check if error paths are tested"
+      - "Check for nil/empty input handling tests"
+      - "Check for boundary condition tests (zero, max, negative)"
+      - "Flag error paths with no test coverage"
+
+  - name: Missing Edge Cases
+    description: Find obvious gaps in existing tests
+    tasks:
+      - "Check concurrent access tests for types with mutexes"
+      - "Check for tests with hardcoded paths or environment assumptions"
+      - "Check for tests that only test the happy path"
+
+  - name: Report
+    description: Document findings with priority
+    tasks:
+      - "List untested functions with file:line, consumer count, and priority"
+      - "List untested error paths with the error condition"
+      - "Suggest specific test cases to add"
