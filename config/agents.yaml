@@ -2,14 +2,18 @@ version: 1
 
 # Dispatch concurrency control
 dispatch:
-  # Maximum concurrent agent processes (0 = unlimited)
-  max_concurrent: 2
   # Default agent type when not specified
   default_agent: claude
   # Default prompt template
   default_template: coding
   # Workspace root (relative to this file's parent)
   workspace_root: .core/workspace
+
+# Per-agent concurrency limits (0 = unlimited)
+concurrency:
+  claude: 1
+  gemini: 3
+  codex: 1
 
 # Agent identities (which agents can dispatch)
 agents:
