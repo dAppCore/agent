@@ -1,7 +1,7 @@
 {
   "name": "core",
   "description": "Core agent platform — dispatch, status, review, sweep, recall, scan, conventions enforcement",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "Lethean",
     "email": "hello@host.uk.com"
