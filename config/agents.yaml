@@ -1,0 +1,35 @@
+version: 1
+
+# Dispatch concurrency control
+dispatch:
+  # Maximum concurrent agent processes (0 = unlimited)
+  max_concurrent: 2
+  # Default agent type when not specified
+  default_agent: claude
+  # Default prompt template
+  default_template: coding
+  # Workspace root (relative to this file's parent)
+  workspace_root: .core/workspace
+
+# Agent identities (which agents can dispatch)
+agents:
+  cladius:
+    host: local
+    runner: claude
+    active: true
+    roles: [dispatch, review, plan]
+  athena:
+    host: local
+    runner: claude
+    active: true
+    roles: [worker]
+  charon:
+    host: 10.69.69.165
+    runner: claude
+    active: false
+    roles: [worker, review]
+  clotho:
+    host: remote
+    runner: claude
+    active: false
+    roles: [worker]
