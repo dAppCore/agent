@@ -67,7 +67,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "codex":
 		return "codex", []string{"--approval-mode", "full-auto", "-q", prompt}, nil
 	case "claude":
-		args := []string{"-p", prompt, "--dangerously-skip-permissions"}
+		args := []string{"-p", prompt, "--output-format", "text", "--permission-mode", "bypassPermissions", "--no-session-persistence"}
 		if model != "" {
 			args = append(args, "--model", model)
 		}
