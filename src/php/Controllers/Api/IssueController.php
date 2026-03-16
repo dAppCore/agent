@@ -23,7 +23,7 @@ class IssueController extends Controller
     {
         $validated = $request->validate([
             'status' => 'nullable|string|in:open,in_progress,review,closed',
-            'type' => 'nullable|string|in:bug,feature,task,improvement',
+            'type' => 'nullable|string|in:bug,feature,task,improvement,epic',
             'priority' => 'nullable|string|in:low,normal,high,urgent',
             'sprint' => 'nullable|string',
             'label' => 'nullable|string',
@@ -95,7 +95,7 @@ class IssueController extends Controller
             'title' => 'required|string|max:255',
             'slug' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:10000',
-            'type' => 'nullable|string|in:bug,feature,task,improvement',
+            'type' => 'nullable|string|in:bug,feature,task,improvement,epic',
             'priority' => 'nullable|string|in:low,normal,high,urgent',
             'labels' => 'nullable|array',
             'labels.*' => 'string',
@@ -135,7 +135,7 @@ class IssueController extends Controller
         $validated = $request->validate([
             'status' => 'nullable|string|in:open,in_progress,review,closed',
             'priority' => 'nullable|string|in:low,normal,high,urgent',
-            'type' => 'nullable|string|in:bug,feature,task,improvement',
+            'type' => 'nullable|string|in:bug,feature,task,improvement,epic',
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:10000',
             'assignee' => 'nullable|string|max:255',

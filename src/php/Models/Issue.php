@@ -85,6 +85,8 @@ class Issue extends Model
 
     public const TYPE_IMPROVEMENT = 'improvement';
 
+    public const TYPE_EPIC = 'epic';
+
     // Priority constants
     public const PRIORITY_LOW = 'low';
 
