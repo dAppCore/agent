@@ -41,7 +41,9 @@ type SendOutput struct {
 	To      string `json:"to"`
 }
 
-type InboxInput struct{}
+type InboxInput struct {
+	Agent string `json:"agent,omitempty"`
+}
 
 type MessageItem struct {
 	ID        int    `json:"id"`
@@ -95,7 +97,11 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 }
 
 func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, input InboxInput) (*mcp.CallToolResult, InboxOutput, error) {
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+agentName(), nil)
+	agent := input.Agent
+	if agent == "" {
+		agent = agentName()
+	}
+	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+agent, nil)
 	if err != nil {
 		return nil, InboxOutput{}, err
 	}

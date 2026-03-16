@@ -87,13 +87,13 @@ Route::middleware(AgentApiAuth::class.':sprints.write')->group(function () {
     Route::delete('v1/sprints/{slug}', [SprintController::class, 'destroy']);
 });
 
-// Agent messaging
-Route::middleware(AgentApiAuth::class.':plans.read')->group(function () {
+// Agent messaging — uses auth.api (same as brain routes) so CORE_BRAIN_KEY works
+Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () {
     Route::get('v1/messages/inbox', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'inbox']);
     Route::get('v1/messages/conversation/{agent}', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'conversation']);
 });
 
-Route::middleware(AgentApiAuth::class.':plans.write')->group(function () {
+Route::middleware(['throttle:60,1', 'auth.api:brain:write'])->group(function () {
     Route::post('v1/messages/send', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'send']);
     Route::post('v1/messages/{id}/read', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'markRead']);
 });
