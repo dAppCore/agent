@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Controllers\AgentApiController;
+use Core\Mod\Agentic\Controllers\Api\IssueController;
+use Core\Mod\Agentic\Controllers\Api\SprintController;
 use Core\Mod\Agentic\Middleware\AgentApiAuth;
 use Illuminate\Support\Facades\Route;
 
@@ -57,4 +59,30 @@ Route::middleware(AgentApiAuth::class.':sessions.write')->group(function () {
     Route::post('v1/sessions', [AgentApiController::class, 'startSession']);
     Route::post('v1/sessions/{sessionId}/end', [AgentApiController::class, 'endSession']);
     Route::post('v1/sessions/{sessionId}/continue', [AgentApiController::class, 'continueSession']);
+});
+
+// Issue tracker
+Route::middleware(AgentApiAuth::class.':issues.read')->group(function () {
+    Route::get('v1/issues', [IssueController::class, 'index']);
+    Route::get('v1/issues/{slug}', [IssueController::class, 'show']);
+    Route::get('v1/issues/{slug}/comments', [IssueController::class, 'comments']);
+});
+
+Route::middleware(AgentApiAuth::class.':issues.write')->group(function () {
+    Route::post('v1/issues', [IssueController::class, 'store']);
+    Route::patch('v1/issues/{slug}', [IssueController::class, 'update']);
+    Route::delete('v1/issues/{slug}', [IssueController::class, 'destroy']);
+    Route::post('v1/issues/{slug}/comments', [IssueController::class, 'addComment']);
+});
+
+// Sprints
+Route::middleware(AgentApiAuth::class.':sprints.read')->group(function () {
+    Route::get('v1/sprints', [SprintController::class, 'index']);
+    Route::get('v1/sprints/{slug}', [SprintController::class, 'show']);
+});
+
+Route::middleware(AgentApiAuth::class.':sprints.write')->group(function () {
+    Route::post('v1/sprints', [SprintController::class, 'store']);
+    Route::patch('v1/sprints/{slug}', [SprintController::class, 'update']);
+    Route::delete('v1/sprints/{slug}', [SprintController::class, 'destroy']);
 });
