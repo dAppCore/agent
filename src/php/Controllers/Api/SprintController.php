@@ -25,11 +25,11 @@ class SprintController extends Controller
             'include_cancelled' => 'nullable|boolean',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
             $sprints = ListSprints::run(
-                $workspace->id,
+                $workspaceId,
                 $validated['status'] ?? null,
                 (bool) ($validated['include_cancelled'] ?? false),
             );
@@ -59,10 +59,10 @@ class SprintController extends Controller
      */
     public function show(Request $request, string $slug): JsonResponse
     {
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $sprint = GetSprint::run($slug, $workspace->id);
+            $sprint = GetSprint::run($slug, $workspaceId);
 
             return response()->json([
                 'data' => $sprint->toMcpContext(),
@@ -88,10 +88,10 @@ class SprintController extends Controller
             'metadata' => 'nullable|array',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $sprint = CreateSprint::run($validated, $workspace->id);
+            $sprint = CreateSprint::run($validated, $workspaceId);
 
             return response()->json([
                 'data' => [
@@ -120,10 +120,10 @@ class SprintController extends Controller
             'goal' => 'nullable|string|max:10000',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $sprint = UpdateSprint::run($slug, $validated, $workspace->id);
+            $sprint = UpdateSprint::run($slug, $validated, $workspaceId);
 
             return response()->json([
                 'data' => [
@@ -149,10 +149,10 @@ class SprintController extends Controller
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $sprint = ArchiveSprint::run($slug, $workspace->id, $request->input('reason'));
+            $sprint = ArchiveSprint::run($slug, $workspaceId, $request->input('reason'));
 
             return response()->json([
                 'data' => [

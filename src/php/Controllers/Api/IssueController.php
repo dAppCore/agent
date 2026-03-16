@@ -30,11 +30,11 @@ class IssueController extends Controller
             'include_closed' => 'nullable|boolean',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
             $issues = ListIssues::run(
-                $workspace->id,
+                $workspaceId,
                 $validated['status'] ?? null,
                 $validated['type'] ?? null,
                 $validated['priority'] ?? null,
@@ -70,10 +70,10 @@ class IssueController extends Controller
      */
     public function show(Request $request, string $slug): JsonResponse
     {
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $issue = GetIssue::run($slug, $workspace->id);
+            $issue = GetIssue::run($slug, $workspaceId);
 
             return response()->json([
                 'data' => $issue->toMcpContext(),
@@ -105,10 +105,10 @@ class IssueController extends Controller
             'metadata' => 'nullable|array',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $issue = CreateIssue::run($validated, $workspace->id);
+            $issue = CreateIssue::run($validated, $workspaceId);
 
             return response()->json([
                 'data' => [
@@ -144,10 +144,10 @@ class IssueController extends Controller
             'labels.*' => 'string',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $issue = UpdateIssue::run($slug, $validated, $workspace->id);
+            $issue = UpdateIssue::run($slug, $validated, $workspaceId);
 
             return response()->json([
                 'data' => [
@@ -174,10 +174,10 @@ class IssueController extends Controller
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $issue = ArchiveIssue::run($slug, $workspace->id, $request->input('reason'));
+            $issue = ArchiveIssue::run($slug, $workspaceId, $request->input('reason'));
 
             return response()->json([
                 'data' => [
@@ -199,10 +199,10 @@ class IssueController extends Controller
      */
     public function comments(Request $request, string $slug): JsonResponse
     {
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
-            $issue = GetIssue::run($slug, $workspace->id);
+            $issue = GetIssue::run($slug, $workspaceId);
             $comments = $issue->comments;
 
             return response()->json([
@@ -228,12 +228,12 @@ class IssueController extends Controller
             'metadata' => 'nullable|array',
         ]);
 
-        $workspace = $request->attributes->get('workspace');
+        $workspaceId = $request->attributes->get('workspace_id');
 
         try {
             $comment = AddIssueComment::run(
                 $slug,
-                $workspace->id,
+                $workspaceId,
                 $validated['author'],
                 $validated['body'],
                 $validated['metadata'] ?? null,
