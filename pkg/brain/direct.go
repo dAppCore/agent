@@ -152,9 +152,12 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 
 func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
 	body := map[string]any{
-		"query":    input.Query,
-		"top_k":    input.TopK,
-		"agent_id": agentName(),
+		"query": input.Query,
+		"top_k": input.TopK,
+	}
+	// Only filter by agent_id if explicitly provided — shared brain by default
+	if input.Filter.AgentID != "" {
+		body["agent_id"] = input.Filter.AgentID
 	}
 	if input.Filter.Project != "" {
 		body["project"] = input.Filter.Project
