@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -73,7 +74,7 @@ type ConversationOutput struct {
 
 func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	if input.To == "" || input.Content == "" {
-		return nil, SendOutput{}, fmt.Errorf("to and content are required")
+		return nil, SendOutput{}, coreerr.E("brain.sendMessage", "to and content are required", nil)
 	}
 
 	result, err := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
@@ -114,7 +115,7 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 
 func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolRequest, input ConversationInput) (*mcp.CallToolResult, ConversationOutput, error) {
 	if input.Agent == "" {
-		return nil, ConversationOutput{}, fmt.Errorf("agent is required")
+		return nil, ConversationOutput{}, coreerr.E("brain.conversation", "agent is required", nil)
 	}
 
 	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+input.Agent+"?me="+agentName(), nil)

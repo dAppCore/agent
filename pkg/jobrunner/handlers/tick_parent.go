@@ -8,6 +8,7 @@ import (
 
 	forgejosdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-scm/forge"
 	"forge.lthn.ai/core/agent/pkg/jobrunner"
 )
@@ -41,7 +42,7 @@ func (h *TickParentHandler) Execute(ctx context.Context, signal *jobrunner.Pipel
 	// Fetch the epic issue body.
 	epic, err := h.forge.GetIssue(signal.RepoOwner, signal.RepoName, int64(signal.EpicNumber))
 	if err != nil {
-		return nil, fmt.Errorf("tick_parent: fetch epic: %w", err)
+		return nil, coreerr.E("tick_parent.Execute", "fetch epic", err)
 	}
 
 	oldBody := epic.Body

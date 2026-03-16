@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -76,7 +78,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		script := filepath.Join(home, "Code", "core", "agent", "scripts", "local-agent.sh")
 		return "bash", []string{script, prompt}, nil
 	default:
-		return "", nil, fmt.Errorf("unknown agent: %s", agent)
+		return "", nil, coreerr.E("agentCommand", "unknown agent: "+agent, nil)
 	}
 }
 
@@ -99,7 +101,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		Detach:  true,
 	})
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to spawn %s: %w", agent, err)
+		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
 	}
 
 	pid := proc.Info().PID
@@ -109,7 +111,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 		// Write captured output to log file
 		if output := proc.Output(); output != "" {
-			os.WriteFile(outputFile, []byte(output), 0644)
+			coreio.Local.Write(outputFile, output)
 		}
 
 		// Update status to completed
@@ -131,10 +133,10 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
 	if input.Repo == "" {
-		return nil, DispatchOutput{}, fmt.Errorf("repo is required")
+		return nil, DispatchOutput{}, coreerr.E("dispatch", "repo is required", nil)
 	}
 	if input.Task == "" {
-		return nil, DispatchOutput{}, fmt.Errorf("task is required")
+		return nil, DispatchOutput{}, coreerr.E("dispatch", "task is required", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
@@ -159,7 +161,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 	_, prepOut, err := s.prepWorkspace(ctx, req, prepInput)
 	if err != nil {
-		return nil, DispatchOutput{}, fmt.Errorf("prep workspace failed: %w", err)
+		return nil, DispatchOutput{}, coreerr.E("dispatch", "prep workspace failed", err)
 	}
 
 	wsDir := prepOut.WorkspaceDir
@@ -170,13 +172,13 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 
 	if input.DryRun {
 		// Read PROMPT.md for the dry run output
-		promptContent, _ := os.ReadFile(filepath.Join(wsDir, "PROMPT.md"))
+		promptContent, _ := coreio.Local.Read(filepath.Join(wsDir, "PROMPT.md"))
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,
 			Repo:         input.Repo,
 			WorkspaceDir: wsDir,
-			Prompt:       string(promptContent),
+			Prompt:       promptContent,
 		}, nil
 	}
 

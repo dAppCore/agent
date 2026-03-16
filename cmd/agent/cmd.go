@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +10,7 @@ import (
 
 	"forge.lthn.ai/core/cli/pkg/cli"
 	agentic "forge.lthn.ai/core/agent/pkg/lifecycle"
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-scm/agentci"
 	"forge.lthn.ai/core/config"
 )
@@ -80,18 +80,18 @@ func agentAddCmd() *cli.Command {
 			keys, err := scanCmd.Output()
 			if err != nil {
 				fmt.Println(errorStyle.Render("FAILED"))
-				return fmt.Errorf("failed to scan host keys: %w", err)
+				return coreerr.E("agent.add", "failed to scan host keys", err)
 			}
 
 			home, _ := os.UserHomeDir()
 			knownHostsPath := filepath.Join(home, ".ssh", "known_hosts")
 			f, err := os.OpenFile(knownHostsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 			if err != nil {
-				return fmt.Errorf("failed to open known_hosts: %w", err)
+				return coreerr.E("agent.add", "failed to open known_hosts", err)
 			}
 			if _, err := f.Write(keys); err != nil {
 				f.Close()
-				return fmt.Errorf("failed to write known_hosts: %w", err)
+				return coreerr.E("agent.add", "failed to write known_hosts", err)
 			}
 			f.Close()
 			fmt.Println(successStyle.Render("OK"))
@@ -102,7 +102,7 @@ func agentAddCmd() *cli.Command {
 			out, err := testCmd.CombinedOutput()
 			if err != nil {
 				fmt.Println(errorStyle.Render("FAILED"))
-				return fmt.Errorf("SSH failed: %s", strings.TrimSpace(string(out)))
+				return coreerr.E("agent.add", "SSH failed: "+strings.TrimSpace(string(out)), nil)
 			}
 			fmt.Println(successStyle.Render("OK"))
 
@@ -204,7 +204,7 @@ func agentStatusCmd() *cli.Command {
 			}
 			ac, ok := agents[name]
 			if !ok {
-				return fmt.Errorf("agent %q not found", name)
+				return coreerr.E("agent.status", "agent not found: "+name, nil)
 			}
 
 			script := `
@@ -256,7 +256,7 @@ func agentLogsCmd() *cli.Command {
 			}
 			ac, ok := agents[name]
 			if !ok {
-				return fmt.Errorf("agent %q not found", name)
+				return coreerr.E("agent.status", "agent not found: "+name, nil)
 			}
 
 			remoteCmd := fmt.Sprintf("tail -n %d ~/ai-work/logs/runner.log", lines)
@@ -294,13 +294,13 @@ func agentSetupCmd() *cli.Command {
 			}
 			ac, ok := agents[name]
 			if !ok {
-				return fmt.Errorf("agent %q not found — use 'core ai agent add' first", name)
+				return coreerr.E("agent.setup", "agent not found: "+name+" — use 'core ai agent add' first", nil)
 			}
 
 			// Find the setup script relative to the binary or in known locations.
 			scriptPath := findSetupScript()
 			if scriptPath == "" {
-				return errors.New("agent-setup.sh not found — expected in scripts/ directory")
+				return coreerr.E("agent.setup", "agent-setup.sh not found — expected in scripts/ directory", nil)
 			}
 
 			fmt.Printf("Setting up %s on %s...\n", name, ac.Host)
@@ -308,7 +308,7 @@ func agentSetupCmd() *cli.Command {
 			setupCmd.Stdout = os.Stdout
 			setupCmd.Stderr = os.Stderr
 			if err := setupCmd.Run(); err != nil {
-				return fmt.Errorf("setup failed: %w", err)
+				return coreerr.E("agent.setup", "setup failed", err)
 			}
 
 			fmt.Println(successStyle.Render("Setup complete!"))
@@ -358,7 +358,7 @@ func agentFleetCmd() *cli.Command {
 
 			registry, err := agentic.NewSQLiteRegistry(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to open registry: %w", err)
+				return coreerr.E("agent.fleet", "failed to open registry", err)
 			}
 			defer registry.Close()
 

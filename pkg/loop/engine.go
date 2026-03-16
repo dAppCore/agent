@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/go-inference"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // Engine drives the agent loop: prompt the model, parse tool calls, execute
@@ -56,7 +57,7 @@ func New(opts ...Option) *Engine {
 // until the model produces a response with no tool blocks or maxTurns is hit.
 func (e *Engine) Run(ctx context.Context, userMessage string) (*Result, error) {
 	if e.model == nil {
-		return nil, fmt.Errorf("loop: no model configured")
+		return nil, coreerr.E("loop.Run", "no model configured", nil)
 	}
 
 	system := e.system
@@ -74,7 +75,7 @@ func (e *Engine) Run(ctx context.Context, userMessage string) (*Result, error) {
 
 	for turn := 0; turn < e.maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("loop: context cancelled: %w", err)
+			return nil, coreerr.E("loop.Run", "context cancelled", err)
 		}
 
 		prompt := BuildFullPrompt(system, history, "")
@@ -83,7 +84,7 @@ func (e *Engine) Run(ctx context.Context, userMessage string) (*Result, error) {
 			response.WriteString(tok.Text)
 		}
 		if err := e.model.Err(); err != nil {
-			return nil, fmt.Errorf("loop: inference error: %w", err)
+			return nil, coreerr.E("loop.Run", "inference error", err)
 		}
 
 		fullResponse := response.String()
@@ -127,5 +128,5 @@ func (e *Engine) Run(ctx context.Context, userMessage string) (*Result, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("loop: max turns (%d) exceeded", e.maxTurns)
+	return nil, coreerr.E("loop.Run", fmt.Sprintf("max turns (%d) exceeded", e.maxTurns), nil)
 }

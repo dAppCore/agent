@@ -3,8 +3,8 @@ package loop
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	aimcp "forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
@@ -30,7 +30,7 @@ func WrapRESTHandler(handler RESTHandlerFunc) func(context.Context, map[string]a
 	return func(ctx context.Context, args map[string]any) (string, error) {
 		body, err := json.Marshal(args)
 		if err != nil {
-			return "", fmt.Errorf("marshal args: %w", err)
+			return "", coreerr.E("mcp.handler", "marshal args", err)
 		}
 
 		result, err := handler(ctx, body)
@@ -40,7 +40,7 @@ func WrapRESTHandler(handler RESTHandlerFunc) func(context.Context, map[string]a
 
 		out, err := json.Marshal(result)
 		if err != nil {
-			return "", fmt.Errorf("marshal result: %w", err)
+			return "", coreerr.E("mcp.handler", "marshal result", err)
 		}
 		return string(out), nil
 	}

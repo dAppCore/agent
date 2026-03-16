@@ -10,7 +10,6 @@ package workspace
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 
 	"forge.lthn.ai/core/cli/pkg/cli"
 	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-scm/repos"
 )
 
@@ -114,7 +114,7 @@ func runTaskCreate(cmd *cli.Command, args []string) error {
 	if len(repoNames) == 0 {
 		repoNames, err = registryRepoNames(root)
 		if err != nil {
-			return fmt.Errorf("failed to load registry: %w", err)
+			return coreerr.E("taskCreate", "failed to load registry", err)
 		}
 	}
 
@@ -133,7 +133,7 @@ func runTaskCreate(cmd *cli.Command, args []string) error {
 	}
 
 	if err := coreio.Local.EnsureDir(wsPath); err != nil {
-		return fmt.Errorf("failed to create workspace directory: %w", err)
+		return coreerr.E("taskCreate", "failed to create workspace directory", err)
 	}
 
 	cli.Print("Creating task workspace: %s\n", cli.ValueStyle.Render(fmt.Sprintf("p%d/i%d", taskEpic, taskIssue)))
@@ -190,14 +190,14 @@ func runTaskRemove(cmd *cli.Command, args []string) error {
 				cli.Print("  %s %s\n", cli.ErrorStyle.Render("·"), r)
 			}
 			cli.Print("\nUse --force to override or resolve the issues first.\n")
-			return errors.New("workspace has unresolved changes")
+			return coreerr.E("taskRemove", "workspace has unresolved changes", nil)
 		}
 	}
 
 	// Remove worktrees first (so git knows they're gone)
 	entries, err := coreio.Local.List(wsPath)
 	if err != nil {
-		return fmt.Errorf("failed to list workspace: %w", err)
+		return coreerr.E("taskRemove", "failed to list workspace", err)
 	}
 
 	config, _ := LoadConfig(root)
@@ -224,7 +224,7 @@ func runTaskRemove(cmd *cli.Command, args []string) error {
 
 	// Remove the workspace directory
 	if err := coreio.Local.DeleteAll(wsPath); err != nil {
-		return fmt.Errorf("failed to remove workspace directory: %w", err)
+		return coreerr.E("taskRemove", "failed to remove workspace directory", err)
 	}
 
 	// Clean up empty parent (p{epic}/) if it's now empty
@@ -251,7 +251,7 @@ func runTaskList(cmd *cli.Command, args []string) error {
 
 	epics, err := coreio.Local.List(wsRoot)
 	if err != nil {
-		return fmt.Errorf("failed to list workspaces: %w", err)
+		return coreerr.E("taskList", "failed to list workspaces", err)
 	}
 
 	found := false
@@ -316,7 +316,7 @@ func runTaskStatus(cmd *cli.Command, args []string) error {
 
 	entries, err := coreio.Local.List(wsPath)
 	if err != nil {
-		return fmt.Errorf("failed to list workspace: %w", err)
+		return coreerr.E("taskStatus", "failed to list workspace", err)
 	}
 
 	for _, entry := range entries {
@@ -369,11 +369,11 @@ func createWorktree(ctx context.Context, repoPath, worktreePath, branch string) 
 			cmd.Dir = repoPath
 			output, err = cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("%s", strings.TrimSpace(string(output)))
+				return coreerr.E("createWorktree", strings.TrimSpace(string(output)), nil)
 			}
 			return nil
 		}
-		return fmt.Errorf("%s", errStr)
+		return coreerr.E("createWorktree", errStr, nil)
 	}
 	return nil
 }

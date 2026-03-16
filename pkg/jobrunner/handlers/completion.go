@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-scm/forge"
 	"forge.lthn.ai/core/agent/pkg/jobrunner"
 )
@@ -47,11 +48,11 @@ func (h *CompletionHandler) Execute(ctx context.Context, signal *jobrunner.Pipel
 	if signal.Success {
 		completeLabel, err := h.forge.EnsureLabel(signal.RepoOwner, signal.RepoName, LabelAgentComplete, ColorAgentComplete)
 		if err != nil {
-			return nil, fmt.Errorf("ensure label %s: %w", LabelAgentComplete, err)
+			return nil, coreerr.E("completion.Execute", "ensure label "+LabelAgentComplete, err)
 		}
 
 		if err := h.forge.AddIssueLabels(signal.RepoOwner, signal.RepoName, int64(signal.ChildNumber), []int64{completeLabel.ID}); err != nil {
-			return nil, fmt.Errorf("add completed label: %w", err)
+			return nil, coreerr.E("completion.Execute", "add completed label", err)
 		}
 
 		if signal.Message != "" {
@@ -60,11 +61,11 @@ func (h *CompletionHandler) Execute(ctx context.Context, signal *jobrunner.Pipel
 	} else {
 		failedLabel, err := h.forge.EnsureLabel(signal.RepoOwner, signal.RepoName, LabelAgentFailed, ColorAgentFailed)
 		if err != nil {
-			return nil, fmt.Errorf("ensure label %s: %w", LabelAgentFailed, err)
+			return nil, coreerr.E("completion.Execute", "ensure label "+LabelAgentFailed, err)
 		}
 
 		if err := h.forge.AddIssueLabels(signal.RepoOwner, signal.RepoName, int64(signal.ChildNumber), []int64{failedLabel.ID}); err != nil {
-			return nil, fmt.Errorf("add failed label: %w", err)
+			return nil, coreerr.E("completion.Execute", "add failed label", err)
 		}
 
 		msg := "Agent reported failure."

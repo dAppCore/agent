@@ -23,7 +23,6 @@ package workspace
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -31,6 +30,7 @@ import (
 
 	"forge.lthn.ai/core/cli/pkg/cli"
 	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 var (
@@ -92,7 +92,7 @@ func agentContextPath(wsPath, provider, name string) string {
 func parseAgentID(id string) (provider, name string, err error) {
 	parts := strings.SplitN(id, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", errors.New("agent ID must be provider/agent-name (e.g. claude-opus/qa)")
+		return "", "", coreerr.E("parseAgentID", "agent ID must be provider/agent-name (e.g. claude-opus/qa)", nil)
 	}
 	return parts[0], parts[1], nil
 }
@@ -134,10 +134,10 @@ func runAgentInit(cmd *cli.Command, args []string) error {
 
 	// Create directory structure
 	if err := coreio.Local.EnsureDir(agentDir); err != nil {
-		return fmt.Errorf("failed to create agent directory: %w", err)
+		return coreerr.E("agentInit", "failed to create agent directory", err)
 	}
 	if err := coreio.Local.EnsureDir(filepath.Join(agentDir, "artifacts")); err != nil {
-		return fmt.Errorf("failed to create artifacts directory: %w", err)
+		return coreerr.E("agentInit", "failed to create artifacts directory", err)
 	}
 
 	// Create initial memory.md
@@ -153,7 +153,7 @@ func runAgentInit(cmd *cli.Command, args []string) error {
 `, provider, name, taskIssue, taskEpic, taskEpic, taskIssue, time.Now().Format(time.RFC3339))
 
 	if err := coreio.Local.Write(filepath.Join(agentDir, "memory.md"), memoryContent); err != nil {
-		return fmt.Errorf("failed to create memory.md: %w", err)
+		return coreerr.E("agentInit", "failed to create memory.md", err)
 	}
 
 	// Write manifest
@@ -184,7 +184,7 @@ func runAgentList(cmd *cli.Command, args []string) error {
 
 	providers, err := coreio.Local.List(agentsDir)
 	if err != nil {
-		return fmt.Errorf("failed to list agents: %w", err)
+		return coreerr.E("agentList", "failed to list agents", err)
 	}
 
 	found := false

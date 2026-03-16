@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 var eaasClient = &http.Client{Timeout: 30 * time.Second}
@@ -59,28 +61,28 @@ func eaasPostHandler(baseURL, path string) func(context.Context, map[string]any)
 	return func(ctx context.Context, args map[string]any) (string, error) {
 		body, err := json.Marshal(args)
 		if err != nil {
-			return "", fmt.Errorf("marshal args: %w", err)
+			return "", coreerr.E("eaas.handler", "marshal args", err)
 		}
 
 		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+path, bytes.NewReader(body))
 		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
+			return "", coreerr.E("eaas.handler", "create request", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := eaasClient.Do(req)
 		if err != nil {
-			return "", fmt.Errorf("eaas request: %w", err)
+			return "", coreerr.E("eaas.handler", "eaas request", err)
 		}
 		defer resp.Body.Close()
 
 		result, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("read response: %w", err)
+			return "", coreerr.E("eaas.handler", "read response", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("eaas returned %d: %s", resp.StatusCode, string(result))
+			return "", coreerr.E("eaas.handler", fmt.Sprintf("eaas returned %d: %s", resp.StatusCode, string(result)), nil)
 		}
 
 		return string(result), nil

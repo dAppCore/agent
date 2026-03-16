@@ -2,12 +2,13 @@ package lifecycle
 
 import (
 	"cmp"
-	"errors"
 	"slices"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // ErrNoEligibleAgent is returned when no agent matches the task requirements.
-var ErrNoEligibleAgent = errors.New("no eligible agent for task")
+var ErrNoEligibleAgent = coreerr.E("TaskRouter", "no eligible agent for task", nil)
 
 // TaskRouter selects an agent for a given task from a list of candidates.
 type TaskRouter interface {

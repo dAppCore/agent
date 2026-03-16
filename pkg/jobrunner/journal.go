@@ -3,14 +3,15 @@ package jobrunner
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"iter"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // validPathComponent matches safe repo owner/name characters (alphanumeric, hyphen, underscore, dot).
@@ -55,7 +56,7 @@ type Journal struct {
 // NewJournal creates a new Journal rooted at baseDir.
 func NewJournal(baseDir string) (*Journal, error) {
 	if baseDir == "" {
-		return nil, errors.New("journal.NewJournal: base directory is required")
+		return nil, coreerr.E("journal.NewJournal", "base directory is required", nil)
 	}
 	return &Journal{baseDir: baseDir}, nil
 }
@@ -66,12 +67,12 @@ func NewJournal(baseDir string) (*Journal, error) {
 func sanitizePathComponent(name string) (string, error) {
 	// Reject empty or whitespace-only values.
 	if name == "" || strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("journal.sanitizePathComponent: invalid path component: %q", name)
+		return "", coreerr.E("journal.sanitizePathComponent", "invalid path component: "+name, nil)
 	}
 
 	// Reject inputs containing path separators (directory traversal attempt).
 	if strings.ContainsAny(name, `/\`) {
-		return "", fmt.Errorf("journal.sanitizePathComponent: path component contains directory separator: %q", name)
+		return "", coreerr.E("journal.sanitizePathComponent", "path component contains directory separator: "+name, nil)
 	}
 
 	// Use filepath.Clean to normalize (e.g., collapse redundant dots).
@@ -79,12 +80,12 @@ func sanitizePathComponent(name string) (string, error) {
 
 	// Reject traversal components.
 	if clean == "." || clean == ".." {
-		return "", fmt.Errorf("journal.sanitizePathComponent: invalid path component: %q", name)
+		return "", coreerr.E("journal.sanitizePathComponent", "invalid path component: "+name, nil)
 	}
 
 	// Validate against the safe character set.
 	if !validPathComponent.MatchString(clean) {
-		return "", fmt.Errorf("journal.sanitizePathComponent: path component contains invalid characters: %q", name)
+		return "", coreerr.E("journal.sanitizePathComponent", "path component contains invalid characters: "+name, nil)
 	}
 
 	return clean, nil
@@ -122,10 +123,10 @@ func (j *Journal) ReadEntries(path string) iter.Seq2[JournalEntry, error] {
 // Append writes a journal entry for the given signal and result.
 func (j *Journal) Append(signal *PipelineSignal, result *ActionResult) error {
 	if signal == nil {
-		return errors.New("journal.Append: signal is required")
+		return coreerr.E("journal.Append", "signal is required", nil)
 	}
 	if result == nil {
-		return errors.New("journal.Append: result is required")
+		return coreerr.E("journal.Append", "result is required", nil)
 	}
 
 	entry := JournalEntry{
@@ -153,18 +154,18 @@ func (j *Journal) Append(signal *PipelineSignal, result *ActionResult) error {
 
 	data, err := json.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("journal.Append: marshal entry: %w", err)
+		return coreerr.E("journal.Append", "marshal entry", err)
 	}
 	data = append(data, '\n')
 
 	// Sanitize path components to prevent path traversal (CVE: issue #46).
 	owner, err := sanitizePathComponent(signal.RepoOwner)
 	if err != nil {
-		return fmt.Errorf("journal.Append: invalid repo owner: %w", err)
+		return coreerr.E("journal.Append", "invalid repo owner", err)
 	}
 	repo, err := sanitizePathComponent(signal.RepoName)
 	if err != nil {
-		return fmt.Errorf("journal.Append: invalid repo name: %w", err)
+		return coreerr.E("journal.Append", "invalid repo name", err)
 	}
 
 	date := result.Timestamp.UTC().Format("2006-01-02")
@@ -173,27 +174,27 @@ func (j *Journal) Append(signal *PipelineSignal, result *ActionResult) error {
 	// Resolve to absolute path and verify it stays within baseDir.
 	absBase, err := filepath.Abs(j.baseDir)
 	if err != nil {
-		return fmt.Errorf("journal.Append: resolve base directory: %w", err)
+		return coreerr.E("journal.Append", "resolve base directory", err)
 	}
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
-		return fmt.Errorf("journal.Append: resolve journal directory: %w", err)
+		return coreerr.E("journal.Append", "resolve journal directory", err)
 	}
 	if !strings.HasPrefix(absDir, absBase+string(filepath.Separator)) {
-		return fmt.Errorf("journal.Append: path %q escapes base directory %q", absDir, absBase)
+		return coreerr.E("journal.Append", "path escapes base directory: "+absDir, nil)
 	}
 
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("journal.Append: create directory: %w", err)
+	if err := coreio.Local.EnsureDir(dir); err != nil {
+		return coreerr.E("journal.Append", "create directory", err)
 	}
 
 	path := filepath.Join(dir, date+".jsonl")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		return fmt.Errorf("journal.Append: open file: %w", err)
+		return coreerr.E("journal.Append", "open file", err)
 	}
 	defer func() { _ = f.Close() }()
 

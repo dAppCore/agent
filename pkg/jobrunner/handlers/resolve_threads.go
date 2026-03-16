@@ -7,6 +7,7 @@ import (
 
 	forgejosdk "codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/go-scm/forge"
 	"forge.lthn.ai/core/agent/pkg/jobrunner"
 )
@@ -39,7 +40,7 @@ func (h *DismissReviewsHandler) Execute(ctx context.Context, signal *jobrunner.P
 
 	reviews, err := h.forge.ListPRReviews(signal.RepoOwner, signal.RepoName, int64(signal.PRNumber))
 	if err != nil {
-		return nil, fmt.Errorf("dismiss_reviews: list reviews: %w", err)
+		return nil, coreerr.E("dismiss_reviews.Execute", "list reviews", err)
 	}
 
 	var dismissErrors []string

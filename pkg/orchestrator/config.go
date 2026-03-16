@@ -2,10 +2,9 @@
 package orchestrator
 
 import (
-	"errors"
-	"fmt"
 	"maps"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"forge.lthn.ai/core/config"
 )
 
@@ -46,7 +45,7 @@ func LoadAgents(cfg *config.Config) (map[string]AgentConfig, error) {
 			continue
 		}
 		if ac.Host == "" {
-			return nil, fmt.Errorf("agentci.LoadAgents: agent %q: host is required", name)
+			return nil, coreerr.E("agentci.LoadAgents", "agent "+name+": host is required", nil)
 		}
 		if ac.QueueDir == "" {
 			ac.QueueDir = "/home/claude/ai-work/queue"
@@ -96,7 +95,7 @@ func LoadClothoConfig(cfg *config.Config) (ClothoConfig, error) {
 
 // SaveAgent writes an agent config entry to the config file.
 func SaveAgent(cfg *config.Config, name string, ac AgentConfig) error {
-	key := fmt.Sprintf("agentci.agents.%s", name)
+	key := "agentci.agents." + name
 	data := map[string]any{
 		"host":         ac.Host,
 		"queue_dir":    ac.QueueDir,
@@ -126,10 +125,10 @@ func SaveAgent(cfg *config.Config, name string, ac AgentConfig) error {
 func RemoveAgent(cfg *config.Config, name string) error {
 	var agents map[string]AgentConfig
 	if err := cfg.Get("agentci.agents", &agents); err != nil {
-		return errors.New("agentci.RemoveAgent: no agents configured")
+		return coreerr.E("agentci.RemoveAgent", "no agents configured", nil)
 	}
 	if _, ok := agents[name]; !ok {
-		return fmt.Errorf("agentci.RemoveAgent: agent %q not found", name)
+		return coreerr.E("agentci.RemoveAgent", "agent "+name+" not found", nil)
 	}
 	delete(agents, name)
 	return cfg.Set("agentci.agents", agents)

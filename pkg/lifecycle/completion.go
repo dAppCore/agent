@@ -288,7 +288,7 @@ func runCommandCtx(ctx context.Context, dir string, command string, args ...stri
 
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, stderr.String())
+			return "", log.E("runCommandCtx", stderr.String(), err)
 		}
 		return "", err
 	}

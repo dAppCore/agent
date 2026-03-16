@@ -1,12 +1,11 @@
 package workspace
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,16 +45,16 @@ func LoadConfig(dir string) (*WorkspaceConfig, error) {
 			// No workspace.yaml found anywhere - return nil to indicate no config
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to read workspace config: %w", err)
+		return nil, coreerr.E("LoadConfig", "failed to read workspace config", err)
 	}
 
 	config := DefaultConfig()
 	if err := yaml.Unmarshal([]byte(data), config); err != nil {
-		return nil, fmt.Errorf("failed to parse workspace config: %w", err)
+		return nil, coreerr.E("LoadConfig", "failed to parse workspace config", err)
 	}
 
 	if config.Version != 1 {
-		return nil, fmt.Errorf("unsupported workspace config version: %d", config.Version)
+		return nil, coreerr.E("LoadConfig", "unsupported workspace config version", nil)
 	}
 
 	return config, nil
@@ -65,17 +64,17 @@ func LoadConfig(dir string) (*WorkspaceConfig, error) {
 func SaveConfig(dir string, config *WorkspaceConfig) error {
 	coreDir := filepath.Join(dir, ".core")
 	if err := coreio.Local.EnsureDir(coreDir); err != nil {
-		return fmt.Errorf("failed to create .core directory: %w", err)
+		return coreerr.E("SaveConfig", "failed to create .core directory", err)
 	}
 
 	path := filepath.Join(coreDir, "workspace.yaml")
 	data, err := yaml.Marshal(config)
 	if err != nil {
-		return fmt.Errorf("failed to marshal workspace config: %w", err)
+		return coreerr.E("SaveConfig", "failed to marshal workspace config", err)
 	}
 
 	if err := coreio.Local.Write(path, string(data)); err != nil {
-		return fmt.Errorf("failed to write workspace config: %w", err)
+		return coreerr.E("SaveConfig", "failed to write workspace config", err)
 	}
 
 	return nil
@@ -100,5 +99,5 @@ func FindWorkspaceRoot() (string, error) {
 		dir = parent
 	}
 
-	return "", errors.New("not in a workspace")
+	return "", coreerr.E("FindWorkspaceRoot", "not in a workspace", nil)
 }

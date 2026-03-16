@@ -11,7 +11,7 @@ import (
 	agentci "forge.lthn.ai/core/agent/pkg/orchestrator"
 	"forge.lthn.ai/core/go-scm/forge"
 	"forge.lthn.ai/core/agent/pkg/jobrunner"
-	"forge.lthn.ai/core/go-log"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 const (
@@ -83,23 +83,23 @@ func (h *DispatchHandler) Execute(ctx context.Context, signal *jobrunner.Pipelin
 
 	agentName, agent, ok := h.spinner.FindByForgejoUser(signal.Assignee)
 	if !ok {
-		return nil, fmt.Errorf("handlers.Dispatch.Execute: unknown agent: %s", signal.Assignee)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "unknown agent: "+signal.Assignee, nil)
 	}
 
 	// Sanitize inputs to prevent path traversal.
 	safeOwner, err := agentci.SanitizePath(signal.RepoOwner)
 	if err != nil {
-		return nil, fmt.Errorf("invalid repo owner: %w", err)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "invalid repo owner", err)
 	}
 	safeRepo, err := agentci.SanitizePath(signal.RepoName)
 	if err != nil {
-		return nil, fmt.Errorf("invalid repo name: %w", err)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "invalid repo name", err)
 	}
 
 	// Ensure in-progress label exists on repo.
 	inProgressLabel, err := h.forge.EnsureLabel(safeOwner, safeRepo, LabelInProgress, ColorInProgress)
 	if err != nil {
-		return nil, fmt.Errorf("ensure label %s: %w", LabelInProgress, err)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "ensure label "+LabelInProgress, err)
 	}
 
 	// Check if already in progress to prevent double-dispatch.
@@ -107,7 +107,7 @@ func (h *DispatchHandler) Execute(ctx context.Context, signal *jobrunner.Pipelin
 	if err == nil {
 		for _, l := range issue.Labels {
 			if l.Name == LabelInProgress || l.Name == LabelAgentComplete {
-				log.Info("issue already processed, skipping", "issue", signal.ChildNumber)
+				coreerr.Info("issue already processed, skipping", "issue", signal.ChildNumber)
 				return &jobrunner.ActionResult{
 					Action:    "dispatch",
 					Success:   true,
@@ -120,11 +120,11 @@ func (h *DispatchHandler) Execute(ctx context.Context, signal *jobrunner.Pipelin
 
 	// Assign agent and add in-progress label.
 	if err := h.forge.AssignIssue(safeOwner, safeRepo, int64(signal.ChildNumber), []string{signal.Assignee}); err != nil {
-		log.Warn("failed to assign agent, continuing", "err", err)
+		coreerr.Warn("failed to assign agent, continuing", "err", err)
 	}
 
 	if err := h.forge.AddIssueLabels(safeOwner, safeRepo, int64(signal.ChildNumber), []int64{inProgressLabel.ID}); err != nil {
-		return nil, fmt.Errorf("add in-progress label: %w", err)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "add in-progress label", err)
 	}
 
 	// Remove agent-ready label if present.
@@ -164,13 +164,13 @@ func (h *DispatchHandler) Execute(ctx context.Context, signal *jobrunner.Pipelin
 	ticketJSON, err := json.MarshalIndent(ticket, "", "  ")
 	if err != nil {
 		h.failDispatch(signal, "Failed to marshal ticket JSON")
-		return nil, fmt.Errorf("marshal ticket: %w", err)
+		return nil, coreerr.E("handlers.Dispatch.Execute", "marshal ticket", err)
 	}
 
 	// Check if ticket already exists on agent (dedup).
 	ticketName := fmt.Sprintf("ticket-%s-%s-%d.json", safeOwner, safeRepo, signal.ChildNumber)
 	if h.ticketExists(ctx, agent, ticketName) {
-		log.Info("ticket already queued, skipping", "ticket", ticketName, "agent", signal.Assignee)
+		coreerr.Info("ticket already queued, skipping", "ticket", ticketName, "agent", signal.Assignee)
 		return &jobrunner.ActionResult{
 			Action:      "dispatch",
 			RepoOwner:   safeOwner,
@@ -263,7 +263,7 @@ func (h *DispatchHandler) secureTransfer(ctx context.Context, agent agentci.Agen
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return log.E("dispatch.transfer", fmt.Sprintf("ssh to %s failed: %s", agent.Host, string(output)), err)
+		return coreerr.E("dispatch.transfer", fmt.Sprintf("ssh to %s failed: %s", agent.Host, string(output)), err)
 	}
 	return nil
 }

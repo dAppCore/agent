@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
+	coreio "forge.lthn.ai/core/go-io"
 	"forge.lthn.ai/core/go-log"
 
 	agentic "forge.lthn.ai/core/agent/pkg/lifecycle"
@@ -159,7 +160,7 @@ func dispatchWatchCmd() *cli.Command {
 			defer cancel()
 
 			if err := client.Ping(ctx); err != nil {
-				return fmt.Errorf("API ping failed (url=%s): %w", apiURL, err)
+				return log.E("dispatch.watch", "API ping failed (url="+apiURL+")", err)
 			}
 			log.Info("Connected to agentic API", "url", apiURL, "agent", agentID)
 
@@ -348,7 +349,7 @@ func executePhaseWork(ctx context.Context, client *agentic.Client, plan *agentic
 	// Prepare the repository.
 	jobDir := filepath.Join(paths.jobs, fmt.Sprintf("%s-%s-%d", t.RepoOwner, t.RepoName, t.IssueNumber))
 	repoDir := filepath.Join(jobDir, t.RepoName)
-	if err := os.MkdirAll(jobDir, 0755); err != nil {
+	if err := coreio.Local.EnsureDir(jobDir); err != nil {
 		log.Error("Failed to create job dir", "error", err)
 		_ = client.EndSession(ctx, sessionID, string(agentic.SessionFailed), fmt.Sprintf("mkdir failed: %v", err))
 		return false
@@ -507,8 +508,8 @@ func dispatchStatusCmd() *cli.Command {
 			paths := getPaths(workDir)
 
 			lockStatus := "IDLE"
-			if data, err := os.ReadFile(paths.lock); err == nil {
-				pidStr := strings.TrimSpace(string(data))
+			if data, err := coreio.Local.Read(paths.lock); err == nil {
+				pidStr := strings.TrimSpace(data)
 				pid, _ := strconv.Atoi(pidStr)
 				if isProcessAlive(pid) {
 					lockStatus = fmt.Sprintf("RUNNING (PID %d)", pid)
@@ -587,21 +588,21 @@ func processTicket(paths runnerPaths, ticketPath string) (bool, error) {
 
 	activePath := filepath.Join(paths.active, fileName)
 	if err := os.Rename(ticketPath, activePath); err != nil {
-		return false, fmt.Errorf("failed to move ticket to active: %w", err)
+		return false, log.E("processTicket", "failed to move ticket to active", err)
 	}
 
-	data, err := os.ReadFile(activePath)
+	data, err := coreio.Local.Read(activePath)
 	if err != nil {
-		return false, fmt.Errorf("failed to read ticket: %w", err)
+		return false, log.E("processTicket", "failed to read ticket", err)
 	}
 	var t dispatchTicket
-	if err := json.Unmarshal(data, &t); err != nil {
-		return false, fmt.Errorf("failed to unmarshal ticket: %w", err)
+	if err := json.Unmarshal([]byte(data), &t); err != nil {
+		return false, log.E("processTicket", "failed to unmarshal ticket", err)
 	}
 
 	jobDir := filepath.Join(paths.jobs, fmt.Sprintf("%s-%s-%d", t.RepoOwner, t.RepoName, t.IssueNumber))
 	repoDir := filepath.Join(jobDir, t.RepoName)
-	if err := os.MkdirAll(jobDir, 0755); err != nil {
+	if err := coreio.Local.EnsureDir(jobDir); err != nil {
 		return false, err
 	}
 
@@ -673,14 +674,14 @@ func prepareRepo(t dispatchTicket, repoDir string) error {
 						continue
 					}
 				}
-				return fmt.Errorf("git command %v failed: %s", args, string(out))
+				return log.E("prepareRepo", "git command failed: "+string(out), err)
 			}
 		}
 	} else {
 		log.Info("Cloning repo", "url", t.RepoOwner+"/"+t.RepoName)
 		cmd := exec.Command("git", "clone", "-b", t.TargetBranch, cloneURL, repoDir)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git clone failed: %s", string(out))
+			return log.E("prepareRepo", "git clone failed: "+string(out), err)
 		}
 	}
 	return nil
@@ -818,29 +819,29 @@ func moveToDone(paths runnerPaths, activePath, fileName string) {
 func ensureDispatchDirs(p runnerPaths) error {
 	dirs := []string{p.queue, p.active, p.done, p.logs, p.jobs}
 	for _, d := range dirs {
-		if err := os.MkdirAll(d, 0755); err != nil {
-			return fmt.Errorf("mkdir %s failed: %w", d, err)
+		if err := coreio.Local.EnsureDir(d); err != nil {
+			return log.E("ensureDispatchDirs", "mkdir "+d+" failed", err)
 		}
 	}
 	return nil
 }
 
 func acquireLock(lockPath string) error {
-	if data, err := os.ReadFile(lockPath); err == nil {
-		pidStr := strings.TrimSpace(string(data))
+	if data, err := coreio.Local.Read(lockPath); err == nil {
+		pidStr := strings.TrimSpace(data)
 		pid, _ := strconv.Atoi(pidStr)
 		if isProcessAlive(pid) {
-			return fmt.Errorf("locked by PID %d", pid)
+			return log.E("acquireLock", fmt.Sprintf("locked by PID %d", pid), nil)
 		}
 		log.Info("Removing stale lock", "pid", pid)
-		_ = os.Remove(lockPath)
+		_ = coreio.Local.Delete(lockPath)
 	}
 
-	return os.WriteFile(lockPath, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
+	return coreio.Local.Write(lockPath, fmt.Sprintf("%d", os.Getpid()))
 }
 
 func releaseLock(lockPath string) {
-	_ = os.Remove(lockPath)
+	_ = coreio.Local.Delete(lockPath)
 }
 
 func isProcessAlive(pid int) bool {
