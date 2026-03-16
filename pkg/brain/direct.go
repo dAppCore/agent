@@ -80,6 +80,9 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 		Name:        "brain_forget",
 		Description: "Remove a memory from OpenBrain by ID.",
 	}, s.forget)
+
+	// Agent messaging — direct, chronological, not semantic
+	s.RegisterMessagingTools(server)
 }
 
 // Shutdown implements mcp.SubsystemWithShutdown.
