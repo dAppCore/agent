@@ -6,9 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -93,46 +91,24 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}, nil
 	}
 
-	// Spawn agent as detached process (survives parent death)
-	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s-run%d.log", agent, st.Runs+1))
-
-	command, args, err := agentCommand(agent, prompt)
+	// Spawn agent via go-process
+	pid, _, err := s.spawnAgent(agent, prompt, wsDir, srcDir)
 	if err != nil {
 		return nil, ResumeOutput{}, err
 	}
 
-	devNull, _ := os.Open(os.DevNull)
-	outFile, _ := os.Create(outputFile)
-	cmd := exec.Command(command, args...)
-	cmd.Dir = srcDir
-	cmd.Stdin = devNull
-	cmd.Stdout = outFile
-	cmd.Stderr = outFile
-	cmd.Env = append(os.Environ(), "TERM=dumb", "NO_COLOR=1", "CI=true")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	if err := cmd.Start(); err != nil {
-		outFile.Close()
-		return nil, ResumeOutput{}, fmt.Errorf("failed to spawn %s: %w", agent, err)
-	}
-
 	// Update status
 	st.Status = "running"
-	st.PID = cmd.Process.Pid
+	st.PID = pid
 	st.Runs++
 	st.Question = ""
 	writeStatus(wsDir, st)
-
-	go func() {
-		cmd.Wait()
-		outFile.Close()
-	}()
 
 	return nil, ResumeOutput{
 		Success:    true,
 		Workspace:  input.Workspace,
 		Agent:      agent,
-		PID:        cmd.Process.Pid,
-		OutputFile: outputFile,
+		PID:        pid,
+		OutputFile: filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent)),
 	}, nil
 }

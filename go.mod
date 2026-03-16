@@ -28,7 +28,7 @@ require (
 
 require (
 	forge.lthn.ai/core/go-crypt v0.1.6 // indirect
-	forge.lthn.ai/core/go-process v0.2.2 // indirect
+	forge.lthn.ai/core/go-process v0.2.4 // indirect
 	forge.lthn.ai/core/go-rag v0.1.0 // indirect
 	forge.lthn.ai/core/go-webview v0.1.0 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect

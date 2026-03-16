@@ -5,7 +5,6 @@ package agentic
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -200,51 +199,15 @@ func (s *PrepSubsystem) drainQueue() {
 		srcDir := filepath.Join(wsDir, "src")
 		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the parent directory. Work in this directory."
 
-		command, args, err := agentCommand(st.Agent, prompt)
+		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)
 		if err != nil {
-			continue
-		}
-
-		outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", st.Agent))
-		outFile, err := os.Create(outputFile)
-		if err != nil {
-			continue
-		}
-
-		devNull, _ := os.Open(os.DevNull)
-		cmd := exec.Command(command, args...)
-		cmd.Dir = srcDir
-		cmd.Stdin = devNull
-		cmd.Stdout = outFile
-		cmd.Stderr = outFile
-		cmd.Env = append(os.Environ(), "TERM=dumb", "NO_COLOR=1", "CI=true")
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-		if err := cmd.Start(); err != nil {
-			outFile.Close()
 			continue
 		}
 
 		st.Status = "running"
-		st.PID = cmd.Process.Pid
+		st.PID = pid
 		st.Runs++
 		writeStatus(wsDir, st)
-
-		go func() {
-			cmd.Wait()
-			outFile.Close()
-
-			if st2, err := readStatus(wsDir); err == nil {
-				st2.Status = "completed"
-				st2.PID = 0
-				writeStatus(wsDir, st2)
-			}
-
-			// Ingest scan findings as issues
-			s.ingestFindings(wsDir)
-
-			s.drainQueue()
-		}()
 
 		return
 	}

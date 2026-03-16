@@ -6,12 +6,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
+	"forge.lthn.ai/core/go-process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -79,6 +78,55 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	default:
 		return "", nil, fmt.Errorf("unknown agent: %s", agent)
 	}
+}
+
+// spawnAgent launches an agent process via go-process and returns the PID.
+// Output is captured via pipes and written to the log file on completion.
+// The background goroutine handles status updates, findings ingestion, and queue drain.
+func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, string, error) {
+	command, args, err := agentCommand(agent, prompt)
+	if err != nil {
+		return 0, "", err
+	}
+
+	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
+
+	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
+		Command: command,
+		Args:    args,
+		Dir:     srcDir,
+		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true"},
+		Detach:  true,
+	})
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to spawn %s: %w", agent, err)
+	}
+
+	pid := proc.Info().PID
+
+	go func() {
+		proc.Wait()
+
+		// Write captured output to log file
+		if output := proc.Output(); output != "" {
+			os.WriteFile(outputFile, []byte(output), 0644)
+		}
+
+		// Update status to completed
+		if st, err := readStatus(wsDir); err == nil {
+			st.Status = "completed"
+			st.PID = 0
+			writeStatus(wsDir, st)
+		}
+
+		// Ingest scan findings as issues
+		s.ingestFindings(wsDir)
+
+		// Drain queue
+		s.drainQueue()
+	}()
+
+	return pid, outputFile, nil
 }
 
 func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
@@ -153,42 +201,12 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		}, nil
 	}
 
-	// Step 3: Spawn agent as a detached process
-	// Uses Setpgid so the agent survives parent (MCP server) death.
-	// Output goes directly to log file (not buffered in memory).
-	command, args, err := agentCommand(input.Agent, prompt)
+	// Step 3: Spawn agent via go-process (pipes for output capture)
+	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir, srcDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}
 
-	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", input.Agent))
-	outFile, err := os.Create(outputFile)
-	if err != nil {
-		return nil, DispatchOutput{}, fmt.Errorf("failed to create log file: %w", err)
-	}
-
-	// Fully detach from terminal:
-	// - Setpgid: own process group
-	// - Stdin from /dev/null
-	// - TERM=dumb prevents terminal control sequences
-	// - NO_COLOR=1 disables colour output
-	devNull, _ := os.Open(os.DevNull)
-	cmd := exec.Command(command, args...)
-	cmd.Dir = srcDir
-	cmd.Stdin = devNull
-	cmd.Stdout = outFile
-	cmd.Stderr = outFile
-	cmd.Env = append(os.Environ(), "TERM=dumb", "NO_COLOR=1", "CI=true")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	if err := cmd.Start(); err != nil {
-		outFile.Close()
-		return nil, DispatchOutput{}, fmt.Errorf("failed to spawn %s: %w", input.Agent, err)
-	}
-
-	pid := cmd.Process.Pid
-
-	// Write initial status
 	writeStatus(wsDir, &WorkspaceStatus{
 		Status:    "running",
 		Agent:     input.Agent,
@@ -199,26 +217,6 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		StartedAt: time.Now(),
 		Runs:      1,
 	})
-
-	// Background goroutine: close file handle when process exits,
-	// update status, then drain queue if a slot opened up.
-	go func() {
-		cmd.Wait()
-		outFile.Close()
-
-		// Update status to completed
-		if st, err := readStatus(wsDir); err == nil {
-			st.Status = "completed"
-			st.PID = 0
-			writeStatus(wsDir, st)
-		}
-
-		// Ingest scan findings as issues
-		s.ingestFindings(wsDir)
-
-		// Drain queue: pop next queued workspace and spawn it
-		s.drainQueue()
-	}()
 
 	return nil, DispatchOutput{
 		Success:      true,
