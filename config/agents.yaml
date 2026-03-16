@@ -14,6 +14,7 @@ concurrency:
   claude: 1
   gemini: 1
   codex: 1
+  local: 1
 
 # Rate limiting / quota management
 # Controls pacing between task dispatches to stay within daily quotas.
