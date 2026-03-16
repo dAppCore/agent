@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
+	forge.lthn.ai/core/api v0.1.2
 	forge.lthn.ai/core/cli v0.3.0
 	forge.lthn.ai/core/config v0.1.0
 	forge.lthn.ai/core/go v0.3.1
@@ -15,7 +16,10 @@ require (
 	forge.lthn.ai/core/go-ratelimit v0.1.0
 	forge.lthn.ai/core/go-scm v0.2.0
 	forge.lthn.ai/core/go-store v0.1.3
+	forge.lthn.ai/core/go-ws v0.2.0
 	forge.lthn.ai/core/mcp v0.3.1
+	github.com/gin-gonic/gin v1.12.0
+	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -23,14 +27,12 @@ require (
 )
 
 require (
-	forge.lthn.ai/core/api v0.1.2 // indirect
 	forge.lthn.ai/core/go-crypt v0.1.6 // indirect
 	forge.lthn.ai/core/go-ml v0.1.8 // indirect
 	forge.lthn.ai/core/go-mlx v0.1.0 // indirect
 	forge.lthn.ai/core/go-process v0.2.2 // indirect
 	forge.lthn.ai/core/go-rag v0.1.0 // indirect
 	forge.lthn.ai/core/go-webview v0.1.0 // indirect
-	forge.lthn.ai/core/go-ws v0.2.0 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
@@ -79,7 +81,6 @@ require (
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/gin-contrib/static v1.1.5 // indirect
 	github.com/gin-contrib/timeout v1.1.0 // indirect
-	github.com/gin-gonic/gin v1.12.0 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -121,7 +122,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.21 // indirect
-	github.com/modelcontextprotocol/go-sdk v1.4.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect

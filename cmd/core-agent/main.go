@@ -1,37 +1,37 @@
 package main
 
 import (
-	"context"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
+	"forge.lthn.ai/core/agent/pkg/agentic"
+	"forge.lthn.ai/core/agent/pkg/brain"
+	"forge.lthn.ai/core/cli/pkg/cli"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
-	"forge.lthn.ai/core/mcp/pkg/mcp/agentic"
-	"forge.lthn.ai/core/mcp/pkg/mcp/brain"
 )
 
 func main() {
-	svc, err := mcp.New(
-		mcp.WithSubsystem(brain.NewDirect()),
-		mcp.WithSubsystem(agentic.NewPrep()),
-	)
-	if err != nil {
-		log.Fatalf("failed to create MCP service: %v", err)
+	if err := cli.Init(cli.Options{
+		AppName: "core-agent",
+		Version: "0.1.0",
+	}); err != nil {
+		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	mcpCmd := cli.NewCommand("mcp", "Start the MCP server on stdio", "", func(cmd *cli.Command, args []string) error {
+		svc, err := mcp.New(
+			mcp.WithSubsystem(brain.NewDirect()),
+			mcp.WithSubsystem(agentic.NewPrep()),
+		)
+		if err != nil {
+			return cli.Wrap(err, "create MCP service")
+		}
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigCh
-		cancel()
-	}()
+		return svc.Run(cmd.Context())
+	})
 
-	if err := svc.Run(ctx); err != nil {
-		log.Printf("MCP error: %v", err)
+	cli.RootCmd().AddCommand(mcpCmd)
+
+	if err := cli.Execute(); err != nil {
+		log.Fatal(err)
 	}
 }
