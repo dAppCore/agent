@@ -12,7 +12,7 @@ dispatch:
 # Per-agent concurrency limits (0 = unlimited)
 concurrency:
   claude: 1
-  gemini: 3
+  gemini: 1
   codex: 1
 
 # Rate limiting / quota management
