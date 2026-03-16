@@ -11,7 +11,7 @@ dispatch:
 
 # Per-agent concurrency limits (0 = unlimited)
 concurrency:
-  claude: 1
+  claude: 3
   gemini: 1
   codex: 1
   local: 1
@@ -64,7 +64,7 @@ agents:
   charon:
     host: 10.69.69.165
     runner: claude
-    active: false
+    active: true
     roles: [worker, review]
   clotho:
     host: remote
