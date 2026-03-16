@@ -16,6 +16,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// agentName returns the identity of this agent from env or hostname.
+func agentName() string {
+	if name := os.Getenv("AGENT_NAME"); name != "" {
+		return name
+	}
+	hostname, _ := os.Hostname()
+	h := strings.ToLower(hostname)
+	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
+		return "cladius"
+	}
+	return "charon"
+}
+
 // DirectSubsystem implements mcp.Subsystem for OpenBrain via direct HTTP calls.
 // Unlike Subsystem (which uses the IDE WebSocket bridge), this calls the
 // Laravel API directly — suitable for standalone core-mcp usage.
@@ -123,7 +136,7 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 		"type":     input.Type,
 		"tags":     input.Tags,
 		"project":  input.Project,
-		"agent_id": "cladius",
+		"agent_id": agentName(),
 	})
 	if err != nil {
 		return nil, RememberOutput{}, err
@@ -141,7 +154,7 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	body := map[string]any{
 		"query":    input.Query,
 		"top_k":    input.TopK,
-		"agent_id": "cladius",
+		"agent_id": agentName(),
 	}
 	if input.Filter.Project != "" {
 		body["project"] = input.Filter.Project
