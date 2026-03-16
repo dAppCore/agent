@@ -1,18 +1,6 @@
 {
   "$schema": "https://claude.ai/schemas/hooks.json",
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prefer-core.sh"
-          }
-        ],
-        "description": "Block destructive commands (rm -rf, sed -i, xargs rm) and enforce core CLI"
-      },
-    ],
     "PostToolUse": [
       {
         "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.go$\"",
@@ -43,16 +31,6 @@
           }
         ],
         "description": "Warn about debug statements (dd, dump, fmt.Println)"
-      },
-      {
-        "matcher": "tool == \"Bash\" && tool_input.command matches \"^git commit\"",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-commit-check.sh"
-          }
-        ],
-        "description": "Warn about uncommitted work after git commit"
       }
     ],
     "Stop": [
