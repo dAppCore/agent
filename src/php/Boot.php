@@ -203,6 +203,9 @@ class Boot extends ServiceProvider
             new Mcp\Tools\Agent\Brain\BrainRecall(),
             new Mcp\Tools\Agent\Brain\BrainForget(),
             new Mcp\Tools\Agent\Brain\BrainList(),
+            new Mcp\Tools\Agent\Messaging\AgentSend(),
+            new Mcp\Tools\Agent\Messaging\AgentInbox(),
+            new Mcp\Tools\Agent\Messaging\AgentConversation(),
         ]);
     }
 }

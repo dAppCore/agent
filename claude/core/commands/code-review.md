@@ -1,5 +1,5 @@
 ---
-name: review
+name: code-review
 description: Perform code review on staged changes or PRs
 args: [commit-range|--pr=N|--security]
 ---

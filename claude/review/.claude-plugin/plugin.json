@@ -1,8 +1,0 @@
-{
-  "name": "review",
-  "description": "Code review automation — 5-agent review pipeline, PR review, security checks, architecture validation",
-  "version": "0.2.0",
-  "author": {
-    "name": "Lethean"
-  }
-}

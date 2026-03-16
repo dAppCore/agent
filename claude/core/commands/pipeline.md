@@ -11,11 +11,11 @@ Run a 5-stage automated code review pipeline using specialised agent personas.
 ## Usage
 
 ```
-/review:pipeline                     # Staged changes
-/review:pipeline HEAD~3..HEAD        # Commit range
-/review:pipeline --pr=123            # PR diff (via gh)
-/review:pipeline --stage=security    # Single stage only
-/review:pipeline --skip=fix          # Review only, no fixes
+/core:pipeline                       # Staged changes
+/core:pipeline HEAD~3..HEAD          # Commit range
+/core:pipeline --pr=123              # PR diff (via gh)
+/core:pipeline --stage=security      # Single stage only
+/core:pipeline --skip=fix            # Review only, no fixes
 ```
 
 ## Pipeline Stages

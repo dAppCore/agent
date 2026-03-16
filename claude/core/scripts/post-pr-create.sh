@@ -13,7 +13,7 @@ if [ -n "$PR_URL" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "PostToolUse",
-    "additionalContext": "PR created: $PR_URL\n\nRun \`/review:pr $PR_NUM\` to review before requesting reviewers."
+    "additionalContext": "PR created: $PR_URL\n\nRun \`/core:review-pr $PR_NUM\` to review before requesting reviewers."
   }
 }
 EOF

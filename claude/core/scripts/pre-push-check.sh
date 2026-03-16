@@ -12,7 +12,7 @@ if [ -z "$LAST_TEST" ] && [ -z "$LAST_COVERAGE" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "additionalContext": "⚠️ No recent test run detected. Consider running `/verify:verify` before pushing."
+    "additionalContext": "⚠️ No recent test run detected. Consider running `/core:verify` before pushing."
   }
 }
 EOF

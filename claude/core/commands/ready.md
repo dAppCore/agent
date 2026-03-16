@@ -44,10 +44,10 @@ Or:
 ✓ No debug statements
 ✗ Formatting needed: 1 file
 
-**Not ready** - run `/verify:verify` for details
+**Not ready** - run `/core:verify` for details
 ```
 
 ## When to Use
 
-Use `/verify:ready` for a quick check before committing.
-Use `/verify:verify` for full verification including tests.
+Use `/core:ready` for a quick check before committing.
+Use `/core:verify` for full verification including tests.

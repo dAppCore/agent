@@ -1,5 +1,5 @@
 ---
-name: pr
+name: review-pr
 description: Review a pull request
 args: <pr-number>
 ---
@@ -11,9 +11,9 @@ Review a GitHub pull request.
 ## Usage
 
 ```
-/review:pr 123
-/review:pr 123 --security
-/review:pr 123 --quick
+/core:review-pr 123
+/core:review-pr 123 --security
+/core:review-pr 123 --quick
 ```
 
 ## Process
