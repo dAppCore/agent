@@ -89,6 +89,7 @@ print(json.dumps({
     'model': '${MODEL}',
     'prompt': $(python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))" <<< "$FULL_PROMPT"),
     'stream': False,
+    'keep_alive': '5m',
     'options': {
         'temperature': 0.1,
         'num_ctx': ${CTX_SIZE},
