@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	coreio "forge.lthn.ai/core/go-io"
@@ -115,7 +116,34 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 	pid := proc.Info().PID
 
 	go func() {
-		proc.Wait()
+		// Wait for process exit with PID polling fallback.
+		// go-process Wait() can hang if child processes inherit pipes.
+		// Poll the PID every 5s — if the process is gone, force completion.
+		done := make(chan struct{})
+		go func() {
+			proc.Wait()
+			close(done)
+		}()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				goto completed
+			case <-ticker.C:
+				// Check if main process is still alive
+				p, err := os.FindProcess(pid)
+				if err != nil {
+					goto completed
+				}
+				if err := p.Signal(syscall.Signal(0)); err != nil {
+					// Process is dead — force cleanup
+					goto completed
+				}
+			}
+		}
+	completed:
 
 		// Write captured output to log file
 		if output := proc.Output(); output != "" {
