@@ -28,7 +28,7 @@ func TestTemplate_Bad_NotFound(t *testing.T) {
 }
 
 func TestPersona_Good(t *testing.T) {
-	content, err := Persona("engineering/security-developer")
+	content, err := Persona("secops/developer")
 	require.NoError(t, err)
 	assert.Contains(t, content, "name:")
 	assert.Contains(t, content, "Security")
@@ -56,18 +56,18 @@ func TestListPersonas_Good(t *testing.T) {
 	personas := ListPersonas()
 	assert.True(t, len(personas) >= 90, "expected at least 90 personas, got %d", len(personas))
 
-	// Check cross-domain security-developer exists
-	hasEngSec := false
+	// Check cross-domain security roles exist
+	hasSecDev := false
 	hasSMMSec := false
 	for _, p := range personas {
-		if p == "engineering/security-developer" {
-			hasEngSec = true
+		if p == "secops/developer" {
+			hasSecDev = true
 		}
 		if p == "smm/security-developer" {
 			hasSMMSec = true
 		}
 	}
-	assert.True(t, hasEngSec, "engineering/security-developer not found")
+	assert.True(t, hasSecDev, "secops/developer not found")
 	assert.True(t, hasSMMSec, "smm/security-developer not found")
 }
 
