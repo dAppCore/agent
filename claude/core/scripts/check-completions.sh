@@ -2,8 +2,8 @@
 # Check for agent completion events since last check.
 # Called by plugin hooks to notify the orchestrating agent.
 
-EVENTS_FILE="$HOME/Code/host-uk/core/.core/workspace/events.jsonl"
-MARKER_FILE="$HOME/Code/host-uk/core/.core/workspace/.events-read"
+EVENTS_FILE="${CORE_WORKSPACE:-$HOME/Code/.core}/workspace/events.jsonl"
+MARKER_FILE="${CORE_WORKSPACE:-$HOME/Code/.core}/workspace/.events-read"
 
 if [ ! -f "$EVENTS_FILE" ]; then
     exit 0
