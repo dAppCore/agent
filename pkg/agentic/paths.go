@@ -4,8 +4,8 @@ package agentic
 
 import (
 	"os"
-	"strings"
 	"path/filepath"
+	"strings"
 )
 
 // WorkspaceRoot returns the root directory for agent workspaces.

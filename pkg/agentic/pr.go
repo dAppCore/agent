@@ -314,9 +314,8 @@ func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("listRepoPRs", "failed to list PRs for "+repo, err)
+		return nil, coreerr.E("listRepoPRs", fmt.Sprintf("HTTP %d listing PRs for %s", resp.StatusCode, repo), nil)
 	}
-	defer resp.Body.Close()
 
 	var prs []struct {
 		Number    int    `json:"number"`

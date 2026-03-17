@@ -165,7 +165,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 // findActiveWorkspaces returns workspace names that are running or queued.
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
-	wsRoot := s.workspaceRoot()
+	wsRoot := WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return nil
@@ -190,10 +190,5 @@ func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
 	if filepath.IsAbs(name) {
 		return name
 	}
-	return filepath.Join(s.workspaceRoot(), name)
-}
-
-// workspaceRoot returns the root directory for agent workspaces.
-func (s *PrepSubsystem) workspaceRoot() string {
-	return WorkspaceRoot()
+	return filepath.Join(WorkspaceRoot(), name)
 }

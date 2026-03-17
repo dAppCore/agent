@@ -176,7 +176,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		}
 	}
 
-	path, err := writePlan(s.plansDir(), &plan)
+	path, err := writePlan(PlansRoot(), &plan)
 	if err != nil {
 		return nil, PlanCreateOutput{}, coreerr.E("planCreate", "failed to write plan", err)
 	}
@@ -193,7 +193,7 @@ func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, PlanReadOutput{}, coreerr.E("planRead", "id is required", nil)
 	}
 
-	plan, err := readPlan(s.plansDir(), input.ID)
+	plan, err := readPlan(PlansRoot(), input.ID)
 	if err != nil {
 		return nil, PlanReadOutput{}, err
 	}
@@ -209,7 +209,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanUpdateOutput{}, coreerr.E("planUpdate", "id is required", nil)
 	}
 
-	plan, err := readPlan(s.plansDir(), input.ID)
+	plan, err := readPlan(PlansRoot(), input.ID)
 	if err != nil {
 		return nil, PlanUpdateOutput{}, err
 	}
@@ -239,7 +239,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 
 	plan.UpdatedAt = time.Now()
 
-	if _, err := writePlan(s.plansDir(), plan); err != nil {
+	if _, err := writePlan(PlansRoot(), plan); err != nil {
 		return nil, PlanUpdateOutput{}, coreerr.E("planUpdate", "failed to write plan", err)
 	}
 
@@ -254,7 +254,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanDeleteOutput{}, coreerr.E("planDelete", "id is required", nil)
 	}
 
-	path := planPath(s.plansDir(), input.ID)
+	path := planPath(PlansRoot(), input.ID)
 	if _, err := os.Stat(path); err != nil {
 		return nil, PlanDeleteOutput{}, coreerr.E("planDelete", "plan not found: "+input.ID, nil)
 	}
@@ -270,7 +270,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
-	dir := s.plansDir()
+	dir := PlansRoot()
 	if err := coreio.Local.EnsureDir(dir); err != nil {
 		return nil, PlanListOutput{}, coreerr.E("planList", "failed to access plans directory", err)
 	}
@@ -311,10 +311,6 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 }
 
 // --- Helpers ---
-
-func (s *PrepSubsystem) plansDir() string {
-	return PlansRoot()
-}
 
 func planPath(dir, id string) string {
 	return filepath.Join(dir, id+".json")

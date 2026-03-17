@@ -111,9 +111,8 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
+		return nil, coreerr.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
 	}
-	defer resp.Body.Close()
 
 	var repos []struct {
 		Name string `json:"name"`
@@ -140,9 +139,8 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
+		return nil, coreerr.E("scan.listRepoIssues", fmt.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
 	}
-	defer resp.Body.Close()
 
 	var issues []struct {
 		Number int    `json:"number"`

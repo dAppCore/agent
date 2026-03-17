@@ -120,17 +120,12 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 		if err != nil || st.Status != "running" {
 			continue
 		}
-		// Match on base agent type (gemini:flash matches gemini)
-		stBase := strings.SplitN(st.Agent, ":", 2)[0]
-		if stBase != agent {
+		if baseAgent(st.Agent) != agent {
 			continue
 		}
 
-		if st.PID > 0 {
-			proc, err := os.FindProcess(st.PID)
-			if err == nil && proc.Signal(syscall.Signal(0)) == nil {
-				count++
-			}
+		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+			count++
 		}
 	}
 
@@ -152,7 +147,6 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	}
 	return s.countRunningByAgent(base) < limit
 }
-
 
 // drainQueue finds the oldest queued workspace and spawns it if a slot is available.
 // Applies rate-based delay between spawns.

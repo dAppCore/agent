@@ -469,7 +469,6 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 	if resp.StatusCode != 200 {
 		return 0
 	}
-	defer resp.Body.Close()
 
 	var pages []struct {
 		Title  string `json:"title"`
@@ -559,7 +558,6 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 	if resp.StatusCode != 200 {
 		return 0
 	}
-	defer resp.Body.Close()
 
 	respData, _ := io.ReadAll(resp.Body)
 	var result struct {
@@ -657,7 +655,6 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	if resp.StatusCode != 200 {
 		return
 	}
-	defer resp.Body.Close()
 
 	var issueData struct {
 		Title string `json:"title"`

@@ -204,7 +204,6 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 	if resp.StatusCode != 200 {
 		return nil
 	}
-	defer resp.Body.Close()
 
 	var existing []struct {
 		ID   int64  `json:"id"`
@@ -265,7 +264,6 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	if resp.StatusCode != 201 {
 		return 0
 	}
-	defer resp.Body.Close()
 
 	var result struct {
 		ID int64 `json:"id"`
@@ -273,5 +271,3 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	json.NewDecoder(resp.Body).Decode(&result)
 	return result.ID
 }
-
-// listOrgRepos is defined in pr.go

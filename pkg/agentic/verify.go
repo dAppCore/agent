@@ -42,26 +42,26 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 		return
 	}
 
-	// Attempt 1: run tests and try to merge
-	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
-	if result == mergeSuccess {
+	// markMerged is a helper to avoid repeating the status update.
+	markMerged := func() {
 		if st2, err := readStatus(wsDir); err == nil {
 			st2.Status = "merged"
 			writeStatus(wsDir, st2)
 		}
+	}
+
+	// Attempt 1: run tests and try to merge
+	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
+	if result == mergeSuccess {
+		markMerged()
 		return
 	}
 
 	// Attempt 2: rebase onto main and retry
 	if result == mergeConflict || result == testFailed {
-		rebaseOK := s.rebaseBranch(srcDir, st.Branch)
-		if rebaseOK {
-			result2 := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
-			if result2 == mergeSuccess {
-				if st2, err := readStatus(wsDir); err == nil {
-					st2.Status = "merged"
-					writeStatus(wsDir, st2)
-				}
+		if s.rebaseBranch(srcDir, st.Branch) {
+			if s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
+				markMerged()
 				return
 			}
 		}
@@ -122,12 +122,11 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 	// Rebase onto main
 	rebase := exec.Command("git", "rebase", "origin/main")
 	rebase.Dir = srcDir
-	if out, err := rebase.CombinedOutput(); err != nil {
+	if err := rebase.Run(); err != nil {
 		// Rebase failed — abort and give up
 		abort := exec.Command("git", "rebase", "--abort")
 		abort.Dir = srcDir
 		abort.Run()
-		_ = out
 		return false
 	}
 

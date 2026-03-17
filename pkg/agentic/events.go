@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	
 )
 
 // CompletionEvent is emitted when a dispatched agent finishes.

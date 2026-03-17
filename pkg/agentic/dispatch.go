@@ -168,33 +168,24 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		finalStatus := "completed"
 		exitCode := proc.Info().ExitCode
 		procStatus := proc.Info().Status
+		question := ""
 
-		// Check for BLOCKED.md (agent is asking a question)
 		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
 		if blockedContent, err := coreio.Local.Read(blockedPath); err == nil && strings.TrimSpace(blockedContent) != "" {
 			finalStatus = "blocked"
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "blocked"
-				st.Question = strings.TrimSpace(blockedContent)
-				st.PID = 0
-				writeStatus(wsDir, st)
-			}
+			question = strings.TrimSpace(blockedContent)
 		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
 			finalStatus = "failed"
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "failed"
-				st.PID = 0
-				if exitCode != 0 {
-					st.Question = fmt.Sprintf("Agent exited with code %d", exitCode)
-				}
-				writeStatus(wsDir, st)
+			if exitCode != 0 {
+				question = fmt.Sprintf("Agent exited with code %d", exitCode)
 			}
-		} else {
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "completed"
-				st.PID = 0
-				writeStatus(wsDir, st)
-			}
+		}
+
+		if st, err := readStatus(wsDir); err == nil {
+			st.Status = finalStatus
+			st.PID = 0
+			st.Question = question
+			writeStatus(wsDir, st)
 		}
 
 		// Emit completion event
