@@ -121,6 +121,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 			writeStatus(wsDir, st)
 		}
 
+		// Emit completion event
+		emitCompletionEvent(agent, filepath.Base(wsDir))
+
 		// Ingest scan findings as issues
 		s.ingestFindings(wsDir)
 

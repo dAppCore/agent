@@ -91,6 +91,28 @@
           }
         ],
         "description": "Restore recent session context on startup"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-completions.sh"
+          }
+        ],
+        "description": "Report agent completions from previous session"
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-completions.sh"
+          }
+        ],
+        "description": "Check for agent completions when idle"
       }
     ]
   }
