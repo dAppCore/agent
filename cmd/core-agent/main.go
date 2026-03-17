@@ -6,6 +6,8 @@ import (
 	"forge.lthn.ai/core/agent/pkg/agentic"
 	"forge.lthn.ai/core/agent/pkg/brain"
 	"forge.lthn.ai/core/cli/pkg/cli"
+	"forge.lthn.ai/core/go-process"
+	"forge.lthn.ai/core/go/pkg/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
@@ -18,7 +20,18 @@ func main() {
 	}
 
 	mcpCmd := cli.NewCommand("mcp", "Start the MCP server on stdio", "", func(cmd *cli.Command, args []string) error {
-		svc, err := mcp.New(
+		// Initialise go-process so dispatch can spawn agents
+		c, err := core.New(core.WithName("process", process.NewService(process.Options{})))
+		if err != nil {
+			return cli.Wrap(err, "init core")
+		}
+		procSvc, err := core.ServiceFor[*process.Service](c, "process")
+		if err != nil {
+			return cli.Wrap(err, "get process service")
+		}
+		process.SetDefault(procSvc)
+
+		mcpSvc, err := mcp.New(
 			mcp.WithSubsystem(brain.NewDirect()),
 			mcp.WithSubsystem(agentic.NewPrep()),
 		)
@@ -26,7 +39,7 @@ func main() {
 			return cli.Wrap(err, "create MCP service")
 		}
 
-		return svc.Run(cmd.Context())
+		return mcpSvc.Run(cmd.Context())
 	})
 
 	cli.RootCmd().AddCommand(mcpCmd)
