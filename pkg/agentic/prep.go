@@ -355,6 +355,36 @@ Each phase = one commit. This is not optional.
 
 If no PLAN.md, complete TODO.md as a single unit of work.
 
+## Closeout Sequence (MANDATORY before final commit)
+
+After completing your work, you MUST run this polish cycle before committing:
+
+### Pass 1: Self-Review
+Review ALL files you changed. For each file check:
+- Error handling: coreerr.E("pkg.Method", "msg", err) — 3 args always
+- File I/O: coreio.Local not os.ReadFile/WriteFile
+- No hardcoded paths (/Users/*, /home/*)
+- No nil pointer risks (check err before using resp.StatusCode)
+- No unused imports or variables
+- UK English in comments
+Fix anything you find. This catches the obvious mistakes.
+
+### Pass 2: Build + Test
+Run the test suite. Fix any failures. If tests don't exist for your new code, add them for critical paths.
+
+### Pass 3: Simplify
+Look at your changes as a whole:
+- Any duplicate code that should be consolidated?
+- Any function that's too long and should be split?
+- Any unnecessary complexity?
+- Can any of your changes be expressed more simply?
+Simplify without changing behaviour.
+
+### Pass 4: Final Check
+Run build one more time. If clean, commit. If not, fix and repeat.
+
+Each pass catches things the previous one introduced. Do NOT skip passes.
+
 ## Commit Convention
 
 Commit message format: type(scope): description
