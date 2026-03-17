@@ -1,7 +1,7 @@
 {
   "name": "core",
-  "description": "Core agent platform — dispatch, watch, monitor, status, review, scan, messaging, PR automation, sandboxed agents",
-  "version": "0.8.0",
+  "description": "Core agent platform — dispatch (local + remote), verify+merge, CodeRabbit/Codex review queue, GitHub mirror, cross-agent messaging, OpenBrain integration, inbox notifications",
+  "version": "0.9.0",
   "author": {
     "name": "Lethean",
     "email": "hello@host.uk.com"
@@ -10,11 +10,14 @@
   "repository": "https://forge.lthn.ai/core/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
-    "hooks",
-    "auto-approve",
-    "data-collection",
-    "cryptocurrency",
-    "archive"
+    "agentic",
+    "dispatch",
+    "mcp",
+    "review",
+    "coderabbit",
+    "codex",
+    "messaging",
+    "openbrain"
   ],
   "hooks": [
     {
