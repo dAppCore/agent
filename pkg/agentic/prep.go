@@ -357,33 +357,21 @@ If no PLAN.md, complete TODO.md as a single unit of work.
 
 ## Closeout Sequence (MANDATORY before final commit)
 
-After completing your work, you MUST run this polish cycle before committing:
+After completing your work, you MUST run this polish cycle using the core plugin agents:
 
-### Pass 1: Self-Review
-Review ALL files you changed. For each file check:
-- Error handling: coreerr.E("pkg.Method", "msg", err) — 3 args always
-- File I/O: coreio.Local not os.ReadFile/WriteFile
-- No hardcoded paths (/Users/*, /home/*)
-- No nil pointer risks (check err before using resp.StatusCode)
-- No unused imports or variables
-- UK English in comments
-Fix anything you find. This catches the obvious mistakes.
+### Pass 1: Code Review
+Use the Agent tool to launch the core:agent-task-code-review agent. It will review all your changes for bugs, security issues, and convention violations. Fix ALL findings rated >= 50 confidence before proceeding.
 
 ### Pass 2: Build + Test
-Run the test suite. Fix any failures. If tests don't exist for your new code, add them for critical paths.
+Run the test suite (go test ./... or composer test). Fix any failures.
 
 ### Pass 3: Simplify
-Look at your changes as a whole:
-- Any duplicate code that should be consolidated?
-- Any function that's too long and should be split?
-- Any unnecessary complexity?
-- Can any of your changes be expressed more simply?
-Simplify without changing behaviour.
+Use the Agent tool to launch the core:agent-task-code-simplifier agent. It will consolidate duplicates, remove dead code, and flatten complexity. Let it work, then verify the build still passes.
 
-### Pass 4: Final Check
-Run build one more time. If clean, commit. If not, fix and repeat.
+### Pass 4: Final Review
+Run the core:agent-task-code-review agent ONE MORE TIME on the simplified code. If clean, commit. If findings remain, fix and re-check.
 
-Each pass catches things the previous one introduced. Do NOT skip passes.
+Each pass catches things the previous one introduced. Do NOT skip passes. The goal: zero findings on the final review.
 
 ## Commit Convention
 
