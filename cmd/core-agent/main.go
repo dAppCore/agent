@@ -5,6 +5,7 @@ import (
 
 	"forge.lthn.ai/core/agent/pkg/agentic"
 	"forge.lthn.ai/core/agent/pkg/brain"
+	"forge.lthn.ai/core/agent/pkg/monitor"
 	"forge.lthn.ai/core/cli/pkg/cli"
 	"forge.lthn.ai/core/go-process"
 	"forge.lthn.ai/core/go/pkg/core"
@@ -31,13 +32,18 @@ func main() {
 		}
 		process.SetDefault(procSvc)
 
+		mon := monitor.New()
 		mcpSvc, err := mcp.New(
 			mcp.WithSubsystem(brain.NewDirect()),
 			mcp.WithSubsystem(agentic.NewPrep()),
+			mcp.WithSubsystem(mon),
 		)
 		if err != nil {
 			return cli.Wrap(err, "create MCP service")
 		}
+
+		// Start background monitor after MCP server is running
+		mon.Start(cmd.Context())
 
 		return mcpSvc.Run(cmd.Context())
 	})
