@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"forge.lthn.ai/core/agent/pkg/prompts"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -213,8 +214,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	// Copy persona if specified
 	if input.Persona != "" {
-		personaPath := filepath.Join(s.codePath, "core", "agent", "prompts", "personas", input.Persona+".md")
-		if data, err := coreio.Local.Read(personaPath); err == nil {
+		if data, err := prompts.Persona(input.Persona); err == nil {
 			coreio.Local.Write(filepath.Join(wsDir, "src", "PERSONA.md"), data)
 		}
 	}
@@ -392,16 +392,10 @@ Do NOT push. Commit only — a reviewer will verify and push.
 // writePlanFromTemplate loads a YAML plan template, substitutes variables,
 // and writes PLAN.md into the workspace src/ directory.
 func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map[string]string, task string, wsDir string) {
-	// Look for template in core/agent/prompts/templates/
-	templatePath := filepath.Join(s.codePath, "core", "agent", "prompts", "templates", templateSlug+".yaml")
-	data, err := coreio.Local.Read(templatePath)
+	// Load template from embedded prompts package
+	data, err := prompts.Template(templateSlug)
 	if err != nil {
-		// Try .yml extension
-		templatePath = filepath.Join(s.codePath, "core", "agent", "prompts", "templates", templateSlug+".yml")
-		data, err = coreio.Local.Read(templatePath)
-		if err != nil {
-			return // Template not found, skip silently
-		}
+		return // Template not found, skip silently
 	}
 
 	content := data
