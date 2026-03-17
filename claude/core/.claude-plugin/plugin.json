@@ -1,7 +1,7 @@
 {
   "name": "core",
-  "description": "Core agent platform — dispatch, status, review, verify, sweep, recall, scan, messaging, conventions enforcement",
-  "version": "0.6.0",
+  "description": "Core agent platform — dispatch, watch, monitor, status, review, scan, messaging, PR automation, sandboxed agents",
+  "version": "0.7.0",
   "author": {
     "name": "Lethean",
     "email": "hello@host.uk.com"
