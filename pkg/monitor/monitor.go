@@ -366,8 +366,11 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 }
 
 func workspaceRoot() string {
+	if root := os.Getenv("CORE_WORKSPACE"); root != "" {
+		return filepath.Join(root, "workspace")
+	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	return filepath.Join(home, "Code", ".core", "workspace")
 }
 
 func agentName() string {

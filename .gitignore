@@ -2,3 +2,7 @@
 .core/
 docker/.env
 ui/node_modules
+# Compiled binaries
+core-agent
+mcp
+*.exe

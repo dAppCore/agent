@@ -54,8 +54,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, CreatePROutput{}, coreerr.E("createPR", "no Forge token configured", nil)
 	}
 
-	home, _ := os.UserHomeDir()
-	wsDir := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace", input.Workspace)
+	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
 	srcDir := filepath.Join(wsDir, "src")
 
 	if _, err := os.Stat(srcDir); err != nil {

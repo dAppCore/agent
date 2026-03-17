@@ -313,8 +313,7 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 // --- Helpers ---
 
 func (s *PrepSubsystem) plansDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", "host-uk", "core", ".core", "plans")
+	return PlansRoot()
 }
 
 func planPath(dir, id string) string {

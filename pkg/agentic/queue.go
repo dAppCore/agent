@@ -104,8 +104,7 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 
 // countRunningByAgent counts running workspaces for a specific agent type.
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {
@@ -163,8 +162,7 @@ func (s *PrepSubsystem) canDispatch() bool {
 // drainQueue finds the oldest queued workspace and spawns it if a slot is available.
 // Applies rate-based delay between spawns.
 func (s *PrepSubsystem) drainQueue() {
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {

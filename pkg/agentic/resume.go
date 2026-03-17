@@ -43,8 +43,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, ResumeOutput{}, coreerr.E("resume", "workspace is required", nil)
 	}
 
-	home, _ := os.UserHomeDir()
-	wsDir := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace", input.Workspace)
+	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
 	srcDir := filepath.Join(wsDir, "src")
 
 	// Verify workspace exists

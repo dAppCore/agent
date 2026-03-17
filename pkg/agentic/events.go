@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -24,12 +23,7 @@ type CompletionEvent struct {
 // emitCompletionEvent appends a completion event to the events log.
 // The plugin's hook watches this file to notify the orchestrating agent.
 func emitCompletionEvent(agent, workspace string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-
-	eventsFile := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace", "events.jsonl")
+	eventsFile := filepath.Join(WorkspaceRoot(), "events.jsonl")
 
 	event := CompletionEvent{
 		Type:      "agent_completed",

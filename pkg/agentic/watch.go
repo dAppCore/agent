@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -196,6 +195,5 @@ func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
 
 // workspaceRoot returns the root directory for agent workspaces.
 func (s *PrepSubsystem) workspaceRoot() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	return WorkspaceRoot()
 }

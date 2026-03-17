@@ -58,13 +58,13 @@ func NewPrep() *PrepSubsystem {
 	}
 
 	return &PrepSubsystem{
-		forgeURL:    envOr("FORGE_URL", "https://forge.lthn.ai"),
-		forgeToken:  forgeToken,
-		brainURL:    envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
-		brainKey:    brainKey,
-		specsPath:   envOr("SPECS_PATH", filepath.Join(home, "Code", "host-uk", "specs")),
-		codePath:    envOr("CODE_PATH", filepath.Join(home, "Code")),
-		client: &http.Client{Timeout: 30 * time.Second},
+		forgeURL:   envOr("FORGE_URL", "https://forge.lthn.ai"),
+		forgeToken: forgeToken,
+		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
+		brainKey:   brainKey,
+		specsPath:  envOr("SPECS_PATH", filepath.Join(home, "Code", "specs")),
+		codePath:   envOr("CODE_PATH", filepath.Join(home, "Code")),
+		client:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -152,8 +152,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Workspace root: .core/workspace/{repo}-{timestamp}/
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	wsRoot := WorkspaceRoot()
 	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().Unix())
 	wsDir := filepath.Join(wsRoot, wsName)
 
