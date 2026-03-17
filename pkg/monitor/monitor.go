@@ -134,6 +134,13 @@ func (m *Subsystem) check(ctx context.Context) {
 
 	combined := strings.Join(messages, "\n")
 	m.notify(ctx, combined)
+
+	// Notify resource subscribers that agent status changed
+	if m.server != nil {
+		m.server.ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
+			URI: "status://agents",
+		})
+	}
 }
 
 // checkCompletions scans workspace for newly completed agents.
