@@ -365,7 +365,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 	}, nil
 }
 
-func workspaceRoot() string {
+func workspaceRoot() string { 
 	if root := os.Getenv("CORE_WORKSPACE"); root != "" {
 		return filepath.Join(root, "workspace")
 	}

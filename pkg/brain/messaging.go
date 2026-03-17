@@ -135,7 +135,7 @@ func parseMessages(result map[string]any) []MessageItem {
 	for _, m := range data {
 		mm, _ := m.(map[string]any)
 		messages = append(messages, MessageItem{
-			ID:        int(mm["id"].(float64)),
+			ID:        toInt(mm["id"]),
 			From:      fmt.Sprintf("%v", mm["from"]),
 			To:        fmt.Sprintf("%v", mm["to"]),
 			Subject:   fmt.Sprintf("%v", mm["subject"]),
@@ -145,4 +145,11 @@ func parseMessages(result map[string]any) []MessageItem {
 		})
 	}
 	return messages
+}
+
+func toInt(v any) int {
+	if f, ok := v.(float64); ok {
+		return int(f)
+	}
+	return 0
 }

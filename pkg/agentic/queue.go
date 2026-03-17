@@ -153,10 +153,6 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	return s.countRunningByAgent(base) < limit
 }
 
-// canDispatch is kept for backwards compat.
-func (s *PrepSubsystem) canDispatch() bool {
-	return true
-}
 
 // drainQueue finds the oldest queued workspace and spawns it if a slot is available.
 // Applies rate-based delay between spawns.

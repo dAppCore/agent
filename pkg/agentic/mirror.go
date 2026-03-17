@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -199,7 +198,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 // ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
 func ensureDevBranch(repoDir string) {
 	// Try to push current main as dev — if dev exists this is a no-op (we force-push later)
-	cmd := exec.Command("git", "push", "github", "HEAD:refs/heads/dev", "--no-force")
+	cmd := exec.Command("git", "push", "github", "HEAD:refs/heads/dev")
 	cmd.Dir = repoDir
 	cmd.Run() // Ignore error — branch may already exist
 }
@@ -274,5 +273,3 @@ func extractJSONField(jsonStr, field string) string {
 	return jsonStr[start : start+end]
 }
 
-// Ensure time is imported (used by other files in package).
-var _ = time.Now

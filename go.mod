@@ -3,34 +3,25 @@ module forge.lthn.ai/core/agent
 go 1.26.0
 
 require (
-	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v2 v2.2.0
 	forge.lthn.ai/core/api v0.1.3
 	forge.lthn.ai/core/cli v0.3.6
-	forge.lthn.ai/core/config v0.1.0
 	forge.lthn.ai/core/go v0.3.1
-	forge.lthn.ai/core/go-ai v0.1.11
-	forge.lthn.ai/core/go-i18n v0.1.6
-	forge.lthn.ai/core/go-inference v0.1.5
 	forge.lthn.ai/core/go-io v0.1.5
 	forge.lthn.ai/core/go-log v0.0.4
 	forge.lthn.ai/core/go-process v0.2.7
-	forge.lthn.ai/core/go-ratelimit v0.1.0
-	forge.lthn.ai/core/go-scm v0.2.0
-	forge.lthn.ai/core/go-store v0.1.6
 	forge.lthn.ai/core/go-ws v0.2.3
 	forge.lthn.ai/core/mcp v0.3.2
 	github.com/gin-gonic/gin v1.12.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
-	github.com/redis/go-redis/v9 v9.18.0
-	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.46.2
 )
 
 require (
+	forge.lthn.ai/core/go-ai v0.1.11 // indirect
+	forge.lthn.ai/core/go-i18n v0.1.6 // indirect
+	forge.lthn.ai/core/go-inference v0.1.5 // indirect
 	forge.lthn.ai/core/go-rag v0.1.9 // indirect
 	forge.lthn.ai/core/go-webview v0.1.5 // indirect
-	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
@@ -55,12 +46,8 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/gin-contrib/authz v1.0.6 // indirect
 	github.com/gin-contrib/cors v1.7.6 // indirect
@@ -75,7 +62,6 @@ require (
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/gin-contrib/static v1.1.5 // indirect
 	github.com/gin-contrib/timeout v1.1.0 // indirect
-	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -101,7 +87,6 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -117,25 +102,18 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/ollama/ollama v0.18.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/qdrant/go-client v1.17.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/redis/go-redis/v9 v9.18.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sosodev/duration v1.4.0 // indirect
-	github.com/spf13/afero v1.15.0 // indirect
-	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/spf13/viper v1.21.0 // indirect
-	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/gin-swagger v1.6.1 // indirect
 	github.com/swaggo/swag v1.16.6 // indirect
@@ -167,7 +145,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
 	google.golang.org/grpc v1.79.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	modernc.org/libc v1.70.0 // indirect
-	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.11.0 // indirect
 )

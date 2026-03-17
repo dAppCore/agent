@@ -185,8 +185,9 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels?token=%s", s.forgeURL, org, repo, s.forgeToken)
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req.Header.Set("Authorization", "token "+s.forgeToken)
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return 0
