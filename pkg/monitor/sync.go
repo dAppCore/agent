@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"forge.lthn.ai/core/agent/pkg/agentic"
+	coreio "forge.lthn.ai/core/go-io"
 )
 
 // CheckinResponse is what the API returns for an agent checkin.
@@ -36,7 +39,7 @@ func (m *Subsystem) syncRepos() string {
 		apiURL = "https://api.lthn.sh"
 	}
 
-	agentName := agentName()
+	agentName := agentic.AgentName()
 
 	url := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, agentName, m.lastSyncTimestamp)
 
@@ -49,8 +52,8 @@ func (m *Subsystem) syncRepos() string {
 	brainKey := os.Getenv("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		home, _ := os.UserHomeDir()
-		if data, err := os.ReadFile(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			brainKey = strings.TrimSpace(string(data))
+		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
+			brainKey = strings.TrimSpace(data)
 		}
 	}
 	if brainKey != "" {

@@ -20,6 +20,9 @@ import (
 	"sync"
 	"time"
 
+	coreio "forge.lthn.ai/core/go-io"
+	"forge.lthn.ai/core/agent/pkg/agentic"
+
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -169,7 +172,7 @@ func (m *Subsystem) check(ctx context.Context) {
 
 // checkCompletions scans workspace for newly completed agents.
 func (m *Subsystem) checkCompletions() string {
-	wsRoot := workspaceRoot()
+	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return ""
@@ -181,7 +184,7 @@ func (m *Subsystem) checkCompletions() string {
 	var recentlyCompleted []string
 
 	for _, entry := range entries {
-		data, err := os.ReadFile(entry)
+		data, err := coreio.Local.Read(entry)
 		if err != nil {
 			continue
 		}
@@ -190,7 +193,7 @@ func (m *Subsystem) checkCompletions() string {
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 		}
-		if json.Unmarshal(data, &st) != nil {
+		if json.Unmarshal([]byte(data), &st) != nil {
 			continue
 		}
 
@@ -229,15 +232,15 @@ func (m *Subsystem) checkCompletions() string {
 func (m *Subsystem) checkInbox() string {
 	home, _ := os.UserHomeDir()
 	keyFile := filepath.Join(home, ".claude", "brain.key")
-	apiKey, err := os.ReadFile(keyFile)
+	apiKeyStr, err := coreio.Local.Read(keyFile)
 	if err != nil {
 		return ""
 	}
 
 	// Call the API to check inbox
 	cmd := exec.Command("curl", "-sf",
-		"-H", "Authorization: Bearer "+strings.TrimSpace(string(apiKey)),
-		"https://api.lthn.sh/v1/messages/inbox?agent="+agentName(),
+		"-H", "Authorization: Bearer "+strings.TrimSpace(apiKeyStr),
+		"https://api.lthn.sh/v1/messages/inbox?agent="+agentic.AgentName(),
 	)
 	out, err := cmd.Output()
 	if err != nil {
@@ -292,7 +295,7 @@ func (m *Subsystem) checkInbox() string {
 	if latestSubject != "" {
 		notify += fmt.Sprintf(" — \"%s\"", latestSubject)
 	}
-	os.WriteFile("/tmp/claude-inbox-notify", []byte(notify), 0644)
+	coreio.Local.Write("/tmp/claude-inbox-notify", notify)
 
 	return fmt.Sprintf("%d unread message(s) in inbox", unread)
 }
@@ -315,7 +318,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 
 // agentStatusResource returns current workspace status as a JSON resource.
 func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	wsRoot := workspaceRoot()
+	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return nil, coreerr.E("monitor.agentStatus", "failed to scan workspaces", err)
@@ -331,7 +334,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 
 	var workspaces []wsInfo
 	for _, entry := range entries {
-		data, err := os.ReadFile(entry)
+		data, err := coreio.Local.Read(entry)
 		if err != nil {
 			continue
 		}
@@ -341,7 +344,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			Agent  string `json:"agent"`
 			PRURL  string `json:"pr_url"`
 		}
-		if json.Unmarshal(data, &st) != nil {
+		if json.Unmarshal([]byte(data), &st) != nil {
 			continue
 		}
 		workspaces = append(workspaces, wsInfo{
@@ -365,22 +368,3 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 	}, nil
 }
 
-func workspaceRoot() string { 
-	if root := os.Getenv("CORE_WORKSPACE"); root != "" {
-		return filepath.Join(root, "workspace")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", ".core", "workspace")
-}
-
-func agentName() string {
-	if name := os.Getenv("AGENT_NAME"); name != "" {
-		return name
-	}
-	hostname, _ := os.Hostname()
-	h := strings.ToLower(hostname)
-	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
-		return "cladius"
-	}
-	return "charon"
-}

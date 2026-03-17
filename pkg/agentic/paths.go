@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"os"
+	"strings"
 	"path/filepath"
 )
 
@@ -26,4 +27,18 @@ func CoreRoot() string {
 // PlansRoot returns the root directory for agent plans.
 func PlansRoot() string {
 	return filepath.Join(CoreRoot(), "plans")
+}
+
+// AgentName returns the name of this agent based on hostname.
+// Checks AGENT_NAME env var first.
+func AgentName() string {
+	if name := os.Getenv("AGENT_NAME"); name != "" {
+		return name
+	}
+	hostname, _ := os.Hostname()
+	h := strings.ToLower(hostname)
+	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
+		return "cladius"
+	}
+	return "charon"
 }

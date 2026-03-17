@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -193,8 +194,8 @@ func remoteToken(host string) string {
 		fmt.Sprintf("%s/.core/agent-token", home),
 	}
 	for _, f := range tokenFiles {
-		if data, err := os.ReadFile(f); err == nil {
-			return strings.TrimSpace(string(data))
+		if data, err := coreio.Local.Read(f); err == nil {
+			return strings.TrimSpace(data)
 		}
 	}
 

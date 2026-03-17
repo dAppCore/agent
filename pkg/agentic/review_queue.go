@@ -242,12 +242,12 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	}
 
 	// Mark PR ready if draft
-	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "1")
+	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "--repo", "dAppCore/"+repo)
 	readyCmd.Dir = repoDir
 	readyCmd.Run() // Ignore error — might already be ready
 
 	// Try to merge
-	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "1", "--merge", "--delete-branch")
+	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "--merge", "--delete-branch")
 	mergeCmd.Dir = repoDir
 	if out, err := mergeCmd.CombinedOutput(); err != nil {
 		return coreerr.E("pushAndMerge", "merge failed: "+string(out), err)

@@ -341,6 +341,5 @@ func extractPRNumber(prURL string) int {
 
 // fileExists checks if a file exists.
 func fileExists(path string) bool {
-	data, err := coreio.Local.Read(path)
-	return err == nil && data != ""
+	return coreio.Local.IsFile(path)
 }

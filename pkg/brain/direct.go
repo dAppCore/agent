@@ -14,22 +14,15 @@ import (
 	"strings"
 	"time"
 
+	"forge.lthn.ai/core/agent/pkg/agentic"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// agentName returns the identity of this agent from env or hostname.
+// agentName returns the identity of this agent.
 func agentName() string {
-	if name := os.Getenv("AGENT_NAME"); name != "" {
-		return name
-	}
-	hostname, _ := os.Hostname()
-	h := strings.ToLower(hostname)
-	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
-		return "cladius"
-	}
-	return "charon"
+	return agentic.AgentName()
 }
 
 // DirectSubsystem implements mcp.Subsystem for OpenBrain via direct HTTP calls.
