@@ -66,7 +66,7 @@ func agentAddCmd() *cli.Command {
 			}
 			queueDir, _ := cmd.Flags().GetString("queue-dir")
 			if queueDir == "" {
-				queueDir = "/home/claude/ai-work/queue"
+				queueDir = "" // resolved by orchestrator config
 			}
 			model, _ := cmd.Flags().GetString("model")
 			dualRun, _ := cmd.Flags().GetBool("dual-run")
@@ -128,7 +128,7 @@ func agentAddCmd() *cli.Command {
 		},
 	}
 	cmd.Flags().String("forgejo-user", "", "Forgejo username (defaults to agent name)")
-	cmd.Flags().String("queue-dir", "", "Remote queue directory (default: /home/claude/ai-work/queue)")
+	cmd.Flags().String("queue-dir", "", "Remote queue directory (default: ~/.core/queue)")
 	cmd.Flags().String("model", "sonnet", "Primary AI model")
 	cmd.Flags().Bool("dual-run", false, "Enable Clotho dual-run verification")
 	return cmd

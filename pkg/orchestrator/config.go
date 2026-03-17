@@ -3,9 +3,11 @@ package orchestrator
 
 import (
 	"maps"
+	"path/filepath"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	"forge.lthn.ai/core/agent/pkg/agentic"
 	"forge.lthn.ai/core/config"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // AgentConfig represents a single agent machine in the config file.
@@ -48,7 +50,7 @@ func LoadAgents(cfg *config.Config) (map[string]AgentConfig, error) {
 			return nil, coreerr.E("agentci.LoadAgents", "agent "+name+": host is required", nil)
 		}
 		if ac.QueueDir == "" {
-			ac.QueueDir = "/home/claude/ai-work/queue"
+			ac.QueueDir = filepath.Join(agentic.CoreRoot(), "queue")
 		}
 		if ac.Model == "" {
 			ac.Model = "sonnet"

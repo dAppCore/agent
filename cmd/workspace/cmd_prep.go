@@ -75,7 +75,7 @@ func runPrep(cmd *cli.Command, args []string) error {
 	if specsPath == "" {
 		home, err := os.UserHomeDir()
 		if err == nil {
-			specsPath = filepath.Join(home, "Code", "host-uk", "specs")
+			specsPath = filepath.Join(home, "Code", "specs")
 		}
 	}
 
