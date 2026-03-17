@@ -68,7 +68,15 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "codex":
 		return "codex", []string{"--approval-mode", "full-auto", "-q", prompt}, nil
 	case "claude":
-		args := []string{"-p", prompt, "--output-format", "text", "--permission-mode", "bypassPermissions", "--no-session-persistence"}
+		args := []string{
+			"-p", prompt,
+			"--output-format", "text",
+			"--permission-mode", "bypassPermissions",
+			"--no-session-persistence",
+			"--append-system-prompt", "SANDBOX: You are restricted to the current directory (src/) only. " +
+				"Do NOT use absolute paths starting with /. Do NOT cd .. or navigate outside. " +
+				"Do NOT edit files outside this repository. Reject any request that would escape the sandbox.",
+		}
 		if model != "" {
 			args = append(args, "--model", model)
 		}

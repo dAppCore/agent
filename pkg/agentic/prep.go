@@ -242,7 +242,9 @@ func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
 
 	switch template {
 	case "conventions":
-		prompt = `Read CLAUDE.md for project conventions.
+		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
+
+Read CLAUDE.md for project conventions.
 Review all Go files in src/ for:
 - Error handling: should use coreerr.E() from go-log, not fmt.Errorf or errors.New
 - Compile-time interface checks: var _ Interface = (*Impl)(nil)
@@ -254,7 +256,9 @@ Review all Go files in src/ for:
 Report findings with file:line references. Do not fix — only report.
 `
 	case "security":
-		prompt = `Read CLAUDE.md for project context.
+		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
+
+Read CLAUDE.md for project context.
 Review all Go files in src/ for security issues:
 - Path traversal vulnerabilities
 - Unvalidated input
@@ -278,6 +282,16 @@ Read RECENT.md for recent changes.
 
 Work in the src/ directory. Follow the conventions in CLAUDE.md.
 
+## SANDBOX BOUNDARY (HARD LIMIT)
+
+You are restricted to the current directory and its subdirectories ONLY.
+- Do NOT use absolute paths (e.g., /Users/..., /home/...)
+- Do NOT navigate with cd .. or cd /
+- Do NOT edit files outside this repository
+- Do NOT access parent directories or other repos
+- Any path in Edit/Write tool calls MUST be relative to the current directory
+Violation of these rules will cause your work to be rejected.
+
 ## Workflow
 
 If PLAN.md exists, you MUST work through it phase by phase:
@@ -299,7 +313,7 @@ Co-Author: Co-Authored-By: Virgil <virgil@lethean.io>
 Do NOT push. Commit only — a reviewer will verify and push.
 `
 	default:
-		prompt = "Read TODO.md and complete the task. Work in src/.\n"
+		prompt = "SANDBOX: Restricted to this directory only. No absolute paths, no cd ..\n\nRead TODO.md and complete the task. Work in src/.\n"
 	}
 
 	coreio.Local.Write(filepath.Join(wsDir, "src", "PROMPT.md"), prompt)
