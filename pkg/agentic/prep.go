@@ -91,6 +91,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	}, s.scan)
 
 	s.registerPlanTools(server)
+	s.registerWatchTool(server)
 }
 
 // Shutdown implements mcp.SubsystemWithShutdown.
