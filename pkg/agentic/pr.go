@@ -308,7 +308,12 @@ func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return nil, coreerr.E("listRepoPRs", "failed to list PRs for "+repo, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return nil, coreerr.E("listRepoPRs", "failed to list PRs for "+repo, err)
 	}
 	defer resp.Body.Close()

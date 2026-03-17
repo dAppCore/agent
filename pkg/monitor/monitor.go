@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -238,12 +238,24 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	// Call the API to check inbox
-	cmd := exec.Command("curl", "-sf",
-		"-H", "Authorization: Bearer "+strings.TrimSpace(apiKeyStr),
-		"https://api.lthn.sh/v1/messages/inbox?agent="+agentic.AgentName(),
-	)
-	out, err := cmd.Output()
+	apiURL := os.Getenv("CORE_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.lthn.sh"
+	}
+	req, err := http.NewRequest("GET", apiURL+"/v1/messages/inbox?agent="+agentic.AgentName(), nil)
 	if err != nil {
+		return ""
+	}
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKeyStr))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	httpResp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != 200 {
 		return ""
 	}
 
@@ -254,7 +266,7 @@ func (m *Subsystem) checkInbox() string {
 			Subject string `json:"subject"`
 		} `json:"data"`
 	}
-	if json.Unmarshal(out, &resp) != nil {
+	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
 		return ""
 	}
 

@@ -42,3 +42,11 @@ func AgentName() string {
 	}
 	return "charon"
 }
+
+// GitHubOrg returns the GitHub org for mirror operations.
+func GitHubOrg() string {
+	if org := os.Getenv("GITHUB_ORG"); org != "" {
+		return org
+	}
+	return "dAppCore"
+}

@@ -242,7 +242,7 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	}
 
 	// Mark PR ready if draft
-	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "--repo", "dAppCore/"+repo)
+	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
 	readyCmd.Dir = repoDir
 	readyCmd.Run() // Ignore error — might already be ready
 
@@ -339,8 +339,11 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonLine, _ := json.Marshal(entry)
 
 	jsonlPath := filepath.Join(dataDir, "reviews.jsonl")
-	existing, _ := coreio.Local.Read(jsonlPath)
-	coreio.Local.Write(jsonlPath, existing+string(jsonLine)+"\n")
+	f, err := os.OpenFile(jsonlPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer f.Close()
+		f.Write(append(jsonLine, '\n'))
+	}
 }
 
 // saveRateLimitState persists rate limit info for cross-run awareness.

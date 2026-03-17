@@ -105,7 +105,12 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
 	}
 	defer resp.Body.Close()
@@ -129,7 +134,12 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return nil, coreerr.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return nil, coreerr.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
 	}
 	defer resp.Body.Close()

@@ -167,7 +167,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// 1. Clone repo into src/ and create feature branch
 	srcDir := filepath.Join(wsDir, "src")
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, srcDir)
-	cloneCmd.Run()
+	if err := cloneCmd.Run(); err != nil {
+		return nil, PrepOutput{}, coreerr.E("prep", "git clone failed for "+input.Repo, err)
+	}
 
 	// Create feature branch
 	taskSlug := strings.Map(func(r rune) rune {
@@ -459,7 +461,12 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return 0
 	}
 	defer resp.Body.Close()
@@ -544,7 +551,12 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 	req.Header.Set("Authorization", "Bearer "+s.brainKey)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return 0
 	}
 	defer resp.Body.Close()
@@ -637,7 +649,12 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
 		return
 	}
 	defer resp.Body.Close()
