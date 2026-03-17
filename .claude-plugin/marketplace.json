@@ -9,8 +9,8 @@
     {
       "name": "core",
       "source": "./claude/core",
-      "description": "Core agent platform — dispatch, watch, monitor, status, review, scan, messaging, PR automation, sandboxed agents",
-      "version": "0.7.0"
+      "description": "Core agent platform — dispatch (local + remote), verify+merge, CodeRabbit/Codex review queue, GitHub mirror, cross-agent messaging, OpenBrain integration",
+      "version": "0.10.0"
     },
     {
       "name": "core-php",

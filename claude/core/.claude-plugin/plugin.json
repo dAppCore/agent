@@ -18,11 +18,5 @@
     "codex",
     "messaging",
     "openbrain"
-  ],
-  "hooks": [
-    {
-      "event": "PostToolUse",
-      "script": "${CLAUDE_PLUGIN_ROOT}/scripts/check-notify.sh"
-    }
   ]
 }
