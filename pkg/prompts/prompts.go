@@ -30,7 +30,7 @@ import (
 //go:embed lib/prompt/*.md
 var promptFS embed.FS
 
-//go:embed lib/task
+//go:embed all:lib/task
 var taskFS embed.FS
 
 //go:embed lib/flow/*.md
@@ -57,16 +57,48 @@ func Template(slug string) (string, error) {
 	return Task(slug)
 }
 
-// Task returns a structured task plan by slug (written as PLAN.md).
+// Task returns a task definition by slug.
 // Slugs: "bug-fix", "new-feature", "code/review", "code/refactor", etc.
 func Task(slug string) (string, error) {
-	for _, ext := range []string{".yaml", ".yml", ".md"} {
+	for _, ext := range []string{".md", ".yaml", ".yml"} {
 		data, err := taskFS.ReadFile("lib/task/" + slug + ext)
 		if err == nil {
 			return string(data), nil
 		}
 	}
 	return "", fs.ErrNotExist
+}
+
+// TaskBundle returns the task definition plus all additional files in its bundle directory.
+// For "code/review": returns review.md content + map of {filename: content} from review/.
+// The bundle directory has the same name as the task file (without extension).
+func TaskBundle(slug string) (string, map[string]string, error) {
+	// Get the main task definition
+	main, err := Task(slug)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Look for a bundle directory with the same name
+	bundleDir := "lib/task/" + slug
+	entries, err := fs.ReadDir(taskFS, bundleDir)
+	if err != nil {
+		// No bundle — just the task definition
+		return main, nil, nil
+	}
+
+	bundle := make(map[string]string)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		data, err := taskFS.ReadFile(bundleDir + "/" + e.Name())
+		if err == nil {
+			bundle[e.Name()] = string(data)
+		}
+	}
+
+	return main, bundle, nil
 }
 
 // Flow returns a build/release workflow by slug.

@@ -31,7 +31,24 @@ func TestTask_Good(t *testing.T) {
 func TestTask_Good_Nested(t *testing.T) {
 	content, err := Task("code/review")
 	require.NoError(t, err)
-	assert.Contains(t, content, "name:")
+	assert.Contains(t, content, "Code Review")
+}
+
+func TestTaskBundle_Good(t *testing.T) {
+	main, bundle, err := TaskBundle("code/review")
+	require.NoError(t, err)
+	assert.Contains(t, main, "Code Review")
+	assert.NotNil(t, bundle)
+	assert.Contains(t, bundle, "conventions.md")
+	assert.Contains(t, bundle, "severity.md")
+	assert.Contains(t, bundle["conventions.md"], "coreerr.E")
+}
+
+func TestTaskBundle_Good_NoBundleDir(t *testing.T) {
+	main, bundle, err := TaskBundle("bug-fix")
+	require.NoError(t, err)
+	assert.Contains(t, main, "name:")
+	assert.Nil(t, bundle)
 }
 
 func TestTask_Bad_NotFound(t *testing.T) {
