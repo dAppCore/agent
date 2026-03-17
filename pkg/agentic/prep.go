@@ -114,6 +114,7 @@ type PrepInput struct {
 type PrepOutput struct {
 	Success       bool   `json:"success"`
 	WorkspaceDir  string `json:"workspace_dir"`
+	Branch        string `json:"branch"`
 	WikiPages     int    `json:"wiki_pages"`
 	SpecFiles     int    `json:"spec_files"`
 	Memories      int    `json:"memories"`
@@ -171,6 +172,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
 	branchCmd.Dir = srcDir
 	branchCmd.Run()
+	out.Branch = branchName
 
 	// Create context dirs inside src/
 	coreio.Local.EnsureDir(filepath.Join(srcDir, "kb"))

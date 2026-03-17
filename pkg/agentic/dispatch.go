@@ -132,6 +132,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		// Emit completion event
 		emitCompletionEvent(agent, filepath.Base(wsDir))
 
+		// Auto-create PR if agent made commits
+		s.autoCreatePR(wsDir)
+
 		// Ingest scan findings as issues
 		s.ingestFindings(wsDir)
 
@@ -202,6 +205,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 			Repo:      input.Repo,
 			Org:       input.Org,
 			Task:      input.Task,
+			Branch:    prepOut.Branch,
 			StartedAt: time.Now(),
 			Runs:      0,
 		})
@@ -226,6 +230,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		Repo:      input.Repo,
 		Org:       input.Org,
 		Task:      input.Task,
+		Branch:    prepOut.Branch,
 		PID:       pid,
 		StartedAt: time.Now(),
 		Runs:      1,
