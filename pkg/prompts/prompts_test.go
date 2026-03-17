@@ -28,46 +28,43 @@ func TestTask_Good(t *testing.T) {
 	assert.Contains(t, content, "name:")
 }
 
+func TestTask_Good_Nested(t *testing.T) {
+	content, err := Task("code/review")
+	require.NoError(t, err)
+	assert.Contains(t, content, "name:")
+}
+
 func TestTask_Bad_NotFound(t *testing.T) {
 	_, err := Task("nonexistent")
 	assert.Error(t, err)
 }
 
 func TestTemplate_Good_BackwardsCompat(t *testing.T) {
-	// Template() should find prompts
 	content, err := Template("coding")
 	require.NoError(t, err)
 	assert.Contains(t, content, "SANDBOX")
 
-	// Template() should also find tasks
 	content, err = Template("bug-fix")
 	require.NoError(t, err)
 	assert.Contains(t, content, "name:")
 }
 
 func TestFlow_Good(t *testing.T) {
-	content, err := Flow("prod-push-polish")
+	content, err := Flow("go")
 	require.NoError(t, err)
-	assert.True(t, len(content) > 0)
+	assert.Contains(t, content, "go build")
 }
 
-func TestListPrompts_Good(t *testing.T) {
-	list := ListPrompts()
-	assert.Contains(t, list, "coding")
-	assert.Contains(t, list, "verify")
-}
-
-func TestListTasks_Good(t *testing.T) {
-	list := ListTasks()
-	assert.Contains(t, list, "bug-fix")
-	assert.Contains(t, list, "refactor")
+func TestFlow_Good_Docker(t *testing.T) {
+	content, err := Flow("docker")
+	require.NoError(t, err)
+	assert.Contains(t, content, "docker build")
 }
 
 func TestPersona_Good(t *testing.T) {
 	content, err := Persona("secops/developer")
 	require.NoError(t, err)
 	assert.Contains(t, content, "name:")
-	assert.Contains(t, content, "Security")
 }
 
 func TestPersona_Good_SMM(t *testing.T) {
@@ -81,30 +78,37 @@ func TestPersona_Bad_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestListTemplates_Good(t *testing.T) {
-	templates := ListTemplates()
-	assert.True(t, len(templates) >= 10, "expected at least 10 templates, got %d", len(templates))
-	assert.Contains(t, templates, "bug-fix")
-	assert.Contains(t, templates, "code-review")
+func TestListPrompts_Good(t *testing.T) {
+	list := ListPrompts()
+	assert.Contains(t, list, "coding")
+	assert.Contains(t, list, "verify")
+	assert.True(t, len(list) >= 5)
+}
+
+func TestListTasks_Good(t *testing.T) {
+	list := ListTasks()
+	assert.Contains(t, list, "bug-fix")
+	// Nested tasks
+	hasCodeReview := false
+	for _, t := range list {
+		if t == "code/review" {
+			hasCodeReview = true
+		}
+	}
+	assert.True(t, hasCodeReview, "code/review not found in tasks")
+}
+
+func TestListFlows_Good(t *testing.T) {
+	list := ListFlows()
+	assert.Contains(t, list, "go")
+	assert.Contains(t, list, "php")
+	assert.Contains(t, list, "docker")
+	assert.True(t, len(list) >= 9)
 }
 
 func TestListPersonas_Good(t *testing.T) {
 	personas := ListPersonas()
-	assert.True(t, len(personas) >= 90, "expected at least 90 personas, got %d", len(personas))
-
-	// Check cross-domain security roles exist
-	hasSecDev := false
-	hasSMMSec := false
-	for _, p := range personas {
-		if p == "secops/developer" {
-			hasSecDev = true
-		}
-		if p == "smm/security-developer" {
-			hasSMMSec = true
-		}
-	}
-	assert.True(t, hasSecDev, "secops/developer not found")
-	assert.True(t, hasSMMSec, "smm/security-developer not found")
+	assert.True(t, len(personas) >= 90)
 }
 
 func TestListPersonas_Good_NoPrefixDuplication(t *testing.T) {

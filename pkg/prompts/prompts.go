@@ -5,16 +5,19 @@
 //
 // Structure:
 //
-//	lib/prompts/   — System prompts (PROMPT.md content, HOW to work)
-//	lib/tasks/     — Structured task plans (PLAN.md, WHAT to do)
-//	lib/flows/     — Multi-phase workflows (orchestration sequences)
-//	lib/personas/  — Domain/role system prompts (WHO you are)
+//	lib/prompt/    — System prompts (PROMPT.md content, HOW to work)
+//	lib/task/      — Structured task plans (PLAN.md, WHAT to do)
+//	lib/task/code/ — Code-specific tasks (review, refactor, dead-code, test-gaps)
+//	lib/flow/      — Build/release workflows per language/tool
+//	lib/persona/   — Domain/role system prompts (WHO you are)
 //
 // Usage:
 //
 //	prompt, _ := prompts.Prompt("coding")
 //	task, _ := prompts.Task("bug-fix")
+//	task, _ := prompts.Task("code/review")
 //	persona, _ := prompts.Persona("secops/developer")
+//	flow, _ := prompts.Flow("go")
 package prompts
 
 import (
@@ -24,22 +27,22 @@ import (
 	"strings"
 )
 
-//go:embed lib/prompts/*.md
+//go:embed lib/prompt/*.md
 var promptFS embed.FS
 
-//go:embed lib/tasks/*.yaml
+//go:embed lib/task
 var taskFS embed.FS
 
-//go:embed lib/flows/*.md
+//go:embed lib/flow/*.md
 var flowFS embed.FS
 
-//go:embed lib/personas
+//go:embed lib/persona
 var personaFS embed.FS
 
 // Prompt returns a system prompt by slug (written as PROMPT.md).
 // Slugs: "coding", "verify", "conventions", "security", "default".
 func Prompt(slug string) (string, error) {
-	data, err := promptFS.ReadFile("lib/prompts/" + slug + ".md")
+	data, err := promptFS.ReadFile("lib/prompt/" + slug + ".md")
 	if err != nil {
 		return "", err
 	}
@@ -48,7 +51,6 @@ func Prompt(slug string) (string, error) {
 
 // Template is an alias for Prompt (backwards compatibility).
 func Template(slug string) (string, error) {
-	// Try prompts first, then tasks
 	if content, err := Prompt(slug); err == nil {
 		return content, nil
 	}
@@ -56,10 +58,10 @@ func Template(slug string) (string, error) {
 }
 
 // Task returns a structured task plan by slug (written as PLAN.md).
-// Slugs: "bug-fix", "new-feature", "refactor", "code-review", etc.
+// Slugs: "bug-fix", "new-feature", "code/review", "code/refactor", etc.
 func Task(slug string) (string, error) {
-	for _, ext := range []string{".yaml", ".yml"} {
-		data, err := taskFS.ReadFile("lib/tasks/" + slug + ext)
+	for _, ext := range []string{".yaml", ".yml", ".md"} {
+		data, err := taskFS.ReadFile("lib/task/" + slug + ext)
 		if err == nil {
 			return string(data), nil
 		}
@@ -67,9 +69,10 @@ func Task(slug string) (string, error) {
 	return "", fs.ErrNotExist
 }
 
-// Flow returns a multi-phase workflow by slug.
+// Flow returns a build/release workflow by slug.
+// Slugs: "go", "php", "ts", "docker", "release", etc.
 func Flow(slug string) (string, error) {
-	data, err := flowFS.ReadFile("lib/flows/" + slug + ".md")
+	data, err := flowFS.ReadFile("lib/flow/" + slug + ".md")
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +82,7 @@ func Flow(slug string) (string, error) {
 // Persona returns a domain/role system prompt by path.
 // Paths: "secops/developer", "code/backend-architect", "smm/tiktok-strategist".
 func Persona(path string) (string, error) {
-	data, err := personaFS.ReadFile("lib/personas/" + path + ".md")
+	data, err := personaFS.ReadFile("lib/persona/" + path + ".md")
 	if err != nil {
 		return "", err
 	}
@@ -88,17 +91,27 @@ func Persona(path string) (string, error) {
 
 // ListPrompts returns all available prompt slugs.
 func ListPrompts() []string {
-	return listDir(promptFS, "lib/prompts")
+	return listDir(promptFS, "lib/prompt")
 }
 
-// ListTasks returns all available task plan slugs.
+// ListTasks returns all available task plan slugs (including nested like code/review).
 func ListTasks() []string {
-	return listDir(taskFS, "lib/tasks")
+	var slugs []string
+	fs.WalkDir(taskFS, "lib/task", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		rel := strings.TrimPrefix(path, "lib/task/")
+		ext := filepath.Ext(rel)
+		slugs = append(slugs, strings.TrimSuffix(rel, ext))
+		return nil
+	})
+	return slugs
 }
 
 // ListFlows returns all available flow slugs.
 func ListFlows() []string {
-	return listDir(flowFS, "lib/flows")
+	return listDir(flowFS, "lib/flow")
 }
 
 // ListTemplates returns all prompt + task slugs (backwards compatibility).
@@ -109,12 +122,12 @@ func ListTemplates() []string {
 // ListPersonas returns all available persona paths.
 func ListPersonas() []string {
 	var paths []string
-	fs.WalkDir(personaFS, "lib/personas", func(path string, d fs.DirEntry, err error) error {
+	fs.WalkDir(personaFS, "lib/persona", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".md") {
-			rel := strings.TrimPrefix(path, "lib/personas/")
+			rel := strings.TrimPrefix(path, "lib/persona/")
 			rel = strings.TrimSuffix(rel, ".md")
 			paths = append(paths, rel)
 		}
@@ -123,7 +136,7 @@ func ListPersonas() []string {
 	return paths
 }
 
-// listDir returns slugs (filename without extension) from an embedded directory.
+// listDir returns slugs from an embedded directory (non-recursive).
 func listDir(fsys embed.FS, dir string) []string {
 	entries, err := fsys.ReadDir(dir)
 	if err != nil {
