@@ -10,21 +10,57 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTemplate_Good_YAML(t *testing.T) {
-	content, err := Template("bug-fix")
+func TestPrompt_Good(t *testing.T) {
+	content, err := Prompt("coding")
+	require.NoError(t, err)
+	assert.Contains(t, content, "SANDBOX")
+	assert.Contains(t, content, "Closeout Sequence")
+}
+
+func TestPrompt_Bad_NotFound(t *testing.T) {
+	_, err := Prompt("nonexistent")
+	assert.Error(t, err)
+}
+
+func TestTask_Good(t *testing.T) {
+	content, err := Task("bug-fix")
 	require.NoError(t, err)
 	assert.Contains(t, content, "name:")
 }
 
-func TestTemplate_Good_MD(t *testing.T) {
-	content, err := Template("prod-push-polish")
+func TestTask_Bad_NotFound(t *testing.T) {
+	_, err := Task("nonexistent")
+	assert.Error(t, err)
+}
+
+func TestTemplate_Good_BackwardsCompat(t *testing.T) {
+	// Template() should find prompts
+	content, err := Template("coding")
+	require.NoError(t, err)
+	assert.Contains(t, content, "SANDBOX")
+
+	// Template() should also find tasks
+	content, err = Template("bug-fix")
+	require.NoError(t, err)
+	assert.Contains(t, content, "name:")
+}
+
+func TestFlow_Good(t *testing.T) {
+	content, err := Flow("prod-push-polish")
 	require.NoError(t, err)
 	assert.True(t, len(content) > 0)
 }
 
-func TestTemplate_Bad_NotFound(t *testing.T) {
-	_, err := Template("nonexistent-template")
-	assert.Error(t, err)
+func TestListPrompts_Good(t *testing.T) {
+	list := ListPrompts()
+	assert.Contains(t, list, "coding")
+	assert.Contains(t, list, "verify")
+}
+
+func TestListTasks_Good(t *testing.T) {
+	list := ListTasks()
+	assert.Contains(t, list, "bug-fix")
+	assert.Contains(t, list, "refactor")
 }
 
 func TestPersona_Good(t *testing.T) {
