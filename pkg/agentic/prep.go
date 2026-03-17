@@ -258,130 +258,13 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 // --- Prompt templates ---
 
 func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
-	var prompt string
-
-	switch template {
-	case "conventions":
-		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
-
-Read CLAUDE.md for project conventions.
-Review all Go files in src/ for:
-- Error handling: should use coreerr.E() from go-log, not fmt.Errorf or errors.New
-- Compile-time interface checks: var _ Interface = (*Impl)(nil)
-- Import aliasing: stdlib io aliased as goio
-- UK English in comments (colour not color, initialise not initialize)
-- No fmt.Print* debug statements (use go-log)
-- Test coverage gaps
-
-Report findings with file:line references. Do not fix — only report.
-`
-	case "security":
-		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
-
-Read CLAUDE.md for project context.
-Review all Go files in src/ for security issues:
-- Path traversal vulnerabilities
-- Unvalidated input
-- SQL injection (if applicable)
-- Hardcoded credentials or tokens
-- Unsafe type assertions
-- Missing error checks
-- Race conditions (shared state without mutex)
-- Unsafe use of os/exec
-
-Report findings with severity (critical/high/medium/low) and file:line references.
-`
-	case "verify":
-		prompt = `Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
-
-You are verifying a pull request. The code in src/ contains changes on a feature branch.
-
-## Your Tasks
-
-1. **Run tests**: Execute the project's test suite (go test ./..., composer test, or npm test). Report results.
-2. **Review diff**: Run ` + "`git diff origin/main..HEAD`" + ` to see all changes. Review for:
-   - Correctness: Does the code do what the commit messages say?
-   - Security: Path traversal, injection, hardcoded secrets, unsafe input handling
-   - Conventions: coreerr.E() not fmt.Errorf, go-io not os.ReadFile, UK English
-   - Test coverage: Are new functions tested?
-3. **Verdict**: Write VERDICT.md with:
-   - PASS or FAIL (first line, nothing else)
-   - Summary of findings (if any)
-   - List of issues by severity (critical/high/medium/low)
-
-If PASS: the PR will be auto-merged.
-If FAIL: your findings will be commented on the PR for the original agent to address.
-
-Be strict but fair. A missing test is medium. A security issue is critical. A typo is low.
-
-## SANDBOX BOUNDARY (HARD LIMIT)
-
-You are restricted to the current directory and its subdirectories ONLY.
-- Do NOT use absolute paths
-- Do NOT navigate outside this repository
-`
-	case "coding":
-		prompt = `Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
-Read TODO.md for your task.
-Read PLAN.md if it exists — work through each phase in order.
-Read CONTEXT.md for relevant knowledge from previous sessions.
-Read CONSUMERS.md to understand breaking change risk.
-Read RECENT.md for recent changes.
-
-Work in the src/ directory. Follow the conventions in CLAUDE.md.
-
-## SANDBOX BOUNDARY (HARD LIMIT)
-
-You are restricted to the current directory and its subdirectories ONLY.
-- Do NOT use absolute paths (e.g., /Users/..., /home/...)
-- Do NOT navigate with cd .. or cd /
-- Do NOT edit files outside this repository
-- Do NOT access parent directories or other repos
-- Any path in Edit/Write tool calls MUST be relative to the current directory
-Violation of these rules will cause your work to be rejected.
-
-## Workflow
-
-If PLAN.md exists, you MUST work through it phase by phase:
-1. Complete all tasks in the current phase
-2. STOP and commit before moving on: type(scope): phase N - description
-3. Only then start the next phase
-4. If you are blocked or unsure, write BLOCKED.md explaining the question and stop
-5. Do NOT skip phases or combine multiple phases into one commit
-
-Each phase = one commit. This is not optional.
-
-If no PLAN.md, complete TODO.md as a single unit of work.
-
-## Closeout Sequence (MANDATORY before final commit)
-
-After completing your work, you MUST run this polish cycle using the core plugin agents:
-
-### Pass 1: Code Review
-Use the Agent tool to launch the core:agent-task-code-review agent. It will review all your changes for bugs, security issues, and convention violations. Fix ALL findings rated >= 50 confidence before proceeding.
-
-### Pass 2: Build + Test
-Run the test suite (go test ./... or composer test). Fix any failures.
-
-### Pass 3: Simplify
-Use the Agent tool to launch the core:agent-task-code-simplifier agent. It will consolidate duplicates, remove dead code, and flatten complexity. Let it work, then verify the build still passes.
-
-### Pass 4: Final Review
-Run the core:agent-task-code-review agent ONE MORE TIME on the simplified code. If clean, commit. If findings remain, fix and re-check.
-
-Each pass catches things the previous one introduced. Do NOT skip passes. The goal: zero findings on the final review.
-
-## Commit Convention
-
-Commit message format: type(scope): description
-Co-Author: Co-Authored-By: Virgil <virgil@lethean.io>
-
-Do NOT push. Commit only — a reviewer will verify and push.
-`
-	default:
-		prompt = "SANDBOX: Restricted to this directory only. No absolute paths, no cd ..\n\nRead TODO.md and complete the task. Work in src/.\n"
+	prompt, err := prompts.Template(template)
+	if err != nil {
+		// Fallback to default template
+		prompt, _ = prompts.Template("default")
+		if prompt == "" {
+			prompt = "Read TODO.md and complete the task. Work in src/.\n"
+		}
 	}
 
 	coreio.Local.Write(filepath.Join(wsDir, "src", "PROMPT.md"), prompt)
