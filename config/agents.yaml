@@ -11,7 +11,7 @@ dispatch:
 
 # Per-agent concurrency limits (0 = unlimited)
 concurrency:
-  claude: 3
+  claude: 5
   gemini: 1
   codex: 1
   local: 1
@@ -41,6 +41,16 @@ rates:
     sustained_delay: 0
     burst_window: 0
     burst_delay: 0
+  coderabbit:
+    reset_utc: "00:00"
+    daily_limit: 0
+    # CodeRabbit enforces its own rate limits (~8/hour on Pro)
+    # The CLI returns retry-after time which we parse dynamically.
+    # These are conservative defaults for when we can't parse.
+    min_delay: 300
+    sustained_delay: 450
+    burst_window: 0
+    burst_delay: 300
   codex:
     reset_utc: "00:00"
     daily_limit: 0

@@ -5,11 +5,8 @@
     "contextFileName": "GEMINI.md",
     "mcpServers": {
         "core-agent": {
-            "command": "node",
-            "args": [
-                "${extensionPath}/src/index.js"
-            ],
-            "cwd": "${extensionPath}"
+            "command": "/Users/snider/go/bin/core-agent",
+            "args": ["mcp"]
         }
     }
 }

@@ -34,7 +34,11 @@ type Subsystem struct {
 	// Track last seen state to only notify on changes
 	lastCompletedCount int
 	lastInboxCount     int
+	lastSyncTimestamp  int64
 	mu                 sync.Mutex
+
+	// Event-driven poke channel — dispatch goroutine sends here on completion
+	poke chan struct{}
 }
 
 // Options configures the monitor.
@@ -51,6 +55,7 @@ func New(opts ...Options) *Subsystem {
 	}
 	return &Subsystem{
 		interval: interval,
+		poke:     make(chan struct{}, 1),
 	}
 }
 
@@ -90,6 +95,15 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
+// Poke triggers an immediate check cycle. Non-blocking — if a poke is already
+// pending it's a no-op. Call this from dispatch when an agent completes.
+func (m *Subsystem) Poke() {
+	select {
+	case m.poke <- struct{}{}:
+	default:
+	}
+}
+
 func (m *Subsystem) loop(ctx context.Context) {
 	// Initial check after short delay (let server fully start)
 	select {
@@ -97,6 +111,9 @@ func (m *Subsystem) loop(ctx context.Context) {
 		return
 	case <-time.After(5 * time.Second):
 	}
+
+	// Initialise sync timestamp to now (don't pull everything on first run)
+	m.initSyncTimestamp()
 
 	// Run first check immediately
 	m.check(ctx)
@@ -109,6 +126,8 @@ func (m *Subsystem) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			m.check(ctx)
+		case <-m.poke:
 			m.check(ctx)
 		}
 	}
@@ -124,6 +143,11 @@ func (m *Subsystem) check(ctx context.Context) {
 
 	// Check inbox
 	if msg := m.checkInbox(); msg != "" {
+		messages = append(messages, msg)
+	}
+
+	// Sync repos from other agents' changes
+	if msg := m.syncRepos(); msg != "" {
 		messages = append(messages, msg)
 	}
 
@@ -222,7 +246,9 @@ func (m *Subsystem) checkInbox() string {
 
 	var resp struct {
 		Data []struct {
-			Read bool `json:"read"`
+			Read    bool   `json:"read"`
+			From    string `json:"from_agent"`
+			Subject string `json:"subject"`
 		} `json:"data"`
 	}
 	if json.Unmarshal(out, &resp) != nil {
@@ -230,9 +256,17 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	unread := 0
+	senders := make(map[string]int)
+	latestSubject := ""
 	for _, msg := range resp.Data {
 		if !msg.Read {
 			unread++
+			if msg.From != "" {
+				senders[msg.From]++
+			}
+			if latestSubject == "" {
+				latestSubject = msg.Subject
+			}
 		}
 	}
 
@@ -244,6 +278,21 @@ func (m *Subsystem) checkInbox() string {
 	if unread <= 0 || unread == prevInbox {
 		return ""
 	}
+
+	// Write marker file for the PostToolUse hook to pick up
+	var senderList []string
+	for s, count := range senders {
+		if count > 1 {
+			senderList = append(senderList, fmt.Sprintf("%s (%d)", s, count))
+		} else {
+			senderList = append(senderList, s)
+		}
+	}
+	notify := fmt.Sprintf("📬 %d new message(s) from %s", unread-prevInbox, strings.Join(senderList, ", "))
+	if latestSubject != "" {
+		notify += fmt.Sprintf(" — \"%s\"", latestSubject)
+	}
+	os.WriteFile("/tmp/claude-inbox-notify", []byte(notify), 0644)
 
 	return fmt.Sprintf("%d unread message(s) in inbox", unread)
 }

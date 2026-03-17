@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	coreio "forge.lthn.ai/core/go-io"
@@ -25,6 +26,7 @@ import (
 //   running → completed     (normal finish)
 //   running → blocked       (agent wrote BLOCKED.md and exited)
 //   blocked → running       (resume after ANSWER.md provided)
+//   completed → merged      (PR verified and auto-merged)
 //   running → failed        (agent crashed / non-zero exit)
 
 // WorkspaceStatus represents the current state of an agent workspace.
@@ -147,8 +149,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// If status is "running", check if PID is still alive
 		if st.Status == "running" && st.PID > 0 {
-			proc, err := os.FindProcess(st.PID)
-			if err != nil || proc.Signal(nil) != nil {
+			if err := syscall.Kill(st.PID, 0); err != nil {
 				// Process died — check for BLOCKED.md
 				blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
 				if data, err := coreio.Local.Read(blockedPath); err == nil {

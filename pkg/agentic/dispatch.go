@@ -67,12 +67,18 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		}
 		return "gemini", args, nil
 	case "codex":
+		if model == "review" {
+			// Codex review mode — non-interactive code review
+			// Note: --base and prompt are mutually exclusive in codex CLI
+			return "codex", []string{"review", "--base", "HEAD~1"}, nil
+		}
+		// Codex agent mode — autonomous coding
 		return "codex", []string{"--approval-mode", "full-auto", "-q", prompt}, nil
 	case "claude":
 		args := []string{
 			"-p", prompt,
 			"--output-format", "text",
-			"--permission-mode", "bypassPermissions",
+			"--dangerously-skip-permissions",
 			"--no-session-persistence",
 			"--append-system-prompt", "SANDBOX: You are restricted to the current directory (src/) only. " +
 				"Do NOT use absolute paths starting with /. Do NOT cd .. or navigate outside. " +
@@ -82,6 +88,17 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			args = append(args, "--model", model)
 		}
 		return "claude", args, nil
+	case "coderabbit":
+		args := []string{"review", "--plain", "--base", "HEAD~1"}
+		if model != "" {
+			// model variant can specify review type: all, committed, uncommitted
+			args = append(args, "--type", model)
+		}
+		if prompt != "" {
+			// Pass CLAUDE.md or other config as additional instructions
+			args = append(args, "--config", "CLAUDE.md")
+		}
+		return "coderabbit", args, nil
 	case "local":
 		home, _ := os.UserHomeDir()
 		script := filepath.Join(home, "Code", "core", "agent", "scripts", "local-agent.sh")
@@ -94,6 +111,9 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 // spawnAgent launches an agent process via go-process and returns the PID.
 // Output is captured via pipes and written to the log file on completion.
 // The background goroutine handles status updates, findings ingestion, and queue drain.
+//
+// For CodeRabbit agents, no process is spawned — instead the code is pushed
+// to GitHub and a PR is created/marked ready for review.
 func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
@@ -103,65 +123,93 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
-		Command: command,
-		Args:    args,
-		Dir:     srcDir,
-		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true"},
-		Detach:  true,
+		Command:     command,
+		Args:        args,
+		Dir:         srcDir,
+		Env:         []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
+		Detach:      true,
+		KillGroup:   true,
+		Timeout:     30 * time.Minute,
+		GracePeriod: 10 * time.Second,
 	})
 	if err != nil {
 		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
 	}
 
+	// Close stdin immediately — agents use -p mode, not interactive stdin.
+	// Without this, Claude CLI blocks waiting on the open pipe.
+	proc.CloseStdin()
+
 	pid := proc.Info().PID
 
 	go func() {
-		// Wait for process exit with PID polling fallback.
-		// go-process Wait() can hang if child processes inherit pipes.
-		// Poll the PID every 5s — if the process is gone, force completion.
-		done := make(chan struct{})
-		go func() {
-			proc.Wait()
-			close(done)
-		}()
-
+		// Wait for process exit. go-process handles timeout and kill group.
+		// PID polling fallback in case pipes hang from inherited child processes.
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-done:
-				goto completed
+			case <-proc.Done():
+				goto done
 			case <-ticker.C:
-				// Check if main process is still alive
-				p, err := os.FindProcess(pid)
-				if err != nil {
-					goto completed
-				}
-				if err := p.Signal(syscall.Signal(0)); err != nil {
-					// Process is dead — force cleanup
-					goto completed
+				if err := syscall.Kill(pid, 0); err != nil {
+					goto done
 				}
 			}
 		}
-	completed:
+	done:
 
 		// Write captured output to log file
 		if output := proc.Output(); output != "" {
 			coreio.Local.Write(outputFile, output)
 		}
 
-		// Update status to completed
-		if st, err := readStatus(wsDir); err == nil {
-			st.Status = "completed"
-			st.PID = 0
-			writeStatus(wsDir, st)
+		// Determine final status: check exit code, BLOCKED.md, and output
+		finalStatus := "completed"
+		exitCode := proc.Info().ExitCode
+		procStatus := proc.Info().Status
+
+		// Check for BLOCKED.md (agent is asking a question)
+		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
+		if blockedContent, err := coreio.Local.Read(blockedPath); err == nil && strings.TrimSpace(blockedContent) != "" {
+			finalStatus = "blocked"
+			if st, err := readStatus(wsDir); err == nil {
+				st.Status = "blocked"
+				st.Question = strings.TrimSpace(blockedContent)
+				st.PID = 0
+				writeStatus(wsDir, st)
+			}
+		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
+			finalStatus = "failed"
+			if st, err := readStatus(wsDir); err == nil {
+				st.Status = "failed"
+				st.PID = 0
+				if exitCode != 0 {
+					st.Question = fmt.Sprintf("Agent exited with code %d", exitCode)
+				}
+				writeStatus(wsDir, st)
+			}
+		} else {
+			if st, err := readStatus(wsDir); err == nil {
+				st.Status = "completed"
+				st.PID = 0
+				writeStatus(wsDir, st)
+			}
 		}
 
 		// Emit completion event
 		emitCompletionEvent(agent, filepath.Base(wsDir))
 
-		// Auto-create PR if agent made commits
-		s.autoCreatePR(wsDir)
+		// Notify monitor immediately (push to connected clients)
+		if s.onComplete != nil {
+			s.onComplete.Poke()
+		}
+
+		// Auto-create PR if agent completed successfully, then verify and merge
+		if finalStatus == "completed" {
+			s.autoCreatePR(wsDir)
+			s.autoVerifyAndMerge(wsDir)
+		}
 
 		// Ingest scan findings as issues
 		s.ingestFindings(wsDir)

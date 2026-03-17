@@ -23,6 +23,16 @@ use Illuminate\Support\Facades\Route;
 // Health check (no auth required)
 Route::get('v1/health', [AgentApiController::class, 'health']);
 
+// GitHub App webhook (signature-verified, no Bearer auth)
+Route::post('github/webhook', [\Core\Mod\Agentic\Controllers\Api\GitHubWebhookController::class, 'receive'])
+    ->middleware('throttle:120,1');
+
+// Agent checkin — discover which repos changed since last sync
+// Uses auth.api (brain key) for authentication
+Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () {
+    Route::get('v1/agent/checkin', [\Core\Mod\Agentic\Controllers\Api\CheckinController::class, 'checkin']);
+});
+
 // Authenticated agent endpoints
 Route::middleware(AgentApiAuth::class.':plans.read')->group(function () {
     // Plans (read)
