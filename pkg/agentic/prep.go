@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"forge.lthn.ai/core/agent/pkg/lib"
 	"forge.lthn.ai/core/agent/pkg/prompts"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
@@ -200,32 +201,51 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// Remote stays as local clone origin — agent cannot push to forge.
 	// Reviewer pulls changes from workspace and pushes after verification.
 
-	// 2. Copy CLAUDE.md and GEMINI.md to workspace
+	// 2. Extract workspace template
+	wsTmpl := "default"
+	if input.Template == "security" {
+		wsTmpl = "security"
+	} else if input.Template == "verify" || input.Template == "conventions" {
+		wsTmpl = "review"
+	}
+
+	promptContent, _ := prompts.Prompt(input.Template)
+	personaContent := ""
+	if input.Persona != "" {
+		personaContent, _ = prompts.Persona(input.Persona)
+	}
+	flowContent, _ := prompts.Flow(detectLanguage(repoPath))
+
+	wsData := &lib.WorkspaceData{
+		Repo:     input.Repo,
+		Branch:   branchName,
+		Task:     input.Task,
+		Agent:    "agent",
+		Language: detectLanguage(repoPath),
+		Prompt:   promptContent,
+		Persona:  personaContent,
+		Flow:     flowContent,
+		BuildCmd: detectBuildCmd(repoPath),
+		TestCmd:  detectTestCmd(repoPath),
+	}
+
+	lib.ExtractWorkspace(wsTmpl, srcDir, wsData)
+	out.ClaudeMd = true
+
+	// Copy repo's own CLAUDE.md over template if it exists
 	claudeMdPath := filepath.Join(repoPath, "CLAUDE.md")
 	if data, err := coreio.Local.Read(claudeMdPath); err == nil {
-		coreio.Local.Write(filepath.Join(wsDir, "src", "CLAUDE.md"), data)
-		out.ClaudeMd = true
+		coreio.Local.Write(filepath.Join(srcDir, "CLAUDE.md"), data)
 	}
 	// Copy GEMINI.md from core/agent (ethics framework for all agents)
 	agentGeminiMd := filepath.Join(s.codePath, "core", "agent", "GEMINI.md")
 	if data, err := coreio.Local.Read(agentGeminiMd); err == nil {
-		coreio.Local.Write(filepath.Join(wsDir, "src", "GEMINI.md"), data)
+		coreio.Local.Write(filepath.Join(srcDir, "GEMINI.md"), data)
 	}
 
-	// Copy persona if specified
-	if input.Persona != "" {
-		if data, err := prompts.Persona(input.Persona); err == nil {
-			coreio.Local.Write(filepath.Join(wsDir, "src", "PERSONA.md"), data)
-		}
-	}
-
-	// 3. Generate TODO.md
+	// 3. Generate TODO.md from issue (overrides template)
 	if input.Issue > 0 {
 		s.generateTodo(ctx, input.Org, input.Repo, input.Issue, wsDir)
-	} else if input.Task != "" {
-		todo := fmt.Sprintf("# TASK: %s\n\n**Repo:** %s/%s\n**Status:** ready\n\n## Objective\n\n%s\n",
-			input.Task, input.Org, input.Repo, input.Task)
-		coreio.Local.Write(filepath.Join(wsDir, "src", "TODO.md"), todo)
 	}
 
 	// 4. Generate CONTEXT.md from OpenBrain
@@ -564,4 +584,61 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	content += "## Objective\n\n" + issueData.Body + "\n"
 
 	coreio.Local.Write(filepath.Join(wsDir, "src", "TODO.md"), content)
+}
+
+// detectLanguage guesses the primary language from repo contents.
+func detectLanguage(repoPath string) string {
+	checks := map[string]string{
+		"go.mod":         "go",
+		"composer.json":  "php",
+		"package.json":   "ts",
+		"Cargo.toml":     "rust",
+		"requirements.txt": "py",
+		"CMakeLists.txt": "cpp",
+		"Dockerfile":     "docker",
+	}
+	for file, lang := range checks {
+		if _, err := os.Stat(filepath.Join(repoPath, file)); err == nil {
+			return lang
+		}
+	}
+	return "go"
+}
+
+func detectBuildCmd(repoPath string) string {
+	switch detectLanguage(repoPath) {
+	case "go":
+		return "go build ./..."
+	case "php":
+		return "composer install"
+	case "ts":
+		return "npm run build"
+	case "py":
+		return "pip install -e ."
+	case "rust":
+		return "cargo build"
+	case "cpp":
+		return "cmake --build ."
+	default:
+		return "go build ./..."
+	}
+}
+
+func detectTestCmd(repoPath string) string {
+	switch detectLanguage(repoPath) {
+	case "go":
+		return "go test ./..."
+	case "php":
+		return "composer test"
+	case "ts":
+		return "npm test"
+	case "py":
+		return "pytest"
+	case "rust":
+		return "cargo test"
+	case "cpp":
+		return "ctest"
+	default:
+		return "go test ./..."
+	}
 }

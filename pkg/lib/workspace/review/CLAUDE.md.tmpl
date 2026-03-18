@@ -1,0 +1,24 @@
+# CLAUDE.md — Code Review
+
+## Task
+{{.Task}}
+
+## Repository
+- **Repo**: {{.Repo}}
+- **Branch**: {{.Branch}}
+
+## Persona
+{{.Persona}}
+
+## Rules
+- READ-ONLY review — do NOT modify source files
+- Report findings with file:line format
+- Categories: BUG, PATTERN, NAMING, DEAD_CODE, PERFORMANCE
+- Skip cosmetic/style unless it affects readability
+- Output report to REVIEW.md in the workspace root
+
+## Build & Test
+{{.Flow}}
+
+## Conventions
+{{.Conventions}}

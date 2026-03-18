@@ -1,0 +1,13 @@
+# Security Audit
+
+## Target
+{{.Repo}} — {{.Task}}
+
+## Checklist
+- [ ] Thread safety (race conditions, missing locks)
+- [ ] Path traversal / sandbox escapes
+- [ ] Injection (command, SQL, log)
+- [ ] Error handling (swallowed errors, nil pointer risks)
+- [ ] Authentication / authorisation gaps
+- [ ] Cryptographic misuse
+- [ ] Write findings to FINDINGS.md
