@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"forge.lthn.ai/core/agent/pkg/lib"
-	"forge.lthn.ai/core/agent/pkg/prompts"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -209,12 +208,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		wsTmpl = "review"
 	}
 
-	promptContent, _ := prompts.Prompt(input.Template)
+	promptContent, _ := lib.Prompt(input.Template)
 	personaContent := ""
 	if input.Persona != "" {
-		personaContent, _ = prompts.Persona(input.Persona)
+		personaContent, _ = lib.Persona(input.Persona)
 	}
-	flowContent, _ := prompts.Flow(detectLanguage(repoPath))
+	flowContent, _ := lib.Flow(detectLanguage(repoPath))
 
 	wsData := &lib.WorkspaceData{
 		Repo:     input.Repo,
@@ -278,10 +277,10 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 // --- Prompt templates ---
 
 func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
-	prompt, err := prompts.Template(template)
+	prompt, err := lib.Template(template)
 	if err != nil {
 		// Fallback to default template
-		prompt, _ = prompts.Template("default")
+		prompt, _ = lib.Template("default")
 		if prompt == "" {
 			prompt = "Read TODO.md and complete the task. Work in src/.\n"
 		}
@@ -296,7 +295,7 @@ func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
 // and writes PLAN.md into the workspace src/ directory.
 func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map[string]string, task string, wsDir string) {
 	// Load template from embedded prompts package
-	data, err := prompts.Template(templateSlug)
+	data, err := lib.Template(templateSlug)
 	if err != nil {
 		return // Template not found, skip silently
 	}

@@ -48,6 +48,14 @@ var workspaceFS embed.FS
 
 // --- Prompts ---
 
+// Template tries Prompt then Task (backwards compat).
+func Template(slug string) (string, error) {
+	if content, err := Prompt(slug); err == nil {
+		return content, nil
+	}
+	return Task(slug)
+}
+
 func Prompt(slug string) (string, error) {
 	data, err := promptFS.ReadFile("prompt/" + slug + ".md")
 	if err != nil {
