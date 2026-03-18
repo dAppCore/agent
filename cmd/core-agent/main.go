@@ -29,9 +29,9 @@ func main() {
 		if err != nil {
 			return nil, nil, cli.Wrap(err, "init core")
 		}
-		procSvc, err := core.ServiceFor[*process.Service](c, "process")
-		if err != nil {
-			return nil, nil, cli.Wrap(err, "get process service")
+		procSvc, ok := c.Service("process").(*process.Service)
+		if !ok {
+			return nil, nil, cli.Wrap(core.E("core-agent", "process service not found", nil), "get process service")
 		}
 		process.SetDefault(procSvc)
 
