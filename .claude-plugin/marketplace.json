@@ -9,8 +9,14 @@
     {
       "name": "CoreAgent",
       "source": "./claude/core",
-      "description": "Core agent platform",
-      "version": "0.11.0"
+      "description": "Core agent platform — dispatch, review, messaging, OpenBrain",
+      "version": "0.12.0"
+    },
+    {
+      "name": "CoreResearch",
+      "source": "./claude/research",
+      "description": "Blockchain archaeology, whitepaper archival, community history, market data collection",
+      "version": "0.1.0"
     },
     {
       "name": "CorePHP",
