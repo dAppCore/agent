@@ -263,11 +263,15 @@ func (m *Subsystem) checkCompletions() string {
 
 // checkInbox checks for unread messages.
 func (m *Subsystem) checkInbox() string {
-	home, _ := os.UserHomeDir()
-	keyFile := filepath.Join(home, ".claude", "brain.key")
-	apiKeyStr, err := coreio.Local.Read(keyFile)
-	if err != nil {
-		return ""
+	apiKeyStr := os.Getenv("CORE_BRAIN_KEY")
+	if apiKeyStr == "" {
+		home, _ := os.UserHomeDir()
+		keyFile := filepath.Join(home, ".claude", "brain.key")
+		data, err := coreio.Local.Read(keyFile)
+		if err != nil {
+			return ""
+		}
+		apiKeyStr = data
 	}
 
 	// Call the API to check inbox
@@ -293,11 +297,11 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	var resp struct {
-		Data []struct {
+		Messages []struct {
 			Read    bool   `json:"read"`
-			From    string `json:"from_agent"`
+			From    string `json:"from"`
 			Subject string `json:"subject"`
-		} `json:"data"`
+		} `json:"messages"`
 	}
 	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
 		return ""
@@ -306,7 +310,7 @@ func (m *Subsystem) checkInbox() string {
 	unread := 0
 	senders := make(map[string]int)
 	latestSubject := ""
-	for _, msg := range resp.Data {
+	for _, msg := range resp.Messages {
 		if !msg.Read {
 			unread++
 			if msg.From != "" {

@@ -75,12 +75,11 @@ func (m *Subsystem) syncRepos() string {
 		return ""
 	}
 
-	// Update timestamp for next checkin
-	m.mu.Lock()
-	m.lastSyncTimestamp = checkin.Timestamp
-	m.mu.Unlock()
-
 	if len(checkin.Changed) == 0 {
+		// No changes — safe to advance timestamp
+		m.mu.Lock()
+		m.lastSyncTimestamp = checkin.Timestamp
+		m.mu.Unlock()
 		return ""
 	}
 
@@ -98,12 +97,22 @@ func (m *Subsystem) syncRepos() string {
 			continue
 		}
 
-		// Check if we're already on main and clean
+		// Check if on the default branch and clean
 		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 		branchCmd.Dir = repoDir
-		branch, err := branchCmd.Output()
-		if err != nil || strings.TrimSpace(string(branch)) != "main" {
-			continue // Don't pull if not on main
+		currentBranch, err := branchCmd.Output()
+		if err != nil {
+			continue
+		}
+		current := strings.TrimSpace(string(currentBranch))
+
+		// Accept main or master (or whatever the repo reports)
+		expectedBranch := repo.Branch
+		if expectedBranch == "" {
+			expectedBranch = "main"
+		}
+		if current != expectedBranch && current != "main" && current != "master" {
+			continue // Don't pull if on a feature branch
 		}
 
 		statusCmd := exec.Command("git", "status", "--porcelain")
@@ -113,13 +122,19 @@ func (m *Subsystem) syncRepos() string {
 			continue // Don't pull if dirty
 		}
 
-		// Fast-forward pull
-		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", "main")
+		// Fast-forward pull on whatever branch we're on
+		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", current)
 		pullCmd.Dir = repoDir
 		if pullCmd.Run() == nil {
 			pulled = append(pulled, repo.Repo)
 		}
 	}
+
+	// Only advance timestamp after attempting pulls — missed repos
+	// will be retried on the next cycle
+	m.mu.Lock()
+	m.lastSyncTimestamp = checkin.Timestamp
+	m.mu.Unlock()
 
 	if len(pulled) == 0 {
 		return ""

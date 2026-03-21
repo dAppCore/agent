@@ -65,7 +65,7 @@ func (m *Subsystem) harvestCompleted() string {
 				})
 			}
 		} else {
-			parts = append(parts, fmt.Sprintf("%s: pushed %s (%d files)", h.repo, h.branch, h.files))
+			parts = append(parts, fmt.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
 			if m.notifier != nil {
 				m.notifier.ChannelSend(context.Background(), "harvest.complete", map[string]any{
 					"repo":   h.repo,

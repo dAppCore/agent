@@ -94,7 +94,11 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		}
 
 		repoDir := filepath.Join(basePath, repo)
-		result := s.reviewRepo(ctx, repoDir, repo, input.DryRun, input.LocalOnly)
+		reviewer := input.Reviewer
+		if reviewer == "" {
+			reviewer = "coderabbit"
+		}
+		result := s.reviewRepo(ctx, repoDir, repo, reviewer, input.DryRun, input.LocalOnly)
 
 		// Parse rate limit from result
 		if result.Verdict == "rate_limited" {
@@ -150,7 +154,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 }
 
 // reviewRepo runs CodeRabbit on a single repo and takes action.
-func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo string, dryRun, localOnly bool) ReviewResult {
+func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer string, dryRun, localOnly bool) ReviewResult {
 	result := ReviewResult{Repo: repo}
 
 	// Check saved rate limit
@@ -160,8 +164,10 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo string, dr
 		return result
 	}
 
-	// Run reviewer CLI locally
-	reviewer := "coderabbit" // default, can be overridden by caller
+	// Run reviewer CLI locally — use the reviewer passed from reviewQueue
+	if reviewer == "" {
+		reviewer = "coderabbit"
+	}
 	cmd := s.buildReviewCommand(ctx, repoDir, reviewer)
 	out, err := cmd.CombinedOutput()
 	output := string(out)

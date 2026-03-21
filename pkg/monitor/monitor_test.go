@@ -228,10 +228,10 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 		assert.NotEmpty(t, r.URL.Query().Get("agent"))
 
 		resp := map[string]any{
-			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "task done"},
-				{"read": false, "from_agent": "gemini", "subject": "review ready"},
-				{"read": true, "from_agent": "clotho", "subject": "old msg"},
+			"messages": []map[string]any{
+				{"read": false, "from": "clotho", "subject": "task done"},
+				{"read": false, "from": "gemini", "subject": "review ready"},
+				{"read": true, "from": "clotho", "subject": "old msg"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -262,8 +262,8 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 func TestCheckInbox_Good_NoUnread(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"data": []map[string]any{
-				{"read": true, "from_agent": "clotho", "subject": "old"},
+			"messages": []map[string]any{
+				{"read": true, "from": "clotho", "subject": "old"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -281,8 +281,8 @@ func TestCheckInbox_Good_NoUnread(t *testing.T) {
 func TestCheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "msg"},
+			"messages": []map[string]any{
+				{"read": false, "from": "clotho", "subject": "msg"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -338,10 +338,10 @@ func TestCheckInbox_Bad_InvalidJSON(t *testing.T) {
 func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "msg1"},
-				{"read": false, "from_agent": "clotho", "subject": "msg2"},
-				{"read": false, "from_agent": "gemini", "subject": "msg3"},
+			"messages": []map[string]any{
+				{"read": false, "from": "clotho", "subject": "msg1"},
+				{"read": false, "from": "clotho", "subject": "msg2"},
+				{"read": false, "from": "gemini", "subject": "msg3"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")

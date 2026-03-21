@@ -74,7 +74,12 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 // for a given agent type, based on rate config and time of day.
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	cfg := s.loadAgentsConfig()
-	rate, ok := cfg.Rates[agent]
+	// Strip variant suffix (claude:opus → claude) for config lookup
+	base := agent
+	if idx := strings.Index(agent, ":"); idx >= 0 {
+		base = agent[:idx]
+	}
+	rate, ok := cfg.Rates[base]
 	if !ok || rate.SustainedDelay == 0 {
 		return 0
 	}
