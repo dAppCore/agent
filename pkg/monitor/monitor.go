@@ -42,8 +42,9 @@ type Subsystem struct {
 	wg       sync.WaitGroup
 
 	// Track last seen state to only notify on changes
-	seenCompleted map[string]bool // workspace names we've already notified about
-	lastInboxCount     int
+	seenCompleted   map[string]bool // workspace names we've already notified about
+	lastInboxMaxID  int  // highest message ID seen
+	inboxSeeded     bool // true after first inbox check (suppresses initial flood)
 	lastSyncTimestamp  int64
 	mu                 sync.Mutex
 
@@ -316,6 +317,7 @@ func (m *Subsystem) checkInbox() string {
 
 	var resp struct {
 		Data []struct {
+			ID      int    `json:"id"`
 			Read    bool   `json:"read"`
 			From    string `json:"from"`
 			Subject string `json:"subject"`
@@ -326,12 +328,15 @@ func (m *Subsystem) checkInbox() string {
 		return ""
 	}
 
-	m.debugChannel(fmt.Sprintf("checkInbox: got %d messages", len(resp.Data)))
-
+	// Find max ID and count unread
+	maxID := 0
 	unread := 0
 	senders := make(map[string]int)
 	latestSubject := ""
 	for _, msg := range resp.Data {
+		if msg.ID > maxID {
+			maxID = msg.ID
+		}
 		if !msg.Read {
 			unread++
 			if msg.From != "" {
@@ -344,11 +349,21 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	m.mu.Lock()
-	prevInbox := m.lastInboxCount
-	m.lastInboxCount = unread
+	prevMaxID := m.lastInboxMaxID
+	seeded := m.inboxSeeded
+	m.lastInboxMaxID = maxID
+	m.inboxSeeded = true
 	m.mu.Unlock()
 
-	if unread <= 0 || unread == prevInbox {
+	m.debugChannel(fmt.Sprintf("checkInbox: unread=%d, maxID=%d, prevMaxID=%d", unread, maxID, prevMaxID))
+
+	// First check after startup: seed, don't fire
+	if !seeded {
+		return ""
+	}
+
+	// Only fire if there are new messages (higher ID than last seen)
+	if maxID <= prevMaxID || unread == 0 {
 		return ""
 	}
 
@@ -362,10 +377,10 @@ func (m *Subsystem) checkInbox() string {
 		}
 	}
 	// Push channel event for new messages
+	newCount := maxID - prevMaxID
 	if m.notifier != nil {
-		fmt.Fprintf(os.Stderr, "monitor: pushing inbox.message channel event (new=%d)\n", unread-prevInbox)
 		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-			"new":     unread - prevInbox,
+			"new":     newCount,
 			"total":   unread,
 			"senders": senderList,
 			"subject": latestSubject,
