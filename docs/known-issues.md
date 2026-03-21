@@ -33,3 +33,4 @@ trade-offs or enhancement requests, not bugs.
 ## Changelog
 
 - 2026-03-21: Created from 7 rounds of Codex static review
+- 2026-03-21: Updated after 9 total rounds (77+ findings, 73+ fixed, 4 false positives)
