@@ -42,9 +42,10 @@ type Subsystem struct {
 	wg       sync.WaitGroup
 
 	// Track last seen state to only notify on changes
-	seenCompleted   map[string]bool // workspace names we've already notified about
-	lastInboxMaxID  int  // highest message ID seen
-	inboxSeeded     bool // true after first inbox check (suppresses initial flood)
+	seenCompleted      map[string]bool // workspace names we've already notified about
+	completionsSeeded  bool            // true after first completions check
+	lastInboxMaxID     int             // highest message ID seen
+	inboxSeeded        bool            // true after first inbox check
 	lastSyncTimestamp  int64
 	mu                 sync.Mutex
 
@@ -220,6 +221,7 @@ func (m *Subsystem) checkCompletions() string {
 	var newlyCompleted []string
 
 	m.mu.Lock()
+	seeded := m.completionsSeeded
 	for _, entry := range entries {
 		data, err := coreio.Local.Read(entry)
 		if err != nil {
@@ -240,7 +242,9 @@ func (m *Subsystem) checkCompletions() string {
 		case "completed":
 			if !m.seenCompleted[wsName] {
 				m.seenCompleted[wsName] = true
-				newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+				if seeded {
+					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+				}
 			}
 		case "running":
 			running++
@@ -249,10 +253,13 @@ func (m *Subsystem) checkCompletions() string {
 		case "blocked", "failed":
 			if !m.seenCompleted[wsName] {
 				m.seenCompleted[wsName] = true
-				newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
+				if seeded {
+					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
+				}
 			}
 		}
 	}
+	m.completionsSeeded = true
 	m.mu.Unlock()
 
 	if len(newlyCompleted) == 0 {
