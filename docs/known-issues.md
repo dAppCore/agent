@@ -21,6 +21,11 @@ trade-offs or enhancement requests, not bugs.
 - `defaultBranch` falls back to `main`/`master` when `origin/HEAD` unavailable. Acceptable — covers 99% of repos.
 - `CODE_PATH` interpreted differently by `syncRepos` (repo root) vs rest of tooling (`CODE_PATH/core`). Known inconsistency.
 
+## Async Bridge Returns (brain/provider.go)
+
+- `provider.go:247` — recall HTTP handler forwards to bridge but returns empty `RecallOutput`. Results arrive async via WebSocket — by design for the IDE bridge path.
+- `provider.go:297` — list HTTP handler same pattern. Only affects bridge-mode clients, not DirectSubsystem.
+
 ## Compile Issues
 
 - `pkg/setup` doesn't compile — calls `lib.RenderFile`, `lib.ListDirTemplates`, `lib.ExtractDir` which don't exist yet. Package is not imported by anything.

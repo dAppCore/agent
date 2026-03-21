@@ -231,8 +231,12 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 			"Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
 
-		s.dispatchFixFromQueue(ctx, repo, task)
-		result.Action = "fix_dispatched"
+		if err := s.dispatchFixFromQueue(ctx, repo, task); err != nil {
+			result.Action = "fix_dispatch_failed"
+			result.Detail = err.Error()
+		} else {
+			result.Action = "fix_dispatched"
+		}
 	}
 
 	return result
@@ -263,14 +267,21 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 }
 
 // dispatchFixFromQueue dispatches an opus agent to fix CodeRabbit findings.
-func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) {
+func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) error {
 	// Use the dispatch system — creates workspace, spawns agent
 	input := DispatchInput{
 		Repo:  repo,
 		Task:  task,
 		Agent: "claude:opus",
 	}
-	s.dispatch(ctx, nil, input)
+	_, out, err := s.dispatch(ctx, nil, input)
+	if err != nil {
+		return err
+	}
+	if !out.Success {
+		return coreerr.E("dispatchFixFromQueue", "dispatch failed for "+repo, nil)
+	}
+	return nil
 }
 
 // countFindings estimates the number of findings in CodeRabbit output.

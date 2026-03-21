@@ -169,8 +169,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	out := PrepOutput{WorkspaceDir: wsDir}
 
-	// Source repo path
-	repoPath := filepath.Join(s.codePath, "core", input.Repo)
+	// Source repo path — sanitise to prevent path traversal
+	repoName := filepath.Base(input.Repo) // strips ../ and absolute paths
+	if repoName == "." || repoName == ".." || repoName == "" {
+		return nil, PrepOutput{}, coreerr.E("prep", "invalid repo name: "+input.Repo, nil)
+	}
+	repoPath := filepath.Join(s.codePath, "core", repoName)
 
 	// 1. Clone repo into src/ and create feature branch
 	srcDir := filepath.Join(wsDir, "src")

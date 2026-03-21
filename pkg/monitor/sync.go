@@ -94,7 +94,12 @@ func (m *Subsystem) syncRepos() string {
 
 	var pulled []string
 	for _, repo := range checkin.Changed {
-		repoDir := filepath.Join(basePath, repo.Repo)
+		// Sanitise repo name to prevent path traversal from API response
+		repoName := filepath.Base(repo.Repo)
+		if repoName == "." || repoName == ".." || repoName == "" {
+			continue
+		}
+		repoDir := filepath.Join(basePath, repoName)
 		if _, err := os.Stat(repoDir); err != nil {
 			continue
 		}
