@@ -154,8 +154,12 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 }
 
 // drainQueue finds the oldest queued workspace and spawns it if a slot is available.
-// Applies rate-based delay between spawns.
+// Applies rate-based delay between spawns. Serialised via drainMu to prevent
+// concurrent drainers from exceeding concurrency limits.
 func (s *PrepSubsystem) drainQueue() {
+	s.drainMu.Lock()
+	defer s.drainMu.Unlock()
+
 	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)

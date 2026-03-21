@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
@@ -40,6 +41,7 @@ type PrepSubsystem struct {
 	codePath    string
 	client      *http.Client
 	onComplete  CompletionNotifier
+	drainMu     sync.Mutex // protects drainQueue from concurrent execution
 }
 
 // NewPrep creates an agentic subsystem.
@@ -154,7 +156,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	// Workspace root: .core/workspace/{repo}-{timestamp}/
 	wsRoot := WorkspaceRoot()
-	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().Unix())
+	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().UnixNano())
 	wsDir := filepath.Join(wsRoot, wsName)
 
 	// Create workspace structure
@@ -604,19 +606,23 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 }
 
 // detectLanguage guesses the primary language from repo contents.
+// Checks in priority order (Go first) to avoid nondeterministic results.
 func detectLanguage(repoPath string) string {
-	checks := map[string]string{
-		"go.mod":         "go",
-		"composer.json":  "php",
-		"package.json":   "ts",
-		"Cargo.toml":     "rust",
-		"requirements.txt": "py",
-		"CMakeLists.txt": "cpp",
-		"Dockerfile":     "docker",
+	checks := []struct {
+		file string
+		lang string
+	}{
+		{"go.mod", "go"},
+		{"composer.json", "php"},
+		{"package.json", "ts"},
+		{"Cargo.toml", "rust"},
+		{"requirements.txt", "py"},
+		{"CMakeLists.txt", "cpp"},
+		{"Dockerfile", "docker"},
 	}
-	for file, lang := range checks {
-		if _, err := os.Stat(filepath.Join(repoPath, file)); err == nil {
-			return lang
+	for _, c := range checks {
+		if _, err := os.Stat(filepath.Join(repoPath, c.file)); err == nil {
+			return c.lang
 		}
 	}
 	return "go"

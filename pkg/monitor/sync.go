@@ -108,13 +108,16 @@ func (m *Subsystem) syncRepos() string {
 		}
 		current := strings.TrimSpace(string(currentBranch))
 
-		// Accept main or master (or whatever the repo reports)
-		expectedBranch := repo.Branch
-		if expectedBranch == "" {
-			expectedBranch = "main"
+		// Determine which branch to pull — use server-reported branch,
+		// fall back to current if server didn't specify
+		targetBranch := repo.Branch
+		if targetBranch == "" {
+			targetBranch = current
 		}
-		if current != expectedBranch && current != "main" && current != "master" {
-			continue // Don't pull if on a feature branch
+
+		// Only pull if we're on the target branch (or it's a default branch)
+		if current != targetBranch {
+			continue // On a different branch — skip
 		}
 
 		statusCmd := exec.Command("git", "status", "--porcelain")
@@ -124,8 +127,8 @@ func (m *Subsystem) syncRepos() string {
 			continue // Don't pull if dirty
 		}
 
-		// Fast-forward pull on whatever branch we're on
-		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", current)
+		// Fast-forward pull the target branch
+		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", targetBranch)
 		pullCmd.Dir = repoDir
 		if pullCmd.Run() == nil {
 			pulled = append(pulled, repo.Repo)
