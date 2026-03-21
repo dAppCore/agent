@@ -167,7 +167,6 @@ func (m *Subsystem) loop(ctx context.Context) {
 }
 
 func (m *Subsystem) check(ctx context.Context) {
-	fmt.Fprintf(os.Stderr, "monitor: check cycle running\n")
 	var messages []string
 
 	// Check agent completions
@@ -294,7 +293,6 @@ func (m *Subsystem) checkInbox() string {
 		keyFile := filepath.Join(home, ".claude", "brain.key")
 		data, err := coreio.Local.Read(keyFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "monitor: checkInbox: no API key (env=%v, file err=%v)\n", apiKeyStr == "", err)
 			return ""
 		}
 		apiKeyStr = data
@@ -361,8 +359,6 @@ func (m *Subsystem) checkInbox() string {
 	m.lastInboxMaxID = maxID
 	m.inboxSeeded = true
 	m.mu.Unlock()
-
-	m.debugChannel(fmt.Sprintf("checkInbox: unread=%d, maxID=%d, prevMaxID=%d", unread, maxID, prevMaxID))
 
 	// First check after startup: seed, don't fire
 	if !seeded {
