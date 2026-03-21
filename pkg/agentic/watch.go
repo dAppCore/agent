@@ -132,6 +132,27 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 					})
 				}
 
+			case "merged", "ready-for-review":
+				result := WatchResult{
+					Workspace: ws,
+					Agent:     st.Agent,
+					Repo:      st.Repo,
+					Status:    st.Status,
+					PRURL:     st.PRURL,
+				}
+				completed = append(completed, result)
+				delete(remaining, ws)
+				progressCount++
+
+				if progressToken != nil && req.Session != nil {
+					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+						ProgressToken: progressToken,
+						Progress:      progressCount,
+						Total:         total,
+						Message:       fmt.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+					})
+				}
+
 			case "failed", "blocked":
 				result := WatchResult{
 					Workspace: ws,

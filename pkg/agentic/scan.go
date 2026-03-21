@@ -100,30 +100,44 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 }
 
 func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string, error) {
-	url := fmt.Sprintf("%s/api/v1/orgs/%s/repos?limit=50", s.forgeURL, org)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
+	var allNames []string
+	page := 1
 
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
-	}
-	defer resp.Body.Close()
+	for {
+		u := fmt.Sprintf("%s/api/v1/orgs/%s/repos?limit=50&page=%d", s.forgeURL, org, page)
+		req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+		if err != nil {
+			return nil, coreerr.E("scan.listOrgRepos", "failed to create request", err)
+		}
+		req.Header.Set("Authorization", "token "+s.forgeToken)
 
-	if resp.StatusCode != 200 {
-		return nil, coreerr.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
+		resp, err := s.client.Do(req)
+		if err != nil {
+			return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
+		}
+
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return nil, coreerr.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
 	}
 
-	var repos []struct {
-		Name string `json:"name"`
-	}
-	json.NewDecoder(resp.Body).Decode(&repos)
+		var repos []struct {
+			Name string `json:"name"`
+		}
+		json.NewDecoder(resp.Body).Decode(&repos)
+		resp.Body.Close()
 
-	var names []string
-	for _, r := range repos {
-		names = append(names, r.Name)
+		for _, r := range repos {
+			allNames = append(allNames, r.Name)
+		}
+
+		// If we got fewer than the limit, we've reached the last page
+		if len(repos) < 50 {
+			break
+		}
+		page++
 	}
-	return names, nil
+	return allNames, nil
 }
 
 func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label string) ([]ScanIssue, error) {

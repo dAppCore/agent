@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,9 +42,9 @@ func (m *Subsystem) syncRepos() string {
 
 	agentName := agentic.AgentName()
 
-	url := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, agentName, m.lastSyncTimestamp)
+	checkinURL := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, neturl.QueryEscape(agentName), m.lastSyncTimestamp)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", checkinURL, nil)
 	if err != nil {
 		return ""
 	}

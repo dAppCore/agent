@@ -122,6 +122,10 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
 
+	// Clean up stale BLOCKED.md from previous runs so it doesn't
+	// prevent this run from completing
+	os.Remove(filepath.Join(srcDir, "BLOCKED.md"))
+
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,

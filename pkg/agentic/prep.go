@@ -416,7 +416,11 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 		pageReq.Header.Set("Authorization", "token "+s.forgeToken)
 
 		pageResp, err := s.client.Do(pageReq)
-		if err != nil || pageResp.StatusCode != 200 {
+		if err != nil {
+			continue
+		}
+		if pageResp.StatusCode != 200 {
+			pageResp.Body.Close()
 			continue
 		}
 

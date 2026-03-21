@@ -111,8 +111,9 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		}, nil
 	}
 
-	// Push branch to forge
-	pushCmd := exec.CommandContext(ctx, "git", "push", "-u", "origin", st.Branch)
+	// Push branch to Forge (origin is the local clone, not Forge)
+	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
+	pushCmd := exec.CommandContext(ctx, "git", "push", forgeRemote, st.Branch)
 	pushCmd.Dir = srcDir
 	pushOut, err := pushCmd.CombinedOutput()
 	if err != nil {

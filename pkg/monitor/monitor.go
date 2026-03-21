@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -279,7 +280,7 @@ func (m *Subsystem) checkInbox() string {
 	if apiURL == "" {
 		apiURL = "https://api.lthn.sh"
 	}
-	req, err := http.NewRequest("GET", apiURL+"/v1/messages/inbox?agent="+agentic.AgentName(), nil)
+	req, err := http.NewRequest("GET", apiURL+"/v1/messages/inbox?agent="+url.QueryEscape(agentic.AgentName()), nil)
 	if err != nil {
 		return ""
 	}
