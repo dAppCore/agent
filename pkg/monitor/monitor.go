@@ -322,8 +322,11 @@ func (m *Subsystem) checkInbox() string {
 		} `json:"data"`
 	}
 	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
+		m.debugChannel("checkInbox: failed to decode response")
 		return ""
 	}
+
+	m.debugChannel(fmt.Sprintf("checkInbox: got %d messages", len(resp.Data)))
 
 	unread := 0
 	senders := make(map[string]int)
