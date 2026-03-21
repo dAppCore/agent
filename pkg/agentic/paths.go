@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -41,6 +42,27 @@ func AgentName() string {
 		return "cladius"
 	}
 	return "charon"
+}
+
+// gitDefaultBranch detects the default branch of a repo (main, master, etc.).
+func gitDefaultBranch(repoDir string) string {
+	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+	cmd.Dir = repoDir
+	if out, err := cmd.Output(); err == nil {
+		ref := strings.TrimSpace(string(out))
+		if strings.HasPrefix(ref, "origin/") {
+			return strings.TrimPrefix(ref, "origin/")
+		}
+		return ref
+	}
+	for _, branch := range []string{"main", "master"} {
+		cmd := exec.Command("git", "rev-parse", "--verify", branch)
+		cmd.Dir = repoDir
+		if cmd.Run() == nil {
+			return branch
+		}
+	}
+	return "main"
 }
 
 // GitHubOrg returns the GitHub org for mirror operations.

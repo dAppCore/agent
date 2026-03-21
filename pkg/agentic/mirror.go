@@ -150,7 +150,8 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 // createGitHubPR creates a PR from dev → main using the gh CLI.
 func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
 	// Check if there's already an open PR from dev
-	checkCmd := exec.CommandContext(ctx, "gh", "pr", "list", "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
+	ghRepo := fmt.Sprintf("%s/%s", GitHubOrg(), repo)
+	checkCmd := exec.CommandContext(ctx, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
 	checkCmd.Dir = repoDir
 	out, err := checkCmd.Output()
 	if err == nil && strings.Contains(string(out), "url") {
@@ -175,6 +176,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	title := fmt.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
 
 	prCmd := exec.CommandContext(ctx, "gh", "pr", "create",
+		"--repo", ghRepo,
 		"--head", "dev",
 		"--base", "main",
 		"--title", title,

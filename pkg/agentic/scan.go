@@ -127,9 +127,15 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 }
 
 func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label string) ([]ScanIssue, error) {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&labels=%s&limit=10&type=issues",
-		s.forgeURL, org, repo, label)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	u := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
+		s.forgeURL, org, repo)
+	if label != "" {
+		u += "&labels=" + strings.ReplaceAll(strings.ReplaceAll(label, " ", "%20"), "&", "%26")
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, coreerr.E("scan.listRepoIssues", "failed to create request", err)
+	}
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)

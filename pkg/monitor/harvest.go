@@ -20,6 +20,7 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // harvestResult tracks what happened during harvest.
@@ -260,7 +261,7 @@ func pushBranch(srcDir, branch string) error {
 	cmd.Dir = srcDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+		return coreerr.E("harvest.pushBranch", strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }

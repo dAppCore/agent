@@ -110,17 +110,19 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 	return mergeSuccess
 }
 
-// rebaseBranch rebases the current branch onto origin/main and force-pushes.
+// rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
-	// Fetch latest main
-	fetch := exec.Command("git", "fetch", "origin", "main")
+	base := gitDefaultBranch(srcDir)
+
+	// Fetch latest default branch
+	fetch := exec.Command("git", "fetch", "origin", base)
 	fetch.Dir = srcDir
 	if err := fetch.Run(); err != nil {
 		return false
 	}
 
-	// Rebase onto main
-	rebase := exec.Command("git", "rebase", "origin/main")
+	// Rebase onto default branch
+	rebase := exec.Command("git", "rebase", "origin/"+base)
 	rebase.Dir = srcDir
 	if err := rebase.Run(); err != nil {
 		// Rebase failed — abort and give up

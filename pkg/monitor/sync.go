@@ -60,7 +60,8 @@ func (m *Subsystem) syncRepos() string {
 		req.Header.Set("Authorization", "Bearer "+brainKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return ""
 	}
@@ -130,11 +131,15 @@ func (m *Subsystem) syncRepos() string {
 		}
 	}
 
-	// Only advance timestamp after attempting pulls — missed repos
-	// will be retried on the next cycle
-	m.mu.Lock()
-	m.lastSyncTimestamp = checkin.Timestamp
-	m.mu.Unlock()
+	// Only advance timestamp if we handled all reported repos.
+	// If any were skipped (dirty, wrong branch, missing), keep the
+	// old timestamp so the server reports them again next cycle.
+	skipped := len(checkin.Changed) - len(pulled)
+	if skipped == 0 {
+		m.mu.Lock()
+		m.lastSyncTimestamp = checkin.Timestamp
+		m.mu.Unlock()
+	}
 
 	if len(pulled) == 0 {
 		return ""

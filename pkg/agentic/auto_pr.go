@@ -21,8 +21,11 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	srcDir := filepath.Join(wsDir, "src")
 
-	// Check if there are commits on the branch beyond origin/main
-	diffCmd := exec.Command("git", "log", "--oneline", "origin/main..HEAD")
+	// Detect default branch for this repo
+	base := gitDefaultBranch(srcDir)
+
+	// Check if there are commits on the branch beyond the default branch
+	diffCmd := exec.Command("git", "log", "--oneline", "origin/"+base+"..HEAD")
 	diffCmd.Dir = srcDir
 	out, err := diffCmd.Output()
 	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
@@ -58,7 +61,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prURL, _, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, "main", title, body)
+	prURL, _, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
 	if err != nil {
 		if st2, err := readStatus(wsDir); err == nil {
 			st2.Question = fmt.Sprintf("PR creation failed: %v", err)
