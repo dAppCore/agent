@@ -260,7 +260,7 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 			cmd2.Dir = srcDir
 			out2, err2 := cmd2.CombinedOutput()
 			if err2 != nil {
-				return verifyResult{passed: true, testCmd: "none", output: "No PHP test runner found"}
+				return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 			}
 			return verifyResult{passed: true, output: string(out2), exitCode: 0, testCmd: "vendor/bin/pest"}
 		}

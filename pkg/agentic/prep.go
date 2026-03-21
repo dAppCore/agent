@@ -186,11 +186,20 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		taskSlug = taskSlug[:40]
 	}
 	taskSlug = strings.Trim(taskSlug, "-")
+	if taskSlug == "" {
+		// Fallback for issue-only dispatches with no task text
+		taskSlug = fmt.Sprintf("issue-%d", input.Issue)
+		if input.Issue == 0 {
+			taskSlug = fmt.Sprintf("work-%d", time.Now().Unix())
+		}
+	}
 	branchName := fmt.Sprintf("agent/%s", taskSlug)
 
 	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
 	branchCmd.Dir = srcDir
-	branchCmd.Run()
+	if err := branchCmd.Run(); err != nil {
+		return nil, PrepOutput{}, coreerr.E("prep.branch", fmt.Sprintf("failed to create branch %q", branchName), err)
+	}
 	out.Branch = branchName
 
 	// Create context dirs inside src/

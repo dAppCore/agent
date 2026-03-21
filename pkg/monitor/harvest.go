@@ -147,14 +147,38 @@ func detectBranch(srcDir string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// countUnpushed returns the number of commits ahead of origin.
+// defaultBranch detects the default branch of the repo (main, master, etc.).
+func defaultBranch(srcDir string) string {
+	// Try origin/HEAD first
+	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+	cmd.Dir = srcDir
+	if out, err := cmd.Output(); err == nil {
+		ref := strings.TrimSpace(string(out))
+		// returns "origin/main" — strip prefix
+		if strings.HasPrefix(ref, "origin/") {
+			return strings.TrimPrefix(ref, "origin/")
+		}
+		return ref
+	}
+	// Fallback: check if main exists, else master
+	for _, branch := range []string{"main", "master"} {
+		cmd := exec.Command("git", "rev-parse", "--verify", branch)
+		cmd.Dir = srcDir
+		if cmd.Run() == nil {
+			return branch
+		}
+	}
+	return "main"
+}
+
+// countUnpushed returns the number of commits ahead of origin's default branch.
 func countUnpushed(srcDir, branch string) int {
-	cmd := exec.Command("git", "rev-list", "--count", "origin/main.."+branch)
+	base := defaultBranch(srcDir)
+	cmd := exec.Command("git", "rev-list", "--count", "origin/"+base+".."+branch)
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
-		// origin/main might not exist — try counting all commits on branch
-		cmd2 := exec.Command("git", "log", "--oneline", "main.."+branch)
+		cmd2 := exec.Command("git", "log", "--oneline", base+".."+branch)
 		cmd2.Dir = srcDir
 		out2, err2 := cmd2.Output()
 		if err2 != nil {
@@ -176,7 +200,8 @@ func countUnpushed(srcDir, branch string) int {
 // Fails closed: if git diff fails, rejects the workspace.
 func checkSafety(srcDir string) string {
 	// Check all changed files — added, modified, renamed
-	cmd := exec.Command("git", "diff", "--name-only", "main...HEAD")
+	base := defaultBranch(srcDir)
+	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -213,9 +238,10 @@ func checkSafety(srcDir string) string {
 	return ""
 }
 
-// countChangedFiles returns the number of files changed vs main.
+// countChangedFiles returns the number of files changed vs the default branch.
 func countChangedFiles(srcDir string) int {
-	cmd := exec.Command("git", "diff", "--name-only", "main...HEAD")
+	base := defaultBranch(srcDir)
+	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
