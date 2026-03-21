@@ -326,6 +326,7 @@ func (m *Subsystem) checkInbox() string {
 			Read    bool   `json:"read"`
 			From    string `json:"from"`
 			Subject string `json:"subject"`
+			Content string `json:"content"`
 		} `json:"data"`
 	}
 	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
@@ -333,11 +334,24 @@ func (m *Subsystem) checkInbox() string {
 		return ""
 	}
 
-	// Find max ID and count unread
+	// Find max ID, count unread, collect new messages
 	maxID := 0
 	unread := 0
 	senders := make(map[string]int)
-	latestSubject := ""
+
+	m.mu.Lock()
+	prevMaxID := m.lastInboxMaxID
+	seeded := m.inboxSeeded
+	m.mu.Unlock()
+
+	type newMessage struct {
+		ID      int    `json:"id"`
+		From    string `json:"from"`
+		Subject string `json:"subject"`
+		Content string `json:"content"`
+	}
+	var newMessages []newMessage
+
 	for _, msg := range resp.Data {
 		if msg.ID > maxID {
 			maxID = msg.ID
@@ -347,15 +361,19 @@ func (m *Subsystem) checkInbox() string {
 			if msg.From != "" {
 				senders[msg.From]++
 			}
-			if latestSubject == "" {
-				latestSubject = msg.Subject
-			}
+		}
+		// Collect messages newer than what we've seen
+		if msg.ID > prevMaxID {
+			newMessages = append(newMessages, newMessage{
+				ID:      msg.ID,
+				From:    msg.From,
+				Subject: msg.Subject,
+				Content: msg.Content,
+			})
 		}
 	}
 
 	m.mu.Lock()
-	prevMaxID := m.lastInboxMaxID
-	seeded := m.inboxSeeded
 	m.lastInboxMaxID = maxID
 	m.inboxSeeded = true
 	m.mu.Unlock()
@@ -366,27 +384,16 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	// Only fire if there are new messages (higher ID than last seen)
-	if maxID <= prevMaxID || unread == 0 {
+	if maxID <= prevMaxID || len(newMessages) == 0 {
 		return ""
 	}
 
-	// Write marker file for the PostToolUse hook to pick up
-	var senderList []string
-	for s, count := range senders {
-		if count > 1 {
-			senderList = append(senderList, fmt.Sprintf("%s (%d)", s, count))
-		} else {
-			senderList = append(senderList, s)
-		}
-	}
-	// Push channel event for new messages
-	newCount := maxID - prevMaxID
+	// Push channel event with full message content
 	if m.notifier != nil {
 		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-			"new":     newCount,
-			"total":   unread,
-			"senders": senderList,
-			"subject": latestSubject,
+			"new":      len(newMessages),
+			"total":    unread,
+			"messages": newMessages,
 		})
 	}
 
