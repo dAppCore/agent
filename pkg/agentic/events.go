@@ -21,14 +21,15 @@ type CompletionEvent struct {
 
 // emitCompletionEvent appends a completion event to the events log.
 // The plugin's hook watches this file to notify the orchestrating agent.
-func emitCompletionEvent(agent, workspace string) {
+// Status should be the actual terminal state: completed, failed, or blocked.
+func emitCompletionEvent(agent, workspace, status string) {
 	eventsFile := filepath.Join(WorkspaceRoot(), "events.jsonl")
 
 	event := CompletionEvent{
 		Type:      "agent_completed",
 		Agent:     agent,
 		Workspace: workspace,
-		Status:    "completed",
+		Status:    status,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 

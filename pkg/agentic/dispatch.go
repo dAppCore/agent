@@ -185,8 +185,8 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 			writeStatus(wsDir, st)
 		}
 
-		// Emit completion event
-		emitCompletionEvent(agent, filepath.Base(wsDir))
+		// Emit completion event with actual status
+		emitCompletionEvent(agent, filepath.Base(wsDir), finalStatus)
 
 		// Notify monitor immediately (push to connected clients)
 		if s.onComplete != nil {

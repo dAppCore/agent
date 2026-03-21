@@ -128,12 +128,9 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	// Count changed files
 	files := countChangedFiles(srcDir)
 
-	// Push the branch to origin (which is the local source repo)
-	if err := pushBranch(srcDir, branch); err != nil {
-		return &harvestResult{repo: st.Repo, branch: branch, rejected: "push failed: " + err.Error()}
-	}
-
-	// Update status to ready-for-review
+	// Mark ready for review — do NOT auto-push.
+	// Pushing is a high-impact mutation that should happen during
+	// explicit review (/review command), not silently in the background.
 	updateStatus(wsDir, "ready-for-review", "")
 
 	return &harvestResult{repo: st.Repo, branch: branch, files: files}
@@ -175,13 +172,15 @@ func countUnpushed(srcDir, branch string) int {
 }
 
 // checkSafety rejects workspaces with binaries or oversized files.
+// Checks ALL changed files (added, modified, renamed), not just new.
+// Fails closed: if git diff fails, rejects the workspace.
 func checkSafety(srcDir string) string {
-	// Check for binary files in the diff
-	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=A", "main...HEAD")
+	// Check all changed files — added, modified, renamed
+	cmd := exec.Command("git", "diff", "--name-only", "main...HEAD")
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return "safety check failed: git diff error"
 	}
 
 	binaryExts := map[string]bool{

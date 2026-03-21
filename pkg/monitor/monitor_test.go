@@ -388,7 +388,7 @@ func TestCheck_Good_CombinesMessages(t *testing.T) {
 	mon.check(context.Background())
 
 	mon.mu.Lock()
-	assert.Equal(t, 1, mon.lastCompletedCount)
+	assert.Equal(t, 1, len(mon.seenCompleted))
 	mon.mu.Unlock()
 }
 
@@ -466,12 +466,12 @@ func TestLoop_Good_PokeTriggersCheck(t *testing.T) {
 
 	mon.Poke()
 
-	// Poll until the poke-triggered check updates the count
+	// Poll until the poke-triggered check sees the completion
 	require.Eventually(t, func() bool {
 		mon.mu.Lock()
 		defer mon.mu.Unlock()
-		return mon.lastCompletedCount == 1
-	}, 5*time.Second, 50*time.Millisecond, "expected lastCompletedCount to reach 1")
+		return len(mon.seenCompleted) == 1
+	}, 5*time.Second, 50*time.Millisecond, "expected seenCompleted to have 1 entry")
 
 	cancel()
 	mon.wg.Wait()

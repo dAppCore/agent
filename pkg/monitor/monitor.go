@@ -41,7 +41,7 @@ type Subsystem struct {
 	wg       sync.WaitGroup
 
 	// Track last seen state to only notify on changes
-	lastCompletedCount int
+	seenCompleted map[string]bool // workspace names we've already notified about
 	lastInboxCount     int
 	lastSyncTimestamp  int64
 	mu                 sync.Mutex
@@ -68,8 +68,9 @@ func New(opts ...Options) *Subsystem {
 		interval = opts[0].Interval
 	}
 	return &Subsystem{
-		interval: interval,
-		poke:     make(chan struct{}, 1),
+		interval:      interval,
+		poke:          make(chan struct{}, 1),
+		seenCompleted: make(map[string]bool),
 	}
 }
 
@@ -187,6 +188,8 @@ func (m *Subsystem) check(ctx context.Context) {
 }
 
 // checkCompletions scans workspace for newly completed agents.
+// Tracks by workspace name (not count) so harvest status rewrites
+// don't suppress future notifications.
 func (m *Subsystem) checkCompletions() string {
 	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
@@ -194,11 +197,11 @@ func (m *Subsystem) checkCompletions() string {
 		return ""
 	}
 
-	completed := 0
 	running := 0
 	queued := 0
-	var recentlyCompleted []string
+	var newlyCompleted []string
 
+	m.mu.Lock()
 	for _, entry := range entries {
 		data, err := coreio.Local.Read(entry)
 		if err != nil {
@@ -213,38 +216,42 @@ func (m *Subsystem) checkCompletions() string {
 			continue
 		}
 
+		wsName := filepath.Base(filepath.Dir(entry))
+
 		switch st.Status {
 		case "completed":
-			completed++
-			recentlyCompleted = append(recentlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+			if !m.seenCompleted[wsName] {
+				m.seenCompleted[wsName] = true
+				newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+			}
 		case "running":
 			running++
 		case "queued":
 			queued++
+		case "blocked", "failed":
+			if !m.seenCompleted[wsName] {
+				m.seenCompleted[wsName] = true
+				newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
+			}
 		}
 	}
-
-	m.mu.Lock()
-	prevCompleted := m.lastCompletedCount
-	m.lastCompletedCount = completed
 	m.mu.Unlock()
 
-	newCompletions := completed - prevCompleted
-	if newCompletions <= 0 {
+	if len(newlyCompleted) == 0 {
 		return ""
 	}
 
-	// Push channel events for each completion
-	if m.notifier != nil && len(recentlyCompleted) > 0 {
+	// Push channel events
+	if m.notifier != nil {
 		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
-			"count":     newCompletions,
-			"completed": recentlyCompleted,
+			"count":     len(newlyCompleted),
+			"completed": newlyCompleted,
 			"running":   running,
 			"queued":    queued,
 		})
 	}
 
-	msg := fmt.Sprintf("%d agent(s) completed", newCompletions)
+	msg := fmt.Sprintf("%d agent(s) completed", len(newlyCompleted))
 	if running > 0 {
 		msg += fmt.Sprintf(", %d still running", running)
 	}
