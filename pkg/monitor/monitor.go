@@ -68,10 +68,23 @@ func New(opts ...Options) *Subsystem {
 	if len(opts) > 0 && opts[0].Interval > 0 {
 		interval = opts[0].Interval
 	}
+	// Override via env for debugging
+	if envInterval := os.Getenv("MONITOR_INTERVAL"); envInterval != "" {
+		if d, err := time.ParseDuration(envInterval); err == nil {
+			interval = d
+		}
+	}
 	return &Subsystem{
 		interval:      interval,
 		poke:          make(chan struct{}, 1),
 		seenCompleted: make(map[string]bool),
+	}
+}
+
+// debugChannel sends a debug message via the notifier so it arrives as a channel event.
+func (m *Subsystem) debugChannel(msg string) {
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "monitor.debug", map[string]any{"msg": msg})
 	}
 }
 
@@ -94,6 +107,8 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 func (m *Subsystem) Start(ctx context.Context) {
 	monCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
+
+	fmt.Fprintf(os.Stderr, "monitor: started (interval=%s, notifier=%v)\n", m.interval, m.notifier != nil)
 
 	m.wg.Add(1)
 	go func() {
@@ -150,6 +165,7 @@ func (m *Subsystem) loop(ctx context.Context) {
 }
 
 func (m *Subsystem) check(ctx context.Context) {
+	fmt.Fprintf(os.Stderr, "monitor: check cycle running\n")
 	var messages []string
 
 	// Check agent completions
@@ -270,6 +286,7 @@ func (m *Subsystem) checkInbox() string {
 		keyFile := filepath.Join(home, ".claude", "brain.key")
 		data, err := coreio.Local.Read(keyFile)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "monitor: checkInbox: no API key (env=%v, file err=%v)\n", apiKeyStr == "", err)
 			return ""
 		}
 		apiKeyStr = data
@@ -298,11 +315,11 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	var resp struct {
-		Messages []struct {
+		Data []struct {
 			Read    bool   `json:"read"`
 			From    string `json:"from"`
 			Subject string `json:"subject"`
-		} `json:"messages"`
+		} `json:"data"`
 	}
 	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
 		return ""
@@ -311,7 +328,7 @@ func (m *Subsystem) checkInbox() string {
 	unread := 0
 	senders := make(map[string]int)
 	latestSubject := ""
-	for _, msg := range resp.Messages {
+	for _, msg := range resp.Data {
 		if !msg.Read {
 			unread++
 			if msg.From != "" {
@@ -343,6 +360,7 @@ func (m *Subsystem) checkInbox() string {
 	}
 	// Push channel event for new messages
 	if m.notifier != nil {
+		fmt.Fprintf(os.Stderr, "monitor: pushing inbox.message channel event (new=%d)\n", unread-prevInbox)
 		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
 			"new":     unread - prevInbox,
 			"total":   unread,

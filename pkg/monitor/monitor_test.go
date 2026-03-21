@@ -228,7 +228,7 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 		assert.NotEmpty(t, r.URL.Query().Get("agent"))
 
 		resp := map[string]any{
-			"messages": []map[string]any{
+			"data": []map[string]any{
 				{"read": false, "from": "clotho", "subject": "task done"},
 				{"read": false, "from": "gemini", "subject": "review ready"},
 				{"read": true, "from": "clotho", "subject": "old msg"},
@@ -262,7 +262,7 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 func TestCheckInbox_Good_NoUnread(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"messages": []map[string]any{
+			"data": []map[string]any{
 				{"read": true, "from": "clotho", "subject": "old"},
 			},
 		}
@@ -281,7 +281,7 @@ func TestCheckInbox_Good_NoUnread(t *testing.T) {
 func TestCheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"messages": []map[string]any{
+			"data": []map[string]any{
 				{"read": false, "from": "clotho", "subject": "msg"},
 			},
 		}
@@ -338,7 +338,7 @@ func TestCheckInbox_Bad_InvalidJSON(t *testing.T) {
 func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
-			"messages": []map[string]any{
+			"data": []map[string]any{
 				{"read": false, "from": "clotho", "subject": "msg1"},
 				{"read": false, "from": "clotho", "subject": "msg2"},
 				{"read": false, "from": "gemini", "subject": "msg3"},
