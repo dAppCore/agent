@@ -1,19 +1,19 @@
 {
-  "name": "core-agent",
-  "description": "Host UK Claude Code plugin collection",
+  "name": "dAppCore Agentic",
+  "description": "Agentic systems to work on the Lethean Network's dAppCore project",
   "owner": {
-    "name": "Host UK",
-    "email": "hello@host.uk.com"
+    "name": "Lethean Community",
+    "email": "hello@lethean.io"
   },
   "plugins": [
     {
-      "name": "core",
+      "name": "CoreAgent",
       "source": "./claude/core",
-      "description": "Core agent platform — dispatch (local + remote), verify+merge, CodeRabbit/Codex review queue, GitHub mirror, cross-agent messaging, OpenBrain integration",
-      "version": "0.10.0"
+      "description": "Core agent platform",
+      "version": "0.11.0"
     },
     {
-      "name": "core-php",
+      "name": "CorePHP",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/php.git"
@@ -22,7 +22,7 @@
       "version": "0.1.0"
     },
     {
-      "name": "go-build",
+      "name": "CoreBuild",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/go-build.git"
@@ -31,7 +31,7 @@
       "version": "0.1.0"
     },
     {
-      "name": "devops",
+      "name": "CoreDevOps",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/go-devops.git"

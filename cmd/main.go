@@ -6,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"forge.lthn.ai/core/agent/agentic"
-	"forge.lthn.ai/core/agent/brain"
-	"forge.lthn.ai/core/agent/monitor"
+	"dappco.re/go/agent/pkg/agentic"
+	"dappco.re/go/agent/pkg/brain"
+	"dappco.re/go/agent/pkg/monitor"
 	"forge.lthn.ai/core/cli/pkg/cli"
 	"forge.lthn.ai/core/go-process"
-	"forge.lthn.ai/core/go/pkg/core"
+	"dappco.re/go/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
@@ -25,15 +25,17 @@ func main() {
 
 	// Shared setup for both mcp and serve commands
 	initServices := func() (*mcp.Service, *monitor.Subsystem, error) {
-		c, err := core.New(core.WithName("process", process.NewService(process.Options{})))
+		c := core.New(core.Options{
+			{Key: "name", Value: "core-agent"},
+		})
+		procFactory := process.NewService(process.Options{})
+		procResult, err := procFactory(c)
 		if err != nil {
-			return nil, nil, cli.Wrap(err, "init core")
+			return nil, nil, cli.Wrap(err, "init process service")
 		}
-		procSvc, ok := c.Service("process").(*process.Service)
-		if !ok {
-			return nil, nil, cli.Wrap(core.E("core-agent", "process service not found", nil), "get process service")
+		if procSvc, ok := procResult.(*process.Service); ok {
+			process.SetDefault(procSvc)
 		}
-		process.SetDefault(procSvc)
 
 		mon := monitor.New()
 		prep := agentic.NewPrep()

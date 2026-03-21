@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"forge.lthn.ai/core/agent/agentic"
+	"dappco.re/go/agent/pkg/agentic"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
