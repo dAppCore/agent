@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"forge.lthn.ai/core/agent/agentic"
+	"dappco.re/go/agent/pkg/agentic"
 	coreio "forge.lthn.ai/core/go-io"
 )
 

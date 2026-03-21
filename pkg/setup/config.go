@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"forge.lthn.ai/core/agent/lib"
+	"dappco.re/go/agent/pkg/lib"
 )
 
 // ConfigData holds the data passed to config templates.

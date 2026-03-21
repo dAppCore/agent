@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"forge.lthn.ai/core/agent/lib"
+	"dappco.re/go/agent/pkg/lib"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

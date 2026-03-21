@@ -1,11 +1,11 @@
-module dAppCo.re/go/agent
+module dappco.re/go/agent
 
 go 1.26.0
 
 require (
+	dappco.re/go/core v0.4.7
 	forge.lthn.ai/core/api v0.1.3
 	forge.lthn.ai/core/cli v0.3.6
-	forge.lthn.ai/core/go v0.3.1
 	forge.lthn.ai/core/go-io v0.1.5
 	forge.lthn.ai/core/go-log v0.0.4
 	forge.lthn.ai/core/go-process v0.2.7
@@ -13,10 +13,12 @@ require (
 	forge.lthn.ai/core/mcp v0.3.2
 	github.com/gin-gonic/gin v1.12.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
+	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	forge.lthn.ai/core/go v0.3.1 // indirect
 	forge.lthn.ai/core/go-ai v0.1.11 // indirect
 	forge.lthn.ai/core/go-i18n v0.1.6 // indirect
 	forge.lthn.ai/core/go-inference v0.1.5 // indirect
@@ -46,6 +48,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
@@ -104,6 +107,7 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/ollama/ollama v0.18.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/qdrant/go-client v1.17.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect

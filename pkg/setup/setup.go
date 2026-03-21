@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"forge.lthn.ai/core/agent/lib"
+	"dappco.re/go/agent/pkg/lib"
 )
 
 // Options controls setup behaviour.
