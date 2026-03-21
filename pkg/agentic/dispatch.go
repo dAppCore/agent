@@ -123,14 +123,11 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
-		Command:     command,
-		Args:        args,
-		Dir:         srcDir,
-		Env:         []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
-		Detach:      true,
-		KillGroup:   true,
-		Timeout:     30 * time.Minute,
-		GracePeriod: 10 * time.Second,
+		Command: command,
+		Args:    args,
+		Dir:     srcDir,
+		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
+		Detach:  true,
 	})
 	if err != nil {
 		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
