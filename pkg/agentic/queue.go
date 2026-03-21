@@ -190,7 +190,7 @@ func (s *PrepSubsystem) drainQueue() {
 		}
 
 		srcDir := filepath.Join(wsDir, "src")
-		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the parent directory. Work in this directory."
+		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)
 		if err != nil {

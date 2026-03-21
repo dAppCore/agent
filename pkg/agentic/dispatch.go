@@ -246,11 +246,11 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	srcDir := filepath.Join(wsDir, "src")
 
 	// The prompt is just: read PROMPT.md and do the work
-	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the parent directory. Work in this directory."
+	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 	if input.DryRun {
 		// Read PROMPT.md for the dry run output
-		promptContent, _ := coreio.Local.Read(filepath.Join(wsDir, "PROMPT.md"))
+		promptContent, _ := coreio.Local.Read(filepath.Join(srcDir, "PROMPT.md"))
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,

@@ -312,7 +312,9 @@ func parseRetryAfter(message string) time.Duration {
 func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewer string) *exec.Cmd {
 	switch reviewer {
 	case "codex":
-		return exec.CommandContext(ctx, "codex", "review", "--base", "github/main")
+		cmd := exec.CommandContext(ctx, "codex", "review", "--base", "github/main")
+		cmd.Dir = repoDir
+		return cmd
 	default: // coderabbit
 		return exec.CommandContext(ctx, "coderabbit", "review", "--plain",
 			"--base", "github/main", "--config", "CLAUDE.md", "--cwd", repoDir)

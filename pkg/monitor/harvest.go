@@ -110,7 +110,8 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	if branch == "" {
 		branch = detectBranch(srcDir)
 	}
-	if branch == "" || branch == "main" {
+	base := defaultBranch(srcDir)
+	if branch == "" || branch == base {
 		return nil
 	}
 
