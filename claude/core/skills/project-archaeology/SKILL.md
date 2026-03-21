@@ -1,3 +1,8 @@
+---
+name: project-archaeology
+description: Deep excavation of abandoned CryptoNote projects before they vanish
+---
+
 # Project Archaeology
 
 Deep excavation of abandoned CryptoNote projects before they vanish.

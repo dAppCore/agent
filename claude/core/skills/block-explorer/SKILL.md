@@ -1,3 +1,8 @@
+---
+name: block-explorer
+description: Archive blockchain data from CryptoNote block explorers
+---
+
 # Block Explorer Collector
 
 Archive blockchain data from CryptoNote block explorers.

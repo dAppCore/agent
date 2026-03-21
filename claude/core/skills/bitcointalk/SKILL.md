@@ -1,3 +1,8 @@
+---
+name: bitcointalk
+description: Scrape and archive BitcoinTalk mega threads with author attribution and timestamps
+---
+
 # BitcoinTalk Thread Collector
 
 Scrape and archive BitcoinTalk mega threads with author attribution and timestamps.

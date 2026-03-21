@@ -1,3 +1,8 @@
+---
+name: mining-pools
+description: Archive mining pool statistics, historical hashrate, and block discovery data
+---
+
 # Mining Pool Collector
 
 Archive mining pool statistics, historical hashrate, and block discovery data.

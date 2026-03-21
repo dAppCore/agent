@@ -1,3 +1,8 @@
+---
+name: github-history
+description: Collect and score GitHub issues and PRs for triage analysis
+---
+
 # GitHub History Collection Skill
 
 Collect and score GitHub issues and PRs for triage analysis.

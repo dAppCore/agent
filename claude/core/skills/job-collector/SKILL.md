@@ -1,3 +1,8 @@
+---
+name: job-collector
+description: Two-phase collection pattern — generate jobs, then process downloaded files
+---
+
 # Job-Based Collector
 
 Two-phase collection pattern: generate jobs, then process downloaded files.

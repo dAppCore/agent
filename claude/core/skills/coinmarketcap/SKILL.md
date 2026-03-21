@@ -1,3 +1,8 @@
+---
+name: coinmarketcap
+description: Archive coin data, historical prices, and metadata from CoinMarketCap
+---
+
 # CoinMarketCap Collector
 
 Archive coin data, historical prices, and metadata from CoinMarketCap.

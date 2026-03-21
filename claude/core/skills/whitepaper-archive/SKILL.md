@@ -1,3 +1,8 @@
+---
+name: whitepaper-archive
+description: Preserve whitepapers, technical documentation, and foundational documents from crypto projects
+---
+
 # Whitepaper Archive Collector
 
 Preserve whitepapers, technical documentation, and foundational documents from crypto projects.

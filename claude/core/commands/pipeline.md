@@ -66,17 +66,17 @@ Dispatch each stage as a subagent using the Agent tool. Each stage receives:
 - The diff context
 - The list of changed files
 - Findings from all previous stages
-- Its agent persona (read from agents/ directory)
+- Its agent persona (read from pkg/lib/persona/ directory)
 
 **Stage 1 — Security Review:**
-- Read persona: `agents/engineering/engineering-security-engineer.md`
+- Read persona: `pkg/lib/persona/secops/developer.md`
 - Dispatch subagent with persona + diff
 - Task: Read-only security review. Find threats, injection, tenant isolation gaps
 - Output: Structured findings with severity ratings
 - If any CRITICAL findings → flag for Stage 2
 
 **Stage 2 — Fix (conditional):**
-- Read persona: `agents/engineering/engineering-senior-developer.md`
+- Read persona: `pkg/lib/persona/code/senior-developer.md`
 - SKIP if `--skip=fix` was passed
 - SKIP if Stage 1 found no CRITICAL issues
 - Dispatch subagent with persona + Stage 1 Critical findings
@@ -85,19 +85,19 @@ Dispatch each stage as a subagent using the Agent tool. Each stage receives:
 - Output: List of files modified and what was fixed
 
 **Stage 3 — Test Analysis:**
-- Read persona: `agents/testing/testing-api-tester.md`
+- Read persona: `pkg/lib/persona/testing/api-tester.md`
 - Dispatch subagent with persona + diff + changed files
 - Task: Run tests (`composer test` or `core go test`), analyse which changes have test coverage
 - Output: Test results (pass/fail/count) + coverage gaps
 
 **Stage 4 — Architecture Review:**
-- Read persona: `agents/engineering/engineering-backend-architect.md`
+- Read persona: `pkg/lib/persona/code/backend-architect.md`
 - Dispatch subagent with persona + diff + changed files
 - Task: Check lifecycle event usage, Actions pattern adherence, tenant isolation, namespace mapping
 - Output: Architecture assessment with specific findings
 
 **Stage 5 — Reality Check (final gate):**
-- Read persona: `agents/testing/testing-reality-checker.md`
+- Read persona: `pkg/lib/persona/testing/reality-checker.md`
 - Dispatch subagent with persona + ALL prior stage findings + test output
 - Task: Evidence-based final verdict. Default to NEEDS WORK.
 - Output: Verdict (READY / NEEDS WORK / FAILED) + quality rating + required fixes
@@ -155,11 +155,11 @@ For single-stage mode, still gather the diff but skip prior/subsequent stages.
 All personas live in the `agents/` directory relative to the plugin root's parent:
 
 ```
-${CLAUDE_PLUGIN_ROOT}/../../agents/engineering/engineering-security-engineer.md
-${CLAUDE_PLUGIN_ROOT}/../../agents/engineering/engineering-senior-developer.md
-${CLAUDE_PLUGIN_ROOT}/../../agents/testing/testing-api-tester.md
-${CLAUDE_PLUGIN_ROOT}/../../agents/engineering/engineering-backend-architect.md
-${CLAUDE_PLUGIN_ROOT}/../../agents/testing/testing-reality-checker.md
+${CLAUDE_PLUGIN_ROOT}/../../pkg/lib/persona/secops/developer.md
+${CLAUDE_PLUGIN_ROOT}/../../pkg/lib/persona/code/senior-developer.md
+${CLAUDE_PLUGIN_ROOT}/../../pkg/lib/persona/testing/api-tester.md
+${CLAUDE_PLUGIN_ROOT}/../../pkg/lib/persona/code/backend-architect.md
+${CLAUDE_PLUGIN_ROOT}/../../pkg/lib/persona/testing/reality-checker.md
 ```
 
 Read each persona file before dispatching that stage's subagent.

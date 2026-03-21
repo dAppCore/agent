@@ -1,3 +1,8 @@
+---
+name: wallet-releases
+description: Archive wallet software releases, changelogs, and binary checksums
+---
+
 # Wallet Releases Collector
 
 Archive wallet software releases, changelogs, and binary checksums.

@@ -1,3 +1,8 @@
+---
+name: community-chat
+description: Archive Discord and Telegram community discussions
+---
+
 # Community Chat Collector
 
 Archive Discord and Telegram community discussions.

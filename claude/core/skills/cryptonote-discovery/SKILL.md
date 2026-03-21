@@ -1,3 +1,8 @@
+---
+name: cryptonote-discovery
+description: Discover and catalog CryptoNote-based projects for archival
+---
+
 # CryptoNote Project Discovery
 
 Discover and catalog CryptoNote-based projects for archival.

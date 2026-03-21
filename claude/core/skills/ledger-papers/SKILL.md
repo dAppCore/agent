@@ -1,3 +1,8 @@
+---
+name: ledger-papers
+description: Comprehensive collection of distributed ledger, cryptographic protocol, and decentralized systems whitepapers
+---
+
 # Ledger Papers Archive
 
 Comprehensive collection of distributed ledger, cryptographic protocol, and decentralized systems whitepapers.
