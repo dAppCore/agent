@@ -313,7 +313,12 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 // --- Helpers ---
 
 func planPath(dir, id string) string {
-	return filepath.Join(dir, id+".json")
+	// Sanitise ID to prevent path traversal
+	safe := filepath.Base(id)
+	if safe == "." || safe == ".." || safe == "" {
+		safe = "invalid"
+	}
+	return filepath.Join(dir, safe+".json")
 }
 
 func generatePlanID(title string) string {

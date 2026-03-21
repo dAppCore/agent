@@ -87,14 +87,15 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		fetchCmd.Dir = repoDir
 		fetchCmd.Run()
 
-		// Check how far ahead we are
-		ahead := commitsAhead(repoDir, "github/main", "HEAD")
+		// Check how far ahead local default branch is vs github
+		localBase := gitDefaultBranch(repoDir)
+		ahead := commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
 			continue // Already in sync
 		}
 
 		// Count files changed
-		files := filesChanged(repoDir, "github/main", "HEAD")
+		files := filesChanged(repoDir, "github/main", localBase)
 
 		sync := MirrorSync{
 			Repo:         repo,
@@ -118,8 +119,9 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		// Ensure dev branch exists on GitHub
 		ensureDevBranch(repoDir)
 
-		// Push local main to github dev
-		pushCmd := exec.CommandContext(ctx, "git", "push", "github", "HEAD:refs/heads/dev", "--force")
+		// Push local main to github dev (explicit main, not HEAD)
+		base := gitDefaultBranch(repoDir)
+		pushCmd := exec.CommandContext(ctx, "git", "push", "github", base+":refs/heads/dev", "--force")
 		pushCmd.Dir = repoDir
 		if err := pushCmd.Run(); err != nil {
 			sync.Skipped = fmt.Sprintf("push failed: %v", err)

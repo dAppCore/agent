@@ -132,8 +132,18 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 		return false
 	}
 
-	// Force-push the rebased branch
-	push := exec.Command("git", "push", "--force-with-lease", "origin", branch)
+	// Force-push the rebased branch to Forge (origin is local clone)
+	st, _ := readStatus(filepath.Dir(srcDir))
+	org := "core"
+	repo := ""
+	if st != nil {
+		if st.Org != "" {
+			org = st.Org
+		}
+		repo = st.Repo
+	}
+	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
+	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
 	push.Dir = srcDir
 	return push.Run() == nil
 }
