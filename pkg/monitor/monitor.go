@@ -26,9 +26,16 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// ChannelNotifier pushes events to connected MCP sessions.
+// Matches the Notifier interface in core/mcp without importing it.
+type ChannelNotifier interface {
+	ChannelSend(ctx context.Context, channel string, data any)
+}
+
 // Subsystem implements mcp.Subsystem for background monitoring.
 type Subsystem struct {
 	server   *mcp.Server
+	notifier ChannelNotifier
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -41,6 +48,11 @@ type Subsystem struct {
 
 	// Event-driven poke channel — dispatch goroutine sends here on completion
 	poke chan struct{}
+}
+
+// SetNotifier wires up channel event broadcasting.
+func (m *Subsystem) SetNotifier(n ChannelNotifier) {
+	m.notifier = n
 }
 
 // Options configures the monitor.
@@ -143,6 +155,11 @@ func (m *Subsystem) check(ctx context.Context) {
 		messages = append(messages, msg)
 	}
 
+	// Harvest completed workspaces — push branches, check for binaries
+	if msg := m.harvestCompleted(); msg != "" {
+		messages = append(messages, msg)
+	}
+
 	// Check inbox
 	if msg := m.checkInbox(); msg != "" {
 		messages = append(messages, msg)
@@ -215,6 +232,16 @@ func (m *Subsystem) checkCompletions() string {
 	newCompletions := completed - prevCompleted
 	if newCompletions <= 0 {
 		return ""
+	}
+
+	// Push channel events for each completion
+	if m.notifier != nil && len(recentlyCompleted) > 0 {
+		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
+			"count":     newCompletions,
+			"completed": recentlyCompleted,
+			"running":   running,
+			"queued":    queued,
+		})
 	}
 
 	msg := fmt.Sprintf("%d agent(s) completed", newCompletions)
@@ -302,11 +329,15 @@ func (m *Subsystem) checkInbox() string {
 			senderList = append(senderList, s)
 		}
 	}
-	notify := fmt.Sprintf("📬 %d new message(s) from %s", unread-prevInbox, strings.Join(senderList, ", "))
-	if latestSubject != "" {
-		notify += fmt.Sprintf(" — \"%s\"", latestSubject)
+	// Push channel event for new messages
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
+			"new":     unread - prevInbox,
+			"total":   unread,
+			"senders": senderList,
+			"subject": latestSubject,
+		})
 	}
-	coreio.Local.Write("/tmp/claude-inbox-notify", notify)
 
 	return fmt.Sprintf("%d unread message(s) in inbox", unread)
 }

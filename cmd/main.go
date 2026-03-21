@@ -41,14 +41,15 @@ func main() {
 		prep := agentic.NewPrep()
 		prep.SetCompletionNotifier(mon)
 
-		mcpSvc, err := mcp.New(
-			mcp.WithSubsystem(brain.NewDirect()),
-			mcp.WithSubsystem(prep),
-			mcp.WithSubsystem(mon),
-		)
+		mcpSvc, err := mcp.New(mcp.Options{
+			Subsystems: []mcp.Subsystem{brain.NewDirect(), prep, mon},
+		})
 		if err != nil {
 			return nil, nil, cli.Wrap(err, "create MCP service")
 		}
+
+		// Wire channel notifications — monitor pushes events into MCP sessions
+		mon.SetNotifier(mcpSvc)
 
 		return mcpSvc, mon, nil
 	}
