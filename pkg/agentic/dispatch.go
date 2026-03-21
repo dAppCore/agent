@@ -73,7 +73,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			return "codex", []string{"review", "--base", "HEAD~1"}, nil
 		}
 		// Codex agent mode — autonomous coding
-		return "codex", []string{"--approval-mode", "full-auto", "-q", prompt}, nil
+		return "codex", []string{"exec", "--full-auto", prompt}, nil
 	case "claude":
 		args := []string{
 			"-p", prompt,
