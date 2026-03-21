@@ -3,7 +3,10 @@
     "core": {
       "type": "stdio",
       "command": "core-agent",
-      "args": ["mcp"]
+      "args": ["mcp"],
+      "env": {
+        "MONITOR_INTERVAL": "15s"
+      }
     }
   }
 }

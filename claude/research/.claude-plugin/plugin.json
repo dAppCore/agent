@@ -1,7 +1,7 @@
 {
   "name": "core-research",
   "description": "Data collection and research skills for the Lethean Network — blockchain archaeology, whitepaper archival, community history, and market data collection",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Lethean Community",
     "email": "hello@lethean.io"

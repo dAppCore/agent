@@ -1,5 +1,5 @@
 {
-  "name": "dAppCore Agentic",
+  "name": "dappcore-agent",
   "description": "Agentic systems to work on the Lethean Network's dAppCore project",
   "owner": {
     "name": "Lethean Community",
@@ -7,19 +7,19 @@
   },
   "plugins": [
     {
-      "name": "CoreAgent",
+      "name": "core",
       "source": "./claude/core",
-      "description": "Core agent platform — dispatch, review, messaging, OpenBrain",
-      "version": "0.12.0"
+      "description": "CoreAgent platform — dispatch, review, messaging, OpenBrain",
+      "version": "0.13.0"
     },
     {
-      "name": "CoreResearch",
+      "name": "core-research",
       "source": "./claude/research",
       "description": "Blockchain archaeology, whitepaper archival, community history, market data collection",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
-      "name": "CorePHP",
+      "name": "core-php",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/php.git"
@@ -28,7 +28,7 @@
       "version": "0.1.0"
     },
     {
-      "name": "CoreBuild",
+      "name": "core-build",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/go-build.git"
@@ -37,7 +37,7 @@
       "version": "0.1.0"
     },
     {
-      "name": "CoreDevOps",
+      "name": "core-devops",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/go-devops.git"
