@@ -280,6 +280,8 @@ func updateStatus(wsDir, status, question string) {
 	st["status"] = status
 	if question != "" {
 		st["question"] = question
+	} else {
+		delete(st, "question") // clear stale question from previous state
 	}
 	updated, _ := json.MarshalIndent(st, "", "  ")
 	coreio.Local.Write(filepath.Join(wsDir, "status.json"), string(updated))

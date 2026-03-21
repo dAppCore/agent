@@ -143,6 +143,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		} else if len(rpcResp.Result.Content) > 0 {
 			var dispatchOut DispatchOutput
 			if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &dispatchOut) == nil {
+				output.Success = dispatchOut.Success
 				output.WorkspaceDir = dispatchOut.WorkspaceDir
 				output.PID = dispatchOut.PID
 				output.Agent = dispatchOut.Agent
