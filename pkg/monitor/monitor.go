@@ -324,7 +324,12 @@ func (m *Subsystem) checkCompletions() string {
 			continue
 		}
 
-		wsName := filepath.Base(filepath.Dir(entry))
+		// Use full relative path as dedup key — "core/go/main" not just "main"
+		wsDir := filepath.Dir(entry)
+		wsName := wsDir
+		if len(wsDir) > len(wsRoot)+1 {
+			wsName = wsDir[len(wsRoot)+1:]
+		}
 
 		switch st.Status {
 		case "completed":
@@ -548,8 +553,13 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 		if json.Unmarshal([]byte(entryData), &st) != nil {
 			continue
 		}
+		entryDir := filepath.Dir(entry)
+		entryName := entryDir
+		if len(entryDir) > len(wsRoot)+1 {
+			entryName = entryDir[len(wsRoot)+1:]
+		}
 		workspaces = append(workspaces, wsInfo{
-			Name:   filepath.Base(filepath.Dir(entry)),
+			Name:   entryName,
 			Status: st.Status,
 			Repo:   st.Repo,
 			Agent:  st.Agent,
