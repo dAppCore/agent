@@ -116,22 +116,18 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 }
 
 // countRunningByAgent counts running workspaces for a specific agent type.
+// Scans both old (*/status.json) and new (*/*/*/status.json) workspace layouts.
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	wsRoot := WorkspaceRoot()
 
-	r := fs.List(wsRoot)
-	if !r.OK {
-		return 0
-	}
-	entries := r.Value.([]os.DirEntry)
+	// Scan both old and new workspace layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	new := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	paths := append(old, new...)
 
 	count := 0
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		st, err := readStatus(core.JoinPath(wsRoot, entry.Name()))
+	for _, statusPath := range paths {
+		st, err := readStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
 		}
