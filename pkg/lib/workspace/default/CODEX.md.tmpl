@@ -1,0 +1,156 @@
+# CODEX.md
+
+Instructions for Codex when working with code in this workspace.
+
+## Core Framework
+
+This project uses `dappco.re/go/core` as its foundation. Core provides primitives that REPLACE standard library and third-party packages. Implementation reference is in `.core/reference/*.go`.
+
+## Mandatory Patterns
+
+### Errors — use `core.E()`, never `fmt.Errorf` or `errors.New`
+
+```go
+// WRONG
+return fmt.Errorf("failed to read: %w", err)
+return errors.New("not found")
+
+// CORRECT
+return core.E("readConfig", "failed to read config", err)
+return core.E("findUser", "user not found", nil)
+```
+
+### Logging — use `core.Error/Info/Warn/Debug`, never `log.*` or `fmt.Print*`
+
+```go
+// WRONG
+log.Printf("starting server on %s", addr)
+fmt.Fprintf(os.Stderr, "error: %v\n", err)
+
+// CORRECT
+core.Info("starting server", "addr", addr)
+core.Error("operation failed", "err", err)
+```
+
+### Filesystem — use `core.Fs{}`, never `os.ReadFile/WriteFile/MkdirAll`
+
+```go
+var fs = &core.Fs{}
+r := fs.Read(path)           // returns core.Result
+if !r.OK { return r }
+content := r.Value.(string)
+
+fs.Write(path, content)      // returns core.Result
+fs.EnsureDir(dir)             // returns core.Result
+```
+
+### Returns — use `core.Result`, never `(value, error)`
+
+```go
+// WRONG
+func LoadConfig(path string) (string, error) {
+    data, err := os.ReadFile(path)
+    if err != nil { return "", err }
+    return string(data), nil
+}
+
+// CORRECT
+func LoadConfig(path string) core.Result {
+    return fs.Read(path)
+}
+```
+
+### Strings — use `core.*`, never `strings.*` or `fmt.Sprintf`
+
+| Do NOT use | Use instead |
+|------------|-------------|
+| `strings.Contains` | `core.Contains` |
+| `strings.HasPrefix` | `core.HasPrefix` |
+| `strings.HasSuffix` | `core.HasSuffix` |
+| `strings.TrimSpace` | `core.Trim` |
+| `strings.TrimPrefix` | `core.TrimPrefix` |
+| `strings.TrimSuffix` | `core.TrimSuffix` |
+| `strings.Split` | `core.Split` |
+| `strings.SplitN` | `core.SplitN` |
+| `strings.Join(parts, sep)` | `core.Join(sep, parts...)` |
+| `strings.ReplaceAll` | `core.Replace` |
+| `strings.ToLower` | `core.Lower` |
+| `strings.ToUpper` | `core.Upper` |
+| `strings.NewReader` | `core.NewReader` |
+| `strings.Builder{}` | `core.NewBuilder()` |
+| `fmt.Sprintf` | `core.Sprintf` |
+| `fmt.Sprint` | `core.Sprint` |
+
+### Imports — alias stdlib `io` as `goio`
+
+```go
+import goio "io"
+```
+
+### Comments — usage examples, not descriptions
+
+```go
+// WRONG
+// LoadConfig loads configuration from a file path.
+
+// CORRECT
+// LoadConfig reads and parses a YAML configuration file.
+//
+//  r := LoadConfig("/home/user/.core/agents.yaml")
+//  if r.OK { cfg := r.Value.(*AgentsConfig) }
+```
+
+### Names — predictable, never abbreviated
+
+```
+Config    not  Cfg
+Service   not  Srv
+Options   not  Opts
+Error     not  Err (as subsystem name)
+```
+
+### UK English in comments
+
+```
+initialise   not  initialize
+colour       not  color
+organisation not  organization
+serialise    not  serialize
+```
+
+### Compile-time interface assertions
+
+```go
+var _ mcp.Subsystem = (*MySubsystem)(nil)
+```
+
+### Keyed struct literals
+
+```go
+// WRONG
+core.Result{err, false}
+
+// CORRECT
+core.Result{Value: err, OK: false}
+```
+
+## What NOT to import
+
+| Do NOT import | Use instead |
+|---------------|-------------|
+| `fmt` | `core.Sprintf`, `core.Print` |
+| `log` | `core.Error`, `core.Info` |
+| `strings` | `core.Contains`, `core.Split` etc |
+| `errors` | `core.E`, `core.Wrap` |
+| `io/ioutil` | `core.Fs{}` |
+| `os` (file ops) | `core.Fs{}` |
+
+Acceptable stdlib: `os.Getenv`, `os.Exit`, `os.Stderr`, `os.UserHomeDir`, `context`, `sync`, `time`, `net/http`, `encoding/json`, `path/filepath`.
+
+## Build & Test
+
+```bash
+go build ./...
+go test ./...
+go vet ./...
+```
