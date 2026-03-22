@@ -139,31 +139,39 @@ type WorkspaceData struct {
 // Template names: "default", "security", "review".
 func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 	wsDir := "workspace/" + tmplName
-	entries, err := fs.ReadDir(workspaceFS, wsDir)
-	if err != nil {
-		return err
-	}
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return err
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	return fs.WalkDir(workspaceFS, wsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
 
-		name := entry.Name()
-		content, err := fs.ReadFile(workspaceFS, wsDir+"/"+name)
+		// Get relative path from template root
+		rel, err := filepath.Rel(wsDir, path)
+		if err != nil || rel == "." {
+			return nil
+		}
+
+		targetPath := filepath.Join(targetDir, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(targetPath, 0755)
+		}
+
+		content, err := fs.ReadFile(workspaceFS, path)
 		if err != nil {
 			return err
 		}
 
 		// Process .tmpl files through text/template
-		outputName := name
-		if core.HasSuffix(name, ".tmpl") {
-			outputName = core.TrimSuffix(name, ".tmpl")
-			tmpl, err := template.New(name).Parse(string(content))
+		outputName := filepath.Base(targetPath)
+		if core.HasSuffix(outputName, ".tmpl") {
+			outputName = core.TrimSuffix(outputName, ".tmpl")
+			targetPath = filepath.Join(filepath.Dir(targetPath), outputName)
+			tmpl, err := template.New(outputName).Parse(string(content))
 			if err != nil {
 				return err
 			}
@@ -174,12 +182,8 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 			content = buf.Bytes()
 		}
 
-		if err := os.WriteFile(filepath.Join(targetDir, outputName), content, 0644); err != nil {
-			return err
-		}
-	}
-
-	return nil
+		return os.WriteFile(targetPath, content, 0644)
+	})
 }
 
 // --- List Functions ---
