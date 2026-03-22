@@ -220,6 +220,14 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	resumed := fs.IsDir(core.JoinPath(repoDir, ".git"))
 	out.Resumed = resumed
 
+	// Extract default workspace template (go.work etc.)
+	lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
+		Repo:   input.Repo,
+		Branch: "",
+		Task:   input.Task,
+		Agent:  input.Agent,
+	})
+
 	if !resumed {
 		// Clone repo into repo/
 		cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, repoDir)
