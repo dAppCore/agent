@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -30,8 +31,13 @@ import (
 //	if text, ok := resultString(r); ok { json.Unmarshal([]byte(text), &st) }
 var fs = agentic.LocalFs()
 
-func workspaceStatusGlob(wsRoot string) string {
-	return core.Concat(wsRoot, "/*/status.json")
+// workspaceStatusPaths returns all status.json files across both old and new workspace layouts.
+// Old: workspace/{name}/status.json (1 level)
+// New: workspace/{org}/{repo}/{identifier}/status.json (3 levels)
+func workspaceStatusPaths(wsRoot string) []string {
+	old := core.PathGlob(core.Concat(wsRoot, "/*/status.json"))
+	new := core.PathGlob(core.Concat(wsRoot, "/*/*/*/status.json"))
+	return append(old, new...)
 }
 
 func workspaceStatusPath(wsDir string) string {
@@ -39,43 +45,7 @@ func workspaceStatusPath(wsDir string) string {
 }
 
 func brainKeyPath(home string) string {
-	return core.JoinPath(home, ".claude", "brain.key")
-}
-
-func monitorPath(path string) string {
-	ds := core.Env("DS")
-	return core.Replace(core.Replace(path, "\\", ds), "/", ds)
-}
-
-func monitorHomeDir() string {
-	if coreHome, ok := os.LookupEnv("CORE_HOME"); ok && coreHome != "" {
-		return coreHome
-	}
-	if home, ok := os.LookupEnv("HOME"); ok && home != "" {
-		return home
-	}
-	return core.Env("DIR_HOME")
-}
-
-func monitorAPIURL() string {
-	apiURL := core.Env("CORE_API_URL")
-	if apiURL == "" {
-		return "https://api.lthn.sh"
-	}
-	return apiURL
-}
-
-func monitorBrainKey() string {
-	brainKey := core.Env("CORE_BRAIN_KEY")
-	if brainKey != "" {
-		return brainKey
-	}
-	if r := fs.Read(brainKeyPath(monitorHomeDir())); r.OK {
-		if value, ok := resultString(r); ok {
-			return core.Trim(value)
-		}
-	}
-	return ""
+	return filepath.Join(home, ".claude", "brain.key")
 }
 
 func resultString(r core.Result) (string, bool) {
@@ -145,7 +115,7 @@ func New(opts ...Options) *Subsystem {
 		interval = opts[0].Interval
 	}
 	// Override via env for debugging
-	if envInterval := core.Env("MONITOR_INTERVAL"); envInterval != "" {
+	if envInterval := os.Getenv("MONITOR_INTERVAL"); envInterval != "" {
 		if d, err := time.ParseDuration(envInterval); err == nil {
 			interval = d
 		}
@@ -294,7 +264,7 @@ func (m *Subsystem) check(ctx context.Context) {
 // don't suppress future notifications.
 func (m *Subsystem) checkCompletions() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries := core.PathGlob(workspaceStatusGlob(wsRoot))
+	entries := workspaceStatusPaths(wsRoot)
 
 	running := 0
 	queued := 0
@@ -321,7 +291,7 @@ func (m *Subsystem) checkCompletions() string {
 			continue
 		}
 
-		wsName := core.PathBase(core.PathDir(monitorPath(entry)))
+		wsName := filepath.Base(filepath.Dir(entry))
 
 		switch st.Status {
 		case "completed":
@@ -375,11 +345,26 @@ func (m *Subsystem) checkCompletions() string {
 
 // checkInbox checks for unread messages.
 func (m *Subsystem) checkInbox() string {
-	apiKeyStr := monitorBrainKey()
+	apiKeyStr := os.Getenv("CORE_BRAIN_KEY")
 	if apiKeyStr == "" {
-		return ""
+		home, _ := os.UserHomeDir()
+		keyFile := brainKeyPath(home)
+		r := fs.Read(keyFile)
+		if !r.OK {
+			return ""
+		}
+		value, ok := resultString(r)
+		if !ok {
+			return ""
+		}
+		apiKeyStr = value
 	}
-	apiURL := monitorAPIURL()
+
+	// Call the API to check inbox
+	apiURL := os.Getenv("CORE_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.lthn.sh"
+	}
 	req, err := http.NewRequest("GET", core.Concat(apiURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName())), nil)
 	if err != nil {
 		return ""
@@ -492,7 +477,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 // agentStatusResource returns current workspace status as a JSON resource.
 func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	wsRoot := agentic.WorkspaceRoot()
-	entries := core.PathGlob(workspaceStatusGlob(wsRoot))
+	entries := workspaceStatusPaths(wsRoot)
 
 	type wsInfo struct {
 		Name   string `json:"name"`
@@ -522,7 +507,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			continue
 		}
 		workspaces = append(workspaces, wsInfo{
-			Name:   core.PathBase(core.PathDir(monitorPath(entry))),
+			Name:   filepath.Base(filepath.Dir(entry)),
 			Status: st.Status,
 			Repo:   st.Repo,
 			Agent:  st.Agent,

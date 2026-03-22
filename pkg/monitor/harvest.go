@@ -32,10 +32,7 @@ type harvestResult struct {
 // branches back to the source repos. Returns a summary message.
 func (m *Subsystem) harvestCompleted() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(workspaceStatusGlob(wsRoot))
-	if err != nil {
-		return ""
-	}
+	entries := workspaceStatusPaths(wsRoot)
 
 	var harvested []harvestResult
 
