@@ -12,6 +12,7 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
+	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -24,6 +25,8 @@ type DirectSubsystem struct {
 	apiKey string
 	client *http.Client
 }
+
+var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
 
 // NewDirect creates a direct HTTP brain subsystem.
 //

@@ -21,6 +21,7 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
+	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -81,6 +82,9 @@ type Subsystem struct {
 	// Event-driven poke channel — dispatch goroutine sends here on completion
 	poke chan struct{}
 }
+
+var _ coremcp.Subsystem = (*Subsystem)(nil)
+var _ agentic.CompletionNotifier = (*Subsystem)(nil)
 
 // SetNotifier wires up channel event broadcasting.
 //
@@ -393,7 +397,6 @@ func (m *Subsystem) checkInbox() string {
 	// Find max ID, count unread, collect new messages
 	maxID := 0
 	unread := 0
-	senders := make(map[string]int)
 
 	m.mu.Lock()
 	prevMaxID := m.lastInboxMaxID
@@ -414,9 +417,6 @@ func (m *Subsystem) checkInbox() string {
 		}
 		if !msg.Read {
 			unread++
-			if msg.From != "" {
-				senders[msg.From]++
-			}
 		}
 		// Collect messages newer than what we've seen
 		if msg.ID > prevMaxID {

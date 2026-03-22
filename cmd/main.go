@@ -57,11 +57,11 @@ func main() {
 		Action: func(opts core.Options) core.Result {
 			mcpSvc, mon, err := initServices()
 			if err != nil {
-				return core.Result{err, false}
+				return core.Result{Value: err, OK: false}
 			}
 			mon.Start(ctx)
 			if err := mcpSvc.Run(ctx); err != nil {
-				return core.Result{err, false}
+				return core.Result{Value: err, OK: false}
 			}
 			return core.Result{OK: true}
 		},
@@ -73,7 +73,7 @@ func main() {
 		Action: func(opts core.Options) core.Result {
 			mcpSvc, mon, err := initServices()
 			if err != nil {
-				return core.Result{err, false}
+				return core.Result{Value: err, OK: false}
 			}
 
 			addr := os.Getenv("MCP_HTTP_ADDR")
@@ -102,7 +102,7 @@ func main() {
 			})
 
 			if err := daemon.Start(); err != nil {
-				return core.Result{core.E("main", "daemon start", err), false}
+				return core.Result{Value: core.E("main", "daemon start", err), OK: false}
 			}
 
 			mon.Start(ctx)
@@ -112,7 +112,7 @@ func main() {
 			os.Setenv("MCP_HTTP_ADDR", addr)
 
 			if err := mcpSvc.Run(ctx); err != nil {
-				return core.Result{err, false}
+				return core.Result{Value: err, OK: false}
 			}
 			return core.Result{OK: true}
 		},

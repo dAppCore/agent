@@ -12,7 +12,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// mcpInitialize performs the MCP initialize handshake over Streamable HTTP.
+// mcpInitialize performs the MCP initialise handshake over Streamable HTTP.
 // Returns the session ID from the Mcp-Session-Id header.
 func mcpInitialize(ctx context.Context, client *http.Client, url, token string) (string, error) {
 	initReq := map[string]any{
@@ -49,10 +49,10 @@ func mcpInitialize(ctx context.Context, client *http.Client, url, token string) 
 
 	sessionID := resp.Header.Get("Mcp-Session-Id")
 
-	// Drain the SSE response (we don't need the initialize result)
+	// Drain the SSE response (we don't need the initialise result)
 	drainSSE(resp)
 
-	// Send initialized notification
+	// Send initialised notification
 	notif := map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",

@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"io"
+	goio "io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,6 +19,7 @@ import (
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
+	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
@@ -46,6 +47,8 @@ type PrepSubsystem struct {
 	onComplete CompletionNotifier
 	drainMu    sync.Mutex // protects drainQueue from concurrent execution
 }
+
+var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 
 // NewPrep creates an agentic subsystem.
 //
@@ -516,7 +519,7 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 		return 0
 	}
 
-	respData, _ := io.ReadAll(resp.Body)
+	respData, _ := goio.ReadAll(resp.Body)
 	var result struct {
 		Memories []map[string]any `json:"memories"`
 	}

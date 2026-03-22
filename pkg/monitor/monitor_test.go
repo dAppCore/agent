@@ -241,9 +241,9 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 
 		resp := map[string]any{
 			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "task done"},
-				{"read": false, "from_agent": "gemini", "subject": "review ready"},
-				{"read": true, "from_agent": "clotho", "subject": "old msg"},
+				{"id": 3, "read": false, "from": "clotho", "subject": "task done"},
+				{"id": 2, "read": false, "from": "gemini", "subject": "review ready"},
+				{"id": 1, "read": true, "from": "clotho", "subject": "old msg"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -256,6 +256,7 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 	t.Setenv("AGENT_NAME", "test-agent")
 
 	mon := New()
+	mon.inboxSeeded = true
 	notifier := &mockNotifier{}
 	mon.SetNotifier(notifier)
 
@@ -266,16 +267,19 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 	require.Len(t, events, 1)
 	assert.Equal(t, "inbox.message", events[0].channel)
 	eventData := events[0].data.(map[string]any)
-	assert.Equal(t, 2, eventData["new"])
+	assert.Equal(t, 3, eventData["new"])
 	assert.Equal(t, 2, eventData["total"])
-	assert.Equal(t, "task done", eventData["subject"])
+	payload, err := json.Marshal(eventData["messages"])
+	require.NoError(t, err)
+	assert.Contains(t, string(payload), "\"subject\":\"task done\"")
+	assert.Contains(t, string(payload), "\"subject\":\"review ready\"")
 }
 
 func TestCheckInbox_Good_NoUnread(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
-				{"read": true, "from_agent": "clotho", "subject": "old"},
+				{"id": 1, "read": true, "from": "clotho", "subject": "old"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -294,7 +298,7 @@ func TestCheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "msg"},
+				{"id": 1, "read": false, "from": "clotho", "subject": "msg"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -351,9 +355,9 @@ func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
-				{"read": false, "from_agent": "clotho", "subject": "msg1"},
-				{"read": false, "from_agent": "clotho", "subject": "msg2"},
-				{"read": false, "from_agent": "gemini", "subject": "msg3"},
+				{"id": 3, "read": false, "from": "clotho", "subject": "msg1"},
+				{"id": 2, "read": false, "from": "clotho", "subject": "msg2"},
+				{"id": 1, "read": false, "from": "gemini", "subject": "msg3"},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -364,6 +368,7 @@ func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 	setupAPIEnv(t, srv.URL)
 
 	mon := New()
+	mon.inboxSeeded = true
 	notifier := &mockNotifier{}
 	mon.SetNotifier(notifier)
 
@@ -373,14 +378,13 @@ func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 	events := notifier.Events()
 	require.Len(t, events, 1)
 	eventData := events[0].data.(map[string]any)
-	senders := eventData["senders"].([]string)
-	found := false
-	for _, s := range senders {
-		if s == "clotho (2)" {
-			found = true
-		}
-	}
-	assert.True(t, found, "expected clotho (2) in senders, got %v", senders)
+	assert.Equal(t, 3, eventData["new"])
+	assert.Equal(t, 3, eventData["total"])
+	payload, err := json.Marshal(eventData["messages"])
+	require.NoError(t, err)
+	assert.Contains(t, string(payload), "\"from\":\"clotho\"")
+	assert.Contains(t, string(payload), "\"subject\":\"msg1\"")
+	assert.Contains(t, string(payload), "\"subject\":\"msg2\"")
 }
 
 // --- check (integration of sub-checks) ---
