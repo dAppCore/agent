@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"os/exec"
 
 	core "dappco.re/go/core"
@@ -58,7 +57,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
 	srcDir := core.JoinPath(wsDir, "src")
 
-	if _, err := os.Stat(srcDir); err != nil {
+	if !fs.IsDir(srcDir) {
 		return nil, CreatePROutput{}, core.E("createPR", "workspace not found: "+input.Workspace, nil)
 	}
 

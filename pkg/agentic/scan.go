@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -197,7 +196,7 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 			Title:    issue.Title,
 			Labels:   labels,
 			Assignee: assignee,
-			URL:      strings.Replace(issue.HTMLURL, "https://forge.lthn.ai", s.forgeURL, 1),
+			URL:      core.Replace(issue.HTMLURL, "https://forge.lthn.ai", s.forgeURL),
 		})
 	}
 

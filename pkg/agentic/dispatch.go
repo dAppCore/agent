@@ -125,7 +125,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 	// Clean up stale BLOCKED.md from previous runs so it doesn't
 	// prevent this run from completing
-	os.Remove(core.JoinPath(srcDir, "BLOCKED.md"))
+	fs.Delete(core.JoinPath(srcDir, "BLOCKED.md"))
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,

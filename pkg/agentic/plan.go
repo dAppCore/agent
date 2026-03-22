@@ -279,7 +279,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	path := planPath(PlansRoot(), input.ID)
-	if _, err := os.Stat(path); err != nil {
+	if !fs.Exists(path) {
 		return nil, PlanDeleteOutput{}, core.E("planDelete", "plan not found: "+input.ID, nil)
 	}
 
@@ -301,10 +301,11 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", err)
 	}
 
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, PlanListOutput{}, core.E("planList", "failed to read plans directory", err)
+	r := fs.List(dir)
+	if !r.OK {
+		return nil, PlanListOutput{}, nil
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	var plans []Plan
 	for _, entry := range entries {

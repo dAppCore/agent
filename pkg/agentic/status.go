@@ -113,10 +113,11 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	wsRoot := WorkspaceRoot()
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
-		return nil, StatusOutput{}, core.E("status", "no workspaces found", err)
+	r := fs.List(wsRoot)
+	if !r.OK {
+		return nil, StatusOutput{}, core.E("status", "no workspaces found", nil)
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	var workspaces []WorkspaceInfo
 

@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -134,10 +135,11 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 
 // findReviewCandidates returns repos that are ahead of GitHub main.
 func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
+	r := fs.List(basePath)
+	if !r.OK {
 		return nil
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	var candidates []string
 	for _, e := range entries {
@@ -361,11 +363,13 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonLine, _ := json.Marshal(entry)
 
 	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
-	f, err := os.OpenFile(jsonlPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err == nil {
-		defer f.Close()
-		f.Write(append(jsonLine, '\n'))
+	r := fs.Append(jsonlPath)
+	if !r.OK {
+		return
 	}
+	wc := r.Value.(io.WriteCloser)
+	defer wc.Close()
+	wc.Write(append(jsonLine, '\n'))
 }
 
 // saveRateLimitState persists rate limit info for cross-run awareness.
