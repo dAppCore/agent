@@ -124,6 +124,165 @@ func main() {
 		},
 	})
 
+	// --- Forge CLI commands ---
+	registerForgeCommands(c)
+
+	// --- CLI commands for feature testing ---
+
+	prep := agentic.NewPrep()
+
+	// prep — test workspace preparation (clone + prompt)
+	c.Command("prep", core.Command{
+		Description: "Prepare a workspace: clone repo, build prompt",
+		Action: func(opts core.Options) core.Result {
+			repo := opts.String("_arg")
+			if repo == "" {
+				core.Print(nil, "usage: core-agent prep <repo> --issue=N|--pr=N|--branch=X --task=\"...\"")
+				return core.Result{OK: false}
+			}
+
+			input := agentic.PrepInput{
+				Repo:     repo,
+				Org:      opts.String("org"),
+				Task:     opts.String("task"),
+				Template: opts.String("template"),
+				Persona:  opts.String("persona"),
+				DryRun:   opts.Bool("dry-run"),
+			}
+
+			// Parse identifier from flags
+			if v := opts.String("issue"); v != "" {
+				n := 0
+				for _, ch := range v {
+					if ch >= '0' && ch <= '9' {
+						n = n*10 + int(ch-'0')
+					}
+				}
+				input.Issue = n
+			}
+			if v := opts.String("pr"); v != "" {
+				n := 0
+				for _, ch := range v {
+					if ch >= '0' && ch <= '9' {
+						n = n*10 + int(ch-'0')
+					}
+				}
+				input.PR = n
+			}
+			if v := opts.String("branch"); v != "" {
+				input.Branch = v
+			}
+			if v := opts.String("tag"); v != "" {
+				input.Tag = v
+			}
+
+			// Default to branch "dev" if no identifier
+			if input.Issue == 0 && input.PR == 0 && input.Branch == "" && input.Tag == "" {
+				input.Branch = "dev"
+			}
+
+			_, out, err := prep.TestPrepWorkspace(context.Background(), input)
+			if err != nil {
+				core.Print(nil, "error: %v", err)
+				return core.Result{Value: err, OK: false}
+			}
+
+			core.Print(nil, "workspace: %s", out.WorkspaceDir)
+			core.Print(nil, "repo:      %s", out.RepoDir)
+			core.Print(nil, "branch:    %s", out.Branch)
+			core.Print(nil, "resumed:   %v", out.Resumed)
+			core.Print(nil, "memories:  %d", out.Memories)
+			core.Print(nil, "consumers: %d", out.Consumers)
+			if out.Prompt != "" {
+				core.Print(nil, "")
+				core.Print(nil, "--- prompt (%d chars) ---", len(out.Prompt))
+				core.Print(nil, "%s", out.Prompt)
+			}
+			return core.Result{OK: true}
+		},
+	})
+
+	// status — list workspace statuses
+	c.Command("status", core.Command{
+		Description: "List agent workspace statuses",
+		Action: func(opts core.Options) core.Result {
+			wsRoot := agentic.WorkspaceRoot()
+			fsys := c.Fs()
+			r := fsys.List(wsRoot)
+			if !r.OK {
+				core.Print(nil, "no workspaces found at %s", wsRoot)
+				return core.Result{OK: true}
+			}
+
+			entries := r.Value.([]os.DirEntry)
+			if len(entries) == 0 {
+				core.Print(nil, "no workspaces")
+				return core.Result{OK: true}
+			}
+
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				statusFile := core.JoinPath(wsRoot, e.Name(), "status.json")
+				if sr := fsys.Read(statusFile); sr.OK {
+					core.Print(nil, "  %s", e.Name())
+				}
+			}
+			return core.Result{OK: true}
+		},
+	})
+
+	// prompt — build and show an agent prompt without cloning
+	c.Command("prompt", core.Command{
+		Description: "Build and display an agent prompt for a repo",
+		Action: func(opts core.Options) core.Result {
+			repo := opts.String("_arg")
+			if repo == "" {
+				core.Print(nil, "usage: core-agent prompt <repo> --task=\"...\"")
+				return core.Result{OK: false}
+			}
+
+			org := opts.String("org")
+			if org == "" {
+				org = "core"
+			}
+			task := opts.String("task")
+			if task == "" {
+				task = "Review and report findings"
+			}
+
+			repoPath := core.JoinPath(core.Env("DIR_HOME"), "Code", org, repo)
+
+			input := agentic.PrepInput{
+				Repo:     repo,
+				Org:      org,
+				Task:     task,
+				Template: opts.String("template"),
+				Persona:  opts.String("persona"),
+			}
+
+			prompt, memories, consumers := prep.TestBuildPrompt(context.Background(), input, "dev", repoPath)
+			core.Print(nil, "memories:  %d", memories)
+			core.Print(nil, "consumers: %d", consumers)
+			core.Print(nil, "")
+			core.Print(nil, "%s", prompt)
+			return core.Result{OK: true}
+		},
+	})
+
+	// env — dump all Env keys
+	c.Command("env", core.Command{
+		Description: "Show all core.Env() keys and values",
+		Action: func(opts core.Options) core.Result {
+			keys := core.EnvKeys()
+			for _, k := range keys {
+				core.Print(nil, "  %-15s %s", k, core.Env(k))
+			}
+			return core.Result{OK: true}
+		},
+	})
+
 	// Shared setup — creates MCP service with all subsystems wired
 	initServices := func() (*mcp.Service, *monitor.Subsystem, error) {
 		procFactory := process.NewService(process.Options{})

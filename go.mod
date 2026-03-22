@@ -17,6 +17,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require dappco.re/go/core/forge v0.2.0 // indirect
+
 require (
 	dappco.re/go/core/i18n v0.2.0
 	dappco.re/go/core/io v0.2.0 // indirect
