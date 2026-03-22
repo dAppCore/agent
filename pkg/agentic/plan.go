@@ -262,7 +262,8 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	if r := fs.Delete(path); !r.OK {
-		return nil, PlanDeleteOutput{}, core.E("planDelete", "failed to delete plan", nil)
+		err, _ := r.Value.(error)
+		return nil, PlanDeleteOutput{}, core.E("planDelete", "failed to delete plan", err)
 	}
 
 	return nil, PlanDeleteOutput{
@@ -274,7 +275,8 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
 	dir := PlansRoot()
 	if r := fs.EnsureDir(dir); !r.OK {
-		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", nil)
+		err, _ := r.Value.(error)
+		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", err)
 	}
 
 	entries, err := os.ReadDir(dir)
@@ -368,7 +370,8 @@ func readPlan(dir, id string) (*Plan, error) {
 
 func writePlan(dir string, plan *Plan) (string, error) {
 	if r := fs.EnsureDir(dir); !r.OK {
-		return "", core.E("writePlan", "failed to create plans directory", nil)
+		err, _ := r.Value.(error)
+		return "", core.E("writePlan", "failed to create plans directory", err)
 	}
 
 	path := planPath(dir, plan.ID)
@@ -378,7 +381,8 @@ func writePlan(dir string, plan *Plan) (string, error) {
 	}
 
 	if r := fs.Write(path, string(data)); !r.OK {
-		return "", core.E("writePlan", "failed to write plan", nil)
+		err, _ := r.Value.(error)
+		return "", core.E("writePlan", "failed to write plan", err)
 	}
 	return path, nil
 }

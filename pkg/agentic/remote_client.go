@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
 	"bufio"
 	"bytes"
 	"context"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	core "dappco.re/go/core"
 )
 
 // mcpInitialize performs the MCP initialize handshake over Streamable HTTP.

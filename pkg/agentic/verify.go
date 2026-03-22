@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 )
 
 // autoVerifyAndMerge runs inline tests (fast gate) and merges if they pass.

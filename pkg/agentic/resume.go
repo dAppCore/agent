@@ -71,7 +71,8 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		answerPath := filepath.Join(srcDir, "ANSWER.md")
 		content := fmt.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if r := fs.Write(answerPath, content); !r.OK {
-			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", nil)
+			err, _ := r.Value.(error)
+			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", err)
 		}
 	}
 

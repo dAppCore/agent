@@ -56,7 +56,8 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 		return err
 	}
 	if r := fs.Write(filepath.Join(wsDir, "status.json"), string(data)); !r.OK {
-		return core.E("writeStatus", "failed to write status", nil)
+		err, _ := r.Value.(error)
+		return core.E("writeStatus", "failed to write status", err)
 	}
 	return nil
 }

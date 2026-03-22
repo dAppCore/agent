@@ -169,8 +169,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// kb/ and specs/ will be created inside src/ after clone
 
 	// Ensure workspace directory exists
-	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		return nil, PrepOutput{}, core.E("prep", "failed to create workspace dir", err)
+	if r := fs.EnsureDir(wsDir); !r.OK {
+		return nil, PrepOutput{}, core.E("prep", "failed to create workspace dir", nil)
 	}
 
 	out := PrepOutput{WorkspaceDir: wsDir}
