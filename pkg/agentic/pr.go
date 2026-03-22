@@ -3,13 +3,12 @@
 package agentic
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 	"os/exec"
 
 	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
+	forge_types "dappco.re/go/core/forge/types"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -164,53 +163,20 @@ func (s *PrepSubsystem) buildPRBody(st *WorkspaceStatus) string {
 }
 
 func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
-	payload, _ := json.Marshal(map[string]any{
-		"title": title,
-		"body":  body,
-		"head":  head,
-		"base":  base,
+	pr, err := s.forge.Pulls.Create(ctx, forge.Params{"owner": org, "repo": repo}, &forge_types.CreatePullRequestOption{
+		Title: title,
+		Body:  body,
+		Head:  head,
+		Base:  base,
 	})
-
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
 	if err != nil {
-		return "", 0, core.E("forgeCreatePR", "request failed", err)
+		return "", 0, core.E("forgeCreatePR", "create PR failed", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 201 {
-		var errBody map[string]any
-		json.NewDecoder(resp.Body).Decode(&errBody)
-		msg, _ := errBody["message"].(string)
-		return "", 0, core.E("forgeCreatePR", core.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
-	}
-
-	var pr struct {
-		Number  int    `json:"number"`
-		HTMLURL string `json:"html_url"`
-	}
-	json.NewDecoder(resp.Body).Decode(&pr)
-
-	return pr.HTMLURL, pr.Number, nil
+	return pr.HTMLURL, int(pr.Index), nil
 }
 
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
-	payload, _ := json.Marshal(map[string]string{"body": comment})
-
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/comments", s.forgeURL, org, repo, issue)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return
-	}
-	resp.Body.Close()
+	s.forge.Issues.CreateComment(ctx, org, repo, int64(issue), comment)
 }
 
 // --- agentic_list_prs ---
@@ -309,54 +275,30 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 }
 
 func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls?state=%s&limit=10",
-		s.forgeURL, org, repo, state)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
+	prs, err := s.forge.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
 	if err != nil {
 		return nil, core.E("listRepoPRs", "failed to list PRs for "+repo, err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, core.E("listRepoPRs", core.Sprintf("HTTP %d listing PRs for %s", resp.StatusCode, repo), nil)
-	}
-
-	var prs []struct {
-		Number    int    `json:"number"`
-		Title     string `json:"title"`
-		State     string `json:"state"`
-		Mergeable bool   `json:"mergeable"`
-		HTMLURL   string `json:"html_url"`
-		Head      struct {
-			Ref string `json:"ref"`
-		} `json:"head"`
-		Base struct {
-			Ref string `json:"ref"`
-		} `json:"base"`
-		User struct {
-			Login string `json:"login"`
-		} `json:"user"`
-		Labels []struct {
-			Name string `json:"name"`
-		} `json:"labels"`
-	}
-	json.NewDecoder(resp.Body).Decode(&prs)
 
 	var result []PRInfo
 	for _, pr := range prs {
+		if state != "" && state != "all" && string(pr.State) != state {
+			continue
+		}
 		var labels []string
 		for _, l := range pr.Labels {
 			labels = append(labels, l.Name)
 		}
+		author := ""
+		if pr.User != nil {
+			author = pr.User.UserName
+		}
 		result = append(result, PRInfo{
 			Repo:      repo,
-			Number:    pr.Number,
+			Number:    int(pr.Index),
 			Title:     pr.Title,
-			State:     pr.State,
-			Author:    pr.User.Login,
+			State:     string(pr.State),
+			Author:    author,
 			Branch:    pr.Head.Ref,
 			Base:      pr.Base.Ref,
 			Labels:    labels,

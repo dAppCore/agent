@@ -16,6 +16,7 @@ import (
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
 	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
@@ -34,6 +35,7 @@ type CompletionNotifier interface {
 //	sub := agentic.NewPrep()
 //	sub.RegisterTools(server)
 type PrepSubsystem struct {
+	forge      *forge.Forge
 	forgeURL   string
 	forgeToken string
 	brainURL   string
@@ -65,8 +67,11 @@ func NewPrep() *PrepSubsystem {
 		}
 	}
 
+	forgeURL := envOr("FORGE_URL", "https://forge.lthn.ai")
+
 	return &PrepSubsystem{
-		forgeURL:   envOr("FORGE_URL", "https://forge.lthn.ai"),
+		forge:      forge.NewForge(forgeURL, forgeToken),
+		forgeURL:   forgeURL,
 		forgeToken: forgeToken,
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
@@ -257,6 +262,22 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	return nil, out, nil
 }
 
+// --- Public API for CLI testing ---
+
+// TestPrepWorkspace exposes prepWorkspace for CLI testing.
+//
+//	_, out, err := prep.TestPrepWorkspace(ctx, input)
+func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return s.prepWorkspace(ctx, nil, input)
+}
+
+// TestBuildPrompt exposes buildPrompt for CLI testing.
+//
+//	prompt, memories, consumers := prep.TestBuildPrompt(ctx, input, "dev", repoPath)
+func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
+	return s.buildPrompt(ctx, input, branch, repoPath)
+}
+
 // --- Prompt Building ---
 
 // buildPrompt assembles all context into a single prompt string.
@@ -348,30 +369,12 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 // --- Context Helpers (return strings, not write files) ---
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
-	if s.forgeToken == "" {
+	idx := core.Sprintf("%d", issue)
+	iss, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": idx})
+	if err != nil {
 		return ""
 	}
-
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, issue)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return ""
-	}
-	defer resp.Body.Close()
-
-	var issueData struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
-	}
-	json.NewDecoder(resp.Body).Decode(&issueData)
-
-	return core.Sprintf("# %s\n\n%s", issueData.Title, issueData.Body)
+	return core.Sprintf("# %s\n\n%s", iss.Title, iss.Body)
 }
 
 func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, int) {
@@ -473,64 +476,26 @@ func (s *PrepSubsystem) getGitLog(repoPath string) string {
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
-	if s.forgeToken == "" {
+	pages, err := s.forge.Wiki.ListPages(ctx, org, repo)
+	if err != nil || len(pages) == 0 {
 		return ""
 	}
-
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/wiki/pages", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return ""
-	}
-	defer resp.Body.Close()
-
-	var pages []struct {
-		Title  string `json:"title"`
-		SubURL string `json:"sub_url"`
-	}
-	json.NewDecoder(resp.Body).Decode(&pages)
 
 	b := core.NewBuilder()
-	for _, page := range pages {
-		subURL := page.SubURL
-		if subURL == "" {
-			subURL = page.Title
+	for _, meta := range pages {
+		name := meta.SubURL
+		if name == "" {
+			name = meta.Title
 		}
-
-		pageURL := core.Sprintf("%s/api/v1/repos/%s/%s/wiki/page/%s", s.forgeURL, org, repo, subURL)
-		pageReq, _ := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
-		pageReq.Header.Set("Authorization", "token "+s.forgeToken)
-
-		pageResp, pErr := s.client.Do(pageReq)
-		if pErr != nil || pageResp.StatusCode != 200 {
-			if pageResp != nil {
-				pageResp.Body.Close()
-			}
+		page, pErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
+		if pErr != nil || page.ContentBase64 == "" {
 			continue
 		}
-
-		var pageData struct {
-			ContentBase64 string `json:"content_base64"`
-		}
-		json.NewDecoder(pageResp.Body).Decode(&pageData)
-		pageResp.Body.Close()
-
-		if pageData.ContentBase64 == "" {
-			continue
-		}
-
-		content, _ := base64.StdEncoding.DecodeString(pageData.ContentBase64)
-		b.WriteString("### " + page.Title + "\n\n")
+		content, _ := base64.StdEncoding.DecodeString(page.ContentBase64)
+		b.WriteString("### " + meta.Title + "\n\n")
 		b.WriteString(string(content))
 		b.WriteString("\n\n")
 	}
-
 	return b.String()
 }
 
