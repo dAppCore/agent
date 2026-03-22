@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"os/exec"
 	"syscall"
 	"time"
 
@@ -191,8 +192,19 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		}
 
 		if finalStatus == "completed" {
-			s.autoCreatePR(wsDir)
-			s.autoVerifyAndMerge(wsDir)
+			// Run QA before PR — if QA fails, mark as failed, don't PR
+			if !s.runQA(wsDir) {
+				finalStatus = "failed"
+				question = "QA check failed — build or tests did not pass"
+				if st, stErr := readStatus(wsDir); stErr == nil {
+					st.Status = finalStatus
+					st.Question = question
+					writeStatus(wsDir, st)
+				}
+			} else {
+				s.autoCreatePR(wsDir)
+				s.autoVerifyAndMerge(wsDir)
+			}
 		}
 
 		s.ingestFindings(wsDir)
@@ -200,6 +212,57 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	}()
 
 	return pid, outputFile, nil
+}
+
+// runQA runs build + test checks on the repo after agent completion.
+// Returns true if QA passes, false if build or tests fail.
+func (s *PrepSubsystem) runQA(wsDir string) bool {
+	repoDir := core.JoinPath(wsDir, "repo")
+
+	// Detect language and run appropriate checks
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
+		// Go: build + vet + test
+		for _, args := range [][]string{
+			{"go", "build", "./..."},
+			{"go", "vet", "./..."},
+			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
+		} {
+			cmd := exec.Command(args[0], args[1:]...)
+			cmd.Dir = repoDir
+			if err := cmd.Run(); err != nil {
+				core.Warn("QA failed", "cmd", core.Join(" ", args...), "err", err)
+				return false
+			}
+		}
+		return true
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
+		// PHP: composer install + test
+		install := exec.Command("composer", "install", "--no-interaction")
+		install.Dir = repoDir
+		if err := install.Run(); err != nil {
+			return false
+		}
+		test := exec.Command("composer", "test")
+		test.Dir = repoDir
+		return test.Run() == nil
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
+		// Node: npm install + test
+		install := exec.Command("npm", "install")
+		install.Dir = repoDir
+		if err := install.Run(); err != nil {
+			return false
+		}
+		test := exec.Command("npm", "test")
+		test.Dir = repoDir
+		return test.Run() == nil
+	}
+
+	// Unknown language — pass QA (no checks to run)
+	return true
 }
 
 func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
