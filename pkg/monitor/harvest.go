@@ -12,9 +12,7 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -33,15 +31,12 @@ type harvestResult struct {
 // branches back to the source repos. Returns a summary message.
 func (m *Subsystem) harvestCompleted() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(workspaceStatusGlob(wsRoot))
-	if err != nil {
-		return ""
-	}
+	entries := core.PathGlob(workspaceStatusGlob(wsRoot))
 
 	var harvested []harvestResult
 
 	for _, entry := range entries {
-		wsDir := filepath.Dir(entry)
+		wsDir := core.PathDir(monitorPath(entry))
 		result := m.harvestWorkspace(wsDir)
 		if result != nil {
 			harvested = append(harvested, *result)
@@ -103,7 +98,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	}
 
 	srcDir := core.Concat(wsDir, "/src")
-	if _, err := os.Stat(srcDir); err != nil {
+	if !fs.Exists(srcDir) || fs.IsFile(srcDir) {
 		return nil
 	}
 
@@ -205,12 +200,8 @@ func countUnpushed(srcDir, branch string) int {
 // Checks ALL changed files (added, modified, renamed), not just new.
 // Fails closed: if git diff fails, rejects the workspace.
 func checkSafety(srcDir string) string {
-	// Check all changed files — added, modified, renamed
-	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "diff", "--name-only", core.Concat(base, "...HEAD"))
-	cmd.Dir = srcDir
-	out, err := cmd.Output()
-	if err != nil {
+	files, ok := changedFilesSinceDefault(srcDir)
+	if !ok {
 		return "safety check failed: git diff error"
 	}
 
@@ -224,20 +215,18 @@ func checkSafety(srcDir string) string {
 		".db": true, ".sqlite": true, ".sqlite3": true,
 	}
 
-	for _, file := range core.Split(core.Trim(string(out)), "\n") {
-		if file == "" {
-			continue
-		}
-		ext := core.Lower(filepath.Ext(file))
+	for _, file := range files {
+		ext := core.Lower(core.PathExt(file))
 		if binaryExts[ext] {
 			return core.Sprintf("binary file added: %s", file)
 		}
 
 		// Check file size (reject > 1MB)
 		fullPath := core.Concat(srcDir, "/", file)
-		info, err := os.Stat(fullPath)
-		if err == nil && info.Size() > 1024*1024 {
-			return core.Sprintf("large file: %s (%d bytes)", file, info.Size())
+		r := fs.Stat(fullPath)
+		size, ok := resultFileSize(r)
+		if ok && size > 1024*1024 {
+			return core.Sprintf("large file: %s (%d bytes)", file, size)
 		}
 	}
 
@@ -246,18 +235,26 @@ func checkSafety(srcDir string) string {
 
 // countChangedFiles returns the number of files changed vs the default branch.
 func countChangedFiles(srcDir string) int {
+	files, ok := changedFilesSinceDefault(srcDir)
+	if !ok {
+		return 0
+	}
+	return len(files)
+}
+
+func changedFilesSinceDefault(srcDir string) ([]string, bool) {
 	base := defaultBranch(srcDir)
 	cmd := exec.Command("git", "diff", "--name-only", core.Concat(base, "...HEAD"))
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
-		return 0
+		return nil, false
 	}
 	lines := core.Split(core.Trim(string(out)), "\n")
 	if len(lines) == 1 && lines[0] == "" {
-		return 0
+		return nil, true
 	}
-	return len(lines)
+	return lines, true
 }
 
 // pushBranch pushes the agent's branch to origin.
@@ -269,6 +266,19 @@ func pushBranch(srcDir, branch string) error {
 		return core.E("harvest.pushBranch", core.Trim(string(out)), err)
 	}
 	return nil
+}
+
+func resultFileSize(r core.Result) (int64, bool) {
+	type sizable interface {
+		Size() int64
+	}
+
+	switch value := r.Value.(type) {
+	case sizable:
+		return value.Size(), true
+	default:
+		return 0, false
+	}
 }
 
 // updateStatus updates the workspace status.json.
