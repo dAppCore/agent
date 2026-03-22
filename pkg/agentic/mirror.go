@@ -60,8 +60,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	basePath := s.codePath
 	if basePath == "" {
-		home, _ := os.UserHomeDir()
-		basePath = core.JoinPath(home, "Code", "core")
+		basePath = core.JoinPath(core.Env("DIR_HOME"), "Code", "core")
 	} else {
 		basePath = core.JoinPath(basePath, "core")
 	}
@@ -246,17 +245,18 @@ func filesChanged(repoDir, base, head string) int {
 
 // listLocalRepos returns repo names that exist as directories in basePath.
 func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
+	r := fs.List(basePath)
+	if !r.OK {
 		return nil
 	}
+	entries := r.Value.([]os.DirEntry)
 	var repos []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
 		// Must have a .git directory
-		if _, err := os.Stat(core.JoinPath(basePath, e.Name(), ".git")); err == nil {
+		if fs.IsDir(core.JoinPath(basePath, e.Name(), ".git")) {
 			repos = append(repos, e.Name())
 		}
 	}

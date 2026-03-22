@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -48,7 +47,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	srcDir := core.JoinPath(wsDir, "src")
 
 	// Verify workspace exists
-	if _, err := os.Stat(srcDir); err != nil {
+	if !fs.IsDir(srcDir) {
 		return nil, ResumeOutput{}, core.E("resume", "workspace not found: "+input.Workspace, nil)
 	}
 

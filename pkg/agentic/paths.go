@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"os"
 	"os/exec"
 	"strconv"
 	"unsafe"
@@ -45,11 +44,10 @@ func WorkspaceRoot() string {
 //
 //	root := agentic.CoreRoot()
 func CoreRoot() string {
-	if root := os.Getenv("CORE_WORKSPACE"); root != "" {
+	if root := core.Env("CORE_WORKSPACE"); root != "" {
 		return root
 	}
-	home, _ := os.UserHomeDir()
-	return core.JoinPath(home, "Code", ".core")
+	return core.JoinPath(core.Env("DIR_HOME"), "Code", ".core")
 }
 
 // PlansRoot returns the root directory for agent plans.
@@ -64,11 +62,10 @@ func PlansRoot() string {
 //
 //	name := agentic.AgentName() // "cladius" on Snider's Mac, "charon" elsewhere
 func AgentName() string {
-	if name := os.Getenv("AGENT_NAME"); name != "" {
+	if name := core.Env("AGENT_NAME"); name != "" {
 		return name
 	}
-	hostname, _ := os.Hostname()
-	h := core.Lower(hostname)
+	h := core.Lower(core.Env("HOSTNAME"))
 	if core.Contains(h, "snider") || core.Contains(h, "studio") || core.Contains(h, "mac") {
 		return "cladius"
 	}
@@ -102,7 +99,7 @@ func DefaultBranch(repoDir string) string {
 //
 //	org := agentic.GitHubOrg() // "dAppCore"
 func GitHubOrg() string {
-	if org := os.Getenv("GITHUB_ORG"); org != "" {
+	if org := core.Env("GITHUB_ORG"); org != "" {
 		return org
 	}
 	return "dAppCore"

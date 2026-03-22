@@ -4,7 +4,7 @@ package agentic
 
 import (
 	"encoding/json"
-	"os"
+	"io"
 	"time"
 
 	core "dappco.re/go/core"
@@ -42,10 +42,11 @@ func emitCompletionEvent(agent, workspace, status string) {
 	}
 
 	// Append to events log
-	f, err := os.OpenFile(eventsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
+	r := fs.Append(eventsFile)
+	if !r.OK {
 		return
 	}
-	defer f.Close()
-	f.Write(append(data, '\n'))
+	wc := r.Value.(io.WriteCloser)
+	defer wc.Close()
+	wc.Write(append(data, '\n'))
 }

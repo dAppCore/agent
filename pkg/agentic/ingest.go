@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	core "dappco.re/go/core"
 )
@@ -21,7 +19,7 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	}
 
 	// Read the log file
-	logFiles, _ := filepath.Glob(core.JoinPath(wsDir, "agent-*.log"))
+	logFiles := core.PathGlob(core.JoinPath(wsDir, "agent-*.log"))
 	if len(logFiles) == 0 {
 		return
 	}
@@ -92,8 +90,7 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 	}
 
 	// Read the agent API key from file
-	home, _ := os.UserHomeDir()
-	r := fs.Read(core.JoinPath(home, ".claude", "agent-api.key"))
+	r := fs.Read(core.JoinPath(core.Env("DIR_HOME"), ".claude", "agent-api.key"))
 	if !r.OK {
 		return
 	}

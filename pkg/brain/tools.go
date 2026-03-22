@@ -14,6 +14,13 @@ import (
 // -- Input/Output types -------------------------------------------------------
 
 // RememberInput is the input for brain_remember.
+//
+// Usage example:
+//
+//	input := brain.RememberInput{
+//		Content: "Use core.Env for system paths.",
+//		Type:    "convention",
+//	}
 type RememberInput struct {
 	Content    string   `json:"content"`
 	Type       string   `json:"type"`
@@ -25,6 +32,13 @@ type RememberInput struct {
 }
 
 // RememberOutput is the output for brain_remember.
+//
+// Usage example:
+//
+//	output := brain.RememberOutput{
+//		Success:  true,
+//		MemoryID: "mem_123",
+//	}
 type RememberOutput struct {
 	Success   bool      `json:"success"`
 	MemoryID  string    `json:"memoryId,omitempty"`
@@ -32,6 +46,13 @@ type RememberOutput struct {
 }
 
 // RecallInput is the input for brain_recall.
+//
+// Usage example:
+//
+//	input := brain.RecallInput{
+//		Query: "core.Env conventions",
+//		TopK:  5,
+//	}
 type RecallInput struct {
 	Query  string       `json:"query"`
 	TopK   int          `json:"top_k,omitempty"`
@@ -39,6 +60,13 @@ type RecallInput struct {
 }
 
 // RecallFilter holds optional filter criteria for brain_recall.
+//
+// Usage example:
+//
+//	filter := brain.RecallFilter{
+//		Project: "agent",
+//		Type:    "convention",
+//	}
 type RecallFilter struct {
 	Project       string  `json:"project,omitempty"`
 	Type          any     `json:"type,omitempty"`
@@ -47,6 +75,13 @@ type RecallFilter struct {
 }
 
 // RecallOutput is the output for brain_recall.
+//
+// Usage example:
+//
+//	output := brain.RecallOutput{
+//		Success: true,
+//		Count:   1,
+//	}
 type RecallOutput struct {
 	Success  bool     `json:"success"`
 	Count    int      `json:"count"`
@@ -54,6 +89,14 @@ type RecallOutput struct {
 }
 
 // Memory is a single memory entry returned by recall or list.
+//
+// Usage example:
+//
+//	memory := brain.Memory{
+//		ID:      "mem_123",
+//		Type:    "convention",
+//		Content: "Use core.Env for system paths.",
+//	}
 type Memory struct {
 	ID           string   `json:"id"`
 	AgentID      string   `json:"agent_id"`
@@ -69,12 +112,26 @@ type Memory struct {
 }
 
 // ForgetInput is the input for brain_forget.
+//
+// Usage example:
+//
+//	input := brain.ForgetInput{
+//		ID:     "mem_123",
+//		Reason: "superseded",
+//	}
 type ForgetInput struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason,omitempty"`
 }
 
 // ForgetOutput is the output for brain_forget.
+//
+// Usage example:
+//
+//	output := brain.ForgetOutput{
+//		Success:   true,
+//		Forgotten: "mem_123",
+//	}
 type ForgetOutput struct {
 	Success   bool      `json:"success"`
 	Forgotten string    `json:"forgotten"`
@@ -82,6 +139,13 @@ type ForgetOutput struct {
 }
 
 // ListInput is the input for brain_list.
+//
+// Usage example:
+//
+//	input := brain.ListInput{
+//		Project: "agent",
+//		Limit:   20,
+//	}
 type ListInput struct {
 	Project string `json:"project,omitempty"`
 	Type    string `json:"type,omitempty"`
@@ -90,6 +154,13 @@ type ListInput struct {
 }
 
 // ListOutput is the output for brain_list.
+//
+// Usage example:
+//
+//	output := brain.ListOutput{
+//		Success: true,
+//		Count:   2,
+//	}
 type ListOutput struct {
 	Success  bool     `json:"success"`
 	Count    int      `json:"count"`

@@ -119,10 +119,11 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	wsRoot := WorkspaceRoot()
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
+	r := fs.List(wsRoot)
+	if !r.OK {
 		return 0
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	count := 0
 	for _, entry := range entries {
@@ -171,10 +172,11 @@ func (s *PrepSubsystem) drainQueue() {
 
 	wsRoot := WorkspaceRoot()
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
+	r := fs.List(wsRoot)
+	if !r.OK {
 		return
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	for _, entry := range entries {
 		if !entry.IsDir() {

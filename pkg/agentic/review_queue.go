@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -134,10 +135,11 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 
 // findReviewCandidates returns repos that are ahead of GitHub main.
 func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
+	r := fs.List(basePath)
+	if !r.OK {
 		return nil
 	}
+	entries := r.Value.([]os.DirEntry)
 
 	var candidates []string
 	for _, e := range entries {
@@ -337,8 +339,7 @@ func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewe
 
 // storeReviewOutput saves raw review output for training data collection.
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
-	home, _ := os.UserHomeDir()
-	dataDir := core.JoinPath(home, ".core", "training", "reviews")
+	dataDir := core.JoinPath(core.Env("DIR_HOME"), ".core", "training", "reviews")
 	fs.EnsureDir(dataDir)
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
@@ -361,25 +362,25 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonLine, _ := json.Marshal(entry)
 
 	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
-	f, err := os.OpenFile(jsonlPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err == nil {
-		defer f.Close()
-		f.Write(append(jsonLine, '\n'))
+	r := fs.Append(jsonlPath)
+	if !r.OK {
+		return
 	}
+	wc := r.Value.(io.WriteCloser)
+	defer wc.Close()
+	wc.Write(append(jsonLine, '\n'))
 }
 
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
-	home, _ := os.UserHomeDir()
-	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 	data, _ := json.Marshal(info)
 	fs.Write(path, string(data))
 }
 
 // loadRateLimitState reads persisted rate limit info.
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
-	home, _ := os.UserHomeDir()
-	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 	r := fs.Read(path)
 	if !r.OK {
 		return nil

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	core "dappco.re/go/core"
@@ -180,17 +179,17 @@ func resolveHost(host string) string {
 func remoteToken(host string) string {
 	// Check environment first
 	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
-	if token := os.Getenv(envKey); token != "" {
+	if token := core.Env(envKey); token != "" {
 		return token
 	}
 
 	// Fallback to shared agent token
-	if token := os.Getenv("MCP_AUTH_TOKEN"); token != "" {
+	if token := core.Env("MCP_AUTH_TOKEN"); token != "" {
 		return token
 	}
 
 	// Try reading from file
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 	tokenFiles := []string{
 		core.Sprintf("%s/.core/tokens/%s.token", home, core.Lower(host)),
 		core.Sprintf("%s/.core/agent-token", home),

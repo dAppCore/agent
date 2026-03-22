@@ -10,9 +10,7 @@ import (
 	"encoding/json"
 	goio "io"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -56,14 +54,14 @@ var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 //	sub.SetCompletionNotifier(monitor)
 //	sub.RegisterTools(server)
 func NewPrep() *PrepSubsystem {
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 
-	forgeToken := os.Getenv("FORGE_TOKEN")
+	forgeToken := core.Env("FORGE_TOKEN")
 	if forgeToken == "" {
-		forgeToken = os.Getenv("GITEA_TOKEN")
+		forgeToken = core.Env("GITEA_TOKEN")
 	}
 
-	brainKey := os.Getenv("CORE_BRAIN_KEY")
+	brainKey := core.Env("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		if r := fs.Read(core.JoinPath(home, ".claude", "brain.key")); r.OK {
 			brainKey = core.Trim(r.Value.(string))
@@ -89,7 +87,7 @@ func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
 }
 
 func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := core.Env(key); v != "" {
 		return v
 	}
 	return fallback
@@ -192,7 +190,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	out := PrepOutput{WorkspaceDir: wsDir}
 
 	// Source repo path — sanitise to prevent path traversal
-	repoName := filepath.Base(input.Repo) // strips ../ and absolute paths
+	repoName := core.PathBase(input.Repo) // strips ../ and absolute paths
 	if repoName == "." || repoName == ".." || repoName == "" {
 		return nil, PrepOutput{}, core.E("prep", "invalid repo name: "+input.Repo, nil)
 	}
@@ -250,12 +248,20 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		wsTmpl = "review"
 	}
 
-	promptContent, _ := lib.Prompt(input.Template)
+	promptContent := ""
+	if r := lib.Prompt(input.Template); r.OK {
+		promptContent = r.Value.(string)
+	}
 	personaContent := ""
 	if input.Persona != "" {
-		personaContent, _ = lib.Persona(input.Persona)
+		if r := lib.Persona(input.Persona); r.OK {
+			personaContent = r.Value.(string)
+		}
 	}
-	flowContent, _ := lib.Flow(detectLanguage(repoPath))
+	flowContent := ""
+	if r := lib.Flow(detectLanguage(repoPath)); r.OK {
+		flowContent = r.Value.(string)
+	}
 
 	wsData := &lib.WorkspaceData{
 		Repo:     input.Repo,
@@ -319,13 +325,13 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 // --- Prompt templates ---
 
 func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
-	prompt, err := lib.Template(template)
-	if err != nil {
-		// Fallback to default template
-		prompt, _ = lib.Template("default")
-		if prompt == "" {
-			prompt = "Read TODO.md and complete the task. Work in src/.\n"
-		}
+	r := lib.Template(template)
+	if !r.OK {
+		r = lib.Template("default")
+	}
+	prompt := "Read TODO.md and complete the task. Work in src/.\n"
+	if r.OK {
+		prompt = r.Value.(string)
 	}
 
 	fs.Write(core.JoinPath(wsDir, "src", "PROMPT.md"), prompt)
@@ -337,12 +343,12 @@ func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
 // and writes PLAN.md into the workspace src/ directory.
 func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map[string]string, task string, wsDir string) {
 	// Load template from embedded prompts package
-	data, err := lib.Template(templateSlug)
-	if err != nil {
+	r := lib.Template(templateSlug)
+	if !r.OK {
 		return // Template not found, skip silently
 	}
 
-	content := data
+	content := r.Value.(string)
 
 	// Substitute variables ({{variable_name}} → value)
 	for key, value := range variables {
@@ -565,7 +571,7 @@ func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
 		}
 		modData := mr.Value.(string)
 		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, "module "+modulePath) {
-			consumers = append(consumers, filepath.Base(dir))
+			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
 
@@ -649,7 +655,7 @@ func detectLanguage(repoPath string) string {
 		{"Dockerfile", "docker"},
 	}
 	for _, c := range checks {
-		if _, err := os.Stat(core.JoinPath(repoPath, c.file)); err == nil {
+		if fs.IsFile(core.JoinPath(repoPath, c.file)) {
 			return c.lang
 		}
 	}

@@ -4,6 +4,7 @@ package brain
 
 import (
 	"net/http"
+	"strconv"
 
 	"dappco.re/go/core/api"
 	"dappco.re/go/core/api/pkg/provider"
@@ -14,6 +15,11 @@ import (
 
 // BrainProvider wraps the brain Subsystem as a service provider with REST
 // endpoints. It delegates to the same IDE bridge that the MCP tools use.
+//
+// Usage example:
+//
+//	provider := brain.NewProvider(bridge, hub)
+//	provider.RegisterRoutes(router.Group("/api/brain"))
 type BrainProvider struct {
 	bridge *ide.Bridge
 	hub    *ws.Hub
@@ -294,13 +300,23 @@ func (p *BrainProvider) list(c *gin.Context) {
 		return
 	}
 
+	limit := 0
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsedLimit, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, api.Fail("invalid_limit", "limit must be an integer"))
+			return
+		}
+		limit = parsedLimit
+	}
+
 	err := p.bridge.Send(ide.BridgeMessage{
 		Type: "brain_list",
 		Data: map[string]any{
 			"project":  c.Query("project"),
 			"type":     c.Query("type"),
 			"agent_id": c.Query("agent_id"),
-			"limit":    c.Query("limit"),
+			"limit":    limit,
 		},
 	})
 	if err != nil {
