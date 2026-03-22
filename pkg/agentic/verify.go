@@ -6,12 +6,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	core "dappco.re/go/core"
@@ -30,7 +28,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 		return
 	}
 
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 	org := st.Org
 	if org == "" {
 		org = "core"
@@ -88,7 +86,7 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 	testResult := s.runVerification(srcDir)
 
 	if !testResult.passed {
-		comment := fmt.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
+		comment := core.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
 			testResult.testCmd, truncate(testResult.output, 2000), testResult.exitCode)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return testFailed
@@ -99,12 +97,12 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 	defer cancel()
 
 	if err := s.forgeMergePR(ctx, org, repo, prNum); err != nil {
-		comment := fmt.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed: %v", testResult.testCmd, err)
+		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed: %v", testResult.testCmd, err)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return mergeConflict
 	}
 
-	comment := fmt.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
+	comment := core.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
 	s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 	return mergeSuccess
 }
@@ -141,7 +139,7 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 		}
 		repo = st.Repo
 	}
-	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
+	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
 	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
 	push.Dir = srcDir
 	return push.Run() == nil
@@ -159,7 +157,7 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 	payload, _ := json.Marshal(map[string]any{
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "token "+s.forgeToken)
@@ -173,7 +171,7 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 	if result == mergeConflict {
 		reason = "Merge conflict persists after rebase"
 	}
-	comment := fmt.Sprintf("## Needs Review\n\n%s. Auto-merge gave up after retry.\n\nLabelled `needs-review` for human attention.", reason)
+	comment := core.Sprintf("## Needs Review\n\n%s. Auto-merge gave up after retry.\n\nLabelled `needs-review` for human attention.", reason)
 	s.commentOnIssue(ctx, org, repo, prNum, comment)
 }
 
@@ -183,7 +181,7 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 		"name":  name,
 		"color": "#" + colour,
 	})
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "token "+s.forgeToken)
@@ -195,7 +193,7 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 	resp, err := s.client.Do(req)
@@ -227,13 +225,13 @@ type verifyResult struct {
 
 // runVerification detects the project type and runs the appropriate test suite.
 func (s *PrepSubsystem) runVerification(srcDir string) verifyResult {
-	if fileExists(filepath.Join(srcDir, "go.mod")) {
+	if fileExists(core.JoinPath(srcDir, "go.mod")) {
 		return s.runGoTests(srcDir)
 	}
-	if fileExists(filepath.Join(srcDir, "composer.json")) {
+	if fileExists(core.JoinPath(srcDir, "composer.json")) {
 		return s.runPHPTests(srcDir)
 	}
-	if fileExists(filepath.Join(srcDir, "package.json")) {
+	if fileExists(core.JoinPath(srcDir, "package.json")) {
 		return s.runNodeTests(srcDir)
 	}
 	return verifyResult{passed: true, testCmd: "none", output: "No test runner detected"}
@@ -281,7 +279,7 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 }
 
 func (s *PrepSubsystem) runNodeTests(srcDir string) verifyResult {
-	r := fs.Read(filepath.Join(srcDir, "package.json"))
+	r := fs.Read(core.JoinPath(srcDir, "package.json"))
 	if !r.OK {
 		return verifyResult{passed: true, testCmd: "none", output: "Could not read package.json"}
 	}
@@ -317,7 +315,7 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNu
 		"delete_branch_after_merge": true,
 	})
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "token "+s.forgeToken)
@@ -332,7 +330,7 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNu
 		var errBody map[string]any
 		json.NewDecoder(resp.Body).Decode(&errBody)
 		msg, _ := errBody["message"].(string)
-		return core.E("forgeMergePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
+		return core.E("forgeMergePR", core.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
 	}
 
 	return nil
@@ -340,13 +338,11 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNu
 
 // extractPRNumber gets the PR number from a Forge PR URL.
 func extractPRNumber(prURL string) int {
-	parts := strings.Split(prURL, "/")
+	parts := core.Split(prURL, "/")
 	if len(parts) == 0 {
 		return 0
 	}
-	var num int
-	fmt.Sscanf(parts[len(parts)-1], "%d", &num)
-	return num
+	return parseInt(parts[len(parts)-1])
 }
 
 // fileExists checks if a file exists.

@@ -3,17 +3,18 @@
 package agentic
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
+	"strconv"
 	"syscall"
 	"time"
 
+	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
 
 // DispatchConfig controls agent dispatch behaviour.
+//
+//	cfg := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
@@ -21,28 +22,32 @@ type DispatchConfig struct {
 }
 
 // RateConfig controls pacing between task dispatches.
+//
+//	rate := agentic.RateConfig{ResetUTC: "06:00", SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
 type RateConfig struct {
 	ResetUTC       string `yaml:"reset_utc"`       // Daily quota reset time (UTC), e.g. "06:00"
-	DailyLimit     int    `yaml:"daily_limit"`      // Max requests per day (0 = unknown)
-	MinDelay       int    `yaml:"min_delay"`        // Minimum seconds between task starts
-	SustainedDelay int    `yaml:"sustained_delay"`  // Delay when pacing for full-day use
-	BurstWindow    int    `yaml:"burst_window"`     // Hours before reset where burst kicks in
-	BurstDelay     int    `yaml:"burst_delay"`      // Delay during burst window
+	DailyLimit     int    `yaml:"daily_limit"`     // Max requests per day (0 = unknown)
+	MinDelay       int    `yaml:"min_delay"`       // Minimum seconds between task starts
+	SustainedDelay int    `yaml:"sustained_delay"` // Delay when pacing for full-day use
+	BurstWindow    int    `yaml:"burst_window"`    // Hours before reset where burst kicks in
+	BurstDelay     int    `yaml:"burst_delay"`     // Delay during burst window
 }
 
 // AgentsConfig is the root of config/agents.yaml.
+//
+//	cfg := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
-	Version     int                `yaml:"version"`
-	Dispatch    DispatchConfig     `yaml:"dispatch"`
-	Concurrency map[string]int    `yaml:"concurrency"`
+	Version     int                   `yaml:"version"`
+	Dispatch    DispatchConfig        `yaml:"dispatch"`
+	Concurrency map[string]int        `yaml:"concurrency"`
 	Rates       map[string]RateConfig `yaml:"rates"`
 }
 
 // loadAgentsConfig reads config/agents.yaml from the code path.
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
-		filepath.Join(CoreRoot(), "agents.yaml"),
-		filepath.Join(s.codePath, "core", "agent", "config", "agents.yaml"),
+		core.JoinPath(CoreRoot(), "agents.yaml"),
+		core.JoinPath(s.codePath, "core", "agent", "config", "agents.yaml"),
 	}
 
 	for _, path := range paths {
@@ -74,10 +79,7 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	cfg := s.loadAgentsConfig()
 	// Strip variant suffix (claude:opus → claude) for config lookup
-	base := agent
-	if idx := strings.Index(agent, ":"); idx >= 0 {
-		base = agent[:idx]
-	}
+	base := baseAgent(agent)
 	rate, ok := cfg.Rates[base]
 	if !ok || rate.SustainedDelay == 0 {
 		return 0
@@ -85,7 +87,15 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 
 	// Parse reset time
 	resetHour, resetMin := 6, 0
-	fmt.Sscanf(rate.ResetUTC, "%d:%d", &resetHour, &resetMin)
+	parts := core.Split(rate.ResetUTC, ":")
+	if len(parts) >= 2 {
+		if hour, err := strconv.Atoi(core.Trim(parts[0])); err == nil {
+			resetHour = hour
+		}
+		if min, err := strconv.Atoi(core.Trim(parts[1])); err == nil {
+			resetMin = min
+		}
+	}
 
 	now := time.Now().UTC()
 	resetToday := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMin, 0, 0, time.UTC)
@@ -120,7 +130,7 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 			continue
 		}
 
-		st, err := readStatus(filepath.Join(wsRoot, entry.Name()))
+		st, err := readStatus(core.JoinPath(wsRoot, entry.Name()))
 		if err != nil || st.Status != "running" {
 			continue
 		}
@@ -138,7 +148,7 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 
 // baseAgent strips the model variant (gemini:flash → gemini).
 func baseAgent(agent string) string {
-	return strings.SplitN(agent, ":", 2)[0]
+	return core.SplitN(agent, ":", 2)[0]
 }
 
 // canDispatchAgent checks if we're under the concurrency limit for a specific agent type.
@@ -171,7 +181,7 @@ func (s *PrepSubsystem) drainQueue() {
 			continue
 		}
 
-		wsDir := filepath.Join(wsRoot, entry.Name())
+		wsDir := core.JoinPath(wsRoot, entry.Name())
 		st, err := readStatus(wsDir)
 		if err != nil || st.Status != "queued" {
 			continue
@@ -192,7 +202,7 @@ func (s *PrepSubsystem) drainQueue() {
 			continue
 		}
 
-		srcDir := filepath.Join(wsDir, "src")
+		srcDir := core.JoinPath(wsDir, "src")
 		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)

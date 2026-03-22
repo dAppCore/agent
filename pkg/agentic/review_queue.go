@@ -5,13 +5,9 @@ package agentic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	core "dappco.re/go/core"
@@ -21,14 +17,18 @@ import (
 // --- agentic_review_queue tool ---
 
 // ReviewQueueInput controls the review queue runner.
+//
+//	input := agentic.ReviewQueueInput{Reviewer: "coderabbit", Limit: 4, DryRun: true}
 type ReviewQueueInput struct {
-	Limit    int    `json:"limit,omitempty"`    // Max PRs to process this run (default: 4)
-	Reviewer string `json:"reviewer,omitempty"` // "coderabbit" (default), "codex", or "both"
-	DryRun   bool   `json:"dry_run,omitempty"`  // Preview without acting
-	LocalOnly bool  `json:"local_only,omitempty"` // Run review locally, don't touch GitHub
+	Limit     int    `json:"limit,omitempty"`      // Max PRs to process this run (default: 4)
+	Reviewer  string `json:"reviewer,omitempty"`   // "coderabbit" (default), "codex", or "both"
+	DryRun    bool   `json:"dry_run,omitempty"`    // Preview without acting
+	LocalOnly bool   `json:"local_only,omitempty"` // Run review locally, don't touch GitHub
 }
 
 // ReviewQueueOutput reports what happened.
+//
+//	out := agentic.ReviewQueueOutput{Success: true, Processed: []agentic.ReviewResult{{Repo: "go-io", Verdict: "clean"}}}
 type ReviewQueueOutput struct {
 	Success   bool           `json:"success"`
 	Processed []ReviewResult `json:"processed"`
@@ -37,6 +37,8 @@ type ReviewQueueOutput struct {
 }
 
 // ReviewResult is the outcome of reviewing one repo.
+//
+//	result := agentic.ReviewResult{Repo: "go-io", Verdict: "findings", Findings: 3, Action: "fix_dispatched"}
 type ReviewResult struct {
 	Repo     string `json:"repo"`
 	Verdict  string `json:"verdict"`  // clean, findings, rate_limited, error
@@ -46,10 +48,12 @@ type ReviewResult struct {
 }
 
 // RateLimitInfo tracks CodeRabbit rate limit state.
+//
+//	limit := agentic.RateLimitInfo{Limited: true, Message: "retry after 2026-03-22T06:00:00Z"}
 type RateLimitInfo struct {
-	Limited  bool      `json:"limited"`
-	RetryAt  time.Time `json:"retry_at,omitempty"`
-	Message  string    `json:"message,omitempty"`
+	Limited bool      `json:"limited"`
+	RetryAt time.Time `json:"retry_at,omitempty"`
+	Message string    `json:"message,omitempty"`
 }
 
 func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
@@ -65,7 +69,7 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		limit = 4
 	}
 
-	basePath := filepath.Join(s.codePath, "core")
+	basePath := core.JoinPath(s.codePath, "core")
 
 	// Find repos with draft PRs (ahead of GitHub)
 	candidates := s.findReviewCandidates(basePath)
@@ -92,7 +96,7 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 			continue
 		}
 
-		repoDir := filepath.Join(basePath, repo)
+		repoDir := core.JoinPath(basePath, repo)
 		reviewer := input.Reviewer
 		if reviewer == "" {
 			reviewer = "coderabbit"
@@ -140,7 +144,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 		if !e.IsDir() {
 			continue
 		}
-		repoDir := filepath.Join(basePath, e.Name())
+		repoDir := core.JoinPath(basePath, e.Name())
 		if !hasRemote(repoDir, "github") {
 			continue
 		}
@@ -159,7 +163,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	// Check saved rate limit
 	if rl := s.loadRateLimitState(); rl != nil && rl.Limited && time.Now().Before(rl.RetryAt) {
 		result.Verdict = "rate_limited"
-		result.Detail = fmt.Sprintf("retry after %s", rl.RetryAt.Format(time.RFC3339))
+		result.Detail = core.Sprintf("retry after %s", rl.RetryAt.Format(time.RFC3339))
 		return result
 	}
 
@@ -172,14 +176,14 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	output := string(out)
 
 	// Parse rate limit (both reviewers use similar patterns)
-	if strings.Contains(output, "Rate limit exceeded") || strings.Contains(output, "rate limit") {
+	if core.Contains(output, "Rate limit exceeded") || core.Contains(output, "rate limit") {
 		result.Verdict = "rate_limited"
 		result.Detail = output
 		return result
 	}
 
 	// Parse error
-	if err != nil && !strings.Contains(output, "No findings") && !strings.Contains(output, "no issues") {
+	if err != nil && !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
 		result.Verdict = "error"
 		result.Detail = output
 		return result
@@ -189,7 +193,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	s.storeReviewOutput(repoDir, repo, reviewer, output)
 
 	// Parse verdict
-	if strings.Contains(output, "No findings") || strings.Contains(output, "no issues") || strings.Contains(output, "LGTM") {
+	if core.Contains(output, "No findings") || core.Contains(output, "no issues") || core.Contains(output, "LGTM") {
 		result.Verdict = "clean"
 		result.Findings = 0
 
@@ -221,11 +225,11 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 		}
 
 		// Save findings for agent dispatch
-		findingsFile := filepath.Join(repoDir, ".core", "coderabbit-findings.txt")
+		findingsFile := core.JoinPath(repoDir, ".core", "coderabbit-findings.txt")
 		fs.Write(findingsFile, output)
 
 		// Dispatch fix agent with the findings
-		task := fmt.Sprintf("Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. "+
+		task := core.Sprintf("Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. "+
 			"Read it, verify each finding against the code, fix what's valid. Run tests. "+
 			"Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
@@ -287,15 +291,15 @@ func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task str
 func countFindings(output string) int {
 	// Count lines that look like findings
 	count := 0
-	for _, line := range strings.Split(output, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") ||
-			strings.Contains(trimmed, "Issue:") || strings.Contains(trimmed, "Finding:") ||
-			strings.Contains(trimmed, "⚠") || strings.Contains(trimmed, "❌") {
+	for _, line := range core.Split(output, "\n") {
+		trimmed := core.Trim(line)
+		if core.HasPrefix(trimmed, "- ") || core.HasPrefix(trimmed, "* ") ||
+			core.Contains(trimmed, "Issue:") || core.Contains(trimmed, "Finding:") ||
+			core.Contains(trimmed, "⚠") || core.Contains(trimmed, "❌") {
 			count++
 		}
 	}
-	if count == 0 && !strings.Contains(output, "No findings") {
+	if count == 0 && !core.Contains(output, "No findings") {
 		count = 1 // At least one finding if not clean
 	}
 	return count
@@ -307,10 +311,10 @@ func parseRetryAfter(message string) time.Duration {
 	re := regexp.MustCompile(`(\d+)\s*minutes?\s*(?:and\s*)?(\d+)?\s*seconds?`)
 	matches := re.FindStringSubmatch(message)
 	if len(matches) >= 2 {
-		mins, _ := strconv.Atoi(matches[1])
+		mins := parseInt(matches[1])
 		secs := 0
 		if len(matches) >= 3 && matches[2] != "" {
-			secs, _ = strconv.Atoi(matches[2])
+			secs = parseInt(matches[2])
 		}
 		return time.Duration(mins)*time.Minute + time.Duration(secs)*time.Second
 	}
@@ -334,14 +338,14 @@ func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewe
 // storeReviewOutput saves raw review output for training data collection.
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
 	home, _ := os.UserHomeDir()
-	dataDir := filepath.Join(home, ".core", "training", "reviews")
+	dataDir := core.JoinPath(home, ".core", "training", "reviews")
 	fs.EnsureDir(dataDir)
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
-	filename := fmt.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
+	filename := core.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
 
 	// Write raw output
-	fs.Write(filepath.Join(dataDir, filename), output)
+	fs.Write(core.JoinPath(dataDir, filename), output)
 
 	// Append to JSONL for structured training
 	entry := map[string]string{
@@ -351,12 +355,12 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 		"output":    output,
 		"verdict":   "clean",
 	}
-	if !strings.Contains(output, "No findings") && !strings.Contains(output, "no issues") {
+	if !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
 		entry["verdict"] = "findings"
 	}
 	jsonLine, _ := json.Marshal(entry)
 
-	jsonlPath := filepath.Join(dataDir, "reviews.jsonl")
+	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
 	f, err := os.OpenFile(jsonlPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer f.Close()
@@ -367,7 +371,7 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
 	data, _ := json.Marshal(info)
 	fs.Write(path, string(data))
 }
@@ -375,7 +379,7 @@ func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 // loadRateLimitState reads persisted rate limit info.
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
 	r := fs.Read(path)
 	if !r.OK {
 		return nil

@@ -4,11 +4,12 @@ go 1.26.0
 
 require (
 	dappco.re/go/core v0.5.0
+	dappco.re/go/core/api v0.2.0
 	dappco.re/go/core/process v0.3.0
 	dappco.re/go/core/ws v0.3.0
-	forge.lthn.ai/core/api v0.1.5
+	forge.lthn.ai/core/api v0.1.6
 	forge.lthn.ai/core/cli v0.3.7
-	forge.lthn.ai/core/mcp v0.4.0
+	forge.lthn.ai/core/mcp v0.4.4
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.4.1
@@ -17,8 +18,11 @@ require (
 )
 
 require (
+	dappco.re/go/core/i18n v0.2.0
 	dappco.re/go/core/io v0.2.0 // indirect
 	dappco.re/go/core/log v0.1.0 // indirect
+	dappco.re/go/core/scm v0.4.0
+	dappco.re/go/core/store v0.2.0
 	forge.lthn.ai/core/go v0.3.3 // indirect
 	forge.lthn.ai/core/go-ai v0.1.12 // indirect
 	forge.lthn.ai/core/go-i18n v0.1.7 // indirect
@@ -27,7 +31,7 @@ require (
 	forge.lthn.ai/core/go-log v0.0.4 // indirect
 	forge.lthn.ai/core/go-process v0.2.9 // indirect
 	forge.lthn.ai/core/go-rag v0.1.11 // indirect
-	forge.lthn.ai/core/go-webview v0.1.6 // indirect
+	forge.lthn.ai/core/go-webview v0.1.7 // indirect
 	forge.lthn.ai/core/go-ws v0.2.5 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
@@ -36,7 +40,7 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
@@ -109,7 +113,7 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/ollama/ollama v0.18.1 // indirect
+	github.com/ollama/ollama v0.18.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/qdrant/go-client v1.17.1 // indirect
@@ -150,7 +154,7 @@ require (
 	golang.org/x/term v0.41.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
-	google.golang.org/grpc v1.79.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260319201613-d00831a3d3e7 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

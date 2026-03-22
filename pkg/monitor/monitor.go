@@ -12,28 +12,47 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
-	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/agentic"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // fs provides unrestricted filesystem access (root "/" = no sandbox).
 //
-//	r := fs.Read(filepath.Join(wsRoot, name, "status.json"))
-//	if r.OK { json.Unmarshal([]byte(r.Value.(string)), &st) }
+//	r := fs.Read(core.Concat(wsRoot, "/", name, "/status.json"))
+//	if text, ok := resultString(r); ok { json.Unmarshal([]byte(text), &st) }
 var fs = agentic.LocalFs()
 
+func workspaceStatusGlob(wsRoot string) string {
+	return core.Concat(wsRoot, "/*/status.json")
+}
+
+func workspaceStatusPath(wsDir string) string {
+	return core.Concat(wsDir, "/status.json")
+}
+
+func brainKeyPath(home string) string {
+	return filepath.Join(home, ".claude", "brain.key")
+}
+
+func resultString(r core.Result) (string, bool) {
+	value, ok := r.Value.(string)
+	if !ok {
+		return "", false
+	}
+	return value, true
+}
+
 // ChannelNotifier pushes events to connected MCP sessions.
-// Matches the Notifier interface in core/mcp without importing it.
+//
+//	mon.SetNotifier(notifier)
 type ChannelNotifier interface {
 	ChannelSend(ctx context.Context, channel string, data any)
 }
@@ -51,6 +70,7 @@ type Subsystem struct {
 	wg       sync.WaitGroup
 
 	// Track last seen state to only notify on changes
+	lastCompletedCount int             // completed workspaces seen on the last scan
 	seenCompleted      map[string]bool // workspace names we've already notified about
 	completionsSeeded  bool            // true after first completions check
 	lastInboxMaxID     int             // highest message ID seen
@@ -63,17 +83,23 @@ type Subsystem struct {
 }
 
 // SetNotifier wires up channel event broadcasting.
+//
+//	mon.SetNotifier(notifier)
 func (m *Subsystem) SetNotifier(n ChannelNotifier) {
 	m.notifier = n
 }
 
-// Options configures the monitor.
+// Options configures the monitor interval.
+//
+//	monitor.New(monitor.Options{Interval: 30 * time.Second})
 type Options struct {
 	// Interval between checks (default: 2 minutes)
 	Interval time.Duration
 }
 
 // New creates a monitor subsystem.
+//
+//	mon := monitor.New(monitor.Options{Interval: 30 * time.Second})
 func New(opts ...Options) *Subsystem {
 	interval := 2 * time.Minute
 	if len(opts) > 0 && opts[0].Interval > 0 {
@@ -99,8 +125,14 @@ func (m *Subsystem) debugChannel(msg string) {
 	}
 }
 
+// Name returns the subsystem identifier used by MCP registration.
+//
+//	mon.Name() // "monitor"
 func (m *Subsystem) Name() string { return "monitor" }
 
+// RegisterTools binds the monitor resource to an MCP server.
+//
+//	mon.RegisterTools(server)
 func (m *Subsystem) RegisterTools(server *mcp.Server) {
 	m.server = server
 
@@ -113,13 +145,14 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 	}, m.agentStatusResource)
 }
 
-// Start begins the background monitoring loop.
-// Called after the MCP server is running and sessions are active.
+// Start begins the background monitoring loop after MCP startup.
+//
+//	mon.Start(ctx)
 func (m *Subsystem) Start(ctx context.Context) {
 	monCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 
-	fmt.Fprintf(os.Stderr, "monitor: started (interval=%s, notifier=%v)\n", m.interval, m.notifier != nil)
+	core.Print(os.Stderr, "monitor: started (interval=%s, notifier=%v)", m.interval, m.notifier != nil)
 
 	m.wg.Add(1)
 	go func() {
@@ -128,7 +161,9 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
-// Shutdown stops the monitoring loop.
+// Shutdown stops the monitoring loop and waits for it to exit.
+//
+//	_ = mon.Shutdown(ctx)
 func (m *Subsystem) Shutdown(_ context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
@@ -137,8 +172,9 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// Poke triggers an immediate check cycle. Non-blocking — if a poke is already
-// pending it's a no-op. Call this from dispatch when an agent completes.
+// Poke triggers an immediate check cycle.
+//
+//	mon.Poke()
 func (m *Subsystem) Poke() {
 	select {
 	case m.poke <- struct{}{}:
@@ -203,7 +239,7 @@ func (m *Subsystem) check(ctx context.Context) {
 		return
 	}
 
-	combined := strings.Join(messages, "\n")
+	combined := core.Join("\n", messages...)
 	m.notify(ctx, combined)
 
 	// Notify resource subscribers that agent status changed
@@ -219,13 +255,14 @@ func (m *Subsystem) check(ctx context.Context) {
 // don't suppress future notifications.
 func (m *Subsystem) checkCompletions() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
+	entries, err := filepath.Glob(workspaceStatusGlob(wsRoot))
 	if err != nil {
 		return ""
 	}
 
 	running := 0
 	queued := 0
+	completed := 0
 	var newlyCompleted []string
 
 	m.mu.Lock()
@@ -235,12 +272,16 @@ func (m *Subsystem) checkCompletions() string {
 		if !r.OK {
 			continue
 		}
+		entryData, ok := resultString(r)
+		if !ok {
+			continue
+		}
 		var st struct {
 			Status string `json:"status"`
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 		}
-		if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
+		if json.Unmarshal([]byte(entryData), &st) != nil {
 			continue
 		}
 
@@ -248,10 +289,11 @@ func (m *Subsystem) checkCompletions() string {
 
 		switch st.Status {
 		case "completed":
+			completed++
 			if !m.seenCompleted[wsName] {
 				m.seenCompleted[wsName] = true
 				if seeded {
-					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+					newlyCompleted = append(newlyCompleted, core.Sprintf("%s (%s)", st.Repo, st.Agent))
 				}
 			}
 		case "running":
@@ -262,11 +304,12 @@ func (m *Subsystem) checkCompletions() string {
 			if !m.seenCompleted[wsName] {
 				m.seenCompleted[wsName] = true
 				if seeded {
-					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
+					newlyCompleted = append(newlyCompleted, core.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
 				}
 			}
 		}
 	}
+	m.lastCompletedCount = completed
 	m.completionsSeeded = true
 	m.mu.Unlock()
 
@@ -284,12 +327,12 @@ func (m *Subsystem) checkCompletions() string {
 		})
 	}
 
-	msg := fmt.Sprintf("%d agent(s) completed", len(newlyCompleted))
+	msg := core.Sprintf("%d agent(s) completed", len(newlyCompleted))
 	if running > 0 {
-		msg += fmt.Sprintf(", %d still running", running)
+		msg = core.Concat(msg, core.Sprintf(", %d still running", running))
 	}
 	if queued > 0 {
-		msg += fmt.Sprintf(", %d queued", queued)
+		msg = core.Concat(msg, core.Sprintf(", %d queued", queued))
 	}
 	return msg
 }
@@ -299,12 +342,16 @@ func (m *Subsystem) checkInbox() string {
 	apiKeyStr := os.Getenv("CORE_BRAIN_KEY")
 	if apiKeyStr == "" {
 		home, _ := os.UserHomeDir()
-		keyFile := filepath.Join(home, ".claude", "brain.key")
+		keyFile := brainKeyPath(home)
 		r := fs.Read(keyFile)
 		if !r.OK {
 			return ""
 		}
-		apiKeyStr = r.Value.(string)
+		value, ok := resultString(r)
+		if !ok {
+			return ""
+		}
+		apiKeyStr = value
 	}
 
 	// Call the API to check inbox
@@ -312,11 +359,11 @@ func (m *Subsystem) checkInbox() string {
 	if apiURL == "" {
 		apiURL = "https://api.lthn.sh"
 	}
-	req, err := http.NewRequest("GET", apiURL+"/v1/messages/inbox?agent="+url.QueryEscape(agentic.AgentName()), nil)
+	req, err := http.NewRequest("GET", core.Concat(apiURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName())), nil)
 	if err != nil {
 		return ""
 	}
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKeyStr))
+	req.Header.Set("Authorization", core.Concat("Bearer ", core.Trim(apiKeyStr)))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	httpResp, err := client.Do(req)
@@ -406,7 +453,7 @@ func (m *Subsystem) checkInbox() string {
 		})
 	}
 
-	return fmt.Sprintf("%d unread message(s) in inbox", unread)
+	return core.Sprintf("%d unread message(s) in inbox", unread)
 }
 
 // notify sends a log notification to all connected MCP sessions.
@@ -428,7 +475,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 // agentStatusResource returns current workspace status as a JSON resource.
 func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
+	entries, err := filepath.Glob(workspaceStatusGlob(wsRoot))
 	if err != nil {
 		return nil, core.E("monitor.agentStatus", "failed to scan workspaces", err)
 	}
@@ -447,13 +494,17 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 		if !r.OK {
 			continue
 		}
+		entryData, ok := resultString(r)
+		if !ok {
+			continue
+		}
 		var st struct {
 			Status string `json:"status"`
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 			PRURL  string `json:"pr_url"`
 		}
-		if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
+		if json.Unmarshal([]byte(entryData), &st) != nil {
 			continue
 		}
 		workspaces = append(workspaces, wsInfo{
@@ -465,7 +516,10 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 		})
 	}
 
-	result, _ := json.Marshal(workspaces)
+	result, err := json.Marshal(workspaces)
+	if err != nil {
+		return nil, core.E("monitor.agentStatus", "failed to encode workspace status", err)
+	}
 	return &mcp.ReadResourceResult{
 		Contents: []*mcp.ResourceContents{
 			{

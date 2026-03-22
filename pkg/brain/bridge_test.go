@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	ws "dappco.re/go/core/ws"
+	providerws "dappco.re/go/core/ws"
+	bridgews "forge.lthn.ai/core/go-ws"
 	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -45,7 +46,7 @@ func testBridge(t *testing.T) *ide.Bridge {
 	srv := testWSServer(t)
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
-	hub := ws.NewHub()
+	hub := bridgews.NewHub()
 	bridge := ide.NewBridge(hub, ide.Config{
 		LaravelWSURL:      wsURL,
 		ReconnectInterval: 100 * time.Millisecond,
@@ -193,7 +194,7 @@ func TestStatusHandler_Good_WithBridge(t *testing.T) {
 // --- emitEvent with hub ---
 
 func TestEmitEvent_Good_WithHub(t *testing.T) {
-	hub := ws.NewHub()
+	hub := providerws.NewHub()
 	p := NewProvider(nil, hub)
 	p.emitEvent("brain.test", map[string]any{"key": "value"})
 }

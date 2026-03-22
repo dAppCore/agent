@@ -23,7 +23,7 @@ import (
 type Plan struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
-	Status    string    `json:"status"`            // draft, ready, in_progress, needs_verification, verified, approved
+	Status    string    `json:"status"` // draft, ready, in_progress, needs_verification, verified, approved
 	Repo      string    `json:"repo,omitempty"`
 	Org       string    `json:"org,omitempty"`
 	Objective string    `json:"objective"`
@@ -35,10 +35,12 @@ type Plan struct {
 }
 
 // Phase represents a phase within an implementation plan.
+//
+//	phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
 	Number   int      `json:"number"`
 	Name     string   `json:"name"`
-	Status   string   `json:"status"`             // pending, in_progress, done
+	Status   string   `json:"status"` // pending, in_progress, done
 	Criteria []string `json:"criteria,omitempty"`
 	Tests    int      `json:"tests,omitempty"`
 	Notes    string   `json:"notes,omitempty"`
@@ -47,6 +49,8 @@ type Phase struct {
 // --- Input/Output types ---
 
 // PlanCreateInput is the input for agentic_plan_create.
+//
+//	input := agentic.PlanCreateInput{Title: "Migrate pkg/agentic", Objective: "Use Core primitives everywhere"}
 type PlanCreateInput struct {
 	Title     string  `json:"title"`
 	Objective string  `json:"objective"`
@@ -57,6 +61,8 @@ type PlanCreateInput struct {
 }
 
 // PlanCreateOutput is the output for agentic_plan_create.
+//
+//	out := agentic.PlanCreateOutput{Success: true, ID: "migrate-pkg-agentic-abc123"}
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
@@ -64,17 +70,23 @@ type PlanCreateOutput struct {
 }
 
 // PlanReadInput is the input for agentic_plan_read.
+//
+//	input := agentic.PlanReadInput{ID: "migrate-pkg-agentic-abc123"}
 type PlanReadInput struct {
 	ID string `json:"id"`
 }
 
 // PlanReadOutput is the output for agentic_plan_read.
+//
+//	out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "migrate-pkg-agentic-abc123"}}
 type PlanReadOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
 // PlanUpdateInput is the input for agentic_plan_update.
+//
+//	input := agentic.PlanUpdateInput{ID: "migrate-pkg-agentic-abc123", Status: "verified"}
 type PlanUpdateInput struct {
 	ID        string  `json:"id"`
 	Status    string  `json:"status,omitempty"`
@@ -86,29 +98,39 @@ type PlanUpdateInput struct {
 }
 
 // PlanUpdateOutput is the output for agentic_plan_update.
+//
+//	out := agentic.PlanUpdateOutput{Success: true, Plan: agentic.Plan{Status: "verified"}}
 type PlanUpdateOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
 // PlanDeleteInput is the input for agentic_plan_delete.
+//
+//	input := agentic.PlanDeleteInput{ID: "migrate-pkg-agentic-abc123"}
 type PlanDeleteInput struct {
 	ID string `json:"id"`
 }
 
 // PlanDeleteOutput is the output for agentic_plan_delete.
+//
+//	out := agentic.PlanDeleteOutput{Success: true, Deleted: "migrate-pkg-agentic-abc123"}
 type PlanDeleteOutput struct {
 	Success bool   `json:"success"`
 	Deleted string `json:"deleted"`
 }
 
 // PlanListInput is the input for agentic_plan_list.
+//
+//	input := agentic.PlanListInput{Repo: "go-io", Status: "ready"}
 type PlanListInput struct {
 	Status string `json:"status,omitempty"`
 	Repo   string `json:"repo,omitempty"`
 }
 
 // PlanListOutput is the output for agentic_plan_list.
+//
+//	out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "migrate-pkg-agentic-abc123"}}}
 type PlanListOutput struct {
 	Success bool   `json:"success"`
 	Count   int    `json:"count"`
@@ -286,11 +308,11 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 
 	var plans []Plan
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+		if entry.IsDir() || !core.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
 
-		id := strings.TrimSuffix(entry.Name(), ".json")
+		id := core.TrimSuffix(entry.Name(), ".json")
 		plan, err := readPlan(dir, id)
 		if err != nil {
 			continue
@@ -322,7 +344,7 @@ func planPath(dir, id string) string {
 	if safe == "." || safe == ".." || safe == "" {
 		safe = "invalid"
 	}
-	return filepath.Join(dir, safe+".json")
+	return core.JoinPath(dir, safe+".json")
 }
 
 func generatePlanID(title string) string {
@@ -340,8 +362,8 @@ func generatePlanID(title string) string {
 	}, title)
 
 	// Trim consecutive dashes and cap length
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
+	for core.Contains(slug, "--") {
+		slug = core.Replace(slug, "--", "-")
 	}
 	slug = strings.Trim(slug, "-")
 	if len(slug) > 30 {

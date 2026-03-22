@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +15,8 @@ import (
 )
 
 // DispatchInput is the input for agentic_dispatch.
+//
+//	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex"}
 type DispatchInput struct {
 	Repo         string            `json:"repo"`                    // Target repo (e.g. "go-io")
 	Org          string            `json:"org,omitempty"`           // Forge org (default "core")
@@ -31,6 +31,8 @@ type DispatchInput struct {
 }
 
 // DispatchOutput is the output for agentic_dispatch.
+//
+//	out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/go-io-123"}
 type DispatchOutput struct {
 	Success      bool   `json:"success"`
 	Agent        string `json:"agent"`
@@ -51,7 +53,7 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 // agentCommand returns the command and args for a given agent type.
 // Supports model variants: "gemini", "gemini:flash", "gemini:pro", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
-	parts := strings.SplitN(agent, ":", 2)
+	parts := core.SplitN(agent, ":", 2)
 	base := parts[0]
 	model := ""
 	if len(parts) > 1 {
@@ -100,7 +102,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		return "coderabbit", args, nil
 	case "local":
 		home, _ := os.UserHomeDir()
-		script := filepath.Join(home, "Code", "core", "agent", "scripts", "local-agent.sh")
+		script := core.JoinPath(home, "Code", "core", "agent", "scripts", "local-agent.sh")
 		return "bash", []string{script, prompt}, nil
 	default:
 		return "", nil, core.E("agentCommand", "unknown agent: "+agent, nil)
@@ -119,11 +121,11 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		return 0, "", err
 	}
 
-	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
+	outputFile := core.JoinPath(wsDir, core.Sprintf("agent-%s.log", agent))
 
 	// Clean up stale BLOCKED.md from previous runs so it doesn't
 	// prevent this run from completing
-	os.Remove(filepath.Join(srcDir, "BLOCKED.md"))
+	os.Remove(core.JoinPath(srcDir, "BLOCKED.md"))
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
@@ -170,14 +172,14 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		procStatus := proc.Info().Status
 		question := ""
 
-		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
-		if r := fs.Read(blockedPath); r.OK && strings.TrimSpace(r.Value.(string)) != "" {
+		blockedPath := core.JoinPath(wsDir, "src", "BLOCKED.md")
+		if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
 			finalStatus = "blocked"
-			question = strings.TrimSpace(r.Value.(string))
+			question = core.Trim(r.Value.(string))
 		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
 			finalStatus = "failed"
 			if exitCode != 0 {
-				question = fmt.Sprintf("Agent exited with code %d", exitCode)
+				question = core.Sprintf("Agent exited with code %d", exitCode)
 			}
 		}
 
@@ -246,14 +248,14 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 
 	wsDir := prepOut.WorkspaceDir
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	// The prompt is just: read PROMPT.md and do the work
 	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 	if input.DryRun {
 		// Read PROMPT.md for the dry run output
-		r := fs.Read(filepath.Join(srcDir, "PROMPT.md"))
+		r := fs.Read(core.JoinPath(srcDir, "PROMPT.md"))
 		promptContent := ""
 		if r.OK {
 			promptContent = r.Value.(string)

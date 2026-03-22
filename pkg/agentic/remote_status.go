@@ -15,11 +15,15 @@ import (
 // --- agentic_status_remote tool ---
 
 // RemoteStatusInput queries a remote core-agent for workspace status.
+//
+//	input := agentic.RemoteStatusInput{Host: "charon"}
 type RemoteStatusInput struct {
 	Host string `json:"host"` // Remote agent host (e.g. "charon")
 }
 
 // RemoteStatusOutput is the response from a remote status check.
+//
+//	out := agentic.RemoteStatusOutput{Success: true, Host: "charon", Count: 2}
 type RemoteStatusOutput struct {
 	Success    bool            `json:"success"`
 	Host       string          `json:"host"`

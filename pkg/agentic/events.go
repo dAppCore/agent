@@ -5,12 +5,15 @@ package agentic
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"time"
+
+	core "dappco.re/go/core"
 )
 
 // CompletionEvent is emitted when a dispatched agent finishes.
 // Written to ~/.core/workspace/events.jsonl as append-only log.
+//
+//	event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}
 type CompletionEvent struct {
 	Type      string `json:"type"`
 	Agent     string `json:"agent"`
@@ -23,7 +26,7 @@ type CompletionEvent struct {
 // The plugin's hook watches this file to notify the orchestrating agent.
 // Status should be the actual terminal state: completed, failed, or blocked.
 func emitCompletionEvent(agent, workspace, status string) {
-	eventsFile := filepath.Join(WorkspaceRoot(), "events.jsonl")
+	eventsFile := core.JoinPath(WorkspaceRoot(), "events.jsonl")
 
 	event := CompletionEvent{
 		Type:      "agent_completed",

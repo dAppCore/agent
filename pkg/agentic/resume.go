@@ -4,30 +4,32 @@ package agentic
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"path/filepath"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ResumeInput is the input for agentic_resume.
+//
+//	input := agentic.ResumeInput{Workspace: "go-scm-1773581173", Answer: "Use the existing queue config"}
 type ResumeInput struct {
-	Workspace string `json:"workspace"`           // workspace name (e.g. "go-scm-1773581173")
-	Answer    string `json:"answer,omitempty"`     // answer to the blocked question (written to ANSWER.md)
-	Agent     string `json:"agent,omitempty"`      // override agent type (default: same as original)
-	DryRun    bool   `json:"dry_run,omitempty"`    // preview without executing
+	Workspace string `json:"workspace"`         // workspace name (e.g. "go-scm-1773581173")
+	Answer    string `json:"answer,omitempty"`  // answer to the blocked question (written to ANSWER.md)
+	Agent     string `json:"agent,omitempty"`   // override agent type (default: same as original)
+	DryRun    bool   `json:"dry_run,omitempty"` // preview without executing
 }
 
 // ResumeOutput is the output for agentic_resume.
+//
+//	out := agentic.ResumeOutput{Success: true, Workspace: "go-scm-1773581173", Agent: "codex"}
 type ResumeOutput struct {
-	Success      bool   `json:"success"`
-	Workspace    string `json:"workspace"`
-	Agent        string `json:"agent"`
-	PID          int    `json:"pid,omitempty"`
-	OutputFile   string `json:"output_file,omitempty"`
-	Prompt       string `json:"prompt,omitempty"`
+	Success    bool   `json:"success"`
+	Workspace  string `json:"workspace"`
+	Agent      string `json:"agent"`
+	PID        int    `json:"pid,omitempty"`
+	OutputFile string `json:"output_file,omitempty"`
+	Prompt     string `json:"prompt,omitempty"`
 }
 
 func (s *PrepSubsystem) registerResumeTool(server *mcp.Server) {
@@ -42,8 +44,8 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, ResumeOutput{}, core.E("resume", "workspace is required", nil)
 	}
 
-	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
-	srcDir := filepath.Join(wsDir, "src")
+	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
+	srcDir := core.JoinPath(wsDir, "src")
 
 	// Verify workspace exists
 	if _, err := os.Stat(srcDir); err != nil {
@@ -68,8 +70,8 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Write ANSWER.md if answer provided
 	if input.Answer != "" {
-		answerPath := filepath.Join(srcDir, "ANSWER.md")
-		content := fmt.Sprintf("# Answer\n\n%s\n", input.Answer)
+		answerPath := core.JoinPath(srcDir, "ANSWER.md")
+		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if r := fs.Write(answerPath, content); !r.OK {
 			err, _ := r.Value.(error)
 			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", err)
@@ -110,6 +112,6 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		Workspace:  input.Workspace,
 		Agent:      agent,
 		PID:        pid,
-		OutputFile: filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent)),
+		OutputFile: core.JoinPath(wsDir, core.Sprintf("agent-%s.log", agent)),
 	}, nil
 }

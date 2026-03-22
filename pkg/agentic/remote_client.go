@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 
 	core "dappco.re/go/core"
 )
@@ -46,7 +44,7 @@ func mcpInitialize(ctx context.Context, client *http.Client, url, token string) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", core.E("mcpInitialize", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
+		return "", core.E("mcpInitialize", core.Sprintf("HTTP %d", resp.StatusCode), nil)
 	}
 
 	sessionID := resp.Header.Get("Mcp-Session-Id")
@@ -88,7 +86,7 @@ func mcpCall(ctx context.Context, client *http.Client, url, token, sessionID str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, core.E("mcpCall", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
+		return nil, core.E("mcpCall", core.Sprintf("HTTP %d", resp.StatusCode), nil)
 	}
 
 	// Parse SSE response — extract data: lines
@@ -100,8 +98,8 @@ func readSSEData(resp *http.Response) ([]byte, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "data: ") {
-			return []byte(strings.TrimPrefix(line, "data: ")), nil
+		if core.HasPrefix(line, "data: ") {
+			return []byte(core.TrimPrefix(line, "data: ")), nil
 		}
 	}
 	return nil, core.E("readSSEData", "no data in SSE response", nil)

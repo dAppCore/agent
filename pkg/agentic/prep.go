@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -18,14 +17,16 @@ import (
 	"sync"
 	"time"
 
-	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/lib"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
 
 // CompletionNotifier is called when an agent completes, to trigger
 // immediate notifications to connected clients.
+//
+//	prep.SetCompletionNotifier(monitor)
 type CompletionNotifier interface {
 	Poke()
 }
@@ -35,15 +36,15 @@ type CompletionNotifier interface {
 //	sub := agentic.NewPrep()
 //	sub.RegisterTools(server)
 type PrepSubsystem struct {
-	forgeURL    string
-	forgeToken  string
-	brainURL    string
-	brainKey    string
-	specsPath   string
-	codePath    string
-	client      *http.Client
-	onComplete  CompletionNotifier
-	drainMu     sync.Mutex // protects drainQueue from concurrent execution
+	forgeURL   string
+	forgeToken string
+	brainURL   string
+	brainKey   string
+	specsPath  string
+	codePath   string
+	client     *http.Client
+	onComplete CompletionNotifier
+	drainMu    sync.Mutex // protects drainQueue from concurrent execution
 }
 
 // NewPrep creates an agentic subsystem.
@@ -61,8 +62,8 @@ func NewPrep() *PrepSubsystem {
 
 	brainKey := os.Getenv("CORE_BRAIN_KEY")
 	if brainKey == "" {
-		if r := fs.Read(filepath.Join(home, ".claude", "brain.key")); r.OK {
-			brainKey = strings.TrimSpace(r.Value.(string))
+		if r := fs.Read(core.JoinPath(home, ".claude", "brain.key")); r.OK {
+			brainKey = core.Trim(r.Value.(string))
 		}
 	}
 
@@ -71,13 +72,15 @@ func NewPrep() *PrepSubsystem {
 		forgeToken: forgeToken,
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
-		specsPath:  envOr("SPECS_PATH", filepath.Join(home, "Code", "specs")),
-		codePath:   envOr("CODE_PATH", filepath.Join(home, "Code")),
+		specsPath:  envOr("SPECS_PATH", core.JoinPath(home, "Code", "specs")),
+		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
 		client:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
 // SetCompletionNotifier wires up the monitor for immediate push on agent completion.
+//
+//	prep.SetCompletionNotifier(monitor)
 func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
 	s.onComplete = n
 }
@@ -90,9 +93,13 @@ func envOr(key, fallback string) string {
 }
 
 // Name implements mcp.Subsystem.
+//
+//	name := prep.Name() // "agentic"
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
 // RegisterTools implements mcp.Subsystem.
+//
+//	prep.RegisterTools(server)
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prep_workspace",
@@ -120,11 +127,15 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 }
 
 // Shutdown implements mcp.SubsystemWithShutdown.
+//
+//	_ = prep.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // --- Input/Output types ---
 
 // PrepInput is the input for agentic_prep_workspace.
+//
+//	input := agentic.PrepInput{Repo: "go-io", Task: "Migrate pkg/fs to Core primitives"}
 type PrepInput struct {
 	Repo         string            `json:"repo"`                    // e.g. "go-io"
 	Org          string            `json:"org,omitempty"`           // default "core"
@@ -137,16 +148,18 @@ type PrepInput struct {
 }
 
 // PrepOutput is the output for agentic_prep_workspace.
+//
+//	out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/go-io-123", Branch: "agent/migrate-fs"}
 type PrepOutput struct {
-	Success       bool   `json:"success"`
-	WorkspaceDir  string `json:"workspace_dir"`
-	Branch        string `json:"branch"`
-	WikiPages     int    `json:"wiki_pages"`
-	SpecFiles     int    `json:"spec_files"`
-	Memories      int    `json:"memories"`
-	Consumers     int    `json:"consumers"`
-	ClaudeMd      bool   `json:"claude_md"`
-	GitLog        int    `json:"git_log_entries"`
+	Success      bool   `json:"success"`
+	WorkspaceDir string `json:"workspace_dir"`
+	Branch       string `json:"branch"`
+	WikiPages    int    `json:"wiki_pages"`
+	SpecFiles    int    `json:"spec_files"`
+	Memories     int    `json:"memories"`
+	Consumers    int    `json:"consumers"`
+	ClaudeMd     bool   `json:"claude_md"`
+	GitLog       int    `json:"git_log_entries"`
 }
 
 func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
@@ -162,8 +175,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	// Workspace root: .core/workspace/{repo}-{timestamp}/
 	wsRoot := WorkspaceRoot()
-	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().UnixNano())
-	wsDir := filepath.Join(wsRoot, wsName)
+	wsName := core.Sprintf("%s-%d", input.Repo, time.Now().UnixNano())
+	wsDir := core.JoinPath(wsRoot, wsName)
 
 	// Create workspace structure
 	// kb/ and specs/ will be created inside src/ after clone
@@ -180,10 +193,10 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if repoName == "." || repoName == ".." || repoName == "" {
 		return nil, PrepOutput{}, core.E("prep", "invalid repo name: "+input.Repo, nil)
 	}
-	repoPath := filepath.Join(s.codePath, "core", repoName)
+	repoPath := core.JoinPath(s.codePath, "core", repoName)
 
 	// 1. Clone repo into src/ and create feature branch
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, srcDir)
 	if err := cloneCmd.Run(); err != nil {
 		return nil, PrepOutput{}, core.E("prep", "git clone failed for "+input.Repo, err)
@@ -205,23 +218,23 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	taskSlug = strings.Trim(taskSlug, "-")
 	if taskSlug == "" {
 		// Fallback for issue-only dispatches with no task text
-		taskSlug = fmt.Sprintf("issue-%d", input.Issue)
+		taskSlug = core.Sprintf("issue-%d", input.Issue)
 		if input.Issue == 0 {
-			taskSlug = fmt.Sprintf("work-%d", time.Now().Unix())
+			taskSlug = core.Sprintf("work-%d", time.Now().Unix())
 		}
 	}
-	branchName := fmt.Sprintf("agent/%s", taskSlug)
+	branchName := core.Sprintf("agent/%s", taskSlug)
 
 	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
 	branchCmd.Dir = srcDir
 	if err := branchCmd.Run(); err != nil {
-		return nil, PrepOutput{}, core.E("prep.branch", fmt.Sprintf("failed to create branch %q", branchName), err)
+		return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), err)
 	}
 	out.Branch = branchName
 
 	// Create context dirs inside src/
-	fs.EnsureDir(filepath.Join(srcDir, "kb"))
-	fs.EnsureDir(filepath.Join(srcDir, "specs"))
+	fs.EnsureDir(core.JoinPath(srcDir, "kb"))
+	fs.EnsureDir(core.JoinPath(srcDir, "specs"))
 
 	// Remote stays as local clone origin — agent cannot push to forge.
 	// Reviewer pulls changes from workspace and pushes after verification.
@@ -258,14 +271,14 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	out.ClaudeMd = true
 
 	// Copy repo's own CLAUDE.md over template if it exists
-	claudeMdPath := filepath.Join(repoPath, "CLAUDE.md")
+	claudeMdPath := core.JoinPath(repoPath, "CLAUDE.md")
 	if r := fs.Read(claudeMdPath); r.OK {
-		fs.Write(filepath.Join(srcDir, "CLAUDE.md"), r.Value.(string))
+		fs.Write(core.JoinPath(srcDir, "CLAUDE.md"), r.Value.(string))
 	}
 	// Copy GEMINI.md from core/agent (ethics framework for all agents)
-	agentGeminiMd := filepath.Join(s.codePath, "core", "agent", "GEMINI.md")
+	agentGeminiMd := core.JoinPath(s.codePath, "core", "agent", "GEMINI.md")
 	if r := fs.Read(agentGeminiMd); r.OK {
-		fs.Write(filepath.Join(srcDir, "GEMINI.md"), r.Value.(string))
+		fs.Write(core.JoinPath(srcDir, "GEMINI.md"), r.Value.(string))
 	}
 
 	// 3. Generate TODO.md from issue (overrides template)
@@ -312,7 +325,7 @@ func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
 		}
 	}
 
-	fs.Write(filepath.Join(wsDir, "src", "PROMPT.md"), prompt)
+	fs.Write(core.JoinPath(wsDir, "src", "PROMPT.md"), prompt)
 }
 
 // --- Plan template rendering ---
@@ -330,8 +343,8 @@ func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map
 
 	// Substitute variables ({{variable_name}} → value)
 	for key, value := range variables {
-		content = strings.ReplaceAll(content, "{{"+key+"}}", value)
-		content = strings.ReplaceAll(content, "{{ "+key+" }}", value)
+		content = core.Replace(content, "{{"+key+"}}", value)
+		content = core.Replace(content, "{{ "+key+" }}", value)
 	}
 
 	// Parse the YAML to render as markdown
@@ -340,9 +353,9 @@ func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map
 		Description string   `yaml:"description"`
 		Guidelines  []string `yaml:"guidelines"`
 		Phases      []struct {
-			Name        string   `yaml:"name"`
-			Description string   `yaml:"description"`
-			Tasks       []any    `yaml:"tasks"`
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+			Tasks       []any  `yaml:"tasks"`
 		} `yaml:"phases"`
 	}
 
@@ -351,7 +364,7 @@ func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map
 	}
 
 	// Render as PLAN.md
-	var plan strings.Builder
+	plan := core.NewBuilder()
 	plan.WriteString("# Plan: " + tmpl.Name + "\n\n")
 	if task != "" {
 		plan.WriteString("**Task:** " + task + "\n\n")
@@ -369,7 +382,7 @@ func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map
 	}
 
 	for i, phase := range tmpl.Phases {
-		plan.WriteString(fmt.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
+		plan.WriteString(core.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
 		if phase.Description != "" {
 			plan.WriteString(phase.Description + "\n\n")
 		}
@@ -386,7 +399,7 @@ func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map
 		plan.WriteString("\n**Commit after completing this phase.**\n\n---\n\n")
 	}
 
-	fs.Write(filepath.Join(wsDir, "src", "PLAN.md"), plan.String())
+	fs.Write(core.JoinPath(wsDir, "src", "PLAN.md"), plan.String())
 }
 
 // --- Helpers (unchanged) ---
@@ -396,7 +409,7 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 		return 0
 	}
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/wiki/pages", s.forgeURL, org, repo)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/wiki/pages", s.forgeURL, org, repo)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
@@ -423,7 +436,7 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 			subURL = page.Title
 		}
 
-		pageURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/wiki/page/%s", s.forgeURL, org, repo, subURL)
+		pageURL := core.Sprintf("%s/api/v1/repos/%s/%s/wiki/page/%s", s.forgeURL, org, repo, subURL)
 		pageReq, _ := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
 		pageReq.Header.Set("Authorization", "token "+s.forgeToken)
 
@@ -454,7 +467,7 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 			return '-'
 		}, page.Title) + ".md"
 
-		fs.Write(filepath.Join(wsDir, "src", "kb", filename), string(content))
+		fs.Write(core.JoinPath(wsDir, "src", "kb", filename), string(content))
 		count++
 	}
 
@@ -466,9 +479,9 @@ func (s *PrepSubsystem) copySpecs(wsDir string) int {
 	count := 0
 
 	for _, file := range specFiles {
-		src := filepath.Join(s.specsPath, file)
+		src := core.JoinPath(s.specsPath, file)
 		if r := fs.Read(src); r.OK {
-			fs.Write(filepath.Join(wsDir, "src", "specs", file), r.Value.(string))
+			fs.Write(core.JoinPath(wsDir, "src", "specs", file), r.Value.(string))
 			count++
 		}
 	}
@@ -488,7 +501,7 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 		"agent_id": "cladius",
 	})
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", s.brainURL+"/v1/brain/recall", strings.NewReader(string(body)))
+	req, _ := http.NewRequestWithContext(ctx, "POST", s.brainURL+"/v1/brain/recall", core.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.brainKey)
@@ -509,7 +522,7 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 	}
 	json.Unmarshal(respData, &result)
 
-	var content strings.Builder
+	content := core.NewBuilder()
 	content.WriteString("# Context — " + repo + "\n\n")
 	content.WriteString("> Relevant knowledge from OpenBrain.\n\n")
 
@@ -518,15 +531,15 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 		memContent, _ := mem["content"].(string)
 		memProject, _ := mem["project"].(string)
 		score, _ := mem["score"].(float64)
-		content.WriteString(fmt.Sprintf("### %d. %s [%s] (score: %.3f)\n\n%s\n\n", i+1, memProject, memType, score, memContent))
+		content.WriteString(core.Sprintf("### %d. %s [%s] (score: %.3f)\n\n%s\n\n", i+1, memProject, memType, score, memContent))
 	}
 
-	fs.Write(filepath.Join(wsDir, "src", "CONTEXT.md"), content.String())
+	fs.Write(core.JoinPath(wsDir, "src", "CONTEXT.md"), content.String())
 	return len(result.Memories)
 }
 
 func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
-	goWorkPath := filepath.Join(s.codePath, "go.work")
+	goWorkPath := core.JoinPath(s.codePath, "go.work")
 	modulePath := "forge.lthn.ai/core/" + repo
 
 	r := fs.Read(goWorkPath)
@@ -536,19 +549,19 @@ func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
 	workData := r.Value.(string)
 
 	var consumers []string
-	for _, line := range strings.Split(workData, "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "./") {
+	for _, line := range core.Split(workData, "\n") {
+		line = core.Trim(line)
+		if !core.HasPrefix(line, "./") {
 			continue
 		}
-		dir := filepath.Join(s.codePath, strings.TrimPrefix(line, "./"))
-		goMod := filepath.Join(dir, "go.mod")
+		dir := core.JoinPath(s.codePath, core.TrimPrefix(line, "./"))
+		goMod := core.JoinPath(dir, "go.mod")
 		mr := fs.Read(goMod)
 		if !mr.OK {
 			continue
 		}
 		modData := mr.Value.(string)
-		if strings.Contains(modData, modulePath) && !strings.HasPrefix(modData, "module "+modulePath) {
+		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, "module "+modulePath) {
 			consumers = append(consumers, filepath.Base(dir))
 		}
 	}
@@ -559,8 +572,8 @@ func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
 		for _, c := range consumers {
 			content += "- " + c + "\n"
 		}
-		content += fmt.Sprintf("\n**Breaking change risk: %d consumers.**\n", len(consumers))
-		fs.Write(filepath.Join(wsDir, "src", "CONSUMERS.md"), content)
+		content += core.Sprintf("\n**Breaking change risk: %d consumers.**\n", len(consumers))
+		fs.Write(core.JoinPath(wsDir, "src", "CONSUMERS.md"), content)
 	}
 
 	return len(consumers)
@@ -574,10 +587,10 @@ func (s *PrepSubsystem) gitLog(repoPath, wsDir string) int {
 		return 0
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	lines := core.Split(core.Trim(string(output)), "\n")
 	if len(lines) > 0 && lines[0] != "" {
 		content := "# Recent Changes\n\n```\n" + string(output) + "```\n"
-		fs.Write(filepath.Join(wsDir, "src", "RECENT.md"), content)
+		fs.Write(core.JoinPath(wsDir, "src", "RECENT.md"), content)
 	}
 
 	return len(lines)
@@ -588,7 +601,7 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 		return
 	}
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, issue)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, issue)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
@@ -608,13 +621,13 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	}
 	json.NewDecoder(resp.Body).Decode(&issueData)
 
-	content := fmt.Sprintf("# TASK: %s\n\n", issueData.Title)
-	content += fmt.Sprintf("**Status:** ready\n")
-	content += fmt.Sprintf("**Source:** %s/%s/%s/issues/%d\n", s.forgeURL, org, repo, issue)
-	content += fmt.Sprintf("**Repo:** %s/%s\n\n---\n\n", org, repo)
+	content := core.Sprintf("# TASK: %s\n\n", issueData.Title)
+	content += core.Sprintf("**Status:** ready\n")
+	content += core.Sprintf("**Source:** %s/%s/%s/issues/%d\n", s.forgeURL, org, repo, issue)
+	content += core.Sprintf("**Repo:** %s/%s\n\n---\n\n", org, repo)
 	content += "## Objective\n\n" + issueData.Body + "\n"
 
-	fs.Write(filepath.Join(wsDir, "src", "TODO.md"), content)
+	fs.Write(core.JoinPath(wsDir, "src", "TODO.md"), content)
 }
 
 // detectLanguage guesses the primary language from repo contents.
@@ -633,7 +646,7 @@ func detectLanguage(repoPath string) string {
 		{"Dockerfile", "docker"},
 	}
 	for _, c := range checks {
-		if _, err := os.Stat(filepath.Join(repoPath, c.file)); err == nil {
+		if _, err := os.Stat(core.JoinPath(repoPath, c.file)); err == nil {
 			return c.lang
 		}
 	}

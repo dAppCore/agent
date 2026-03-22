@@ -50,6 +50,7 @@ func writeWorkspaceStatus(t *testing.T, wsRoot, name string, fields map[string]a
 // --- New ---
 
 func TestNew_Good_Defaults(t *testing.T) {
+	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New()
 	assert.Equal(t, 2*time.Minute, mon.interval)
 	assert.NotNil(t, mon.poke)
@@ -61,6 +62,7 @@ func TestNew_Good_CustomInterval(t *testing.T) {
 }
 
 func TestNew_Bad_ZeroInterval(t *testing.T) {
+	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New(Options{Interval: 0})
 	assert.Equal(t, 2*time.Minute, mon.interval)
 }
@@ -125,6 +127,13 @@ func TestCheckCompletions_Good_NewCompletions(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
+	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+
+	mon := New()
+	notifier := &mockNotifier{}
+	mon.SetNotifier(notifier)
+	assert.Equal(t, "", mon.checkCompletions())
+
 	for i := 0; i < 2; i++ {
 		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
 			"status": "completed",
@@ -132,10 +141,6 @@ func TestCheckCompletions_Good_NewCompletions(t *testing.T) {
 			"agent":  "claude:sonnet",
 		})
 	}
-
-	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 
 	msg := mon.checkCompletions()
 	assert.Contains(t, msg, "2 agent(s) completed")
@@ -151,6 +156,13 @@ func TestCheckCompletions_Good_MixedStatuses(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
+	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+
+	mon := New()
+	notifier := &mockNotifier{}
+	mon.SetNotifier(notifier)
+	assert.Equal(t, "", mon.checkCompletions())
+
 	for i, status := range []string{"completed", "running", "queued"} {
 		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
 			"status": status,
@@ -158,10 +170,6 @@ func TestCheckCompletions_Good_MixedStatuses(t *testing.T) {
 			"agent":  "claude:sonnet",
 		})
 	}
-
-	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 
 	msg := mon.checkCompletions()
 	assert.Contains(t, msg, "1 agent(s) completed")
@@ -211,11 +219,15 @@ func TestCheckCompletions_Good_NoNotifierSet(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
+	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+
+	mon := New()
+	assert.Equal(t, "", mon.checkCompletions())
+
 	writeWorkspaceStatus(t, wsRoot, "ws-0", map[string]any{
 		"status": "completed", "repo": "r", "agent": "a",
 	})
 
-	mon := New()
 	msg := mon.checkCompletions()
 	assert.Contains(t, msg, "1 agent(s) completed")
 }
@@ -388,7 +400,8 @@ func TestCheck_Good_CombinesMessages(t *testing.T) {
 	mon.check(context.Background())
 
 	mon.mu.Lock()
-	assert.Equal(t, 1, mon.lastCompletedCount)
+	assert.True(t, mon.completionsSeeded)
+	assert.True(t, mon.seenCompleted["ws-0"])
 	mon.mu.Unlock()
 }
 
@@ -470,8 +483,8 @@ func TestLoop_Good_PokeTriggersCheck(t *testing.T) {
 	require.Eventually(t, func() bool {
 		mon.mu.Lock()
 		defer mon.mu.Unlock()
-		return mon.lastCompletedCount == 1
-	}, 5*time.Second, 50*time.Millisecond, "expected lastCompletedCount to reach 1")
+		return mon.seenCompleted["ws-poke"]
+	}, 5*time.Second, 50*time.Millisecond, "expected ws-poke completion to be recorded")
 
 	cancel()
 	mon.wg.Wait()

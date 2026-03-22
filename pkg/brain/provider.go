@@ -5,8 +5,8 @@ package brain
 import (
 	"net/http"
 
-	"forge.lthn.ai/core/api"
-	"forge.lthn.ai/core/api/pkg/provider"
+	"dappco.re/go/core/api"
+	"dappco.re/go/core/api/pkg/provider"
 	"dappco.re/go/core/ws"
 	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"

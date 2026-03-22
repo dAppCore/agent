@@ -12,14 +12,13 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"strconv"
 
-	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/agentic"
+	core "dappco.re/go/core"
 )
 
 // harvestResult tracks what happened during harvest.
@@ -34,7 +33,7 @@ type harvestResult struct {
 // branches back to the source repos. Returns a summary message.
 func (m *Subsystem) harvestCompleted() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
+	entries, err := filepath.Glob(workspaceStatusGlob(wsRoot))
 	if err != nil {
 		return ""
 	}
@@ -56,7 +55,7 @@ func (m *Subsystem) harvestCompleted() string {
 	var parts []string
 	for _, h := range harvested {
 		if h.rejected != "" {
-			parts = append(parts, fmt.Sprintf("%s: REJECTED (%s)", h.repo, h.rejected))
+			parts = append(parts, core.Sprintf("%s: REJECTED (%s)", h.repo, h.rejected))
 			if m.notifier != nil {
 				m.notifier.ChannelSend(context.Background(), "harvest.rejected", map[string]any{
 					"repo":   h.repo,
@@ -65,7 +64,7 @@ func (m *Subsystem) harvestCompleted() string {
 				})
 			}
 		} else {
-			parts = append(parts, fmt.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
+			parts = append(parts, core.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
 			if m.notifier != nil {
 				m.notifier.ChannelSend(context.Background(), "harvest.complete", map[string]any{
 					"repo":   h.repo,
@@ -75,13 +74,17 @@ func (m *Subsystem) harvestCompleted() string {
 			}
 		}
 	}
-	return "Harvested: " + strings.Join(parts, ", ")
+	return core.Concat("Harvested: ", core.Join(", ", parts...))
 }
 
 // harvestWorkspace checks a single workspace and pushes if ready.
 func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	r := fs.Read(filepath.Join(wsDir, "status.json"))
+	r := fs.Read(workspaceStatusPath(wsDir))
 	if !r.OK {
+		return nil
+	}
+	statusData, ok := resultString(r)
+	if !ok {
 		return nil
 	}
 
@@ -90,7 +93,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		Repo   string `json:"repo"`
 		Branch string `json:"branch"`
 	}
-	if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
+	if json.Unmarshal([]byte(statusData), &st) != nil {
 		return nil
 	}
 
@@ -99,7 +102,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		return nil
 	}
 
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.Concat(wsDir, "/src")
 	if _, err := os.Stat(srcDir); err != nil {
 		return nil
 	}
@@ -145,7 +148,7 @@ func detectBranch(srcDir string) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	return core.Trim(string(out))
 }
 
 // defaultBranch detects the default branch of the repo (main, master, etc.).
@@ -154,10 +157,10 @@ func defaultBranch(srcDir string) string {
 	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 	cmd.Dir = srcDir
 	if out, err := cmd.Output(); err == nil {
-		ref := strings.TrimSpace(string(out))
+		ref := core.Trim(string(out))
 		// returns "origin/main" — strip prefix
-		if strings.HasPrefix(ref, "origin/") {
-			return strings.TrimPrefix(ref, "origin/")
+		if core.HasPrefix(ref, "origin/") {
+			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
@@ -175,24 +178,26 @@ func defaultBranch(srcDir string) string {
 // countUnpushed returns the number of commits ahead of origin's default branch.
 func countUnpushed(srcDir, branch string) int {
 	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "rev-list", "--count", "origin/"+base+".."+branch)
+	cmd := exec.Command("git", "rev-list", "--count", core.Concat("origin/", base, "..", branch))
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
-		cmd2 := exec.Command("git", "log", "--oneline", base+".."+branch)
+		cmd2 := exec.Command("git", "log", "--oneline", core.Concat(base, "..", branch))
 		cmd2.Dir = srcDir
 		out2, err2 := cmd2.Output()
 		if err2 != nil {
 			return 0
 		}
-		lines := strings.Split(strings.TrimSpace(string(out2)), "\n")
+		lines := core.Split(core.Trim(string(out2)), "\n")
 		if len(lines) == 1 && lines[0] == "" {
 			return 0
 		}
 		return len(lines)
 	}
-	var count int
-	fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &count)
+	count, err := strconv.Atoi(core.Trim(string(out)))
+	if err != nil {
+		return 0
+	}
 	return count
 }
 
@@ -202,7 +207,7 @@ func countUnpushed(srcDir, branch string) int {
 func checkSafety(srcDir string) string {
 	// Check all changed files — added, modified, renamed
 	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
+	cmd := exec.Command("git", "diff", "--name-only", core.Concat(base, "...HEAD"))
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -219,20 +224,20 @@ func checkSafety(srcDir string) string {
 		".db": true, ".sqlite": true, ".sqlite3": true,
 	}
 
-	for _, file := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for _, file := range core.Split(core.Trim(string(out)), "\n") {
 		if file == "" {
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(file))
+		ext := core.Lower(filepath.Ext(file))
 		if binaryExts[ext] {
-			return fmt.Sprintf("binary file added: %s", file)
+			return core.Sprintf("binary file added: %s", file)
 		}
 
 		// Check file size (reject > 1MB)
-		fullPath := filepath.Join(srcDir, file)
+		fullPath := core.Concat(srcDir, "/", file)
 		info, err := os.Stat(fullPath)
 		if err == nil && info.Size() > 1024*1024 {
-			return fmt.Sprintf("large file: %s (%d bytes)", file, info.Size())
+			return core.Sprintf("large file: %s (%d bytes)", file, info.Size())
 		}
 	}
 
@@ -242,13 +247,13 @@ func checkSafety(srcDir string) string {
 // countChangedFiles returns the number of files changed vs the default branch.
 func countChangedFiles(srcDir string) int {
 	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
+	cmd := exec.Command("git", "diff", "--name-only", core.Concat(base, "...HEAD"))
 	cmd.Dir = srcDir
 	out, err := cmd.Output()
 	if err != nil {
 		return 0
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	lines := core.Split(core.Trim(string(out)), "\n")
 	if len(lines) == 1 && lines[0] == "" {
 		return 0
 	}
@@ -261,19 +266,23 @@ func pushBranch(srcDir, branch string) error {
 	cmd.Dir = srcDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return core.E("harvest.pushBranch", strings.TrimSpace(string(out)), err)
+		return core.E("harvest.pushBranch", core.Trim(string(out)), err)
 	}
 	return nil
 }
 
 // updateStatus updates the workspace status.json.
 func updateStatus(wsDir, status, question string) {
-	r := fs.Read(filepath.Join(wsDir, "status.json"))
+	r := fs.Read(workspaceStatusPath(wsDir))
 	if !r.OK {
 		return
 	}
+	statusData, ok := resultString(r)
+	if !ok {
+		return
+	}
 	var st map[string]any
-	if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
+	if json.Unmarshal([]byte(statusData), &st) != nil {
 		return
 	}
 	st["status"] = status
@@ -283,5 +292,5 @@ func updateStatus(wsDir, status, question string) {
 		delete(st, "question") // clear stale question from previous state
 	}
 	updated, _ := json.MarshalIndent(st, "", "  ")
-	fs.Write(filepath.Join(wsDir, "status.json"), string(updated))
+	fs.Write(workspaceStatusPath(wsDir), string(updated))
 }

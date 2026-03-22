@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,6 +13,8 @@ import (
 )
 
 // ScanInput is the input for agentic_scan.
+//
+//	input := agentic.ScanInput{Org: "core", Labels: []string{"agentic", "bug"}, Limit: 20}
 type ScanInput struct {
 	Org    string   `json:"org,omitempty"`    // default "core"
 	Labels []string `json:"labels,omitempty"` // filter by labels (default: agentic, help-wanted, bug)
@@ -21,6 +22,8 @@ type ScanInput struct {
 }
 
 // ScanOutput is the output for agentic_scan.
+//
+//	out := agentic.ScanOutput{Success: true, Count: 1, Issues: []agentic.ScanIssue{{Repo: "go-io", Number: 12}}}
 type ScanOutput struct {
 	Success bool        `json:"success"`
 	Count   int         `json:"count"`
@@ -28,6 +31,8 @@ type ScanOutput struct {
 }
 
 // ScanIssue is a single actionable issue.
+//
+//	issue := agentic.ScanIssue{Repo: "go-io", Number: 12, Title: "Replace fmt.Errorf"}
 type ScanIssue struct {
 	Repo     string   `json:"repo"`
 	Number   int      `json:"number"`
@@ -81,7 +86,7 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 	seen := make(map[string]bool)
 	var unique []ScanIssue
 	for _, issue := range allIssues {
-		key := fmt.Sprintf("%s#%d", issue.Repo, issue.Number)
+		key := core.Sprintf("%s#%d", issue.Repo, issue.Number)
 		if !seen[key] {
 			seen[key] = true
 			unique = append(unique, issue)
@@ -104,7 +109,7 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 	page := 1
 
 	for {
-		u := fmt.Sprintf("%s/api/v1/orgs/%s/repos?limit=50&page=%d", s.forgeURL, org, page)
+		u := core.Sprintf("%s/api/v1/orgs/%s/repos?limit=50&page=%d", s.forgeURL, org, page)
 		req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 		if err != nil {
 			return nil, core.E("scan.listOrgRepos", "failed to create request", err)
@@ -118,8 +123,8 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 
 		if resp.StatusCode != 200 {
 			resp.Body.Close()
-			return nil, core.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
-	}
+			return nil, core.E("scan.listOrgRepos", core.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
+		}
 
 		var repos []struct {
 			Name string `json:"name"`
@@ -141,10 +146,10 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 }
 
 func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label string) ([]ScanIssue, error) {
-	u := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
+	u := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {
-		u += "&labels=" + strings.ReplaceAll(strings.ReplaceAll(label, " ", "%20"), "&", "%26")
+		u += "&labels=" + core.Replace(core.Replace(label, " ", "%20"), "&", "%26")
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
@@ -159,7 +164,7 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, core.E("scan.listRepoIssues", fmt.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
+		return nil, core.E("scan.listRepoIssues", core.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
 	}
 
 	var issues []struct {

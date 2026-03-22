@@ -3,10 +3,10 @@
 package agentic
 
 import (
-	"path/filepath"
-	"testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
+	"testing"
 )
 
 func TestEnvOr_Good_EnvSet(t *testing.T) {

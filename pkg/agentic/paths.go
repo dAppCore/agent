@@ -5,8 +5,7 @@ package agentic
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
+	"strconv"
 	"unsafe"
 
 	core "dappco.re/go/core"
@@ -15,7 +14,7 @@ import (
 // fs provides unrestricted filesystem access (root "/" = no sandbox).
 //
 //	r := fs.Read("/etc/hostname")
-//	if r.OK { fmt.Println(r.Value.(string)) }
+//	if r.OK { core.Print(nil, "%s", r.Value.(string)) }
 var fs = newFs("/")
 
 // newFs creates a core.Fs with the given root directory.
@@ -28,29 +27,36 @@ func newFs(root string) *core.Fs {
 }
 
 // LocalFs returns an unrestricted filesystem instance for use by other packages.
+//
+//	r := agentic.LocalFs().Read("/tmp/agent-status.json")
+//	if r.OK { core.Print(nil, "%s", r.Value.(string)) }
 func LocalFs() *core.Fs { return fs }
 
 // WorkspaceRoot returns the root directory for agent workspaces.
 // Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core/workspace.
 //
-//	wsDir := filepath.Join(agentic.WorkspaceRoot(), "go-io-1774149757")
+//	wsDir := core.JoinPath(agentic.WorkspaceRoot(), "go-io-1774149757")
 func WorkspaceRoot() string {
-	return filepath.Join(CoreRoot(), "workspace")
+	return core.JoinPath(CoreRoot(), "workspace")
 }
 
 // CoreRoot returns the root directory for core ecosystem files.
 // Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core.
+//
+//	root := agentic.CoreRoot()
 func CoreRoot() string {
 	if root := os.Getenv("CORE_WORKSPACE"); root != "" {
 		return root
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", ".core")
+	return core.JoinPath(home, "Code", ".core")
 }
 
 // PlansRoot returns the root directory for agent plans.
+//
+//	plansDir := agentic.PlansRoot()
 func PlansRoot() string {
-	return filepath.Join(CoreRoot(), "plans")
+	return core.JoinPath(CoreRoot(), "plans")
 }
 
 // AgentName returns the name of this agent based on hostname.
@@ -62,21 +68,23 @@ func AgentName() string {
 		return name
 	}
 	hostname, _ := os.Hostname()
-	h := strings.ToLower(hostname)
-	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
+	h := core.Lower(hostname)
+	if core.Contains(h, "snider") || core.Contains(h, "studio") || core.Contains(h, "mac") {
 		return "cladius"
 	}
 	return "charon"
 }
 
 // DefaultBranch detects the default branch of a repo (main, master, etc.).
+//
+//	base := agentic.DefaultBranch("./src")
 func DefaultBranch(repoDir string) string {
 	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 	cmd.Dir = repoDir
 	if out, err := cmd.Output(); err == nil {
-		ref := strings.TrimSpace(string(out))
-		if strings.HasPrefix(ref, "origin/") {
-			return strings.TrimPrefix(ref, "origin/")
+		ref := core.Trim(string(out))
+		if core.HasPrefix(ref, "origin/") {
+			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
@@ -91,9 +99,19 @@ func DefaultBranch(repoDir string) string {
 }
 
 // GitHubOrg returns the GitHub org for mirror operations.
+//
+//	org := agentic.GitHubOrg() // "dAppCore"
 func GitHubOrg() string {
 	if org := os.Getenv("GITHUB_ORG"); org != "" {
 		return org
 	}
 	return "dAppCore"
+}
+
+func parseInt(value string) int {
+	n, err := strconv.Atoi(core.Trim(value))
+	if err != nil {
+		return 0
+	}
+	return n
 }

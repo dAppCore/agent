@@ -4,11 +4,11 @@ package agentic
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"testing"
 	"time"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestWriteStatus_Good(t *testing.T) {

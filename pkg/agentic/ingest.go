@@ -5,11 +5,11 @@ package agentic
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
+
+	core "dappco.re/go/core"
 )
 
 // ingestFindings reads the agent output log and creates issues via the API
@@ -21,7 +21,7 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	}
 
 	// Read the log file
-	logFiles, _ := filepath.Glob(filepath.Join(wsDir, "agent-*.log"))
+	logFiles, _ := filepath.Glob(core.JoinPath(wsDir, "agent-*.log"))
 	if len(logFiles) == 0 {
 		return
 	}
@@ -34,7 +34,7 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	body := r.Value.(string)
 
 	// Skip quota errors
-	if strings.Contains(body, "QUOTA_EXHAUSTED") || strings.Contains(body, "QuotaError") {
+	if core.Contains(body, "QUOTA_EXHAUSTED") || core.Contains(body, "QuotaError") {
 		return
 	}
 
@@ -47,13 +47,13 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	// Determine issue type from the template used
 	issueType := "task"
 	priority := "normal"
-	if strings.Contains(body, "security") || strings.Contains(body, "Security") {
+	if core.Contains(body, "security") || core.Contains(body, "Security") {
 		issueType = "bug"
 		priority = "high"
 	}
 
 	// Create a single issue per repo with all findings in the body
-	title := fmt.Sprintf("Scan findings for %s (%d items)", st.Repo, findings)
+	title := core.Sprintf("Scan findings for %s (%d items)", st.Repo, findings)
 
 	// Truncate body to reasonable size for issue description
 	description := body
@@ -76,7 +76,7 @@ func countFileRefs(body string) int {
 			}
 			if j < len(body) && body[j] == '`' {
 				ref := body[i+1 : j]
-				if strings.Contains(ref, ".go:") || strings.Contains(ref, ".php:") {
+				if core.Contains(ref, ".go:") || core.Contains(ref, ".php:") {
 					count++
 				}
 			}
@@ -93,11 +93,11 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 
 	// Read the agent API key from file
 	home, _ := os.UserHomeDir()
-	r := fs.Read(filepath.Join(home, ".claude", "agent-api.key"))
+	r := fs.Read(core.JoinPath(home, ".claude", "agent-api.key"))
 	if !r.OK {
 		return
 	}
-	apiKey := strings.TrimSpace(r.Value.(string))
+	apiKey := core.Trim(r.Value.(string))
 
 	payload, _ := json.Marshal(map[string]string{
 		"title":       title,

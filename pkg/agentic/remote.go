@@ -5,10 +5,8 @@ package agentic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	core "dappco.re/go/core"
@@ -18,18 +16,22 @@ import (
 // --- agentic_dispatch_remote tool ---
 
 // RemoteDispatchInput dispatches a task to a remote core-agent over HTTP.
+//
+//	input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}
 type RemoteDispatchInput struct {
-	Host     string            `json:"host"`               // Remote agent host (e.g. "charon", "10.69.69.165:9101")
-	Repo     string            `json:"repo"`               // Target repo
-	Task     string            `json:"task"`               // What the agent should do
-	Agent    string            `json:"agent,omitempty"`     // Agent type (default: claude:opus)
-	Template string            `json:"template,omitempty"`  // Prompt template
-	Persona  string            `json:"persona,omitempty"`   // Persona slug
-	Org      string            `json:"org,omitempty"`       // Forge org (default: core)
+	Host      string            `json:"host"`                // Remote agent host (e.g. "charon", "10.69.69.165:9101")
+	Repo      string            `json:"repo"`                // Target repo
+	Task      string            `json:"task"`                // What the agent should do
+	Agent     string            `json:"agent,omitempty"`     // Agent type (default: claude:opus)
+	Template  string            `json:"template,omitempty"`  // Prompt template
+	Persona   string            `json:"persona,omitempty"`   // Persona slug
+	Org       string            `json:"org,omitempty"`       // Forge org (default: core)
 	Variables map[string]string `json:"variables,omitempty"` // Template variables
 }
 
 // RemoteDispatchOutput is the response from a remote dispatch.
+//
+//	out := agentic.RemoteDispatchOutput{Success: true, Host: "charon", Repo: "go-io", Agent: "claude:opus"}
 type RemoteDispatchOutput struct {
 	Success      bool   `json:"success"`
 	Host         string `json:"host"`
@@ -95,7 +97,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		},
 	}
 
-	url := fmt.Sprintf("http://%s/mcp", addr)
+	url := core.Sprintf("http://%s/mcp", addr)
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	// Step 1: Initialize session
@@ -103,7 +105,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
-			Error: fmt.Sprintf("init failed: %v", err),
+			Error: core.Sprintf("init failed: %v", err),
 		}, core.E("dispatchRemote", "MCP initialize failed", err)
 	}
 
@@ -113,7 +115,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
-			Error: fmt.Sprintf("call failed: %v", err),
+			Error: core.Sprintf("call failed: %v", err),
 		}, core.E("dispatchRemote", "tool call failed", err)
 	}
 
@@ -162,12 +164,12 @@ func resolveHost(host string) string {
 		"local":   "127.0.0.1:9101",
 	}
 
-	if addr, ok := aliases[strings.ToLower(host)]; ok {
+	if addr, ok := aliases[core.Lower(host)]; ok {
 		return addr
 	}
 
 	// If no port specified, add default
-	if !strings.Contains(host, ":") {
+	if !core.Contains(host, ":") {
 		return host + ":9101"
 	}
 
@@ -177,7 +179,7 @@ func resolveHost(host string) string {
 // remoteToken gets the auth token for a remote agent.
 func remoteToken(host string) string {
 	// Check environment first
-	envKey := fmt.Sprintf("AGENT_TOKEN_%s", strings.ToUpper(host))
+	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
 	if token := os.Getenv(envKey); token != "" {
 		return token
 	}
@@ -190,12 +192,12 @@ func remoteToken(host string) string {
 	// Try reading from file
 	home, _ := os.UserHomeDir()
 	tokenFiles := []string{
-		fmt.Sprintf("%s/.core/tokens/%s.token", home, strings.ToLower(host)),
-		fmt.Sprintf("%s/.core/agent-token", home),
+		core.Sprintf("%s/.core/tokens/%s.token", home, core.Lower(host)),
+		core.Sprintf("%s/.core/agent-token", home),
 	}
 	for _, f := range tokenFiles {
 		if r := fs.Read(f); r.OK {
-			return strings.TrimSpace(r.Value.(string))
+			return core.Trim(r.Value.(string))
 		}
 	}
 

@@ -4,19 +4,20 @@ package monitor
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
+	core "dappco.re/go/core"
 )
 
 // CheckinResponse is what the API returns for an agent checkin.
+//
+//	resp := monitor.CheckinResponse{Changed: []monitor.ChangedRepo{{Repo: "core-agent", Branch: "main", SHA: "abc123"}}, Timestamp: 1712345678}
 type CheckinResponse struct {
 	// Repos that have new commits since the agent's last checkin.
 	Changed []ChangedRepo `json:"changed,omitempty"`
@@ -25,6 +26,8 @@ type CheckinResponse struct {
 }
 
 // ChangedRepo is a repo that has new commits.
+//
+//	repo := monitor.ChangedRepo{Repo: "core-agent", Branch: "main", SHA: "abc123"}
 type ChangedRepo struct {
 	Repo   string `json:"repo"`
 	Branch string `json:"branch"`
@@ -41,7 +44,7 @@ func (m *Subsystem) syncRepos() string {
 
 	agentName := agentic.AgentName()
 
-	checkinURL := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, neturl.QueryEscape(agentName), m.lastSyncTimestamp)
+	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, neturl.QueryEscape(agentName), m.lastSyncTimestamp)
 
 	req, err := http.NewRequest("GET", checkinURL, nil)
 	if err != nil {
@@ -52,12 +55,14 @@ func (m *Subsystem) syncRepos() string {
 	brainKey := os.Getenv("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		home, _ := os.UserHomeDir()
-		if r := fs.Read(filepath.Join(home, ".claude", "brain.key")); r.OK {
-			brainKey = strings.TrimSpace(r.Value.(string))
+		if r := fs.Read(brainKeyPath(home)); r.OK {
+			if value, ok := resultString(r); ok {
+				brainKey = core.Trim(value)
+			}
 		}
 	}
 	if brainKey != "" {
-		req.Header.Set("Authorization", "Bearer "+brainKey)
+		req.Header.Set("Authorization", core.Concat("Bearer ", brainKey))
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
@@ -98,7 +103,7 @@ func (m *Subsystem) syncRepos() string {
 		if repoName == "." || repoName == ".." || repoName == "" {
 			continue
 		}
-		repoDir := filepath.Join(basePath, repoName)
+		repoDir := core.Concat(basePath, "/", repoName)
 		if _, err := os.Stat(repoDir); err != nil {
 			continue
 		}
@@ -110,7 +115,7 @@ func (m *Subsystem) syncRepos() string {
 		if err != nil {
 			continue
 		}
-		current := strings.TrimSpace(string(currentBranch))
+		current := core.Trim(string(currentBranch))
 
 		// Determine which branch to pull — use server-reported branch,
 		// fall back to current if server didn't specify
@@ -127,7 +132,7 @@ func (m *Subsystem) syncRepos() string {
 		statusCmd := exec.Command("git", "status", "--porcelain")
 		statusCmd.Dir = repoDir
 		status, _ := statusCmd.Output()
-		if len(strings.TrimSpace(string(status))) > 0 {
+		if len(core.Trim(string(status))) > 0 {
 			continue // Don't pull if dirty
 		}
 
@@ -153,7 +158,7 @@ func (m *Subsystem) syncRepos() string {
 		return ""
 	}
 
-	return fmt.Sprintf("Synced %d repo(s): %s", len(pulled), strings.Join(pulled, ", "))
+	return core.Sprintf("Synced %d repo(s): %s", len(pulled), core.Join(", ", pulled...))
 }
 
 // lastSyncTimestamp is stored on the subsystem — add it via the check cycle.

@@ -27,8 +27,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
+
+	core "dappco.re/go/core"
 )
 
 //go:embed prompt/*.md
@@ -160,8 +161,8 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 
 		// Process .tmpl files through text/template
 		outputName := name
-		if strings.HasSuffix(name, ".tmpl") {
-			outputName = strings.TrimSuffix(name, ".tmpl")
+		if core.HasSuffix(name, ".tmpl") {
+			outputName = core.TrimSuffix(name, ".tmpl")
 			tmpl, err := template.New(name).Parse(string(content))
 			if err != nil {
 				return err
@@ -193,9 +194,9 @@ func ListTasks() []string {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		rel := strings.TrimPrefix(path, "task/")
+		rel := core.TrimPrefix(path, "task/")
 		ext := filepath.Ext(rel)
-		slugs = append(slugs, strings.TrimSuffix(rel, ext))
+		slugs = append(slugs, core.TrimSuffix(rel, ext))
 		return nil
 	})
 	return slugs
@@ -207,9 +208,9 @@ func ListPersonas() []string {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if strings.HasSuffix(path, ".md") {
-			rel := strings.TrimPrefix(path, "persona/")
-			rel = strings.TrimSuffix(rel, ".md")
+		if core.HasSuffix(path, ".md") {
+			rel := core.TrimPrefix(path, "persona/")
+			rel = core.TrimSuffix(rel, ".md")
 			paths = append(paths, rel)
 		}
 		return nil
@@ -224,14 +225,12 @@ func listDir(fsys embed.FS, dir string) []string {
 	}
 	var slugs []string
 	for _, e := range entries {
+		name := e.Name()
 		if e.IsDir() {
-			name := e.Name()
 			slugs = append(slugs, name)
 			continue
 		}
-		name := e.Name()
-		ext := filepath.Ext(name)
-		slugs = append(slugs, strings.TrimSuffix(name, ext))
+		slugs = append(slugs, core.TrimSuffix(name, filepath.Ext(name)))
 	}
 	return slugs
 }
