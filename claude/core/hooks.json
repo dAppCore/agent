@@ -41,6 +41,16 @@
           }
         ],
         "description": "Suggest review after PR creation"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-notify.sh"
+          }
+        ],
+        "description": "Check for inbox notifications (marker file, no API calls)"
       }
     ],
     "PreToolUse": [

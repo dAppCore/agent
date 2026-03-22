@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	coreio "forge.lthn.ai/core/go-io"
 )
 
 // CompletionEvent is emitted when a dispatched agent finishes.
@@ -23,19 +21,15 @@ type CompletionEvent struct {
 
 // emitCompletionEvent appends a completion event to the events log.
 // The plugin's hook watches this file to notify the orchestrating agent.
-func emitCompletionEvent(agent, workspace string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-
-	eventsFile := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace", "events.jsonl")
+// Status should be the actual terminal state: completed, failed, or blocked.
+func emitCompletionEvent(agent, workspace, status string) {
+	eventsFile := filepath.Join(WorkspaceRoot(), "events.jsonl")
 
 	event := CompletionEvent{
 		Type:      "agent_completed",
 		Agent:     agent,
 		Workspace: workspace,
-		Status:    "completed",
+		Status:    status,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -45,6 +39,10 @@ func emitCompletionEvent(agent, workspace string) {
 	}
 
 	// Append to events log
-	existing, _ := coreio.Local.Read(eventsFile)
-	coreio.Local.Write(eventsFile, existing+string(data)+"\n")
+	f, err := os.OpenFile(eventsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.Write(append(data, '\n'))
 }

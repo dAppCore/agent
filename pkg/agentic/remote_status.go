@@ -84,8 +84,22 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 				Text string `json:"text"`
 			} `json:"content"`
 		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 	}
-	if json.Unmarshal(result, &rpcResp) == nil && len(rpcResp.Result.Content) > 0 {
+	if json.Unmarshal(result, &rpcResp) != nil {
+		output.Success = false
+		output.Error = "failed to parse response"
+		return nil, output, nil
+	}
+	if rpcResp.Error != nil {
+		output.Success = false
+		output.Error = rpcResp.Error.Message
+		return nil, output, nil
+	}
+	if len(rpcResp.Result.Content) > 0 {
 		var statusOut StatusOutput
 		if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &statusOut) == nil {
 			output.Workspaces = statusOut.Workspaces

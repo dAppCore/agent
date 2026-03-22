@@ -54,8 +54,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, CreatePROutput{}, coreerr.E("createPR", "no Forge token configured", nil)
 	}
 
-	home, _ := os.UserHomeDir()
-	wsDir := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace", input.Workspace)
+	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
 	srcDir := filepath.Join(wsDir, "src")
 
 	if _, err := os.Stat(srcDir); err != nil {
@@ -112,8 +111,9 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		}, nil
 	}
 
-	// Push branch to forge
-	pushCmd := exec.CommandContext(ctx, "git", "push", "-u", "origin", st.Branch)
+	// Push branch to Forge (origin is the local clone, not Forge)
+	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
+	pushCmd := exec.CommandContext(ctx, "git", "push", forgeRemote, st.Branch)
 	pushCmd.Dir = srcDir
 	pushOut, err := pushCmd.CombinedOutput()
 	if err != nil {
@@ -309,10 +309,14 @@ func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return nil, coreerr.E("listRepoPRs", "failed to list PRs for "+repo, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, coreerr.E("listRepoPRs", fmt.Sprintf("HTTP %d listing PRs for %s", resp.StatusCode, repo), nil)
+	}
 
 	var prs []struct {
 		Number    int    `json:"number"`

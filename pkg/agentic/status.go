@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,8 +98,7 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 }
 
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {
@@ -158,8 +158,17 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 					st.Status = "blocked"
 					st.Question = info.Question
 				} else {
-					info.Status = "completed"
-					st.Status = "completed"
+					// Dead PID without BLOCKED.md — check exit code from log
+					// If no evidence of success, mark as failed (not completed)
+					logFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", st.Agent))
+					if _, err := coreio.Local.Read(logFile); err != nil {
+						info.Status = "failed"
+						st.Status = "failed"
+						st.Question = "Agent process died (no output log)"
+					} else {
+						info.Status = "completed"
+						st.Status = "completed"
+					}
 				}
 				writeStatus(wsDir, st)
 			}

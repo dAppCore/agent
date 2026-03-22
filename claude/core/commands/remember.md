@@ -1,12 +1,13 @@
 ---
 name: remember
-description: Save a fact or decision to context for persistence across compacts
+description: Save a fact or decision to OpenBrain for persistence across sessions
 args: <fact to remember>
+allowed-tools: ["mcp__core__brain_remember"]
 ---
 
-# Remember Context
+# Remember
 
-Save the provided fact to `~/.claude/sessions/context.json`.
+Store the provided fact in OpenBrain so it persists across sessions and is available to all agents (Cladius, Charon).
 
 ## Usage
 
@@ -18,19 +19,10 @@ Save the provided fact to `~/.claude/sessions/context.json`.
 
 ## Action
 
-Run this command to save the fact:
+Use the `brain_remember` MCP tool to store the fact:
 
-```bash
-~/.claude/plugins/cache/core/scripts/capture-context.sh "<fact>" "user"
-```
+- **content**: The fact provided by the user
+- **type**: Pick the best fit — `decision`, `convention`, `observation`, `fact`, `plan`, `architecture`
+- **project**: Infer from the current working directory if possible
 
-Or if running from the plugin directory:
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/capture-context.sh" "<fact>" "user"
-```
-
-The fact will be:
-- Stored in context.json (max 20 items)
-- Included in pre-compact snapshots
-- Auto-cleared after 3 hours of inactivity
+Confirm what was saved.

@@ -33,17 +33,17 @@ type RememberOutput struct {
 
 // RecallInput is the input for brain_recall.
 type RecallInput struct {
-	Query string       `json:"query"`
-	TopK  int          `json:"top_k,omitempty"`
+	Query  string       `json:"query"`
+	TopK   int          `json:"top_k,omitempty"`
 	Filter RecallFilter `json:"filter,omitempty"`
 }
 
 // RecallFilter holds optional filter criteria for brain_recall.
 type RecallFilter struct {
-	Project       string   `json:"project,omitempty"`
-	Type          any      `json:"type,omitempty"`
-	AgentID       string   `json:"agent_id,omitempty"`
-	MinConfidence float64  `json:"min_confidence,omitempty"`
+	Project       string  `json:"project,omitempty"`
+	Type          any     `json:"type,omitempty"`
+	AgentID       string  `json:"agent_id,omitempty"`
+	MinConfidence float64 `json:"min_confidence,omitempty"`
 }
 
 // RecallOutput is the output for brain_recall.

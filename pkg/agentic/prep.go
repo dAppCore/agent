@@ -15,8 +15,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"dappco.re/go/agent/pkg/lib"
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -39,6 +41,7 @@ type PrepSubsystem struct {
 	codePath    string
 	client      *http.Client
 	onComplete  CompletionNotifier
+	drainMu     sync.Mutex // protects drainQueue from concurrent execution
 }
 
 // NewPrep creates an agentic subsystem.
@@ -58,13 +61,13 @@ func NewPrep() *PrepSubsystem {
 	}
 
 	return &PrepSubsystem{
-		forgeURL:    envOr("FORGE_URL", "https://forge.lthn.ai"),
-		forgeToken:  forgeToken,
-		brainURL:    envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
-		brainKey:    brainKey,
-		specsPath:   envOr("SPECS_PATH", filepath.Join(home, "Code", "host-uk", "specs")),
-		codePath:    envOr("CODE_PATH", filepath.Join(home, "Code")),
-		client: &http.Client{Timeout: 30 * time.Second},
+		forgeURL:   envOr("FORGE_URL", "https://forge.lthn.ai"),
+		forgeToken: forgeToken,
+		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
+		brainKey:   brainKey,
+		specsPath:  envOr("SPECS_PATH", filepath.Join(home, "Code", "specs")),
+		codePath:   envOr("CODE_PATH", filepath.Join(home, "Code")),
+		client:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -152,23 +155,33 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Workspace root: .core/workspace/{repo}-{timestamp}/
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
-	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().Unix())
+	wsRoot := WorkspaceRoot()
+	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().UnixNano())
 	wsDir := filepath.Join(wsRoot, wsName)
 
 	// Create workspace structure
 	// kb/ and specs/ will be created inside src/ after clone
 
+	// Ensure workspace directory exists
+	if err := os.MkdirAll(wsDir, 0755); err != nil {
+		return nil, PrepOutput{}, coreerr.E("prep", "failed to create workspace dir", err)
+	}
+
 	out := PrepOutput{WorkspaceDir: wsDir}
 
-	// Source repo path
-	repoPath := filepath.Join(s.codePath, "core", input.Repo)
+	// Source repo path — sanitise to prevent path traversal
+	repoName := filepath.Base(input.Repo) // strips ../ and absolute paths
+	if repoName == "." || repoName == ".." || repoName == "" {
+		return nil, PrepOutput{}, coreerr.E("prep", "invalid repo name: "+input.Repo, nil)
+	}
+	repoPath := filepath.Join(s.codePath, "core", repoName)
 
 	// 1. Clone repo into src/ and create feature branch
 	srcDir := filepath.Join(wsDir, "src")
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, srcDir)
-	cloneCmd.Run()
+	if err := cloneCmd.Run(); err != nil {
+		return nil, PrepOutput{}, coreerr.E("prep", "git clone failed for "+input.Repo, err)
+	}
 
 	// Create feature branch
 	taskSlug := strings.Map(func(r rune) rune {
@@ -184,11 +197,20 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		taskSlug = taskSlug[:40]
 	}
 	taskSlug = strings.Trim(taskSlug, "-")
+	if taskSlug == "" {
+		// Fallback for issue-only dispatches with no task text
+		taskSlug = fmt.Sprintf("issue-%d", input.Issue)
+		if input.Issue == 0 {
+			taskSlug = fmt.Sprintf("work-%d", time.Now().Unix())
+		}
+	}
 	branchName := fmt.Sprintf("agent/%s", taskSlug)
 
 	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
 	branchCmd.Dir = srcDir
-	branchCmd.Run()
+	if err := branchCmd.Run(); err != nil {
+		return nil, PrepOutput{}, coreerr.E("prep.branch", fmt.Sprintf("failed to create branch %q", branchName), err)
+	}
 	out.Branch = branchName
 
 	// Create context dirs inside src/
@@ -198,33 +220,51 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// Remote stays as local clone origin — agent cannot push to forge.
 	// Reviewer pulls changes from workspace and pushes after verification.
 
-	// 2. Copy CLAUDE.md and GEMINI.md to workspace
+	// 2. Extract workspace template
+	wsTmpl := "default"
+	if input.Template == "security" {
+		wsTmpl = "security"
+	} else if input.Template == "verify" || input.Template == "conventions" {
+		wsTmpl = "review"
+	}
+
+	promptContent, _ := lib.Prompt(input.Template)
+	personaContent := ""
+	if input.Persona != "" {
+		personaContent, _ = lib.Persona(input.Persona)
+	}
+	flowContent, _ := lib.Flow(detectLanguage(repoPath))
+
+	wsData := &lib.WorkspaceData{
+		Repo:     input.Repo,
+		Branch:   branchName,
+		Task:     input.Task,
+		Agent:    "agent",
+		Language: detectLanguage(repoPath),
+		Prompt:   promptContent,
+		Persona:  personaContent,
+		Flow:     flowContent,
+		BuildCmd: detectBuildCmd(repoPath),
+		TestCmd:  detectTestCmd(repoPath),
+	}
+
+	lib.ExtractWorkspace(wsTmpl, srcDir, wsData)
+	out.ClaudeMd = true
+
+	// Copy repo's own CLAUDE.md over template if it exists
 	claudeMdPath := filepath.Join(repoPath, "CLAUDE.md")
 	if data, err := coreio.Local.Read(claudeMdPath); err == nil {
-		coreio.Local.Write(filepath.Join(wsDir, "src", "CLAUDE.md"), data)
-		out.ClaudeMd = true
+		coreio.Local.Write(filepath.Join(srcDir, "CLAUDE.md"), data)
 	}
 	// Copy GEMINI.md from core/agent (ethics framework for all agents)
 	agentGeminiMd := filepath.Join(s.codePath, "core", "agent", "GEMINI.md")
 	if data, err := coreio.Local.Read(agentGeminiMd); err == nil {
-		coreio.Local.Write(filepath.Join(wsDir, "src", "GEMINI.md"), data)
+		coreio.Local.Write(filepath.Join(srcDir, "GEMINI.md"), data)
 	}
 
-	// Copy persona if specified
-	if input.Persona != "" {
-		personaPath := filepath.Join(s.codePath, "core", "agent", "prompts", "personas", input.Persona+".md")
-		if data, err := coreio.Local.Read(personaPath); err == nil {
-			coreio.Local.Write(filepath.Join(wsDir, "src", "PERSONA.md"), data)
-		}
-	}
-
-	// 3. Generate TODO.md
+	// 3. Generate TODO.md from issue (overrides template)
 	if input.Issue > 0 {
 		s.generateTodo(ctx, input.Org, input.Repo, input.Issue, wsDir)
-	} else if input.Task != "" {
-		todo := fmt.Sprintf("# TASK: %s\n\n**Repo:** %s/%s\n**Status:** ready\n\n## Objective\n\n%s\n",
-			input.Task, input.Org, input.Repo, input.Task)
-		coreio.Local.Write(filepath.Join(wsDir, "src", "TODO.md"), todo)
 	}
 
 	// 4. Generate CONTEXT.md from OpenBrain
@@ -257,112 +297,13 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 // --- Prompt templates ---
 
 func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
-	var prompt string
-
-	switch template {
-	case "conventions":
-		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
-
-Read CLAUDE.md for project conventions.
-Review all Go files in src/ for:
-- Error handling: should use coreerr.E() from go-log, not fmt.Errorf or errors.New
-- Compile-time interface checks: var _ Interface = (*Impl)(nil)
-- Import aliasing: stdlib io aliased as goio
-- UK English in comments (colour not color, initialise not initialize)
-- No fmt.Print* debug statements (use go-log)
-- Test coverage gaps
-
-Report findings with file:line references. Do not fix — only report.
-`
-	case "security":
-		prompt = `## SANDBOX: You are restricted to this directory only. No absolute paths, no cd .., no editing outside src/.
-
-Read CLAUDE.md for project context.
-Review all Go files in src/ for security issues:
-- Path traversal vulnerabilities
-- Unvalidated input
-- SQL injection (if applicable)
-- Hardcoded credentials or tokens
-- Unsafe type assertions
-- Missing error checks
-- Race conditions (shared state without mutex)
-- Unsafe use of os/exec
-
-Report findings with severity (critical/high/medium/low) and file:line references.
-`
-	case "verify":
-		prompt = `Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
-
-You are verifying a pull request. The code in src/ contains changes on a feature branch.
-
-## Your Tasks
-
-1. **Run tests**: Execute the project's test suite (go test ./..., composer test, or npm test). Report results.
-2. **Review diff**: Run ` + "`git diff origin/main..HEAD`" + ` to see all changes. Review for:
-   - Correctness: Does the code do what the commit messages say?
-   - Security: Path traversal, injection, hardcoded secrets, unsafe input handling
-   - Conventions: coreerr.E() not fmt.Errorf, go-io not os.ReadFile, UK English
-   - Test coverage: Are new functions tested?
-3. **Verdict**: Write VERDICT.md with:
-   - PASS or FAIL (first line, nothing else)
-   - Summary of findings (if any)
-   - List of issues by severity (critical/high/medium/low)
-
-If PASS: the PR will be auto-merged.
-If FAIL: your findings will be commented on the PR for the original agent to address.
-
-Be strict but fair. A missing test is medium. A security issue is critical. A typo is low.
-
-## SANDBOX BOUNDARY (HARD LIMIT)
-
-You are restricted to the current directory and its subdirectories ONLY.
-- Do NOT use absolute paths
-- Do NOT navigate outside this repository
-`
-	case "coding":
-		prompt = `Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
-Read TODO.md for your task.
-Read PLAN.md if it exists — work through each phase in order.
-Read CONTEXT.md for relevant knowledge from previous sessions.
-Read CONSUMERS.md to understand breaking change risk.
-Read RECENT.md for recent changes.
-
-Work in the src/ directory. Follow the conventions in CLAUDE.md.
-
-## SANDBOX BOUNDARY (HARD LIMIT)
-
-You are restricted to the current directory and its subdirectories ONLY.
-- Do NOT use absolute paths (e.g., /Users/..., /home/...)
-- Do NOT navigate with cd .. or cd /
-- Do NOT edit files outside this repository
-- Do NOT access parent directories or other repos
-- Any path in Edit/Write tool calls MUST be relative to the current directory
-Violation of these rules will cause your work to be rejected.
-
-## Workflow
-
-If PLAN.md exists, you MUST work through it phase by phase:
-1. Complete all tasks in the current phase
-2. STOP and commit before moving on: type(scope): phase N - description
-3. Only then start the next phase
-4. If you are blocked or unsure, write BLOCKED.md explaining the question and stop
-5. Do NOT skip phases or combine multiple phases into one commit
-
-Each phase = one commit. This is not optional.
-
-If no PLAN.md, complete TODO.md as a single unit of work.
-
-## Commit Convention
-
-Commit message format: type(scope): description
-Co-Author: Co-Authored-By: Virgil <virgil@lethean.io>
-
-Do NOT push. Commit only — a reviewer will verify and push.
-`
-	default:
-		prompt = "SANDBOX: Restricted to this directory only. No absolute paths, no cd ..\n\nRead TODO.md and complete the task. Work in src/.\n"
+	prompt, err := lib.Template(template)
+	if err != nil {
+		// Fallback to default template
+		prompt, _ = lib.Template("default")
+		if prompt == "" {
+			prompt = "Read TODO.md and complete the task. Work in src/.\n"
+		}
 	}
 
 	coreio.Local.Write(filepath.Join(wsDir, "src", "PROMPT.md"), prompt)
@@ -373,16 +314,10 @@ Do NOT push. Commit only — a reviewer will verify and push.
 // writePlanFromTemplate loads a YAML plan template, substitutes variables,
 // and writes PLAN.md into the workspace src/ directory.
 func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map[string]string, task string, wsDir string) {
-	// Look for template in core/agent/prompts/templates/
-	templatePath := filepath.Join(s.codePath, "core", "agent", "prompts", "templates", templateSlug+".yaml")
-	data, err := coreio.Local.Read(templatePath)
+	// Load template from embedded prompts package
+	data, err := lib.Template(templateSlug)
 	if err != nil {
-		// Try .yml extension
-		templatePath = filepath.Join(s.codePath, "core", "agent", "prompts", "templates", templateSlug+".yml")
-		data, err = coreio.Local.Read(templatePath)
-		if err != nil {
-			return // Template not found, skip silently
-		}
+		return // Template not found, skip silently
 	}
 
 	content := data
@@ -460,10 +395,14 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return 0
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return 0
+	}
 
 	var pages []struct {
 		Title  string `json:"title"`
@@ -483,7 +422,11 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 		pageReq.Header.Set("Authorization", "token "+s.forgeToken)
 
 		pageResp, err := s.client.Do(pageReq)
-		if err != nil || pageResp.StatusCode != 200 {
+		if err != nil {
+			continue
+		}
+		if pageResp.StatusCode != 200 {
+			pageResp.Body.Close()
 			continue
 		}
 
@@ -545,10 +488,14 @@ func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string)
 	req.Header.Set("Authorization", "Bearer "+s.brainKey)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return 0
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return 0
+	}
 
 	respData, _ := io.ReadAll(resp.Body)
 	var result struct {
@@ -638,10 +585,14 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return
+	}
 
 	var issueData struct {
 		Title string `json:"title"`
@@ -656,4 +607,65 @@ func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issu
 	content += "## Objective\n\n" + issueData.Body + "\n"
 
 	coreio.Local.Write(filepath.Join(wsDir, "src", "TODO.md"), content)
+}
+
+// detectLanguage guesses the primary language from repo contents.
+// Checks in priority order (Go first) to avoid nondeterministic results.
+func detectLanguage(repoPath string) string {
+	checks := []struct {
+		file string
+		lang string
+	}{
+		{"go.mod", "go"},
+		{"composer.json", "php"},
+		{"package.json", "ts"},
+		{"Cargo.toml", "rust"},
+		{"requirements.txt", "py"},
+		{"CMakeLists.txt", "cpp"},
+		{"Dockerfile", "docker"},
+	}
+	for _, c := range checks {
+		if _, err := os.Stat(filepath.Join(repoPath, c.file)); err == nil {
+			return c.lang
+		}
+	}
+	return "go"
+}
+
+func detectBuildCmd(repoPath string) string {
+	switch detectLanguage(repoPath) {
+	case "go":
+		return "go build ./..."
+	case "php":
+		return "composer install"
+	case "ts":
+		return "npm run build"
+	case "py":
+		return "pip install -e ."
+	case "rust":
+		return "cargo build"
+	case "cpp":
+		return "cmake --build ."
+	default:
+		return "go build ./..."
+	}
+}
+
+func detectTestCmd(repoPath string) string {
+	switch detectLanguage(repoPath) {
+	case "go":
+		return "go test ./..."
+	case "php":
+		return "composer test"
+	case "ts":
+		return "npm test"
+	case "py":
+		return "pytest"
+	case "rust":
+		return "cargo test"
+	case "cpp":
+		return "ctest"
+	default:
+		return "go test ./..."
+	}
 }

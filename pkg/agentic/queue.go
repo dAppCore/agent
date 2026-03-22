@@ -42,9 +42,8 @@ type AgentsConfig struct {
 // loadAgentsConfig reads config/agents.yaml from the code path.
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
+		filepath.Join(CoreRoot(), "agents.yaml"),
 		filepath.Join(s.codePath, "core", "agent", "config", "agents.yaml"),
-		filepath.Join(s.codePath, "core", "agent", ".core", "agents.yaml"),
-		filepath.Join(s.codePath, "host-uk", "core", ".core", "agents.yaml"),
 	}
 
 	for _, path := range paths {
@@ -75,7 +74,12 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 // for a given agent type, based on rate config and time of day.
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	cfg := s.loadAgentsConfig()
-	rate, ok := cfg.Rates[agent]
+	// Strip variant suffix (claude:opus → claude) for config lookup
+	base := agent
+	if idx := strings.Index(agent, ":"); idx >= 0 {
+		base = agent[:idx]
+	}
+	rate, ok := cfg.Rates[base]
 	if !ok || rate.SustainedDelay == 0 {
 		return 0
 	}
@@ -104,8 +108,7 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 
 // countRunningByAgent counts running workspaces for a specific agent type.
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {
@@ -122,17 +125,12 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 		if err != nil || st.Status != "running" {
 			continue
 		}
-		// Match on base agent type (gemini:flash matches gemini)
-		stBase := strings.SplitN(st.Agent, ":", 2)[0]
-		if stBase != agent {
+		if baseAgent(st.Agent) != agent {
 			continue
 		}
 
-		if st.PID > 0 {
-			proc, err := os.FindProcess(st.PID)
-			if err == nil && proc.Signal(syscall.Signal(0)) == nil {
-				count++
-			}
+		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+			count++
 		}
 	}
 
@@ -155,16 +153,14 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	return s.countRunningByAgent(base) < limit
 }
 
-// canDispatch is kept for backwards compat.
-func (s *PrepSubsystem) canDispatch() bool {
-	return true
-}
-
 // drainQueue finds the oldest queued workspace and spawns it if a slot is available.
-// Applies rate-based delay between spawns.
+// Applies rate-based delay between spawns. Serialised via drainMu to prevent
+// concurrent drainers from exceeding concurrency limits.
 func (s *PrepSubsystem) drainQueue() {
-	home, _ := os.UserHomeDir()
-	wsRoot := filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	s.drainMu.Lock()
+	defer s.drainMu.Unlock()
+
+	wsRoot := WorkspaceRoot()
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {
@@ -198,7 +194,7 @@ func (s *PrepSubsystem) drainQueue() {
 		}
 
 		srcDir := filepath.Join(wsDir, "src")
-		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the parent directory. Work in this directory."
+		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)
 		if err != nil {

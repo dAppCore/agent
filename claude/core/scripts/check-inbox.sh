@@ -2,7 +2,7 @@
 # Check for new inbox messages since last check.
 # Silent if no new messages. Only outputs when there's something new.
 
-MARKER_FILE="$HOME/Code/host-uk/core/.core/workspace/.inbox-last-id"
+MARKER_FILE="${CORE_WORKSPACE:-$HOME/Code/.core}/workspace/.inbox-last-id"
 BRAIN_KEY=$(cat "$HOME/.claude/brain.key" 2>/dev/null | tr -d '\n')
 
 if [ -z "$BRAIN_KEY" ]; then

@@ -42,26 +42,26 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 		return
 	}
 
-	// Attempt 1: run tests and try to merge
-	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
-	if result == mergeSuccess {
+	// markMerged is a helper to avoid repeating the status update.
+	markMerged := func() {
 		if st2, err := readStatus(wsDir); err == nil {
 			st2.Status = "merged"
 			writeStatus(wsDir, st2)
 		}
+	}
+
+	// Attempt 1: run tests and try to merge
+	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
+	if result == mergeSuccess {
+		markMerged()
 		return
 	}
 
 	// Attempt 2: rebase onto main and retry
 	if result == mergeConflict || result == testFailed {
-		rebaseOK := s.rebaseBranch(srcDir, st.Branch)
-		if rebaseOK {
-			result2 := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
-			if result2 == mergeSuccess {
-				if st2, err := readStatus(wsDir); err == nil {
-					st2.Status = "merged"
-					writeStatus(wsDir, st2)
-				}
+		if s.rebaseBranch(srcDir, st.Branch) {
+			if s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
+				markMerged()
 				return
 			}
 		}
@@ -110,29 +110,40 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 	return mergeSuccess
 }
 
-// rebaseBranch rebases the current branch onto origin/main and force-pushes.
+// rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
-	// Fetch latest main
-	fetch := exec.Command("git", "fetch", "origin", "main")
+	base := gitDefaultBranch(srcDir)
+
+	// Fetch latest default branch
+	fetch := exec.Command("git", "fetch", "origin", base)
 	fetch.Dir = srcDir
 	if err := fetch.Run(); err != nil {
 		return false
 	}
 
-	// Rebase onto main
-	rebase := exec.Command("git", "rebase", "origin/main")
+	// Rebase onto default branch
+	rebase := exec.Command("git", "rebase", "origin/"+base)
 	rebase.Dir = srcDir
-	if out, err := rebase.CombinedOutput(); err != nil {
+	if err := rebase.Run(); err != nil {
 		// Rebase failed — abort and give up
 		abort := exec.Command("git", "rebase", "--abort")
 		abort.Dir = srcDir
 		abort.Run()
-		_ = out
 		return false
 	}
 
-	// Force-push the rebased branch
-	push := exec.Command("git", "push", "--force-with-lease", "origin", branch)
+	// Force-push the rebased branch to Forge (origin is local clone)
+	st, _ := readStatus(filepath.Dir(srcDir))
+	org := "core"
+	repo := ""
+	if st != nil {
+		if st.Org != "" {
+			org = st.Org
+		}
+		repo = st.Repo
+	}
+	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
+	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
 	push.Dir = srcDir
 	return push.Run() == nil
 }
@@ -185,8 +196,9 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels?token=%s", s.forgeURL, org, repo, s.forgeToken)
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
 	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req.Header.Set("Authorization", "token "+s.forgeToken)
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return 0
@@ -260,7 +272,7 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 			cmd2.Dir = srcDir
 			out2, err2 := cmd2.CombinedOutput()
 			if err2 != nil {
-				return verifyResult{passed: true, testCmd: "none", output: "No PHP test runner found"}
+				return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 			}
 			return verifyResult{passed: true, output: string(out2), exitCode: 0, testCmd: "vendor/bin/pest"}
 		}
@@ -340,6 +352,5 @@ func extractPRNumber(prURL string) int {
 
 // fileExists checks if a file exists.
 func fileExists(path string) bool {
-	data, err := coreio.Local.Read(path)
-	return err == nil && data != ""
+	return coreio.Local.IsFile(path)
 }

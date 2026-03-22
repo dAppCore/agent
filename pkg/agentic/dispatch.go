@@ -73,7 +73,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			return "codex", []string{"review", "--base", "HEAD~1"}, nil
 		}
 		// Codex agent mode — autonomous coding
-		return "codex", []string{"--approval-mode", "full-auto", "-q", prompt}, nil
+		return "codex", []string{"exec", "--full-auto", prompt}, nil
 	case "claude":
 		args := []string{
 			"-p", prompt,
@@ -122,15 +122,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
 
+	// Clean up stale BLOCKED.md from previous runs so it doesn't
+	// prevent this run from completing
+	os.Remove(filepath.Join(srcDir, "BLOCKED.md"))
+
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
-		Command:     command,
-		Args:        args,
-		Dir:         srcDir,
-		Env:         []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
-		Detach:      true,
-		KillGroup:   true,
-		Timeout:     30 * time.Minute,
-		GracePeriod: 10 * time.Second,
+		Command: command,
+		Args:    args,
+		Dir:     srcDir,
+		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
+		Detach:  true,
 	})
 	if err != nil {
 		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
@@ -168,37 +169,28 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		finalStatus := "completed"
 		exitCode := proc.Info().ExitCode
 		procStatus := proc.Info().Status
+		question := ""
 
-		// Check for BLOCKED.md (agent is asking a question)
 		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
 		if blockedContent, err := coreio.Local.Read(blockedPath); err == nil && strings.TrimSpace(blockedContent) != "" {
 			finalStatus = "blocked"
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "blocked"
-				st.Question = strings.TrimSpace(blockedContent)
-				st.PID = 0
-				writeStatus(wsDir, st)
-			}
+			question = strings.TrimSpace(blockedContent)
 		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
 			finalStatus = "failed"
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "failed"
-				st.PID = 0
-				if exitCode != 0 {
-					st.Question = fmt.Sprintf("Agent exited with code %d", exitCode)
-				}
-				writeStatus(wsDir, st)
-			}
-		} else {
-			if st, err := readStatus(wsDir); err == nil {
-				st.Status = "completed"
-				st.PID = 0
-				writeStatus(wsDir, st)
+			if exitCode != 0 {
+				question = fmt.Sprintf("Agent exited with code %d", exitCode)
 			}
 		}
 
-		// Emit completion event
-		emitCompletionEvent(agent, filepath.Base(wsDir))
+		if st, err := readStatus(wsDir); err == nil {
+			st.Status = finalStatus
+			st.PID = 0
+			st.Question = question
+			writeStatus(wsDir, st)
+		}
+
+		// Emit completion event with actual status
+		emitCompletionEvent(agent, filepath.Base(wsDir), finalStatus)
 
 		// Notify monitor immediately (push to connected clients)
 		if s.onComplete != nil {
@@ -258,11 +250,11 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	srcDir := filepath.Join(wsDir, "src")
 
 	// The prompt is just: read PROMPT.md and do the work
-	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the parent directory. Work in this directory."
+	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
 
 	if input.DryRun {
 		// Read PROMPT.md for the dry run output
-		promptContent, _ := coreio.Local.Read(filepath.Join(wsDir, "PROMPT.md"))
+		promptContent, _ := coreio.Local.Read(filepath.Join(srcDir, "PROMPT.md"))
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,

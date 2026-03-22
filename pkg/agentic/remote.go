@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -142,6 +143,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		} else if len(rpcResp.Result.Content) > 0 {
 			var dispatchOut DispatchOutput
 			if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &dispatchOut) == nil {
+				output.Success = dispatchOut.Success
 				output.WorkspaceDir = dispatchOut.WorkspaceDir
 				output.PID = dispatchOut.PID
 				output.Agent = dispatchOut.Agent
@@ -193,8 +195,8 @@ func remoteToken(host string) string {
 		fmt.Sprintf("%s/.core/agent-token", home),
 	}
 	for _, f := range tokenFiles {
-		if data, err := os.ReadFile(f); err == nil {
-			return strings.TrimSpace(string(data))
+		if data, err := coreio.Local.Read(f); err == nil {
+			return strings.TrimSpace(data)
 		}
 	}
 

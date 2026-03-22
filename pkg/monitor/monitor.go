@@ -13,32 +13,49 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"dappco.re/go/agent/pkg/agentic"
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// ChannelNotifier pushes events to connected MCP sessions.
+// Matches the Notifier interface in core/mcp without importing it.
+type ChannelNotifier interface {
+	ChannelSend(ctx context.Context, channel string, data any)
+}
+
 // Subsystem implements mcp.Subsystem for background monitoring.
 type Subsystem struct {
 	server   *mcp.Server
+	notifier ChannelNotifier
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 
 	// Track last seen state to only notify on changes
-	lastCompletedCount int
-	lastInboxCount     int
+	seenCompleted      map[string]bool // workspace names we've already notified about
+	completionsSeeded  bool            // true after first completions check
+	lastInboxMaxID     int             // highest message ID seen
+	inboxSeeded        bool            // true after first inbox check
 	lastSyncTimestamp  int64
 	mu                 sync.Mutex
 
 	// Event-driven poke channel — dispatch goroutine sends here on completion
 	poke chan struct{}
+}
+
+// SetNotifier wires up channel event broadcasting.
+func (m *Subsystem) SetNotifier(n ChannelNotifier) {
+	m.notifier = n
 }
 
 // Options configures the monitor.
@@ -53,9 +70,23 @@ func New(opts ...Options) *Subsystem {
 	if len(opts) > 0 && opts[0].Interval > 0 {
 		interval = opts[0].Interval
 	}
+	// Override via env for debugging
+	if envInterval := os.Getenv("MONITOR_INTERVAL"); envInterval != "" {
+		if d, err := time.ParseDuration(envInterval); err == nil {
+			interval = d
+		}
+	}
 	return &Subsystem{
-		interval: interval,
-		poke:     make(chan struct{}, 1),
+		interval:      interval,
+		poke:          make(chan struct{}, 1),
+		seenCompleted: make(map[string]bool),
+	}
+}
+
+// debugChannel sends a debug message via the notifier so it arrives as a channel event.
+func (m *Subsystem) debugChannel(msg string) {
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "monitor.debug", map[string]any{"msg": msg})
 	}
 }
 
@@ -78,6 +109,8 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 func (m *Subsystem) Start(ctx context.Context) {
 	monCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
+
+	fmt.Fprintf(os.Stderr, "monitor: started (interval=%s, notifier=%v)\n", m.interval, m.notifier != nil)
 
 	m.wg.Add(1)
 	go func() {
@@ -141,6 +174,11 @@ func (m *Subsystem) check(ctx context.Context) {
 		messages = append(messages, msg)
 	}
 
+	// Harvest completed workspaces — push branches, check for binaries
+	if msg := m.harvestCompleted(); msg != "" {
+		messages = append(messages, msg)
+	}
+
 	// Check inbox
 	if msg := m.checkInbox(); msg != "" {
 		messages = append(messages, msg)
@@ -168,20 +206,23 @@ func (m *Subsystem) check(ctx context.Context) {
 }
 
 // checkCompletions scans workspace for newly completed agents.
+// Tracks by workspace name (not count) so harvest status rewrites
+// don't suppress future notifications.
 func (m *Subsystem) checkCompletions() string {
-	wsRoot := workspaceRoot()
+	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return ""
 	}
 
-	completed := 0
 	running := 0
 	queued := 0
-	var recentlyCompleted []string
+	var newlyCompleted []string
 
+	m.mu.Lock()
+	seeded := m.completionsSeeded
 	for _, entry := range entries {
-		data, err := os.ReadFile(entry)
+		data, err := coreio.Local.Read(entry)
 		if err != nil {
 			continue
 		}
@@ -190,32 +231,51 @@ func (m *Subsystem) checkCompletions() string {
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 		}
-		if json.Unmarshal(data, &st) != nil {
+		if json.Unmarshal([]byte(data), &st) != nil {
 			continue
 		}
 
+		wsName := filepath.Base(filepath.Dir(entry))
+
 		switch st.Status {
 		case "completed":
-			completed++
-			recentlyCompleted = append(recentlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+			if !m.seenCompleted[wsName] {
+				m.seenCompleted[wsName] = true
+				if seeded {
+					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s)", st.Repo, st.Agent))
+				}
+			}
 		case "running":
 			running++
 		case "queued":
 			queued++
+		case "blocked", "failed":
+			if !m.seenCompleted[wsName] {
+				m.seenCompleted[wsName] = true
+				if seeded {
+					newlyCompleted = append(newlyCompleted, fmt.Sprintf("%s (%s) [%s]", st.Repo, st.Agent, st.Status))
+				}
+			}
 		}
 	}
-
-	m.mu.Lock()
-	prevCompleted := m.lastCompletedCount
-	m.lastCompletedCount = completed
+	m.completionsSeeded = true
 	m.mu.Unlock()
 
-	newCompletions := completed - prevCompleted
-	if newCompletions <= 0 {
+	if len(newlyCompleted) == 0 {
 		return ""
 	}
 
-	msg := fmt.Sprintf("%d agent(s) completed", newCompletions)
+	// Push channel events
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
+			"count":     len(newlyCompleted),
+			"completed": newlyCompleted,
+			"running":   running,
+			"queued":    queued,
+		})
+	}
+
+	msg := fmt.Sprintf("%d agent(s) completed", len(newlyCompleted))
 	if running > 0 {
 		msg += fmt.Sprintf(", %d still running", running)
 	}
@@ -227,72 +287,115 @@ func (m *Subsystem) checkCompletions() string {
 
 // checkInbox checks for unread messages.
 func (m *Subsystem) checkInbox() string {
-	home, _ := os.UserHomeDir()
-	keyFile := filepath.Join(home, ".claude", "brain.key")
-	apiKey, err := os.ReadFile(keyFile)
-	if err != nil {
-		return ""
+	apiKeyStr := os.Getenv("CORE_BRAIN_KEY")
+	if apiKeyStr == "" {
+		home, _ := os.UserHomeDir()
+		keyFile := filepath.Join(home, ".claude", "brain.key")
+		data, err := coreio.Local.Read(keyFile)
+		if err != nil {
+			return ""
+		}
+		apiKeyStr = data
 	}
 
 	// Call the API to check inbox
-	cmd := exec.Command("curl", "-sf",
-		"-H", "Authorization: Bearer "+strings.TrimSpace(string(apiKey)),
-		"https://api.lthn.sh/v1/messages/inbox?agent="+agentName(),
-	)
-	out, err := cmd.Output()
+	apiURL := os.Getenv("CORE_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.lthn.sh"
+	}
+	req, err := http.NewRequest("GET", apiURL+"/v1/messages/inbox?agent="+url.QueryEscape(agentic.AgentName()), nil)
 	if err != nil {
+		return ""
+	}
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKeyStr))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	httpResp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != 200 {
 		return ""
 	}
 
 	var resp struct {
 		Data []struct {
+			ID      int    `json:"id"`
 			Read    bool   `json:"read"`
-			From    string `json:"from_agent"`
+			From    string `json:"from"`
 			Subject string `json:"subject"`
+			Content string `json:"content"`
 		} `json:"data"`
 	}
-	if json.Unmarshal(out, &resp) != nil {
+	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
+		m.debugChannel("checkInbox: failed to decode response")
 		return ""
 	}
 
+	// Find max ID, count unread, collect new messages
+	maxID := 0
 	unread := 0
 	senders := make(map[string]int)
-	latestSubject := ""
+
+	m.mu.Lock()
+	prevMaxID := m.lastInboxMaxID
+	seeded := m.inboxSeeded
+	m.mu.Unlock()
+
+	type newMessage struct {
+		ID      int    `json:"id"`
+		From    string `json:"from"`
+		Subject string `json:"subject"`
+		Content string `json:"content"`
+	}
+	var newMessages []newMessage
+
 	for _, msg := range resp.Data {
+		if msg.ID > maxID {
+			maxID = msg.ID
+		}
 		if !msg.Read {
 			unread++
 			if msg.From != "" {
 				senders[msg.From]++
 			}
-			if latestSubject == "" {
-				latestSubject = msg.Subject
-			}
+		}
+		// Collect messages newer than what we've seen
+		if msg.ID > prevMaxID {
+			newMessages = append(newMessages, newMessage{
+				ID:      msg.ID,
+				From:    msg.From,
+				Subject: msg.Subject,
+				Content: msg.Content,
+			})
 		}
 	}
 
 	m.mu.Lock()
-	prevInbox := m.lastInboxCount
-	m.lastInboxCount = unread
+	m.lastInboxMaxID = maxID
+	m.inboxSeeded = true
 	m.mu.Unlock()
 
-	if unread <= 0 || unread == prevInbox {
+	// First check after startup: seed, don't fire
+	if !seeded {
 		return ""
 	}
 
-	// Write marker file for the PostToolUse hook to pick up
-	var senderList []string
-	for s, count := range senders {
-		if count > 1 {
-			senderList = append(senderList, fmt.Sprintf("%s (%d)", s, count))
-		} else {
-			senderList = append(senderList, s)
-		}
+	// Only fire if there are new messages (higher ID than last seen)
+	if maxID <= prevMaxID || len(newMessages) == 0 {
+		return ""
 	}
-	notify := fmt.Sprintf("📬 %d new message(s) from %s", unread-prevInbox, strings.Join(senderList, ", "))
-	if latestSubject != "" {
-		notify += fmt.Sprintf(" — \"%s\"", latestSubject)
+
+	// Push channel event with full message content
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
+			"new":      len(newMessages),
+			"total":    unread,
+			"messages": newMessages,
+		})
 	}
-	os.WriteFile("/tmp/claude-inbox-notify", []byte(notify), 0644)
 
 	return fmt.Sprintf("%d unread message(s) in inbox", unread)
 }
@@ -315,7 +418,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 
 // agentStatusResource returns current workspace status as a JSON resource.
 func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	wsRoot := workspaceRoot()
+	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return nil, coreerr.E("monitor.agentStatus", "failed to scan workspaces", err)
@@ -331,7 +434,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 
 	var workspaces []wsInfo
 	for _, entry := range entries {
-		data, err := os.ReadFile(entry)
+		data, err := coreio.Local.Read(entry)
 		if err != nil {
 			continue
 		}
@@ -341,7 +444,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			Agent  string `json:"agent"`
 			PRURL  string `json:"pr_url"`
 		}
-		if json.Unmarshal(data, &st) != nil {
+		if json.Unmarshal([]byte(data), &st) != nil {
 			continue
 		}
 		workspaces = append(workspaces, wsInfo{
@@ -363,21 +466,4 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			},
 		},
 	}, nil
-}
-
-func workspaceRoot() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
-}
-
-func agentName() string {
-	if name := os.Getenv("AGENT_NAME"); name != "" {
-		return name
-	}
-	hostname, _ := os.Hostname()
-	h := strings.ToLower(hostname)
-	if strings.Contains(h, "snider") || strings.Contains(h, "studio") || strings.Contains(h, "mac") {
-		return "cladius"
-	}
-	return "charon"
 }

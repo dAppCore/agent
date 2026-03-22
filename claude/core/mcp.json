@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "core": {
-      "type": "http",
-      "url": "https://mcp.lthn.sh",
-      "headers": {
-        "Authorization": "Bearer $CORE_BRAIN_KEY"
-      },
-      "allowedEnvVars": ["CORE_BRAIN_KEY"]
+      "type": "stdio",
+      "command": "core-agent",
+      "args": ["mcp"],
+      "env": {
+        "MONITOR_INTERVAL": "15s"
+      }
     }
   }
 }

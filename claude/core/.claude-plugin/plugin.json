@@ -1,13 +1,13 @@
 {
-  "name": "core",
+  "name": "CoreAgent",
   "description": "Core agent platform — dispatch (local + remote), verify+merge, CodeRabbit/Codex review queue, GitHub mirror, cross-agent messaging, OpenBrain integration, inbox notifications",
-  "version": "0.9.0",
+  "version": "0.13.0",
   "author": {
-    "name": "Lethean",
-    "email": "hello@host.uk.com"
+    "name": "Lethean Community",
+    "email": "hello@lethean.io"
   },
-  "homepage": "https://forge.lthn.ai/core/agent",
-  "repository": "https://forge.lthn.ai/core/agent.git",
+  "homepage": "https://dappco.re/agent/claude",
+  "repository": "https://github.com/dAppCore/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
     "agentic",
@@ -18,11 +18,5 @@
     "codex",
     "messaging",
     "openbrain"
-  ],
-  "hooks": [
-    {
-      "event": "PostToolUse",
-      "script": "${CLAUDE_PLUGIN_ROOT}/scripts/check-notify.sh"
-    }
   ]
 }

@@ -5,6 +5,7 @@ package brain
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -102,7 +103,7 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 	if agent == "" {
 		agent = agentName()
 	}
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+agent, nil)
+	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+url.QueryEscape(agent), nil)
 	if err != nil {
 		return nil, InboxOutput{}, err
 	}
@@ -118,7 +119,7 @@ func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolReque
 		return nil, ConversationOutput{}, coreerr.E("brain.conversation", "agent is required", nil)
 	}
 
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+input.Agent+"?me="+agentName(), nil)
+	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+url.PathEscape(input.Agent)+"?me="+url.QueryEscape(agentName()), nil)
 	if err != nil {
 		return nil, ConversationOutput{}, err
 	}
@@ -135,7 +136,7 @@ func parseMessages(result map[string]any) []MessageItem {
 	for _, m := range data {
 		mm, _ := m.(map[string]any)
 		messages = append(messages, MessageItem{
-			ID:        int(mm["id"].(float64)),
+			ID:        toInt(mm["id"]),
 			From:      fmt.Sprintf("%v", mm["from"]),
 			To:        fmt.Sprintf("%v", mm["to"]),
 			Subject:   fmt.Sprintf("%v", mm["subject"]),
@@ -145,4 +146,11 @@ func parseMessages(result map[string]any) []MessageItem {
 		})
 	}
 	return messages
+}
+
+func toInt(v any) int {
+	if f, ok := v.(float64); ok {
+		return int(f)
+	}
+	return 0
 }

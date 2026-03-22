@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -133,6 +132,27 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 					})
 				}
 
+			case "merged", "ready-for-review":
+				result := WatchResult{
+					Workspace: ws,
+					Agent:     st.Agent,
+					Repo:      st.Repo,
+					Status:    st.Status,
+					PRURL:     st.PRURL,
+				}
+				completed = append(completed, result)
+				delete(remaining, ws)
+				progressCount++
+
+				if progressToken != nil && req.Session != nil {
+					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+						ProgressToken: progressToken,
+						Progress:      progressCount,
+						Total:         total,
+						Message:       fmt.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+					})
+				}
+
 			case "failed", "blocked":
 				result := WatchResult{
 					Workspace: ws,
@@ -166,7 +186,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 // findActiveWorkspaces returns workspace names that are running or queued.
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
-	wsRoot := s.workspaceRoot()
+	wsRoot := WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
 		return nil
@@ -191,11 +211,5 @@ func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
 	if filepath.IsAbs(name) {
 		return name
 	}
-	return filepath.Join(s.workspaceRoot(), name)
-}
-
-// workspaceRoot returns the root directory for agent workspaces.
-func (s *PrepSubsystem) workspaceRoot() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Code", "host-uk", "core", ".core", "workspace")
+	return filepath.Join(WorkspaceRoot(), name)
 }

@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	coreerr "forge.lthn.ai/core/go-log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -88,14 +87,15 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		fetchCmd.Dir = repoDir
 		fetchCmd.Run()
 
-		// Check how far ahead we are
-		ahead := commitsAhead(repoDir, "github/main", "HEAD")
+		// Check how far ahead local default branch is vs github
+		localBase := gitDefaultBranch(repoDir)
+		ahead := commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
 			continue // Already in sync
 		}
 
 		// Count files changed
-		files := filesChanged(repoDir, "github/main", "HEAD")
+		files := filesChanged(repoDir, "github/main", localBase)
 
 		sync := MirrorSync{
 			Repo:         repo,
@@ -119,8 +119,9 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		// Ensure dev branch exists on GitHub
 		ensureDevBranch(repoDir)
 
-		// Push local main to github dev
-		pushCmd := exec.CommandContext(ctx, "git", "push", "github", "HEAD:refs/heads/dev", "--force")
+		// Push local main to github dev (explicit main, not HEAD)
+		base := gitDefaultBranch(repoDir)
+		pushCmd := exec.CommandContext(ctx, "git", "push", "github", base+":refs/heads/dev", "--force")
 		pushCmd.Dir = repoDir
 		if err := pushCmd.Run(); err != nil {
 			sync.Skipped = fmt.Sprintf("push failed: %v", err)
@@ -151,7 +152,8 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 // createGitHubPR creates a PR from dev → main using the gh CLI.
 func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
 	// Check if there's already an open PR from dev
-	checkCmd := exec.CommandContext(ctx, "gh", "pr", "list", "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
+	ghRepo := fmt.Sprintf("%s/%s", GitHubOrg(), repo)
+	checkCmd := exec.CommandContext(ctx, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
 	checkCmd.Dir = repoDir
 	out, err := checkCmd.Output()
 	if err == nil && strings.Contains(string(out), "url") {
@@ -176,6 +178,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	title := fmt.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
 
 	prCmd := exec.CommandContext(ctx, "gh", "pr", "create",
+		"--repo", ghRepo,
 		"--head", "dev",
 		"--base", "main",
 		"--title", title,
@@ -199,7 +202,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 // ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
 func ensureDevBranch(repoDir string) {
 	// Try to push current main as dev — if dev exists this is a no-op (we force-push later)
-	cmd := exec.Command("git", "push", "github", "HEAD:refs/heads/dev", "--no-force")
+	cmd := exec.Command("git", "push", "github", "HEAD:refs/heads/dev")
 	cmd.Dir = repoDir
 	cmd.Run() // Ignore error — branch may already exist
 }
@@ -274,5 +277,3 @@ func extractJSONField(jsonStr, field string) string {
 	return jsonStr[start : start+end]
 }
 
-// Ensure time is imported (used by other files in package).
-var _ = time.Now

@@ -94,7 +94,11 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		}
 
 		repoDir := filepath.Join(basePath, repo)
-		result := s.reviewRepo(ctx, repoDir, repo, input.DryRun, input.LocalOnly)
+		reviewer := input.Reviewer
+		if reviewer == "" {
+			reviewer = "coderabbit"
+		}
+		result := s.reviewRepo(ctx, repoDir, repo, reviewer, input.DryRun, input.LocalOnly)
 
 		// Parse rate limit from result
 		if result.Verdict == "rate_limited" {
@@ -150,7 +154,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 }
 
 // reviewRepo runs CodeRabbit on a single repo and takes action.
-func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo string, dryRun, localOnly bool) ReviewResult {
+func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer string, dryRun, localOnly bool) ReviewResult {
 	result := ReviewResult{Repo: repo}
 
 	// Check saved rate limit
@@ -160,8 +164,10 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo string, dr
 		return result
 	}
 
-	// Run reviewer CLI locally
-	reviewer := "coderabbit" // default, can be overridden by caller
+	// Run reviewer CLI locally — use the reviewer passed from reviewQueue
+	if reviewer == "" {
+		reviewer = "coderabbit"
+	}
 	cmd := s.buildReviewCommand(ctx, repoDir, reviewer)
 	out, err := cmd.CombinedOutput()
 	output := string(out)
@@ -225,8 +231,12 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo string, dr
 			"Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
 
-		s.dispatchFixFromQueue(ctx, repo, task)
-		result.Action = "fix_dispatched"
+		if err := s.dispatchFixFromQueue(ctx, repo, task); err != nil {
+			result.Action = "fix_dispatch_failed"
+			result.Detail = err.Error()
+		} else {
+			result.Action = "fix_dispatched"
+		}
 	}
 
 	return result
@@ -242,12 +252,12 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	}
 
 	// Mark PR ready if draft
-	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "1")
+	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
 	readyCmd.Dir = repoDir
 	readyCmd.Run() // Ignore error — might already be ready
 
 	// Try to merge
-	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "1", "--merge", "--delete-branch")
+	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "--merge", "--delete-branch")
 	mergeCmd.Dir = repoDir
 	if out, err := mergeCmd.CombinedOutput(); err != nil {
 		return coreerr.E("pushAndMerge", "merge failed: "+string(out), err)
@@ -257,14 +267,21 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 }
 
 // dispatchFixFromQueue dispatches an opus agent to fix CodeRabbit findings.
-func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) {
+func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) error {
 	// Use the dispatch system — creates workspace, spawns agent
 	input := DispatchInput{
 		Repo:  repo,
 		Task:  task,
 		Agent: "claude:opus",
 	}
-	s.dispatch(ctx, nil, input)
+	_, out, err := s.dispatch(ctx, nil, input)
+	if err != nil {
+		return err
+	}
+	if !out.Success {
+		return coreerr.E("dispatchFixFromQueue", "dispatch failed for "+repo, nil)
+	}
+	return nil
 }
 
 // countFindings estimates the number of findings in CodeRabbit output.
@@ -306,7 +323,9 @@ func parseRetryAfter(message string) time.Duration {
 func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewer string) *exec.Cmd {
 	switch reviewer {
 	case "codex":
-		return exec.CommandContext(ctx, "codex", "review", "--base", "github/main")
+		cmd := exec.CommandContext(ctx, "codex", "review", "--base", "github/main")
+		cmd.Dir = repoDir
+		return cmd
 	default: // coderabbit
 		return exec.CommandContext(ctx, "coderabbit", "review", "--plain",
 			"--base", "github/main", "--config", "CLAUDE.md", "--cwd", repoDir)
@@ -339,8 +358,11 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonLine, _ := json.Marshal(entry)
 
 	jsonlPath := filepath.Join(dataDir, "reviews.jsonl")
-	existing, _ := coreio.Local.Read(jsonlPath)
-	coreio.Local.Write(jsonlPath, existing+string(jsonLine)+"\n")
+	f, err := os.OpenFile(jsonlPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer f.Close()
+		f.Write(append(jsonLine, '\n'))
+	}
 }
 
 // saveRateLimitState persists rate limit info for cross-run awareness.

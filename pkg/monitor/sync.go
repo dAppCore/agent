@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"dappco.re/go/agent/pkg/agentic"
+	coreio "forge.lthn.ai/core/go-io"
 )
 
 // CheckinResponse is what the API returns for an agent checkin.
@@ -36,11 +40,11 @@ func (m *Subsystem) syncRepos() string {
 		apiURL = "https://api.lthn.sh"
 	}
 
-	agentName := agentName()
+	agentName := agentic.AgentName()
 
-	url := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, agentName, m.lastSyncTimestamp)
+	checkinURL := fmt.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, neturl.QueryEscape(agentName), m.lastSyncTimestamp)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", checkinURL, nil)
 	if err != nil {
 		return ""
 	}
@@ -49,15 +53,16 @@ func (m *Subsystem) syncRepos() string {
 	brainKey := os.Getenv("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		home, _ := os.UserHomeDir()
-		if data, err := os.ReadFile(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			brainKey = strings.TrimSpace(string(data))
+		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
+			brainKey = strings.TrimSpace(data)
 		}
 	}
 	if brainKey != "" {
 		req.Header.Set("Authorization", "Bearer "+brainKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return ""
 	}
@@ -72,12 +77,11 @@ func (m *Subsystem) syncRepos() string {
 		return ""
 	}
 
-	// Update timestamp for next checkin
-	m.mu.Lock()
-	m.lastSyncTimestamp = checkin.Timestamp
-	m.mu.Unlock()
-
 	if len(checkin.Changed) == 0 {
+		// No changes — safe to advance timestamp
+		m.mu.Lock()
+		m.lastSyncTimestamp = checkin.Timestamp
+		m.mu.Unlock()
 		return ""
 	}
 
@@ -90,17 +94,35 @@ func (m *Subsystem) syncRepos() string {
 
 	var pulled []string
 	for _, repo := range checkin.Changed {
-		repoDir := filepath.Join(basePath, repo.Repo)
+		// Sanitise repo name to prevent path traversal from API response
+		repoName := filepath.Base(repo.Repo)
+		if repoName == "." || repoName == ".." || repoName == "" {
+			continue
+		}
+		repoDir := filepath.Join(basePath, repoName)
 		if _, err := os.Stat(repoDir); err != nil {
 			continue
 		}
 
-		// Check if we're already on main and clean
+		// Check if on the default branch and clean
 		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 		branchCmd.Dir = repoDir
-		branch, err := branchCmd.Output()
-		if err != nil || strings.TrimSpace(string(branch)) != "main" {
-			continue // Don't pull if not on main
+		currentBranch, err := branchCmd.Output()
+		if err != nil {
+			continue
+		}
+		current := strings.TrimSpace(string(currentBranch))
+
+		// Determine which branch to pull — use server-reported branch,
+		// fall back to current if server didn't specify
+		targetBranch := repo.Branch
+		if targetBranch == "" {
+			targetBranch = current
+		}
+
+		// Only pull if we're on the target branch (or it's a default branch)
+		if current != targetBranch {
+			continue // On a different branch — skip
 		}
 
 		statusCmd := exec.Command("git", "status", "--porcelain")
@@ -110,12 +132,22 @@ func (m *Subsystem) syncRepos() string {
 			continue // Don't pull if dirty
 		}
 
-		// Fast-forward pull
-		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", "main")
+		// Fast-forward pull the target branch
+		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", targetBranch)
 		pullCmd.Dir = repoDir
 		if pullCmd.Run() == nil {
 			pulled = append(pulled, repo.Repo)
 		}
+	}
+
+	// Only advance timestamp if we handled all reported repos.
+	// If any were skipped (dirty, wrong branch, missing), keep the
+	// old timestamp so the server reports them again next cycle.
+	skipped := len(checkin.Changed) - len(pulled)
+	if skipped == 0 {
+		m.mu.Lock()
+		m.lastSyncTimestamp = checkin.Timestamp
+		m.mu.Unlock()
 	}
 
 	if len(pulled) == 0 {
