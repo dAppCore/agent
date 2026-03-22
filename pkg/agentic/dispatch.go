@@ -124,7 +124,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	outputFile := core.JoinPath(metaDir, core.Sprintf("agent-%s.log", agent))
+	// Use base agent name for log file — colon in variants breaks paths
+	agentBase := core.SplitN(agent, ":", 2)[0]
+	outputFile := core.JoinPath(metaDir, core.Sprintf("agent-%s.log", agentBase))
 
 	// Clean up stale BLOCKED.md from previous runs
 	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
