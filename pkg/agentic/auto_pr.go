@@ -22,7 +22,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	srcDir := filepath.Join(wsDir, "src")
 
 	// Detect default branch for this repo
-	base := gitDefaultBranch(srcDir)
+	base := DefaultBranch(srcDir)
 
 	// Check if there are commits on the branch beyond the default branch
 	diffCmd := exec.Command("git", "log", "--oneline", "origin/"+base+"..HEAD")
