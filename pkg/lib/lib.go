@@ -14,104 +14,134 @@
 //
 // Usage:
 //
-//	prompt, _ := lib.Prompt("coding")
-//	task, _ := lib.Task("code/review")
-//	persona, _ := lib.Persona("secops/developer")
-//	flow, _ := lib.Flow("go")
+//	r := lib.Prompt("coding")        // r.Value.(string)
+//	r := lib.Task("code/review")     // r.Value.(string)
+//	r := lib.Persona("secops/dev")   // r.Value.(string)
+//	r := lib.Flow("go")              // r.Value.(string)
 //	lib.ExtractWorkspace("default", "/tmp/ws", data)
 package lib
 
 import (
-	"bytes"
 	"embed"
 	"io/fs"
-	"os"
 	"path/filepath"
-	"text/template"
 
 	core "dappco.re/go/core"
 )
 
-//go:embed prompt/*.md
-var promptFS embed.FS
+//go:embed all:prompt
+var promptFiles embed.FS
 
 //go:embed all:task
-var taskFS embed.FS
+var taskFiles embed.FS
 
-//go:embed flow/*.md
-var flowFS embed.FS
+//go:embed all:flow
+var flowFiles embed.FS
 
-//go:embed persona
-var personaFS embed.FS
+//go:embed all:persona
+var personaFiles embed.FS
 
 //go:embed all:workspace
-var workspaceFS embed.FS
+var workspaceFiles embed.FS
+
+var (
+	promptFS    = mustMount(promptFiles, "prompt")
+	taskFS      = mustMount(taskFiles, "task")
+	flowFS      = mustMount(flowFiles, "flow")
+	personaFS   = mustMount(personaFiles, "persona")
+	workspaceFS = mustMount(workspaceFiles, "workspace")
+)
+
+func mustMount(fsys embed.FS, basedir string) *core.Embed {
+	r := core.Mount(fsys, basedir)
+	if !r.OK {
+		panic(r.Value)
+	}
+	return r.Value.(*core.Embed)
+}
 
 // --- Prompts ---
 
 // Template tries Prompt then Task (backwards compat).
-func Template(slug string) (string, error) {
-	if content, err := Prompt(slug); err == nil {
-		return content, nil
+//
+//	r := lib.Template("coding")
+//	if r.OK { content := r.Value.(string) }
+func Template(slug string) core.Result {
+	if r := Prompt(slug); r.OK {
+		return r
 	}
 	return Task(slug)
 }
 
-func Prompt(slug string) (string, error) {
-	data, err := promptFS.ReadFile("prompt/" + slug + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Prompt reads a system prompt by slug.
+//
+//	r := lib.Prompt("coding")
+//	if r.OK { content := r.Value.(string) }
+func Prompt(slug string) core.Result {
+	return promptFS.ReadString(slug + ".md")
 }
 
-func Task(slug string) (string, error) {
+// Task reads a structured task plan by slug. Tries .md, .yaml, .yml.
+//
+//	r := lib.Task("code/review")
+//	if r.OK { content := r.Value.(string) }
+func Task(slug string) core.Result {
 	for _, ext := range []string{".md", ".yaml", ".yml"} {
-		data, err := taskFS.ReadFile("task/" + slug + ext)
-		if err == nil {
-			return string(data), nil
+		if r := taskFS.ReadString(slug + ext); r.OK {
+			return r
 		}
 	}
-	return "", fs.ErrNotExist
+	return core.Result{Value: fs.ErrNotExist}
 }
 
-func TaskBundle(slug string) (string, map[string]string, error) {
-	main, err := Task(slug)
-	if err != nil {
-		return "", nil, err
+// Bundle holds a task's main content plus companion files.
+//
+//	r := lib.TaskBundle("code/review")
+//	if r.OK { b := r.Value.(lib.Bundle) }
+type Bundle struct {
+	Main  string
+	Files map[string]string
+}
+
+// TaskBundle reads a task and its companion files.
+//
+//	r := lib.TaskBundle("code/review")
+//	if r.OK { b := r.Value.(lib.Bundle) }
+func TaskBundle(slug string) core.Result {
+	main := Task(slug)
+	if !main.OK {
+		return main
 	}
-	bundleDir := "task/" + slug
-	entries, err := fs.ReadDir(taskFS, bundleDir)
-	if err != nil {
-		return main, nil, nil
+	b := Bundle{Main: main.Value.(string), Files: make(map[string]string)}
+	r := taskFS.ReadDir(slug)
+	if !r.OK {
+		return core.Result{Value: b, OK: true}
 	}
-	bundle := make(map[string]string)
-	for _, e := range entries {
+	for _, e := range r.Value.([]fs.DirEntry) {
 		if e.IsDir() {
 			continue
 		}
-		data, err := taskFS.ReadFile(bundleDir + "/" + e.Name())
-		if err == nil {
-			bundle[e.Name()] = string(data)
+		if fr := taskFS.ReadString(slug + "/" + e.Name()); fr.OK {
+			b.Files[e.Name()] = fr.Value.(string)
 		}
 	}
-	return main, bundle, nil
+	return core.Result{Value: b, OK: true}
 }
 
-func Flow(slug string) (string, error) {
-	data, err := flowFS.ReadFile("flow/" + slug + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Flow reads a build/release workflow by slug.
+//
+//	r := lib.Flow("go")
+//	if r.OK { content := r.Value.(string) }
+func Flow(slug string) core.Result {
+	return flowFS.ReadString(slug + ".md")
 }
 
-func Persona(path string) (string, error) {
-	data, err := personaFS.ReadFile("persona/" + path + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Persona reads a domain/role persona by path.
+//
+//	r := lib.Persona("secops/developer")
+//	if r.OK { content := r.Value.(string) }
+func Persona(path string) core.Result {
+	return personaFS.ReadString(path + ".md")
 }
 
 // --- Workspace Templates ---
@@ -138,67 +168,36 @@ type WorkspaceData struct {
 // ExtractWorkspace creates an agent workspace from a template.
 // Template names: "default", "security", "review".
 func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
-	wsDir := "workspace/" + tmplName
-
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return err
+	r := workspaceFS.Sub(tmplName)
+	if !r.OK {
+		if err, ok := r.Value.(error); ok {
+			return err
+		}
+		return core.E("ExtractWorkspace", "template not found: "+tmplName, nil)
 	}
-
-	return fs.WalkDir(workspaceFS, wsDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+	result := core.Extract(r.Value.(*core.Embed).FS(), targetDir, data)
+	if !result.OK {
+		if err, ok := result.Value.(error); ok {
 			return err
 		}
-
-		// Get relative path from template root
-		rel, err := filepath.Rel(wsDir, path)
-		if err != nil || rel == "." {
-			return nil
-		}
-
-		targetPath := filepath.Join(targetDir, rel)
-
-		if d.IsDir() {
-			return os.MkdirAll(targetPath, 0755)
-		}
-
-		content, err := fs.ReadFile(workspaceFS, path)
-		if err != nil {
-			return err
-		}
-
-		// Process .tmpl files through text/template
-		outputName := filepath.Base(targetPath)
-		if core.HasSuffix(outputName, ".tmpl") {
-			outputName = core.TrimSuffix(outputName, ".tmpl")
-			targetPath = filepath.Join(filepath.Dir(targetPath), outputName)
-			tmpl, err := template.New(outputName).Parse(string(content))
-			if err != nil {
-				return err
-			}
-			var buf bytes.Buffer
-			if err := tmpl.Execute(&buf, data); err != nil {
-				return err
-			}
-			content = buf.Bytes()
-		}
-
-		return os.WriteFile(targetPath, content, 0644)
-	})
+	}
+	return nil
 }
 
 // --- List Functions ---
 
-func ListPrompts() []string    { return listDir(promptFS, "prompt") }
-func ListFlows() []string      { return listDir(flowFS, "flow") }
-func ListWorkspaces() []string { return listDir(workspaceFS, "workspace") }
+func ListPrompts() []string    { return listDir(promptFS) }
+func ListFlows() []string      { return listDir(flowFS) }
+func ListWorkspaces() []string { return listDir(workspaceFS) }
 
 func ListTasks() []string {
 	var slugs []string
-	fs.WalkDir(taskFS, "task", func(path string, d fs.DirEntry, err error) error {
+	base := taskFS.BaseDirectory()
+	fs.WalkDir(taskFS.FS(), base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		rel := core.TrimPrefix(path, "task/")
+		rel := core.TrimPrefix(path, base+"/")
 		ext := filepath.Ext(rel)
 		slugs = append(slugs, core.TrimSuffix(rel, ext))
 		return nil
@@ -208,12 +207,13 @@ func ListTasks() []string {
 
 func ListPersonas() []string {
 	var paths []string
-	fs.WalkDir(personaFS, "persona", func(path string, d fs.DirEntry, err error) error {
+	base := personaFS.BaseDirectory()
+	fs.WalkDir(personaFS.FS(), base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		if core.HasSuffix(path, ".md") {
-			rel := core.TrimPrefix(path, "persona/")
+			rel := core.TrimPrefix(path, base+"/")
 			rel = core.TrimSuffix(rel, ".md")
 			paths = append(paths, rel)
 		}
@@ -222,13 +222,13 @@ func ListPersonas() []string {
 	return paths
 }
 
-func listDir(fsys embed.FS, dir string) []string {
-	entries, err := fsys.ReadDir(dir)
-	if err != nil {
+func listDir(emb *core.Embed) []string {
+	r := emb.ReadDir(".")
+	if !r.OK {
 		return nil
 	}
 	var slugs []string
-	for _, e := range entries {
+	for _, e := range r.Value.([]fs.DirEntry) {
 		name := e.Name()
 		if e.IsDir() {
 			slugs = append(slugs, name)
