@@ -19,10 +19,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// agentName returns the identity of this agent.
-func agentName() string {
-	return agentic.AgentName()
-}
+// fs provides unrestricted filesystem access for the brain package.
+var fs = agentic.LocalFs()
 
 // DirectSubsystem implements mcp.Subsystem for OpenBrain via direct HTTP calls.
 // Unlike Subsystem (which uses the IDE WebSocket bridge), this calls the
@@ -138,7 +136,7 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 		"type":     input.Type,
 		"tags":     input.Tags,
 		"project":  input.Project,
-		"agent_id": agentName(),
+		"agent_id": agentic.AgentName(),
 	})
 	if err != nil {
 		return nil, RememberOutput{}, err

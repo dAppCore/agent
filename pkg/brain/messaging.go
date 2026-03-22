@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	core "dappco.re/go/core"
+	"dappco.re/go/agent/pkg/agentic"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -80,7 +81,7 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 
 	result, err := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
 		"to":      input.To,
-		"from":    agentName(),
+		"from":    agentic.AgentName(),
 		"content": input.Content,
 		"subject": input.Subject,
 	})
@@ -101,7 +102,7 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, input InboxInput) (*mcp.CallToolResult, InboxOutput, error) {
 	agent := input.Agent
 	if agent == "" {
-		agent = agentName()
+		agent = agentic.AgentName()
 	}
 	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+url.QueryEscape(agent), nil)
 	if err != nil {
@@ -119,7 +120,7 @@ func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolReque
 		return nil, ConversationOutput{}, core.E("brain.conversation", "agent is required", nil)
 	}
 
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+url.PathEscape(input.Agent)+"?me="+url.QueryEscape(agentName()), nil)
+	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+url.PathEscape(input.Agent)+"?me="+url.QueryEscape(agentic.AgentName()), nil)
 	if err != nil {
 		return nil, ConversationOutput{}, err
 	}
