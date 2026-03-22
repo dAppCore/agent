@@ -11,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -50,13 +49,13 @@ func (s *PrepSubsystem) registerRemoteDispatchTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolRequest, input RemoteDispatchInput) (*mcp.CallToolResult, RemoteDispatchOutput, error) {
 	if input.Host == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "host is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "host is required", nil)
 	}
 	if input.Repo == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "repo is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "repo is required", nil)
 	}
 	if input.Task == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "task is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "task is required", nil)
 	}
 
 	// Resolve host aliases
@@ -105,7 +104,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
 			Error: fmt.Sprintf("init failed: %v", err),
-		}, coreerr.E("dispatchRemote", "MCP initialize failed", err)
+		}, core.E("dispatchRemote", "MCP initialize failed", err)
 	}
 
 	// Step 2: Call the tool
@@ -115,7 +114,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
 			Error: fmt.Sprintf("call failed: %v", err),
-		}, coreerr.E("dispatchRemote", "tool call failed", err)
+		}, core.E("dispatchRemote", "tool call failed", err)
 	}
 
 	// Parse result
@@ -195,8 +194,8 @@ func remoteToken(host string) string {
 		fmt.Sprintf("%s/.core/agent-token", home),
 	}
 	for _, f := range tokenFiles {
-		if data, err := coreio.Local.Read(f); err == nil {
-			return strings.TrimSpace(data)
+		if r := fs.Read(f); r.OK {
+			return strings.TrimSpace(r.Value.(string))
 		}
 	}
 

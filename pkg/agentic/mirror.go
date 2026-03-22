@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -88,7 +88,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		fetchCmd.Run()
 
 		// Check how far ahead local default branch is vs github
-		localBase := gitDefaultBranch(repoDir)
+		localBase := DefaultBranch(repoDir)
 		ahead := commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
 			continue // Already in sync
@@ -120,7 +120,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		ensureDevBranch(repoDir)
 
 		// Push local main to github dev (explicit main, not HEAD)
-		base := gitDefaultBranch(repoDir)
+		base := DefaultBranch(repoDir)
 		pushCmd := exec.CommandContext(ctx, "git", "push", "github", base+":refs/heads/dev", "--force")
 		pushCmd.Dir = repoDir
 		if err := pushCmd.Run(); err != nil {
@@ -187,7 +187,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	prCmd.Dir = repoDir
 	prOut, err := prCmd.CombinedOutput()
 	if err != nil {
-		return "", coreerr.E("createGitHubPR", string(prOut), err)
+		return "", core.E("createGitHubPR", string(prOut), err)
 	}
 
 	// gh pr create outputs the PR URL on the last line

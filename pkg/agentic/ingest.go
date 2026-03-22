@@ -10,8 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	coreio "dappco.re/go/core/io"
 )
 
 // ingestFindings reads the agent output log and creates issues via the API
@@ -28,12 +26,12 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 		return
 	}
 
-	contentStr, err := coreio.Local.Read(logFiles[0])
-	if err != nil || len(contentStr) < 100 {
+	r := fs.Read(logFiles[0])
+	if !r.OK || len(r.Value.(string)) < 100 {
 		return
 	}
 
-	body := contentStr
+	body := r.Value.(string)
 
 	// Skip quota errors
 	if strings.Contains(body, "QUOTA_EXHAUSTED") || strings.Contains(body, "QuotaError") {
@@ -95,11 +93,11 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 
 	// Read the agent API key from file
 	home, _ := os.UserHomeDir()
-	apiKeyStr, err := coreio.Local.Read(filepath.Join(home, ".claude", "agent-api.key"))
-	if err != nil {
+	r := fs.Read(filepath.Join(home, ".claude", "agent-api.key"))
+	if !r.OK {
 		return
 	}
-	apiKey := strings.TrimSpace(apiKeyStr)
+	apiKey := strings.TrimSpace(r.Value.(string))
 
 	payload, _ := json.Marshal(map[string]string{
 		"title":       title,

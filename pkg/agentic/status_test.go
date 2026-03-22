@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	coreio "dappco.re/go/core/io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,12 +26,12 @@ func TestWriteStatus_Good(t *testing.T) {
 	err := writeStatus(dir, status)
 	require.NoError(t, err)
 
-	// Verify file was written via coreio
-	data, err := coreio.Local.Read(filepath.Join(dir, "status.json"))
-	require.NoError(t, err)
+	// Verify file was written via core.Fs
+	r := fs.Read(filepath.Join(dir, "status.json"))
+	require.True(t, r.OK)
 
 	var read WorkspaceStatus
-	err = json.Unmarshal([]byte(data), &read)
+	err = json.Unmarshal([]byte(r.Value.(string)), &read)
 	require.NoError(t, err)
 
 	assert.Equal(t, "running", read.Status)
@@ -77,7 +75,7 @@ func TestReadStatus_Good(t *testing.T) {
 
 	data, err := json.MarshalIndent(status, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "status.json"), string(data)))
+	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
 
 	read, err := readStatus(dir)
 	require.NoError(t, err)
@@ -99,7 +97,7 @@ func TestReadStatus_Bad_NoFile(t *testing.T) {
 
 func TestReadStatus_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "status.json"), "not json{"))
+	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "not json{").OK)
 
 	_, err := readStatus(dir)
 	assert.Error(t, err)
@@ -117,7 +115,7 @@ func TestReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 
 	data, err := json.MarshalIndent(status, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "status.json"), string(data)))
+	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
 
 	read, err := readStatus(dir)
 	require.NoError(t, err)
@@ -177,7 +175,7 @@ func TestWriteStatus_Good_OverwriteExisting(t *testing.T) {
 
 func TestReadStatus_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "status.json"), ""))
+	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "").OK)
 
 	_, err := readStatus(dir)
 	assert.Error(t, err)

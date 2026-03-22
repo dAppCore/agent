@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	core "dappco.re/go/core"
 	"bufio"
 	"bytes"
 	"context"
@@ -11,7 +12,6 @@ import (
 	"net/http"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
 )
 
 // mcpInitialize performs the MCP initialize handshake over Streamable HTTP.
@@ -35,18 +35,18 @@ func mcpInitialize(ctx context.Context, client *http.Client, url, token string) 
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
-		return "", coreerr.E("mcpInitialize", "create request", err)
+		return "", core.E("mcpInitialize", "create request", err)
 	}
 	setHeaders(req, token, "")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", coreerr.E("mcpInitialize", "request failed", err)
+		return "", core.E("mcpInitialize", "request failed", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", coreerr.E("mcpInitialize", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
+		return "", core.E("mcpInitialize", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
 	}
 
 	sessionID := resp.Header.Get("Mcp-Session-Id")
@@ -77,18 +77,18 @@ func mcpInitialize(ctx context.Context, client *http.Client, url, token string) 
 func mcpCall(ctx context.Context, client *http.Client, url, token, sessionID string, body []byte) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
-		return nil, coreerr.E("mcpCall", "create request", err)
+		return nil, core.E("mcpCall", "create request", err)
 	}
 	setHeaders(req, token, sessionID)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, coreerr.E("mcpCall", "request failed", err)
+		return nil, core.E("mcpCall", "request failed", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("mcpCall", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
+		return nil, core.E("mcpCall", fmt.Sprintf("HTTP %d", resp.StatusCode), nil)
 	}
 
 	// Parse SSE response — extract data: lines
@@ -104,7 +104,7 @@ func readSSEData(resp *http.Response) ([]byte, error) {
 			return []byte(strings.TrimPrefix(line, "data: ")), nil
 		}
 	}
-	return nil, coreerr.E("readSSEData", "no data in SSE response", nil)
+	return nil, core.E("readSSEData", "no data in SSE response", nil)
 }
 
 // setHeaders applies standard MCP HTTP headers.

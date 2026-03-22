@@ -5,8 +5,6 @@ package agentic
 import (
 	"path/filepath"
 	"testing"
-
-	coreio "dappco.re/go/core/io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,43 +26,43 @@ func TestEnvOr_Good_UnsetUsesFallback(t *testing.T) {
 
 func TestDetectLanguage_Good_Go(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "go.mod"), "module test"))
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
 	assert.Equal(t, "go", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_PHP(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "composer.json"), "{}"))
+	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), "{}").OK)
 	assert.Equal(t, "php", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_TypeScript(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "package.json"), "{}"))
+	require.True(t, fs.Write(filepath.Join(dir, "package.json"), "{}").OK)
 	assert.Equal(t, "ts", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_Rust(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "Cargo.toml"), "[package]"))
+	require.True(t, fs.Write(filepath.Join(dir, "Cargo.toml"), "[package]").OK)
 	assert.Equal(t, "rust", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_Python(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "requirements.txt"), "flask"))
+	require.True(t, fs.Write(filepath.Join(dir, "requirements.txt"), "flask").OK)
 	assert.Equal(t, "py", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_Cpp(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "CMakeLists.txt"), "cmake_minimum_required"))
+	require.True(t, fs.Write(filepath.Join(dir, "CMakeLists.txt"), "cmake_minimum_required").OK)
 	assert.Equal(t, "cpp", detectLanguage(dir))
 }
 
 func TestDetectLanguage_Good_Docker(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "Dockerfile"), "FROM alpine"))
+	require.True(t, fs.Write(filepath.Join(dir, "Dockerfile"), "FROM alpine").OK)
 	assert.Equal(t, "docker", detectLanguage(dir))
 }
 
@@ -90,7 +88,7 @@ func TestDetectBuildCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, coreio.Local.Write(filepath.Join(dir, tt.file), tt.content))
+			require.True(t, fs.Write(filepath.Join(dir, tt.file), tt.content).OK)
 			assert.Equal(t, tt.expected, detectBuildCmd(dir))
 		})
 	}
@@ -118,7 +116,7 @@ func TestDetectTestCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, coreio.Local.Write(filepath.Join(dir, tt.file), tt.content))
+			require.True(t, fs.Write(filepath.Join(dir, tt.file), tt.content).OK)
 			assert.Equal(t, tt.expected, detectTestCmd(dir))
 		})
 	}

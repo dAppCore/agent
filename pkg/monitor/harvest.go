@@ -18,9 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
 )
 
 // harvestResult tracks what happened during harvest.
@@ -81,8 +80,8 @@ func (m *Subsystem) harvestCompleted() string {
 
 // harvestWorkspace checks a single workspace and pushes if ready.
 func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
+	r := fs.Read(filepath.Join(wsDir, "status.json"))
+	if !r.OK {
 		return nil
 	}
 
@@ -91,7 +90,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		Repo   string `json:"repo"`
 		Branch string `json:"branch"`
 	}
-	if json.Unmarshal([]byte(data), &st) != nil {
+	if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
 		return nil
 	}
 
@@ -262,19 +261,19 @@ func pushBranch(srcDir, branch string) error {
 	cmd.Dir = srcDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return coreerr.E("harvest.pushBranch", strings.TrimSpace(string(out)), err)
+		return core.E("harvest.pushBranch", strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }
 
 // updateStatus updates the workspace status.json.
 func updateStatus(wsDir, status, question string) {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
+	r := fs.Read(filepath.Join(wsDir, "status.json"))
+	if !r.OK {
 		return
 	}
 	var st map[string]any
-	if json.Unmarshal([]byte(data), &st) != nil {
+	if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
 		return
 	}
 	st["status"] = status
@@ -284,5 +283,5 @@ func updateStatus(wsDir, status, question string) {
 		delete(st, "question") // clear stale question from previous state
 	}
 	updated, _ := json.MarshalIndent(st, "", "  ")
-	coreio.Local.Write(filepath.Join(wsDir, "status.json"), string(updated))
+	fs.Write(filepath.Join(wsDir, "status.json"), string(updated))
 }

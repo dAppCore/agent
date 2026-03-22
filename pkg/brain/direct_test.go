@@ -9,8 +9,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
-
-	coreio "dappco.re/go/core/io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -63,8 +61,8 @@ func TestNewDirect_Good_KeyFromFile(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
 	keyDir := filepath.Join(tmpHome, ".claude")
-	require.NoError(t, coreio.Local.EnsureDir(keyDir))
-	require.NoError(t, coreio.Local.Write(filepath.Join(keyDir, "brain.key"), "  file-key-456  \n"))
+	require.True(t, fs.EnsureDir(keyDir).OK)
+	require.True(t, fs.Write(filepath.Join(keyDir, "brain.key"), "  file-key-456  \n").OK)
 
 	sub := NewDirect()
 	assert.Equal(t, "file-key-456", sub.apiKey)

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -54,13 +54,13 @@ func (s *PrepSubsystem) registerEpicTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
 	if input.Title == "" {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "title is required", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "title is required", nil)
 	}
 	if len(input.Tasks) == 0 {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "at least one task is required", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "at least one task is required", nil)
 	}
 	if s.forgeToken == "" {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "no Forge token configured", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "no Forge token configured", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
@@ -113,7 +113,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest
 	epicLabels := append(labelIDs, s.resolveLabelIDs(ctx, input.Org, input.Repo, []string{"epic"})...)
 	epic, err := s.createIssue(ctx, input.Org, input.Repo, input.Title, body.String(), epicLabels)
 	if err != nil {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "failed to create epic", err)
+		return nil, EpicOutput{}, core.E("createEpic", "failed to create epic", err)
 	}
 
 	out := EpicOutput{
@@ -163,12 +163,12 @@ func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body 
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return ChildRef{}, coreerr.E("createIssue", "create issue request failed", err)
+		return ChildRef{}, core.E("createIssue", "create issue request failed", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 201 {
-		return ChildRef{}, coreerr.E("createIssue", fmt.Sprintf("create issue returned %d", resp.StatusCode), nil)
+		return ChildRef{}, core.E("createIssue", fmt.Sprintf("create issue returned %d", resp.StatusCode), nil)
 	}
 
 	var result struct {

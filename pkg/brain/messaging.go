@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/url"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -75,7 +75,7 @@ type ConversationOutput struct {
 
 func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	if input.To == "" || input.Content == "" {
-		return nil, SendOutput{}, coreerr.E("brain.sendMessage", "to and content are required", nil)
+		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
 	}
 
 	result, err := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
@@ -116,7 +116,7 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 
 func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolRequest, input ConversationInput) (*mcp.CallToolResult, ConversationOutput, error) {
 	if input.Agent == "" {
-		return nil, ConversationOutput{}, coreerr.E("brain.conversation", "agent is required", nil)
+		return nil, ConversationOutput{}, core.E("brain.conversation", "agent is required", nil)
 	}
 
 	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+url.PathEscape(input.Agent)+"?me="+url.QueryEscape(agentName()), nil)

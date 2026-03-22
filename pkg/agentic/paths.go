@@ -7,10 +7,33 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unsafe"
+
+	core "dappco.re/go/core"
 )
+
+// fs provides unrestricted filesystem access (root "/" = no sandbox).
+//
+//	r := fs.Read("/etc/hostname")
+//	if r.OK { fmt.Println(r.Value.(string)) }
+var fs = newFs("/")
+
+// newFs creates a core.Fs with the given root directory.
+// Root "/" means unrestricted access (same as coreio.Local).
+func newFs(root string) *core.Fs {
+	type fsRoot struct{ root string }
+	f := &core.Fs{}
+	(*fsRoot)(unsafe.Pointer(f)).root = root
+	return f
+}
+
+// LocalFs returns an unrestricted filesystem instance for use by other packages.
+func LocalFs() *core.Fs { return fs }
 
 // WorkspaceRoot returns the root directory for agent workspaces.
 // Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core/workspace.
+//
+//	wsDir := filepath.Join(agentic.WorkspaceRoot(), "go-io-1774149757")
 func WorkspaceRoot() string {
 	return filepath.Join(CoreRoot(), "workspace")
 }
@@ -32,6 +55,8 @@ func PlansRoot() string {
 
 // AgentName returns the name of this agent based on hostname.
 // Checks AGENT_NAME env var first.
+//
+//	name := agentic.AgentName() // "cladius" on Snider's Mac, "charon" elsewhere
 func AgentName() string {
 	if name := os.Getenv("AGENT_NAME"); name != "" {
 		return name
@@ -44,8 +69,8 @@ func AgentName() string {
 	return "charon"
 }
 
-// gitDefaultBranch detects the default branch of a repo (main, master, etc.).
-func gitDefaultBranch(repoDir string) string {
+// DefaultBranch detects the default branch of a repo (main, master, etc.).
+func DefaultBranch(repoDir string) string {
 	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 	cmd.Dir = repoDir
 	if out, err := cmd.Output(); err == nil {

@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -48,23 +48,23 @@ func (s *PrepSubsystem) registerCreatePRTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
 	if input.Workspace == "" {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "workspace is required", nil)
+		return nil, CreatePROutput{}, core.E("createPR", "workspace is required", nil)
 	}
 	if s.forgeToken == "" {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "no Forge token configured", nil)
+		return nil, CreatePROutput{}, core.E("createPR", "no Forge token configured", nil)
 	}
 
 	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
 	srcDir := filepath.Join(wsDir, "src")
 
 	if _, err := os.Stat(srcDir); err != nil {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "workspace not found: "+input.Workspace, nil)
+		return nil, CreatePROutput{}, core.E("createPR", "workspace not found: "+input.Workspace, nil)
 	}
 
 	// Read workspace status for repo, branch, issue context
 	st, err := readStatus(wsDir)
 	if err != nil {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "no status.json", err)
+		return nil, CreatePROutput{}, core.E("createPR", "no status.json", err)
 	}
 
 	if st.Branch == "" {
@@ -73,7 +73,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		branchCmd.Dir = srcDir
 		out, err := branchCmd.Output()
 		if err != nil {
-			return nil, CreatePROutput{}, coreerr.E("createPR", "failed to detect branch", err)
+			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", err)
 		}
 		st.Branch = strings.TrimSpace(string(out))
 	}
@@ -117,13 +117,13 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	pushCmd.Dir = srcDir
 	pushOut, err := pushCmd.CombinedOutput()
 	if err != nil {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "git push failed: "+string(pushOut), err)
+		return nil, CreatePROutput{}, core.E("createPR", "git push failed: "+string(pushOut), err)
 	}
 
 	// Create PR via Forge API
 	prURL, prNum, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
 	if err != nil {
-		return nil, CreatePROutput{}, coreerr.E("createPR", "failed to create PR", err)
+		return nil, CreatePROutput{}, core.E("createPR", "failed to create PR", err)
 	}
 
 	// Update status with PR URL
@@ -178,7 +178,7 @@ func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return "", 0, coreerr.E("forgeCreatePR", "request failed", err)
+		return "", 0, core.E("forgeCreatePR", "request failed", err)
 	}
 	defer resp.Body.Close()
 
@@ -186,7 +186,7 @@ func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base
 		var errBody map[string]any
 		json.NewDecoder(resp.Body).Decode(&errBody)
 		msg, _ := errBody["message"].(string)
-		return "", 0, coreerr.E("forgeCreatePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
+		return "", 0, core.E("forgeCreatePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
 	}
 
 	var pr struct {
@@ -253,7 +253,7 @@ func (s *PrepSubsystem) registerListPRsTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
 	if s.forgeToken == "" {
-		return nil, ListPRsOutput{}, coreerr.E("listPRs", "no Forge token configured", nil)
+		return nil, ListPRsOutput{}, core.E("listPRs", "no Forge token configured", nil)
 	}
 
 	if input.Org == "" {
@@ -310,12 +310,12 @@ func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, coreerr.E("listRepoPRs", "failed to list PRs for "+repo, err)
+		return nil, core.E("listRepoPRs", "failed to list PRs for "+repo, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("listRepoPRs", fmt.Sprintf("HTTP %d listing PRs for %s", resp.StatusCode, repo), nil)
+		return nil, core.E("listRepoPRs", fmt.Sprintf("HTTP %d listing PRs for %s", resp.StatusCode, repo), nil)
 	}
 
 	var prs []struct {

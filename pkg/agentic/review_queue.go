@@ -14,8 +14,7 @@ import (
 	"strings"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -223,7 +222,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 
 		// Save findings for agent dispatch
 		findingsFile := filepath.Join(repoDir, ".core", "coderabbit-findings.txt")
-		coreio.Local.Write(findingsFile, output)
+		fs.Write(findingsFile, output)
 
 		// Dispatch fix agent with the findings
 		task := fmt.Sprintf("Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. "+
@@ -248,7 +247,7 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	pushCmd := exec.CommandContext(ctx, "git", "push", "github", "HEAD:refs/heads/dev", "--force")
 	pushCmd.Dir = repoDir
 	if out, err := pushCmd.CombinedOutput(); err != nil {
-		return coreerr.E("pushAndMerge", "push failed: "+string(out), err)
+		return core.E("pushAndMerge", "push failed: "+string(out), err)
 	}
 
 	// Mark PR ready if draft
@@ -260,7 +259,7 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "--merge", "--delete-branch")
 	mergeCmd.Dir = repoDir
 	if out, err := mergeCmd.CombinedOutput(); err != nil {
-		return coreerr.E("pushAndMerge", "merge failed: "+string(out), err)
+		return core.E("pushAndMerge", "merge failed: "+string(out), err)
 	}
 
 	return nil
@@ -279,7 +278,7 @@ func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task str
 		return err
 	}
 	if !out.Success {
-		return coreerr.E("dispatchFixFromQueue", "dispatch failed for "+repo, nil)
+		return core.E("dispatchFixFromQueue", "dispatch failed for "+repo, nil)
 	}
 	return nil
 }
@@ -336,13 +335,13 @@ func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewe
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
 	home, _ := os.UserHomeDir()
 	dataDir := filepath.Join(home, ".core", "training", "reviews")
-	coreio.Local.EnsureDir(dataDir)
+	fs.EnsureDir(dataDir)
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	filename := fmt.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
 
 	// Write raw output
-	coreio.Local.Write(filepath.Join(dataDir, filename), output)
+	fs.Write(filepath.Join(dataDir, filename), output)
 
 	// Append to JSONL for structured training
 	entry := map[string]string{
@@ -370,19 +369,19 @@ func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
 	data, _ := json.Marshal(info)
-	coreio.Local.Write(path, string(data))
+	fs.Write(path, string(data))
 }
 
 // loadRateLimitState reads persisted rate limit info.
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
-	data, err := coreio.Local.Read(path)
-	if err != nil {
+	r := fs.Read(path)
+	if !r.OK {
 		return nil
 	}
 	var info RateLimitInfo
-	if json.Unmarshal([]byte(data), &info) != nil {
+	if json.Unmarshal([]byte(r.Value.(string)), &info) != nil {
 		return nil
 	}
 	return &info

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -99,7 +99,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 		select {
 		case <-ctx.Done():
-			return nil, WatchOutput{}, coreerr.E("watch", "cancelled", ctx.Err())
+			return nil, WatchOutput{}, core.E("watch", "cancelled", ctx.Err())
 		case <-time.After(pollInterval):
 		}
 

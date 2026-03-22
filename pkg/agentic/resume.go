@@ -8,8 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -40,7 +39,7 @@ func (s *PrepSubsystem) registerResumeTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, input ResumeInput) (*mcp.CallToolResult, ResumeOutput, error) {
 	if input.Workspace == "" {
-		return nil, ResumeOutput{}, coreerr.E("resume", "workspace is required", nil)
+		return nil, ResumeOutput{}, core.E("resume", "workspace is required", nil)
 	}
 
 	wsDir := filepath.Join(WorkspaceRoot(), input.Workspace)
@@ -48,17 +47,17 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Verify workspace exists
 	if _, err := os.Stat(srcDir); err != nil {
-		return nil, ResumeOutput{}, coreerr.E("resume", "workspace not found: "+input.Workspace, nil)
+		return nil, ResumeOutput{}, core.E("resume", "workspace not found: "+input.Workspace, nil)
 	}
 
 	// Read current status
 	st, err := readStatus(wsDir)
 	if err != nil {
-		return nil, ResumeOutput{}, coreerr.E("resume", "no status.json in workspace", err)
+		return nil, ResumeOutput{}, core.E("resume", "no status.json in workspace", err)
 	}
 
 	if st.Status != "blocked" && st.Status != "failed" && st.Status != "completed" {
-		return nil, ResumeOutput{}, coreerr.E("resume", "workspace is "+st.Status+", not resumable (must be blocked, failed, or completed)", nil)
+		return nil, ResumeOutput{}, core.E("resume", "workspace is "+st.Status+", not resumable (must be blocked, failed, or completed)", nil)
 	}
 
 	// Determine agent
@@ -71,8 +70,8 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	if input.Answer != "" {
 		answerPath := filepath.Join(srcDir, "ANSWER.md")
 		content := fmt.Sprintf("# Answer\n\n%s\n", input.Answer)
-		if err := coreio.Local.Write(answerPath, content); err != nil {
-			return nil, ResumeOutput{}, coreerr.E("resume", "failed to write ANSWER.md", err)
+		if r := fs.Write(answerPath, content); !r.OK {
+			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", nil)
 		}
 	}
 

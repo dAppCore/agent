@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "dappco.re/go/core/io"
 )
 
 // CheckinResponse is what the API returns for an agent checkin.
@@ -53,8 +52,8 @@ func (m *Subsystem) syncRepos() string {
 	brainKey := os.Getenv("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		home, _ := os.UserHomeDir()
-		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			brainKey = strings.TrimSpace(data)
+		if r := fs.Read(filepath.Join(home, ".claude", "brain.key")); r.OK {
+			brainKey = strings.TrimSpace(r.Value.(string))
 		}
 	}
 	if brainKey != "" {

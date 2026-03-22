@@ -11,8 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -104,7 +103,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		script := filepath.Join(home, "Code", "core", "agent", "scripts", "local-agent.sh")
 		return "bash", []string{script, prompt}, nil
 	default:
-		return "", nil, coreerr.E("agentCommand", "unknown agent: "+agent, nil)
+		return "", nil, core.E("agentCommand", "unknown agent: "+agent, nil)
 	}
 }
 
@@ -134,7 +133,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		Detach:  true,
 	})
 	if err != nil {
-		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
+		return 0, "", core.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
 	}
 
 	// Close stdin immediately — agents use -p mode, not interactive stdin.
@@ -162,7 +161,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 		// Write captured output to log file
 		if output := proc.Output(); output != "" {
-			coreio.Local.Write(outputFile, output)
+			fs.Write(outputFile, output)
 		}
 
 		// Determine final status: check exit code, BLOCKED.md, and output
@@ -172,9 +171,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		question := ""
 
 		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
-		if blockedContent, err := coreio.Local.Read(blockedPath); err == nil && strings.TrimSpace(blockedContent) != "" {
+		if r := fs.Read(blockedPath); r.OK && strings.TrimSpace(r.Value.(string)) != "" {
 			finalStatus = "blocked"
-			question = strings.TrimSpace(blockedContent)
+			question = strings.TrimSpace(r.Value.(string))
 		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
 			finalStatus = "failed"
 			if exitCode != 0 {
@@ -215,10 +214,10 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 
 func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
 	if input.Repo == "" {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "repo is required", nil)
+		return nil, DispatchOutput{}, core.E("dispatch", "repo is required", nil)
 	}
 	if input.Task == "" {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "task is required", nil)
+		return nil, DispatchOutput{}, core.E("dispatch", "task is required", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
@@ -243,7 +242,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 	_, prepOut, err := s.prepWorkspace(ctx, req, prepInput)
 	if err != nil {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "prep workspace failed", err)
+		return nil, DispatchOutput{}, core.E("dispatch", "prep workspace failed", err)
 	}
 
 	wsDir := prepOut.WorkspaceDir
@@ -254,7 +253,11 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 
 	if input.DryRun {
 		// Read PROMPT.md for the dry run output
-		promptContent, _ := coreio.Local.Read(filepath.Join(srcDir, "PROMPT.md"))
+		r := fs.Read(filepath.Join(srcDir, "PROMPT.md"))
+		promptContent := ""
+		if r.OK {
+			promptContent = r.Value.(string)
+		}
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,

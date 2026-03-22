@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	core "dappco.re/go/core"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
 )
 
 // autoVerifyAndMerge runs inline tests (fast gate) and merges if they pass.
@@ -112,7 +111,7 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
-	base := gitDefaultBranch(srcDir)
+	base := DefaultBranch(srcDir)
 
 	// Fetch latest default branch
 	fetch := exec.Command("git", "fetch", "origin", base)
@@ -282,15 +281,15 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 }
 
 func (s *PrepSubsystem) runNodeTests(srcDir string) verifyResult {
-	data, err := coreio.Local.Read(filepath.Join(srcDir, "package.json"))
-	if err != nil {
+	r := fs.Read(filepath.Join(srcDir, "package.json"))
+	if !r.OK {
 		return verifyResult{passed: true, testCmd: "none", output: "Could not read package.json"}
 	}
 
 	var pkg struct {
 		Scripts map[string]string `json:"scripts"`
 	}
-	if json.Unmarshal([]byte(data), &pkg) != nil || pkg.Scripts["test"] == "" {
+	if json.Unmarshal([]byte(r.Value.(string)), &pkg) != nil || pkg.Scripts["test"] == "" {
 		return verifyResult{passed: true, testCmd: "none", output: "No test script in package.json"}
 	}
 
@@ -325,7 +324,7 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNu
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return coreerr.E("forgeMergePR", "request failed", err)
+		return core.E("forgeMergePR", "request failed", err)
 	}
 	defer resp.Body.Close()
 
@@ -333,7 +332,7 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNu
 		var errBody map[string]any
 		json.NewDecoder(resp.Body).Decode(&errBody)
 		msg, _ := errBody["message"].(string)
-		return coreerr.E("forgeMergePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
+		return core.E("forgeMergePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
 	}
 
 	return nil
@@ -352,5 +351,5 @@ func extractPRNumber(prURL string) int {
 
 // fileExists checks if a file exists.
 func fileExists(path string) bool {
-	return coreio.Local.IsFile(path)
+	return fs.IsFile(path)
 }

@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	coreio "dappco.re/go/core/io"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,12 +46,12 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	}
 
 	for _, path := range paths {
-		data, err := coreio.Local.Read(path)
-		if err != nil {
+		r := fs.Read(path)
+		if !r.OK {
 			continue
 		}
 		var cfg AgentsConfig
-		if err := yaml.Unmarshal([]byte(data), &cfg); err != nil {
+		if err := yaml.Unmarshal([]byte(r.Value.(string)), &cfg); err != nil {
 			continue
 		}
 		return &cfg

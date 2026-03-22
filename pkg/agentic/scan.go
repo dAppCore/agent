@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -39,7 +39,7 @@ type ScanIssue struct {
 
 func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input ScanInput) (*mcp.CallToolResult, ScanOutput, error) {
 	if s.forgeToken == "" {
-		return nil, ScanOutput{}, coreerr.E("scan", "no Forge token configured", nil)
+		return nil, ScanOutput{}, core.E("scan", "no Forge token configured", nil)
 	}
 
 	if input.Org == "" {
@@ -107,18 +107,18 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 		u := fmt.Sprintf("%s/api/v1/orgs/%s/repos?limit=50&page=%d", s.forgeURL, org, page)
 		req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 		if err != nil {
-			return nil, coreerr.E("scan.listOrgRepos", "failed to create request", err)
+			return nil, core.E("scan.listOrgRepos", "failed to create request", err)
 		}
 		req.Header.Set("Authorization", "token "+s.forgeToken)
 
 		resp, err := s.client.Do(req)
 		if err != nil {
-			return nil, coreerr.E("scan.listOrgRepos", "failed to list repos", err)
+			return nil, core.E("scan.listOrgRepos", "failed to list repos", err)
 		}
 
 		if resp.StatusCode != 200 {
 			resp.Body.Close()
-			return nil, coreerr.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
+			return nil, core.E("scan.listOrgRepos", fmt.Sprintf("HTTP %d listing repos", resp.StatusCode), nil)
 	}
 
 		var repos []struct {
@@ -148,18 +148,18 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
-		return nil, coreerr.E("scan.listRepoIssues", "failed to create request", err)
+		return nil, core.E("scan.listRepoIssues", "failed to create request", err)
 	}
 	req.Header.Set("Authorization", "token "+s.forgeToken)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, coreerr.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
+		return nil, core.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, coreerr.E("scan.listRepoIssues", fmt.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
+		return nil, core.E("scan.listRepoIssues", fmt.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
 	}
 
 	var issues []struct {

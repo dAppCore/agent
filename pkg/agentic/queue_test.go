@@ -5,8 +5,6 @@ package agentic
 import (
 	"path/filepath"
 	"testing"
-
-	coreio "dappco.re/go/core/io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +34,7 @@ func TestCanDispatchAgent_Good_NoConfig(t *testing.T) {
 	// With no running workspaces and default config, should be able to dispatch
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.NoError(t, coreio.Local.EnsureDir(filepath.Join(root, "workspace")))
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
 	s := &PrepSubsystem{codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("gemini"))
@@ -46,7 +44,7 @@ func TestCanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	// Unknown agent has no limit, so always allowed
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.NoError(t, coreio.Local.EnsureDir(filepath.Join(root, "workspace")))
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
 	s := &PrepSubsystem{codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("unknown-agent"))
@@ -55,7 +53,7 @@ func TestCanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 func TestCountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.NoError(t, coreio.Local.EnsureDir(filepath.Join(root, "workspace")))
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
 	s := &PrepSubsystem{}
 	assert.Equal(t, 0, s.countRunningByAgent("gemini"))
@@ -68,7 +66,7 @@ func TestCountRunningByAgent_Good_NoRunning(t *testing.T) {
 
 	// Create a workspace with completed status under workspace/
 	ws := filepath.Join(root, "workspace", "test-ws")
-	require.NoError(t, coreio.Local.EnsureDir(ws))
+	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
 		Agent:  "gemini",

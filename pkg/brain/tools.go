@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -140,7 +140,7 @@ func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, inp
 		},
 	})
 	if err != nil {
-		return nil, RememberOutput{}, coreerr.E("brain.remember", "failed to send brain_remember", err)
+		return nil, RememberOutput{}, core.E("brain.remember", "failed to send brain_remember", err)
 	}
 
 	return nil, RememberOutput{
@@ -163,7 +163,7 @@ func (s *Subsystem) brainRecall(_ context.Context, _ *mcp.CallToolRequest, input
 		},
 	})
 	if err != nil {
-		return nil, RecallOutput{}, coreerr.E("brain.recall", "failed to send brain_recall", err)
+		return nil, RecallOutput{}, core.E("brain.recall", "failed to send brain_recall", err)
 	}
 
 	return nil, RecallOutput{
@@ -185,7 +185,7 @@ func (s *Subsystem) brainForget(_ context.Context, _ *mcp.CallToolRequest, input
 		},
 	})
 	if err != nil {
-		return nil, ForgetOutput{}, coreerr.E("brain.forget", "failed to send brain_forget", err)
+		return nil, ForgetOutput{}, core.E("brain.forget", "failed to send brain_forget", err)
 	}
 
 	return nil, ForgetOutput{
@@ -210,7 +210,7 @@ func (s *Subsystem) brainList(_ context.Context, _ *mcp.CallToolRequest, input L
 		},
 	})
 	if err != nil {
-		return nil, ListOutput{}, coreerr.E("brain.list", "failed to send brain_list", err)
+		return nil, ListOutput{}, core.E("brain.list", "failed to send brain_list", err)
 	}
 
 	return nil, ListOutput{

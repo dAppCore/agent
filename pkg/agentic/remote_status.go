@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -37,7 +37,7 @@ func (s *PrepSubsystem) registerRemoteStatusTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest, input RemoteStatusInput) (*mcp.CallToolResult, RemoteStatusOutput, error) {
 	if input.Host == "" {
-		return nil, RemoteStatusOutput{}, coreerr.E("statusRemote", "host is required", nil)
+		return nil, RemoteStatusOutput{}, core.E("statusRemote", "host is required", nil)
 	}
 
 	addr := resolveHost(input.Host)

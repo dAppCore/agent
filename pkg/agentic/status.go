@@ -12,8 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -31,6 +30,9 @@ import (
 //   running → failed        (agent crashed / non-zero exit)
 
 // WorkspaceStatus represents the current state of an agent workspace.
+//
+//	st, err := readStatus(wsDir)
+//	if err == nil && st.Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`              // running, completed, blocked, failed
 	Agent     string    `json:"agent"`               // gemini, claude, codex
@@ -53,16 +55,19 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	if err != nil {
 		return err
 	}
-	return coreio.Local.Write(filepath.Join(wsDir, "status.json"), string(data))
+	if r := fs.Write(filepath.Join(wsDir, "status.json"), string(data)); !r.OK {
+		return core.E("writeStatus", "failed to write status", nil)
+	}
+	return nil
 }
 
 func readStatus(wsDir string) (*WorkspaceStatus, error) {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
-		return nil, err
+	r := fs.Read(filepath.Join(wsDir, "status.json"))
+	if !r.OK {
+		return nil, core.E("readStatus", "status not found", nil)
 	}
 	var s WorkspaceStatus
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
+	if err := json.Unmarshal([]byte(r.Value.(string)), &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -102,7 +107,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	entries, err := os.ReadDir(wsRoot)
 	if err != nil {
-		return nil, StatusOutput{}, coreerr.E("status", "no workspaces found", err)
+		return nil, StatusOutput{}, core.E("status", "no workspaces found", err)
 	}
 
 	var workspaces []WorkspaceInfo
@@ -152,16 +157,16 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			if err := syscall.Kill(st.PID, 0); err != nil {
 				// Process died — check for BLOCKED.md
 				blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
-				if data, err := coreio.Local.Read(blockedPath); err == nil {
+				if r := fs.Read(blockedPath); r.OK {
 					info.Status = "blocked"
-					info.Question = strings.TrimSpace(data)
+					info.Question = strings.TrimSpace(r.Value.(string))
 					st.Status = "blocked"
 					st.Question = info.Question
 				} else {
 					// Dead PID without BLOCKED.md — check exit code from log
 					// If no evidence of success, mark as failed (not completed)
 					logFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", st.Agent))
-					if _, err := coreio.Local.Read(logFile); err != nil {
+					if r := fs.Read(logFile); !r.OK {
 						info.Status = "failed"
 						st.Status = "failed"
 						st.Question = "Agent process died (no output log)"

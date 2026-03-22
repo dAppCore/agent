@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	coreio "dappco.re/go/core/io"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +30,7 @@ func TestWritePlan_Good(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "test-plan-abc123.json"), path)
 
 	// Verify file exists
-	assert.True(t, coreio.Local.IsFile(path))
+	assert.True(t, fs.IsFile(path))
 }
 
 func TestWritePlan_Good_CreatesDirectory(t *testing.T) {
@@ -96,7 +95,7 @@ func TestReadPlan_Bad_NotFound(t *testing.T) {
 
 func TestReadPlan_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "bad-json.json"), "{broken"))
+	require.True(t, fs.Write(filepath.Join(dir, "bad-json.json"), "{broken").OK)
 
 	_, err := readPlan(dir, "bad-json")
 	assert.Error(t, err)
@@ -205,7 +204,7 @@ func TestWritePlan_Good_OverwriteExisting(t *testing.T) {
 
 func TestReadPlan_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, coreio.Local.Write(filepath.Join(dir, "empty.json"), ""))
+	require.True(t, fs.Write(filepath.Join(dir, "empty.json"), "").OK)
 
 	_, err := readPlan(dir, "empty")
 	assert.Error(t, err)

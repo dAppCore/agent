@@ -14,9 +14,8 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -28,6 +27,9 @@ func agentName() string {
 // DirectSubsystem implements mcp.Subsystem for OpenBrain via direct HTTP calls.
 // Unlike Subsystem (which uses the IDE WebSocket bridge), this calls the
 // Laravel API directly — suitable for standalone core-mcp usage.
+//
+//	sub := brain.NewDirect()
+//	sub.RegisterTools(server)
 type DirectSubsystem struct {
 	apiURL string
 	apiKey string
@@ -46,8 +48,8 @@ func NewDirect() *DirectSubsystem {
 	apiKey := os.Getenv("CORE_BRAIN_KEY")
 	if apiKey == "" {
 		home, _ := os.UserHomeDir()
-		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			apiKey = strings.TrimSpace(data)
+		if r := fs.Read(filepath.Join(home, ".claude", "brain.key")); r.OK {
+			apiKey = strings.TrimSpace(r.Value.(string))
 		}
 	}
 
@@ -87,21 +89,21 @@ func (s *DirectSubsystem) Shutdown(_ context.Context) error { return nil }
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) (map[string]any, error) {
 	if s.apiKey == "" {
-		return nil, coreerr.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
+		return nil, core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
 	}
 
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return nil, coreerr.E("brain.apiCall", "marshal request", err)
+			return nil, core.E("brain.apiCall", "marshal request", err)
 		}
 		reqBody = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, s.apiURL+path, reqBody)
 	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "create request", err)
+		return nil, core.E("brain.apiCall", "create request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -109,22 +111,22 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "API call failed", err)
+		return nil, core.E("brain.apiCall", "API call failed", err)
 	}
 	defer resp.Body.Close()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "read response", err)
+		return nil, core.E("brain.apiCall", "read response", err)
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, coreerr.E("brain.apiCall", fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(respData)), nil)
+		return nil, core.E("brain.apiCall", fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(respData)), nil)
 	}
 
 	var result map[string]any
 	if err := json.Unmarshal(respData, &result); err != nil {
-		return nil, coreerr.E("brain.apiCall", "parse response", err)
+		return nil, core.E("brain.apiCall", "parse response", err)
 	}
 
 	return result, nil

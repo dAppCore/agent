@@ -21,11 +21,16 @@ import (
 	"sync"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// fs provides unrestricted filesystem access (root "/" = no sandbox).
+//
+//	r := fs.Read(filepath.Join(wsRoot, name, "status.json"))
+//	if r.OK { json.Unmarshal([]byte(r.Value.(string)), &st) }
+var fs = agentic.LocalFs()
 
 // ChannelNotifier pushes events to connected MCP sessions.
 // Matches the Notifier interface in core/mcp without importing it.
@@ -34,6 +39,10 @@ type ChannelNotifier interface {
 }
 
 // Subsystem implements mcp.Subsystem for background monitoring.
+//
+//	mon := monitor.New(monitor.Options{Interval: 2 * time.Minute})
+//	mon.SetNotifier(notifier)
+//	mon.Start(ctx)
 type Subsystem struct {
 	server   *mcp.Server
 	notifier ChannelNotifier
@@ -222,8 +231,8 @@ func (m *Subsystem) checkCompletions() string {
 	m.mu.Lock()
 	seeded := m.completionsSeeded
 	for _, entry := range entries {
-		data, err := coreio.Local.Read(entry)
-		if err != nil {
+		r := fs.Read(entry)
+		if !r.OK {
 			continue
 		}
 		var st struct {
@@ -231,7 +240,7 @@ func (m *Subsystem) checkCompletions() string {
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 		}
-		if json.Unmarshal([]byte(data), &st) != nil {
+		if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
 			continue
 		}
 
@@ -291,11 +300,11 @@ func (m *Subsystem) checkInbox() string {
 	if apiKeyStr == "" {
 		home, _ := os.UserHomeDir()
 		keyFile := filepath.Join(home, ".claude", "brain.key")
-		data, err := coreio.Local.Read(keyFile)
-		if err != nil {
+		r := fs.Read(keyFile)
+		if !r.OK {
 			return ""
 		}
-		apiKeyStr = data
+		apiKeyStr = r.Value.(string)
 	}
 
 	// Call the API to check inbox
@@ -421,7 +430,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 	wsRoot := agentic.WorkspaceRoot()
 	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
 	if err != nil {
-		return nil, coreerr.E("monitor.agentStatus", "failed to scan workspaces", err)
+		return nil, core.E("monitor.agentStatus", "failed to scan workspaces", err)
 	}
 
 	type wsInfo struct {
@@ -434,8 +443,8 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 
 	var workspaces []wsInfo
 	for _, entry := range entries {
-		data, err := coreio.Local.Read(entry)
-		if err != nil {
+		r := fs.Read(entry)
+		if !r.OK {
 			continue
 		}
 		var st struct {
@@ -444,7 +453,7 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			Agent  string `json:"agent"`
 			PRURL  string `json:"pr_url"`
 		}
-		if json.Unmarshal([]byte(data), &st) != nil {
+		if json.Unmarshal([]byte(r.Value.(string)), &st) != nil {
 			continue
 		}
 		workspaces = append(workspaces, wsInfo{
