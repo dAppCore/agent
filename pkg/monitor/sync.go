@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	neturl "net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -37,14 +35,8 @@ type ChangedRepo struct {
 // syncRepos calls the checkin API and pulls any repos that changed.
 // Returns a human-readable message if repos were updated, empty string otherwise.
 func (m *Subsystem) syncRepos() string {
-	apiURL := os.Getenv("CORE_API_URL")
-	if apiURL == "" {
-		apiURL = "https://api.lthn.sh"
-	}
-
 	agentName := agentic.AgentName()
-
-	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", apiURL, neturl.QueryEscape(agentName), m.lastSyncTimestamp)
+	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), neturl.QueryEscape(agentName), m.lastSyncTimestamp)
 
 	req, err := http.NewRequest("GET", checkinURL, nil)
 	if err != nil {
@@ -52,15 +44,7 @@ func (m *Subsystem) syncRepos() string {
 	}
 
 	// Use brain key for auth
-	brainKey := os.Getenv("CORE_BRAIN_KEY")
-	if brainKey == "" {
-		home, _ := os.UserHomeDir()
-		if r := fs.Read(brainKeyPath(home)); r.OK {
-			if value, ok := resultString(r); ok {
-				brainKey = core.Trim(value)
-			}
-		}
-	}
+	brainKey := monitorBrainKey()
 	if brainKey != "" {
 		req.Header.Set("Authorization", core.Concat("Bearer ", brainKey))
 	}
@@ -90,21 +74,20 @@ func (m *Subsystem) syncRepos() string {
 	}
 
 	// Pull changed repos
-	basePath := os.Getenv("CODE_PATH")
+	basePath := core.Env("CODE_PATH")
 	if basePath == "" {
-		home, _ := os.UserHomeDir()
-		basePath = filepath.Join(home, "Code", "core")
+		basePath = core.JoinPath(monitorHomeDir(), "Code", "core")
 	}
 
 	var pulled []string
 	for _, repo := range checkin.Changed {
 		// Sanitise repo name to prevent path traversal from API response
-		repoName := filepath.Base(repo.Repo)
+		repoName := core.PathBase(monitorPath(repo.Repo))
 		if repoName == "." || repoName == ".." || repoName == "" {
 			continue
 		}
 		repoDir := core.Concat(basePath, "/", repoName)
-		if _, err := os.Stat(repoDir); err != nil {
+		if !fs.Exists(repoDir) || fs.IsFile(repoDir) {
 			continue
 		}
 
