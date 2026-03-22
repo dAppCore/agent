@@ -22,12 +22,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CompletionNotifier is called when an agent completes, to trigger
-// immediate notifications to connected clients.
+// CompletionNotifier receives agent lifecycle events directly from dispatch.
+// No filesystem polling — events flow in-memory.
 //
 //	prep.SetCompletionNotifier(monitor)
 type CompletionNotifier interface {
-	Poke()
+	AgentStarted(agent, repo, workspace string)
+	AgentCompleted(agent, repo, workspace, status string)
 }
 
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.

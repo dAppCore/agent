@@ -194,9 +194,14 @@ func TestSetCompletionNotifier_Good(t *testing.T) {
 }
 
 type mockNotifier struct {
-	poked bool
+	started   bool
+	completed bool
 }
 
-func (m *mockNotifier) Poke() {
-	m.poked = true
+func (m *mockNotifier) AgentStarted(agent, repo, workspace string) {
+	m.started = true
+}
+
+func (m *mockNotifier) AgentCompleted(agent, repo, workspace, status string) {
+	m.completed = true
 }

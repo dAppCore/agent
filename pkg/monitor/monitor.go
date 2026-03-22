@@ -214,14 +214,49 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// Poke triggers an immediate check cycle.
-//
-//	mon.Poke()
+// Poke triggers an immediate check cycle (legacy — prefer AgentStarted/AgentCompleted).
 func (m *Subsystem) Poke() {
 	select {
 	case m.poke <- struct{}{}:
 	default:
 	}
+}
+
+// AgentStarted pushes an immediate notification when an agent spawns.
+// Called directly by dispatch — no filesystem polling.
+//
+//	mon.AgentStarted("codex:gpt-5.3-codex-spark", "go-io", "core/go-io/task-5")
+func (m *Subsystem) AgentStarted(agent, repo, workspace string) {
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "agent.started", map[string]any{
+			"agent": agent,
+			"repo":  repo,
+		})
+	}
+}
+
+// AgentCompleted pushes an immediate notification when an agent finishes.
+// Called directly by dispatch — no filesystem polling needed.
+//
+//	mon.AgentCompleted("codex", "go-io", "core/go-io/task-5", "completed")
+func (m *Subsystem) AgentCompleted(agent, repo, workspace, status string) {
+	if m.notifier != nil {
+		// Count current running/queued from status for context
+		running := 0
+		queued := 0
+		m.mu.Lock()
+		m.seenCompleted[workspace] = true
+		m.mu.Unlock()
+
+		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
+			"completed": []string{core.Sprintf("%s (%s) [%s]", repo, agent, status)},
+			"count":     1,
+			"running":   running,
+			"queued":    queued,
+		})
+	}
+	// Also poke to update counts for any other monitors
+	m.Poke()
 }
 
 func (m *Subsystem) loop(ctx context.Context) {

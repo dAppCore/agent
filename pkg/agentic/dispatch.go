@@ -145,8 +145,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	proc.CloseStdin()
 	pid := proc.Info().PID
 
-	// Emit start event for channel notifications
-	emitStartEvent(agent, core.PathBase(wsDir))
+	// Notify monitor directly — no filesystem polling
+	if s.onComplete != nil {
+		st, _ := readStatus(wsDir)
+		repo := ""
+		if st != nil {
+			repo = st.Repo
+		}
+		s.onComplete.AgentStarted(agent, repo, core.PathBase(wsDir))
+	}
+	emitStartEvent(agent, core.PathBase(wsDir)) // audit log
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -190,10 +198,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			writeStatus(wsDir, st)
 		}
 
-		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
+		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus) // audit log
 
+		// Push notification directly — no filesystem polling
 		if s.onComplete != nil {
-			s.onComplete.Poke()
+			stNow, _ := readStatus(wsDir)
+			repoName := ""
+			if stNow != nil {
+				repoName = stNow.Repo
+			}
+			s.onComplete.AgentCompleted(agent, repoName, core.PathBase(wsDir), finalStatus)
 		}
 
 		if finalStatus == "completed" {
