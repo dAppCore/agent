@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -10,7 +10,7 @@ import (
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/go-process"
+	"dappco.re/go/core/process"
 	"dappco.re/go/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )

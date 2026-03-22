@@ -7,7 +7,7 @@ import (
 
 	"forge.lthn.ai/core/api"
 	"forge.lthn.ai/core/api/pkg/provider"
-	"forge.lthn.ai/core/go-ws"
+	"dappco.re/go/core/ws"
 	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 )

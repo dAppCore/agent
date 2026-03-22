@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	coreio "dappco.re/go/core/io"
+	coreerr "dappco.re/go/core/log"
 )
 
 // harvestResult tracks what happened during harvest.

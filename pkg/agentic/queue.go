@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
+	coreio "dappco.re/go/core/io"
 	"gopkg.in/yaml.v3"
 )
 
