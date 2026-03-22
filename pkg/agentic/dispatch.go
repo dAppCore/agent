@@ -145,6 +145,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	proc.CloseStdin()
 	pid := proc.Info().PID
 
+	// Emit start event for channel notifications
+	emitStartEvent(agent, core.PathBase(wsDir))
+
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()

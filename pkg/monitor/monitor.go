@@ -78,6 +78,7 @@ type Subsystem struct {
 	// Track last seen state to only notify on changes
 	lastCompletedCount int             // completed workspaces seen on the last scan
 	seenCompleted      map[string]bool // workspace names we've already notified about
+	seenRunning        map[string]bool // workspace names we've already sent start notification for
 	completionsSeeded  bool            // true after first completions check
 	lastInboxMaxID     int             // highest message ID seen
 	inboxSeeded        bool            // true after first inbox check
@@ -124,6 +125,7 @@ func New(opts ...Options) *Subsystem {
 		interval:      interval,
 		poke:          make(chan struct{}, 1),
 		seenCompleted: make(map[string]bool),
+		seenRunning:   make(map[string]bool),
 	}
 }
 
@@ -304,6 +306,15 @@ func (m *Subsystem) checkCompletions() string {
 			}
 		case "running":
 			running++
+			if !m.seenRunning[wsName] && seeded {
+				m.seenRunning[wsName] = true
+				if m.notifier != nil {
+					m.notifier.ChannelSend(context.Background(), "agent.started", map[string]any{
+						"repo":  st.Repo,
+						"agent": st.Agent,
+					})
+				}
+			}
 		case "queued":
 			queued++
 		case "blocked", "failed":
