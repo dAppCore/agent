@@ -6,6 +6,96 @@ Instructions for Codex when working with code in this workspace.
 
 This project uses `dappco.re/go/core` as its foundation. Core provides primitives that REPLACE standard library and third-party packages. Implementation reference is in `.core/reference/*.go`.
 
+## Core Struct
+
+Create a Core instance and access its subsystems:
+
+```go
+c := core.New(core.Options{
+    {Key: "name", Value: "my-service"},
+})
+```
+
+### Subsystem Accessors
+
+| Accessor | Type | Purpose |
+|----------|------|---------|
+| `c.App()` | `*App` | Application identity (Name, Version, Path) |
+| `c.Fs()` | `*Fs` | Sandboxed filesystem I/O |
+| `c.Config()` | `*Config` | Settings + feature flags |
+| `c.Data()` | `*Data` | Embedded content registry (mount/read) |
+| `c.Drive()` | `*Drive` | Transport handle registry (API, SSH, MCP) |
+| `c.Log()` | `*ErrorLog` | Structured logging with error wrapping |
+| `c.Error()` | `*ErrorPanic` | Panic recovery + crash reports |
+| `c.Cli()` | `*Cli` | CLI surface (command tree → terminal) |
+| `c.IPC()` | `*Ipc` | Message bus (Action/Query/Task) |
+| `c.I18n()` | `*I18n` | Internationalisation + locale collection |
+| `c.Options()` | `*Options` | Input configuration used to create Core |
+| `c.Context()` | `context.Context` | Application context (cancelled on shutdown) |
+
+### Service Lifecycle
+
+```go
+// Register a service with lifecycle hooks
+c.Service("cache", core.Service{
+    OnStart:  func() core.Result { return core.Result{OK: true} },
+    OnStop:   func() core.Result { return core.Result{OK: true} },
+    OnReload: func() core.Result { return core.Result{OK: true} },
+})
+
+// Start all services
+c.ServiceStartup(ctx, nil)
+
+// Stop all services
+c.ServiceShutdown(ctx)
+```
+
+### Startable / Stoppable Interfaces
+
+Services that need lifecycle hooks implement these:
+
+```go
+type Startable interface {
+    OnStartup(ctx context.Context) error
+}
+
+type Stoppable interface {
+    OnShutdown(ctx context.Context) error
+}
+```
+
+### Error Logging on Core
+
+```go
+c.LogError(err, "save", "failed to save")   // logs + returns Result
+c.LogWarn(err, "cache", "cache miss")        // logs warning + returns Result
+c.Must(err, "init", "critical failure")      // logs + panics if err != nil
+```
+
+### Async Tasks
+
+```go
+// Perform synchronously (blocks until handler responds)
+r := c.PERFORM(SendEmail{To: "user@example.com"})
+
+// Perform asynchronously (returns immediately, runs in background)
+r := c.PerformAsync(BuildProject{Repo: "core"})
+// r.Value is the task ID string
+
+// Report progress
+c.Progress(taskID, 0.5, "halfway done", task)
+
+// Register task handler
+c.RegisterTask(func(c *core.Core, t core.Task) core.Result {
+    switch task := t.(type) {
+    case BuildProject:
+        // do work
+        return core.Result{Value: "built", OK: true}
+    }
+    return core.Result{}
+})
+```
+
 ## Mandatory Patterns
 
 ### Errors — use `core.E()`, never `fmt.Errorf` or `errors.New`
