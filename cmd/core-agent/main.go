@@ -124,8 +124,9 @@ func main() {
 		},
 	})
 
-	// --- Forge CLI commands ---
+	// --- Forge + Workspace CLI commands ---
 	registerForgeCommands(c)
+	registerWorkspaceCommands(c)
 
 	// --- CLI commands for feature testing ---
 
