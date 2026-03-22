@@ -16,7 +16,7 @@
       "name": "core-research",
       "source": "./claude/research",
       "description": "Blockchain archaeology, whitepaper archival, community history, market data collection",
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     {
       "name": "CorePHP",
