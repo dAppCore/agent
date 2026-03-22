@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -33,16 +32,15 @@ var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
 //	sub := brain.NewDirect()
 //	sub.RegisterTools(server)
 func NewDirect() *DirectSubsystem {
-	apiURL := os.Getenv("CORE_BRAIN_URL")
+	apiURL := core.Env("CORE_BRAIN_URL")
 	if apiURL == "" {
 		apiURL = "https://api.lthn.sh"
 	}
 
-	apiKey := os.Getenv("CORE_BRAIN_KEY")
+	apiKey := core.Env("CORE_BRAIN_KEY")
 	keyPath := ""
 	if apiKey == "" {
-		home, _ := os.UserHomeDir()
-		keyPath = brainKeyPath(home)
+		keyPath = brainKeyPath(brainHomeDir())
 		if keyPath != "" {
 			if r := fs.Read(keyPath); r.OK {
 				apiKey = core.Trim(r.Value.(string))
@@ -102,6 +100,13 @@ func brainKeyPath(home string) string {
 		return ""
 	}
 	return core.JoinPath(core.TrimSuffix(home, "/"), ".claude", "brain.key")
+}
+
+func brainHomeDir() string {
+	if home := core.Env("CORE_HOME"); home != "" {
+		return home
+	}
+	return core.Env("DIR_HOME")
 }
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) (map[string]any, error) {

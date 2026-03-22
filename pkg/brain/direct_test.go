@@ -5,12 +5,12 @@ package brain
 import (
 	"context"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // newTestDirect returns a DirectSubsystem wired to the given test server.
@@ -59,7 +59,7 @@ func TestNewDirect_Good_KeyFromFile(t *testing.T) {
 	t.Setenv("CORE_BRAIN_KEY", "")
 
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	t.Setenv("CORE_HOME", tmpHome)
 	keyDir := filepath.Join(tmpHome, ".claude")
 	require.True(t, fs.EnsureDir(keyDir).OK)
 	require.True(t, fs.Write(filepath.Join(keyDir, "brain.key"), "  file-key-456  \n").OK)
