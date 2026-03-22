@@ -27,7 +27,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 		return
 	}
 
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 	org := st.Org
 	if org == "" {
 		org = "core"
@@ -47,7 +47,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	}
 
 	// Attempt 1: run tests and try to merge
-	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
+	result := s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum)
 	if result == mergeSuccess {
 		markMerged()
 		return
@@ -55,8 +55,8 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// Attempt 2: rebase onto main and retry
 	if result == mergeConflict || result == testFailed {
-		if s.rebaseBranch(srcDir, st.Branch) {
-			if s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
+		if s.rebaseBranch(repoDir, st.Branch) {
+			if s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
 				markMerged()
 				return
 			}
@@ -81,8 +81,8 @@ const (
 )
 
 // attemptVerifyAndMerge runs tests and tries to merge. Returns the outcome.
-func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, prNum int) mergeResult {
-	testResult := s.runVerification(srcDir)
+func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string, prNum int) mergeResult {
+	testResult := s.runVerification(repoDir)
 
 	if !testResult.passed {
 		comment := core.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
@@ -107,29 +107,29 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 }
 
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
-func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
-	base := DefaultBranch(srcDir)
+func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
+	base := DefaultBranch(repoDir)
 
 	// Fetch latest default branch
 	fetch := exec.Command("git", "fetch", "origin", base)
-	fetch.Dir = srcDir
+	fetch.Dir = repoDir
 	if err := fetch.Run(); err != nil {
 		return false
 	}
 
 	// Rebase onto default branch
 	rebase := exec.Command("git", "rebase", "origin/"+base)
-	rebase.Dir = srcDir
+	rebase.Dir = repoDir
 	if err := rebase.Run(); err != nil {
 		// Rebase failed — abort and give up
 		abort := exec.Command("git", "rebase", "--abort")
-		abort.Dir = srcDir
+		abort.Dir = repoDir
 		abort.Run()
 		return false
 	}
 
 	// Force-push the rebased branch to Forge (origin is local clone)
-	st, _ := readStatus(core.PathDir(srcDir))
+	st, _ := readStatus(core.PathDir(repoDir))
 	org := "core"
 	repo := ""
 	if st != nil {
@@ -140,7 +140,7 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 	}
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
 	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
-	push.Dir = srcDir
+	push.Dir = repoDir
 	return push.Run() == nil
 }
 
@@ -223,22 +223,22 @@ type verifyResult struct {
 }
 
 // runVerification detects the project type and runs the appropriate test suite.
-func (s *PrepSubsystem) runVerification(srcDir string) verifyResult {
-	if fileExists(core.JoinPath(srcDir, "go.mod")) {
-		return s.runGoTests(srcDir)
+func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
+	if fileExists(core.JoinPath(repoDir, "go.mod")) {
+		return s.runGoTests(repoDir)
 	}
-	if fileExists(core.JoinPath(srcDir, "composer.json")) {
-		return s.runPHPTests(srcDir)
+	if fileExists(core.JoinPath(repoDir, "composer.json")) {
+		return s.runPHPTests(repoDir)
 	}
-	if fileExists(core.JoinPath(srcDir, "package.json")) {
-		return s.runNodeTests(srcDir)
+	if fileExists(core.JoinPath(repoDir, "package.json")) {
+		return s.runNodeTests(repoDir)
 	}
 	return verifyResult{passed: true, testCmd: "none", output: "No test runner detected"}
 }
 
-func (s *PrepSubsystem) runGoTests(srcDir string) verifyResult {
+func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 	cmd := exec.Command("go", "test", "./...", "-count=1", "-timeout", "120s")
-	cmd.Dir = srcDir
+	cmd.Dir = repoDir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()
 
@@ -254,9 +254,9 @@ func (s *PrepSubsystem) runGoTests(srcDir string) verifyResult {
 	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "go test ./..."}
 }
 
-func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
+func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 	cmd := exec.Command("composer", "test", "--no-interaction")
-	cmd.Dir = srcDir
+	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
 	exitCode := 0
@@ -265,7 +265,7 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 			exitCode = exitErr.ExitCode()
 		} else {
 			cmd2 := exec.Command("./vendor/bin/pest", "--no-interaction")
-			cmd2.Dir = srcDir
+			cmd2.Dir = repoDir
 			out2, err2 := cmd2.CombinedOutput()
 			if err2 != nil {
 				return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
@@ -277,8 +277,8 @@ func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
 	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "composer test"}
 }
 
-func (s *PrepSubsystem) runNodeTests(srcDir string) verifyResult {
-	r := fs.Read(core.JoinPath(srcDir, "package.json"))
+func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
+	r := fs.Read(core.JoinPath(repoDir, "package.json"))
 	if !r.OK {
 		return verifyResult{passed: true, testCmd: "none", output: "Could not read package.json"}
 	}
@@ -291,7 +291,7 @@ func (s *PrepSubsystem) runNodeTests(srcDir string) verifyResult {
 	}
 
 	cmd := exec.Command("npm", "test")
-	cmd.Dir = srcDir
+	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
 	exitCode := 0

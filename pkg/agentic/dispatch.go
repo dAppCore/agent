@@ -14,23 +14,26 @@ import (
 
 // DispatchInput is the input for agentic_dispatch.
 //
-//	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex"}
+//	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
 type DispatchInput struct {
 	Repo         string            `json:"repo"`                    // Target repo (e.g. "go-io")
 	Org          string            `json:"org,omitempty"`           // Forge org (default "core")
 	Task         string            `json:"task"`                    // What the agent should do
-	Agent        string            `json:"agent,omitempty"`         // "gemini" (default), "codex", "claude"
+	Agent        string            `json:"agent,omitempty"`         // "codex" (default), "claude", "gemini"
 	Template     string            `json:"template,omitempty"`      // "conventions", "security", "coding" (default)
-	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template: bug-fix, code-review, new-feature, refactor, feature-port
+	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template slug
 	Variables    map[string]string `json:"variables,omitempty"`     // Template variable substitution
-	Persona      string            `json:"persona,omitempty"`       // Persona: engineering/backend-architect, testing/api-tester, etc.
-	Issue        int               `json:"issue,omitempty"`         // Forge issue to work from
+	Persona      string            `json:"persona,omitempty"`       // Persona slug
+	Issue        int               `json:"issue,omitempty"`         // Forge issue number → workspace: task-{num}/
+	PR           int               `json:"pr,omitempty"`            // PR number → workspace: pr-{num}/
+	Branch       string            `json:"branch,omitempty"`        // Branch → workspace: {branch}/
+	Tag          string            `json:"tag,omitempty"`           // Tag → workspace: {tag}/ (immutable)
 	DryRun       bool              `json:"dry_run,omitempty"`       // Preview without executing
 }
 
 // DispatchOutput is the output for agentic_dispatch.
 //
-//	out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/go-io-123"}
+//	out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type DispatchOutput struct {
 	Success      bool   `json:"success"`
 	Agent        string `json:"agent"`
@@ -49,7 +52,7 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 }
 
 // agentCommand returns the command and args for a given agent type.
-// Supports model variants: "gemini", "gemini:flash", "gemini:pro", "claude", "claude:haiku".
+// Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
 	parts := core.SplitN(agent, ":", 2)
 	base := parts[0]
@@ -67,19 +70,13 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		return "gemini", args, nil
 	case "codex":
 		if model == "review" {
-			// Codex review mode — non-interactive code review
-			return "codex", []string{
-				"review", "--base", "HEAD~1",
-			}, nil
+			return "codex", []string{"review", "--base", "HEAD~1"}, nil
 		}
-		// Codex agent mode — workspace root is not a git repo (src/ is),
-		// so --skip-git-repo-check is required. --full-auto gives
-		// workspace-write sandbox with on-request approval.
+		// Codex runs from repo/ which IS a git repo — no --skip-git-repo-check
 		args := []string{
 			"exec",
 			"--full-auto",
-			"--skip-git-repo-check",
-			"-o", "agent-codex.log",
+			"-o", "../.meta/agent-codex.log",
 			prompt,
 		}
 		if model != "" {
@@ -92,9 +89,8 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			"--output-format", "text",
 			"--dangerously-skip-permissions",
 			"--no-session-persistence",
-			"--append-system-prompt", "SANDBOX: You are restricted to the current directory (src/) only. " +
-				"Do NOT use absolute paths starting with /. Do NOT cd .. or navigate outside. " +
-				"Do NOT edit files outside this repository. Reject any request that would escape the sandbox.",
+			"--append-system-prompt", "SANDBOX: You are restricted to the current directory only. " +
+				"Do NOT use absolute paths. Do NOT navigate outside this repository.",
 		}
 		if model != "" {
 			args = append(args, "--model", model)
@@ -103,11 +99,9 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "coderabbit":
 		args := []string{"review", "--plain", "--base", "HEAD~1"}
 		if model != "" {
-			// model variant can specify review type: all, committed, uncommitted
 			args = append(args, "--type", model)
 		}
 		if prompt != "" {
-			// Pass CLAUDE.md or other config as additional instructions
 			args = append(args, "--config", "CLAUDE.md")
 		}
 		return "coderabbit", args, nil
@@ -119,44 +113,36 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	}
 }
 
-// spawnAgent launches an agent process via go-process and returns the PID.
-// Output is captured via pipes and written to the log file on completion.
-// The background goroutine handles status updates, findings ingestion, and queue drain.
-//
-// For CodeRabbit agents, no process is spawned — instead the code is pushed
-// to GitHub and a PR is created/marked ready for review.
-func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, string, error) {
+// spawnAgent launches an agent process in the repo/ directory.
+// Output is captured and written to .meta/agent-{agent}.log on completion.
+func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
 		return 0, "", err
 	}
 
-	outputFile := core.JoinPath(wsDir, core.Sprintf("agent-%s.log", agent))
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	outputFile := core.JoinPath(metaDir, core.Sprintf("agent-%s.log", agent))
 
-	// Clean up stale BLOCKED.md from previous runs so it doesn't
-	// prevent this run from completing
-	fs.Delete(core.JoinPath(srcDir, "BLOCKED.md"))
+	// Clean up stale BLOCKED.md from previous runs
+	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
-		Dir:     wsDir,
-		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
+		Dir:     repoDir,
+		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true"},
 		Detach:  true,
 	})
 	if err != nil {
 		return 0, "", core.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
 	}
 
-	// Close stdin immediately — agents use -p mode, not interactive stdin.
-	// Without this, Claude CLI blocks waiting on the open pipe.
 	proc.CloseStdin()
-
 	pid := proc.Info().PID
 
 	go func() {
-		// Wait for process exit. go-process handles timeout and kill group.
-		// PID polling fallback in case pipes hang from inherited child processes.
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -171,18 +157,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		}
 	done:
 
-		// Write captured output to log file
 		if output := proc.Output(); output != "" {
 			fs.Write(outputFile, output)
 		}
 
-		// Determine final status: check exit code, BLOCKED.md, and output
 		finalStatus := "completed"
 		exitCode := proc.Info().ExitCode
 		procStatus := proc.Info().Status
 		question := ""
 
-		blockedPath := core.JoinPath(wsDir, "src", "BLOCKED.md")
+		blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
 		if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
 			finalStatus = "blocked"
 			question = core.Trim(r.Value.(string))
@@ -193,31 +177,25 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 			}
 		}
 
-		if st, err := readStatus(wsDir); err == nil {
+		if st, stErr := readStatus(wsDir); stErr == nil {
 			st.Status = finalStatus
 			st.PID = 0
 			st.Question = question
 			writeStatus(wsDir, st)
 		}
 
-		// Emit completion event with actual status
 		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
 
-		// Notify monitor immediately (push to connected clients)
 		if s.onComplete != nil {
 			s.onComplete.Poke()
 		}
 
-		// Auto-create PR if agent completed successfully, then verify and merge
 		if finalStatus == "completed" {
 			s.autoCreatePR(wsDir)
 			s.autoVerifyAndMerge(wsDir)
 		}
 
-		// Ingest scan findings as issues
 		s.ingestFindings(wsDir)
-
-		// Drain queue
 		s.drainQueue()
 	}()
 
@@ -235,18 +213,22 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		input.Org = "core"
 	}
 	if input.Agent == "" {
-		input.Agent = "gemini"
+		input.Agent = "codex"
 	}
 	if input.Template == "" {
 		input.Template = "coding"
 	}
 
-	// Step 1: Prep the sandboxed workspace
+	// Step 1: Prep workspace — clone + build prompt
 	prepInput := PrepInput{
 		Repo:         input.Repo,
 		Org:          input.Org,
 		Issue:        input.Issue,
+		PR:           input.PR,
+		Branch:       input.Branch,
+		Tag:          input.Tag,
 		Task:         input.Task,
+		Agent:        input.Agent,
 		Template:     input.Template,
 		PlanTemplate: input.PlanTemplate,
 		Variables:    input.Variables,
@@ -258,30 +240,20 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 
 	wsDir := prepOut.WorkspaceDir
-	srcDir := core.JoinPath(wsDir, "src")
-
-	// The prompt is just: read PROMPT.md and do the work
-	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
+	prompt := prepOut.Prompt
 
 	if input.DryRun {
-		// Read PROMPT.md for the dry run output
-		r := fs.Read(core.JoinPath(srcDir, "PROMPT.md"))
-		promptContent := ""
-		if r.OK {
-			promptContent = r.Value.(string)
-		}
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,
 			Repo:         input.Repo,
 			WorkspaceDir: wsDir,
-			Prompt:       promptContent,
+			Prompt:       prompt,
 		}, nil
 	}
 
 	// Step 2: Check per-agent concurrency limit
 	if !s.canDispatchAgent(input.Agent) {
-		// Queue the workspace — write status as "queued" and return
 		writeStatus(wsDir, &WorkspaceStatus{
 			Status:    "queued",
 			Agent:     input.Agent,
@@ -301,8 +273,8 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		}, nil
 	}
 
-	// Step 3: Spawn agent via go-process (pipes for output capture)
-	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir, srcDir)
+	// Step 3: Spawn agent in repo/ directory
+	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}

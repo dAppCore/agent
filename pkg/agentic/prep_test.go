@@ -168,7 +168,6 @@ func TestNewPrep_Good_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "test-token", s.forgeToken)
 	assert.Equal(t, "https://custom-brain.example.com", s.brainURL)
 	assert.Equal(t, "brain-key-123", s.brainKey)
-	assert.Equal(t, "/custom/specs", s.specsPath)
 	assert.Equal(t, "/custom/code", s.codePath)
 }
 

@@ -18,14 +18,14 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 		return
 	}
 
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
 	// Detect default branch for this repo
-	base := DefaultBranch(srcDir)
+	base := DefaultBranch(repoDir)
 
 	// Check if there are commits on the branch beyond the default branch
 	diffCmd := exec.Command("git", "log", "--oneline", "origin/"+base+"..HEAD")
-	diffCmd.Dir = srcDir
+	diffCmd.Dir = repoDir
 	out, err := diffCmd.Output()
 	if err != nil || len(core.Trim(string(out))) == 0 {
 		// No commits — nothing to PR
@@ -43,7 +43,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
 	pushCmd := exec.Command("git", "push", forgeRemote, st.Branch)
-	pushCmd.Dir = srcDir
+	pushCmd.Dir = repoDir
 	if pushErr := pushCmd.Run(); pushErr != nil {
 		// Push failed — update status with error but don't block
 		if st2, err := readStatus(wsDir); err == nil {

@@ -44,10 +44,10 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
 	// Verify workspace exists
-	if !fs.IsDir(srcDir) {
+	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
 		return nil, ResumeOutput{}, core.E("resume", "workspace not found: "+input.Workspace, nil)
 	}
 
@@ -69,7 +69,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Write ANSWER.md if answer provided
 	if input.Answer != "" {
-		answerPath := core.JoinPath(srcDir, "ANSWER.md")
+		answerPath := core.JoinPath(repoDir, "ANSWER.md")
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if r := fs.Write(answerPath, content); !r.OK {
 			err, _ := r.Value.(error)
@@ -77,12 +77,12 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 	}
 
-	// Build resume prompt
-	prompt := "You are resuming previous work in this workspace. "
+	// Build resume prompt — inline the task and answer, no file references
+	prompt := "You are resuming previous work.\n\nORIGINAL TASK:\n" + st.Task
 	if input.Answer != "" {
-		prompt += "Read ANSWER.md for the response to your question. "
+		prompt += "\n\nANSWER TO YOUR QUESTION:\n" + input.Answer
 	}
-	prompt += "Read PROMPT.md for the original task. Read BLOCKED.md to see what you were stuck on. Continue working."
+	prompt += "\n\nContinue working. Read BLOCKED.md to see what you were stuck on. Commit when done."
 
 	if input.DryRun {
 		return nil, ResumeOutput{
@@ -94,7 +94,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Spawn agent via go-process
-	pid, _, err := s.spawnAgent(agent, prompt, wsDir, srcDir)
+	pid, _, err := s.spawnAgent(agent, prompt, wsDir)
 	if err != nil {
 		return nil, ResumeOutput{}, err
 	}

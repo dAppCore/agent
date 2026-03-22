@@ -204,10 +204,9 @@ func (s *PrepSubsystem) drainQueue() {
 			continue
 		}
 
-		srcDir := core.JoinPath(wsDir, "src")
-		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
+		prompt := "TASK: " + st.Task + "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done."
 
-		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)
+		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
 		if err != nil {
 			continue
 		}

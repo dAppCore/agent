@@ -55,9 +55,9 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
-	if !fs.IsDir(srcDir) {
+	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
 		return nil, CreatePROutput{}, core.E("createPR", "workspace not found: "+input.Workspace, nil)
 	}
 
@@ -70,7 +70,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	if st.Branch == "" {
 		// Detect branch from git
 		branchCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
-		branchCmd.Dir = srcDir
+		branchCmd.Dir = repoDir
 		out, err := branchCmd.Output()
 		if err != nil {
 			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", err)
@@ -114,7 +114,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	// Push branch to Forge (origin is the local clone, not Forge)
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
 	pushCmd := exec.CommandContext(ctx, "git", "push", forgeRemote, st.Branch)
-	pushCmd.Dir = srcDir
+	pushCmd.Dir = repoDir
 	pushOut, err := pushCmd.CombinedOutput()
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "git push failed: "+string(pushOut), err)

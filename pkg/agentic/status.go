@@ -165,7 +165,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		if st.Status == "running" && st.PID > 0 {
 			if err := syscall.Kill(st.PID, 0); err != nil {
 				// Process died — check for BLOCKED.md
-				blockedPath := core.JoinPath(wsDir, "src", "BLOCKED.md")
+				blockedPath := core.JoinPath(wsDir, "repo", "BLOCKED.md")
 				if r := fs.Read(blockedPath); r.OK {
 					info.Status = "blocked"
 					info.Question = core.Trim(r.Value.(string))
