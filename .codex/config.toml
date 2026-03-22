@@ -1,0 +1,69 @@
+# Core Agent — Codex Configuration
+# Shared between CLI and IDE extension
+
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+personality = "pragmatic"
+
+# Default to LEM when available
+# oss_provider = "ollama"
+
+[profiles.review]
+model = "gpt-5.4"
+model_reasoning_effort = "extra-high"
+approval_policy = "never"
+sandbox_mode = "read-only"
+
+[profiles.quick]
+model = "gpt-5.4"
+model_reasoning_effort = "low"
+approval_policy = "never"
+
+[profiles.implement]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.lem]
+model = "lem-4b"
+model_provider = "ollama"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+# Core Agent MCP Server
+[mcp_servers.core-agent]
+command = "core-agent"
+args = ["mcp"]
+required = true
+startup_timeout_sec = 15
+tool_timeout_sec = 120
+
+[mcp_servers.core-agent.env]
+FORGE_TOKEN = "${FORGE_TOKEN}"
+CORE_BRAIN_KEY = "${CORE_BRAIN_KEY}"
+MONITOR_INTERVAL = "15s"
+
+# Local model providers
+[model_providers.ollama]
+name = "Ollama"
+base_url = "http://127.0.0.1:11434/v1"
+
+[model_providers.lmstudio]
+name = "LM Studio"
+base_url = "http://127.0.0.1:1234/v1"
+
+# Agent configuration
+[agents]
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 600
+
+# Features
+[features]
+multi_agent = true
+shell_snapshot = true
+undo = true
