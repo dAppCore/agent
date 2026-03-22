@@ -5,8 +5,6 @@ package agentic
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -113,43 +111,28 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	wsRoot := WorkspaceRoot()
 
-	r := fs.List(wsRoot)
-	if !r.OK {
-		return nil, StatusOutput{}, core.E("status", "no workspaces found", nil)
-	}
-	entries := r.Value.([]os.DirEntry)
+	// Scan both old (*/status.json) and new (*/*/*/status.json) layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	statusFiles := append(old, deep...)
 
 	var workspaces []WorkspaceInfo
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
+	for _, statusPath := range statusFiles {
+		wsDir := core.PathDir(statusPath)
+		// Name: for old layout use dir name, for new use relative path from wsRoot
+		name := wsDir[len(wsRoot)+1:]
 
 		// Filter by specific workspace if requested
 		if input.Workspace != "" && name != input.Workspace {
 			continue
 		}
 
-		wsDir := core.JoinPath(wsRoot, name)
 		info := WorkspaceInfo{Name: name}
 
-		// Try reading status.json
 		st, err := readStatus(wsDir)
 		if err != nil {
-			// Legacy workspace (no status.json) — check for log file
-			logFiles, _ := filepath.Glob(core.JoinPath(wsDir, "agent-*.log"))
-			if len(logFiles) > 0 {
-				info.Status = "completed"
-			} else {
-				info.Status = "unknown"
-			}
-			fi, _ := entry.Info()
-			if fi != nil {
-				info.Age = time.Since(fi.ModTime()).Truncate(time.Minute).String()
-			}
+			info.Status = "unknown"
 			workspaces = append(workspaces, info)
 			continue
 		}
