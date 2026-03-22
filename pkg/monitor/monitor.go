@@ -48,6 +48,37 @@ func brainKeyPath(home string) string {
 	return filepath.Join(home, ".claude", "brain.key")
 }
 
+func monitorPath(path string) string {
+	ds := core.Env("DS")
+	return core.Replace(core.Replace(path, "\\", ds), "/", ds)
+}
+
+func monitorHomeDir() string {
+	if d := core.Env("CORE_HOME"); d != "" {
+		return d
+	}
+	return core.Env("DIR_HOME")
+}
+
+func monitorAPIURL() string {
+	if u := core.Env("CORE_API_URL"); u != "" {
+		return u
+	}
+	return "https://api.lthn.sh"
+}
+
+func monitorBrainKey() string {
+	if k := core.Env("CORE_BRAIN_KEY"); k != "" {
+		return k
+	}
+	if r := fs.Read(brainKeyPath(monitorHomeDir())); r.OK {
+		if value, ok := resultString(r); ok {
+			return core.Trim(value)
+		}
+	}
+	return ""
+}
+
 func resultString(r core.Result) (string, bool) {
 	value, ok := r.Value.(string)
 	if !ok {
