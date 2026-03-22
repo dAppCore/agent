@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	core "dappco.re/go/core"
@@ -130,7 +129,7 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 	}
 
 	// Force-push the rebased branch to Forge (origin is local clone)
-	st, _ := readStatus(filepath.Dir(srcDir))
+	st, _ := readStatus(core.PathDir(srcDir))
 	org := "core"
 	repo := ""
 	if st != nil {

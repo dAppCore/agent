@@ -10,9 +10,7 @@ import (
 	"encoding/json"
 	goio "io"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -56,14 +54,14 @@ var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 //	sub.SetCompletionNotifier(monitor)
 //	sub.RegisterTools(server)
 func NewPrep() *PrepSubsystem {
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 
-	forgeToken := os.Getenv("FORGE_TOKEN")
+	forgeToken := core.Env("FORGE_TOKEN")
 	if forgeToken == "" {
-		forgeToken = os.Getenv("GITEA_TOKEN")
+		forgeToken = core.Env("GITEA_TOKEN")
 	}
 
-	brainKey := os.Getenv("CORE_BRAIN_KEY")
+	brainKey := core.Env("CORE_BRAIN_KEY")
 	if brainKey == "" {
 		if r := fs.Read(core.JoinPath(home, ".claude", "brain.key")); r.OK {
 			brainKey = core.Trim(r.Value.(string))
@@ -89,7 +87,7 @@ func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
 }
 
 func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := core.Env(key); v != "" {
 		return v
 	}
 	return fallback
@@ -192,7 +190,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	out := PrepOutput{WorkspaceDir: wsDir}
 
 	// Source repo path — sanitise to prevent path traversal
-	repoName := filepath.Base(input.Repo) // strips ../ and absolute paths
+	repoName := core.PathBase(input.Repo) // strips ../ and absolute paths
 	if repoName == "." || repoName == ".." || repoName == "" {
 		return nil, PrepOutput{}, core.E("prep", "invalid repo name: "+input.Repo, nil)
 	}
@@ -573,7 +571,7 @@ func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
 		}
 		modData := mr.Value.(string)
 		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, "module "+modulePath) {
-			consumers = append(consumers, filepath.Base(dir))
+			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
 

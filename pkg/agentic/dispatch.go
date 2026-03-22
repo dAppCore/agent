@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -101,8 +99,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		}
 		return "coderabbit", args, nil
 	case "local":
-		home, _ := os.UserHomeDir()
-		script := core.JoinPath(home, "Code", "core", "agent", "scripts", "local-agent.sh")
+		script := core.JoinPath(core.Env("DIR_HOME"), "Code", "core", "agent", "scripts", "local-agent.sh")
 		return "bash", []string{script, prompt}, nil
 	default:
 		return "", nil, core.E("agentCommand", "unknown agent: "+agent, nil)
@@ -191,7 +188,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 		}
 
 		// Emit completion event with actual status
-		emitCompletionEvent(agent, filepath.Base(wsDir), finalStatus)
+		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
 
 		// Notify monitor immediately (push to connected clients)
 		if s.onComplete != nil {

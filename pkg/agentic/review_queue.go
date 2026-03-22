@@ -339,8 +339,7 @@ func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewe
 
 // storeReviewOutput saves raw review output for training data collection.
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
-	home, _ := os.UserHomeDir()
-	dataDir := core.JoinPath(home, ".core", "training", "reviews")
+	dataDir := core.JoinPath(core.Env("DIR_HOME"), ".core", "training", "reviews")
 	fs.EnsureDir(dataDir)
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
@@ -374,16 +373,14 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
-	home, _ := os.UserHomeDir()
-	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 	data, _ := json.Marshal(info)
 	fs.Write(path, string(data))
 }
 
 // loadRateLimitState reads persisted rate limit info.
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
-	home, _ := os.UserHomeDir()
-	path := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 	r := fs.Read(path)
 	if !r.OK {
 		return nil

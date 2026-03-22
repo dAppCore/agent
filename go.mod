@@ -3,13 +3,13 @@ module dappco.re/go/agent
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.5.0
+	dappco.re/go/core v0.6.0
 	dappco.re/go/core/api v0.2.0
 	dappco.re/go/core/process v0.3.0
 	dappco.re/go/core/ws v0.3.0
 	forge.lthn.ai/core/api v0.1.6
 	forge.lthn.ai/core/cli v0.3.7
-	forge.lthn.ai/core/mcp v0.4.4
+	forge.lthn.ai/core/mcp v0.4.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.4.1

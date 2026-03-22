@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"path/filepath"
 	"time"
 
 	core "dappco.re/go/core"
@@ -192,20 +191,17 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 // findActiveWorkspaces returns workspace names that are running or queued.
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	wsRoot := WorkspaceRoot()
-	entries, err := filepath.Glob(core.JoinPath(wsRoot, "*/status.json"))
-	if err != nil {
-		return nil
-	}
+	entries := core.PathGlob(core.JoinPath(wsRoot, "*/status.json"))
 
 	var active []string
 	for _, entry := range entries {
-		wsDir := filepath.Dir(entry)
+		wsDir := core.PathDir(entry)
 		st, err := readStatus(wsDir)
 		if err != nil {
 			continue
 		}
 		if st.Status == "running" || st.Status == "queued" {
-			active = append(active, filepath.Base(wsDir))
+			active = append(active, core.PathBase(wsDir))
 		}
 	}
 	return active
@@ -213,7 +209,7 @@ func (s *PrepSubsystem) findActiveWorkspaces() []string {
 
 // resolveWorkspaceDir converts a workspace name to full path.
 func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
-	if filepath.IsAbs(name) {
+	if core.PathIsAbs(name) {
 		return name
 	}
 	return core.JoinPath(WorkspaceRoot(), name)

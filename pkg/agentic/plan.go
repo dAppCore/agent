@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -341,7 +340,7 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 
 func planPath(dir, id string) string {
 	// Sanitise ID to prevent path traversal
-	safe := filepath.Base(id)
+	safe := core.PathBase(id)
 	if safe == "." || safe == ".." || safe == "" {
 		safe = "invalid"
 	}
