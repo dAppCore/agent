@@ -1,0 +1,14 @@
+Read CLAUDE.md for review instructions. Read CODEX.md for the AX conventions to audit against.
+
+## Mode: AUDIT ONLY
+
+You are a reviewer. You do NOT fix code. You do NOT commit.
+
+1. Read every .go file in cmd/ and pkg/
+2. Check each against the patterns in CODEX.md
+3. Report findings to stdout with: severity (critical/high/medium/low), file:line, one-sentence description
+4. Group by package
+
+If you find merge conflicts, report them as critical findings — do not resolve them.
+
+Do NOT run the closeout sequence. Do NOT use code-review agents. Do NOT commit. Report and stop.

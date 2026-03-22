@@ -3,10 +3,8 @@
 package setup
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
@@ -106,7 +104,7 @@ func scaffoldTemplate(opts Options, projType ProjectType) error {
 	data := &lib.WorkspaceData{
 		Repo:            filepath.Base(opts.Path),
 		Branch:          "main",
-		Task:            fmt.Sprintf("Initialise %s project tooling.", projType),
+		Task:            core.Sprintf("Initialise %s project tooling.", projType),
 		Agent:           "setup",
 		Language:        string(projType),
 		Prompt:          "This workspace was scaffolded by pkg/setup. Review the repository and continue from the generated context files.",
@@ -209,7 +207,7 @@ func defaultTestCommand(projType ProjectType) string {
 }
 
 func formatFlow(projType ProjectType) string {
-	var builder strings.Builder
+	builder := core.NewBuilder()
 	builder.WriteString("- Build: `")
 	builder.WriteString(defaultBuildCommand(projType))
 	builder.WriteString("`\n")

@@ -68,11 +68,24 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "codex":
 		if model == "review" {
 			// Codex review mode — non-interactive code review
-			// Note: --base and prompt are mutually exclusive in codex CLI
-			return "codex", []string{"review", "--base", "HEAD~1"}, nil
+			return "codex", []string{
+				"review", "--base", "HEAD~1",
+			}, nil
 		}
-		// Codex agent mode — autonomous coding
-		return "codex", []string{"exec", "--full-auto", prompt}, nil
+		// Codex agent mode — workspace root is not a git repo (src/ is),
+		// so --skip-git-repo-check is required. --full-auto gives
+		// workspace-write sandbox with on-request approval.
+		args := []string{
+			"exec",
+			"--full-auto",
+			"--skip-git-repo-check",
+			"-o", "agent-codex.log",
+			prompt,
+		}
+		if model != "" {
+			args = append(args[:3], append([]string{"--model", model}, args[3:]...)...)
+		}
+		return "codex", args, nil
 	case "claude":
 		args := []string{
 			"-p", prompt,
@@ -127,7 +140,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, st
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
-		Dir:     srcDir,
+		Dir:     wsDir,
 		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
 		Detach:  true,
 	})

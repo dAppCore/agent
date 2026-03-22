@@ -11,6 +11,7 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
+	"dappco.re/go/agent/pkg/lib"
 	"dappco.re/go/agent/pkg/monitor"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )
@@ -20,6 +21,108 @@ func main() {
 		{Key: "name", Value: "core-agent"},
 	})
 	c.App().Version = "0.2.0"
+
+	// version — print version and build info
+	c.Command("version", core.Command{
+		Description: "Print version and build info",
+		Action: func(opts core.Options) core.Result {
+			core.Print(nil, "core-agent %s", c.App().Version)
+			core.Print(nil, "  go:       %s", core.Env("GO"))
+			core.Print(nil, "  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
+			core.Print(nil, "  home:     %s", core.Env("DIR_HOME"))
+			core.Print(nil, "  hostname: %s", core.Env("HOSTNAME"))
+			core.Print(nil, "  pid:      %s", core.Env("PID"))
+			return core.Result{OK: true}
+		},
+	})
+
+	// check — verify workspace, deps, and config are healthy
+	c.Command("check", core.Command{
+		Description: "Verify workspace, deps, and config",
+		Action: func(opts core.Options) core.Result {
+			fs := c.Fs()
+
+			core.Print(nil, "core-agent %s health check", c.App().Version)
+			core.Print(nil, "")
+
+			// Binary location
+			core.Print(nil, "  binary:    %s", os.Args[0])
+
+			// Agents config
+			agentsPath := core.Path("Code", ".core", "agents.yaml")
+			if fs.IsFile(agentsPath) {
+				core.Print(nil, "  agents:    %s (ok)", agentsPath)
+			} else {
+				core.Print(nil, "  agents:    %s (MISSING)", agentsPath)
+			}
+
+			// Workspace dir
+			wsRoot := core.Path("Code", ".core", "workspace")
+			if fs.IsDir(wsRoot) {
+				r := fs.List(wsRoot)
+				count := 0
+				if r.OK {
+					count = len(r.Value.([]os.DirEntry))
+				}
+				core.Print(nil, "  workspace: %s (%d entries)", wsRoot, count)
+			} else {
+				core.Print(nil, "  workspace: %s (MISSING)", wsRoot)
+			}
+
+			// Core dep version
+			core.Print(nil, "  core:      dappco.re/go/core@v%s", c.App().Version)
+
+			// Env keys
+			core.Print(nil, "  env keys:  %d loaded", len(core.EnvKeys()))
+
+			core.Print(nil, "")
+			core.Print(nil, "ok")
+			return core.Result{OK: true}
+		},
+	})
+
+	// extract — test workspace template extraction
+	c.Command("extract", core.Command{
+		Description: "Extract a workspace template to a directory",
+		Action: func(opts core.Options) core.Result {
+			tmpl := opts.String("_arg")
+			if tmpl == "" {
+				tmpl = "default"
+			}
+			target := opts.String("target")
+			if target == "" {
+				target = core.Path("Code", ".core", "workspace", "test-extract")
+			}
+
+			data := &lib.WorkspaceData{
+				Repo:   "test-repo",
+				Branch: "dev",
+				Task:   "test extraction",
+				Agent:  "codex",
+			}
+
+			core.Print(nil, "extracting template %q to %s", tmpl, target)
+			if err := lib.ExtractWorkspace(tmpl, target, data); err != nil {
+				return core.Result{Value: err, OK: false}
+			}
+
+			// List what was created
+			fs := &core.Fs{}
+			r := fs.List(target)
+			if r.OK {
+				for _, e := range r.Value.([]os.DirEntry) {
+					marker := " "
+					if e.IsDir() {
+						marker = "/"
+					}
+					core.Print(nil, "  %s%s", e.Name(), marker)
+				}
+			}
+
+			core.Print(nil, "done")
+			return core.Result{OK: true}
+		},
+	})
 
 	// Shared setup — creates MCP service with all subsystems wired
 	initServices := func() (*mcp.Service, *monitor.Subsystem, error) {
@@ -76,18 +179,17 @@ func main() {
 				return core.Result{Value: err, OK: false}
 			}
 
-			addr := os.Getenv("MCP_HTTP_ADDR")
+			addr := core.Env("MCP_HTTP_ADDR")
 			if addr == "" {
 				addr = "0.0.0.0:9101"
 			}
 
-			healthAddr := os.Getenv("HEALTH_ADDR")
+			healthAddr := core.Env("HEALTH_ADDR")
 			if healthAddr == "" {
 				healthAddr = "0.0.0.0:9102"
 			}
 
-			home, _ := os.UserHomeDir()
-			pidFile := core.Concat(home, "/.core/core-agent.pid")
+			pidFile := core.Path(".core", "core-agent.pid")
 
 			daemon := process.NewDaemon(process.DaemonOptions{
 				PIDFile:    pidFile,

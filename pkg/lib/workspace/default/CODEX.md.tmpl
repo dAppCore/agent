@@ -30,6 +30,7 @@ c := core.New(core.Options{
 | `c.Cli()` | `*Cli` | CLI surface (command tree → terminal) |
 | `c.IPC()` | `*Ipc` | Message bus (Action/Query/Task) |
 | `c.I18n()` | `*I18n` | Internationalisation + locale collection |
+| `c.Env("key")` | `string` | Read-only system/environment info |
 | `c.Options()` | `*Options` | Input configuration used to create Core |
 | `c.Context()` | `context.Context` | Application context (cancelled on shutdown) |
 
@@ -96,6 +97,64 @@ c.RegisterTask(func(c *core.Core, t core.Task) core.Result {
 })
 ```
 
+### Environment — use `core.Env()`, never `os.Getenv` for standard dirs
+
+Env is environment (read-only system facts). Config is ours (mutable app settings).
+
+```go
+// System
+core.Env("OS")        // "darwin", "linux", "windows"
+core.Env("ARCH")      // "arm64", "amd64"
+core.Env("DS")        // "/" or "\" (directory separator)
+core.Env("HOSTNAME")  // machine name
+core.Env("USER")      // current user
+
+// Directories
+core.Env("DIR_HOME")      // home dir (overridable via CORE_HOME env var)
+core.Env("DIR_CONFIG")    // OS config dir
+core.Env("DIR_CACHE")     // OS cache dir
+core.Env("DIR_DATA")      // OS data dir (platform-specific)
+core.Env("DIR_TMP")       // temp dir
+core.Env("DIR_CWD")       // working directory at startup
+core.Env("DIR_CODE")      // ~/Code
+core.Env("DIR_DOWNLOADS") // ~/Downloads
+
+// Timestamps
+core.Env("CORE_START")    // RFC3339 UTC boot timestamp
+```
+
+### Paths — use `core.Path()`, never `filepath.Join` or raw concatenation
+
+Path() is the single point of responsibility for filesystem paths. Every path goes through it — security fixes happen in one place.
+
+```go
+// WRONG
+home, _ := os.UserHomeDir()
+configPath := filepath.Join(home, ".config", "app.yaml")
+base := filepath.Base(configPath)
+
+// CORRECT
+configPath := core.Path(".config", "app.yaml")  // anchored to DIR_HOME
+base := core.PathBase(configPath)
+```
+
+```go
+// Relative → anchored to DIR_HOME
+core.Path("Code", ".core")       // "/Users/snider/Code/.core"
+core.Path(".config", "app.yaml") // "/Users/snider/.config/app.yaml"
+
+// Absolute → pass through (cleaned)
+core.Path("/tmp", "workspace")   // "/tmp/workspace"
+
+// No args → DIR_HOME
+core.Path()                      // "/Users/snider"
+
+// Component helpers
+core.PathBase("/a/b/c")          // "c"
+core.PathDir("/a/b/c")           // "/a/b"
+core.PathExt("main.go")          // ".go"
+```
+
 ## Mandatory Patterns
 
 ### Errors — use `core.E()`, never `fmt.Errorf` or `errors.New`
@@ -122,16 +181,35 @@ core.Info("starting server", "addr", addr)
 core.Error("operation failed", "err", err)
 ```
 
-### Filesystem — use `core.Fs{}`, never `os.ReadFile/WriteFile/MkdirAll`
+### Filesystem — use `core.Fs{}` + `core.Path()`, never `os.*` or `filepath.*`
 
 ```go
 var fs = &core.Fs{}
-r := fs.Read(path)           // returns core.Result
+
+// Build paths with Path() — never raw concatenation
+configPath := core.Path(".config", "app.yaml")
+
+// Read/write through Fs — never os.ReadFile/WriteFile
+r := fs.Read(configPath)
 if !r.OK { return r }
 content := r.Value.(string)
 
-fs.Write(path, content)      // returns core.Result
-fs.EnsureDir(dir)             // returns core.Result
+fs.Write(configPath, content)
+fs.EnsureDir(core.Path(".config"))
+
+// File checks — never os.Stat
+fs.Exists(path)              // bool
+fs.IsFile(path)              // bool
+fs.IsDir(path)               // bool
+
+// Directory listing — never os.ReadDir
+r := fs.List(dir)            // Result{[]os.DirEntry, true}
+
+// Append — never os.OpenFile
+r := fs.Append(logPath)      // Result{*os.File, true}
+
+// Delete — never os.Remove
+fs.Delete(path)              // Result
 ```
 
 ### Returns — use `core.Result`, never `(value, error)`
@@ -392,10 +470,15 @@ c.I18n().SetLanguage("en-GB")
 | `log` | `core.Error`, `core.Info` |
 | `strings` | `core.Contains`, `core.Split` etc |
 | `errors` | `core.E`, `core.Wrap` |
+| `path/filepath` | `core.Path`, `core.PathBase`, `core.PathDir`, `core.PathExt` |
 | `io/ioutil` | `core.Fs{}` |
 | `os` (file ops) | `core.Fs{}` |
+| `os.UserHomeDir` | `core.Env("DIR_HOME")` |
+| `os.Getenv` (standard dirs) | `core.Env("DIR_CONFIG")` etc |
+| `runtime.GOOS` | `core.Env("OS")` |
+| `runtime.GOARCH` | `core.Env("ARCH")` |
 
-Acceptable stdlib: `os.Getenv`, `os.Exit`, `os.Stderr`, `os.UserHomeDir`, `context`, `sync`, `time`, `net/http`, `encoding/json`, `path/filepath`.
+Acceptable stdlib: `os.Exit`, `os.Stderr`, `os.Getenv` (non-standard keys), `context`, `sync`, `time`, `net/http`, `encoding/json`.
 
 ## Build & Test
 

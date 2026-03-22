@@ -4,9 +4,9 @@ package agentic
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
-	"strings"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -265,16 +265,24 @@ func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 
 // extractJSONField extracts a simple string field from JSON array output.
 func extractJSONField(jsonStr, field string) string {
-	// Quick and dirty — works for gh CLI output like [{"url":"https://..."}]
-	key := core.Sprintf(`"%s":"`, field)
-	idx := strings.Index(jsonStr, key)
-	if idx < 0 {
+	if jsonStr == "" || field == "" {
 		return ""
 	}
-	start := idx + len(key)
-	end := strings.Index(jsonStr[start:], `"`)
-	if end < 0 {
+
+	var list []map[string]any
+	if err := json.Unmarshal([]byte(jsonStr), &list); err == nil {
+		for _, item := range list {
+			if value, ok := item[field].(string); ok {
+				return value
+			}
+		}
+	}
+
+	var item map[string]any
+	if err := json.Unmarshal([]byte(jsonStr), &item); err != nil {
 		return ""
 	}
-	return jsonStr[start : start+end]
+
+	value, _ := item[field].(string)
+	return value
 }

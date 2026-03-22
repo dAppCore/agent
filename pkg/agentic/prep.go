@@ -11,7 +11,6 @@ import (
 	goio "io"
 	"net/http"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -204,19 +203,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Create feature branch
-	taskSlug := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
-			return r
-		}
-		if r >= 'A' && r <= 'Z' {
-			return r + 32 // lowercase
-		}
-		return '-'
-	}, input.Task)
-	if len(taskSlug) > 40 {
-		taskSlug = taskSlug[:40]
-	}
-	taskSlug = strings.Trim(taskSlug, "-")
+	taskSlug := sanitiseBranchSlug(input.Task, 40)
 	if taskSlug == "" {
 		// Fallback for issue-only dispatches with no task text
 		taskSlug = core.Sprintf("issue-%d", input.Issue)
@@ -234,17 +221,17 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	out.Branch = branchName
 
 	// Create context dirs inside src/
-	fs.EnsureDir(core.JoinPath(srcDir, "kb"))
-	fs.EnsureDir(core.JoinPath(srcDir, "specs"))
+	fs.EnsureDir(core.JoinPath(wsDir, "kb"))
+	fs.EnsureDir(core.JoinPath(wsDir, "specs"))
 
 	// Remote stays as local clone origin — agent cannot push to forge.
 	// Reviewer pulls changes from workspace and pushes after verification.
 
-	// 2. Extract workspace template
-	wsTmpl := "default"
+	// 2. Extract workspace template — default first, then overlay
+	wsTmpl := ""
 	if input.Template == "security" {
 		wsTmpl = "security"
-	} else if input.Template == "verify" || input.Template == "conventions" {
+	} else if input.Template == "review" || input.Template == "verify" || input.Template == "conventions" {
 		wsTmpl = "review"
 	}
 
@@ -276,18 +263,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		TestCmd:  detectTestCmd(repoPath),
 	}
 
-	lib.ExtractWorkspace(wsTmpl, srcDir, wsData)
-	out.ClaudeMd = true
-
-	// Copy repo's own CLAUDE.md over template if it exists
-	claudeMdPath := core.JoinPath(repoPath, "CLAUDE.md")
-	if r := fs.Read(claudeMdPath); r.OK {
-		fs.Write(core.JoinPath(srcDir, "CLAUDE.md"), r.Value.(string))
-	}
-	// Copy GEMINI.md from core/agent (ethics framework for all agents)
-	agentGeminiMd := core.JoinPath(s.codePath, "core", "agent", "GEMINI.md")
-	if r := fs.Read(agentGeminiMd); r.OK {
-		fs.Write(core.JoinPath(srcDir, "GEMINI.md"), r.Value.(string))
+	lib.ExtractWorkspace("default", wsDir, wsData)
+	if wsTmpl != "" {
+		lib.ExtractWorkspace(wsTmpl, wsDir, wsData)
 	}
 
 	// 3. Generate TODO.md from issue (overrides template)
@@ -469,12 +447,7 @@ func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) i
 		}
 
 		content, _ := base64.StdEncoding.DecodeString(pageData.ContentBase64)
-		filename := strings.Map(func(r rune) rune {
-			if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.' {
-				return r
-			}
-			return '-'
-		}, page.Title) + ".md"
+		filename := sanitiseFilename(page.Title) + ".md"
 
 		fs.Write(core.JoinPath(wsDir, "src", "kb", filename), string(content))
 		count++

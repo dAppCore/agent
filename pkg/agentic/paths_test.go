@@ -111,6 +111,16 @@ func TestExtractJSONField_Good(t *testing.T) {
 	assert.Equal(t, "https://github.com/dAppCore/go-io/pull/1", extractJSONField(json, "url"))
 }
 
+func TestExtractJSONField_Good_Object(t *testing.T) {
+	json := `{"url":"https://github.com/dAppCore/go-io/pull/2"}`
+	assert.Equal(t, "https://github.com/dAppCore/go-io/pull/2", extractJSONField(json, "url"))
+}
+
+func TestExtractJSONField_Good_PrettyPrinted(t *testing.T) {
+	json := "[\n  {\n    \"url\": \"https://github.com/dAppCore/go-io/pull/3\"\n  }\n]"
+	assert.Equal(t, "https://github.com/dAppCore/go-io/pull/3", extractJSONField(json, "url"))
+}
+
 func TestExtractJSONField_Bad_Missing(t *testing.T) {
 	assert.Equal(t, "", extractJSONField(`{"name":"test"}`, "url"))
 	assert.Equal(t, "", extractJSONField("", "url"))

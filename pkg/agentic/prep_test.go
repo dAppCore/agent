@@ -127,6 +127,19 @@ func TestDetectTestCmd_Good_DefaultsToGo(t *testing.T) {
 	assert.Equal(t, "go test ./...", detectTestCmd(dir))
 }
 
+func TestSanitiseBranchSlug_Good(t *testing.T) {
+	assert.Equal(t, "fix-login-bug", sanitiseBranchSlug("Fix login bug!", 40))
+	assert.Equal(t, "trim-me", sanitiseBranchSlug("---Trim Me---", 40))
+}
+
+func TestSanitiseBranchSlug_Good_Truncates(t *testing.T) {
+	assert.Equal(t, "feature", sanitiseBranchSlug("feature--extra", 7))
+}
+
+func TestSanitiseFilename_Good(t *testing.T) {
+	assert.Equal(t, "Core---Agent-Notes", sanitiseFilename("Core / Agent:Notes"))
+}
+
 func TestNewPrep_Good_Defaults(t *testing.T) {
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "")

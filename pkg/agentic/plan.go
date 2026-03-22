@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"strings"
 	"time"
 
 	core "dappco.re/go/core"
@@ -348,28 +347,7 @@ func planPath(dir, id string) string {
 }
 
 func generatePlanID(title string) string {
-	slug := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
-			return r
-		}
-		if r >= 'A' && r <= 'Z' {
-			return r + 32
-		}
-		if r == ' ' {
-			return '-'
-		}
-		return -1
-	}, title)
-
-	// Trim consecutive dashes and cap length
-	for core.Contains(slug, "--") {
-		slug = core.Replace(slug, "--", "-")
-	}
-	slug = strings.Trim(slug, "-")
-	if len(slug) > 30 {
-		slug = slug[:30]
-	}
-	slug = strings.TrimRight(slug, "-")
+	slug := sanitisePlanSlug(title)
 
 	// Append short random suffix for uniqueness
 	b := make([]byte, 3)

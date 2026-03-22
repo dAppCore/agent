@@ -3,9 +3,9 @@
 package setup
 
 import (
+	neturl "net/url"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
@@ -136,7 +136,7 @@ func GenerateTestConfig(projType ProjectType) (string, error) {
 }
 
 func renderConfig(comment string, sections []configSection) (string, error) {
-	var builder strings.Builder
+	builder := core.NewBuilder()
 
 	if comment != "" {
 		builder.WriteString("# ")
@@ -157,7 +157,7 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 			builder.WriteString("  ")
 			builder.WriteString(value.Key)
 			builder.WriteString(": ")
-			builder.WriteString(strings.TrimSpace(string(scalar)))
+			builder.WriteString(core.Trim(string(scalar)))
 			builder.WriteString("\n")
 		}
 
@@ -177,32 +177,31 @@ func detectGitRemote(path string) string {
 	if err != nil {
 		return ""
 	}
-	url := strings.TrimSpace(string(output))
+	return parseGitRemote(core.Trim(string(output)))
+}
 
-	// SSH: git@github.com:owner/repo.git or ssh://git@forge.lthn.ai:2223/core/agent.git
-	if strings.Contains(url, ":") {
-		parts := strings.SplitN(url, ":", 2)
-		if len(parts) == 2 {
-			repo := parts[1]
-			repo = strings.TrimSuffix(repo, ".git")
-			// Handle port in SSH URL (ssh://git@host:port/path)
-			if strings.Contains(repo, "/") {
-				segments := strings.SplitN(repo, "/", 2)
-				if len(segments) == 2 && strings.ContainsAny(segments[0], "0123456789") {
-					repo = segments[1]
-				}
-			}
-			return repo
-		}
+func parseGitRemote(remote string) string {
+	if remote == "" {
+		return ""
 	}
 
-	// HTTPS: https://github.com/owner/repo.git
-	for _, host := range []string{"github.com/", "forge.lthn.ai/"} {
-		if idx := strings.Index(url, host); idx >= 0 {
-			repo := url[idx+len(host):]
-			return strings.TrimSuffix(repo, ".git")
-		}
+	if parsed, err := neturl.Parse(remote); err == nil && parsed.Host != "" {
+		return trimRemotePath(parsed.Path)
+	}
+
+	parts := core.SplitN(remote, ":", 2)
+	if len(parts) == 2 && core.Contains(parts[0], "@") {
+		return trimRemotePath(parts[1])
+	}
+
+	if core.Contains(remote, "/") {
+		return trimRemotePath(remote)
 	}
 
 	return ""
+}
+
+func trimRemotePath(remote string) string {
+	trimmed := core.TrimPrefix(remote, "/")
+	return core.TrimSuffix(trimmed, ".git")
 }

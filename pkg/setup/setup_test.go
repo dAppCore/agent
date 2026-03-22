@@ -30,6 +30,26 @@ func TestGenerateBuildConfig_Good(t *testing.T) {
 	assert.Contains(t, cfg, "cgo: false")
 }
 
+func TestParseGitRemote_Good(t *testing.T) {
+	tests := map[string]string{
+		"https://github.com/dAppCore/go-io.git":       "dAppCore/go-io",
+		"git@github.com:dAppCore/go-io.git":           "dAppCore/go-io",
+		"ssh://git@forge.lthn.ai:2223/core/agent.git": "core/agent",
+		"ssh://git@forge.lthn.ai:2223/core/agent":     "core/agent",
+		"git@forge.lthn.ai:core/agent.git":            "core/agent",
+		"/srv/git/core/agent.git":                     "srv/git/core/agent",
+	}
+
+	for remote, want := range tests {
+		assert.Equal(t, want, parseGitRemote(remote), remote)
+	}
+}
+
+func TestParseGitRemote_Bad(t *testing.T) {
+	assert.Equal(t, "", parseGitRemote(""))
+	assert.Equal(t, "", parseGitRemote("origin"))
+}
+
 func TestRun_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(filepath.Join(dir, "go.mod"), "module example.com/test\n", 0644).OK)

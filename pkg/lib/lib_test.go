@@ -206,7 +206,7 @@ func TestExtractWorkspace_CreatesFiles(t *testing.T) {
 		t.Fatalf("ExtractWorkspace failed: %v", err)
 	}
 
-	for _, name := range []string{"CODEX.md", "CLAUDE.md", "PROMPT.md", "TODO.md", "CONTEXT.md"} {
+	for _, name := range []string{"CODEX.md", "CLAUDE.md", "PROMPT.md", "TODO.md", "CONTEXT.md", "go.work"} {
 		path := filepath.Join(dir, name)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			t.Errorf("expected %s to exist", name)
