@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
-	"forge.lthn.ai/core/go-process"
+	coreio "dappco.re/go/core/io"
+	coreerr "dappco.re/go/core/log"
+	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

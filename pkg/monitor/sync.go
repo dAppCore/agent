@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "forge.lthn.ai/core/go-io"
+	coreio "dappco.re/go/core/io"
 )
 
 // CheckinResponse is what the API returns for an agent checkin.

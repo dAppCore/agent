@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	ws "forge.lthn.ai/core/go-ws"
+	ws "dappco.re/go/core/ws"
 	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
