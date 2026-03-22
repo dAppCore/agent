@@ -7,7 +7,7 @@
   },
   "plugins": [
     {
-      "name": "core",
+      "name": "CoreAgent",
       "source": "./claude/core",
       "description": "CoreAgent platform — dispatch, review, messaging, OpenBrain",
       "version": "0.13.0"
@@ -19,7 +19,7 @@
       "version": "0.2.0"
     },
     {
-      "name": "core-php",
+      "name": "CorePHP",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/php.git"
