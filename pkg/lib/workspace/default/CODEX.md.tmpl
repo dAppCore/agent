@@ -134,6 +134,166 @@ core.Result{err, false}
 core.Result{Value: err, OK: false}
 ```
 
+### Embedded content — use `core.Mount` + `core.Extract`, never raw `embed.FS`
+
+```go
+// WRONG
+//go:embed templates
+var templatesFS embed.FS
+data, _ := templatesFS.ReadFile("templates/config.yaml")
+
+// CORRECT
+//go:embed templates
+var templatesFS embed.FS
+var templates = mustMount(templatesFS, "templates")
+
+func mustMount(fsys embed.FS, basedir string) *core.Embed {
+    r := core.Mount(fsys, basedir)
+    if !r.OK { panic(r.Value) }
+    return r.Value.(*core.Embed)
+}
+
+r := templates.ReadString("config.yaml")
+if r.OK { content := r.Value.(string) }
+
+// Extract template directory with data substitution
+core.Extract(templates.FS(), targetDir, data)
+```
+
+### Error wrapping — use `core.Wrap`, never manual chaining
+
+```go
+// WRONG
+return fmt.Errorf("save failed: %w", err)
+
+// CORRECT
+return core.Wrap(err, "saveConfig", "failed to save config")
+```
+
+### Error codes — use `core.WrapCode` for machine-readable errors
+
+```go
+return core.WrapCode(err, "VALIDATION_ERROR", "user.Validate", "invalid email")
+var ErrNotFound = core.NewCode("NOT_FOUND", "resource not found")
+```
+
+### Error introspection
+
+```go
+core.Operation(err)        // extract operation name
+core.ErrorCode(err)        // extract error code
+core.ErrorMessage(err)     // extract message
+core.Root(err)             // root cause
+core.StackTrace(err)       // logical stack trace
+core.Is(err, target)       // errors.Is wrapper
+core.As(err, &target)      // errors.As wrapper
+```
+
+### Formatted output — use `core.Print`, never `fmt.Fprintf`
+
+```go
+// WRONG
+fmt.Fprintf(os.Stderr, "server on %s\n", addr)
+fmt.Println("done")
+
+// CORRECT
+core.Print(os.Stderr, "server on %s", addr)  // writer + format
+core.Print(nil, "done")                       // nil = stdout
+```
+
+### Arrays — use `core.Array[T]`, never manual slice management
+
+```go
+arr := core.NewArray[string]("a", "b", "c")
+arr.AddUnique("d")
+arr.Contains("a")           // true
+arr.Filter(func(s string) bool { return s != "b" })
+arr.Deduplicate()
+```
+
+### Config — use `core.Config`, never raw maps
+
+```go
+c.Config().Set("port", 8080)
+port := c.Config().Int("port")
+c.Config().Enable("debug")
+if c.Config().Enabled("debug") { ... }
+```
+
+### IPC — use `core.Action/Query/Perform` for inter-service communication
+
+```go
+// Fire-and-forget broadcast
+c.ACTION(MyEvent{Data: "hello"})
+
+// Query first responder
+r := c.QUERY(FindUser{ID: 123})
+if r.OK { user := r.Value.(*User) }
+
+// Perform task (side effects)
+r := c.PERFORM(SendEmail{To: "user@example.com"})
+
+// Register handler
+c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
+    switch m := msg.(type) {
+    case MyEvent:
+        core.Info("received event", "data", m.Data)
+    }
+    return core.Result{OK: true}
+})
+```
+
+### Services — use `c.Service()` DTO pattern
+
+```go
+c.Service("cache", core.Service{
+    OnStart: func() core.Result { return core.Result{OK: true} },
+    OnStop:  func() core.Result { return core.Result{OK: true} },
+})
+
+r := c.Service("cache")
+if r.OK { svc := r.Value.(*core.Service) }
+```
+
+### Commands — use `c.Command()` path-based registration
+
+```go
+c.Command("deploy", core.Command{
+    Description: "Deploy to production",
+    Action: func(opts core.Options) core.Result {
+        target := opts.String("target")
+        return core.Result{Value: "deployed to " + target, OK: true}
+    },
+})
+
+// Nested commands use path notation
+c.Command("deploy/to/homelab", core.Command{...})
+
+// Run CLI
+c.Cli().Run()
+```
+
+### Drive — use `c.Drive()` for transport handles
+
+```go
+c.Drive().New(core.Options{
+    {Key: "name", Value: "api"},
+    {Key: "transport", Value: "https://api.lthn.ai"},
+})
+
+r := c.Drive().Get("api")
+if r.OK { handle := r.Value.(*core.DriveHandle) }
+```
+
+### I18n — use `c.I18n()` for translations
+
+```go
+r := c.I18n().Translate("greeting", "name", "World")
+if r.OK { text := r.Value.(string) }
+
+c.I18n().SetLanguage("en-GB")
+```
+
 ## What NOT to import
 
 | Do NOT import | Use instead |
