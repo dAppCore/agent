@@ -78,11 +78,11 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			"exec",
 			"--full-auto",
 			"-o", "../.meta/agent-codex.log",
-			prompt,
 		}
 		if model != "" {
-			args = append(args[:3], append([]string{"--model", model}, args[3:]...)...)
+			args = append(args, "--model", model)
 		}
+		args = append(args, prompt)
 		return "codex", args, nil
 	case "claude":
 		args := []string{
