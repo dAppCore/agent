@@ -1,50 +1,36 @@
-# Host UK Developer Workspace
-# Run `make setup` to bootstrap your environment
 
-CORE_REPO := github.com/host-uk/core
-CORE_VERSION := latest
-INSTALL_DIR := $(HOME)/.local/bin
+# ── core-agent binary ──────────────────────────────────
 
-.PHONY: all setup install-deps install-go install-core doctor clean help
+BINARY_NAME=core-agent
+CMD_PATH=./cmd/core-agent
+MODULE_PATH=dappco.re/go/agent
 
-all: help
+# Default LDFLAGS to empty
+LDFLAGS = ""
 
-help:
-	@echo "Host UK Developer Workspace"
-	@echo ""
-	@echo "Usage:"
-	@echo "  make setup        Full setup (deps + core + clone repos)"
-	@echo "  make install-deps Install system dependencies (go, gh, etc)"
-	@echo "  make install-core Build and install core CLI"
-	@echo "  make doctor       Check environment health"
-	@echo "  make clone        Clone all repos into packages/"
-	@echo "  make clean        Remove built artifacts"
-	@echo ""
-	@echo "Quick start:"
-	@echo "  make setup"
+# If VERSION is set, inject into binary
+ifdef VERSION
+	LDFLAGS = -ldflags "-X '$(MODULE_PATH).version=$(VERSION)'"
+endif
 
-setup: install-deps install-core doctor clone
-	@echo ""
-	@echo "Setup complete! Run 'core health' to verify."
+.PHONY: build install agent-dev test coverage
 
-install-deps:
-	@echo "Installing dependencies..."
-	@./scripts/install-deps.sh
+build:
+	@echo "Building $(BINARY_NAME)..."
+	@go build $(LDFLAGS) -o $(BINARY_NAME) $(CMD_PATH)
 
-install-go:
-	@echo "Installing Go..."
-	@./scripts/install-go.sh
+install:
+	@echo "Installing $(BINARY_NAME)..."
+	@go install $(LDFLAGS) $(CMD_PATH)
 
-install-core:
-	@echo "Installing core CLI..."
-	@./scripts/install-core.sh
+agent-dev: build
+	@./$(BINARY_NAME) version
 
-doctor:
-	@core doctor || echo "Run 'make install-core' first if core is not found"
+test:
+	@echo "Running tests..."
+	@go test ./...
 
-clone:
-	@core setup || echo "Run 'make install-core' first if core is not found"
-
-clean:
-	@rm -rf ./build
-	@echo "Cleaned build artifacts"
+coverage:
+	@echo "Generating coverage report..."
+	@go test -coverprofile=coverage.out ./...
+	@echo "Coverage: coverage.out"

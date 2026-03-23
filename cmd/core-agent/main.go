@@ -21,7 +21,12 @@ func main() {
 	c := core.New(core.Options{
 		{Key: "name", Value: "core-agent"},
 	})
-	c.App().Version = "0.15.0"
+	// Version set at build time: go build -ldflags "-X main.version=0.15.0"
+	if version != "" {
+		c.App().Version = version
+	} else {
+		c.App().Version = "dev"
+	}
 
 	// version — print version and build info
 	c.Command("version", core.Command{
@@ -33,6 +38,7 @@ func main() {
 			core.Print(nil, "  home:     %s", core.Env("DIR_HOME"))
 			core.Print(nil, "  hostname: %s", core.Env("HOSTNAME"))
 			core.Print(nil, "  pid:      %s", core.Env("PID"))
+			core.Print(nil, "  channel:  %s", updateChannel())
 			return core.Result{OK: true}
 		},
 	})
@@ -128,6 +134,7 @@ func main() {
 	// --- Forge + Workspace CLI commands ---
 	registerForgeCommands(c)
 	registerWorkspaceCommands(c)
+	// registerUpdateCommand(c) — parked until version moves to module root
 
 	// --- CLI commands for feature testing ---
 
