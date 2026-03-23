@@ -144,6 +144,10 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 
 // baseAgent strips the model variant (gemini:flash → gemini).
 func baseAgent(agent string) string {
+	// codex:gpt-5.3-codex-spark → codex-spark (separate pool)
+	if core.Contains(agent, "codex-spark") {
+		return "codex-spark"
+	}
 	return core.SplitN(agent, ":", 2)[0]
 }
 
@@ -161,6 +165,9 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 // drainQueue fills all available concurrency slots from queued workspaces.
 // Loops until no slots remain or no queued tasks match. Serialised via drainMu.
 func (s *PrepSubsystem) drainQueue() {
+	if s.frozen {
+		return
+	}
 	s.drainMu.Lock()
 	defer s.drainMu.Unlock()
 
@@ -187,6 +194,12 @@ func (s *PrepSubsystem) drainOne() bool {
 		}
 
 		if !s.canDispatchAgent(st.Agent) {
+			continue
+		}
+
+		// Skip if agent pool is in rate-limit backoff
+		pool := baseAgent(st.Agent)
+		if until, ok := s.backoff[pool]; ok && time.Now().Before(until) {
 			continue
 		}
 

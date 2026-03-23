@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"dappco.re/go/core"
@@ -20,7 +21,7 @@ func main() {
 	c := core.New(core.Options{
 		{Key: "name", Value: "core-agent"},
 	})
-	c.App().Version = "0.2.0"
+	c.App().Version = "0.3.0"
 
 	// version — print version and build info
 	c.Command("version", core.Command{
@@ -376,6 +377,76 @@ func main() {
 
 			if err := mcpSvc.Run(ctx); err != nil {
 				return core.Result{Value: err, OK: false}
+			}
+			return core.Result{OK: true}
+		},
+	})
+
+	// run task — single task e2e (prep → spawn → wait → done)
+	c.Command("run/task", core.Command{
+		Description: "Run a single task end-to-end",
+		Action: func(opts core.Options) core.Result {
+			repo := opts.String("repo")
+			agent := opts.String("agent")
+			task := opts.String("task")
+			issueStr := opts.String("issue")
+			org := opts.String("org")
+
+			if repo == "" || task == "" {
+				core.Print(nil, "usage: core-agent run task --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]")
+				return core.Result{OK: false}
+			}
+			if agent == "" {
+				agent = "codex"
+			}
+			if org == "" {
+				org = "core"
+			}
+
+			issue := 0
+			if issueStr != "" {
+				if n, err := strconv.Atoi(issueStr); err == nil {
+					issue = n
+				}
+			}
+
+			procFactory := process.NewService(process.Options{})
+			procResult, err := procFactory(c)
+			if err != nil {
+				return core.Result{Value: err, OK: false}
+			}
+			if procSvc, ok := procResult.(*process.Service); ok {
+				_ = process.SetDefault(procSvc)
+			}
+
+			prep := agentic.NewPrep()
+
+			core.Print(os.Stderr, "core-agent run task")
+			core.Print(os.Stderr, "  repo:  %s/%s", org, repo)
+			core.Print(os.Stderr, "  agent: %s", agent)
+			if issue > 0 {
+				core.Print(os.Stderr, "  issue: #%d", issue)
+			}
+			core.Print(os.Stderr, "  task:  %s", task)
+			core.Print(os.Stderr, "")
+
+			// Dispatch and wait
+			result := prep.DispatchSync(ctx, agentic.DispatchSyncInput{
+				Org:   org,
+				Repo:  repo,
+				Agent: agent,
+				Task:  task,
+				Issue: issue,
+			})
+
+			if !result.OK {
+				core.Print(os.Stderr, "FAILED: %v", result.Error)
+				return core.Result{Value: result.Error, OK: false}
+			}
+
+			core.Print(os.Stderr, "DONE: %s", result.Status)
+			if result.PRURL != "" {
+				core.Print(os.Stderr, "  PR: %s", result.PRURL)
 			}
 			return core.Result{OK: true}
 		},

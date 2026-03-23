@@ -290,6 +290,25 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus) // audit log
 
+		// Rate-limit detection: if agent failed fast (<60s), track consecutive failures
+		pool := baseAgent(agent)
+		if finalStatus == "failed" {
+			if st, _ := readStatus(wsDir); st != nil {
+				elapsed := time.Since(st.StartedAt)
+				if elapsed < 60*time.Second {
+					s.failCount[pool]++
+					if s.failCount[pool] >= 3 {
+						s.backoff[pool] = time.Now().Add(30 * time.Minute)
+						core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
+					}
+				} else {
+					s.failCount[pool] = 0 // slow failure = real failure, reset count
+				}
+			}
+		} else {
+			s.failCount[pool] = 0 // success resets count
+		}
+
 		// Stop Forge stopwatch on the issue (time tracking)
 		if st, _ := readStatus(wsDir); st != nil && st.Issue > 0 {
 			org := st.Org

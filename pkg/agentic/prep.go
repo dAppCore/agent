@@ -46,6 +46,9 @@ type PrepSubsystem struct {
 	onComplete CompletionNotifier
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
+	frozen     bool
+	backoff    map[string]time.Time // pool → paused until
+	failCount  map[string]int       // pool → consecutive fast failures
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -79,6 +82,8 @@ func NewPrep() *PrepSubsystem {
 		brainKey:   brainKey,
 		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
 		client:     &http.Client{Timeout: 30 * time.Second},
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
 	}
 }
 
@@ -116,6 +121,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerRemoteDispatchTool(server)
 	s.registerRemoteStatusTool(server)
 	s.registerReviewQueueTool(server)
+	s.registerShutdownTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",

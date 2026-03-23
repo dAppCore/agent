@@ -2,15 +2,28 @@
 
 package agentic
 
-import "time"
+import (
+	"time"
+
+	core "dappco.re/go/core"
+)
 
 // StartRunner begins the background queue runner.
-// Ticks every 30s to drain queued tasks into available slots.
-// Also responds to Poke() for immediate drain on completion events.
+// Queue is frozen by default — use agentic_dispatch_start to unfreeze,
+// or set CORE_AGENT_DISPATCH=1 to auto-start.
 //
 //	prep.StartRunner()
 func (s *PrepSubsystem) StartRunner() {
 	s.pokeCh = make(chan struct{}, 1)
+
+	// Frozen by default — explicit start required
+	if core.Env("CORE_AGENT_DISPATCH") == "1" {
+		s.frozen = false
+		core.Print(nil, "dispatch: auto-start enabled (CORE_AGENT_DISPATCH=1)")
+	} else {
+		s.frozen = true
+	}
+
 	go s.runLoop()
 }
 

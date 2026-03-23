@@ -222,41 +222,71 @@ func (m *Subsystem) Poke() {
 	}
 }
 
-// AgentStarted pushes an immediate notification when an agent spawns.
-// Called directly by dispatch — no filesystem polling.
+// AgentStarted is called when an agent spawns.
+// No individual notification — fleet status is checked on completion.
 //
 //	mon.AgentStarted("codex:gpt-5.3-codex-spark", "go-io", "core/go-io/task-5")
 func (m *Subsystem) AgentStarted(agent, repo, workspace string) {
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "agent.started", map[string]any{
-			"agent": agent,
-			"repo":  repo,
-		})
-	}
+	// No-op — we only notify on failures and queue drain
 }
 
-// AgentCompleted pushes an immediate notification when an agent finishes.
-// Called directly by dispatch — no filesystem polling needed.
+// AgentCompleted is called when an agent finishes.
+// Only sends notifications for failures. Sends "queue.drained" when all work is done.
 //
 //	mon.AgentCompleted("codex", "go-io", "core/go-io/task-5", "completed")
 func (m *Subsystem) AgentCompleted(agent, repo, workspace, status string) {
-	if m.notifier != nil {
-		// Count current running/queued from status for context
-		running := 0
-		queued := 0
-		m.mu.Lock()
-		m.seenCompleted[workspace] = true
-		m.mu.Unlock()
+	m.mu.Lock()
+	m.seenCompleted[workspace] = true
+	m.mu.Unlock()
 
-		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
-			"completed": []string{core.Sprintf("%s (%s) [%s]", repo, agent, status)},
-			"count":     1,
-			"running":   running,
-			"queued":    queued,
+	if m.notifier != nil {
+		// Only notify on failures — those need attention
+		if status == "failed" || status == "blocked" {
+			m.notifier.ChannelSend(context.Background(), "agent.failed", map[string]any{
+				"repo":   repo,
+				"agent":  agent,
+				"status": status,
+			})
+		}
+	}
+
+	// Check if queue is drained (0 running + 0 queued)
+	m.Poke()
+	go m.checkIdleAfterDelay()
+}
+
+// checkIdleAfterDelay waits briefly then checks if the fleet is idle.
+// Sends a single "queue.drained" notification when all work stops.
+func (m *Subsystem) checkIdleAfterDelay() {
+	time.Sleep(5 * time.Second) // wait for runner to fill slots
+	if m.notifier == nil {
+		return
+	}
+
+	// Quick count — scan for running/queued
+	running := 0
+	queued := 0
+	wsRoot := agentic.WorkspaceRoot()
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	for _, path := range append(old, deep...) {
+		r := fs.Read(path)
+		if !r.OK {
+			continue
+		}
+		s := r.Value.(string)
+		if core.Contains(s, `"status":"running"`) {
+			running++
+		} else if core.Contains(s, `"status":"queued"`) {
+			queued++
+		}
+	}
+
+	if running == 0 && queued == 0 {
+		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
+			"message": "all work complete",
 		})
 	}
-	// Also poke to update counts for any other monitors
-	m.Poke()
 }
 
 func (m *Subsystem) loop(ctx context.Context) {
@@ -379,12 +409,7 @@ func (m *Subsystem) checkCompletions() string {
 			running++
 			if !m.seenRunning[wsName] && seeded {
 				m.seenRunning[wsName] = true
-				if m.notifier != nil {
-					m.notifier.ChannelSend(context.Background(), "agent.started", map[string]any{
-						"repo":  st.Repo,
-						"agent": st.Agent,
-					})
-				}
+				// No individual start notification — too noisy
 			}
 		case "queued":
 			queued++
@@ -405,13 +430,11 @@ func (m *Subsystem) checkCompletions() string {
 		return ""
 	}
 
-	// Push channel events
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "agent.complete", map[string]any{
-			"count":     len(newlyCompleted),
-			"completed": newlyCompleted,
-			"running":   running,
-			"queued":    queued,
+	// Only notify on queue drain (0 running + 0 queued) — individual completions are noise
+	if m.notifier != nil && running == 0 && queued == 0 {
+		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
+			"completed": len(newlyCompleted),
+			"message":   "all work complete",
 		})
 	}
 
