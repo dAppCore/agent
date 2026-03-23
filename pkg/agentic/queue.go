@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"os"
 	"strconv"
 	"syscall"
 	"time"
@@ -159,27 +158,29 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	return s.countRunningByAgent(base) < limit
 }
 
-// drainQueue finds the oldest queued workspace and spawns it if a slot is available.
-// Applies rate-based delay between spawns. Serialised via drainMu to prevent
-// concurrent drainers from exceeding concurrency limits.
+// drainQueue fills all available concurrency slots from queued workspaces.
+// Loops until no slots remain or no queued tasks match. Serialised via drainMu.
 func (s *PrepSubsystem) drainQueue() {
 	s.drainMu.Lock()
 	defer s.drainMu.Unlock()
 
+	for s.drainOne() {
+		// keep filling slots
+	}
+}
+
+// drainOne finds the oldest queued workspace and spawns it if a slot is available.
+// Returns true if a task was spawned, false if nothing to do.
+func (s *PrepSubsystem) drainOne() bool {
 	wsRoot := WorkspaceRoot()
 
-	r := fs.List(wsRoot)
-	if !r.OK {
-		return
-	}
-	entries := r.Value.([]os.DirEntry)
+	// Scan both old and new workspace layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	statusFiles := append(old, deep...)
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		wsDir := core.JoinPath(wsRoot, entry.Name())
+	for _, statusPath := range statusFiles {
+		wsDir := core.PathDir(statusPath)
 		st, err := readStatus(wsDir)
 		if err != nil || st.Status != "queued" {
 			continue
@@ -212,6 +213,8 @@ func (s *PrepSubsystem) drainQueue() {
 		st.Runs++
 		writeStatus(wsDir, st)
 
-		return
+		return true
 	}
+
+	return false
 }

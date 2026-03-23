@@ -307,6 +307,7 @@ func main() {
 		}
 
 		mon.SetNotifier(mcpSvc)
+		prep.StartRunner()
 		return mcpSvc, mon, nil
 	}
 
@@ -376,6 +377,37 @@ func main() {
 			if err := mcpSvc.Run(ctx); err != nil {
 				return core.Result{Value: err, OK: false}
 			}
+			return core.Result{OK: true}
+		},
+	})
+
+	// run orchestrator — standalone queue runner without MCP stdio
+	c.Command("run/orchestrator", core.Command{
+		Description: "Run the queue orchestrator (standalone, no MCP)",
+		Action: func(opts core.Options) core.Result {
+			procFactory := process.NewService(process.Options{})
+			procResult, err := procFactory(c)
+			if err != nil {
+				return core.Result{Value: err, OK: false}
+			}
+			if procSvc, ok := procResult.(*process.Service); ok {
+				_ = process.SetDefault(procSvc)
+			}
+
+			mon := monitor.New()
+			prep := agentic.NewPrep()
+			prep.SetCompletionNotifier(mon)
+
+			mon.Start(ctx)
+			prep.StartRunner()
+
+			core.Print(os.Stderr, "core-agent orchestrator running (pid %s)", core.Env("PID"))
+			core.Print(os.Stderr, "  workspace: %s", agentic.WorkspaceRoot())
+			core.Print(os.Stderr, "  watching queue, draining on 30s tick + completion poke")
+
+			// Block until signal
+			<-ctx.Done()
+			core.Print(os.Stderr, "orchestrator shutting down")
 			return core.Result{OK: true}
 		},
 	})

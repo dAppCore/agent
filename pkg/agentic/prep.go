@@ -45,6 +45,7 @@ type PrepSubsystem struct {
 	client     *http.Client
 	onComplete CompletionNotifier
 	drainMu    sync.Mutex
+	pokeCh     chan struct{}
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)

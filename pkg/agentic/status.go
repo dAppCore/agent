@@ -74,31 +74,34 @@ func readStatus(wsDir string) (*WorkspaceStatus, error) {
 
 // StatusInput is the input for agentic_status.
 //
-//	input := agentic.StatusInput{Workspace: "go-io-123"}
+//	input := agentic.StatusInput{Workspace: "go-io-123", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all
+	Limit     int    `json:"limit,omitempty"`     // max results (default 100)
+	Status    string `json:"status,omitempty"`    // filter: running, completed, failed, blocked
 }
 
 // StatusOutput is the output for agentic_status.
+// Returns stats by default. Only blocked workspaces are listed (they need attention).
 //
-//	out := agentic.StatusOutput{Count: 1, Workspaces: []agentic.WorkspaceInfo{{Name: "go-io-123"}}}
+//	out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
 type StatusOutput struct {
-	Workspaces []WorkspaceInfo `json:"workspaces"`
-	Count      int             `json:"count"`
+	Total     int             `json:"total"`
+	Running   int             `json:"running"`
+	Queued    int             `json:"queued"`
+	Completed int             `json:"completed"`
+	Failed    int             `json:"failed"`
+	Blocked   []BlockedInfo   `json:"blocked,omitempty"`
 }
 
-// WorkspaceInfo summarises one workspace returned by agentic_status.
+// BlockedInfo shows a workspace that needs human input.
 //
-//	info := agentic.WorkspaceInfo{Name: "go-io-123", Status: "running", Agent: "codex", Repo: "go-io"}
-type WorkspaceInfo struct {
+//	info := agentic.BlockedInfo{Name: "go-io/task-4", Repo: "go-io", Question: "Which API version?"}
+type BlockedInfo struct {
 	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Agent    string `json:"agent"`
 	Repo     string `json:"repo"`
-	Task     string `json:"task"`
-	Age      string `json:"age"`
-	Question string `json:"question,omitempty"`
-	Runs     int    `json:"runs"`
+	Agent    string `json:"agent"`
+	Question string `json:"question"`
 }
 
 func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
@@ -116,54 +119,32 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
 	statusFiles := append(old, deep...)
 
-	var workspaces []WorkspaceInfo
+	var out StatusOutput
 
 	for _, statusPath := range statusFiles {
 		wsDir := core.PathDir(statusPath)
-		// Name: for old layout use dir name, for new use relative path from wsRoot
 		name := wsDir[len(wsRoot)+1:]
-
-		// Filter by specific workspace if requested
-		if input.Workspace != "" && name != input.Workspace {
-			continue
-		}
-
-		info := WorkspaceInfo{Name: name}
 
 		st, err := readStatus(wsDir)
 		if err != nil {
-			info.Status = "unknown"
-			workspaces = append(workspaces, info)
+			out.Total++
+			out.Failed++
 			continue
 		}
-
-		info.Status = st.Status
-		info.Agent = st.Agent
-		info.Repo = st.Repo
-		info.Task = st.Task
-		info.Runs = st.Runs
-		info.Age = time.Since(st.StartedAt).Truncate(time.Minute).String()
 
 		// If status is "running", check if PID is still alive
 		if st.Status == "running" && st.PID > 0 {
 			if err := syscall.Kill(st.PID, 0); err != nil {
-				// Process died — check for BLOCKED.md
 				blockedPath := core.JoinPath(wsDir, "repo", "BLOCKED.md")
 				if r := fs.Read(blockedPath); r.OK {
-					info.Status = "blocked"
-					info.Question = core.Trim(r.Value.(string))
 					st.Status = "blocked"
-					st.Question = info.Question
+					st.Question = core.Trim(r.Value.(string))
 				} else {
-					// Dead PID without BLOCKED.md — check exit code from log
-					// If no evidence of success, mark as failed (not completed)
 					logFile := core.JoinPath(wsDir, core.Sprintf("agent-%s.log", st.Agent))
 					if r := fs.Read(logFile); !r.OK {
-						info.Status = "failed"
 						st.Status = "failed"
 						st.Question = "Agent process died (no output log)"
 					} else {
-						info.Status = "completed"
 						st.Status = "completed"
 					}
 				}
@@ -171,15 +152,25 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			}
 		}
 
-		if st.Status == "blocked" {
-			info.Question = st.Question
+		out.Total++
+		switch st.Status {
+		case "running":
+			out.Running++
+		case "queued":
+			out.Queued++
+		case "completed":
+			out.Completed++
+		case "failed":
+			out.Failed++
+		case "blocked":
+			out.Blocked = append(out.Blocked, BlockedInfo{
+				Name:     name,
+				Repo:     st.Repo,
+				Agent:    st.Agent,
+				Question: st.Question,
+			})
 		}
-
-		workspaces = append(workspaces, info)
 	}
 
-	return nil, StatusOutput{
-		Workspaces: workspaces,
-		Count:      len(workspaces),
-	}, nil
+	return nil, out, nil
 }

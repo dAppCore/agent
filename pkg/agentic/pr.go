@@ -83,7 +83,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 	base := input.Base
 	if base == "" {
-		base = "main"
+		base = "dev"
 	}
 
 	// Build PR title

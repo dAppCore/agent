@@ -20,15 +20,13 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	repoDir := core.JoinPath(wsDir, "repo")
 
-	// Detect default branch for this repo
-	base := DefaultBranch(repoDir)
+	// PRs target dev — agents never merge directly to main
+	base := "dev"
 
-	// Check if there are commits on the branch beyond the default branch
 	diffCmd := exec.Command("git", "log", "--oneline", "origin/"+base+"..HEAD")
 	diffCmd.Dir = repoDir
 	out, err := diffCmd.Output()
 	if err != nil || len(core.Trim(string(out))) == 0 {
-		// No commits — nothing to PR
 		return
 	}
 
@@ -81,6 +79,9 @@ func (s *PrepSubsystem) buildAutoPRBody(st *WorkspaceStatus, commits int) string
 	b.WriteString("## Task\n\n")
 	b.WriteString(st.Task)
 	b.WriteString("\n\n")
+	if st.Issue > 0 {
+		b.WriteString(core.Sprintf("Closes #%d\n\n", st.Issue))
+	}
 	b.WriteString(core.Sprintf("**Agent:** %s\n", st.Agent))
 	b.WriteString(core.Sprintf("**Commits:** %d\n", commits))
 	b.WriteString(core.Sprintf("**Branch:** `%s`\n", st.Branch))

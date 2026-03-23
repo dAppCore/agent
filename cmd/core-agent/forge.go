@@ -8,6 +8,7 @@ import (
 
 	"dappco.re/go/core"
 	"dappco.re/go/core/forge"
+	forge_types "dappco.re/go/core/forge/types"
 )
 
 // newForgeClient creates a Forge client from env config.
@@ -48,7 +49,7 @@ func registerForgeCommands(c *core.Core) {
 		Action: func(opts core.Options) core.Result {
 			org, repo, num := parseArgs(opts)
 			if repo == "" || num == 0 {
-				core.Print(nil, "usage: core-agent issue/get <repo> --number=N [--org=core]")
+				core.Print(nil, "usage: core-agent issue get <repo> --number=N [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -75,7 +76,7 @@ func registerForgeCommands(c *core.Core) {
 		Action: func(opts core.Options) core.Result {
 			org, repo, _ := parseArgs(opts)
 			if repo == "" {
-				core.Print(nil, "usage: core-agent issue/list <repo> [--org=core]")
+				core.Print(nil, "usage: core-agent issue list <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -102,7 +103,7 @@ func registerForgeCommands(c *core.Core) {
 			org, repo, num := parseArgs(opts)
 			body := opts.String("body")
 			if repo == "" || num == 0 || body == "" {
-				core.Print(nil, "usage: core-agent issue/comment <repo> --number=N --body=\"text\" [--org=core]")
+				core.Print(nil, "usage: core-agent issue comment <repo> --number=N --body=\"text\" [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -118,6 +119,77 @@ func registerForgeCommands(c *core.Core) {
 		},
 	})
 
+	c.Command("issue/create", core.Command{
+		Description: "Create a Forge issue",
+		Action: func(opts core.Options) core.Result {
+			org, repo, _ := parseArgs(opts)
+			title := opts.String("title")
+			body := opts.String("body")
+			labels := opts.String("labels")
+			milestone := opts.String("milestone")
+			assignee := opts.String("assignee")
+			ref := opts.String("ref")
+			if repo == "" || title == "" {
+				core.Print(nil, "usage: core-agent issue create <repo> --title=\"...\" [--body=\"...\"] [--labels=\"agentic,bug\"] [--milestone=\"v0.2.0\"] [--assignee=virgil] [--ref=dev] [--org=core]")
+				return core.Result{OK: false}
+			}
+
+			createOpts := &forge_types.CreateIssueOption{
+				Title: title,
+				Body:  body,
+				Ref:   ref,
+			}
+
+			// Resolve milestone name to ID
+			if milestone != "" {
+				f := newForgeClient()
+				milestones, err := f.Milestones.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+				if err == nil {
+					for _, m := range milestones {
+						if m.Title == milestone {
+							createOpts.Milestone = m.ID
+							break
+						}
+					}
+				}
+			}
+
+			// Set assignee
+			if assignee != "" {
+				createOpts.Assignees = []string{assignee}
+			}
+
+			// Resolve label names to IDs if provided
+			if labels != "" {
+				f := newForgeClient()
+				labelNames := core.Split(labels, ",")
+				allLabels, err := f.Labels.ListRepoLabels(ctx, org, repo)
+				if err == nil {
+					for _, name := range labelNames {
+						name = core.Trim(name)
+						for _, l := range allLabels {
+							if l.Name == name {
+								createOpts.Labels = append(createOpts.Labels, l.ID)
+								break
+							}
+						}
+					}
+				}
+			}
+
+			f := newForgeClient()
+			issue, err := f.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOpts)
+			if err != nil {
+				core.Print(nil, "error: %v", err)
+				return core.Result{Value: err, OK: false}
+			}
+
+			core.Print(nil, "#%d %s", issue.Index, issue.Title)
+			core.Print(nil, "  url: %s", issue.HTMLURL)
+			return core.Result{Value: issue.Index, OK: true}
+		},
+	})
+
 	// --- Pull Requests ---
 
 	c.Command("pr/get", core.Command{
@@ -125,7 +197,7 @@ func registerForgeCommands(c *core.Core) {
 		Action: func(opts core.Options) core.Result {
 			org, repo, num := parseArgs(opts)
 			if repo == "" || num == 0 {
-				core.Print(nil, "usage: core-agent pr/get <repo> --number=N [--org=core]")
+				core.Print(nil, "usage: core-agent pr get <repo> --number=N [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -155,7 +227,7 @@ func registerForgeCommands(c *core.Core) {
 		Action: func(opts core.Options) core.Result {
 			org, repo, _ := parseArgs(opts)
 			if repo == "" {
-				core.Print(nil, "usage: core-agent pr/list <repo> [--org=core]")
+				core.Print(nil, "usage: core-agent pr list <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -185,7 +257,7 @@ func registerForgeCommands(c *core.Core) {
 				method = "merge"
 			}
 			if repo == "" || num == 0 {
-				core.Print(nil, "usage: core-agent pr/merge <repo> --number=N [--method=merge|rebase|squash] [--org=core]")
+				core.Print(nil, "usage: core-agent pr merge <repo> --number=N [--method=merge|rebase|squash] [--org=core]")
 				return core.Result{OK: false}
 			}
 
@@ -207,7 +279,7 @@ func registerForgeCommands(c *core.Core) {
 		Action: func(opts core.Options) core.Result {
 			org, repo, _ := parseArgs(opts)
 			if repo == "" {
-				core.Print(nil, "usage: core-agent repo/get <repo> [--org=core]")
+				core.Print(nil, "usage: core-agent repo get <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 

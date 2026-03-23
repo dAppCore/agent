@@ -71,12 +71,18 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		return "gemini", args, nil
 	case "codex":
 		if model == "review" {
-			return "codex", []string{"review", "--base", "HEAD~1"}, nil
+			// Use exec with bypass — codex review subcommand has its own sandbox that blocks shell
+			// No -o flag — stdout captured by process output, ../.meta path unreliable in sandbox
+			return "codex", []string{
+				"exec",
+				"--dangerously-bypass-approvals-and-sandbox",
+				"Review the last 2 commits via git diff HEAD~2. Check for bugs, security issues, missing tests, naming issues. Report pass/fail with specifics. Do NOT make changes.",
+			}, nil
 		}
-		// Codex runs from repo/ which IS a git repo — no --skip-git-repo-check
+		// Container IS the sandbox — let codex run unrestricted inside it
 		args := []string{
 			"exec",
-			"--full-auto",
+			"--dangerously-bypass-approvals-and-sandbox",
 			"-o", "../.meta/agent-codex.log",
 		}
 		if model != "" {
@@ -107,14 +113,87 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		}
 		return "coderabbit", args, nil
 	case "local":
-		script := core.JoinPath(core.Env("DIR_HOME"), "Code", "core", "agent", "scripts", "local-agent.sh")
-		return "bash", []string{script, prompt}, nil
+		// Local model via codex --oss → Ollama. Default model: devstral-24b
+		// socat proxies localhost:11434 → host.docker.internal:11434
+		// because codex hardcodes localhost check for Ollama.
+		localModel := model
+		if localModel == "" {
+			localModel = "devstral-24b"
+		}
+		script := core.Sprintf(
+			`socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5 && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m %s -o ../.meta/agent-codex.log %q`,
+			localModel, prompt,
+		)
+		return "sh", []string{"-c", script}, nil
 	default:
 		return "", nil, core.E("agentCommand", "unknown agent: "+agent, nil)
 	}
 }
 
-// spawnAgent launches an agent process in the repo/ directory.
+// defaultDockerImage is the container image for agent dispatch.
+// Override via AGENT_DOCKER_IMAGE env var.
+const defaultDockerImage = "core-dev"
+
+// containerCommand wraps an agent command to run inside a Docker container.
+// All agents run containerised — no bare metal execution.
+// agentType is the base agent name (e.g. "local", "codex", "claude").
+//
+//	cmd, args := containerCommand("local", "codex", []string{"exec", "..."}, repoDir, metaDir)
+func containerCommand(agentType, command string, args []string, repoDir, metaDir string) (string, []string) {
+	image := core.Env("AGENT_DOCKER_IMAGE")
+	if image == "" {
+		image = defaultDockerImage
+	}
+
+	home := core.Env("DIR_HOME")
+
+	dockerArgs := []string{
+		"run", "--rm",
+		// Host access for Ollama (local models)
+		"--add-host=host.docker.internal:host-gateway",
+		// Workspace: repo + meta
+		"-v", repoDir + ":/workspace",
+		"-v", metaDir + ":/workspace/.meta",
+		"-w", "/workspace",
+		// Auth: agent configs only — NO SSH keys, git push runs on host
+		"-v", core.JoinPath(home, ".codex") + ":/root/.codex:ro",
+		// API keys — passed by name, Docker resolves from host env
+		"-e", "OPENAI_API_KEY",
+		"-e", "ANTHROPIC_API_KEY",
+		"-e", "GEMINI_API_KEY",
+		"-e", "GOOGLE_API_KEY",
+		// Agent environment
+		"-e", "TERM=dumb",
+		"-e", "NO_COLOR=1",
+		"-e", "CI=true",
+		"-e", "GIT_USER_NAME=Virgil",
+		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
+		// Local model access — Ollama on host
+		"-e", "OLLAMA_HOST=http://host.docker.internal:11434",
+	}
+
+	// Mount Claude config if dispatching claude agent
+	if command == "claude" {
+		dockerArgs = append(dockerArgs,
+			"-v", core.JoinPath(home, ".claude")+":/root/.claude:ro",
+		)
+	}
+
+	// Mount Gemini config if dispatching gemini agent
+	if command == "gemini" {
+		dockerArgs = append(dockerArgs,
+			"-v", core.JoinPath(home, ".gemini")+":/root/.gemini:ro",
+		)
+	}
+
+	dockerArgs = append(dockerArgs, image, command)
+	dockerArgs = append(dockerArgs, args...)
+
+	return "docker", dockerArgs
+}
+
+// spawnAgent launches an agent inside a Docker container.
+// The repo/ directory is mounted at /workspace, agent runs sandboxed.
 // Output is captured and written to .meta/agent-{agent}.log on completion.
 func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, error) {
 	command, args, err := agentCommand(agent, prompt)
@@ -131,11 +210,13 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	// Clean up stale BLOCKED.md from previous runs
 	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
 
+	// All agents run containerised
+	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
+
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
 		Dir:     repoDir,
-		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true"},
 		Detach:  true,
 	})
 	if err != nil {
@@ -155,6 +236,15 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		s.onComplete.AgentStarted(agent, repo, core.PathBase(wsDir))
 	}
 	emitStartEvent(agent, core.PathBase(wsDir)) // audit log
+
+	// Start Forge stopwatch on the issue (time tracking)
+	if st, _ := readStatus(wsDir); st != nil && st.Issue > 0 {
+		org := st.Org
+		if org == "" {
+			org = "core"
+		}
+		s.forge.Issues.StartStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+	}
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -200,6 +290,15 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus) // audit log
 
+		// Stop Forge stopwatch on the issue (time tracking)
+		if st, _ := readStatus(wsDir); st != nil && st.Issue > 0 {
+			org := st.Org
+			if org == "" {
+				org = "core"
+			}
+			s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+		}
+
 		// Push notification directly — no filesystem polling
 		if s.onComplete != nil {
 			stNow, _ := readStatus(wsDir)
@@ -227,7 +326,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		}
 
 		s.ingestFindings(wsDir)
-		s.drainQueue()
+		s.Poke()
 	}()
 
 	return pid, outputFile, nil

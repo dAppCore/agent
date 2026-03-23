@@ -23,13 +23,12 @@ type RemoteStatusInput struct {
 
 // RemoteStatusOutput is the response from a remote status check.
 //
-//	out := agentic.RemoteStatusOutput{Success: true, Host: "charon", Count: 2}
+//	out := agentic.RemoteStatusOutput{Success: true, Host: "charon"}
 type RemoteStatusOutput struct {
-	Success    bool            `json:"success"`
-	Host       string          `json:"host"`
-	Workspaces []WorkspaceInfo `json:"workspaces"`
-	Count      int             `json:"count"`
-	Error      string          `json:"error,omitempty"`
+	Success bool         `json:"success"`
+	Host    string       `json:"host"`
+	Stats   StatusOutput `json:"stats"`
+	Error   string       `json:"error,omitempty"`
 }
 
 func (s *PrepSubsystem) registerRemoteStatusTool(server *mcp.Server) {
@@ -106,8 +105,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	if len(rpcResp.Result.Content) > 0 {
 		var statusOut StatusOutput
 		if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &statusOut) == nil {
-			output.Workspaces = statusOut.Workspaces
-			output.Count = statusOut.Count
+			output.Stats = statusOut
 		}
 	}
 
