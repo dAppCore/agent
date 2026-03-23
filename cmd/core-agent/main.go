@@ -21,7 +21,7 @@ func main() {
 	c := core.New(core.Options{
 		{Key: "name", Value: "core-agent"},
 	})
-	c.App().Version = "0.3.0"
+	c.App().Version = "0.15.0"
 
 	// version — print version and build info
 	c.Command("version", core.Command{
