@@ -109,7 +109,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 		for ws := range remaining {
 			wsDir := s.resolveWorkspaceDir(ws)
-			st, err := readStatus(wsDir)
+			st, err := ReadStatus(wsDir)
 			if err != nil {
 				continue
 			}
@@ -196,7 +196,7 @@ func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	var active []string
 	for _, entry := range entries {
 		wsDir := core.PathDir(entry)
-		st, err := readStatus(wsDir)
+		st, err := ReadStatus(wsDir)
 		if err != nil {
 			continue
 		}

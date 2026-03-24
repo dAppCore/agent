@@ -13,7 +13,7 @@ import (
 // autoCreatePR pushes the agent's branch and creates a PR on Forge
 // if the agent made any commits beyond the initial clone.
 func (s *PrepSubsystem) autoCreatePR(wsDir string) {
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil || st.Branch == "" || st.Repo == "" {
 		return
 	}
@@ -44,7 +44,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	pushCmd.Dir = repoDir
 	if pushErr := pushCmd.Run(); pushErr != nil {
 		// Push failed — update status with error but don't block
-		if st2, err := readStatus(wsDir); err == nil {
+		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = core.Sprintf("PR push failed: %v", pushErr)
 			writeStatus(wsDir, st2)
 		}
@@ -60,7 +60,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	prURL, _, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
 	if err != nil {
-		if st2, err := readStatus(wsDir); err == nil {
+		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = core.Sprintf("PR creation failed: %v", err)
 			writeStatus(wsDir, st2)
 		}
@@ -68,7 +68,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	}
 
 	// Update status with PR URL
-	if st2, err := readStatus(wsDir); err == nil {
+	if st2, err := ReadStatus(wsDir); err == nil {
 		st2.PRURL = prURL
 		writeStatus(wsDir, st2)
 	}

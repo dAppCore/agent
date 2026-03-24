@@ -146,10 +146,12 @@ func TestCheckCompletions_Good_NewCompletions(t *testing.T) {
 	assert.Contains(t, msg, "2 agent(s) completed")
 
 	events := notifier.Events()
-	require.Len(t, events, 1)
-	assert.Equal(t, "agent.complete", events[0].channel)
-	eventData := events[0].data.(map[string]any)
-	assert.Equal(t, 2, eventData["count"])
+	require.Len(t, events, 3) // 2 agent.completed + 1 queue.drained
+	assert.Equal(t, "agent.completed", events[0].channel)
+	assert.Equal(t, "agent.completed", events[1].channel)
+	assert.Equal(t, "queue.drained", events[2].channel)
+	drainData := events[2].data.(map[string]any)
+	assert.Equal(t, 2, drainData["completed"])
 }
 
 func TestCheckCompletions_Good_MixedStatuses(t *testing.T) {

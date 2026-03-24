@@ -82,7 +82,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		case <-ticker.C:
 			if pid > 0 && syscall.Kill(pid, 0) != nil {
 				// Process exited — read final status
-				st, err := readStatus(wsDir)
+				st, err := ReadStatus(wsDir)
 				if err != nil {
 					return DispatchSyncResult{Error: "can't read final status"}
 				}

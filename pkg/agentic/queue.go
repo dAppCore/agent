@@ -126,7 +126,7 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 
 	count := 0
 	for _, statusPath := range paths {
-		st, err := readStatus(core.PathDir(statusPath))
+		st, err := ReadStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
 		}
@@ -188,7 +188,7 @@ func (s *PrepSubsystem) drainOne() bool {
 
 	for _, statusPath := range statusFiles {
 		wsDir := core.PathDir(statusPath)
-		st, err := readStatus(wsDir)
+		st, err := ReadStatus(wsDir)
 		if err != nil || st.Status != "queued" {
 			continue
 		}

@@ -22,7 +22,7 @@ import (
 //
 //	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
 func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil || st.PRURL == "" || st.Repo == "" {
 		return
 	}
@@ -40,7 +40,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// markMerged is a helper to avoid repeating the status update.
 	markMerged := func() {
-		if st2, err := readStatus(wsDir); err == nil {
+		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Status = "merged"
 			writeStatus(wsDir, st2)
 		}
@@ -66,7 +66,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	// Both attempts failed — flag for human review
 	s.flagForReview(org, st.Repo, prNum, result)
 
-	if st2, err := readStatus(wsDir); err == nil {
+	if st2, err := ReadStatus(wsDir); err == nil {
 		st2.Question = "Flagged for review — auto-merge failed after retry"
 		writeStatus(wsDir, st2)
 	}
@@ -129,7 +129,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	}
 
 	// Force-push the rebased branch to Forge (origin is local clone)
-	st, _ := readStatus(core.PathDir(repoDir))
+	st, _ := ReadStatus(core.PathDir(repoDir))
 	org := "core"
 	repo := ""
 	if st != nil {

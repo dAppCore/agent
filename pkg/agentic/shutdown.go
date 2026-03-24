@@ -81,7 +81,7 @@ func (s *PrepSubsystem) shutdownNow(ctx context.Context, _ *mcp.CallToolRequest,
 
 	for _, statusPath := range statusFiles {
 		wsDir := core.PathDir(statusPath)
-		st, err := readStatus(wsDir)
+		st, err := ReadStatus(wsDir)
 		if err != nil {
 			continue
 		}

@@ -77,7 +77,7 @@ func TestReadStatus_Good(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
 
-	read, err := readStatus(dir)
+	read, err := ReadStatus(dir)
 	require.NoError(t, err)
 
 	assert.Equal(t, "completed", read.Status)
@@ -91,7 +91,7 @@ func TestReadStatus_Good(t *testing.T) {
 
 func TestReadStatus_Bad_NoFile(t *testing.T) {
 	dir := t.TempDir()
-	_, err := readStatus(dir)
+	_, err := ReadStatus(dir)
 	assert.Error(t, err)
 }
 
@@ -99,7 +99,7 @@ func TestReadStatus_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "not json{").OK)
 
-	_, err := readStatus(dir)
+	_, err := ReadStatus(dir)
 	assert.Error(t, err)
 }
 
@@ -117,7 +117,7 @@ func TestReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
 
-	read, err := readStatus(dir)
+	read, err := ReadStatus(dir)
 	require.NoError(t, err)
 
 	assert.Equal(t, "blocked", read.Status)
@@ -143,7 +143,7 @@ func TestWriteReadStatus_Good_Roundtrip(t *testing.T) {
 	err := writeStatus(dir, original)
 	require.NoError(t, err)
 
-	read, err := readStatus(dir)
+	read, err := ReadStatus(dir)
 	require.NoError(t, err)
 
 	assert.Equal(t, original.Status, read.Status)
@@ -168,7 +168,7 @@ func TestWriteStatus_Good_OverwriteExisting(t *testing.T) {
 	err = writeStatus(dir, second)
 	require.NoError(t, err)
 
-	read, err := readStatus(dir)
+	read, err := ReadStatus(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "completed", read.Status)
 }
@@ -177,6 +177,6 @@ func TestReadStatus_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "").OK)
 
-	_, err := readStatus(dir)
+	_, err := ReadStatus(dir)
 	assert.Error(t, err)
 }
