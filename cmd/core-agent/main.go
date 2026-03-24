@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	r := core.New(
+	c := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(func(c *core.Core) core.Result {
 			svc, err := process.NewService(process.Options{})(c)
@@ -30,11 +30,6 @@ func main() {
 		core.WithService(brain.Register),
 		core.WithService(mcp.Register),
 	)
-	if !r.OK {
-		core.Error("failed to create core", "err", r.Value)
-		os.Exit(1)
-	}
-	c := r.Value.(*core.Core)
 
 	// Version set at build time: go build -ldflags "-X main.version=0.15.0"
 	if version != "" {
