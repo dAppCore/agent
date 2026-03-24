@@ -19,7 +19,7 @@ import (
 
 func main() {
 	r := core.New(
-		core.WithOptions(core.Options{{Key: "name", Value: "core-agent"}}),
+		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),

@@ -190,7 +190,7 @@ func TestSetCore_Good(t *testing.T) {
 	s := &PrepSubsystem{}
 	assert.Nil(t, s.core)
 
-	c := core.New(core.WithOptions(core.Options{{Key: "name", Value: "test"}})).Value.(*core.Core)
+	c := core.New(core.WithOption("name", "test")).Value.(*core.Core)
 	s.SetCore(c)
 	assert.NotNil(t, s.core)
 }
