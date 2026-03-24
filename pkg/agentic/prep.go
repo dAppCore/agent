@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	goio "io"
 	"net/http"
-	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -95,82 +94,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) error {
 	return nil
 }
 
-// registerCommands adds agentic CLI commands to Core's command tree.
-func (s *PrepSubsystem) registerCommands(ctx context.Context) {
-	c := s.core
-
-	c.Command("run/task", core.Command{
-		Description: "Run a single task end-to-end",
-		Action: func(opts core.Options) core.Result {
-			repo := opts.String("repo")
-			agent := opts.String("agent")
-			task := opts.String("task")
-			issueStr := opts.String("issue")
-			org := opts.String("org")
-
-			if repo == "" || task == "" {
-				core.Print(nil, "usage: core-agent run task --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]")
-				return core.Result{OK: false}
-			}
-			if agent == "" {
-				agent = "codex"
-			}
-			if org == "" {
-				org = "core"
-			}
-
-			issue := 0
-			if issueStr != "" {
-				for _, ch := range issueStr {
-					if ch >= '0' && ch <= '9' {
-						issue = issue*10 + int(ch-'0')
-					}
-				}
-			}
-
-			core.Print(os.Stderr, "core-agent run task")
-			core.Print(os.Stderr, "  repo:  %s/%s", org, repo)
-			core.Print(os.Stderr, "  agent: %s", agent)
-			if issue > 0 {
-				core.Print(os.Stderr, "  issue: #%d", issue)
-			}
-			core.Print(os.Stderr, "  task:  %s", task)
-			core.Print(os.Stderr, "")
-
-			result := s.DispatchSync(ctx, DispatchSyncInput{
-				Org:   org,
-				Repo:  repo,
-				Agent: agent,
-				Task:  task,
-				Issue: issue,
-			})
-
-			if !result.OK {
-				core.Print(os.Stderr, "FAILED: %v", result.Error)
-				return core.Result{Value: result.Error, OK: false}
-			}
-
-			core.Print(os.Stderr, "DONE: %s", result.Status)
-			if result.PRURL != "" {
-				core.Print(os.Stderr, "  PR: %s", result.PRURL)
-			}
-			return core.Result{OK: true}
-		},
-	})
-
-	c.Command("run/orchestrator", core.Command{
-		Description: "Run the queue orchestrator (standalone, no MCP)",
-		Action: func(opts core.Options) core.Result {
-			core.Print(os.Stderr, "core-agent orchestrator running (pid %s)", core.Env("PID"))
-			core.Print(os.Stderr, "  workspace: %s", WorkspaceRoot())
-			core.Print(os.Stderr, "  watching queue, draining on 30s tick + completion poke")
-
-			<-ctx.Done()
-			core.Print(os.Stderr, "orchestrator shutting down")
-			return core.Result{OK: true}
-		},
-	})
-}
+// registerCommands is in commands.go
 
 // OnShutdown implements core.Stoppable — freezes the queue.
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) error {
