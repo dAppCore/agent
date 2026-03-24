@@ -17,6 +17,8 @@ func Register(c *core.Core) core.Result {
 
 	c.Service("brain", core.Service{})
 
-	_ = brn // brain instance available for MCP tool registration
+	// Store instance for MCP tool registration
+	c.Config().Set("brain.instance", brn)
+
 	return core.Result{OK: true}
 }

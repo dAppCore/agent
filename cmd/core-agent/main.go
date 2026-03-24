@@ -20,6 +20,9 @@ import (
 func main() {
 	r := core.New(
 		core.WithOptions(core.Options{{Key: "name", Value: "core-agent"}}),
+		core.WithService(agentic.Register),
+		core.WithService(monitor.Register),
+		core.WithService(brain.Register),
 	)
 	if !r.OK {
 		core.Error("failed to create core", "err", r.Value)
@@ -298,49 +301,30 @@ func main() {
 		},
 	})
 
-	// Shared setup — creates MCP service with all subsystems wired.
-	// Services are registered with Core for lifecycle, and with MCP for tool registration.
-	initServices := func() (*mcp.Service, *monitor.Subsystem, error) {
-		procFactory := process.NewService(process.Options{})
-		procResult, err := procFactory(c)
-		if err != nil {
-			return nil, nil, core.E("main", "init process service", err)
-		}
+	// Retrieve service instances from conclave for MCP tool registration
+	agenticSvc := core.ConfigGet[*agentic.PrepSubsystem](c.Config(), "agentic.instance")
+	monitorSvc := core.ConfigGet[*monitor.Subsystem](c.Config(), "monitor.instance")
+	brainSvc := core.ConfigGet[*brain.DirectSubsystem](c.Config(), "brain.instance")
+
+	// Process service (lifecycle management)
+	procFactory := process.NewService(process.Options{})
+	procResult, procErr := procFactory(c)
+	if procErr == nil {
 		if procSvc, ok := procResult.(*process.Service); ok {
 			_ = process.SetDefault(procSvc)
 		}
+	}
 
-		mon := monitor.New()
-		prep := agentic.NewPrep()
-		brn := brain.NewDirect()
-
-		// Wire Core framework into subsystems
-		prep.SetCore(c)
-		mon.SetCore(c)
-
-		// Register post-completion pipeline as IPC handlers
-		agentic.RegisterHandlers(c, prep)
-
-		// Register as Core services with lifecycle hooks
-		c.Service("agentic", core.Service{
-			OnStart: func() core.Result {
-				prep.StartRunner()
-				return core.Result{OK: true}
-			},
-		})
-		c.Service("monitor", core.Service{})
-		c.Service("brain", core.Service{})
-
-		// MCP service with all subsystems for tool registration
+	// MCP service — wires subsystems for tool registration
+	initMCP := func() (*mcp.Service, error) {
 		mcpSvc, err := mcp.New(mcp.Options{
-			Subsystems: []mcp.Subsystem{brn, prep, mon},
+			Subsystems: []mcp.Subsystem{brainSvc, agenticSvc, monitorSvc},
 		})
 		if err != nil {
-			return nil, nil, core.E("main", "create MCP service", err)
+			return nil, core.E("main", "create MCP service", err)
 		}
-
-		mon.SetNotifier(mcpSvc)
-		return mcpSvc, mon, nil
+		monitorSvc.SetNotifier(mcpSvc)
+		return mcpSvc, nil
 	}
 
 	// Signal-aware context for clean shutdown
@@ -351,14 +335,15 @@ func main() {
 	c.Command("mcp", core.Command{
 		Description: "Start the MCP server on stdio",
 		Action: func(opts core.Options) core.Result {
-			mcpSvc, mon, err := initServices()
+			mcpSvc, err := initMCP()
 			if err != nil {
 				return core.Result{Value: err, OK: false}
 			}
-			mon.Start(ctx)
+			c.ServiceStartup(ctx, nil)
 			if err := mcpSvc.Run(ctx); err != nil {
 				return core.Result{Value: err, OK: false}
 			}
+			c.ServiceShutdown(context.Background())
 			return core.Result{OK: true}
 		},
 	})
@@ -367,7 +352,7 @@ func main() {
 	c.Command("serve", core.Command{
 		Description: "Start as a persistent HTTP daemon",
 		Action: func(opts core.Options) core.Result {
-			mcpSvc, mon, err := initServices()
+			mcpSvc, err := initMCP()
 			if err != nil {
 				return core.Result{Value: err, OK: false}
 			}
@@ -400,7 +385,7 @@ func main() {
 				return core.Result{Value: core.E("main", "daemon start", err), OK: false}
 			}
 
-			mon.Start(ctx)
+			c.ServiceStartup(ctx, nil)
 			daemon.SetReady(true)
 			core.Print(os.Stderr, "core-agent serving on %s (health: %s, pid: %s)", addr, healthAddr, pidFile)
 
@@ -409,6 +394,7 @@ func main() {
 			if err := mcpSvc.Run(ctx); err != nil {
 				return core.Result{Value: err, OK: false}
 			}
+			c.ServiceShutdown(context.Background())
 			return core.Result{OK: true}
 		},
 	})
@@ -441,17 +427,6 @@ func main() {
 				}
 			}
 
-			procFactory := process.NewService(process.Options{})
-			procResult, err := procFactory(c)
-			if err != nil {
-				return core.Result{Value: err, OK: false}
-			}
-			if procSvc, ok := procResult.(*process.Service); ok {
-				_ = process.SetDefault(procSvc)
-			}
-
-			prep := agentic.NewPrep()
-
 			core.Print(os.Stderr, "core-agent run task")
 			core.Print(os.Stderr, "  repo:  %s/%s", org, repo)
 			core.Print(os.Stderr, "  agent: %s", agent)
@@ -462,7 +437,7 @@ func main() {
 			core.Print(os.Stderr, "")
 
 			// Dispatch and wait
-			result := prep.DispatchSync(ctx, agentic.DispatchSyncInput{
+			result := agenticSvc.DispatchSync(ctx, agentic.DispatchSyncInput{
 				Org:   org,
 				Repo:  repo,
 				Agent: agent,
@@ -487,22 +462,7 @@ func main() {
 	c.Command("run/orchestrator", core.Command{
 		Description: "Run the queue orchestrator (standalone, no MCP)",
 		Action: func(opts core.Options) core.Result {
-			procFactory := process.NewService(process.Options{})
-			procResult, err := procFactory(c)
-			if err != nil {
-				return core.Result{Value: err, OK: false}
-			}
-			if procSvc, ok := procResult.(*process.Service); ok {
-				_ = process.SetDefault(procSvc)
-			}
-
-			mon := monitor.New()
-			prep := agentic.NewPrep()
-			prep.SetCore(c)
-			mon.SetCore(c)
-
-			mon.Start(ctx)
-			prep.StartRunner()
+			c.ServiceStartup(ctx, nil)
 
 			core.Print(os.Stderr, "core-agent orchestrator running (pid %s)", core.Env("PID"))
 			core.Print(os.Stderr, "  workspace: %s", agentic.WorkspaceRoot())
@@ -511,6 +471,7 @@ func main() {
 			// Block until signal
 			<-ctx.Done()
 			core.Print(os.Stderr, "orchestrator shutting down")
+			c.ServiceShutdown(context.Background())
 			return core.Result{OK: true}
 		},
 	})

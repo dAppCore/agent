@@ -36,5 +36,8 @@ func Register(c *core.Core) core.Result {
 		return core.Result{OK: true}
 	})
 
+	// Store instance for MCP tool registration
+	c.Config().Set("monitor.instance", mon)
+
 	return core.Result{OK: true}
 }

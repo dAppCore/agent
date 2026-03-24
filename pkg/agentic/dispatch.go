@@ -334,24 +334,30 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			})
 		}
 
-		if finalStatus == "completed" {
-			// Run QA before PR — if QA fails, mark as failed, don't PR
-			if !s.runQA(wsDir) {
-				finalStatus = "failed"
-				question = "QA check failed — build or tests did not pass"
-				if st, stErr := ReadStatus(wsDir); stErr == nil {
-					st.Status = finalStatus
-					st.Question = question
-					writeStatus(wsDir, st)
+		// Post-completion pipeline is handled by IPC handlers registered in main.go:
+		// AgentCompleted → QA handler → PRCreated handler → verify handler
+		// AgentCompleted → ingest handler
+		// AgentCompleted → poke handler
+		//
+		// Legacy inline pipeline kept as fallback when Core is not wired.
+		if s.core == nil {
+			if finalStatus == "completed" {
+				if !s.runQA(wsDir) {
+					finalStatus = "failed"
+					question = "QA check failed — build or tests did not pass"
+					if st, stErr := ReadStatus(wsDir); stErr == nil {
+						st.Status = finalStatus
+						st.Question = question
+						writeStatus(wsDir, st)
+					}
+				} else {
+					s.autoCreatePR(wsDir)
+					s.autoVerifyAndMerge(wsDir)
 				}
-			} else {
-				s.autoCreatePR(wsDir)
-				s.autoVerifyAndMerge(wsDir)
 			}
+			s.ingestFindings(wsDir)
+			s.Poke()
 		}
-
-		s.ingestFindings(wsDir)
-		s.Poke()
 	}()
 
 	return pid, outputFile, nil
