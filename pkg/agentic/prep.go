@@ -34,8 +34,10 @@ type CompletionNotifier interface {
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.
 //
 //	sub := agentic.NewPrep()
+//	sub.SetCore(c)
 //	sub.RegisterTools(server)
 type PrepSubsystem struct {
+	core       *core.Core // Core framework instance for IPC, Config, Lock
 	forge      *forge.Forge
 	forgeURL   string
 	forgeToken string
@@ -43,7 +45,7 @@ type PrepSubsystem struct {
 	brainKey   string
 	codePath   string
 	client     *http.Client
-	onComplete CompletionNotifier
+	onComplete CompletionNotifier // TODO(phase3): remove — replaced by c.ACTION()
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
@@ -87,7 +89,15 @@ func NewPrep() *PrepSubsystem {
 	}
 }
 
+// SetCore wires the Core framework instance for IPC, Config, and Lock access.
+//
+//	prep.SetCore(c)
+func (s *PrepSubsystem) SetCore(c *core.Core) {
+	s.core = c
+}
+
 // SetCompletionNotifier wires up the monitor for immediate push on agent completion.
+// Deprecated: Phase 3 replaces this with c.ACTION(messages.AgentCompleted{}).
 //
 //	prep.SetCompletionNotifier(monitor)
 func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {

@@ -292,7 +292,8 @@ func main() {
 		},
 	})
 
-	// Shared setup — creates MCP service with all subsystems wired
+	// Shared setup — creates MCP service with all subsystems wired.
+	// Services are registered with Core for lifecycle, and with MCP for tool registration.
 	initServices := func() (*mcp.Service, *monitor.Subsystem, error) {
 		procFactory := process.NewService(process.Options{})
 		procResult, err := procFactory(c)
@@ -305,17 +306,34 @@ func main() {
 
 		mon := monitor.New()
 		prep := agentic.NewPrep()
+		brn := brain.NewDirect()
+
+		// Wire Core framework into subsystems
+		prep.SetCore(c)
+		mon.SetCore(c)
+
+		// Legacy wiring — kept until Phase 3 replaces with IPC
 		prep.SetCompletionNotifier(mon)
 
+		// Register as Core services with lifecycle hooks
+		c.Service("agentic", core.Service{
+			OnStart: func() core.Result {
+				prep.StartRunner()
+				return core.Result{OK: true}
+			},
+		})
+		c.Service("monitor", core.Service{})
+		c.Service("brain", core.Service{})
+
+		// MCP service with all subsystems for tool registration
 		mcpSvc, err := mcp.New(mcp.Options{
-			Subsystems: []mcp.Subsystem{brain.NewDirect(), prep, mon},
+			Subsystems: []mcp.Subsystem{brn, prep, mon},
 		})
 		if err != nil {
 			return nil, nil, core.E("main", "create MCP service", err)
 		}
 
 		mon.SetNotifier(mcpSvc)
-		prep.StartRunner()
 		return mcpSvc, mon, nil
 	}
 

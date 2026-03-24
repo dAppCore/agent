@@ -101,8 +101,9 @@ type ChannelNotifier interface {
 //	mon.SetNotifier(notifier)
 //	mon.Start(ctx)
 type Subsystem struct {
+	core     *core.Core // Core framework instance for IPC
 	server   *mcp.Server
-	notifier ChannelNotifier
+	notifier ChannelNotifier // TODO(phase3): remove — replaced by c.ACTION()
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -124,7 +125,15 @@ type Subsystem struct {
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 var _ agentic.CompletionNotifier = (*Subsystem)(nil)
 
+// SetCore wires the Core framework instance for IPC access.
+//
+//	mon.SetCore(c)
+func (m *Subsystem) SetCore(c *core.Core) {
+	m.core = c
+}
+
 // SetNotifier wires up channel event broadcasting.
+// Deprecated: Phase 3 replaces this with c.ACTION(messages.X{}).
 //
 //	mon.SetNotifier(notifier)
 func (m *Subsystem) SetNotifier(n ChannelNotifier) {
