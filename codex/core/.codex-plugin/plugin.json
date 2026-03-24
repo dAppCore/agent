@@ -1,7 +1,7 @@
 {
   "name": "core",
-  "description": "Codex core plugin for the Host UK core-agent monorepo",
-  "version": "0.1.1",
+  "description": "Codex core orchestration plugin for dispatch, review, memory, status, and verification workflows",
+  "version": "0.2.0",
   "author": {
     "name": "Host UK",
     "email": "hello@host.uk.com"
@@ -15,6 +15,10 @@
   "keywords": [
     "codex",
     "core",
-    "host-uk"
+    "host-uk",
+    "dispatch",
+    "review",
+    "openbrain",
+    "workspace"
   ]
 }

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -226,14 +227,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	proc.CloseStdin()
 	pid := proc.Info().PID
 
-	// Notify monitor directly — no filesystem polling
-	if s.onComplete != nil {
+	// Broadcast agent started via Core IPC
+	if s.core != nil {
 		st, _ := ReadStatus(wsDir)
 		repo := ""
 		if st != nil {
 			repo = st.Repo
 		}
-		s.onComplete.AgentStarted(agent, repo, core.PathBase(wsDir))
+		s.core.ACTION(messages.AgentStarted{
+			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
+		})
 	}
 	emitStartEvent(agent, core.PathBase(wsDir)) // audit log
 
@@ -318,34 +321,23 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
 		}
 
-		// Push notification directly — no filesystem polling
-		if s.onComplete != nil {
+		// Broadcast agent completed via Core IPC
+		if s.core != nil {
 			stNow, _ := ReadStatus(wsDir)
 			repoName := ""
 			if stNow != nil {
 				repoName = stNow.Repo
 			}
-			s.onComplete.AgentCompleted(agent, repoName, core.PathBase(wsDir), finalStatus)
+			s.core.ACTION(messages.AgentCompleted{
+				Agent: agent, Repo: repoName,
+				Workspace: core.PathBase(wsDir), Status: finalStatus,
+			})
 		}
 
-		if finalStatus == "completed" {
-			// Run QA before PR — if QA fails, mark as failed, don't PR
-			if !s.runQA(wsDir) {
-				finalStatus = "failed"
-				question = "QA check failed — build or tests did not pass"
-				if st, stErr := ReadStatus(wsDir); stErr == nil {
-					st.Status = finalStatus
-					st.Question = question
-					writeStatus(wsDir, st)
-				}
-			} else {
-				s.autoCreatePR(wsDir)
-				s.autoVerifyAndMerge(wsDir)
-			}
-		}
-
-		s.ingestFindings(wsDir)
-		s.Poke()
+		// Post-completion pipeline handled by IPC handlers:
+		// AgentCompleted → QA → PRCreated → Verify → PRMerged|PRNeedsReview
+		// AgentCompleted → Ingest
+		// AgentCompleted → Poke
 	}()
 
 	return pid, outputFile, nil

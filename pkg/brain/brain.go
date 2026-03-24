@@ -9,7 +9,7 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

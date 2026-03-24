@@ -17,25 +17,19 @@ import (
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
 
-// CompletionNotifier receives agent lifecycle events directly from dispatch.
-// No filesystem polling — events flow in-memory.
-//
-//	prep.SetCompletionNotifier(monitor)
-type CompletionNotifier interface {
-	AgentStarted(agent, repo, workspace string)
-	AgentCompleted(agent, repo, workspace, status string)
-}
-
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.
+// Agent lifecycle events are broadcast via c.ACTION(messages.AgentCompleted{}).
 //
 //	sub := agentic.NewPrep()
+//	sub.SetCore(c)
 //	sub.RegisterTools(server)
 type PrepSubsystem struct {
+	core       *core.Core // Core framework instance for IPC, Config, Lock
 	forge      *forge.Forge
 	forgeURL   string
 	forgeToken string
@@ -43,7 +37,6 @@ type PrepSubsystem struct {
 	brainKey   string
 	codePath   string
 	client     *http.Client
-	onComplete CompletionNotifier
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
@@ -87,11 +80,26 @@ func NewPrep() *PrepSubsystem {
 	}
 }
 
-// SetCompletionNotifier wires up the monitor for immediate push on agent completion.
+// SetCore wires the Core framework instance for IPC, Config, and Lock access.
 //
-//	prep.SetCompletionNotifier(monitor)
-func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
-	s.onComplete = n
+//	prep.SetCore(c)
+func (s *PrepSubsystem) SetCore(c *core.Core) {
+	s.core = c
+}
+
+// OnStartup implements core.Startable — starts the queue runner and registers commands.
+func (s *PrepSubsystem) OnStartup(ctx context.Context) error {
+	s.StartRunner()
+	s.registerCommands(ctx)
+	return nil
+}
+
+// registerCommands is in commands.go
+
+// OnShutdown implements core.Stoppable — freezes the queue.
+func (s *PrepSubsystem) OnShutdown(ctx context.Context) error {
+	s.frozen = true
+	return nil
 }
 
 func envOr(key, fallback string) string {

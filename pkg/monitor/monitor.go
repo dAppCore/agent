@@ -21,8 +21,9 @@ import (
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -101,8 +102,9 @@ type ChannelNotifier interface {
 //	mon.SetNotifier(notifier)
 //	mon.Start(ctx)
 type Subsystem struct {
+	core     *core.Core // Core framework instance for IPC
 	server   *mcp.Server
-	notifier ChannelNotifier
+	notifier ChannelNotifier // TODO(phase3): remove — replaced by c.ACTION()
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -122,9 +124,54 @@ type Subsystem struct {
 }
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
-var _ agentic.CompletionNotifier = (*Subsystem)(nil)
+
+// SetCore wires the Core framework instance and registers IPC handlers.
+//
+//	mon.SetCore(c)
+func (m *Subsystem) SetCore(c *core.Core) {
+	m.core = c
+
+	// Register IPC handler for agent lifecycle events
+	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
+		switch ev := msg.(type) {
+		case messages.AgentCompleted:
+			m.handleAgentCompleted(ev)
+		case messages.AgentStarted:
+			m.handleAgentStarted(ev)
+		}
+		return core.Result{OK: true}
+	})
+}
+
+// handleAgentStarted tracks started agents.
+func (m *Subsystem) handleAgentStarted(ev messages.AgentStarted) {
+	m.mu.Lock()
+	m.seenRunning[ev.Workspace] = true
+	m.mu.Unlock()
+}
+
+// handleAgentCompleted processes agent completion — emits notifications and checks queue drain.
+func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
+	m.mu.Lock()
+	m.seenCompleted[ev.Workspace] = true
+	m.mu.Unlock()
+
+	// Emit agent.completed to MCP clients
+	if m.notifier != nil {
+		m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
+			"repo":      ev.Repo,
+			"agent":     ev.Agent,
+			"workspace": ev.Workspace,
+			"status":    ev.Status,
+		})
+	}
+
+	m.Poke()
+	go m.checkIdleAfterDelay()
+}
 
 // SetNotifier wires up channel event broadcasting.
+// Deprecated: Phase 3 replaces this with c.ACTION(messages.X{}).
 //
 //	mon.SetNotifier(notifier)
 func (m *Subsystem) SetNotifier(n ChannelNotifier) {
@@ -204,6 +251,17 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
+// OnStartup implements core.Startable — starts the monitoring loop.
+func (m *Subsystem) OnStartup(ctx context.Context) error {
+	m.Start(ctx)
+	return nil
+}
+
+// OnShutdown implements core.Stoppable — stops the monitoring loop.
+func (m *Subsystem) OnShutdown(ctx context.Context) error {
+	return m.Shutdown(ctx)
+}
+
 // Shutdown stops the monitoring loop and waits for it to exit.
 //
 //	_ = mon.Shutdown(ctx)
@@ -223,35 +281,6 @@ func (m *Subsystem) Poke() {
 	}
 }
 
-// AgentStarted is called when an agent spawns.
-// No individual notification — fleet status is checked on completion.
-//
-//	mon.AgentStarted("codex:gpt-5.3-codex-spark", "go-io", "core/go-io/task-5")
-func (m *Subsystem) AgentStarted(agent, repo, workspace string) {
-	// No-op — we only notify on failures and queue drain
-}
-
-// AgentCompleted is called when an agent finishes.
-// Emits agent.completed for every finish, then checks if the queue is empty.
-//
-//	mon.AgentCompleted("codex", "go-io", "core/go-io/task-5", "completed")
-func (m *Subsystem) AgentCompleted(agent, repo, workspace, status string) {
-	m.mu.Lock()
-	m.seenCompleted[workspace] = true
-	m.mu.Unlock()
-
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
-			"repo":      repo,
-			"agent":     agent,
-			"workspace": workspace,
-			"status":    status,
-		})
-	}
-
-	m.Poke()
-	go m.checkIdleAfterDelay()
-}
 
 // checkIdleAfterDelay waits briefly then checks if the fleet is genuinely idle.
 // Only emits queue.drained when there are truly zero running or queued agents,

@@ -212,9 +212,18 @@ func baseAgent(agent string) string {
 //
 //	codex: {total: 2, models: {gpt-5.4: 1}} → max 2 codex total, max 1 gpt-5.4
 func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
-	cfg := s.loadAgentsConfig()
+	// Read concurrency from shared config (loaded once at startup)
+	var concurrency map[string]ConcurrencyLimit
+	if s.core != nil {
+		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](s.core.Config(), "agents.concurrency")
+	}
+	if concurrency == nil {
+		cfg := s.loadAgentsConfig()
+		concurrency = cfg.Concurrency
+	}
+
 	base := baseAgent(agent)
-	limit, ok := cfg.Concurrency[base]
+	limit, ok := concurrency[base]
 	if !ok || limit.Total <= 0 {
 		return true
 	}
@@ -253,13 +262,18 @@ func modelVariant(agent string) string {
 }
 
 // drainQueue fills all available concurrency slots from queued workspaces.
-// Loops until no slots remain or no queued tasks match. Serialised via drainMu.
+// Serialised via c.Lock("drain") when Core is available, falls back to local mutex.
 func (s *PrepSubsystem) drainQueue() {
 	if s.frozen {
 		return
 	}
-	s.drainMu.Lock()
-	defer s.drainMu.Unlock()
+	if s.core != nil {
+		s.core.Lock("drain").Mutex.Lock()
+		defer s.core.Lock("drain").Mutex.Unlock()
+	} else {
+		s.drainMu.Lock()
+		defer s.drainMu.Unlock()
+	}
 
 	for s.drainOne() {
 		// keep filling slots

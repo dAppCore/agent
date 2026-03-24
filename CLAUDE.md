@@ -130,6 +130,34 @@ The Claude Code plugin provides:
 - `_Ugly` — panics and edge cases
 - Use `testify/assert` + `testify/require`
 
+## Sprint Intel Collection
+
+Before starting significant work on any repo, build a blueprint by querying three sources in parallel:
+
+1. **OpenBrain**: `brain_recall` with `"{repo} plans features ideas architecture"` — returns bugs, patterns, conventions, session milestones
+2. **Active plans**: `agentic_plan_list` — structured plans with phases, status, acceptance criteria
+3. **Local docs**: glob `docs/plans/**` in the repo — design docs, migration plans, pipeline docs
+
+Combine into a sprint blueprint with sections: Known Bugs, Active Plans, Local Docs, Recent Fixes, Architecture Notes.
+
+### Active Plan: Pipeline Orchestration (draft)
+
+Plans drive the entire dispatch→verify→merge flow:
+
+1. **Plans API** — local JSON → CorePHP Laravel endpoints
+2. **Plan ↔ Dispatch** — auto-advance phases, auto-create Forge issues on BLOCKED
+3. **Task minting** — `/v1/plans/next` serves highest-priority ready phase
+4. **Exception pipeline** — BLOCKED → Forge issues automatically
+5. **GitHub quality gate** — verified → squash release, CodeRabbit 0-findings
+6. **Pipeline dashboard** — admin UI with status badges
+
+### Known Gotchas (OpenBrain)
+
+- Workspace prep: PROMPT.md requires TODO.md but workspace may not have one — dispatch bug
+- `core.Env("DIR_HOME")` is static at init. Use `CORE_HOME` for test overrides
+- `pkg/brain` recall/list are async bridge proxies — empty responses are intentional
+- Monitor path helpers need separator normalisation for cross-platform API/glob output
+
 ## Coding Standards
 
 - **UK English**: colour, organisation, centre, initialise
