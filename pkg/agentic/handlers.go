@@ -51,7 +51,7 @@ func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 		return core.Result{OK: true}
 	})
 
-	// Auto-PR: create PR on QA pass
+	// Auto-PR: create PR on QA pass, emit PRCreated
 	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
 		ev, ok := msg.(messages.QAResult)
 		if !ok || !ev.Passed {
@@ -63,21 +63,51 @@ func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 		}
 
 		s.autoCreatePR(wsDir)
+
+		// Check if PR was created (stored in status by autoCreatePR)
+		if st, err := ReadStatus(wsDir); err == nil && st.PRURL != "" {
+			c.ACTION(messages.PRCreated{
+				Repo:   st.Repo,
+				Branch: st.Branch,
+				PRURL:  st.PRURL,
+				PRNum:  extractPRNumber(st.PRURL),
+			})
+		}
 		return core.Result{OK: true}
 	})
 
 	// Auto-verify: verify and merge after PR creation
 	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
-		ev, ok := msg.(messages.QAResult)
-		if !ok || !ev.Passed {
+		ev, ok := msg.(messages.PRCreated)
+		if !ok {
 			return core.Result{OK: true}
 		}
-		wsDir := resolveWorkspace(ev.Workspace)
+
+		// Find workspace for this repo+branch
+		wsDir := findWorkspaceByPR(ev.Repo, ev.Branch)
 		if wsDir == "" {
 			return core.Result{OK: true}
 		}
 
 		s.autoVerifyAndMerge(wsDir)
+
+		// Check final status
+		if st, err := ReadStatus(wsDir); err == nil {
+			if st.Status == "merged" {
+				c.ACTION(messages.PRMerged{
+					Repo:  ev.Repo,
+					PRURL: ev.PRURL,
+					PRNum: ev.PRNum,
+				})
+			} else if st.Question != "" {
+				c.ACTION(messages.PRNeedsReview{
+					Repo:   ev.Repo,
+					PRURL:  ev.PRURL,
+					PRNum:  ev.PRNum,
+					Reason: st.Question,
+				})
+			}
+		}
 		return core.Result{OK: true}
 	})
 
@@ -116,6 +146,25 @@ func resolveWorkspace(name string) string {
 	path := core.JoinPath(wsRoot, name)
 	if fs.IsDir(path) {
 		return path
+	}
+	return ""
+}
+
+// findWorkspaceByPR finds a workspace directory by repo name and branch.
+// Scans running/completed workspaces for a matching repo+branch combination.
+func findWorkspaceByPR(repo, branch string) string {
+	wsRoot := WorkspaceRoot()
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	for _, path := range append(old, deep...) {
+		wsDir := core.PathDir(path)
+		st, err := ReadStatus(wsDir)
+		if err != nil {
+			continue
+		}
+		if st.Repo == repo && st.Branch == branch {
+			return wsDir
+		}
 	}
 	return ""
 }

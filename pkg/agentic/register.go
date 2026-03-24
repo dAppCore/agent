@@ -25,6 +25,12 @@ func Register(c *core.Core) core.Result {
 	prep := NewPrep()
 	prep.core = c
 
+	// Load agents config once into Core shared config
+	cfg := prep.loadAgentsConfig()
+	c.Config().Set("agents.concurrency", cfg.Concurrency)
+	c.Config().Set("agents.rates", cfg.Rates)
+	c.Config().Set("agents.dispatch", cfg.Dispatch)
+
 	c.Service("agentic", core.Service{
 		OnStart: func() core.Result {
 			prep.StartRunner()
