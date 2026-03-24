@@ -1,10 +1,7 @@
 package main
 
 import (
-	"context"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"dappco.re/go/core"
 	"dappco.re/go/core/process"
@@ -16,10 +13,6 @@ import (
 )
 
 func main() {
-	// Signal-aware context for clean shutdown
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
 	r := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(func(c *core.Core) core.Result {
@@ -116,17 +109,12 @@ func main() {
 	registerWorkspaceCommands(c)
 	// registerFlowCommands(c) — on feat/flow-system branch
 
-	// Start all services — registers service commands, starts runners, wires IPC
-	c.ServiceStartup(ctx, nil)
-
-	// Run CLI
-	result := c.Cli().Run()
-	if !result.OK {
-		if err, ok := result.Value.(error); ok {
+	// Run: ServiceStartup → Cli → ServiceShutdown
+	r = c.Run()
+	if !r.OK {
+		if err, ok := r.Value.(error); ok {
 			core.Error(err.Error())
 		}
 		os.Exit(1)
 	}
-
-	c.ServiceShutdown(ctx)
 }
