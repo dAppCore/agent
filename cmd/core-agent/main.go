@@ -18,9 +18,15 @@ import (
 )
 
 func main() {
-	c := core.New(core.Options{
-		{Key: "name", Value: "core-agent"},
-	})
+	r := core.New(
+		core.WithOptions(core.Options{{Key: "name", Value: "core-agent"}}),
+	)
+	if !r.OK {
+		core.Error("failed to create core", "err", r.Value)
+		os.Exit(1)
+	}
+	c := r.Value.(*core.Core)
+
 	// Version set at build time: go build -ldflags "-X main.version=0.15.0"
 	if version != "" {
 		c.App().Version = version
@@ -312,7 +318,8 @@ func main() {
 		prep.SetCore(c)
 		mon.SetCore(c)
 
-		// IPC handlers registered automatically in SetCore()
+		// Register post-completion pipeline as IPC handlers
+		agentic.RegisterHandlers(c, prep)
 
 		// Register as Core services with lifecycle hooks
 		c.Service("agentic", core.Service{
@@ -509,9 +516,9 @@ func main() {
 	})
 
 	// Run CLI — resolves os.Args to command path
-	r := c.Cli().Run()
-	if !r.OK {
-		if err, ok := r.Value.(error); ok {
+	result := c.Cli().Run()
+	if !result.OK {
+		if err, ok := result.Value.(error); ok {
 			core.Error(err.Error())
 		}
 		os.Exit(1)
