@@ -87,6 +87,17 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 	s.core = c
 }
 
+// OnStartup implements core.Startable — starts the queue runner.
+func (s *PrepSubsystem) OnStartup(ctx context.Context) error {
+	s.StartRunner()
+	return nil
+}
+
+// OnShutdown implements core.Stoppable — freezes the queue.
+func (s *PrepSubsystem) OnShutdown(ctx context.Context) error {
+	s.frozen = true
+	return nil
+}
 
 func envOr(key, fallback string) string {
 	if v := core.Env(key); v != "" {

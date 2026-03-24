@@ -8,8 +8,8 @@ import (
 )
 
 // Register is the service factory for core.WithService.
-// It creates the monitor subsystem, wires Core for IPC,
-// and registers lifecycle hooks.
+// Creates the monitor subsystem, registers via RegisterService,
+// and wires IPC handlers for agent lifecycle events.
 //
 //	core.New(
 //	    core.WithService(monitor.Register),
@@ -18,12 +18,7 @@ func Register(c *core.Core) core.Result {
 	mon := New()
 	mon.core = c
 
-	c.Service("monitor", core.Service{
-		OnStart: func() core.Result {
-			mon.Start(c.Context())
-			return core.Result{OK: true}
-		},
-	})
+	c.RegisterService("monitor", mon)
 
 	// Register IPC handler for agent lifecycle events
 	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
@@ -36,8 +31,5 @@ func Register(c *core.Core) core.Result {
 		return core.Result{OK: true}
 	})
 
-	// Store instance for MCP tool registration
-	c.Config().Set("monitor.instance", mon)
-
-	return core.Result{OK: true}
+	return core.Result{Value: mon, OK: true}
 }

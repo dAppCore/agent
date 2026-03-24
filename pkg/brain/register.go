@@ -7,18 +7,13 @@ import (
 )
 
 // Register is the service factory for core.WithService.
-// Brain has no lifecycle hooks — it's a stateless API proxy.
+// Brain is a stateless API proxy — no lifecycle hooks.
 //
 //	core.New(
 //	    core.WithService(brain.Register),
 //	)
 func Register(c *core.Core) core.Result {
 	brn := NewDirect()
-
-	c.Service("brain", core.Service{})
-
-	// Store instance for MCP tool registration
-	c.Config().Set("brain.instance", brn)
-
-	return core.Result{OK: true}
+	c.RegisterService("brain", brn)
+	return core.Result{Value: brn, OK: true}
 }

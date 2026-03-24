@@ -302,9 +302,9 @@ func main() {
 	})
 
 	// Retrieve service instances from conclave for MCP tool registration
-	agenticSvc := core.ConfigGet[*agentic.PrepSubsystem](c.Config(), "agentic.instance")
-	monitorSvc := core.ConfigGet[*monitor.Subsystem](c.Config(), "monitor.instance")
-	brainSvc := core.ConfigGet[*brain.DirectSubsystem](c.Config(), "brain.instance")
+	agenticSvc, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
+	monitorSvc, _ := core.ServiceFor[*monitor.Subsystem](c, "monitor")
+	brainSvc, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
 
 	// Process service (lifecycle management)
 	procFactory := process.NewService(process.Options{})

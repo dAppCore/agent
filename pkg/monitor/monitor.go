@@ -251,6 +251,17 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
+// OnStartup implements core.Startable — starts the monitoring loop.
+func (m *Subsystem) OnStartup(ctx context.Context) error {
+	m.Start(ctx)
+	return nil
+}
+
+// OnShutdown implements core.Stoppable — stops the monitoring loop.
+func (m *Subsystem) OnShutdown(ctx context.Context) error {
+	return m.Shutdown(ctx)
+}
+
 // Shutdown stops the monitoring loop and waits for it to exit.
 //
 //	_ = mon.Shutdown(ctx)
