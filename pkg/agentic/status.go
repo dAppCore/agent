@@ -27,7 +27,7 @@ import (
 
 // WorkspaceStatus represents the current state of an agent workspace.
 //
-//	st, err := readStatus(wsDir)
+//	st, err := ReadStatus(wsDir)
 //	if err == nil && st.Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`             // running, completed, blocked, failed
@@ -58,10 +58,13 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	return nil
 }
 
-func readStatus(wsDir string) (*WorkspaceStatus, error) {
+// ReadStatus parses the status.json in a workspace directory.
+//
+//	st, err := agentic.ReadStatus("/path/to/workspace")
+func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 	r := fs.Read(core.JoinPath(wsDir, "status.json"))
 	if !r.OK {
-		return nil, core.E("readStatus", "status not found", nil)
+		return nil, core.E("ReadStatus", "status not found", nil)
 	}
 	var s WorkspaceStatus
 	if err := json.Unmarshal([]byte(r.Value.(string)), &s); err != nil {
@@ -125,7 +128,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		wsDir := core.PathDir(statusPath)
 		name := wsDir[len(wsRoot)+1:]
 
-		st, err := readStatus(wsDir)
+		st, err := ReadStatus(wsDir)
 		if err != nil {
 			out.Total++
 			out.Failed++

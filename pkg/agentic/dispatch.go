@@ -156,7 +156,7 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 		"-v", metaDir + ":/workspace/.meta",
 		"-w", "/workspace",
 		// Auth: agent configs only — NO SSH keys, git push runs on host
-		"-v", core.JoinPath(home, ".codex") + ":/root/.codex:ro",
+		"-v", core.JoinPath(home, ".codex") + ":/home/dev/.codex:ro",
 		// API keys — passed by name, Docker resolves from host env
 		"-e", "OPENAI_API_KEY",
 		"-e", "ANTHROPIC_API_KEY",
@@ -175,14 +175,14 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 	// Mount Claude config if dispatching claude agent
 	if command == "claude" {
 		dockerArgs = append(dockerArgs,
-			"-v", core.JoinPath(home, ".claude")+":/root/.claude:ro",
+			"-v", core.JoinPath(home, ".claude")+":/home/dev/.claude:ro",
 		)
 	}
 
 	// Mount Gemini config if dispatching gemini agent
 	if command == "gemini" {
 		dockerArgs = append(dockerArgs,
-			"-v", core.JoinPath(home, ".gemini")+":/root/.gemini:ro",
+			"-v", core.JoinPath(home, ".gemini")+":/home/dev/.gemini:ro",
 		)
 	}
 
@@ -228,7 +228,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 	// Notify monitor directly — no filesystem polling
 	if s.onComplete != nil {
-		st, _ := readStatus(wsDir)
+		st, _ := ReadStatus(wsDir)
 		repo := ""
 		if st != nil {
 			repo = st.Repo
@@ -238,7 +238,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	emitStartEvent(agent, core.PathBase(wsDir)) // audit log
 
 	// Start Forge stopwatch on the issue (time tracking)
-	if st, _ := readStatus(wsDir); st != nil && st.Issue > 0 {
+	if st, _ := ReadStatus(wsDir); st != nil && st.Issue > 0 {
 		org := st.Org
 		if org == "" {
 			org = "core"
@@ -281,7 +281,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			}
 		}
 
-		if st, stErr := readStatus(wsDir); stErr == nil {
+		if st, stErr := ReadStatus(wsDir); stErr == nil {
 			st.Status = finalStatus
 			st.PID = 0
 			st.Question = question
@@ -293,7 +293,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		// Rate-limit detection: if agent failed fast (<60s), track consecutive failures
 		pool := baseAgent(agent)
 		if finalStatus == "failed" {
-			if st, _ := readStatus(wsDir); st != nil {
+			if st, _ := ReadStatus(wsDir); st != nil {
 				elapsed := time.Since(st.StartedAt)
 				if elapsed < 60*time.Second {
 					s.failCount[pool]++
@@ -310,7 +310,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		}
 
 		// Stop Forge stopwatch on the issue (time tracking)
-		if st, _ := readStatus(wsDir); st != nil && st.Issue > 0 {
+		if st, _ := ReadStatus(wsDir); st != nil && st.Issue > 0 {
 			org := st.Org
 			if org == "" {
 				org = "core"
@@ -320,7 +320,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 		// Push notification directly — no filesystem polling
 		if s.onComplete != nil {
-			stNow, _ := readStatus(wsDir)
+			stNow, _ := ReadStatus(wsDir)
 			repoName := ""
 			if stNow != nil {
 				repoName = stNow.Repo
@@ -333,7 +333,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			if !s.runQA(wsDir) {
 				finalStatus = "failed"
 				question = "QA check failed — build or tests did not pass"
-				if st, stErr := readStatus(wsDir); stErr == nil {
+				if st, stErr := ReadStatus(wsDir); stErr == nil {
 					st.Status = finalStatus
 					st.Question = question
 					writeStatus(wsDir, st)

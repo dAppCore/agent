@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -231,7 +232,7 @@ func (m *Subsystem) AgentStarted(agent, repo, workspace string) {
 }
 
 // AgentCompleted is called when an agent finishes.
-// Only sends notifications for failures. Sends "queue.drained" when all work is done.
+// Emits agent.completed for every finish, then checks if the queue is empty.
 //
 //	mon.AgentCompleted("codex", "go-io", "core/go-io/task-5", "completed")
 func (m *Subsystem) AgentCompleted(agent, repo, workspace, status string) {
@@ -240,53 +241,68 @@ func (m *Subsystem) AgentCompleted(agent, repo, workspace, status string) {
 	m.mu.Unlock()
 
 	if m.notifier != nil {
-		// Only notify on failures — those need attention
-		if status == "failed" || status == "blocked" {
-			m.notifier.ChannelSend(context.Background(), "agent.failed", map[string]any{
-				"repo":   repo,
-				"agent":  agent,
-				"status": status,
-			})
-		}
+		m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
+			"repo":      repo,
+			"agent":     agent,
+			"workspace": workspace,
+			"status":    status,
+		})
 	}
 
-	// Check if queue is drained (0 running + 0 queued)
 	m.Poke()
 	go m.checkIdleAfterDelay()
 }
 
-// checkIdleAfterDelay waits briefly then checks if the fleet is idle.
-// Sends a single "queue.drained" notification when all work stops.
+// checkIdleAfterDelay waits briefly then checks if the fleet is genuinely idle.
+// Only emits queue.drained when there are truly zero running or queued agents,
+// verified by checking PIDs are alive, not just trusting status files.
 func (m *Subsystem) checkIdleAfterDelay() {
-	time.Sleep(5 * time.Second) // wait for runner to fill slots
+	time.Sleep(5 * time.Second) // wait for queue drain to fill slots
 	if m.notifier == nil {
 		return
 	}
 
-	// Quick count — scan for running/queued
-	running := 0
-	queued := 0
+	running, queued := m.countLiveWorkspaces()
+	if running == 0 && queued == 0 {
+		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
+			"running": running,
+			"queued":  queued,
+		})
+	}
+}
+
+// countLiveWorkspaces counts workspaces that are genuinely active.
+// For "running" status, verifies the PID is still alive.
+func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 	wsRoot := agentic.WorkspaceRoot()
 	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
 	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
 	for _, path := range append(old, deep...) {
-		r := fs.Read(path)
-		if !r.OK {
+		wsDir := core.PathDir(path)
+		st, err := agentic.ReadStatus(wsDir)
+		if err != nil {
 			continue
 		}
-		s := r.Value.(string)
-		if core.Contains(s, `"status":"running"`) {
-			running++
-		} else if core.Contains(s, `"status":"queued"`) {
+		switch st.Status {
+		case "running":
+			if st.PID > 0 && pidAlive(st.PID) {
+				running++
+			}
+		case "queued":
 			queued++
 		}
 	}
+	return
+}
 
-	if running == 0 && queued == 0 {
-		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
-			"message": "all work complete",
-		})
+// pidAlive checks whether a process is still running.
+func pidAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
 	}
+	err = proc.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 func (m *Subsystem) loop(ctx context.Context) {
@@ -430,11 +446,20 @@ func (m *Subsystem) checkCompletions() string {
 		return ""
 	}
 
-	// Only notify on queue drain (0 running + 0 queued) — individual completions are noise
-	if m.notifier != nil && running == 0 && queued == 0 {
+	// Emit agent.completed for each newly finished task
+	if m.notifier != nil {
+		for _, desc := range newlyCompleted {
+			m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
+				"description": desc,
+			})
+		}
+	}
+
+	// Only emit queue.drained when genuinely empty — verified by live PID check
+	liveRunning, liveQueued := m.countLiveWorkspaces()
+	if m.notifier != nil && liveRunning == 0 && liveQueued == 0 {
 		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
 			"completed": len(newlyCompleted),
-			"message":   "all work complete",
 		})
 	}
 

@@ -13,7 +13,7 @@ import (
 // ingestFindings reads the agent output log and creates issues via the API
 // for scan/audit results. Only runs for conventions and security templates.
 func (s *PrepSubsystem) ingestFindings(wsDir string) {
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil || st.Status != "completed" {
 		return
 	}

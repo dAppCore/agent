@@ -52,7 +52,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Read current status
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil {
 		return nil, ResumeOutput{}, core.E("resume", "no status.json in workspace", err)
 	}

@@ -26,8 +26,8 @@ func TestDispatchConfig_Good_Defaults(t *testing.T) {
 	cfg := s.loadAgentsConfig()
 	assert.Equal(t, "claude", cfg.Dispatch.DefaultAgent)
 	assert.Equal(t, "coding", cfg.Dispatch.DefaultTemplate)
-	assert.Equal(t, 1, cfg.Concurrency["claude"])
-	assert.Equal(t, 3, cfg.Concurrency["gemini"])
+	assert.Equal(t, 1, cfg.Concurrency["claude"].Total)
+	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
 }
 
 func TestCanDispatchAgent_Good_NoConfig(t *testing.T) {

@@ -61,7 +61,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	// Read workspace status for repo, branch, issue context
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "no status.json", err)
 	}
