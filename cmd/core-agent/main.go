@@ -109,12 +109,6 @@ func main() {
 	registerWorkspaceCommands(c)
 	// registerFlowCommands(c) — on feat/flow-system branch
 
-	// Run: ServiceStartup → Cli → ServiceShutdown
-	r = c.Run()
-	if !r.OK {
-		if err, ok := r.Value.(error); ok {
-			core.Error(err.Error())
-		}
-		os.Exit(1)
-	}
+	// Run: ServiceStartup → Cli → ServiceShutdown → os.Exit if error
+	c.Run()
 }
