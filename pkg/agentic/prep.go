@@ -17,7 +17,7 @@ import (
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )

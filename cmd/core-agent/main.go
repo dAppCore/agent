@@ -9,7 +9,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
-	"forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp"
 )
 
 func main() {
