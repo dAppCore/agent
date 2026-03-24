@@ -20,9 +20,33 @@ import (
 func main() {
 	r := core.New(
 		core.WithOption("name", "core-agent"),
+		core.WithService(func(c *core.Core) core.Result {
+			svc, err := process.NewService(process.Options{})(c)
+			if err != nil {
+				return core.Result{Value: err, OK: false}
+			}
+			if procSvc, ok := svc.(*process.Service); ok {
+				_ = process.SetDefault(procSvc)
+			}
+			return core.Result{Value: svc, OK: true}
+		}),
 		core.WithService(agentic.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
+		// MCP — registered last, retrieves other services for tool registration
+		core.WithName("mcp", func(c *core.Core) core.Result {
+			agSvc, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
+			monSvc, _ := core.ServiceFor[*monitor.Subsystem](c, "monitor")
+			brnSvc, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
+			mcpSvc, err := mcp.New(mcp.Options{
+				Subsystems: []mcp.Subsystem{brnSvc, agSvc, monSvc},
+			})
+			if err != nil {
+				return core.Result{Value: core.E("main", "create MCP service", err), OK: false}
+			}
+			monSvc.SetNotifier(mcpSvc)
+			return core.Result{Value: mcpSvc, OK: true}
+		}),
 	)
 	if !r.OK {
 		core.Error("failed to create core", "err", r.Value)
@@ -301,32 +325,6 @@ func main() {
 		},
 	})
 
-	// Retrieve service instances from conclave for MCP tool registration
-	agenticSvc, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
-	monitorSvc, _ := core.ServiceFor[*monitor.Subsystem](c, "monitor")
-	brainSvc, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
-
-	// Process service (lifecycle management)
-	procFactory := process.NewService(process.Options{})
-	procResult, procErr := procFactory(c)
-	if procErr == nil {
-		if procSvc, ok := procResult.(*process.Service); ok {
-			_ = process.SetDefault(procSvc)
-		}
-	}
-
-	// MCP service — wires subsystems for tool registration
-	initMCP := func() (*mcp.Service, error) {
-		mcpSvc, err := mcp.New(mcp.Options{
-			Subsystems: []mcp.Subsystem{brainSvc, agenticSvc, monitorSvc},
-		})
-		if err != nil {
-			return nil, core.E("main", "create MCP service", err)
-		}
-		monitorSvc.SetNotifier(mcpSvc)
-		return mcpSvc, nil
-	}
-
 	// Signal-aware context for clean shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -335,10 +333,7 @@ func main() {
 	c.Command("mcp", core.Command{
 		Description: "Start the MCP server on stdio",
 		Action: func(opts core.Options) core.Result {
-			mcpSvc, err := initMCP()
-			if err != nil {
-				return core.Result{Value: err, OK: false}
-			}
+			mcpSvc, _ := core.ServiceFor[*mcp.Service](c, "mcp")
 			c.ServiceStartup(ctx, nil)
 			if err := mcpSvc.Run(ctx); err != nil {
 				return core.Result{Value: err, OK: false}
@@ -352,10 +347,7 @@ func main() {
 	c.Command("serve", core.Command{
 		Description: "Start as a persistent HTTP daemon",
 		Action: func(opts core.Options) core.Result {
-			mcpSvc, err := initMCP()
-			if err != nil {
-				return core.Result{Value: err, OK: false}
-			}
+			mcpSvc, _ := core.ServiceFor[*mcp.Service](c, "mcp")
 
 			addr := core.Env("MCP_HTTP_ADDR")
 			if addr == "" {
@@ -437,7 +429,8 @@ func main() {
 			core.Print(os.Stderr, "")
 
 			// Dispatch and wait
-			result := agenticSvc.DispatchSync(ctx, agentic.DispatchSyncInput{
+			agSvc, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
+			result := agSvc.DispatchSync(ctx, agentic.DispatchSyncInput{
 				Org:   org,
 				Repo:  repo,
 				Agent: agent,
