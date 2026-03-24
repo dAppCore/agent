@@ -312,8 +312,7 @@ func main() {
 		prep.SetCore(c)
 		mon.SetCore(c)
 
-		// Legacy wiring — kept until Phase 3 replaces with IPC
-		prep.SetCompletionNotifier(mon)
+		// IPC handlers registered automatically in SetCore()
 
 		// Register as Core services with lifecycle hooks
 		c.Service("agentic", core.Service{
@@ -492,7 +491,8 @@ func main() {
 
 			mon := monitor.New()
 			prep := agentic.NewPrep()
-			prep.SetCompletionNotifier(mon)
+			prep.SetCore(c)
+			mon.SetCore(c)
 
 			mon.Start(ctx)
 			prep.StartRunner()

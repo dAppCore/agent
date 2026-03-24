@@ -3,10 +3,12 @@
 package agentic
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"testing"
+
+	core "dappco.re/go/core"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnvOr_Good_EnvSet(t *testing.T) {
@@ -184,24 +186,11 @@ func TestPrepSubsystem_Good_Name(t *testing.T) {
 	assert.Equal(t, "agentic", s.Name())
 }
 
-func TestSetCompletionNotifier_Good(t *testing.T) {
+func TestSetCore_Good(t *testing.T) {
 	s := &PrepSubsystem{}
-	assert.Nil(t, s.onComplete)
+	assert.Nil(t, s.core)
 
-	notifier := &mockNotifier{}
-	s.SetCompletionNotifier(notifier)
-	assert.NotNil(t, s.onComplete)
-}
-
-type mockNotifier struct {
-	started   bool
-	completed bool
-}
-
-func (m *mockNotifier) AgentStarted(agent, repo, workspace string) {
-	m.started = true
-}
-
-func (m *mockNotifier) AgentCompleted(agent, repo, workspace, status string) {
-	m.completed = true
+	c := core.New(core.Options{{Key: "name", Value: "test"}})
+	s.SetCore(c)
+	assert.NotNil(t, s.core)
 }

@@ -22,16 +22,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CompletionNotifier receives agent lifecycle events directly from dispatch.
-// No filesystem polling — events flow in-memory.
-//
-//	prep.SetCompletionNotifier(monitor)
-type CompletionNotifier interface {
-	AgentStarted(agent, repo, workspace string)
-	AgentCompleted(agent, repo, workspace, status string)
-}
-
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.
+// Agent lifecycle events are broadcast via c.ACTION(messages.AgentCompleted{}).
 //
 //	sub := agentic.NewPrep()
 //	sub.SetCore(c)
@@ -45,7 +37,6 @@ type PrepSubsystem struct {
 	brainKey   string
 	codePath   string
 	client     *http.Client
-	onComplete CompletionNotifier // TODO(phase3): remove — replaced by c.ACTION()
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
@@ -96,13 +87,6 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 	s.core = c
 }
 
-// SetCompletionNotifier wires up the monitor for immediate push on agent completion.
-// Deprecated: Phase 3 replaces this with c.ACTION(messages.AgentCompleted{}).
-//
-//	prep.SetCompletionNotifier(monitor)
-func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
-	s.onComplete = n
-}
 
 func envOr(key, fallback string) string {
 	if v := core.Env(key); v != "" {
