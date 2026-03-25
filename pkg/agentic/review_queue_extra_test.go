@@ -17,7 +17,7 @@ import (
 
 // --- buildReviewCommand ---
 
-func TestBuildReviewCommand_Good_CodeRabbit(t *testing.T) {
+func TestReviewQueue_BuildReviewCommand_Good_CodeRabbit(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -30,7 +30,7 @@ func TestBuildReviewCommand_Good_CodeRabbit(t *testing.T) {
 	assert.Contains(t, cmd.Args, "github/main")
 }
 
-func TestBuildReviewCommand_Good_Codex(t *testing.T) {
+func TestReviewQueue_BuildReviewCommand_Good_Codex(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -42,7 +42,7 @@ func TestBuildReviewCommand_Good_Codex(t *testing.T) {
 	assert.Equal(t, "/tmp/repo", cmd.Dir)
 }
 
-func TestBuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
+func TestReviewQueue_BuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -86,7 +86,7 @@ func TestSaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 
 // --- storeReviewOutput ---
 
-func TestStoreReviewOutput_Good(t *testing.T) {
+func TestReviewQueue_StoreReviewOutput_Good(t *testing.T) {
 	// storeReviewOutput uses core.Env("DIR_HOME") so we can't fully control the path
 	// but we can verify it doesn't panic
 	s := &PrepSubsystem{
@@ -159,7 +159,7 @@ func TestStatus_Good_FilteredByStatus(t *testing.T) {
 
 // --- handlers helpers (resolveWorkspace, findWorkspaceByPR) ---
 
-func TestResolveWorkspace_Good_Exists(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")
@@ -172,7 +172,7 @@ func TestResolveWorkspace_Good_Exists(t *testing.T) {
 	assert.Equal(t, ws, result)
 }
 
-func TestResolveWorkspace_Bad_NotExists(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -180,7 +180,7 @@ func TestResolveWorkspace_Bad_NotExists(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestFindWorkspaceByPR_Good_Match(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")
@@ -195,7 +195,7 @@ func TestFindWorkspaceByPR_Good_Match(t *testing.T) {
 	assert.Equal(t, ws, result)
 }
 
-func TestFindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")

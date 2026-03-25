@@ -14,7 +14,7 @@ import (
 
 // --- ReadStatus ---
 
-func TestReadStatus_Good_AllFields(t *testing.T) {
+func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now().Truncate(time.Second)
 
@@ -51,13 +51,13 @@ func TestReadStatus_Good_AllFields(t *testing.T) {
 	assert.Equal(t, original.Runs, st.Runs)
 }
 
-func TestReadStatus_Bad_MissingFile(t *testing.T) {
+func TestStatus_ReadStatus_Bad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := ReadStatus(dir)
 	assert.Error(t, err, "missing status.json must return an error")
 }
 
-func TestReadStatus_Bad_CorruptJSON(t *testing.T) {
+func TestStatus_ReadStatus_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), `{"status": "running", broken`).OK)
 
@@ -65,7 +65,7 @@ func TestReadStatus_Bad_CorruptJSON(t *testing.T) {
 	assert.Error(t, err, "corrupt JSON must return an error")
 }
 
-func TestReadStatus_Bad_NullJSON(t *testing.T) {
+func TestStatus_ReadStatus_Bad_NullJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "null").OK)
 
@@ -77,7 +77,7 @@ func TestReadStatus_Bad_NullJSON(t *testing.T) {
 
 // --- writeStatus ---
 
-func TestWriteStatus_Good_WritesAndReadsBack(t *testing.T) {
+func TestStatus_WriteStatus_Good_WritesAndReadsBack(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{
 		Status: "queued",
@@ -98,7 +98,7 @@ func TestWriteStatus_Good_WritesAndReadsBack(t *testing.T) {
 	assert.Equal(t, "improve logging", read.Task)
 }
 
-func TestWriteStatus_Good_SetsUpdatedAt(t *testing.T) {
+func TestStatus_WriteStatus_Good_SetsUpdatedAt(t *testing.T) {
 	dir := t.TempDir()
 	before := time.Now().Add(-time.Millisecond)
 
@@ -109,7 +109,7 @@ func TestWriteStatus_Good_SetsUpdatedAt(t *testing.T) {
 	assert.True(t, st.UpdatedAt.After(before), "writeStatus must set UpdatedAt to a recent time")
 }
 
-func TestWriteStatus_Good_Overwrites(t *testing.T) {
+func TestStatus_WriteStatus_Good_Overwrites(t *testing.T) {
 	dir := t.TempDir()
 
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{Status: "running", Agent: "gemini"}))

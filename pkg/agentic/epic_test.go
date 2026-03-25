@@ -142,7 +142,7 @@ func newTestSubsystem(t *testing.T, srv *httptest.Server) *PrepSubsystem {
 
 // --- createIssue ---
 
-func TestCreateIssue_Good_Success(t *testing.T) {
+func TestEpic_CreateIssue_Good_Success(t *testing.T) {
 	srv, counter := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -154,7 +154,7 @@ func TestCreateIssue_Good_Success(t *testing.T) {
 	assert.Equal(t, int32(1), counter.Load())
 }
 
-func TestCreateIssue_Good_NoLabels(t *testing.T) {
+func TestEpic_CreateIssue_Good_NoLabels(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -163,7 +163,7 @@ func TestCreateIssue_Good_NoLabels(t *testing.T) {
 	assert.Equal(t, "No labels task", child.Title)
 }
 
-func TestCreateIssue_Good_WithBody(t *testing.T) {
+func TestEpic_CreateIssue_Good_WithBody(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -172,7 +172,7 @@ func TestCreateIssue_Good_WithBody(t *testing.T) {
 	assert.NotZero(t, child.Number)
 }
 
-func TestCreateIssue_Bad_ServerDown(t *testing.T) {
+func TestEpic_CreateIssue_Bad_ServerDown(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close() // immediately close
 
@@ -188,7 +188,7 @@ func TestCreateIssue_Bad_ServerDown(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCreateIssue_Bad_Non201Response(t *testing.T) {
+func TestEpic_CreateIssue_Bad_Non201Response(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -208,7 +208,7 @@ func TestCreateIssue_Bad_Non201Response(t *testing.T) {
 
 // --- resolveLabelIDs ---
 
-func TestResolveLabelIDs_Good_ExistingLabels(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Good_ExistingLabels(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -218,7 +218,7 @@ func TestResolveLabelIDs_Good_ExistingLabels(t *testing.T) {
 	assert.Contains(t, ids, int64(2))
 }
 
-func TestResolveLabelIDs_Good_NewLabel(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Good_NewLabel(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -227,7 +227,7 @@ func TestResolveLabelIDs_Good_NewLabel(t *testing.T) {
 	assert.NotEmpty(t, ids)
 }
 
-func TestResolveLabelIDs_Good_EmptyNames(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Good_EmptyNames(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -235,7 +235,7 @@ func TestResolveLabelIDs_Good_EmptyNames(t *testing.T) {
 	assert.Nil(t, ids)
 }
 
-func TestResolveLabelIDs_Bad_ServerError(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -255,7 +255,7 @@ func TestResolveLabelIDs_Bad_ServerError(t *testing.T) {
 
 // --- createLabel ---
 
-func TestCreateLabel_Good_Known(t *testing.T) {
+func TestEpic_CreateLabel_Good_Known(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -263,7 +263,7 @@ func TestCreateLabel_Good_Known(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
-func TestCreateLabel_Good_Unknown(t *testing.T) {
+func TestEpic_CreateLabel_Good_Unknown(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -272,7 +272,7 @@ func TestCreateLabel_Good_Unknown(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
-func TestCreateLabel_Bad_ServerDown(t *testing.T) {
+func TestEpic_CreateLabel_Bad_ServerDown(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()
 
@@ -290,7 +290,7 @@ func TestCreateLabel_Bad_ServerDown(t *testing.T) {
 
 // --- createEpic (validation only, not full dispatch) ---
 
-func TestCreateEpic_Bad_NoTitle(t *testing.T) {
+func TestEpic_CreateEpic_Bad_NoTitle(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -302,7 +302,7 @@ func TestCreateEpic_Bad_NoTitle(t *testing.T) {
 	assert.Contains(t, err.Error(), "title is required")
 }
 
-func TestCreateEpic_Bad_NoTasks(t *testing.T) {
+func TestEpic_CreateEpic_Bad_NoTasks(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -314,7 +314,7 @@ func TestCreateEpic_Bad_NoTasks(t *testing.T) {
 	assert.Contains(t, err.Error(), "at least one task")
 }
 
-func TestCreateEpic_Bad_NoToken(t *testing.T) {
+func TestEpic_CreateEpic_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
@@ -330,7 +330,7 @@ func TestCreateEpic_Bad_NoToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no Forge token")
 }
 
-func TestCreateEpic_Good_WithTasks(t *testing.T) {
+func TestEpic_CreateEpic_Good_WithTasks(t *testing.T) {
 	srv, counter := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -349,7 +349,7 @@ func TestCreateEpic_Good_WithTasks(t *testing.T) {
 	assert.Equal(t, int32(3), counter.Load())
 }
 
-func TestCreateEpic_Good_WithLabels(t *testing.T) {
+func TestEpic_CreateEpic_Good_WithLabels(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -363,7 +363,7 @@ func TestCreateEpic_Good_WithLabels(t *testing.T) {
 	assert.True(t, out.Success)
 }
 
-func TestCreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
+func TestEpic_CreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
@@ -377,7 +377,7 @@ func TestCreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
 	assert.True(t, out.Success)
 }
 
-func TestCreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
+func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 

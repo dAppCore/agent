@@ -34,13 +34,13 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 	return c, s
 }
 
-func TestRegisterHandlers_Good_Registers(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_Registers(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 	// RegisterHandlers should not panic and Core should have actions
 	assert.NotNil(t, c)
 }
 
-func TestRegisterHandlers_Good_PokeOnCompletion(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_PokeOnCompletion(t *testing.T) {
 	_, s := newCoreForHandlerTests(t)
 
 	// Drain any existing poke
@@ -65,7 +65,7 @@ func TestRegisterHandlers_Good_PokeOnCompletion(t *testing.T) {
 	}
 }
 
-func TestRegisterHandlers_Good_QAFailsUpdatesStatus(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_QAFailsUpdatesStatus(t *testing.T) {
 	c, s := newCoreForHandlerTests(t)
 
 	root := WorkspaceRoot()
@@ -101,7 +101,7 @@ func TestRegisterHandlers_Good_QAFailsUpdatesStatus(t *testing.T) {
 	assert.Contains(t, []string{"failed", "completed"}, updated.Status)
 }
 
-func TestRegisterHandlers_Good_IngestOnCompletion(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_IngestOnCompletion(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	root := WorkspaceRoot()
@@ -126,7 +126,7 @@ func TestRegisterHandlers_Good_IngestOnCompletion(t *testing.T) {
 	})
 }
 
-func TestRegisterHandlers_Good_IgnoresNonCompleted(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_IgnoresNonCompleted(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	// Send AgentCompleted with non-completed status — QA should skip
@@ -138,7 +138,7 @@ func TestRegisterHandlers_Good_IgnoresNonCompleted(t *testing.T) {
 	// Should not panic
 }
 
-func TestRegisterHandlers_Good_PokeQueue(t *testing.T) {
+func TestHandlers_RegisterHandlers_Good_PokeQueue(t *testing.T) {
 	c, s := newCoreForHandlerTests(t)
 	s.frozen = true // frozen so drainQueue is a no-op
 
@@ -149,7 +149,7 @@ func TestRegisterHandlers_Good_PokeQueue(t *testing.T) {
 
 // --- command registration ---
 
-func TestRegisterForgeCommands_Good(t *testing.T) {
+func TestCommandsForge_RegisterForgeCommands_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -162,7 +162,7 @@ func TestRegisterForgeCommands_Good(t *testing.T) {
 	assert.NotPanics(t, func() { s.registerForgeCommands() })
 }
 
-func TestRegisterWorkspaceCommands_Good(t *testing.T) {
+func TestCommandsWorkspace_RegisterWorkspaceCommands_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -174,7 +174,7 @@ func TestRegisterWorkspaceCommands_Good(t *testing.T) {
 	assert.NotPanics(t, func() { s.registerWorkspaceCommands() })
 }
 
-func TestRegisterCommands_Good(t *testing.T) {
+func TestCommands_RegisterCommands_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -192,13 +192,13 @@ func TestRegisterCommands_Good(t *testing.T) {
 
 // --- Prep subsystem lifecycle ---
 
-func TestNewPrep_Good(t *testing.T) {
+func TestPrep_NewPrep_Good(t *testing.T) {
 	s := NewPrep()
 	assert.NotNil(t, s)
 	assert.Equal(t, "agentic", s.Name())
 }
 
-func TestOnStartup_Good_Registers(t *testing.T) {
+func TestPrep_OnStartup_Good_Registers(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 

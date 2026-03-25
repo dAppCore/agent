@@ -18,7 +18,7 @@ import (
 
 // --- forgeMergePR ---
 
-func TestForgeMergePR_Good_Success(t *testing.T) {
+func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/pulls/42/merge")
@@ -45,7 +45,7 @@ func TestForgeMergePR_Good_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestForgeMergePR_Good_204Response(t *testing.T) {
+func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204) // No Content — also valid success
 	}))
@@ -63,7 +63,7 @@ func TestForgeMergePR_Good_204Response(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestForgeMergePR_Bad_ConflictResponse(t *testing.T) {
+func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -86,7 +86,7 @@ func TestForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 	assert.Contains(t, err.Error(), "merge conflict")
 }
 
-func TestForgeMergePR_Bad_ServerError(t *testing.T) {
+func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -108,7 +108,7 @@ func TestForgeMergePR_Bad_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "500")
 }
 
-func TestForgeMergePR_Bad_NetworkError(t *testing.T) {
+func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close() // close immediately to cause connection error
 
@@ -126,26 +126,26 @@ func TestForgeMergePR_Bad_NetworkError(t *testing.T) {
 
 // --- extractPRNumber (additional _Ugly cases) ---
 
-func TestExtractPRNumber_Ugly_DoubleSlashEnd(t *testing.T) {
+func TestVerify_ExtractPRNumber_Ugly_DoubleSlashEnd(t *testing.T) {
 	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
 }
 
-func TestExtractPRNumber_Ugly_VeryLargeNumber(t *testing.T) {
+func TestVerify_ExtractPRNumber_Ugly_VeryLargeNumber(t *testing.T) {
 	assert.Equal(t, 999999, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/999999"))
 }
 
-func TestExtractPRNumber_Ugly_NegativeNumber(t *testing.T) {
+func TestVerify_ExtractPRNumber_Ugly_NegativeNumber(t *testing.T) {
 	// atoi of "-5" is -5, parseInt wraps atoi
 	assert.Equal(t, -5, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/-5"))
 }
 
-func TestExtractPRNumber_Ugly_ZeroExplicit(t *testing.T) {
+func TestVerify_ExtractPRNumber_Ugly_ZeroExplicit(t *testing.T) {
 	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/0"))
 }
 
 // --- ensureLabel ---
 
-func TestEnsureLabel_Good_CreatesLabel(t *testing.T) {
+func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
@@ -173,7 +173,7 @@ func TestEnsureLabel_Good_CreatesLabel(t *testing.T) {
 	assert.True(t, called)
 }
 
-func TestEnsureLabel_Bad_NetworkError(t *testing.T) {
+func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()
 
@@ -193,7 +193,7 @@ func TestEnsureLabel_Bad_NetworkError(t *testing.T) {
 
 // --- getLabelID ---
 
-func TestGetLabelID_Good_Found(t *testing.T) {
+func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"id": 10, "name": "agentic"},
@@ -214,7 +214,7 @@ func TestGetLabelID_Good_Found(t *testing.T) {
 	assert.Equal(t, 20, id)
 }
 
-func TestGetLabelID_Bad_NotFound(t *testing.T) {
+func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"id": 10, "name": "agentic"},
@@ -234,7 +234,7 @@ func TestGetLabelID_Bad_NotFound(t *testing.T) {
 	assert.Equal(t, 0, id)
 }
 
-func TestGetLabelID_Bad_NetworkError(t *testing.T) {
+func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()
 
@@ -252,7 +252,7 @@ func TestGetLabelID_Bad_NetworkError(t *testing.T) {
 
 // --- runVerification ---
 
-func TestRunVerification_Good_NoProjectFile(t *testing.T) {
+func TestVerify_RunVerification_Good_NoProjectFile(t *testing.T) {
 	dir := t.TempDir() // No go.mod, composer.json, or package.json
 
 	s := &PrepSubsystem{
@@ -265,7 +265,7 @@ func TestRunVerification_Good_NoProjectFile(t *testing.T) {
 	assert.Equal(t, "none", result.testCmd)
 }
 
-func TestRunVerification_Good_GoProject(t *testing.T) {
+func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
 
@@ -279,7 +279,7 @@ func TestRunVerification_Good_GoProject(t *testing.T) {
 	// It will fail because there's no real Go code, but we test the detection path
 }
 
-func TestRunVerification_Good_PHPProject(t *testing.T) {
+func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
 
@@ -293,7 +293,7 @@ func TestRunVerification_Good_PHPProject(t *testing.T) {
 	assert.Contains(t, []string{"composer test", "vendor/bin/pest", "none"}, result.testCmd)
 }
 
-func TestRunVerification_Good_NodeProject(t *testing.T) {
+func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
@@ -306,7 +306,7 @@ func TestRunVerification_Good_NodeProject(t *testing.T) {
 	assert.Equal(t, "npm test", result.testCmd)
 }
 
-func TestRunVerification_Good_NodeNoTestScript(t *testing.T) {
+func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{}}`).OK)
 
@@ -322,7 +322,7 @@ func TestRunVerification_Good_NodeNoTestScript(t *testing.T) {
 
 // --- fileExists ---
 
-func TestFileExists_Good_Exists(t *testing.T) {
+func TestVerify_FileExists_Good_Exists(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.txt")
 	require.True(t, fs.Write(path, "hello").OK)
@@ -330,18 +330,18 @@ func TestFileExists_Good_Exists(t *testing.T) {
 	assert.True(t, fileExists(path))
 }
 
-func TestFileExists_Bad_NotExists(t *testing.T) {
+func TestVerify_FileExists_Bad_NotExists(t *testing.T) {
 	assert.False(t, fileExists("/nonexistent/path/file.txt"))
 }
 
-func TestFileExists_Bad_IsDirectory(t *testing.T) {
+func TestVerify_FileExists_Bad_IsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	assert.False(t, fileExists(dir)) // directories are not files
 }
 
 // --- autoVerifyAndMerge ---
 
-func TestAutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
 	dir := t.TempDir()
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
@@ -353,7 +353,7 @@ func TestAutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
 	})
 }
 
-func TestAutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
@@ -372,7 +372,7 @@ func TestAutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 	})
 }
 
-func TestAutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
@@ -389,7 +389,7 @@ func TestAutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 	})
 }
 
-func TestAutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
@@ -411,7 +411,7 @@ func TestAutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 
 // --- flagForReview ---
 
-func TestFlagForReview_Good_AddsLabel(t *testing.T) {
+func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 	labelCalled := false
 	commentCalled := false
 
@@ -454,7 +454,7 @@ func TestFlagForReview_Good_AddsLabel(t *testing.T) {
 	assert.True(t, commentCalled)
 }
 
-func TestFlagForReview_Good_MergeConflictMessage(t *testing.T) {
+func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 	var commentBody string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -488,23 +488,23 @@ func TestFlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 // --- truncate ---
 
-func TestTruncate_Good_Short(t *testing.T) {
+func TestAutoPr_Truncate_Good_Short(t *testing.T) {
 	assert.Equal(t, "hello", truncate("hello", 10))
 }
 
-func TestTruncate_Good_Exact(t *testing.T) {
+func TestAutoPr_Truncate_Good_Exact(t *testing.T) {
 	assert.Equal(t, "hello", truncate("hello", 5))
 }
 
-func TestTruncate_Good_Long(t *testing.T) {
+func TestAutoPr_Truncate_Good_Long(t *testing.T) {
 	assert.Equal(t, "hel...", truncate("hello world", 3))
 }
 
-func TestTruncate_Bad_ZeroMax(t *testing.T) {
+func TestAutoPr_Truncate_Bad_ZeroMax(t *testing.T) {
 	assert.Equal(t, "...", truncate("hello", 0))
 }
 
-func TestTruncate_Ugly_EmptyString(t *testing.T) {
+func TestAutoPr_Truncate_Ugly_EmptyString(t *testing.T) {
 	assert.Equal(t, "", truncate("", 10))
 }
 

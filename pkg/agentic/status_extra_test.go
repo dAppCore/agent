@@ -140,7 +140,7 @@ func TestStatus_Good_CorruptStatusFile(t *testing.T) {
 
 // --- shutdown tools ---
 
-func TestDispatchStart_Good(t *testing.T) {
+func TestShutdown_DispatchStart_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		frozen:    true,
 		pokeCh:    make(chan struct{}, 1),
@@ -155,7 +155,7 @@ func TestDispatchStart_Good(t *testing.T) {
 	assert.Contains(t, out.Message, "started")
 }
 
-func TestShutdownGraceful_Good(t *testing.T) {
+func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -172,7 +172,7 @@ func TestShutdownGraceful_Good(t *testing.T) {
 	assert.Contains(t, out.Message, "frozen")
 }
 
-func TestShutdownNow_Good_EmptyWorkspace(t *testing.T) {
+func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -190,7 +190,7 @@ func TestShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	assert.Contains(t, out.Message, "killed 0")
 }
 
-func TestShutdownNow_Good_ClearsQueued(t *testing.T) {
+func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")
@@ -227,7 +227,7 @@ func TestShutdownNow_Good_ClearsQueued(t *testing.T) {
 
 // --- brainRecall ---
 
-func TestBrainRecall_Good_Success(t *testing.T) {
+func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/v1/brain/recall")
@@ -255,7 +255,7 @@ func TestBrainRecall_Good_Success(t *testing.T) {
 	assert.Contains(t, result, "Use E() for errors")
 }
 
-func TestBrainRecall_Good_NoMemories(t *testing.T) {
+func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"memories": []map[string]any{},
@@ -276,7 +276,7 @@ func TestBrainRecall_Good_NoMemories(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestBrainRecall_Bad_NoBrainKey(t *testing.T) {
+func TestPrep_BrainRecall_Bad_NoBrainKey(t *testing.T) {
 	s := &PrepSubsystem{
 		brainKey:  "",
 		backoff:   make(map[string]time.Time),
@@ -288,7 +288,7 @@ func TestBrainRecall_Bad_NoBrainKey(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestBrainRecall_Bad_ServerError(t *testing.T) {
+func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -309,7 +309,7 @@ func TestBrainRecall_Bad_ServerError(t *testing.T) {
 
 // --- prepWorkspace ---
 
-func TestPrepWorkspace_Bad_NoRepo(t *testing.T) {
+func TestPrep_PrepWorkspace_Bad_NoRepo(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -320,7 +320,7 @@ func TestPrepWorkspace_Bad_NoRepo(t *testing.T) {
 	assert.Contains(t, err.Error(), "repo is required")
 }
 
-func TestPrepWorkspace_Bad_NoIdentifier(t *testing.T) {
+func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -337,7 +337,7 @@ func TestPrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	assert.Contains(t, err.Error(), "one of issue, pr, branch, or tag is required")
 }
 
-func TestPrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
+func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -357,7 +357,7 @@ func TestPrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 
 // --- listPRs ---
 
-func TestListPRs_Good_SpecificRepo(t *testing.T) {
+func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return mock PRs
 		json.NewEncoder(w).Encode([]map[string]any{
@@ -399,7 +399,7 @@ func TestListPRs_Good_SpecificRepo(t *testing.T) {
 
 // --- Poke ---
 
-func TestPoke_Good_SendsSignal(t *testing.T) {
+func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
 	s := &PrepSubsystem{
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -416,7 +416,7 @@ func TestPoke_Good_SendsSignal(t *testing.T) {
 	}
 }
 
-func TestPoke_Good_NonBlocking(t *testing.T) {
+func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
 	s := &PrepSubsystem{
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -432,7 +432,7 @@ func TestPoke_Good_NonBlocking(t *testing.T) {
 	})
 }
 
-func TestPoke_Bad_NilChannel(t *testing.T) {
+func TestRunner_Poke_Bad_NilChannel(t *testing.T) {
 	s := &PrepSubsystem{
 		pokeCh:    nil,
 		backoff:   make(map[string]time.Time),
@@ -504,7 +504,7 @@ func TestWriteReadStatus_Good_AllFields(t *testing.T) {
 
 // --- OnStartup / OnShutdown ---
 
-func TestOnShutdown_Good(t *testing.T) {
+func TestPrep_OnShutdown_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
@@ -518,7 +518,7 @@ func TestOnShutdown_Good(t *testing.T) {
 
 // --- drainQueue ---
 
-func TestDrainQueue_Good_FrozenDoesNothing(t *testing.T) {
+func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -536,7 +536,7 @@ func TestDrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 
 // --- shutdownNow (Ugly — deep layout with queued status) ---
 
-func TestShutdown_ShutdownNow_Ugly(t *testing.T) {
+func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestWriteStatus_Good(t *testing.T) {
+func TestStatus_WriteStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	status := &WorkspaceStatus{
 		Status:    "running",
@@ -43,7 +43,7 @@ func TestWriteStatus_Good(t *testing.T) {
 	assert.False(t, read.UpdatedAt.IsZero(), "UpdatedAt should be set by writeStatus")
 }
 
-func TestWriteStatus_Good_UpdatesTimestamp(t *testing.T) {
+func TestStatus_WriteStatus_Good_UpdatesTimestamp(t *testing.T) {
 	dir := t.TempDir()
 	before := time.Now().Add(-time.Second)
 
@@ -58,7 +58,7 @@ func TestWriteStatus_Good_UpdatesTimestamp(t *testing.T) {
 	assert.True(t, status.UpdatedAt.After(before), "UpdatedAt should be after the start time")
 }
 
-func TestReadStatus_Good(t *testing.T) {
+func TestStatus_ReadStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 
 	status := &WorkspaceStatus{
@@ -89,13 +89,13 @@ func TestReadStatus_Good(t *testing.T) {
 	assert.Equal(t, "https://forge.lthn.ai/core/go-log/pulls/5", read.PRURL)
 }
 
-func TestReadStatus_Bad_NoFile(t *testing.T) {
+func TestStatus_ReadStatus_Bad_NoFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := ReadStatus(dir)
 	assert.Error(t, err)
 }
 
-func TestReadStatus_Bad_InvalidJSON(t *testing.T) {
+func TestStatus_ReadStatus_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "not json{").OK)
 
@@ -103,7 +103,7 @@ func TestReadStatus_Bad_InvalidJSON(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestReadStatus_Good_BlockedWithQuestion(t *testing.T) {
+func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 	dir := t.TempDir()
 
 	status := &WorkspaceStatus{
@@ -157,7 +157,7 @@ func TestWriteReadStatus_Good_Roundtrip(t *testing.T) {
 	assert.Equal(t, original.Runs, read.Runs)
 }
 
-func TestWriteStatus_Good_OverwriteExisting(t *testing.T) {
+func TestStatus_WriteStatus_Good_OverwriteExisting(t *testing.T) {
 	dir := t.TempDir()
 
 	first := &WorkspaceStatus{Status: "running", Agent: "gemini"}
@@ -173,7 +173,7 @@ func TestWriteStatus_Good_OverwriteExisting(t *testing.T) {
 	assert.Equal(t, "completed", read.Status)
 }
 
-func TestReadStatus_Ugly_EmptyFile(t *testing.T) {
+func TestStatus_ReadStatus_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "").OK)
 

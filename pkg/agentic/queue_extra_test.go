@@ -78,7 +78,7 @@ concurrency:
 
 // --- delayForAgent (extended — sustained mode) ---
 
-func TestDelayForAgent_Good_SustainedMode(t *testing.T) {
+func TestQueue_DelayForAgent_Good_SustainedMode(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -106,7 +106,7 @@ rates:
 
 // --- countRunningByModel ---
 
-func TestCountRunningByModel_Good_NoWorkspaces(t *testing.T) {
+func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
@@ -120,7 +120,7 @@ func TestCountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 
 // --- drainQueue / drainOne ---
 
-func TestDrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
+func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
@@ -134,7 +134,7 @@ func TestDrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 	assert.NotPanics(t, func() { s.drainQueue() })
 }
 
-func TestDrainOne_Good_NoWorkspaces(t *testing.T) {
+func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
@@ -147,7 +147,7 @@ func TestDrainOne_Good_NoWorkspaces(t *testing.T) {
 	assert.False(t, s.drainOne())
 }
 
-func TestDrainOne_Good_SkipsNonQueued(t *testing.T) {
+func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")
@@ -166,7 +166,7 @@ func TestDrainOne_Good_SkipsNonQueued(t *testing.T) {
 	assert.False(t, s.drainOne())
 }
 
-func TestDrainOne_Good_SkipsBackedOffPool(t *testing.T) {
+func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := filepath.Join(root, "workspace")

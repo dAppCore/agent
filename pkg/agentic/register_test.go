@@ -57,7 +57,7 @@ func TestRegister_Good_AgentsConfigLoaded(t *testing.T) {
 
 // --- OnStartup ---
 
-func TestOnStartup_Good_CreatesPokeCh(t *testing.T) {
+func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
@@ -73,7 +73,7 @@ func TestOnStartup_Good_CreatesPokeCh(t *testing.T) {
 	assert.NotNil(t, s.pokeCh, "OnStartup must initialise pokeCh via StartRunner")
 }
 
-func TestOnStartup_Good_FrozenByDefault(t *testing.T) {
+func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
@@ -85,7 +85,7 @@ func TestOnStartup_Good_FrozenByDefault(t *testing.T) {
 	assert.True(t, s.frozen, "queue must be frozen after OnStartup without CORE_AGENT_DISPATCH=1")
 }
 
-func TestOnStartup_Good_NoError(t *testing.T) {
+func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
@@ -99,7 +99,7 @@ func TestOnStartup_Good_NoError(t *testing.T) {
 
 // --- OnShutdown ---
 
-func TestOnShutdown_Good_FreezesQueue(t *testing.T) {
+func TestPrep_OnShutdown_Good_FreezesQueue(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	s := &PrepSubsystem{frozen: false}
@@ -108,7 +108,7 @@ func TestOnShutdown_Good_FreezesQueue(t *testing.T) {
 	assert.True(t, s.frozen, "OnShutdown must set frozen=true")
 }
 
-func TestOnShutdown_Good_AlreadyFrozen(t *testing.T) {
+func TestPrep_OnShutdown_Good_AlreadyFrozen(t *testing.T) {
 	// Calling OnShutdown twice must be idempotent
 	s := &PrepSubsystem{frozen: true}
 	err := s.OnShutdown(context.Background())
@@ -116,12 +116,12 @@ func TestOnShutdown_Good_AlreadyFrozen(t *testing.T) {
 	assert.True(t, s.frozen)
 }
 
-func TestOnShutdown_Good_NoError(t *testing.T) {
+func TestPrep_OnShutdown_Good_NoError(t *testing.T) {
 	s := &PrepSubsystem{}
 	assert.NoError(t, s.OnShutdown(context.Background()))
 }
 
-func TestOnShutdown_Ugly_NilCore(t *testing.T) {
+func TestPrep_OnShutdown_Ugly_NilCore(t *testing.T) {
 	// OnShutdown must not panic even if s.core is nil
 	s := &PrepSubsystem{core: nil, frozen: false}
 	assert.NotPanics(t, func() {

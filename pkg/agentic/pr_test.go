@@ -59,7 +59,7 @@ func mockPRForgeServer(t *testing.T) *httptest.Server {
 
 // --- forgeCreatePR ---
 
-func TestForgeCreatePR_Good_Success(t *testing.T) {
+func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
 		forge:      forge.NewForge(srv.URL, "test-token"),
@@ -81,7 +81,7 @@ func TestForgeCreatePR_Good_Success(t *testing.T) {
 	assert.Contains(t, prURL, "pulls/12")
 }
 
-func TestForgeCreatePR_Bad_ServerError(t *testing.T) {
+func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]any{"message": "internal error"})
@@ -108,7 +108,7 @@ func TestForgeCreatePR_Bad_ServerError(t *testing.T) {
 
 // --- createPR (MCP tool) ---
 
-func TestCreatePR_Bad_NoWorkspace(t *testing.T) {
+func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 	s := &PrepSubsystem{
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
@@ -120,7 +120,7 @@ func TestCreatePR_Bad_NoWorkspace(t *testing.T) {
 	assert.Contains(t, err.Error(), "workspace is required")
 }
 
-func TestCreatePR_Bad_NoToken(t *testing.T) {
+func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
@@ -134,7 +134,7 @@ func TestCreatePR_Bad_NoToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no Forge token")
 }
 
-func TestCreatePR_Bad_WorkspaceNotFound(t *testing.T) {
+func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -151,7 +151,7 @@ func TestCreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "workspace not found")
 }
 
-func TestCreatePR_Good_DryRun(t *testing.T) {
+func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -190,7 +190,7 @@ func TestCreatePR_Good_DryRun(t *testing.T) {
 	assert.Equal(t, "Fix the login bug", out.Title)
 }
 
-func TestCreatePR_Good_CustomTitle(t *testing.T) {
+func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -228,7 +228,7 @@ func TestCreatePR_Good_CustomTitle(t *testing.T) {
 
 // --- listPRs ---
 
-func TestListPRs_Bad_NoToken(t *testing.T) {
+func TestPr_ListPRs_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
@@ -242,7 +242,7 @@ func TestListPRs_Bad_NoToken(t *testing.T) {
 
 // --- commentOnIssue ---
 
-func TestCommentOnIssue_Good_PostsComment(t *testing.T) {
+func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 	commentPosted := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {

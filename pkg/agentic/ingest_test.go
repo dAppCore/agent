@@ -16,7 +16,7 @@ import (
 
 // --- ingestFindings ---
 
-func TestIngestFindings_Good_WithFindings(t *testing.T) {
+func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 	// Track the issue creation call
 	issueCalled := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func TestIngestFindings_Good_WithFindings(t *testing.T) {
 	assert.True(t, issueCalled, "should have created an issue via API")
 }
 
-func TestIngestFindings_Bad_NotCompleted(t *testing.T) {
+func TestIngest_IngestFindings_Bad_NotCompleted(t *testing.T) {
 	wsDir := t.TempDir()
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "running",
@@ -84,7 +84,7 @@ func TestIngestFindings_Bad_NotCompleted(t *testing.T) {
 	})
 }
 
-func TestIngestFindings_Bad_NoLogFile(t *testing.T) {
+func TestIngest_IngestFindings_Bad_NoLogFile(t *testing.T) {
 	wsDir := t.TempDir()
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -102,7 +102,7 @@ func TestIngestFindings_Bad_NoLogFile(t *testing.T) {
 	})
 }
 
-func TestIngestFindings_Bad_TooFewFindings(t *testing.T) {
+func TestIngest_IngestFindings_Bad_TooFewFindings(t *testing.T) {
 	wsDir := t.TempDir()
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -123,7 +123,7 @@ func TestIngestFindings_Bad_TooFewFindings(t *testing.T) {
 	})
 }
 
-func TestIngestFindings_Bad_QuotaExhausted(t *testing.T) {
+func TestIngest_IngestFindings_Bad_QuotaExhausted(t *testing.T) {
 	wsDir := t.TempDir()
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -144,7 +144,7 @@ func TestIngestFindings_Bad_QuotaExhausted(t *testing.T) {
 	})
 }
 
-func TestIngestFindings_Bad_NoStatusFile(t *testing.T) {
+func TestIngest_IngestFindings_Bad_NoStatusFile(t *testing.T) {
 	wsDir := t.TempDir()
 
 	s := &PrepSubsystem{
@@ -157,7 +157,7 @@ func TestIngestFindings_Bad_NoStatusFile(t *testing.T) {
 	})
 }
 
-func TestIngestFindings_Bad_ShortLogFile(t *testing.T) {
+func TestIngest_IngestFindings_Bad_ShortLogFile(t *testing.T) {
 	wsDir := t.TempDir()
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -179,7 +179,7 @@ func TestIngestFindings_Bad_ShortLogFile(t *testing.T) {
 
 // --- createIssueViaAPI ---
 
-func TestCreateIssueViaAPI_Good_Success(t *testing.T) {
+func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -210,7 +210,7 @@ func TestCreateIssueViaAPI_Good_Success(t *testing.T) {
 	assert.True(t, called)
 }
 
-func TestCreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
+func TestIngest_CreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 	s := &PrepSubsystem{
 		brainKey:  "",
 		backoff:   make(map[string]time.Time),
@@ -223,7 +223,7 @@ func TestCreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 	})
 }
 
-func TestCreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
+func TestIngest_CreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("DIR_HOME", home)
 	// No agent-api.key file
@@ -242,7 +242,7 @@ func TestCreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 	})
 }
 
-func TestCreateIssueViaAPI_Bad_ServerError(t *testing.T) {
+func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -269,14 +269,14 @@ func TestCreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 
 // --- countFileRefs (additional security-related) ---
 
-func TestCountFileRefs_Good_SecurityFindings(t *testing.T) {
+func TestIngest_CountFileRefs_Good_SecurityFindings(t *testing.T) {
 	body := "Security scan found:\n" +
 		"- `pkg/auth/token.go:55` hardcoded secret\n" +
 		"- `pkg/auth/middleware.go:12` missing auth check\n"
 	assert.Equal(t, 2, countFileRefs(body))
 }
 
-func TestCountFileRefs_Good_PHPSecurityFindings(t *testing.T) {
+func TestIngest_CountFileRefs_Good_PHPSecurityFindings(t *testing.T) {
 	body := "PHP audit:\n" +
 		"- `src/Controller/Api.php:42` SQL injection risk\n" +
 		"- `src/Service/Auth.php:100` session fixation\n" +

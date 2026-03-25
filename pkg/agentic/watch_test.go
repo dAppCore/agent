@@ -14,7 +14,7 @@ import (
 
 // --- resolveWorkspaceDir ---
 
-func TestResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -24,7 +24,7 @@ func TestResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 	assert.True(t, filepath.IsAbs(dir))
 }
 
-func TestResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -35,7 +35,7 @@ func TestResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 
 // --- findActiveWorkspaces ---
 
-func TestFindActiveWorkspaces_Good_WithActive(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -69,7 +69,7 @@ func TestFindActiveWorkspaces_Good_WithActive(t *testing.T) {
 	assert.NotContains(t, active, "ws-done")
 }
 
-func TestFindActiveWorkspaces_Good_Empty(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 

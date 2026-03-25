@@ -14,7 +14,7 @@ import (
 
 // --- countRunningByModel ---
 
-func TestCountRunningByModel_Good_Empty(t *testing.T) {
+func TestQueue_CountRunningByModel_Good_Empty(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -22,7 +22,7 @@ func TestCountRunningByModel_Good_Empty(t *testing.T) {
 	assert.Equal(t, 0, s.countRunningByModel("claude:opus"))
 }
 
-func TestCountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
+func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -39,7 +39,7 @@ func TestCountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
-func TestCountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
+func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -56,7 +56,7 @@ func TestCountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 	assert.Equal(t, 0, s.countRunningByModel("gemini:pro"))
 }
 
-func TestCountRunningByModel_Good_DeepLayout(t *testing.T) {
+func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -75,7 +75,7 @@ func TestCountRunningByModel_Good_DeepLayout(t *testing.T) {
 
 // --- drainQueue ---
 
-func TestDrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
+func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -86,7 +86,7 @@ func TestDrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 	})
 }
 
-func TestDrainQueue_Good_EmptyWorkspace(t *testing.T) {
+func TestQueue_DrainQueue_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -99,7 +99,7 @@ func TestDrainQueue_Good_EmptyWorkspace(t *testing.T) {
 
 // --- Poke ---
 
-func TestPoke_Good_NilChannel(t *testing.T) {
+func TestRunner_Poke_Good_NilChannel(t *testing.T) {
 	s := &PrepSubsystem{pokeCh: nil}
 	// Must not panic when pokeCh is nil
 	assert.NotPanics(t, func() {
@@ -107,7 +107,7 @@ func TestPoke_Good_NilChannel(t *testing.T) {
 	})
 }
 
-func TestPoke_Good_ChannelReceivesSignal(t *testing.T) {
+func TestRunner_Poke_Good_ChannelReceivesSignal(t *testing.T) {
 	s := &PrepSubsystem{}
 	s.pokeCh = make(chan struct{}, 1)
 
@@ -115,7 +115,7 @@ func TestPoke_Good_ChannelReceivesSignal(t *testing.T) {
 	assert.Len(t, s.pokeCh, 1, "poke should enqueue one signal")
 }
 
-func TestPoke_Good_NonBlockingWhenFull(t *testing.T) {
+func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
 	s := &PrepSubsystem{}
 	s.pokeCh = make(chan struct{}, 1)
 	// Pre-fill the channel
@@ -130,7 +130,7 @@ func TestPoke_Good_NonBlockingWhenFull(t *testing.T) {
 
 // --- StartRunner ---
 
-func TestStartRunner_Good_CreatesPokeCh(t *testing.T) {
+func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
@@ -142,7 +142,7 @@ func TestStartRunner_Good_CreatesPokeCh(t *testing.T) {
 	assert.NotNil(t, s.pokeCh, "StartRunner should initialise pokeCh")
 }
 
-func TestStartRunner_Good_FrozenByDefault(t *testing.T) {
+func TestRunner_StartRunner_Good_FrozenByDefault(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
@@ -152,7 +152,7 @@ func TestStartRunner_Good_FrozenByDefault(t *testing.T) {
 	assert.True(t, s.frozen, "queue should be frozen by default")
 }
 
-func TestStartRunner_Good_AutoStartEnvVar(t *testing.T) {
+func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
@@ -164,14 +164,14 @@ func TestStartRunner_Good_AutoStartEnvVar(t *testing.T) {
 
 // --- DefaultBranch ---
 
-func TestDefaultBranch_Good_DefaultsToMain(t *testing.T) {
+func TestPaths_DefaultBranch_Good_DefaultsToMain(t *testing.T) {
 	// Non-git temp dir — git commands fail, fallback is "main"
 	dir := t.TempDir()
 	branch := DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
-func TestDefaultBranch_Good_RealGitRepo(t *testing.T) {
+func TestPaths_DefaultBranch_Good_RealGitRepo(t *testing.T) {
 	dir := t.TempDir()
 	// Init a real git repo with a main branch
 	require.NoError(t, runGitInit(dir))
@@ -183,12 +183,12 @@ func TestDefaultBranch_Good_RealGitRepo(t *testing.T) {
 
 // --- LocalFs ---
 
-func TestLocalFs_Good_NonNil(t *testing.T) {
+func TestPaths_LocalFs_Good_NonNil(t *testing.T) {
 	f := LocalFs()
 	assert.NotNil(t, f, "LocalFs should return a non-nil *core.Fs")
 }
 
-func TestLocalFs_Good_CanRead(t *testing.T) {
+func TestPaths_LocalFs_Good_CanRead(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hello.txt")
 	require.True(t, fs.Write(path, "hello").OK)

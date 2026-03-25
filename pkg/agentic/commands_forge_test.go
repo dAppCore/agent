@@ -11,7 +11,7 @@ import (
 
 // --- parseForgeArgs ---
 
-func TestParseForgeArgs_Good_AllFields(t *testing.T) {
+func TestCommandsForge_ParseForgeArgs_Good_AllFields(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "org", Value: "myorg"},
 		core.Option{Key: "_arg", Value: "myrepo"},
@@ -23,7 +23,7 @@ func TestParseForgeArgs_Good_AllFields(t *testing.T) {
 	assert.Equal(t, int64(42), num)
 }
 
-func TestParseForgeArgs_Good_DefaultOrg(t *testing.T) {
+func TestCommandsForge_ParseForgeArgs_Good_DefaultOrg(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "_arg", Value: "go-io"},
 	)
@@ -33,7 +33,7 @@ func TestParseForgeArgs_Good_DefaultOrg(t *testing.T) {
 	assert.Equal(t, int64(0), num, "no number provided")
 }
 
-func TestParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
+func TestCommandsForge_ParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
 	opts := core.NewOptions()
 	org, repo, num := parseForgeArgs(opts)
 	assert.Equal(t, "core", org, "should default to 'core'")
@@ -41,7 +41,7 @@ func TestParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
 	assert.Equal(t, int64(0), num)
 }
 
-func TestParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
+func TestCommandsForge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "_arg", Value: "repo"},
 		core.Option{Key: "number", Value: "not-a-number"},
@@ -52,7 +52,7 @@ func TestParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 
 // --- fmtIndex ---
 
-func TestFmtIndex_Good(t *testing.T) {
+func TestCommandsForge_FmtIndex_Good(t *testing.T) {
 	assert.Equal(t, "1", fmtIndex(1))
 	assert.Equal(t, "42", fmtIndex(42))
 	assert.Equal(t, "0", fmtIndex(0))

@@ -18,7 +18,7 @@ import (
 
 // --- Shutdown ---
 
-func TestShutdown_Good(t *testing.T) {
+func TestPrep_Shutdown_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -29,14 +29,14 @@ func TestShutdown_Good(t *testing.T) {
 
 // --- Name ---
 
-func TestName_Good(t *testing.T) {
+func TestPrep_Name_Good(t *testing.T) {
 	s := &PrepSubsystem{}
 	assert.Equal(t, "agentic", s.Name())
 }
 
 // --- findConsumersList ---
 
-func TestFindConsumersList_Good_HasConsumers(t *testing.T) {
+func TestPrep_FindConsumersList_Good_HasConsumers(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create go.work
@@ -76,7 +76,7 @@ use (
 	assert.Contains(t, list, "Breaking change risk")
 }
 
-func TestFindConsumersList_Good_NoConsumers(t *testing.T) {
+func TestPrep_FindConsumersList_Good_NoConsumers(t *testing.T) {
 	dir := t.TempDir()
 
 	goWork := `go 1.22
@@ -101,7 +101,7 @@ use (
 	assert.Empty(t, list)
 }
 
-func TestFindConsumersList_Bad_NoGoWork(t *testing.T) {
+func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 	s := &PrepSubsystem{
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
@@ -115,7 +115,7 @@ func TestFindConsumersList_Bad_NoGoWork(t *testing.T) {
 
 // --- pullWikiContent ---
 
-func TestPullWikiContent_Good_WithPages(t *testing.T) {
+func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
@@ -154,7 +154,7 @@ func TestPullWikiContent_Good_WithPages(t *testing.T) {
 	assert.Contains(t, content, "### Architecture")
 }
 
-func TestPullWikiContent_Good_NoPages(t *testing.T) {
+func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{})
 	}))
@@ -173,7 +173,7 @@ func TestPullWikiContent_Good_NoPages(t *testing.T) {
 
 // --- getIssueBody ---
 
-func TestGetIssueBody_Good(t *testing.T) {
+func TestPrep_GetIssueBody_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"number": 15,
@@ -194,7 +194,7 @@ func TestGetIssueBody_Good(t *testing.T) {
 	assert.Contains(t, body, "tests are broken")
 }
 
-func TestGetIssueBody_Bad_NotFound(t *testing.T) {
+func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 	}))
@@ -213,7 +213,7 @@ func TestGetIssueBody_Bad_NotFound(t *testing.T) {
 
 // --- buildPrompt ---
 
-func TestBuildPrompt_Good_BasicFields(t *testing.T) {
+func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language
 	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
@@ -239,7 +239,7 @@ func TestBuildPrompt_Good_BasicFields(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
-func TestBuildPrompt_Good_WithIssue(t *testing.T) {
+func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 	dir := t.TempDir()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +359,7 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 
 // --- runQA ---
 
-func TestRunQA_Good_PHPNoComposer(t *testing.T) {
+func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 	dir := t.TempDir()
 	repoDir := filepath.Join(dir, "repo")
 	os.MkdirAll(repoDir, 0o755)

@@ -9,11 +9,11 @@ import (
 	"testing"
 )
 
-func TestBaseAgent_Ugly_Empty(t *testing.T) {
+func TestQueue_BaseAgent_Ugly_Empty(t *testing.T) {
 	assert.Equal(t, "", baseAgent(""))
 }
 
-func TestBaseAgent_Ugly_MultipleColons(t *testing.T) {
+func TestQueue_BaseAgent_Ugly_MultipleColons(t *testing.T) {
 	// SplitN with N=2 should only split on first colon
 	assert.Equal(t, "claude", baseAgent("claude:opus:extra"))
 }
@@ -30,7 +30,7 @@ func TestDispatchConfig_Good_Defaults(t *testing.T) {
 	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
 }
 
-func TestCanDispatchAgent_Good_NoConfig(t *testing.T) {
+func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	// With no running workspaces and default config, should be able to dispatch
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
@@ -40,7 +40,7 @@ func TestCanDispatchAgent_Good_NoConfig(t *testing.T) {
 	assert.True(t, s.canDispatchAgent("gemini"))
 }
 
-func TestCanDispatchAgent_Good_UnknownAgent(t *testing.T) {
+func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	// Unknown agent has no limit, so always allowed
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
@@ -50,7 +50,7 @@ func TestCanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	assert.True(t, s.canDispatchAgent("unknown-agent"))
 }
 
-func TestCountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
+func TestQueue_CountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -60,7 +60,7 @@ func TestCountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	assert.Equal(t, 0, s.countRunningByAgent("claude"))
 }
 
-func TestCountRunningByAgent_Good_NoRunning(t *testing.T) {
+func TestQueue_CountRunningByAgent_Good_NoRunning(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -77,7 +77,7 @@ func TestCountRunningByAgent_Good_NoRunning(t *testing.T) {
 	assert.Equal(t, 0, s.countRunningByAgent("gemini"))
 }
 
-func TestDelayForAgent_Good_NoConfig(t *testing.T) {
+func TestQueue_DelayForAgent_Good_NoConfig(t *testing.T) {
 	// With no config, delay should be 0
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	s := &PrepSubsystem{codePath: t.TempDir()}

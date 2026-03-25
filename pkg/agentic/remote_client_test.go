@@ -16,7 +16,7 @@ import (
 
 // --- mcpInitialize ---
 
-func TestMcpInitialize_Good(t *testing.T) {
+func TestRemoteClient_McpInitialize_Good(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -46,7 +46,7 @@ func TestMcpInitialize_Good(t *testing.T) {
 	assert.Equal(t, 2, callCount, "should make init + notification requests")
 }
 
-func TestMcpInitialize_Bad_ServerError(t *testing.T) {
+func TestRemoteClient_McpInitialize_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -57,7 +57,7 @@ func TestMcpInitialize_Bad_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
-func TestMcpInitialize_Bad_Unreachable(t *testing.T) {
+func TestRemoteClient_McpInitialize_Bad_Unreachable(t *testing.T) {
 	_, err := mcpInitialize(context.Background(), http.DefaultClient, "http://127.0.0.1:1", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "request failed")
@@ -65,7 +65,7 @@ func TestMcpInitialize_Bad_Unreachable(t *testing.T) {
 
 // --- mcpCall ---
 
-func TestMcpCall_Good(t *testing.T) {
+func TestRemoteClient_McpCall_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer mytoken", r.Header.Get("Authorization"))
 		assert.Equal(t, "sess-123", r.Header.Get("Mcp-Session-Id"))
@@ -81,7 +81,7 @@ func TestMcpCall_Good(t *testing.T) {
 	assert.Contains(t, string(result), "hello")
 }
 
-func TestMcpCall_Bad_HTTP500(t *testing.T) {
+func TestRemoteClient_McpCall_Bad_HTTP500(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -92,7 +92,7 @@ func TestMcpCall_Bad_HTTP500(t *testing.T) {
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
-func TestMcpCall_Bad_NoSSEData(t *testing.T) {
+func TestRemoteClient_McpCall_Bad_NoSSEData(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		fmt.Fprintf(w, "event: ping\n\n") // No data: line
@@ -106,7 +106,7 @@ func TestMcpCall_Bad_NoSSEData(t *testing.T) {
 
 // --- setHeaders ---
 
-func TestSetHeaders_Good_All(t *testing.T) {
+func TestRemoteClient_SetHeaders_Good_All(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	setHeaders(req, "my-token", "my-session")
 
@@ -116,7 +116,7 @@ func TestSetHeaders_Good_All(t *testing.T) {
 	assert.Equal(t, "my-session", req.Header.Get("Mcp-Session-Id"))
 }
 
-func TestSetHeaders_Good_NoToken(t *testing.T) {
+func TestRemoteClient_SetHeaders_Good_NoToken(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	setHeaders(req, "", "")
 
@@ -126,7 +126,7 @@ func TestSetHeaders_Good_NoToken(t *testing.T) {
 
 // --- readSSEData ---
 
-func TestReadSSEData_Good(t *testing.T) {
+func TestRemoteClient_ReadSSEData_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		fmt.Fprintf(w, "event: message\ndata: {\"key\":\"value\"}\n\n")
@@ -142,7 +142,7 @@ func TestReadSSEData_Good(t *testing.T) {
 	assert.Equal(t, `{"key":"value"}`, string(data))
 }
 
-func TestReadSSEData_Bad_NoData(t *testing.T) {
+func TestRemoteClient_ReadSSEData_Bad_NoData(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "event: ping\n\n")
 	}))
@@ -159,7 +159,7 @@ func TestReadSSEData_Bad_NoData(t *testing.T) {
 
 // --- drainSSE ---
 
-func TestDrainSSE_Good(t *testing.T) {
+func TestRemoteClient_DrainSSE_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "data: line1\ndata: line2\n\n")
 	}))

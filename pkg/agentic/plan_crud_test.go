@@ -23,7 +23,7 @@ func newTestPrep(t *testing.T) *PrepSubsystem {
 
 // --- planCreate (MCP handler) ---
 
-func TestPlanCreate_Good(t *testing.T) {
+func TestPlan_PlanCreate_Good(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -48,7 +48,7 @@ func TestPlanCreate_Good(t *testing.T) {
 	assert.NoError(t, statErr)
 }
 
-func TestPlanCreate_Bad_MissingTitle(t *testing.T) {
+func TestPlan_PlanCreate_Bad_MissingTitle(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Objective: "something",
@@ -57,7 +57,7 @@ func TestPlanCreate_Bad_MissingTitle(t *testing.T) {
 	assert.Contains(t, err.Error(), "title is required")
 }
 
-func TestPlanCreate_Bad_MissingObjective(t *testing.T) {
+func TestPlan_PlanCreate_Bad_MissingObjective(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Title: "My Plan",
@@ -66,7 +66,7 @@ func TestPlanCreate_Bad_MissingObjective(t *testing.T) {
 	assert.Contains(t, err.Error(), "objective is required")
 }
 
-func TestPlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
+func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -88,7 +88,7 @@ func TestPlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 
 // --- planRead (MCP handler) ---
 
-func TestPlanRead_Good(t *testing.T) {
+func TestPlan_PlanRead_Good(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -107,14 +107,14 @@ func TestPlanRead_Good(t *testing.T) {
 	assert.Equal(t, "draft", readOut.Plan.Status)
 }
 
-func TestPlanRead_Bad_MissingID(t *testing.T) {
+func TestPlan_PlanRead_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id is required")
 }
 
-func TestPlanRead_Bad_NotFound(t *testing.T) {
+func TestPlan_PlanRead_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -126,7 +126,7 @@ func TestPlanRead_Bad_NotFound(t *testing.T) {
 
 // --- planUpdate (MCP handler) ---
 
-func TestPlanUpdate_Good_Status(t *testing.T) {
+func TestPlan_PlanUpdate_Good_Status(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -145,7 +145,7 @@ func TestPlanUpdate_Good_Status(t *testing.T) {
 	assert.Equal(t, "ready", updateOut.Plan.Status)
 }
 
-func TestPlanUpdate_Good_PartialUpdate(t *testing.T) {
+func TestPlan_PlanUpdate_Good_PartialUpdate(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -168,7 +168,7 @@ func TestPlanUpdate_Good_PartialUpdate(t *testing.T) {
 	assert.Equal(t, "codex", updateOut.Plan.Agent)
 }
 
-func TestPlanUpdate_Good_AllStatusTransitions(t *testing.T) {
+func TestPlan_PlanUpdate_Good_AllStatusTransitions(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -187,7 +187,7 @@ func TestPlanUpdate_Good_AllStatusTransitions(t *testing.T) {
 	}
 }
 
-func TestPlanUpdate_Bad_InvalidStatus(t *testing.T) {
+func TestPlan_PlanUpdate_Bad_InvalidStatus(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -203,14 +203,14 @@ func TestPlanUpdate_Bad_InvalidStatus(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid status")
 }
 
-func TestPlanUpdate_Bad_MissingID(t *testing.T) {
+func TestPlan_PlanUpdate_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{Status: "ready"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id is required")
 }
 
-func TestPlanUpdate_Good_ReplacePhases(t *testing.T) {
+func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -232,7 +232,7 @@ func TestPlanUpdate_Good_ReplacePhases(t *testing.T) {
 
 // --- planDelete (MCP handler) ---
 
-func TestPlanDelete_Good(t *testing.T) {
+func TestPlan_PlanDelete_Good(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -250,14 +250,14 @@ func TestPlanDelete_Good(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr))
 }
 
-func TestPlanDelete_Bad_MissingID(t *testing.T) {
+func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "id is required")
 }
 
-func TestPlanDelete_Bad_NotFound(t *testing.T) {
+func TestPlan_PlanDelete_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -269,7 +269,7 @@ func TestPlanDelete_Bad_NotFound(t *testing.T) {
 
 // --- planList (MCP handler) ---
 
-func TestPlanList_Good_Empty(t *testing.T) {
+func TestPlan_PlanList_Good_Empty(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -280,7 +280,7 @@ func TestPlanList_Good_Empty(t *testing.T) {
 	assert.Equal(t, 0, out.Count)
 }
 
-func TestPlanList_Good_Multiple(t *testing.T) {
+func TestPlan_PlanList_Good_Multiple(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -294,7 +294,7 @@ func TestPlanList_Good_Multiple(t *testing.T) {
 	assert.Equal(t, 3, out.Count)
 }
 
-func TestPlanList_Good_FilterByRepo(t *testing.T) {
+func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -308,7 +308,7 @@ func TestPlanList_Good_FilterByRepo(t *testing.T) {
 	assert.Equal(t, 2, out.Count)
 }
 
-func TestPlanList_Good_FilterByStatus(t *testing.T) {
+func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -323,7 +323,7 @@ func TestPlanList_Good_FilterByStatus(t *testing.T) {
 	assert.Equal(t, "ready", out.Plans[0].Status)
 }
 
-func TestPlanList_Good_IgnoresNonJSON(t *testing.T) {
+func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
 
@@ -341,12 +341,12 @@ func TestPlanList_Good_IgnoresNonJSON(t *testing.T) {
 
 // --- planPath edge cases ---
 
-func TestPlanPath_Bad_PathTraversal(t *testing.T) {
+func TestPlan_PlanPath_Bad_PathTraversal(t *testing.T) {
 	p := planPath("/tmp/plans", "../../etc/passwd")
 	assert.NotContains(t, p, "..")
 }
 
-func TestPlanPath_Bad_Dot(t *testing.T) {
+func TestPlan_PlanPath_Bad_Dot(t *testing.T) {
 	assert.Contains(t, planPath("/tmp", "."), "invalid")
 	assert.Contains(t, planPath("/tmp", ".."), "invalid")
 	assert.Contains(t, planPath("/tmp", ""), "invalid")

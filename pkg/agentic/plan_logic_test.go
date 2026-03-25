@@ -13,37 +13,37 @@ import (
 
 // --- planPath ---
 
-func TestPlanPath_Good_BasicFormat(t *testing.T) {
+func TestPlan_PlanPath_Good_BasicFormat(t *testing.T) {
 	result := planPath("/tmp/plans", "my-plan-abc123")
 	assert.Equal(t, "/tmp/plans/my-plan-abc123.json", result)
 }
 
-func TestPlanPath_Good_NestedIDStripped(t *testing.T) {
+func TestPlan_PlanPath_Good_NestedIDStripped(t *testing.T) {
 	// PathBase strips directory component — prevents path traversal
 	result := planPath("/plans", "../../../etc/passwd")
 	assert.Equal(t, "/plans/passwd.json", result)
 }
 
-func TestPlanPath_Good_SimpleID(t *testing.T) {
+func TestPlan_PlanPath_Good_SimpleID(t *testing.T) {
 	assert.Equal(t, "/data/test.json", planPath("/data", "test"))
 }
 
-func TestPlanPath_Good_SlugWithDashes(t *testing.T) {
+func TestPlan_PlanPath_Good_SlugWithDashes(t *testing.T) {
 	assert.Equal(t, "/root/migrate-core-abc123.json", planPath("/root", "migrate-core-abc123"))
 }
 
-func TestPlanPath_Bad_DotID(t *testing.T) {
+func TestPlan_PlanPath_Bad_DotID(t *testing.T) {
 	// "." is sanitised to "invalid" to prevent exploiting the root directory
 	result := planPath("/plans", ".")
 	assert.Equal(t, "/plans/invalid.json", result)
 }
 
-func TestPlanPath_Bad_DoubleDotID(t *testing.T) {
+func TestPlan_PlanPath_Bad_DoubleDotID(t *testing.T) {
 	result := planPath("/plans", "..")
 	assert.Equal(t, "/plans/invalid.json", result)
 }
 
-func TestPlanPath_Bad_EmptyID(t *testing.T) {
+func TestPlan_PlanPath_Bad_EmptyID(t *testing.T) {
 	result := planPath("/plans", "")
 	assert.Equal(t, "/plans/invalid.json", result)
 }
@@ -112,13 +112,13 @@ func TestReadWritePlan_Good_WithPhases(t *testing.T) {
 	assert.Equal(t, "pending", read.Phases[2].Status)
 }
 
-func TestReadPlan_Bad_MissingFile(t *testing.T) {
+func TestPlan_ReadPlan_Bad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := readPlan(dir, "nonexistent-plan")
 	assert.Error(t, err)
 }
 
-func TestReadPlan_Bad_CorruptJSON(t *testing.T) {
+func TestPlan_ReadPlan_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "bad.json"), `{broken`).OK)
 
@@ -126,7 +126,7 @@ func TestReadPlan_Bad_CorruptJSON(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestWritePlan_Good_CreatesNestedDir(t *testing.T) {
+func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
 	base := t.TempDir()
 	nested := filepath.Join(base, "deep", "nested", "plans")
 
@@ -143,7 +143,7 @@ func TestWritePlan_Good_CreatesNestedDir(t *testing.T) {
 	assert.True(t, fs.IsFile(path))
 }
 
-func TestWritePlan_Good_OverwriteExistingLogic(t *testing.T) {
+func TestPlan_WritePlan_Good_OverwriteExistingLogic(t *testing.T) {
 	dir := t.TempDir()
 
 	plan := &Plan{
@@ -166,7 +166,7 @@ func TestWritePlan_Good_OverwriteExistingLogic(t *testing.T) {
 	assert.Equal(t, "approved", read.Status)
 }
 
-func TestReadPlan_Ugly_EmptyFileLogic(t *testing.T) {
+func TestPlan_ReadPlan_Ugly_EmptyFileLogic(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "empty.json"), "").OK)
 

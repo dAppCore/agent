@@ -19,7 +19,7 @@ import (
 
 // --- commentOnIssue ---
 
-func TestCommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
+func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/issues/7/comments")
@@ -46,7 +46,7 @@ func TestCommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 
 // --- autoVerifyAndMerge integration (extended) ---
 
-func TestAutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	// Mock Forge API for merge + comment
 	mergeOK := false
 	commented := false
@@ -101,7 +101,7 @@ func TestAutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 
 // --- attemptVerifyAndMerge ---
 
-func TestAttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) {
+func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/core/test/pulls/1/merge" {
 			w.WriteHeader(200)
@@ -126,7 +126,7 @@ func TestAttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) {
 	assert.Equal(t, mergeSuccess, result)
 }
 
-func TestAttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
+func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/core/test/pulls/1/merge" {
 			w.WriteHeader(409)

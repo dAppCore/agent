@@ -41,7 +41,7 @@ func initBareRepo(t *testing.T) string {
 
 // --- hasRemote ---
 
-func TestHasRemote_Good_OriginExists(t *testing.T) {
+func TestMirror_HasRemote_Good_OriginExists(t *testing.T) {
 	dir := initBareRepo(t)
 	// origin won't exist for a fresh repo, so add it
 	cmd := exec.Command("git", "remote", "add", "origin", "https://example.com/repo.git")
@@ -51,7 +51,7 @@ func TestHasRemote_Good_OriginExists(t *testing.T) {
 	assert.True(t, hasRemote(dir, "origin"))
 }
 
-func TestHasRemote_Good_CustomRemote(t *testing.T) {
+func TestMirror_HasRemote_Good_CustomRemote(t *testing.T) {
 	dir := initBareRepo(t)
 	cmd := exec.Command("git", "remote", "add", "github", "https://github.com/test/repo.git")
 	cmd.Dir = dir
@@ -60,17 +60,17 @@ func TestHasRemote_Good_CustomRemote(t *testing.T) {
 	assert.True(t, hasRemote(dir, "github"))
 }
 
-func TestHasRemote_Bad_NoSuchRemote(t *testing.T) {
+func TestMirror_HasRemote_Bad_NoSuchRemote(t *testing.T) {
 	dir := initBareRepo(t)
 	assert.False(t, hasRemote(dir, "nonexistent"))
 }
 
-func TestHasRemote_Bad_NotAGitRepo(t *testing.T) {
+func TestMirror_HasRemote_Bad_NotAGitRepo(t *testing.T) {
 	dir := t.TempDir() // plain directory, no .git
 	assert.False(t, hasRemote(dir, "origin"))
 }
 
-func TestHasRemote_Ugly_EmptyDir(t *testing.T) {
+func TestMirror_HasRemote_Ugly_EmptyDir(t *testing.T) {
 	// Empty dir defaults to cwd which may or may not be a repo.
 	// Just ensure no panic.
 	assert.NotPanics(t, func() {
@@ -80,7 +80,7 @@ func TestHasRemote_Ugly_EmptyDir(t *testing.T) {
 
 // --- commitsAhead ---
 
-func TestCommitsAhead_Good_OneAhead(t *testing.T) {
+func TestMirror_CommitsAhead_Good_OneAhead(t *testing.T) {
 	dir := initBareRepo(t)
 
 	// Create a branch at the current commit to act as "base"
@@ -109,7 +109,7 @@ func TestCommitsAhead_Good_OneAhead(t *testing.T) {
 	assert.Equal(t, 1, ahead)
 }
 
-func TestCommitsAhead_Good_ThreeAhead(t *testing.T) {
+func TestMirror_CommitsAhead_Good_ThreeAhead(t *testing.T) {
 	dir := initBareRepo(t)
 	run := func(args ...string) {
 		t.Helper()
@@ -138,32 +138,32 @@ func TestCommitsAhead_Good_ThreeAhead(t *testing.T) {
 	assert.Equal(t, 3, ahead)
 }
 
-func TestCommitsAhead_Good_ZeroAhead(t *testing.T) {
+func TestMirror_CommitsAhead_Good_ZeroAhead(t *testing.T) {
 	dir := initBareRepo(t)
 	// Same ref on both sides
 	ahead := commitsAhead(dir, "main", "main")
 	assert.Equal(t, 0, ahead)
 }
 
-func TestCommitsAhead_Bad_InvalidRef(t *testing.T) {
+func TestMirror_CommitsAhead_Bad_InvalidRef(t *testing.T) {
 	dir := initBareRepo(t)
 	ahead := commitsAhead(dir, "nonexistent-ref", "main")
 	assert.Equal(t, 0, ahead)
 }
 
-func TestCommitsAhead_Bad_NotARepo(t *testing.T) {
+func TestMirror_CommitsAhead_Bad_NotARepo(t *testing.T) {
 	ahead := commitsAhead(t.TempDir(), "main", "dev")
 	assert.Equal(t, 0, ahead)
 }
 
-func TestCommitsAhead_Ugly_EmptyDir(t *testing.T) {
+func TestMirror_CommitsAhead_Ugly_EmptyDir(t *testing.T) {
 	ahead := commitsAhead("", "a", "b")
 	assert.Equal(t, 0, ahead)
 }
 
 // --- filesChanged ---
 
-func TestFilesChanged_Good_OneFile(t *testing.T) {
+func TestMirror_FilesChanged_Good_OneFile(t *testing.T) {
 	dir := initBareRepo(t)
 	run := func(args ...string) {
 		t.Helper()
@@ -189,7 +189,7 @@ func TestFilesChanged_Good_OneFile(t *testing.T) {
 	assert.Equal(t, 1, files)
 }
 
-func TestFilesChanged_Good_MultipleFiles(t *testing.T) {
+func TestMirror_FilesChanged_Good_MultipleFiles(t *testing.T) {
 	dir := initBareRepo(t)
 	run := func(args ...string) {
 		t.Helper()
@@ -217,92 +217,92 @@ func TestFilesChanged_Good_MultipleFiles(t *testing.T) {
 	assert.Equal(t, 3, files)
 }
 
-func TestFilesChanged_Good_NoChanges(t *testing.T) {
+func TestMirror_FilesChanged_Good_NoChanges(t *testing.T) {
 	dir := initBareRepo(t)
 	files := filesChanged(dir, "main", "main")
 	assert.Equal(t, 0, files)
 }
 
-func TestFilesChanged_Bad_InvalidRef(t *testing.T) {
+func TestMirror_FilesChanged_Bad_InvalidRef(t *testing.T) {
 	dir := initBareRepo(t)
 	files := filesChanged(dir, "nonexistent", "main")
 	assert.Equal(t, 0, files)
 }
 
-func TestFilesChanged_Bad_NotARepo(t *testing.T) {
+func TestMirror_FilesChanged_Bad_NotARepo(t *testing.T) {
 	files := filesChanged(t.TempDir(), "main", "dev")
 	assert.Equal(t, 0, files)
 }
 
-func TestFilesChanged_Ugly_EmptyDir(t *testing.T) {
+func TestMirror_FilesChanged_Ugly_EmptyDir(t *testing.T) {
 	files := filesChanged("", "a", "b")
 	assert.Equal(t, 0, files)
 }
 
 // --- extractJSONField (extending existing 91% coverage) ---
 
-func TestExtractJSONField_Good_ArrayFirstItem(t *testing.T) {
+func TestMirror_ExtractJSONField_Good_ArrayFirstItem(t *testing.T) {
 	json := `[{"url":"https://github.com/test/pr/1","title":"Fix bug"}]`
 	assert.Equal(t, "https://github.com/test/pr/1", extractJSONField(json, "url"))
 }
 
-func TestExtractJSONField_Good_ObjectField(t *testing.T) {
+func TestMirror_ExtractJSONField_Good_ObjectField(t *testing.T) {
 	json := `{"name":"test-repo","status":"active"}`
 	assert.Equal(t, "test-repo", extractJSONField(json, "name"))
 }
 
-func TestExtractJSONField_Good_ArrayMultipleItems(t *testing.T) {
+func TestMirror_ExtractJSONField_Good_ArrayMultipleItems(t *testing.T) {
 	json := `[{"id":"first"},{"id":"second"}]`
 	// Should return the first match
 	assert.Equal(t, "first", extractJSONField(json, "id"))
 }
 
-func TestExtractJSONField_Bad_EmptyJSON(t *testing.T) {
+func TestMirror_ExtractJSONField_Bad_EmptyJSON(t *testing.T) {
 	assert.Equal(t, "", extractJSONField("", "url"))
 }
 
-func TestExtractJSONField_Bad_EmptyField(t *testing.T) {
+func TestMirror_ExtractJSONField_Bad_EmptyField(t *testing.T) {
 	assert.Equal(t, "", extractJSONField(`{"url":"test"}`, ""))
 }
 
-func TestExtractJSONField_Bad_FieldNotFound(t *testing.T) {
+func TestMirror_ExtractJSONField_Bad_FieldNotFound(t *testing.T) {
 	json := `{"name":"test"}`
 	assert.Equal(t, "", extractJSONField(json, "missing"))
 }
 
-func TestExtractJSONField_Bad_InvalidJSON(t *testing.T) {
+func TestMirror_ExtractJSONField_Bad_InvalidJSON(t *testing.T) {
 	assert.Equal(t, "", extractJSONField("not json at all", "url"))
 }
 
-func TestExtractJSONField_Ugly_EmptyArray(t *testing.T) {
+func TestMirror_ExtractJSONField_Ugly_EmptyArray(t *testing.T) {
 	assert.Equal(t, "", extractJSONField("[]", "url"))
 }
 
-func TestExtractJSONField_Ugly_EmptyObject(t *testing.T) {
+func TestMirror_ExtractJSONField_Ugly_EmptyObject(t *testing.T) {
 	assert.Equal(t, "", extractJSONField("{}", "url"))
 }
 
-func TestExtractJSONField_Ugly_NumericValue(t *testing.T) {
+func TestMirror_ExtractJSONField_Ugly_NumericValue(t *testing.T) {
 	// Field exists but is not a string — should return ""
 	json := `{"count":42}`
 	assert.Equal(t, "", extractJSONField(json, "count"))
 }
 
-func TestExtractJSONField_Ugly_NullValue(t *testing.T) {
+func TestMirror_ExtractJSONField_Ugly_NullValue(t *testing.T) {
 	json := `{"url":null}`
 	assert.Equal(t, "", extractJSONField(json, "url"))
 }
 
 // --- DefaultBranch ---
 
-func TestDefaultBranch_Good_MainBranch(t *testing.T) {
+func TestPaths_DefaultBranch_Good_MainBranch(t *testing.T) {
 	dir := initBareRepo(t)
 	// initBareRepo creates with -b main
 	branch := DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
-func TestDefaultBranch_Bad_NotARepo(t *testing.T) {
+func TestPaths_DefaultBranch_Bad_NotARepo(t *testing.T) {
 	dir := t.TempDir()
 	// Falls back to "main" when detection fails
 	branch := DefaultBranch(dir)
@@ -311,7 +311,7 @@ func TestDefaultBranch_Bad_NotARepo(t *testing.T) {
 
 // --- listLocalRepos ---
 
-func TestListLocalRepos_Good_FindsRepos(t *testing.T) {
+func TestMirror_ListLocalRepos_Good_FindsRepos(t *testing.T) {
 	base := t.TempDir()
 
 	// Create two git repos under base
@@ -331,14 +331,14 @@ func TestListLocalRepos_Good_FindsRepos(t *testing.T) {
 	assert.NotContains(t, repos, "not-a-repo")
 }
 
-func TestListLocalRepos_Bad_EmptyDir(t *testing.T) {
+func TestMirror_ListLocalRepos_Bad_EmptyDir(t *testing.T) {
 	base := t.TempDir()
 	s := &PrepSubsystem{}
 	repos := s.listLocalRepos(base)
 	assert.Empty(t, repos)
 }
 
-func TestListLocalRepos_Bad_NonExistentDir(t *testing.T) {
+func TestMirror_ListLocalRepos_Bad_NonExistentDir(t *testing.T) {
 	s := &PrepSubsystem{}
 	repos := s.listLocalRepos("/nonexistent/path/that/doesnt/exist")
 	assert.Nil(t, repos)
@@ -346,12 +346,12 @@ func TestListLocalRepos_Bad_NonExistentDir(t *testing.T) {
 
 // --- GitHubOrg ---
 
-func TestGitHubOrg_Good_Default(t *testing.T) {
+func TestPaths_GitHubOrg_Good_Default(t *testing.T) {
 	t.Setenv("GITHUB_ORG", "")
 	assert.Equal(t, "dAppCore", GitHubOrg())
 }
 
-func TestGitHubOrg_Good_Custom(t *testing.T) {
+func TestPaths_GitHubOrg_Good_Custom(t *testing.T) {
 	t.Setenv("GITHUB_ORG", "my-org")
 	assert.Equal(t, "my-org", GitHubOrg())
 }

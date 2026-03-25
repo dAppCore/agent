@@ -11,7 +11,7 @@ import (
 
 // --- renderPlan ---
 
-func TestRenderPlan_Good_BugFix(t *testing.T) {
+func TestPrep_RenderPlan_Good_BugFix(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -26,7 +26,7 @@ func TestRenderPlan_Good_BugFix(t *testing.T) {
 	assert.Contains(t, result, "Investigation")
 }
 
-func TestRenderPlan_Good_WithVariables(t *testing.T) {
+func TestPrep_RenderPlan_Good_WithVariables(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -42,7 +42,7 @@ func TestRenderPlan_Good_WithVariables(t *testing.T) {
 	assert.Contains(t, result, "Fix login")
 }
 
-func TestRenderPlan_Bad_UnknownTemplate(t *testing.T) {
+func TestPrep_RenderPlan_Bad_UnknownTemplate(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -51,7 +51,7 @@ func TestRenderPlan_Bad_UnknownTemplate(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestRenderPlan_Good_NoTask(t *testing.T) {
+func TestPrep_RenderPlan_Good_NoTask(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -63,7 +63,7 @@ func TestRenderPlan_Good_NoTask(t *testing.T) {
 	assert.NotContains(t, result, "**Task:**")
 }
 
-func TestRenderPlan_Good_NewFeature(t *testing.T) {
+func TestPrep_RenderPlan_Good_NewFeature(t *testing.T) {
 	s := &PrepSubsystem{
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),

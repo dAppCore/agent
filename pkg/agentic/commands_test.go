@@ -52,13 +52,13 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 
 // --- Forge command methods (extracted from closures) ---
 
-func TestCmdIssueGet_Bad_MissingArgs(t *testing.T) {
+func TestCommandsForge_CmdIssueGet_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueGet(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueGet_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdIssueGet_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"number": 42, "title": "Fix tests", "state": "open",
@@ -75,7 +75,7 @@ func TestCmdIssueGet_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueGet_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdIssueGet_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -89,13 +89,13 @@ func TestCmdIssueGet_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueList_Bad_MissingRepo(t *testing.T) {
+func TestCommandsForge_CmdIssueList_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueList(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueList_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdIssueList_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"number": 1, "title": "Bug", "state": "open"},
@@ -109,7 +109,7 @@ func TestCmdIssueList_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueList_Good_Empty(t *testing.T) {
+func TestCommandsForge_CmdIssueList_Good_Empty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{})
 	}))
@@ -120,13 +120,13 @@ func TestCmdIssueList_Good_Empty(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueComment_Bad_MissingArgs(t *testing.T) {
+func TestCommandsForge_CmdIssueComment_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueComment(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueComment_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdIssueComment_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"id": 99})
 	}))
@@ -141,13 +141,13 @@ func TestCmdIssueComment_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueCreate_Bad_MissingTitle(t *testing.T) {
+func TestCommandsForge_CmdIssueCreate_Bad_MissingTitle(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueCreate(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueCreate_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdIssueCreate_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"number": 10, "title": "New bug", "html_url": "https://forge.test/issues/10",
@@ -165,7 +165,7 @@ func TestCmdIssueCreate_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) {
+func TestCommandsForge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) {
 	callPaths := []string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callPaths = append(callPaths, r.URL.Path)
@@ -199,7 +199,7 @@ func TestCmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueCreate_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdIssueCreate_Bad_APIError(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -219,13 +219,13 @@ func TestCmdIssueCreate_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRGet_Bad_MissingArgs(t *testing.T) {
+func TestCommandsForge_CmdPRGet_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRGet(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRGet_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdPRGet_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"number": 3, "title": "Fix", "state": "open", "mergeable": true,
@@ -243,7 +243,7 @@ func TestCmdPRGet_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdPRGet_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdPRGet_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 	}))
@@ -257,7 +257,7 @@ func TestCmdPRGet_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRList_Good_WithPRs(t *testing.T) {
+func TestCommandsForge_CmdPRList_Good_WithPRs(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"number": 1, "title": "Fix", "state": "open",
@@ -273,7 +273,7 @@ func TestCmdPRList_Good_WithPRs(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdPRList_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdPRList_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -284,7 +284,7 @@ func TestCmdPRList_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRMerge_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdPRMerge_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
 		json.NewEncoder(w).Encode(map[string]any{"message": "conflict"})
@@ -299,7 +299,7 @@ func TestCmdPRMerge_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRMerge_Good_CustomMethod(t *testing.T) {
+func TestCommandsForge_CmdPRMerge_Good_CustomMethod(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
@@ -314,7 +314,7 @@ func TestCmdPRMerge_Good_CustomMethod(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueGet_Good_WithBody(t *testing.T) {
+func TestCommandsForge_CmdIssueGet_Good_WithBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"number": 1, "title": "Bug", "state": "open",
@@ -331,7 +331,7 @@ func TestCmdIssueGet_Good_WithBody(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdIssueList_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdIssueList_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -342,7 +342,7 @@ func TestCmdIssueList_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdIssueComment_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdIssueComment_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -357,7 +357,7 @@ func TestCmdIssueComment_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdRepoGet_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdRepoGet_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -368,7 +368,7 @@ func TestCmdRepoGet_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdRepoList_Bad_APIError(t *testing.T) {
+func TestCommandsForge_CmdRepoList_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -379,13 +379,13 @@ func TestCmdRepoList_Bad_APIError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRList_Bad_MissingRepo(t *testing.T) {
+func TestCommandsForge_CmdPRList_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRList(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRList_Good_Empty(t *testing.T) {
+func TestCommandsForge_CmdPRList_Good_Empty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{})
 	}))
@@ -396,13 +396,13 @@ func TestCmdPRList_Good_Empty(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdPRMerge_Bad_MissingArgs(t *testing.T) {
+func TestCommandsForge_CmdPRMerge_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRMerge(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdPRMerge_Good_DefaultMethod(t *testing.T) {
+func TestCommandsForge_CmdPRMerge_Good_DefaultMethod(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
@@ -416,13 +416,13 @@ func TestCmdPRMerge_Good_DefaultMethod(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdRepoGet_Bad_MissingRepo(t *testing.T) {
+func TestCommandsForge_CmdRepoGet_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdRepoGet(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdRepoGet_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdRepoGet_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"name": "go-io", "description": "IO", "default_branch": "dev",
@@ -437,7 +437,7 @@ func TestCmdRepoGet_Good_Success(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdRepoList_Good_Success(t *testing.T) {
+func TestCommandsForge_CmdRepoList_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"name": "go-io", "description": "IO", "archived": false, "owner": map[string]any{"login": "core"}},
@@ -453,13 +453,13 @@ func TestCmdRepoList_Good_Success(t *testing.T) {
 
 // --- Workspace command methods ---
 
-func TestCmdWorkspaceList_Good_Empty(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceList_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceList(core.NewOptions())
 	assert.True(t, r.OK)
 }
 
-func TestCmdWorkspaceList_Good_WithEntries(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceList_Good_WithEntries(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
@@ -472,13 +472,13 @@ func TestCmdWorkspaceList_Good_WithEntries(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdWorkspaceClean_Good_Empty(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceClean_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceClean(core.NewOptions())
 	assert.True(t, r.OK)
 }
 
-func TestCmdWorkspaceClean_Good_RemovesCompleted(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceClean_Good_RemovesCompleted(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
@@ -494,7 +494,7 @@ func TestCmdWorkspaceClean_Good_RemovesCompleted(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestCmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
@@ -517,7 +517,7 @@ func TestCmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
 	assert.NoError(t, err2)
 }
 
-func TestCmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
@@ -533,13 +533,13 @@ func TestCmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestCmdWorkspaceDispatch_Bad_MissingRepo(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceDispatch_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceDispatch(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdWorkspaceDispatch_Good_Stub(t *testing.T) {
+func TestCommandsWorkspace_CmdWorkspaceDispatch_Good_Stub(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceDispatch(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
 	assert.True(t, r.OK)
@@ -547,26 +547,26 @@ func TestCmdWorkspaceDispatch_Good_Stub(t *testing.T) {
 
 // --- commands.go extracted methods ---
 
-func TestCmdPrep_Bad_MissingRepo(t *testing.T) {
+func TestCommands_CmdPrep_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrep(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdPrep_Good_DefaultsToDev(t *testing.T) {
+func TestCommands_CmdPrep_Good_DefaultsToDev(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	// Will fail (no local clone) but exercises the default branch logic
 	r := s.cmdPrep(core.NewOptions(core.Option{Key: "_arg", Value: "nonexistent-repo"}))
 	assert.False(t, r.OK) // expected — no local repo
 }
 
-func TestCmdStatus_Good_Empty(t *testing.T) {
+func TestCommands_CmdStatus_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdStatus(core.NewOptions())
 	assert.True(t, r.OK)
 }
 
-func TestCmdStatus_Good_WithWorkspaces(t *testing.T) {
+func TestCommands_CmdStatus_Good_WithWorkspaces(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
@@ -579,19 +579,19 @@ func TestCmdStatus_Good_WithWorkspaces(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdPrompt_Bad_MissingRepo(t *testing.T) {
+func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
-func TestCmdPrompt_Good_DefaultTask(t *testing.T) {
+func TestCommands_CmdPrompt_Good_DefaultTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
 	assert.True(t, r.OK)
 }
 
-func TestCmdExtract_Good(t *testing.T) {
+func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := filepath.Join(t.TempDir(), "extract-test")
 	r := s.cmdExtract(core.NewOptions(
@@ -601,7 +601,7 @@ func TestCmdExtract_Good(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestCmdRunTask_Bad_MissingArgs(t *testing.T) {
+func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -609,7 +609,7 @@ func TestCmdRunTask_Bad_MissingArgs(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdRunTask_Bad_MissingTask(t *testing.T) {
+func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -617,7 +617,7 @@ func TestCmdRunTask_Bad_MissingTask(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCmdOrchestrator_Good_CancelledCtx(t *testing.T) {
+func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
@@ -625,7 +625,7 @@ func TestCmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-func TestParseIntStr_Good(t *testing.T) {
+func TestCommands_ParseIntStr_Good(t *testing.T) {
 	assert.Equal(t, 42, parseIntStr("42"))
 	assert.Equal(t, 123, parseIntStr("issue-123"))
 	assert.Equal(t, 0, parseIntStr(""))
@@ -635,7 +635,7 @@ func TestParseIntStr_Good(t *testing.T) {
 
 // --- Registration verification ---
 
-func TestRegisterCommands_Good_AllRegistered(t *testing.T) {
+func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

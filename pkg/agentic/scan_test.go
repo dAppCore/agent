@@ -184,7 +184,7 @@ func TestScan_Bad_NoToken(t *testing.T) {
 
 // --- listRepoIssues ---
 
-func TestListRepoIssues_Good_ReturnsIssues(t *testing.T) {
+func TestScan_ListRepoIssues_Good_ReturnsIssues(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		forgeURL:   srv.URL,
@@ -202,7 +202,7 @@ func TestListRepoIssues_Good_ReturnsIssues(t *testing.T) {
 	assert.Contains(t, issues[0].Labels, "agentic")
 }
 
-func TestListRepoIssues_Good_EmptyResult(t *testing.T) {
+func TestScan_ListRepoIssues_Good_EmptyResult(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		forgeURL:   srv.URL,
@@ -217,7 +217,7 @@ func TestListRepoIssues_Good_EmptyResult(t *testing.T) {
 	assert.Empty(t, issues)
 }
 
-func TestListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
+func TestScan_ListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		forgeURL:   srv.URL,
@@ -234,7 +234,7 @@ func TestListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
 	assert.Equal(t, "virgil", issues[1].Assignee)
 }
 
-func TestListRepoIssues_Bad_ServerError(t *testing.T) {
+func TestScan_ListRepoIssues_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -252,7 +252,7 @@ func TestListRepoIssues_Bad_ServerError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestListRepoIssues_Good_URLRewrite(t *testing.T) {
+func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{

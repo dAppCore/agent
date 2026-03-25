@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPlanPath_Good(t *testing.T) {
+func TestPlan_PlanPath_Good(t *testing.T) {
 	assert.Equal(t, "/tmp/plans/my-plan-abc123.json", planPath("/tmp/plans", "my-plan-abc123"))
 	assert.Equal(t, "/data/test.json", planPath("/data", "test"))
 }
 
-func TestWritePlan_Good(t *testing.T) {
+func TestPlan_WritePlan_Good(t *testing.T) {
 	dir := t.TempDir()
 	plan := &Plan{
 		ID:        "test-plan-abc123",
@@ -33,7 +33,7 @@ func TestWritePlan_Good(t *testing.T) {
 	assert.True(t, fs.IsFile(path))
 }
 
-func TestWritePlan_Good_CreatesDirectory(t *testing.T) {
+func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {
 	base := t.TempDir()
 	dir := filepath.Join(base, "nested", "plans")
 
@@ -49,7 +49,7 @@ func TestWritePlan_Good_CreatesDirectory(t *testing.T) {
 	assert.Contains(t, path, "nested-plan-abc123.json")
 }
 
-func TestReadPlan_Good(t *testing.T) {
+func TestPlan_ReadPlan_Good(t *testing.T) {
 	dir := t.TempDir()
 	original := &Plan{
 		ID:        "read-test-abc123",
@@ -87,13 +87,13 @@ func TestReadPlan_Good(t *testing.T) {
 	assert.Equal(t, "claude:opus", read.Agent)
 }
 
-func TestReadPlan_Bad_NotFound(t *testing.T) {
+func TestPlan_ReadPlan_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	_, err := readPlan(dir, "nonexistent-plan")
 	assert.Error(t, err)
 }
 
-func TestReadPlan_Bad_InvalidJSON(t *testing.T) {
+func TestPlan_ReadPlan_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "bad-json.json"), "{broken").OK)
 
@@ -134,7 +134,7 @@ func TestWriteReadPlan_Good_Roundtrip(t *testing.T) {
 	assert.Equal(t, "Working on it", read.Phases[1].Notes)
 }
 
-func TestGeneratePlanID_Good_Slugifies(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_Slugifies(t *testing.T) {
 	id := generatePlanID("Add Unit Tests for Agentic")
 	assert.True(t, strings.HasPrefix(id, "add-unit-tests-for-agentic"), "got: %s", id)
 	// Should have random suffix
@@ -142,7 +142,7 @@ func TestGeneratePlanID_Good_Slugifies(t *testing.T) {
 	assert.True(t, len(parts) >= 5, "expected slug with random suffix, got: %s", id)
 }
 
-func TestGeneratePlanID_Good_TruncatesLong(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_TruncatesLong(t *testing.T) {
 	id := generatePlanID("This is a very long title that should be truncated to a reasonable length for file naming purposes")
 	// Slug part (before random suffix) should be <= 30 chars
 	lastDash := strings.LastIndex(id, "-")
@@ -150,7 +150,7 @@ func TestGeneratePlanID_Good_TruncatesLong(t *testing.T) {
 	assert.True(t, len(slug) <= 36, "slug too long: %s (%d chars)", slug, len(slug))
 }
 
-func TestGeneratePlanID_Good_HandlesSpecialChars(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_HandlesSpecialChars(t *testing.T) {
 	id := generatePlanID("Fix bug #123: auth & session!")
 	assert.True(t, strings.Contains(id, "fix-bug"), "got: %s", id)
 	assert.NotContains(t, id, "#")
@@ -158,27 +158,27 @@ func TestGeneratePlanID_Good_HandlesSpecialChars(t *testing.T) {
 	assert.NotContains(t, id, "&")
 }
 
-func TestGeneratePlanID_Good_Unique(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_Unique(t *testing.T) {
 	id1 := generatePlanID("Same Title")
 	id2 := generatePlanID("Same Title")
 	assert.NotEqual(t, id1, id2, "IDs should differ due to random suffix")
 }
 
-func TestValidPlanStatus_Good_AllValid(t *testing.T) {
+func TestPlan_ValidPlanStatus_Good_AllValid(t *testing.T) {
 	validStatuses := []string{"draft", "ready", "in_progress", "needs_verification", "verified", "approved"}
 	for _, s := range validStatuses {
 		assert.True(t, validPlanStatus(s), "expected %q to be valid", s)
 	}
 }
 
-func TestValidPlanStatus_Bad_Invalid(t *testing.T) {
+func TestPlan_ValidPlanStatus_Bad_Invalid(t *testing.T) {
 	invalidStatuses := []string{"", "running", "completed", "cancelled", "archived", "DRAFT", "Draft"}
 	for _, s := range invalidStatuses {
 		assert.False(t, validPlanStatus(s), "expected %q to be invalid", s)
 	}
 }
 
-func TestWritePlan_Good_OverwriteExisting(t *testing.T) {
+func TestPlan_WritePlan_Good_OverwriteExisting(t *testing.T) {
 	dir := t.TempDir()
 
 	plan := &Plan{
@@ -202,7 +202,7 @@ func TestWritePlan_Good_OverwriteExisting(t *testing.T) {
 	assert.Equal(t, "ready", read.Status)
 }
 
-func TestReadPlan_Ugly_EmptyFile(t *testing.T) {
+func TestPlan_ReadPlan_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(filepath.Join(dir, "empty.json"), "").OK)
 

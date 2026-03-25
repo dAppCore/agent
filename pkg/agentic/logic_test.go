@@ -16,7 +16,7 @@ import (
 
 // --- agentCommand ---
 
-func TestAgentCommand_Good_Gemini(t *testing.T) {
+func TestDispatch_AgentCommand_Good_Gemini(t *testing.T) {
 	cmd, args, err := agentCommand("gemini", "do the thing")
 	require.NoError(t, err)
 	assert.Equal(t, "gemini", cmd)
@@ -26,7 +26,7 @@ func TestAgentCommand_Good_Gemini(t *testing.T) {
 	assert.Contains(t, args, "--sandbox")
 }
 
-func TestAgentCommand_Good_GeminiWithModel(t *testing.T) {
+func TestDispatch_AgentCommand_Good_GeminiWithModel(t *testing.T) {
 	cmd, args, err := agentCommand("gemini:flash", "my prompt")
 	require.NoError(t, err)
 	assert.Equal(t, "gemini", cmd)
@@ -34,7 +34,7 @@ func TestAgentCommand_Good_GeminiWithModel(t *testing.T) {
 	assert.Contains(t, args, "gemini-2.5-flash")
 }
 
-func TestAgentCommand_Good_Codex(t *testing.T) {
+func TestDispatch_AgentCommand_Good_Codex(t *testing.T) {
 	cmd, args, err := agentCommand("codex", "fix the tests")
 	require.NoError(t, err)
 	assert.Equal(t, "codex", cmd)
@@ -43,7 +43,7 @@ func TestAgentCommand_Good_Codex(t *testing.T) {
 	assert.Contains(t, args, "fix the tests")
 }
 
-func TestAgentCommand_Good_CodexReview(t *testing.T) {
+func TestDispatch_AgentCommand_Good_CodexReview(t *testing.T) {
 	cmd, args, err := agentCommand("codex:review", "")
 	require.NoError(t, err)
 	assert.Equal(t, "codex", cmd)
@@ -54,7 +54,7 @@ func TestAgentCommand_Good_CodexReview(t *testing.T) {
 	}
 }
 
-func TestAgentCommand_Good_CodexWithModel(t *testing.T) {
+func TestDispatch_AgentCommand_Good_CodexWithModel(t *testing.T) {
 	cmd, args, err := agentCommand("codex:gpt-5.4", "refactor this")
 	require.NoError(t, err)
 	assert.Equal(t, "codex", cmd)
@@ -62,7 +62,7 @@ func TestAgentCommand_Good_CodexWithModel(t *testing.T) {
 	assert.Contains(t, args, "gpt-5.4")
 }
 
-func TestAgentCommand_Good_Claude(t *testing.T) {
+func TestDispatch_AgentCommand_Good_Claude(t *testing.T) {
 	cmd, args, err := agentCommand("claude", "add tests")
 	require.NoError(t, err)
 	assert.Equal(t, "claude", cmd)
@@ -71,7 +71,7 @@ func TestAgentCommand_Good_Claude(t *testing.T) {
 	assert.Contains(t, args, "--dangerously-skip-permissions")
 }
 
-func TestAgentCommand_Good_ClaudeWithModel(t *testing.T) {
+func TestDispatch_AgentCommand_Good_ClaudeWithModel(t *testing.T) {
 	cmd, args, err := agentCommand("claude:haiku", "write docs")
 	require.NoError(t, err)
 	assert.Equal(t, "claude", cmd)
@@ -79,7 +79,7 @@ func TestAgentCommand_Good_ClaudeWithModel(t *testing.T) {
 	assert.Contains(t, args, "haiku")
 }
 
-func TestAgentCommand_Good_CodeRabbit(t *testing.T) {
+func TestDispatch_AgentCommand_Good_CodeRabbit(t *testing.T) {
 	cmd, args, err := agentCommand("coderabbit", "")
 	require.NoError(t, err)
 	assert.Equal(t, "coderabbit", cmd)
@@ -87,7 +87,7 @@ func TestAgentCommand_Good_CodeRabbit(t *testing.T) {
 	assert.Contains(t, args, "--plain")
 }
 
-func TestAgentCommand_Good_Local(t *testing.T) {
+func TestDispatch_AgentCommand_Good_Local(t *testing.T) {
 	cmd, args, err := agentCommand("local", "do stuff")
 	require.NoError(t, err)
 	assert.Equal(t, "sh", cmd)
@@ -97,21 +97,21 @@ func TestAgentCommand_Good_Local(t *testing.T) {
 	assert.Contains(t, args[1], "devstral-24b")
 }
 
-func TestAgentCommand_Good_LocalWithModel(t *testing.T) {
+func TestDispatch_AgentCommand_Good_LocalWithModel(t *testing.T) {
 	cmd, args, err := agentCommand("local:mistral-nemo", "do stuff")
 	require.NoError(t, err)
 	assert.Equal(t, "sh", cmd)
 	assert.Contains(t, args[1], "mistral-nemo")
 }
 
-func TestAgentCommand_Bad_Unknown(t *testing.T) {
+func TestDispatch_AgentCommand_Bad_Unknown(t *testing.T) {
 	cmd, args, err := agentCommand("robot-from-the-future", "take over")
 	assert.Error(t, err)
 	assert.Empty(t, cmd)
 	assert.Nil(t, args)
 }
 
-func TestAgentCommand_Ugly_EmptyAgent(t *testing.T) {
+func TestDispatch_AgentCommand_Ugly_EmptyAgent(t *testing.T) {
 	cmd, args, err := agentCommand("", "prompt")
 	assert.Error(t, err)
 	assert.Empty(t, cmd)
@@ -120,7 +120,7 @@ func TestAgentCommand_Ugly_EmptyAgent(t *testing.T) {
 
 // --- containerCommand ---
 
-func TestContainerCommand_Good_Codex(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_Codex(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -135,7 +135,7 @@ func TestContainerCommand_Good_Codex(t *testing.T) {
 	assert.Contains(t, args, defaultDockerImage)
 }
 
-func TestContainerCommand_Good_CustomImage(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_CustomImage(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "my-custom-image:latest")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -144,7 +144,7 @@ func TestContainerCommand_Good_CustomImage(t *testing.T) {
 	assert.Contains(t, args, "my-custom-image:latest")
 }
 
-func TestContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -153,7 +153,7 @@ func TestContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 	assert.Contains(t, joined, ".claude:/home/dev/.claude:ro")
 }
 
-func TestContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -162,7 +162,7 @@ func TestContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 	assert.Contains(t, joined, ".gemini:/home/dev/.gemini:ro")
 }
 
-func TestContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -172,7 +172,7 @@ func TestContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	assert.NotContains(t, joined, ".claude:/home/dev/.claude:ro")
 }
 
-func TestContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
+func TestDispatch_ContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -183,7 +183,7 @@ func TestContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
 	assert.Contains(t, joined, "GEMINI_API_KEY")
 }
 
-func TestContainerCommand_Ugly_EmptyDirs(t *testing.T) {
+func TestDispatch_ContainerCommand_Ugly_EmptyDirs(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "")
 
@@ -195,7 +195,7 @@ func TestContainerCommand_Ugly_EmptyDirs(t *testing.T) {
 
 // --- buildAutoPRBody ---
 
-func TestBuildAutoPRBody_Good_Basic(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Good_Basic(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{
 		Task:   "Fix the login bug",
@@ -210,7 +210,7 @@ func TestBuildAutoPRBody_Good_Basic(t *testing.T) {
 	assert.Contains(t, body, "Co-Authored-By: Virgil <virgil@lethean.io>")
 }
 
-func TestBuildAutoPRBody_Good_WithIssue(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{
 		Task:   "Add rate limiting",
@@ -222,7 +222,7 @@ func TestBuildAutoPRBody_Good_WithIssue(t *testing.T) {
 	assert.Contains(t, body, "Closes #42")
 }
 
-func TestBuildAutoPRBody_Good_NoIssue(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{
 		Task:   "Refactor internals",
@@ -233,7 +233,7 @@ func TestBuildAutoPRBody_Good_NoIssue(t *testing.T) {
 	assert.NotContains(t, body, "Closes #")
 }
 
-func TestBuildAutoPRBody_Good_CommitCount(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/foo"}
 	body1 := s.buildAutoPRBody(st, 1)
@@ -242,7 +242,7 @@ func TestBuildAutoPRBody_Good_CommitCount(t *testing.T) {
 	assert.Contains(t, body5, "**Commits:** 5")
 }
 
-func TestBuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{
 		Task:   "",
@@ -255,7 +255,7 @@ func TestBuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
 	assert.Contains(t, body, "**Agent:** codex")
 }
 
-func TestBuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
+func TestAutoPr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 	s := &PrepSubsystem{}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/test"}
 	body := s.buildAutoPRBody(st, 0)
@@ -264,7 +264,7 @@ func TestBuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 
 // --- emitEvent ---
 
-func TestEmitEvent_Good_WritesJSONL(t *testing.T) {
+func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -282,7 +282,7 @@ func TestEmitEvent_Good_WritesJSONL(t *testing.T) {
 	assert.Contains(t, content, "completed")
 }
 
-func TestEmitEvent_Good_ValidJSON(t *testing.T) {
+func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -306,7 +306,7 @@ func TestEmitEvent_Good_ValidJSON(t *testing.T) {
 	}
 }
 
-func TestEmitEvent_Good_Appends(t *testing.T) {
+func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -327,7 +327,7 @@ func TestEmitEvent_Good_Appends(t *testing.T) {
 	assert.Equal(t, 2, lines, "both events should be in the log")
 }
 
-func TestEmitEvent_Good_StartHelper(t *testing.T) {
+func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -341,7 +341,7 @@ func TestEmitEvent_Good_StartHelper(t *testing.T) {
 	assert.Contains(t, r.Value.(string), "running")
 }
 
-func TestEmitEvent_Good_CompletionHelper(t *testing.T) {
+func TestEvents_EmitEvent_Good_CompletionHelper(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -355,7 +355,7 @@ func TestEmitEvent_Good_CompletionHelper(t *testing.T) {
 	assert.Contains(t, r.Value.(string), "failed")
 }
 
-func TestEmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
+func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 	// CORE_WORKSPACE points to a directory that doesn't allow writing events.jsonl
 	// because workspace/ subdir doesn't exist. Should not panic.
 	root := t.TempDir()
@@ -366,7 +366,7 @@ func TestEmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 	})
 }
 
-func TestEmitEvent_Ugly_EmptyFields(t *testing.T) {
+func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
@@ -379,42 +379,42 @@ func TestEmitEvent_Ugly_EmptyFields(t *testing.T) {
 
 // --- countFileRefs ---
 
-func TestCountFileRefs_Good_GoRefs(t *testing.T) {
+func TestIngest_CountFileRefs_Good_GoRefs(t *testing.T) {
 	body := "Found issue in `pkg/core/app.go:42` and `pkg/core/service.go:100`."
 	assert.Equal(t, 2, countFileRefs(body))
 }
 
-func TestCountFileRefs_Good_PHPRefs(t *testing.T) {
+func TestIngest_CountFileRefs_Good_PHPRefs(t *testing.T) {
 	body := "See `src/Core/Boot.php:15` for details."
 	assert.Equal(t, 1, countFileRefs(body))
 }
 
-func TestCountFileRefs_Good_Mixed(t *testing.T) {
+func TestIngest_CountFileRefs_Good_Mixed(t *testing.T) {
 	body := "Go file: `main.go:1`, PHP file: `index.php:99`, plain text ref."
 	assert.Equal(t, 2, countFileRefs(body))
 }
 
-func TestCountFileRefs_Good_NoRefs(t *testing.T) {
+func TestIngest_CountFileRefs_Good_NoRefs(t *testing.T) {
 	body := "This is just plain text with no file references."
 	assert.Equal(t, 0, countFileRefs(body))
 }
 
-func TestCountFileRefs_Good_UnrelatedBacktick(t *testing.T) {
+func TestIngest_CountFileRefs_Good_UnrelatedBacktick(t *testing.T) {
 	// Backtick-quoted string that is not a file:line reference
 	body := "Run `go test ./...` to execute tests."
 	assert.Equal(t, 0, countFileRefs(body))
 }
 
-func TestCountFileRefs_Bad_EmptyBody(t *testing.T) {
+func TestIngest_CountFileRefs_Bad_EmptyBody(t *testing.T) {
 	assert.Equal(t, 0, countFileRefs(""))
 }
 
-func TestCountFileRefs_Bad_ShortBody(t *testing.T) {
+func TestIngest_CountFileRefs_Bad_ShortBody(t *testing.T) {
 	// Body too short to contain a valid reference
 	assert.Equal(t, 0, countFileRefs("`a`"))
 }
 
-func TestCountFileRefs_Ugly_MalformedBackticks(t *testing.T) {
+func TestIngest_CountFileRefs_Ugly_MalformedBackticks(t *testing.T) {
 	// Unclosed backtick — should not panic or hang
 	body := "Something `unclosed"
 	assert.NotPanics(t, func() {
@@ -422,7 +422,7 @@ func TestCountFileRefs_Ugly_MalformedBackticks(t *testing.T) {
 	})
 }
 
-func TestCountFileRefs_Ugly_LongRef(t *testing.T) {
+func TestIngest_CountFileRefs_Ugly_LongRef(t *testing.T) {
 	// Reference longer than 100 chars should not be counted (loop limit)
 	longRef := "`" + strings.Repeat("a", 101) + ".go:1`"
 	assert.Equal(t, 0, countFileRefs(longRef))
@@ -430,67 +430,67 @@ func TestCountFileRefs_Ugly_LongRef(t *testing.T) {
 
 // --- modelVariant ---
 
-func TestModelVariant_Good_WithModel(t *testing.T) {
+func TestQueue_ModelVariant_Good_WithModel(t *testing.T) {
 	assert.Equal(t, "gpt-5.4", modelVariant("codex:gpt-5.4"))
 	assert.Equal(t, "flash", modelVariant("gemini:flash"))
 	assert.Equal(t, "opus", modelVariant("claude:opus"))
 	assert.Equal(t, "haiku", modelVariant("claude:haiku"))
 }
 
-func TestModelVariant_Good_NoVariant(t *testing.T) {
+func TestQueue_ModelVariant_Good_NoVariant(t *testing.T) {
 	assert.Equal(t, "", modelVariant("codex"))
 	assert.Equal(t, "", modelVariant("claude"))
 	assert.Equal(t, "", modelVariant("gemini"))
 }
 
-func TestModelVariant_Good_MultipleColons(t *testing.T) {
+func TestQueue_ModelVariant_Good_MultipleColons(t *testing.T) {
 	// SplitN(2) only splits on first colon; rest is preserved as the model
 	assert.Equal(t, "gpt-5.3-codex-spark", modelVariant("codex:gpt-5.3-codex-spark"))
 }
 
-func TestModelVariant_Bad_EmptyString(t *testing.T) {
+func TestQueue_ModelVariant_Bad_EmptyString(t *testing.T) {
 	assert.Equal(t, "", modelVariant(""))
 }
 
-func TestModelVariant_Ugly_ColonOnly(t *testing.T) {
+func TestQueue_ModelVariant_Ugly_ColonOnly(t *testing.T) {
 	// Just a colon with no model name
 	assert.Equal(t, "", modelVariant(":"))
 }
 
 // --- baseAgent ---
 
-func TestBaseAgent_Good_Variants(t *testing.T) {
+func TestQueue_BaseAgent_Good_Variants(t *testing.T) {
 	assert.Equal(t, "gemini", baseAgent("gemini:flash"))
 	assert.Equal(t, "gemini", baseAgent("gemini:pro"))
 	assert.Equal(t, "claude", baseAgent("claude:haiku"))
 	assert.Equal(t, "codex", baseAgent("codex:gpt-5.4"))
 }
 
-func TestBaseAgent_Good_NoVariant(t *testing.T) {
+func TestQueue_BaseAgent_Good_NoVariant(t *testing.T) {
 	assert.Equal(t, "codex", baseAgent("codex"))
 	assert.Equal(t, "claude", baseAgent("claude"))
 	assert.Equal(t, "gemini", baseAgent("gemini"))
 }
 
-func TestBaseAgent_Good_CodexSparkSpecialCase(t *testing.T) {
+func TestQueue_BaseAgent_Good_CodexSparkSpecialCase(t *testing.T) {
 	// codex-spark variants map to their own pool name
 	assert.Equal(t, "codex-spark", baseAgent("codex:gpt-5.3-codex-spark"))
 	assert.Equal(t, "codex-spark", baseAgent("codex-spark"))
 }
 
-func TestBaseAgent_Bad_EmptyString(t *testing.T) {
+func TestQueue_BaseAgent_Bad_EmptyString(t *testing.T) {
 	// Empty string — SplitN returns [""], so first element is ""
 	assert.Equal(t, "", baseAgent(""))
 }
 
-func TestBaseAgent_Ugly_JustColon(t *testing.T) {
+func TestQueue_BaseAgent_Ugly_JustColon(t *testing.T) {
 	// Just a colon — base is empty string before colon
 	assert.Equal(t, "", baseAgent(":model"))
 }
 
 // --- resolveWorkspace ---
 
-func TestResolveWorkspace_Good_ExistingDir(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -503,7 +503,7 @@ func TestResolveWorkspace_Good_ExistingDir(t *testing.T) {
 	assert.Equal(t, wsDir, result)
 }
 
-func TestResolveWorkspace_Good_NestedPath(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -515,7 +515,7 @@ func TestResolveWorkspace_Good_NestedPath(t *testing.T) {
 	assert.Equal(t, wsDir, result)
 }
 
-func TestResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -523,7 +523,7 @@ func TestResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-func TestResolveWorkspace_Bad_EmptyName(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Bad_EmptyName(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -535,7 +535,7 @@ func TestResolveWorkspace_Bad_EmptyName(t *testing.T) {
 	_ = result
 }
 
-func TestResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -546,7 +546,7 @@ func TestResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 
 // --- findWorkspaceByPR ---
 
-func TestFindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -562,7 +562,7 @@ func TestFindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 	assert.Equal(t, wsDir, result)
 }
 
-func TestFindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -578,7 +578,7 @@ func TestFindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 	assert.Equal(t, wsDir, result)
 }
 
-func TestFindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -594,7 +594,7 @@ func TestFindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-func TestFindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	// No workspaces at all
@@ -602,7 +602,7 @@ func TestFindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-func TestFindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -619,7 +619,7 @@ func TestFindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-func TestFindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -634,31 +634,31 @@ func TestFindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 
 // --- extractPRNumber ---
 
-func TestExtractPRNumber_Good_FullURL(t *testing.T) {
+func TestVerify_ExtractPRNumber_Good_FullURL(t *testing.T) {
 	assert.Equal(t, 42, extractPRNumber("https://forge.lthn.ai/core/agent/pulls/42"))
 	assert.Equal(t, 1, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/1"))
 	assert.Equal(t, 999, extractPRNumber("https://forge.lthn.ai/core/go-log/pulls/999"))
 }
 
-func TestExtractPRNumber_Good_NumberOnly(t *testing.T) {
+func TestVerify_ExtractPRNumber_Good_NumberOnly(t *testing.T) {
 	// If someone passes a bare number as a URL it should still work
 	assert.Equal(t, 7, extractPRNumber("7"))
 }
 
-func TestExtractPRNumber_Bad_EmptyURL(t *testing.T) {
+func TestVerify_ExtractPRNumber_Bad_EmptyURL(t *testing.T) {
 	assert.Equal(t, 0, extractPRNumber(""))
 }
 
-func TestExtractPRNumber_Bad_TrailingSlash(t *testing.T) {
+func TestVerify_ExtractPRNumber_Bad_TrailingSlash(t *testing.T) {
 	// URL ending with slash has empty last segment
 	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/"))
 }
 
-func TestExtractPRNumber_Bad_NonNumericEnd(t *testing.T) {
+func TestVerify_ExtractPRNumber_Bad_NonNumericEnd(t *testing.T) {
 	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/abc"))
 }
 
-func TestExtractPRNumber_Ugly_JustSlashes(t *testing.T) {
+func TestVerify_ExtractPRNumber_Ugly_JustSlashes(t *testing.T) {
 	// All slashes — last segment is empty
 	assert.Equal(t, 0, extractPRNumber("///"))
 }
