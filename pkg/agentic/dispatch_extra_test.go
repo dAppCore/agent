@@ -4,11 +4,15 @@ package agentic
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -137,7 +141,6 @@ func TestStartIssueTracking_Good_NoForge(t *testing.T) {
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
-	// Should not panic
 	s.startIssueTracking(t.TempDir())
 }
 
@@ -161,7 +164,55 @@ func TestStartIssueTracking_Good_NoIssue(t *testing.T) {
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
-	s.startIssueTracking(dir) // no panic, no issue to track
+	s.startIssueTracking(dir)
+}
+
+func TestStartIssueTracking_Good_NoStatusFile(t *testing.T) {
+	s := &PrepSubsystem{
+		forge:     nil,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	// No status.json — should return early
+	s.startIssueTracking(t.TempDir())
+}
+
+func TestStartIssueTracking_Good_WithForge(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201) // Forge stopwatch start returns 201
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Org: "core", Issue: 15}
+	data, _ := json.Marshal(st)
+	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	s.startIssueTracking(dir)
+}
+
+func TestStopIssueTracking_Good_WithForge(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(204)
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	st := &WorkspaceStatus{Status: "completed", Repo: "go-io", Issue: 10}
+	data, _ := json.Marshal(st)
+	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	s.stopIssueTracking(dir)
 }
 
 // --- broadcastStart / broadcastComplete ---
@@ -175,8 +226,26 @@ func TestBroadcastStart_Good_NoCore(t *testing.T) {
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
-	// Should not panic even without Core
 	s.broadcastStart("codex", dir)
+}
+
+func TestBroadcastStart_Good_WithCore(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := filepath.Join(root, "workspace", "ws-test")
+	os.MkdirAll(wsDir, 0o755)
+	st := &WorkspaceStatus{Repo: "go-io", Agent: "codex"}
+	data, _ := json.Marshal(st)
+	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+
+	c := core.New()
+	s := &PrepSubsystem{
+		core:      c,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	s.broadcastStart("codex", wsDir)
 }
 
 func TestBroadcastComplete_Good_NoCore(t *testing.T) {
@@ -189,6 +258,25 @@ func TestBroadcastComplete_Good_NoCore(t *testing.T) {
 		failCount: make(map[string]int),
 	}
 	s.broadcastComplete("codex", dir, "completed")
+}
+
+func TestBroadcastComplete_Good_WithCore(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := filepath.Join(root, "workspace", "ws-test")
+	os.MkdirAll(wsDir, 0o755)
+	st := &WorkspaceStatus{Repo: "go-io", Agent: "codex"}
+	data, _ := json.Marshal(st)
+	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+
+	c := core.New()
+	s := &PrepSubsystem{
+		core:      c,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	s.broadcastComplete("codex", wsDir, "completed")
 }
 
 // --- onAgentComplete ---
