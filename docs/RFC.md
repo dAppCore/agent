@@ -281,7 +281,102 @@ TestMCP_ActionAggregator_Good            — Actions appear as MCP tools
 
 ---
 
-## 14. String Operations
+## 14. Error Handling and Logging
+
+All errors via `core.E()`. All logging via Core. No `fmt`, `errors`, or `log` imports.
+
+```go
+// Structured errors
+return core.E("dispatch.prep", "workspace not found", nil)
+return core.E("dispatch.prep", core.Concat("repo ", repo, " invalid"), cause)
+
+// Error inspection
+core.Operation(err)      // "dispatch.prep"
+core.ErrorMessage(err)   // "workspace not found"
+core.Root(err)           // unwrap to root cause
+
+// Logging
+core.Info("agent dispatched", "repo", repo, "agent", agent)
+core.Warn("queue full", "pending", count)
+core.Error("dispatch failed", "err", err)
+core.Security("entitlement.denied", "action", action, "reason", reason)
+```
+
+---
+
+## 15. Configuration
+
+```go
+// Runtime settings
+c.Config().Set("agents.concurrency", 5)
+c.Config().String("workspace.root")
+c.Config().Int("agents.concurrency")
+
+// Feature flags
+c.Config().Enable("auto-merge")
+if c.Config().Enabled("auto-merge") { ... }
+```
+
+---
+
+## 16. Registry
+
+Use `Registry[T]` for any named collection. No `map[string]*T + sync.Mutex`.
+
+```go
+// Workspace status tracking
+workspaces := core.NewRegistry[*WorkspaceStatus]()
+workspaces.Set(wsDir, status)
+workspaces.Get(wsDir)
+workspaces.Each(func(dir string, st *WorkspaceStatus) { ... })
+workspaces.Names()  // insertion order
+
+// Cross-cutting queries via Core
+c.RegistryOf("actions").List("agentic.*")
+c.RegistryOf("services").Names()
+```
+
+---
+
+## 17. Stream Helpers
+
+No `io` import. Core wraps all stream operations:
+
+```go
+// Read entire stream
+r := c.Fs().ReadStream(path)
+content := core.ReadAll(r.Value)
+
+// Write to stream
+w := c.Fs().WriteStream(path)
+core.WriteAll(w.Value, data)
+
+// Close any stream
+core.CloseStream(handle)
+```
+
+---
+
+## 18. Data and Drive
+
+```go
+// Embedded assets (prompts, templates, personas)
+r := c.Data().ReadString("prompts/coding.md")
+c.Data().List("templates/")
+c.Data().Mounts()  // all mounted asset namespaces
+
+// Transport configuration
+c.Drive().New(core.NewOptions(
+    core.Option{Key: "name", Value: "charon"},
+    core.Option{Key: "transport", Value: "http://10.69.69.165:9101"},
+))
+c.Drive().Get("charon")
+```
+
+---
+
+## 19. String Operations
+
 
 No `fmt`, no `strings`, no `+` concat. Core provides everything:
 
@@ -297,7 +392,7 @@ core.Trim(s)                          // not strings.TrimSpace
 
 ---
 
-## 15. Comments (AX Principle 2)
+## 20. Comments (AX Principle 2)
 
 Every exported function MUST have a usage-example comment:
 
@@ -312,7 +407,7 @@ No exceptions. The comment is for every model that will ever read the code.
 
 ---
 
-## 16. Example Tests (AX Principle 7b)
+## 21. Example Tests (AX Principle 7b)
 
 One `{source}_example_test.go` per source file. Examples serve as test + documentation + godoc.
 
@@ -329,7 +424,7 @@ func ExamplePrepSubsystem_handleDispatch() {
 
 ---
 
-## 17. Quality Gates (AX Principle 9)
+## 22. Quality Gates (AX Principle 9)
 
 ```bash
 # No disallowed imports (all 10)
