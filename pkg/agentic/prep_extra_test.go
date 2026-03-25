@@ -270,6 +270,93 @@ func TestBuildPrompt_Good_WithIssue(t *testing.T) {
 	assert.Contains(t, prompt, "Steps to reproduce")
 }
 
+// --- buildPrompt (naming convention tests) ---
+
+func TestPrep_BuildPrompt_Good(t *testing.T) {
+	dir := t.TempDir()
+	// Create go.mod to detect language as "go"
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.buildPrompt(context.Background(), PrepInput{
+		Task: "Add unit tests",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", dir)
+
+	assert.Contains(t, prompt, "TASK: Add unit tests")
+	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
+	assert.Contains(t, prompt, "LANGUAGE: go")
+	assert.Contains(t, prompt, "BUILD: go build ./...")
+	assert.Contains(t, prompt, "TEST: go test ./...")
+	assert.Contains(t, prompt, "CONSTRAINTS:")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
+func TestPrep_BuildPrompt_Bad(t *testing.T) {
+	// Empty repo path — still produces a prompt (no crash)
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.buildPrompt(context.Background(), PrepInput{
+		Task: "Do something",
+		Org:  "core",
+		Repo: "go-io",
+	}, "main", "")
+
+	assert.Contains(t, prompt, "TASK: Do something")
+	assert.Contains(t, prompt, "CONSTRAINTS:")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
+func TestPrep_BuildPrompt_Ugly(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"number": 99,
+			"title":  "Critical bug",
+			"body":   "Server crashes on startup",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		codePath:  t.TempDir(),
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	prompt, _, _ := s.buildPrompt(context.Background(), PrepInput{
+		Task:         "Fix critical bug",
+		Org:          "core",
+		Repo:         "go-io",
+		Persona:      "reviewer",
+		PlanTemplate: "nonexistent-plan",
+		Issue:        99,
+	}, "agent/fix-bug", dir)
+
+	// Persona may or may not resolve, but prompt must still contain core fields
+	assert.Contains(t, prompt, "TASK: Fix critical bug")
+	assert.Contains(t, prompt, "REPO: core/go-io on branch agent/fix-bug")
+	assert.Contains(t, prompt, "ISSUE:")
+	assert.Contains(t, prompt, "Server crashes on startup")
+	assert.Contains(t, prompt, "CONSTRAINTS:")
+}
+
 // --- runQA ---
 
 func TestRunQA_Good_PHPNoComposer(t *testing.T) {

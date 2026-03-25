@@ -4,10 +4,12 @@ package agentic
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCoreRoot_Good_EnvVar(t *testing.T) {
@@ -141,4 +143,57 @@ func TestGeneratePlanID_Good(t *testing.T) {
 	id := generatePlanID("Fix the login bug in auth service")
 	assert.True(t, len(id) > 0)
 	assert.True(t, strings.Contains(id, "fix-the-login-bug"))
+}
+
+// --- DefaultBranch ---
+
+func TestPaths_DefaultBranch_Good(t *testing.T) {
+	dir := t.TempDir()
+
+	// Init git repo with "main" branch
+	cmd := exec.Command("git", "init", "-b", "main", dir)
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "-C", dir, "config", "user.name", "Test")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "-C", dir, "config", "user.email", "test@test.com")
+	require.NoError(t, cmd.Run())
+
+	require.NoError(t, os.WriteFile(dir+"/README.md", []byte("# Test"), 0o644))
+	cmd = exec.Command("git", "-C", dir, "add", ".")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
+	require.NoError(t, cmd.Run())
+
+	branch := DefaultBranch(dir)
+	assert.Equal(t, "main", branch)
+}
+
+func TestPaths_DefaultBranch_Bad(t *testing.T) {
+	// Non-git directory — should return "main" (default)
+	dir := t.TempDir()
+	branch := DefaultBranch(dir)
+	assert.Equal(t, "main", branch)
+}
+
+func TestPaths_DefaultBranch_Ugly(t *testing.T) {
+	dir := t.TempDir()
+
+	// Init git repo with "master" branch
+	cmd := exec.Command("git", "init", "-b", "master", dir)
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "-C", dir, "config", "user.name", "Test")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "-C", dir, "config", "user.email", "test@test.com")
+	require.NoError(t, cmd.Run())
+
+	require.NoError(t, os.WriteFile(dir+"/README.md", []byte("# Test"), 0o644))
+	cmd = exec.Command("git", "-C", dir, "add", ".")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
+	require.NoError(t, cmd.Run())
+
+	branch := DefaultBranch(dir)
+	assert.Equal(t, "master", branch)
 }

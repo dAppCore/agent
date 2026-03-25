@@ -180,3 +180,77 @@ func TestReadStatus_Ugly_EmptyFile(t *testing.T) {
 	_, err := ReadStatus(dir)
 	assert.Error(t, err)
 }
+
+// --- status() dead PID detection ---
+
+func TestStatus_Status_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Case 1: running + dead PID + BLOCKED.md → should detect as blocked
+	ws1 := filepath.Join(wsRoot, "dead-blocked")
+	require.True(t, fs.EnsureDir(filepath.Join(ws1, "repo")).OK)
+	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+		PID:    999999,
+	}))
+	require.True(t, fs.Write(filepath.Join(ws1, "repo", "BLOCKED.md"), "Need API credentials").OK)
+
+	// Case 2: running + dead PID + agent log → completed
+	ws2 := filepath.Join(wsRoot, "dead-completed")
+	require.True(t, fs.EnsureDir(filepath.Join(ws2, "repo")).OK)
+	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-log",
+		Agent:  "claude",
+		PID:    999999,
+	}))
+	require.True(t, fs.Write(filepath.Join(ws2, "agent-claude.log"), "agent finished ok").OK)
+
+	// Case 3: running + dead PID + no log + no BLOCKED.md → failed
+	ws3 := filepath.Join(wsRoot, "dead-failed")
+	require.True(t, fs.EnsureDir(filepath.Join(ws3, "repo")).OK)
+	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
+		Status: "running",
+		Repo:   "agent",
+		Agent:  "gemini",
+		PID:    999999,
+	}))
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.status(nil, nil, StatusInput{})
+	require.NoError(t, err)
+	assert.Equal(t, 3, out.Total)
+
+	// Verify case 1: blocked
+	assert.Len(t, out.Blocked, 1)
+	assert.Equal(t, "go-io", out.Blocked[0].Repo)
+	assert.Equal(t, "Need API credentials", out.Blocked[0].Question)
+
+	// Verify case 2: completed
+	assert.Equal(t, 1, out.Completed)
+
+	// Verify case 3: failed
+	assert.Equal(t, 1, out.Failed)
+
+	// Verify statuses were persisted to disk
+	st1, err := ReadStatus(ws1)
+	require.NoError(t, err)
+	assert.Equal(t, "blocked", st1.Status)
+
+	st2, err := ReadStatus(ws2)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", st2.Status)
+
+	st3, err := ReadStatus(ws3)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", st3.Status)
+	assert.Equal(t, "Agent process died (no output log)", st3.Question)
+}
