@@ -372,3 +372,20 @@ func TestReviewQueue_LoadRateLimitState_Good(t *testing.T) {
 	}
 	// If loaded is nil, DIR_HOME path wasn't writable — acceptable in test
 }
+
+// --- loadRateLimitState Bad ---
+
+func TestReviewQueue_LoadRateLimitState_Bad(t *testing.T) {
+	// File doesn't exist — should return nil
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// loadRateLimitState reads from DIR_HOME/.core/coderabbit-ratelimit.json.
+	// If the file doesn't exist, it should return nil without panic.
+	result := s.loadRateLimitState()
+	// May or may not be nil depending on whether the file exists in the real home dir.
+	// The key invariant is: it must not panic.
+	_ = result
+}

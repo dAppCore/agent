@@ -4,12 +4,17 @@ package agentic
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -654,4 +659,122 @@ func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
 		result := detectTestCmd("")
 		assert.Equal(t, "go test ./...", result)
 	})
+}
+
+// --- getGitLog ---
+
+func TestPrep_GetGitLog_Good(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		cmd.Env = append(cmd.Environ(),
+			"GIT_AUTHOR_NAME=Test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=Test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+	}
+	run("git", "init", "-b", "main")
+	run("git", "config", "user.name", "Test")
+	run("git", "config", "user.email", "test@test.com")
+	require.True(t, fs.Write(filepath.Join(dir, "README.md"), "# Test").OK)
+	run("git", "add", "README.md")
+	run("git", "commit", "-m", "initial commit")
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	log := s.getGitLog(dir)
+	assert.NotEmpty(t, log)
+	assert.Contains(t, log, "initial commit")
+}
+
+func TestPrep_GetGitLog_Bad(t *testing.T) {
+	// Non-git dir returns empty
+	dir := t.TempDir()
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	log := s.getGitLog(dir)
+	assert.Empty(t, log)
+}
+
+func TestPrep_GetGitLog_Ugly(t *testing.T) {
+	// Git repo with no commits — git log should fail, returns empty
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", "-b", "main")
+	cmd.Dir = dir
+	require.NoError(t, cmd.Run())
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	log := s.getGitLog(dir)
+	assert.Empty(t, log)
+}
+
+// --- prepWorkspace Good ---
+
+func TestPrep_PrepWorkspace_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	// Mock Forge API for issue body
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"number": 1,
+			"title":  "Fix tests",
+			"body":   "Tests are broken",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	// Create a source repo to clone from
+	srcRepo := filepath.Join(root, "src", "core", "test-repo")
+	run := func(dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		cmd.Env = append(cmd.Environ(),
+			"GIT_AUTHOR_NAME=Test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=Test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+	}
+	require.True(t, fs.EnsureDir(srcRepo).OK)
+	run(srcRepo, "git", "init", "-b", "main")
+	run(srcRepo, "git", "config", "user.name", "Test")
+	run(srcRepo, "git", "config", "user.email", "test@test.com")
+	require.True(t, fs.Write(filepath.Join(srcRepo, "README.md"), "# Test").OK)
+	run(srcRepo, "git", "add", "README.md")
+	run(srcRepo, "git", "commit", "-m", "initial commit")
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		codePath:  filepath.Join(root, "src"),
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+		Repo:  "test-repo",
+		Issue: 1,
+		Task:  "Fix tests",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotEmpty(t, out.WorkspaceDir)
+	assert.NotEmpty(t, out.Branch)
+	assert.Contains(t, out.Branch, "agent/")
 }

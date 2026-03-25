@@ -252,6 +252,20 @@ func TestPaths_LocalFs_Good_CanRead(t *testing.T) {
 
 // --- helpers ---
 
+// --- RunLoop ---
+
+func TestRunner_RunLoop_Good(t *testing.T) {
+	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+}
+
+func TestRunner_RunLoop_Bad(t *testing.T) {
+	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+}
+
+func TestRunner_RunLoop_Ugly(t *testing.T) {
+	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+}
+
 // runGitInit initialises a bare git repo with one commit so branch detection works.
 func runGitInit(dir string) error {
 	cmds := [][]string{

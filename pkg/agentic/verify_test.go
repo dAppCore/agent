@@ -763,3 +763,67 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 	result := s.runVerification(dir)
 	assert.Equal(t, "go test ./...", result.testCmd) // Go first in priority chain
 }
+
+// --- runGoTests ---
+
+func TestVerify_RunGoTests_Good(t *testing.T) {
+	dir := t.TempDir()
+	// Create a valid Go project with a passing test
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "main.go"), "package testproj\n\nfunc Add(a, b int) int { return a + b }\n").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "main_test.go"), `package testproj
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	if Add(1, 2) != 3 {
+		t.Fatal("expected 3")
+	}
+}
+`).OK)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runGoTests(dir)
+	assert.True(t, result.passed)
+	assert.Equal(t, "go test ./...", result.testCmd)
+	assert.Equal(t, 0, result.exitCode)
+}
+
+func TestVerify_RunGoTests_Bad(t *testing.T) {
+	dir := t.TempDir()
+	// Create a broken Go project — compilation error
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runGoTests(dir)
+	assert.False(t, result.passed)
+	assert.Equal(t, "go test ./...", result.testCmd)
+	assert.Equal(t, 1, result.exitCode)
+}
+
+func TestVerify_RunGoTests_Ugly(t *testing.T) {
+	dir := t.TempDir()
+	// go.mod but no test files — Go considers this a pass
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "main.go"), "package empty\n").OK)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runGoTests(dir)
+	// No test files is a pass in go test
+	assert.True(t, result.passed)
+	assert.Equal(t, "go test ./...", result.testCmd)
+	assert.Equal(t, 0, result.exitCode)
+}

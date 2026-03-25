@@ -355,3 +355,33 @@ func TestPaths_GitHubOrg_Good_Custom(t *testing.T) {
 	t.Setenv("GITHUB_ORG", "my-org")
 	assert.Equal(t, "my-org", GitHubOrg())
 }
+
+// --- listLocalRepos Ugly ---
+
+func TestMirror_ListLocalRepos_Ugly(t *testing.T) {
+	base := t.TempDir()
+
+	// Create two git repos
+	for _, name := range []string{"real-repo-a", "real-repo-b"} {
+		repoDir := filepath.Join(base, name)
+		cmd := exec.Command("git", "init", repoDir)
+		require.NoError(t, cmd.Run())
+	}
+
+	// Create non-git directories (no .git inside)
+	for _, name := range []string{"plain-dir", "another-dir"} {
+		require.True(t, fs.EnsureDir(filepath.Join(base, name)).OK)
+	}
+
+	// Create a regular file (not a directory)
+	require.True(t, fs.Write(filepath.Join(base, "some-file.txt"), "hello").OK)
+
+	s := &PrepSubsystem{}
+	repos := s.listLocalRepos(base)
+	assert.Contains(t, repos, "real-repo-a")
+	assert.Contains(t, repos, "real-repo-b")
+	assert.NotContains(t, repos, "plain-dir")
+	assert.NotContains(t, repos, "another-dir")
+	assert.NotContains(t, repos, "some-file.txt")
+	assert.Len(t, repos, 2)
+}
