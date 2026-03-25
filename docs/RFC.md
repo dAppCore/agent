@@ -15,6 +15,42 @@ core/agent dispatches AI agents (Claude, Codex, Gemini) to work on tasks in sand
 
 core/go provides the primitives. core/agent composes them.
 
+### Current State (2026-03-25)
+
+The codebase is PRE-migration. The RFC describes the v0.8.0 target. What exists today:
+
+- `pkg/agentic/proc.go` — standalone process helpers with `ensureProcess()`. **Delete** — replace with `s.Core().Process()`
+- `pkg/agentic/handlers.go` — nested `c.ACTION()` cascade 4 levels deep. **Replace** with `c.Task("agent.completion")`
+- `pkg/agentic/commands.go` — closures already extracted to named methods (done in prior session)
+- `pkg/agentic/commands_forge.go` — forge command methods (done)
+- `pkg/agentic/commands_workspace.go` — workspace command methods (done)
+- `pkg/agentic/dispatch.go` — `spawnAgent` decomposed into 7 functions (done)
+- `pkg/agentic/status.go` — uses `os.WriteFile` for status.json. **Replace** with `Fs.WriteAtomic`
+- `pkg/agentic/paths.go` — uses `unsafe.Pointer` to bypass Fs.root. **Replace** with `Fs.NewUnrestricted()`
+- `pkg/messages/` — typed IPC message structs (`AgentCompleted`, `QAResult`, etc.)
+- `pkg/brain/` — OpenBrain integration (recall/remember)
+- `pkg/monitor/` — agent monitoring + notifications
+- `pkg/setup/` — workspace scaffolding
+- `OnStartup`/`OnShutdown` — currently return `error`. **Change** to return `Result`
+
+### File Layout
+
+```
+cmd/core-agent/main.go       — entry point: core.New + Run
+pkg/agentic/                  — orchestration (dispatch, prep, verify, scan, commands)
+pkg/agentic/proc.go           — DELETE (replace with c.Process())
+pkg/agentic/handlers.go       — REWRITE (cascade → Task pipeline)
+pkg/agentic/status.go         — MIGRATE (os.WriteFile → WriteAtomic)
+pkg/agentic/paths.go          — MIGRATE (unsafe.Pointer → NewUnrestricted)
+pkg/brain/                    — OpenBrain (recall, remember, search)
+pkg/lib/                      — embedded templates, personas, flows, plans
+pkg/messages/                 — typed message structs for IPC broadcast
+pkg/monitor/                  — agent monitoring + channel notifications
+pkg/setup/                    — workspace detection + scaffolding
+claude/                       — Claude Code plugin definitions
+docs/                         — RFC, plans, architecture
+```
+
 ---
 
 ## 2. Service Registration
@@ -217,13 +253,15 @@ MCP auto-exposes all registered Actions as tools:
 ```go
 func (s *MCPService) OnStartup(ctx context.Context) core.Result {
     for _, name := range s.Core().Actions() {
+        name := name  // capture loop variable
         action := s.Core().Action(name)
         s.server.AddTool(mcp.Tool{
             Name:        name,
             Description: action.Description,
             InputSchema: schemaFromOptions(action.Schema),
             Handler: func(ctx context.Context, input map[string]any) (any, error) {
-                r := action.Run(ctx, optionsFromInput(input))
+                // Re-resolve action at call time (not captured pointer)
+                r := s.Core().Action(name).Run(ctx, optionsFromInput(input))
                 if !r.OK { return nil, r.Value.(error) }
                 return r.Value, nil
             },
