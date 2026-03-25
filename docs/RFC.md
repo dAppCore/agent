@@ -5,7 +5,7 @@
 
 **Status:** v0.8.0
 **Module:** `dappco.re/go/core/agent`
-**Depends on:** core/go v0.8.0, go-process v0.7.0
+**Depends on:** core/go v0.8.0, go-process v0.8.0
 
 ---
 
@@ -149,7 +149,8 @@ s.Core().Fs().WriteAtomic(statusPath, core.JSONMarshalString(status))
 
 // Read-modify-write with lock
 s.withLock(wsDir, func() {
-    st := readStatus(wsDir)
+    var st WorkspaceStatus
+    core.JSONUnmarshalString(s.Core().Fs().Read(statusPath).Value.(string), &st)
     st.Status = "completed"
     s.Core().Fs().WriteAtomic(statusPath, core.JSONMarshalString(st))
 })
@@ -377,7 +378,6 @@ c.Drive().Get("charon")
 
 ## 19. String Operations
 
-
 No `fmt`, no `strings`, no `+` concat. Core provides everything:
 
 ```go
@@ -428,15 +428,15 @@ func ExamplePrepSubsystem_handleDispatch() {
 
 ```bash
 # No disallowed imports (all 10)
-grep -rn '"os"\|"os/exec"\|"io"\|"fmt"\|"errors"\|"log"\|"encoding/json"\|"path/filepath"\|"unsafe"\|"strings"' pkg/**/*.go \
+grep -rn '"os"\|"os/exec"\|"io"\|"fmt"\|"errors"\|"log"\|"encoding/json"\|"path/filepath"\|"unsafe"\|"strings"' *.go **/*.go \
   | grep -v _test.go
 
 # Test naming
-grep "^func Test" pkg/**/*_test.go \
+grep -rn "^func Test" *_test.go **/*_test.go \
   | grep -v "Test[A-Z][a-z]*_.*_\(Good\|Bad\|Ugly\)"
 
 # String concat
-grep -n '" + \| + "' pkg/**/*.go | grep -v _test.go | grep -v "//"
+grep -rn '" + \| + "' *.go **/*.go | grep -v _test.go | grep -v "//"
 ```
 
 ---
