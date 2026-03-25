@@ -3,12 +3,14 @@
 package agentic
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStatus_WriteStatus_Good(t *testing.T) {
@@ -298,4 +300,71 @@ func TestStatus_WriteStatus_Ugly(t *testing.T) {
 	assert.Equal(t, 5, read.Runs)
 	assert.Equal(t, "https://forge.lthn.ai/core/go-mcp/pulls/12", read.PRURL)
 	assert.False(t, read.UpdatedAt.IsZero(), "UpdatedAt must survive roundtrip")
+}
+
+// --- writeStatus Bad ---
+
+func TestStatus_WriteStatus_Bad_ReadOnlyPath(t *testing.T) {
+	// go-io fs.Write auto-creates dirs, so test with /dev/null parent
+	st := &WorkspaceStatus{Status: "running", Agent: "codex"}
+	err := writeStatus("/dev/null/impossible", st)
+	assert.Error(t, err, "writeStatus to an impossible path should fail")
+}
+
+// --- status() MCP handler Good/Bad ---
+
+func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Create a running workspace with a live PID (our own PID)
+	ws1 := filepath.Join(wsRoot, "task-running")
+	require.True(t, fs.EnsureDir(filepath.Join(ws1, "repo")).OK)
+	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Agent:  "codex",
+		Task:   "fix tests",
+	}))
+
+	// Create a blocked workspace
+	ws2 := filepath.Join(wsRoot, "task-blocked")
+	require.True(t, fs.EnsureDir(filepath.Join(ws2, "repo")).OK)
+	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
+		Status:   "blocked",
+		Repo:     "go-log",
+		Agent:    "gemini",
+		Question: "Which log format?",
+	}))
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.status(context.Background(), nil, StatusInput{})
+	require.NoError(t, err)
+	assert.Equal(t, 2, out.Total)
+	assert.Equal(t, 1, out.Completed)
+	assert.Len(t, out.Blocked, 1)
+	assert.Equal(t, "go-log", out.Blocked[0].Repo)
+	assert.Equal(t, "Which log format?", out.Blocked[0].Question)
+}
+
+func TestStatus_Status_Bad_EmptyWorkspaceRoot(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	// Do NOT create the workspace/ subdirectory
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.status(context.Background(), nil, StatusInput{})
+	require.NoError(t, err, "status on missing workspace dir should not error")
+	assert.Equal(t, 0, out.Total)
+	assert.Equal(t, 0, out.Running)
+	assert.Equal(t, 0, out.Completed)
 }

@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -193,4 +194,136 @@ func TestPrep_SetCore_Good(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s.SetCore(c)
 	assert.NotNil(t, s.core)
+}
+
+// --- sanitiseBranchSlug Bad/Ugly ---
+
+func TestSanitise_SanitiseBranchSlug_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, "", sanitiseBranchSlug("", 40))
+}
+
+func TestSanitise_SanitiseBranchSlug_Bad_OnlySpecialChars(t *testing.T) {
+	assert.Equal(t, "", sanitiseBranchSlug("!@#$%^&*()", 40))
+}
+
+func TestSanitise_SanitiseBranchSlug_Bad_OnlyDashes(t *testing.T) {
+	assert.Equal(t, "", sanitiseBranchSlug("------", 40))
+}
+
+func TestSanitise_SanitiseBranchSlug_Ugly_VeryLongString(t *testing.T) {
+	long := strings.Repeat("abcdefghij", 100)
+	result := sanitiseBranchSlug(long, 50)
+	assert.LessOrEqual(t, len(result), 50)
+}
+
+func TestSanitise_SanitiseBranchSlug_Ugly_Unicode(t *testing.T) {
+	// Unicode chars should be replaced with dashes, then edges trimmed
+	result := sanitiseBranchSlug("\u00e9\u00e0\u00fc\u00f1\u00f0", 40)
+	assert.NotContains(t, result, "\u00e9")
+	// All replaced with dashes, then trimmed = empty
+	assert.Equal(t, "", result)
+}
+
+func TestSanitise_SanitiseBranchSlug_Ugly_ZeroMax(t *testing.T) {
+	// max=0 means no limit
+	result := sanitiseBranchSlug("hello-world", 0)
+	assert.Equal(t, "hello-world", result)
+}
+
+// --- sanitisePlanSlug Bad/Ugly ---
+
+func TestSanitise_SanitisePlanSlug_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, "", sanitisePlanSlug(""))
+}
+
+func TestSanitise_SanitisePlanSlug_Bad_OnlySpecialChars(t *testing.T) {
+	assert.Equal(t, "", sanitisePlanSlug("!@#$%^&*()"))
+}
+
+func TestSanitise_SanitisePlanSlug_Bad_OnlySpaces(t *testing.T) {
+	// Spaces become dashes, then collapsed, then trimmed
+	assert.Equal(t, "", sanitisePlanSlug("     "))
+}
+
+func TestSanitise_SanitisePlanSlug_Ugly_VeryLongString(t *testing.T) {
+	long := strings.Repeat("abcdefghij ", 20)
+	result := sanitisePlanSlug(long)
+	assert.LessOrEqual(t, len(result), 30)
+}
+
+func TestSanitise_SanitisePlanSlug_Ugly_Unicode(t *testing.T) {
+	result := sanitisePlanSlug("\u00e9\u00e0\u00fc\u00f1\u00f0")
+	assert.Equal(t, "", result, "unicode chars should be stripped, leaving empty string")
+}
+
+func TestSanitise_SanitisePlanSlug_Ugly_AllDashInput(t *testing.T) {
+	assert.Equal(t, "", sanitisePlanSlug("---"))
+}
+
+// --- sanitiseFilename Bad/Ugly ---
+
+func TestSanitise_SanitiseFilename_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, "", sanitiseFilename(""))
+}
+
+func TestSanitise_SanitiseFilename_Bad_OnlySpecialChars(t *testing.T) {
+	result := sanitiseFilename("!@#$%^&*()")
+	// All replaced with dashes
+	assert.Equal(t, "----------", result)
+}
+
+func TestSanitise_SanitiseFilename_Ugly_VeryLongString(t *testing.T) {
+	long := strings.Repeat("a", 1000)
+	result := sanitiseFilename(long)
+	assert.Equal(t, 1000, len(result))
+}
+
+func TestSanitise_SanitiseFilename_Ugly_Unicode(t *testing.T) {
+	result := sanitiseFilename("\u00e9\u00e0\u00fc\u00f1\u00f0")
+	// All replaced with dashes
+	for _, r := range result {
+		assert.Equal(t, '-', r)
+	}
+}
+
+func TestSanitise_SanitiseFilename_Ugly_PreservesDotsUnderscores(t *testing.T) {
+	assert.Equal(t, "my_file.test.txt", sanitiseFilename("my_file.test.txt"))
+}
+
+// --- collapseRepeatedRune Bad/Ugly ---
+
+func TestSanitise_CollapseRepeatedRune_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, "", collapseRepeatedRune("", '-'))
+}
+
+func TestSanitise_CollapseRepeatedRune_Bad_AllTarget(t *testing.T) {
+	assert.Equal(t, "-", collapseRepeatedRune("-----", '-'))
+}
+
+func TestSanitise_CollapseRepeatedRune_Ugly_Unicode(t *testing.T) {
+	assert.Equal(t, "h\u00e9llo", collapseRepeatedRune("h\u00e9\u00e9\u00e9llo", '\u00e9'))
+}
+
+func TestSanitise_CollapseRepeatedRune_Ugly_VeryLong(t *testing.T) {
+	long := strings.Repeat("--a", 500)
+	result := collapseRepeatedRune(long, '-')
+	assert.NotContains(t, result, "--")
+}
+
+// --- trimRuneEdges Bad/Ugly ---
+
+func TestSanitise_TrimRuneEdges_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, "", trimRuneEdges("", '-'))
+}
+
+func TestSanitise_TrimRuneEdges_Bad_AllTarget(t *testing.T) {
+	assert.Equal(t, "", trimRuneEdges("-----", '-'))
+}
+
+func TestSanitise_TrimRuneEdges_Ugly_Unicode(t *testing.T) {
+	assert.Equal(t, "hello", trimRuneEdges("\u00e9hello\u00e9\u00e9", '\u00e9'))
+}
+
+func TestSanitise_TrimRuneEdges_Ugly_NoMatch(t *testing.T) {
+	assert.Equal(t, "hello", trimRuneEdges("hello", '-'))
 }

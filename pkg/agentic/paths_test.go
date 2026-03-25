@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	core "dappco.re/go/core"
 )
 
 func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
@@ -196,4 +198,144 @@ func TestPaths_DefaultBranch_Ugly(t *testing.T) {
 
 	branch := DefaultBranch(dir)
 	assert.Equal(t, "master", branch)
+}
+
+// --- LocalFs Bad/Ugly ---
+
+func TestPaths_LocalFs_Bad_ReadNonExistent(t *testing.T) {
+	f := LocalFs()
+	r := f.Read("/tmp/nonexistent-path-" + strings.Repeat("x", 20) + "/file.txt")
+	assert.False(t, r.OK, "reading a non-existent file should fail")
+}
+
+func TestPaths_LocalFs_Ugly_EmptyPath(t *testing.T) {
+	f := LocalFs()
+	assert.NotPanics(t, func() {
+		f.Read("")
+	})
+}
+
+// --- WorkspaceRoot Bad/Ugly ---
+
+func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "")
+	home, _ := os.UserHomeDir()
+	// Should fall back to ~/Code/.core/workspace
+	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
+}
+
+func TestPaths_WorkspaceRoot_Ugly_TrailingSlash(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/tmp/test-core/")
+	// Verify it still constructs a valid path (JoinPath handles trailing slash)
+	ws := WorkspaceRoot()
+	assert.NotEmpty(t, ws)
+	assert.Contains(t, ws, "workspace")
+}
+
+// --- CoreRoot Bad/Ugly ---
+
+func TestPaths_CoreRoot_Bad_WhitespaceEnv(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "   ")
+	// Non-empty string (whitespace) will be used as-is
+	root := CoreRoot()
+	assert.Equal(t, "   ", root)
+}
+
+func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/tmp/\u00e9\u00e0\u00fc")
+	assert.NotPanics(t, func() {
+		root := CoreRoot()
+		assert.Equal(t, "/tmp/\u00e9\u00e0\u00fc", root)
+	})
+}
+
+// --- PlansRoot Bad/Ugly ---
+
+func TestPaths_PlansRoot_Bad_EmptyEnv(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "")
+	home, _ := os.UserHomeDir()
+	assert.Equal(t, home+"/Code/.core/plans", PlansRoot())
+}
+
+func TestPaths_PlansRoot_Ugly_NestedPath(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/a/b/c/d/e/f")
+	assert.Equal(t, "/a/b/c/d/e/f/plans", PlansRoot())
+}
+
+// --- AgentName Bad/Ugly ---
+
+func TestPaths_AgentName_Bad_WhitespaceEnv(t *testing.T) {
+	t.Setenv("AGENT_NAME", "   ")
+	// Whitespace is non-empty, so returned as-is
+	assert.Equal(t, "   ", AgentName())
+}
+
+func TestPaths_AgentName_Ugly_UnicodeEnv(t *testing.T) {
+	t.Setenv("AGENT_NAME", "\u00e9nchantr\u00efx")
+	assert.NotPanics(t, func() {
+		name := AgentName()
+		assert.Equal(t, "\u00e9nchantr\u00efx", name)
+	})
+}
+
+// --- GitHubOrg Bad/Ugly ---
+
+func TestPaths_GitHubOrg_Bad_WhitespaceEnv(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "   ")
+	assert.Equal(t, "   ", GitHubOrg())
+}
+
+func TestPaths_GitHubOrg_Ugly_SpecialChars(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "org/with/slashes")
+	assert.NotPanics(t, func() {
+		org := GitHubOrg()
+		assert.Equal(t, "org/with/slashes", org)
+	})
+}
+
+// --- parseInt Bad/Ugly ---
+
+func TestPaths_ParseInt_Bad_EmptyString(t *testing.T) {
+	assert.Equal(t, 0, parseInt(""))
+}
+
+func TestPaths_ParseInt_Bad_NonNumeric(t *testing.T) {
+	assert.Equal(t, 0, parseInt("abc"))
+	assert.Equal(t, 0, parseInt("12.5"))
+	assert.Equal(t, 0, parseInt("0xff"))
+}
+
+func TestPaths_ParseInt_Bad_WhitespaceOnly(t *testing.T) {
+	assert.Equal(t, 0, parseInt("   "))
+}
+
+func TestPaths_ParseInt_Ugly_NegativeNumber(t *testing.T) {
+	assert.Equal(t, -42, parseInt("-42"))
+}
+
+func TestPaths_ParseInt_Ugly_VeryLargeNumber(t *testing.T) {
+	assert.Equal(t, 0, parseInt("99999999999999999999999"))
+}
+
+func TestPaths_ParseInt_Ugly_LeadingTrailingWhitespace(t *testing.T) {
+	assert.Equal(t, 42, parseInt("  42  "))
+}
+
+// --- newFs Bad/Ugly ---
+
+func TestPaths_NewFs_Bad_EmptyRoot(t *testing.T) {
+	f := newFs("")
+	assert.NotNil(t, f, "newFs with empty root should not return nil")
+}
+
+func TestPaths_NewFs_Ugly_UnicodeRoot(t *testing.T) {
+	assert.NotPanics(t, func() {
+		f := newFs("/tmp/\u00e9\u00e0\u00fc/\u00f1o\u00f0\u00e9s")
+		assert.NotNil(t, f)
+	})
+}
+
+func TestPaths_NewFs_Ugly_VerifyIsFs(t *testing.T) {
+	f := newFs("/tmp")
+	assert.IsType(t, &core.Fs{}, f)
 }

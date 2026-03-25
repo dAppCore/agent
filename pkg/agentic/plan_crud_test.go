@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -350,4 +351,158 @@ func TestPlan_PlanPath_Bad_Dot(t *testing.T) {
 	assert.Contains(t, planPath("/tmp", "."), "invalid")
 	assert.Contains(t, planPath("/tmp", ".."), "invalid")
 	assert.Contains(t, planPath("/tmp", ""), "invalid")
+}
+
+// --- planCreate Ugly ---
+
+func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	longTitle := strings.Repeat("Long Title With Many Words ", 20)
+	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     longTitle,
+		Objective: "Test very long title handling",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotEmpty(t, out.ID)
+	// The slug portion should be truncated
+	assert.LessOrEqual(t, len(out.ID), 50, "ID should be reasonably short")
+}
+
+func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "\u00e9\u00e0\u00fc\u00f1\u00f0 Plan \u2603\u2764\u270c",
+		Objective: "Handle unicode gracefully",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotEmpty(t, out.ID)
+	// Should be readable from disk
+	_, statErr := os.Stat(out.Path)
+	assert.NoError(t, statErr)
+}
+
+// --- planRead Ugly ---
+
+func TestPlan_PlanRead_Ugly_SpecialCharsInID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	// Try to read with special chars — should safely not find it
+	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "plan-with-<script>-chars"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestPlan_PlanRead_Ugly_UnicodeID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "\u00e9\u00e0\u00fc-plan"})
+	assert.Error(t, err, "unicode ID should not find a file")
+}
+
+// --- planUpdate Ugly ---
+
+func TestPlan_PlanUpdate_Ugly_EmptyPhasesArray(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Phase Test",
+		Objective: "Test empty phases",
+		Phases:    []Phase{{Name: "Phase 1", Status: "pending"}},
+	})
+
+	// Update with empty phases array — should replace with no phases
+	_, updateOut, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{
+		ID:     createOut.ID,
+		Phases: []Phase{},
+	})
+	require.NoError(t, err)
+	// Empty slice is still non-nil, so it replaces
+	assert.Empty(t, updateOut.Plan.Phases)
+}
+
+func TestPlan_PlanUpdate_Ugly_UnicodeNotes(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Unicode Notes",
+		Objective: "Test unicode in notes",
+	})
+
+	_, updateOut, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{
+		ID:    createOut.ID,
+		Notes: "\u00e9\u00e0\u00fc\u00f1 notes with \u2603 snowman and \u00a3 pound sign",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, updateOut.Plan.Notes, "\u2603")
+}
+
+// --- planDelete Ugly ---
+
+func TestPlan_PlanDelete_Ugly_PathTraversalAttempt(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	// Path traversal attempt should be sanitised and not find anything
+	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "../../etc/passwd"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestPlan_PlanDelete_Ugly_UnicodeID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "\u00e9\u00e0\u00fc-to-delete"})
+	assert.Error(t, err, "unicode ID should not match a real plan")
+}
+
+// --- planPath Ugly ---
+
+func TestPlan_PlanPath_Ugly_UnicodeID(t *testing.T) {
+	result := planPath("/tmp/plans", "\u00e9\u00e0\u00fc-plan-\u2603")
+	assert.NotPanics(t, func() {
+		_ = planPath("/tmp", "\u00e9\u00e0\u00fc")
+	})
+	assert.Contains(t, result, ".json")
+}
+
+func TestPlan_PlanPath_Ugly_VeryLongID(t *testing.T) {
+	longID := strings.Repeat("a", 500)
+	result := planPath("/tmp/plans", longID)
+	assert.Contains(t, result, ".json")
+	assert.NotEmpty(t, result)
+}
+
+// --- validPlanStatus Ugly ---
+
+func TestPlan_ValidPlanStatus_Ugly_UnicodeStatus(t *testing.T) {
+	assert.False(t, validPlanStatus("\u00e9\u00e0\u00fc"))
+	assert.False(t, validPlanStatus("\u2603"))
+	assert.False(t, validPlanStatus("\u0000"))
+}
+
+func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
+	assert.False(t, validPlanStatus("Draft"))     // capital D
+	assert.False(t, validPlanStatus("DRAFT"))      // all caps
+	assert.False(t, validPlanStatus("in-progress")) // hyphen instead of underscore
+	assert.False(t, validPlanStatus(" draft"))      // leading space
+	assert.False(t, validPlanStatus("draft "))      // trailing space
 }

@@ -569,3 +569,116 @@ func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 	assert.Equal(t, "failed", st.Status)
 	assert.Contains(t, st.Question, "cleared by shutdown_now")
 }
+
+// --- dispatchStart Bad/Ugly ---
+
+func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
+	s := &PrepSubsystem{
+		frozen:    true,
+		pokeCh:    nil,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Should not panic even with nil pokeCh (Poke is nil-safe)
+	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.False(t, s.frozen, "frozen should be cleared even with nil pokeCh")
+}
+
+func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
+	s := &PrepSubsystem{
+		frozen:    false, // already unfrozen
+		pokeCh:    make(chan struct{}, 1),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.False(t, s.frozen, "should remain unfrozen")
+	assert.Contains(t, out.Message, "started")
+}
+
+// --- shutdownGraceful Bad/Ugly ---
+
+func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	s := &PrepSubsystem{
+		frozen:    true, // already frozen
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.True(t, s.frozen, "should remain frozen")
+	assert.Contains(t, out.Message, "frozen")
+}
+
+func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Create workspaces with various statuses
+	for _, name := range []string{"ws-completed", "ws-failed", "ws-blocked"} {
+		ws := filepath.Join(wsRoot, name)
+		require.True(t, fs.EnsureDir(ws).OK)
+		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+			Status: "completed",
+			Repo:   "go-io",
+			Agent:  "codex",
+		}))
+	}
+
+	s := &PrepSubsystem{
+		frozen:    false,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.True(t, s.frozen)
+	// Running count should be 0 (no live PIDs)
+	assert.Equal(t, 0, out.Running)
+}
+
+// --- shutdownNow Bad ---
+
+func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Create completed workspaces only (no running PIDs to kill)
+	for i := 1; i <= 2; i++ {
+		ws := filepath.Join(wsRoot, "task-"+itoa(i))
+		require.True(t, fs.EnsureDir(ws).OK)
+		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+			Status: "completed",
+			Repo:   "go-io",
+			Agent:  "codex",
+		}))
+	}
+
+	s := &PrepSubsystem{
+		frozen:    false,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.True(t, s.frozen)
+	assert.Contains(t, out.Message, "killed 0")
+	assert.Contains(t, out.Message, "cleared 0")
+}
