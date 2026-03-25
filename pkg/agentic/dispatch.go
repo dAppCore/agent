@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"syscall"
 	"time"
 
 	"dappco.re/go/agent/pkg/messages"
@@ -370,19 +369,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	s.startIssueTracking(wsDir)
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-proc.Done():
-				goto done
-			case <-ticker.C:
-				if err := syscall.Kill(pid, 0); err != nil {
-					goto done
-				}
-			}
-		}
-	done:
+		<-proc.Done()
 		s.onAgentComplete(agent, wsDir, outputFile,
 			proc.Info().ExitCode, string(proc.Info().Status), proc.Output())
 	}()
