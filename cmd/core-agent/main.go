@@ -89,8 +89,7 @@ func main() {
 		},
 	})
 
-	// Forge CLI commands (in forge.go — @TODO move to forge service)
-	registerForgeCommands(c)
+	// All commands registered by services during OnStartup
 	// registerFlowCommands(c) — on feat/flow-system branch
 
 	// Run: ServiceStartup → Cli → ServiceShutdown → os.Exit if error

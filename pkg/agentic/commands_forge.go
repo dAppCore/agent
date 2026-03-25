@@ -1,31 +1,18 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-package main
+package agentic
 
 import (
 	"context"
 	"strconv"
 
-	"dappco.re/go/core"
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	forge_types "dappco.re/go/core/forge/types"
 )
 
-// newForgeClient creates a Forge client from env config.
-func newForgeClient() *forge.Forge {
-	url := core.Env("FORGE_URL")
-	if url == "" {
-		url = "https://forge.lthn.ai"
-	}
-	token := core.Env("FORGE_TOKEN")
-	if token == "" {
-		token = core.Env("GITEA_TOKEN")
-	}
-	return forge.NewForge(url, token)
-}
-
-// parseArgs extracts org and repo from opts. First positional arg is repo, --org flag defaults to "core".
-func parseArgs(opts core.Options) (org, repo string, num int64) {
+// parseForgeArgs extracts org and repo from opts.
+func parseForgeArgs(opts core.Options) (org, repo string, num int64) {
 	org = opts.String("org")
 	if org == "" {
 		org = "core"
@@ -39,7 +26,9 @@ func parseArgs(opts core.Options) (org, repo string, num int64) {
 
 func fmtIndex(n int64) string { return strconv.FormatInt(n, 10) }
 
-func registerForgeCommands(c *core.Core) {
+// registerForgeCommands adds Forge API commands to Core's command tree.
+func (s *PrepSubsystem) registerForgeCommands() {
+	c := s.core
 	ctx := context.Background()
 
 	// --- Issues ---
@@ -47,14 +36,13 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("issue/get", core.Command{
 		Description: "Get a Forge issue",
 		Action: func(opts core.Options) core.Result {
-			org, repo, num := parseArgs(opts)
+			org, repo, num := parseForgeArgs(opts)
 			if repo == "" || num == 0 {
 				core.Print(nil, "usage: core-agent issue get <repo> --number=N [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			issue, err := f.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
+						issue, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -74,14 +62,13 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("issue/list", core.Command{
 		Description: "List Forge issues for a repo",
 		Action: func(opts core.Options) core.Result {
-			org, repo, _ := parseArgs(opts)
+			org, repo, _ := parseForgeArgs(opts)
 			if repo == "" {
 				core.Print(nil, "usage: core-agent issue list <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			issues, err := f.Issues.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+						issues, err := s.forge.Issues.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -100,15 +87,14 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("issue/comment", core.Command{
 		Description: "Comment on a Forge issue",
 		Action: func(opts core.Options) core.Result {
-			org, repo, num := parseArgs(opts)
+			org, repo, num := parseForgeArgs(opts)
 			body := opts.String("body")
 			if repo == "" || num == 0 || body == "" {
 				core.Print(nil, "usage: core-agent issue comment <repo> --number=N --body=\"text\" [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			comment, err := f.Issues.CreateComment(ctx, org, repo, num, body)
+						comment, err := s.forge.Issues.CreateComment(ctx, org, repo, num, body)
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -122,7 +108,7 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("issue/create", core.Command{
 		Description: "Create a Forge issue",
 		Action: func(opts core.Options) core.Result {
-			org, repo, _ := parseArgs(opts)
+			org, repo, _ := parseForgeArgs(opts)
 			title := opts.String("title")
 			body := opts.String("body")
 			labels := opts.String("labels")
@@ -142,8 +128,7 @@ func registerForgeCommands(c *core.Core) {
 
 			// Resolve milestone name to ID
 			if milestone != "" {
-				f := newForgeClient()
-				milestones, err := f.Milestones.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+								milestones, err := s.forge.Milestones.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
 				if err == nil {
 					for _, m := range milestones {
 						if m.Title == milestone {
@@ -161,9 +146,8 @@ func registerForgeCommands(c *core.Core) {
 
 			// Resolve label names to IDs if provided
 			if labels != "" {
-				f := newForgeClient()
-				labelNames := core.Split(labels, ",")
-				allLabels, err := f.Labels.ListRepoLabels(ctx, org, repo)
+								labelNames := core.Split(labels, ",")
+				allLabels, err := s.forge.Labels.ListRepoLabels(ctx, org, repo)
 				if err == nil {
 					for _, name := range labelNames {
 						name = core.Trim(name)
@@ -177,8 +161,7 @@ func registerForgeCommands(c *core.Core) {
 				}
 			}
 
-			f := newForgeClient()
-			issue, err := f.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOpts)
+						issue, err := s.forge.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOpts)
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -195,14 +178,13 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("pr/get", core.Command{
 		Description: "Get a Forge PR",
 		Action: func(opts core.Options) core.Result {
-			org, repo, num := parseArgs(opts)
+			org, repo, num := parseForgeArgs(opts)
 			if repo == "" || num == 0 {
 				core.Print(nil, "usage: core-agent pr get <repo> --number=N [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			pr, err := f.Pulls.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
+						pr, err := s.forge.Pulls.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -225,14 +207,13 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("pr/list", core.Command{
 		Description: "List Forge PRs for a repo",
 		Action: func(opts core.Options) core.Result {
-			org, repo, _ := parseArgs(opts)
+			org, repo, _ := parseForgeArgs(opts)
 			if repo == "" {
 				core.Print(nil, "usage: core-agent pr list <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			prs, err := f.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+						prs, err := s.forge.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -251,7 +232,7 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("pr/merge", core.Command{
 		Description: "Merge a Forge PR",
 		Action: func(opts core.Options) core.Result {
-			org, repo, num := parseArgs(opts)
+			org, repo, num := parseForgeArgs(opts)
 			method := opts.String("method")
 			if method == "" {
 				method = "merge"
@@ -261,8 +242,7 @@ func registerForgeCommands(c *core.Core) {
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			if err := f.Pulls.Merge(ctx, org, repo, num, method); err != nil {
+						if err := s.forge.Pulls.Merge(ctx, org, repo, num, method); err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
 			}
@@ -277,14 +257,13 @@ func registerForgeCommands(c *core.Core) {
 	c.Command("repo/get", core.Command{
 		Description: "Get Forge repo info",
 		Action: func(opts core.Options) core.Result {
-			org, repo, _ := parseArgs(opts)
+			org, repo, _ := parseForgeArgs(opts)
 			if repo == "" {
 				core.Print(nil, "usage: core-agent repo get <repo> [--org=core]")
 				return core.Result{OK: false}
 			}
 
-			f := newForgeClient()
-			r, err := f.Repos.Get(ctx, forge.Params{"owner": org, "repo": repo})
+						r, err := s.forge.Repos.Get(ctx, forge.Params{"owner": org, "repo": repo})
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
@@ -308,8 +287,7 @@ func registerForgeCommands(c *core.Core) {
 				org = "core"
 			}
 
-			f := newForgeClient()
-			repos, err := f.Repos.ListOrgRepos(ctx, org)
+						repos, err := s.forge.Repos.ListOrgRepos(ctx, org)
 			if err != nil {
 				core.Print(nil, "error: %v", err)
 				return core.Result{Value: err, OK: false}
