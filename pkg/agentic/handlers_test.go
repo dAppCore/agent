@@ -11,6 +11,7 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,4 +209,42 @@ func TestPrep_OnStartup_Good_Registers(t *testing.T) {
 
 	err := s.OnStartup(context.Background())
 	assert.NoError(t, err)
+}
+
+// --- RegisterTools (exercises all register*Tool functions) ---
+
+func TestPrep_RegisterTools_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.1"}, nil)
+	s := NewPrep()
+	s.SetCore(core.New())
+
+	assert.NotPanics(t, func() { s.RegisterTools(srv) })
+}
+
+func TestPrep_RegisterTools_Bad(t *testing.T) {
+	// RegisterTools on prep without Core — should still register tools
+	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.1"}, nil)
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() { s.RegisterTools(srv) })
+}
+
+func TestPrep_RegisterTools_Ugly(t *testing.T) {
+	// Call RegisterTools twice — should not panic or double-register
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.1"}, nil)
+	s := NewPrep()
+	s.SetCore(core.New())
+
+	assert.NotPanics(t, func() {
+		s.RegisterTools(srv)
+		s.RegisterTools(srv)
+	})
 }

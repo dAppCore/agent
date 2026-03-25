@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -355,6 +356,31 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 	assert.Contains(t, prompt, "ISSUE:")
 	assert.Contains(t, prompt, "Server crashes on startup")
 	assert.Contains(t, prompt, "CONSTRAINTS:")
+}
+
+func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+
+	// Init a real git repo with commits so git log path is covered
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "t@t.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "T").Run()
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	prompt, _, _ := s.buildPrompt(context.Background(), PrepInput{
+		Task: "Fix tests", Org: "core", Repo: "go-io",
+	}, "dev", dir)
+
+	assert.Contains(t, prompt, "RECENT CHANGES:")
+	assert.Contains(t, prompt, "init")
 }
 
 // --- runQA ---
