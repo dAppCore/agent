@@ -281,16 +281,67 @@ TestMCP_ActionAggregator_Good            — Actions appear as MCP tools
 
 ---
 
-## 14. Quality Gates (AX Principle 9)
+## 14. String Operations
+
+No `fmt`, no `strings`, no `+` concat. Core provides everything:
+
+```go
+core.Println(value)                    // not fmt.Println
+core.Sprintf("port: %d", port)        // not fmt.Sprintf
+core.Concat("hello ", name)            // not "hello " + name
+core.Path(dir, "status.json")         // not dir + "/status.json"
+core.Contains(s, "prefix")            // not strings.Contains
+core.Split(s, "/")                    // not strings.Split
+core.Trim(s)                          // not strings.TrimSpace
+```
+
+---
+
+## 15. Comments (AX Principle 2)
+
+Every exported function MUST have a usage-example comment:
+
+```go
+// gitCmd runs a git command in a directory.
+//
+//   r := s.gitCmd(ctx, "/repo", "log", "--oneline")
+func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
+```
+
+No exceptions. The comment is for every model that will ever read the code.
+
+---
+
+## 16. Example Tests (AX Principle 7b)
+
+One `{source}_example_test.go` per source file. Examples serve as test + documentation + godoc.
+
+```go
+// file: dispatch_example_test.go
+
+func ExamplePrepSubsystem_handleDispatch() {
+    c := core.New(core.WithService(agentic.Register))
+    r := c.Action("agentic.dispatch").Run(ctx, opts)
+    core.Println(r.OK)
+    // Output: true
+}
+```
+
+---
+
+## 17. Quality Gates (AX Principle 9)
 
 ```bash
-# No disallowed imports
-grep -rn '"os/exec"\|"unsafe"\|"encoding/json"\|"fmt"\|"errors"' pkg/**/*.go \
+# No disallowed imports (all 10)
+grep -rn '"os"\|"os/exec"\|"io"\|"fmt"\|"errors"\|"log"\|"encoding/json"\|"path/filepath"\|"unsafe"\|"strings"' pkg/**/*.go \
   | grep -v _test.go
 
 # Test naming
 grep "^func Test" pkg/**/*_test.go \
   | grep -v "Test[A-Z][a-z]*_.*_\(Good\|Bad\|Ugly\)"
+
+# String concat
+grep -n '" + \| + "' pkg/**/*.go | grep -v _test.go | grep -v "//"
 ```
 
 ---
