@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -171,4 +172,100 @@ func TestRemoteClient_DrainSSE_Good(t *testing.T) {
 
 	// Should not panic
 	drainSSE(resp)
+}
+
+// --- McpInitialize Ugly ---
+
+func TestRemoteClient_McpInitialize_Ugly_NonJSONSSE(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Mcp-Session-Id", "sess-ugly")
+		w.Header().Set("Content-Type", "text/event-stream")
+		// Return non-JSON in SSE data line
+		fmt.Fprintf(w, "data: this is not json at all\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	// mcpInitialize drains the SSE body but doesn't parse it — should succeed
+	sessionID, err := mcpInitialize(context.Background(), srv.Client(), srv.URL, "tok")
+	require.NoError(t, err)
+	assert.Equal(t, "sess-ugly", sessionID)
+}
+
+// --- McpCall Ugly ---
+
+func TestRemoteClient_McpCall_Ugly_EmptyResponseBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		// Write nothing — empty body
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := mcpCall(context.Background(), srv.Client(), srv.URL, "", "", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no data")
+}
+
+// --- ReadSSEData Ugly ---
+
+func TestRemoteClient_ReadSSEData_Ugly_OnlyEventLines(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		// Only event: lines, no data: lines
+		fmt.Fprintf(w, "event: message\nevent: done\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Get(srv.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	_, err = readSSEData(resp)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no data")
+}
+
+// --- SetHeaders Ugly ---
+
+func TestRemoteClient_SetHeaders_Ugly_VeryLongToken(t *testing.T) {
+	req, _ := http.NewRequest("POST", "http://example.com", nil)
+	longToken := strings.Repeat("a", 10000)
+	setHeaders(req, longToken, "sess-123")
+
+	assert.Equal(t, "Bearer "+longToken, req.Header.Get("Authorization"))
+	assert.Equal(t, "sess-123", req.Header.Get("Mcp-Session-Id"))
+	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
+}
+
+// --- DrainSSE Bad/Ugly ---
+
+func TestRemoteClient_DrainSSE_Bad_EmptyBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Write nothing — empty body
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Get(srv.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should not panic on empty body
+	assert.NotPanics(t, func() { drainSSE(resp) })
+}
+
+func TestRemoteClient_DrainSSE_Ugly_VeryLargeResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Write many SSE lines
+		for i := 0; i < 1000; i++ {
+			fmt.Fprintf(w, "data: line-%d padding-text-to-make-it-bigger-and-test-scanner-handling\n", i)
+		}
+		fmt.Fprintf(w, "\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Get(srv.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should drain all lines without panic
+	assert.NotPanics(t, func() { drainSSE(resp) })
 }

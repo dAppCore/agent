@@ -649,3 +649,163 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "prompt")
 	assert.Contains(t, cmds, "extract")
 }
+
+// --- CmdExtract Bad/Ugly ---
+
+func TestCommands_CmdExtract_Bad_TargetDirAlreadyHasFiles(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	target := filepath.Join(t.TempDir(), "extract-existing")
+	os.MkdirAll(target, 0o755)
+	os.WriteFile(filepath.Join(target, "existing.txt"), []byte("data"), 0o644)
+
+	// Missing template arg uses "default", target already has files — still succeeds (overwrites)
+	r := s.cmdExtract(core.NewOptions(
+		core.Option{Key: "target", Value: target},
+	))
+	assert.True(t, r.OK)
+}
+
+func TestCommands_CmdExtract_Ugly_TargetIsFile(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	target := filepath.Join(t.TempDir(), "not-a-dir")
+	os.WriteFile(target, []byte("I am a file"), 0o644)
+
+	r := s.cmdExtract(core.NewOptions(
+		core.Option{Key: "_arg", Value: "default"},
+		core.Option{Key: "target", Value: target},
+	))
+	// Extraction should fail because target is a file, not a directory
+	assert.False(t, r.OK)
+}
+
+// --- CmdOrchestrator Bad/Ugly ---
+
+func TestCommands_CmdOrchestrator_Bad_DoneContext(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-1*time.Second))
+	defer cancel()
+	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	assert.True(t, r.OK) // returns OK after ctx.Done()
+}
+
+func TestCommands_CmdOrchestrator_Ugly_CancelledImmediately(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	assert.True(t, r.OK) // exits immediately when context is already cancelled
+}
+
+// --- CmdPrep Ugly ---
+
+func TestCommands_CmdPrep_Ugly_AllOptionalFields(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPrep(core.NewOptions(
+		core.Option{Key: "_arg", Value: "nonexistent-repo"},
+		core.Option{Key: "issue", Value: "42"},
+		core.Option{Key: "pr", Value: "7"},
+		core.Option{Key: "branch", Value: "feat/test"},
+		core.Option{Key: "tag", Value: "v1.0.0"},
+		core.Option{Key: "task", Value: "do stuff"},
+		core.Option{Key: "template", Value: "coding"},
+		core.Option{Key: "persona", Value: "engineering"},
+		core.Option{Key: "dry-run", Value: "true"},
+	))
+	// Will fail (no local clone) but exercises all option parsing paths
+	assert.False(t, r.OK)
+}
+
+// --- CmdPrompt Ugly ---
+
+func TestCommands_CmdPrompt_Ugly_AllOptionalFields(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPrompt(core.NewOptions(
+		core.Option{Key: "_arg", Value: "go-io"},
+		core.Option{Key: "org", Value: "core"},
+		core.Option{Key: "task", Value: "review security"},
+		core.Option{Key: "template", Value: "verify"},
+		core.Option{Key: "persona", Value: "engineering/security"},
+	))
+	assert.True(t, r.OK)
+}
+
+// --- CmdRunTask Good/Ugly ---
+
+func TestCommands_CmdRunTask_Good_DefaultsApplied(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// Provide repo + task but omit agent + org — tests that defaults (codex, core) are applied
+	r := s.cmdRunTask(ctx, core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "task", Value: "run all tests"},
+	))
+	// Will fail on dispatch but exercises the default-filling path
+	assert.False(t, r.OK)
+}
+
+func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	r := s.cmdRunTask(ctx, core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "task", Value: "fix it"},
+		core.Option{Key: "issue", Value: "issue-42abc"},
+	))
+	// Will fail on dispatch but exercises parseIntStr with mixed chars
+	assert.False(t, r.OK)
+}
+
+// --- CmdStatus Bad/Ugly ---
+
+func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	// Don't create workspace dir — WorkspaceRoot() returns root+"/workspace" which won't exist
+
+	c := core.New()
+	s := &PrepSubsystem{
+		core:      c,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	r := s.cmdStatus(core.NewOptions())
+	assert.True(t, r.OK) // returns OK with "no workspaces found"
+}
+
+func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	wsRoot := WorkspaceRoot()
+	os.MkdirAll(wsRoot, 0o755)
+
+	// Create a file (not a dir) inside workspace root
+	os.WriteFile(filepath.Join(wsRoot, "not-a-workspace.txt"), []byte("junk"), 0o644)
+
+	// Also create a proper workspace
+	ws := filepath.Join(wsRoot, "ws-valid")
+	os.MkdirAll(ws, 0o755)
+	data, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"})
+	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+
+	r := s.cmdStatus(core.NewOptions())
+	assert.True(t, r.OK)
+}
+
+// --- ParseIntStr Bad/Ugly ---
+
+func TestCommands_ParseIntStr_Bad_NegativeAndOverflow(t *testing.T) {
+	// parseIntStr extracts digits only, ignoring minus signs
+	assert.Equal(t, 5, parseIntStr("-5"))     // extracts "5", ignores "-"
+	assert.Equal(t, 0, parseIntStr("-"))       // no digits
+	assert.Equal(t, 0, parseIntStr("---"))     // no digits
+}
+
+func TestCommands_ParseIntStr_Ugly_UnicodeAndMixed(t *testing.T) {
+	// Unicode digits (e.g. Arabic-Indic) are NOT ASCII 0-9 so ignored
+	assert.Equal(t, 0, parseIntStr("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
+	assert.Equal(t, 42, parseIntStr("abc42xyz"))            // mixed chars
+	assert.Equal(t, 123, parseIntStr("1a2b3c"))             // interleaved
+	assert.Equal(t, 0, parseIntStr("  \t\n"))               // whitespace only
+}

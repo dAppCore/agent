@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -584,4 +585,181 @@ func TestVerify_ExtractPRNumber_Ugly(t *testing.T) {
 
 	// Non-numeric string → parseInt("abc") → 0
 	assert.Equal(t, 0, extractPRNumber("abc"))
+}
+
+// --- EnsureLabel Ugly ---
+
+func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Server returns 409 Conflict — label already exists
+		w.WriteHeader(409)
+		json.NewEncoder(w).Encode(map[string]any{"message": "label already exists"})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	// Should not panic on 409 — ensureLabel is fire-and-forget
+	assert.NotPanics(t, func() {
+		s.ensureLabel(context.Background(), "core", "test-repo", "needs-review", "e11d48")
+	})
+}
+
+// --- GetLabelID Ugly ---
+
+func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]any{})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	id := s.getLabelID(context.Background(), "core", "test-repo", "needs-review")
+	assert.Equal(t, 0, id)
+}
+
+// --- ForgeMergePR Ugly ---
+
+func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		// Empty body — no JSON at all
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	err := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
+	assert.NoError(t, err) // 200 is success even with empty body
+}
+
+// --- FileExists Ugly ---
+
+func TestVerify_FileExists_Ugly_PathIsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "subdir")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+
+	// A directory is not a file — fileExists should return false
+	assert.False(t, fileExists(sub))
+}
+
+// --- FlagForReview Bad/Ugly ---
+
+func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(map[string]any{"message": "server error"})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	// Should not panic when all API calls (ensureLabel, getLabelID, add label, comment) fail
+	assert.NotPanics(t, func() {
+		s.flagForReview("core", "test-repo", 42, testFailed)
+	})
+}
+
+func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && containsStr(r.URL.Path, "/labels") {
+			// getLabelID returns empty array → label ID is 0
+			json.NewEncoder(w).Encode([]map[string]any{})
+			return
+		}
+		// All other calls succeed
+		w.WriteHeader(201)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	// label ID 0 is passed to "add labels" payload — should not panic
+	assert.NotPanics(t, func() {
+		s.flagForReview("core", "test-repo", 42, mergeConflict)
+	})
+}
+
+// --- RunVerification Bad/Ugly ---
+
+func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	// go.mod exists but no .go files — go test should fail
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runVerification(dir)
+	assert.Equal(t, "go test ./...", result.testCmd)
+	// Depending on go version, this may pass (no test files = pass) or fail
+	// The important thing is we detect Go project type correctly
+}
+
+func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
+	dir := t.TempDir()
+	// Both go.mod and package.json exist — Go takes priority
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runVerification(dir)
+	// Go takes priority because it's checked first
+	assert.Equal(t, "go test ./...", result.testCmd)
+}
+
+// --- additional: go.mod + composer.json to verify priority ---
+
+func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.runVerification(dir)
+	assert.Equal(t, "go test ./...", result.testCmd) // Go first in priority chain
 }
