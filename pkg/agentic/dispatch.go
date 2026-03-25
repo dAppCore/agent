@@ -193,6 +193,147 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 	return "docker", dockerArgs
 }
 
+// --- spawnAgent: decomposed into testable steps ---
+
+// agentOutputFile returns the log file path for an agent's output.
+func agentOutputFile(wsDir, agent string) string {
+	agentBase := core.SplitN(agent, ":", 2)[0]
+	return core.JoinPath(wsDir, ".meta", core.Sprintf("agent-%s.log", agentBase))
+}
+
+// detectFinalStatus reads workspace state after agent exit to determine outcome.
+// Returns (status, question) — "completed", "blocked", or "failed".
+func detectFinalStatus(repoDir string, exitCode int, procStatus string) (string, string) {
+	blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
+	if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
+		return "blocked", core.Trim(r.Value.(string))
+	}
+	if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
+		question := ""
+		if exitCode != 0 {
+			question = core.Sprintf("Agent exited with code %d", exitCode)
+		}
+		return "failed", question
+	}
+	return "completed", ""
+}
+
+// trackFailureRate detects fast consecutive failures and applies backoff.
+// Returns true if backoff was triggered.
+func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Time) bool {
+	pool := baseAgent(agent)
+	if status == "failed" {
+		elapsed := time.Since(startedAt)
+		if elapsed < 60*time.Second {
+			s.failCount[pool]++
+			if s.failCount[pool] >= 3 {
+				s.backoff[pool] = time.Now().Add(30 * time.Minute)
+				core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
+				return true
+			}
+		} else {
+			s.failCount[pool] = 0 // slow failure = real failure, reset count
+		}
+	} else {
+		s.failCount[pool] = 0 // success resets count
+	}
+	return false
+}
+
+// startIssueTracking starts a Forge stopwatch on the workspace's issue.
+func (s *PrepSubsystem) startIssueTracking(wsDir string) {
+	if s.forge == nil {
+		return
+	}
+	st, _ := ReadStatus(wsDir)
+	if st == nil || st.Issue == 0 {
+		return
+	}
+	org := st.Org
+	if org == "" {
+		org = "core"
+	}
+	s.forge.Issues.StartStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+}
+
+// stopIssueTracking stops a Forge stopwatch on the workspace's issue.
+func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
+	if s.forge == nil {
+		return
+	}
+	st, _ := ReadStatus(wsDir)
+	if st == nil || st.Issue == 0 {
+		return
+	}
+	org := st.Org
+	if org == "" {
+		org = "core"
+	}
+	s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+}
+
+// broadcastStart emits IPC + audit events for agent start.
+func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
+	if s.core != nil {
+		st, _ := ReadStatus(wsDir)
+		repo := ""
+		if st != nil {
+			repo = st.Repo
+		}
+		s.core.ACTION(messages.AgentStarted{
+			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
+		})
+	}
+	emitStartEvent(agent, core.PathBase(wsDir))
+}
+
+// broadcastComplete emits IPC + audit events for agent completion.
+func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
+	emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
+	if s.core != nil {
+		st, _ := ReadStatus(wsDir)
+		repo := ""
+		if st != nil {
+			repo = st.Repo
+		}
+		s.core.ACTION(messages.AgentCompleted{
+			Agent: agent, Repo: repo,
+			Workspace: core.PathBase(wsDir), Status: finalStatus,
+		})
+	}
+}
+
+// onAgentComplete handles all post-completion logic for a spawned agent.
+// Called from the monitoring goroutine after the process exits.
+func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCode int, procStatus, output string) {
+	// Save output
+	if output != "" {
+		fs.Write(outputFile, output)
+	}
+
+	repoDir := core.JoinPath(wsDir, "repo")
+	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
+
+	// Update workspace status
+	if st, err := ReadStatus(wsDir); err == nil {
+		st.Status = finalStatus
+		st.PID = 0
+		st.Question = question
+		writeStatus(wsDir, st)
+	}
+
+	// Rate-limit tracking
+	if st, _ := ReadStatus(wsDir); st != nil {
+		s.trackFailureRate(agent, finalStatus, st.StartedAt)
+	}
+
+	// Forge time tracking
+	s.stopIssueTracking(wsDir)
+
+	// Broadcast completion
+	s.broadcastComplete(agent, wsDir, finalStatus)
+}
+
 // spawnAgent launches an agent inside a Docker container.
 // The repo/ directory is mounted at /workspace, agent runs sandboxed.
 // Output is captured and written to .meta/agent-{agent}.log on completion.
@@ -204,14 +345,13 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	// Use base agent name for log file — colon in variants breaks paths
-	agentBase := core.SplitN(agent, ":", 2)[0]
-	outputFile := core.JoinPath(metaDir, core.Sprintf("agent-%s.log", agentBase))
+	outputFile := agentOutputFile(wsDir, agent)
 
 	// Clean up stale BLOCKED.md from previous runs
 	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
 
 	// All agents run containerised
+	agentBase := core.SplitN(agent, ":", 2)[0]
 	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
 
 	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
@@ -227,27 +367,8 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	proc.CloseStdin()
 	pid := proc.Info().PID
 
-	// Broadcast agent started via Core IPC
-	if s.core != nil {
-		st, _ := ReadStatus(wsDir)
-		repo := ""
-		if st != nil {
-			repo = st.Repo
-		}
-		s.core.ACTION(messages.AgentStarted{
-			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
-		})
-	}
-	emitStartEvent(agent, core.PathBase(wsDir)) // audit log
-
-	// Start Forge stopwatch on the issue (time tracking)
-	if st, _ := ReadStatus(wsDir); st != nil && st.Issue > 0 {
-		org := st.Org
-		if org == "" {
-			org = "core"
-		}
-		s.forge.Issues.StartStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
-	}
+	s.broadcastStart(agent, wsDir)
+	s.startIssueTracking(wsDir)
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -263,81 +384,8 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 			}
 		}
 	done:
-
-		if output := proc.Output(); output != "" {
-			fs.Write(outputFile, output)
-		}
-
-		finalStatus := "completed"
-		exitCode := proc.Info().ExitCode
-		procStatus := proc.Info().Status
-		question := ""
-
-		blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
-		if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
-			finalStatus = "blocked"
-			question = core.Trim(r.Value.(string))
-		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
-			finalStatus = "failed"
-			if exitCode != 0 {
-				question = core.Sprintf("Agent exited with code %d", exitCode)
-			}
-		}
-
-		if st, stErr := ReadStatus(wsDir); stErr == nil {
-			st.Status = finalStatus
-			st.PID = 0
-			st.Question = question
-			writeStatus(wsDir, st)
-		}
-
-		emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus) // audit log
-
-		// Rate-limit detection: if agent failed fast (<60s), track consecutive failures
-		pool := baseAgent(agent)
-		if finalStatus == "failed" {
-			if st, _ := ReadStatus(wsDir); st != nil {
-				elapsed := time.Since(st.StartedAt)
-				if elapsed < 60*time.Second {
-					s.failCount[pool]++
-					if s.failCount[pool] >= 3 {
-						s.backoff[pool] = time.Now().Add(30 * time.Minute)
-						core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
-					}
-				} else {
-					s.failCount[pool] = 0 // slow failure = real failure, reset count
-				}
-			}
-		} else {
-			s.failCount[pool] = 0 // success resets count
-		}
-
-		// Stop Forge stopwatch on the issue (time tracking)
-		if st, _ := ReadStatus(wsDir); st != nil && st.Issue > 0 {
-			org := st.Org
-			if org == "" {
-				org = "core"
-			}
-			s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
-		}
-
-		// Broadcast agent completed via Core IPC
-		if s.core != nil {
-			stNow, _ := ReadStatus(wsDir)
-			repoName := ""
-			if stNow != nil {
-				repoName = stNow.Repo
-			}
-			s.core.ACTION(messages.AgentCompleted{
-				Agent: agent, Repo: repoName,
-				Workspace: core.PathBase(wsDir), Status: finalStatus,
-			})
-		}
-
-		// Post-completion pipeline handled by IPC handlers:
-		// AgentCompleted → QA → PRCreated → Verify → PRMerged|PRNeedsReview
-		// AgentCompleted → Ingest
-		// AgentCompleted → Poke
+		s.onAgentComplete(agent, wsDir, outputFile,
+			proc.Info().ExitCode, string(proc.Info().Status), proc.Output())
 	}()
 
 	return pid, outputFile, nil
@@ -367,7 +415,6 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
-		// PHP: composer install + test
 		install := exec.Command("composer", "install", "--no-interaction")
 		install.Dir = repoDir
 		if err := install.Run(); err != nil {
@@ -379,7 +426,6 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
-		// Node: npm install + test
 		install := exec.Command("npm", "install")
 		install.Dir = repoDir
 		if err := install.Run(); err != nil {
