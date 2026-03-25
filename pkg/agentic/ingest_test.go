@@ -276,6 +276,62 @@ func TestIngest_CountFileRefs_Good_SecurityFindings(t *testing.T) {
 	assert.Equal(t, 2, countFileRefs(body))
 }
 
+// --- IngestFindings Ugly ---
+
+func TestIngest_IngestFindings_Ugly(t *testing.T) {
+	// Workspace with no findings file (completed but empty meta dir)
+	wsDir := t.TempDir()
+	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Agent:  "codex",
+	}))
+	// No agent-*.log files at all
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Should return early without panic — no log files
+	assert.NotPanics(t, func() {
+		s.ingestFindings(wsDir)
+	})
+}
+
+// --- CreateIssueViaAPI Ugly ---
+
+func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
+	// Issue body with HTML injection chars — should be passed as-is without panic
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		// Verify the body preserved HTML chars
+		assert.Contains(t, body["description"], "<script>")
+		assert.Contains(t, body["description"], "alert('xss')")
+		w.WriteHeader(201)
+	}))
+	t.Cleanup(srv.Close)
+
+	home := t.TempDir()
+	t.Setenv("DIR_HOME", home)
+	require.True(t, fs.EnsureDir(filepath.Join(home, ".claude")).OK)
+	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-key").OK)
+
+	s := &PrepSubsystem{
+		brainURL:  srv.URL,
+		brainKey:  "test-brain-key",
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	s.createIssueViaAPI("go-io", "XSS Test", "<script>alert('xss')</script><b>bold</b>&amp;", "bug", "high", "scan")
+	assert.True(t, called)
+}
+
 func TestIngest_CountFileRefs_Good_PHPSecurityFindings(t *testing.T) {
 	body := "PHP audit:\n" +
 		"- `src/Controller/Api.php:42` SQL injection risk\n" +

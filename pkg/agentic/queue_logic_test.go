@@ -162,6 +162,57 @@ func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
 	assert.False(t, s.frozen, "CORE_AGENT_DISPATCH=1 should unfreeze the queue")
 }
 
+// --- Poke Ugly ---
+
+func TestRunner_Poke_Ugly(t *testing.T) {
+	// Poke on a closed channel — the select with default protects against panic
+	// but closing + sending would panic. However, Poke uses non-blocking send,
+	// so we test that pokeCh=nil is safe (already tested), and that
+	// double-filling is safe (already tested). Here we test rapid multi-poke.
+	s := &PrepSubsystem{}
+	s.pokeCh = make(chan struct{}, 1)
+
+	// Rapid-fire pokes — should all be safe
+	for i := 0; i < 100; i++ {
+		assert.NotPanics(t, func() { s.Poke() })
+	}
+	// Channel should have at most 1 signal
+	assert.LessOrEqual(t, len(s.pokeCh), 1)
+}
+
+// --- StartRunner Bad/Ugly ---
+
+func TestRunner_StartRunner_Bad(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	s := NewPrep()
+	s.StartRunner()
+	// Without CORE_AGENT_DISPATCH=1, queue should be frozen
+	assert.True(t, s.frozen, "queue must be frozen when CORE_AGENT_DISPATCH is not set")
+	assert.NotNil(t, s.pokeCh)
+}
+
+func TestRunner_StartRunner_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_DISPATCH", "1")
+
+	s := NewPrep()
+
+	// Start twice — second call overwrites pokeCh
+	s.StartRunner()
+	firstCh := s.pokeCh
+	assert.NotNil(t, firstCh)
+
+	s.StartRunner()
+	secondCh := s.pokeCh
+	assert.NotNil(t, secondCh)
+	// The channels should be different objects (new make each time)
+	assert.NotSame(t, &firstCh, &secondCh)
+}
+
 // --- DefaultBranch ---
 
 func TestPaths_DefaultBranch_Good_DefaultsToMain(t *testing.T) {

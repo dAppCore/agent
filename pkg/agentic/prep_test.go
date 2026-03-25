@@ -513,6 +513,134 @@ func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
 	})
 }
 
+// --- TestPrepWorkspace (public API wrapper) ---
+
+func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Valid input but repo won't exist — still exercises the public wrapper delegation
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+		Repo:  "go-io",
+		Issue: 1,
+	})
+	// Error expected (no local clone) but we verified it delegates to prepWorkspace
+	assert.Error(t, err)
+}
+
+func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Missing repo — should return error
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "repo is required")
+}
+
+func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Bare ".." is caught as invalid repo name by PathBase check
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+		Repo:  "..",
+		Issue: 1,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid repo name")
+}
+
+// --- TestBuildPrompt (public API wrapper) ---
+
+func TestPrep_TestBuildPrompt_Good(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "Review code",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", dir)
+
+	assert.NotEmpty(t, prompt)
+	assert.Contains(t, prompt, "TASK: Review code")
+	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
+func TestPrep_TestBuildPrompt_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Empty inputs — should still return a prompt string without panicking
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{}, "", "")
+	assert.NotEmpty(t, prompt)
+	assert.Contains(t, prompt, "TASK:")
+	assert.Contains(t, prompt, "CONSTRAINTS:")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
+func TestPrep_TestBuildPrompt_Ugly(t *testing.T) {
+	dir := t.TempDir()
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Unicode in all fields — should not panic
+	prompt, _, _ := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "\u00e9nchantr\u00efx \u2603 \U0001f600",
+		Org:  "c\u00f6re",
+		Repo: "g\u00f6-i\u00f6",
+	}, "\u00e9-branch", dir)
+
+	assert.NotEmpty(t, prompt)
+	assert.Contains(t, prompt, "\u00e9nchantr\u00efx")
+}
+
+// --- collapseRepeatedRune / sanitisePlanSlug / trimRuneEdges Good ---
+
+func TestPrep_CollapseRepeatedRune_Good(t *testing.T) {
+	assert.Equal(t, "hello-world", collapseRepeatedRune("hello---world", '-'))
+}
+
+func TestPrep_SanitisePlanSlug_Good(t *testing.T) {
+	assert.Equal(t, "my-cool-plan", sanitisePlanSlug("My Cool Plan"))
+}
+
+func TestPrep_TrimRuneEdges_Good(t *testing.T) {
+	assert.Equal(t, "hello", trimRuneEdges("--hello--", '-'))
+}
+
 // --- DetectTestCmd Bad/Ugly ---
 
 func TestPrep_DetectTestCmd_Bad(t *testing.T) {

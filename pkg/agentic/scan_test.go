@@ -74,6 +74,29 @@ func mockScanServer(t *testing.T) *httptest.Server {
 
 // --- scan ---
 
+func TestScan_Scan_Good(t *testing.T) {
+	srv := mockScanServer(t)
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	_, out, err := s.scan(context.Background(), nil, ScanInput{Org: "core"})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Greater(t, out.Count, 0)
+	// Verify issues contain repos from mock server
+	repos := make(map[string]bool)
+	for _, iss := range out.Issues {
+		repos[iss.Repo] = true
+	}
+	assert.True(t, repos["go-io"] || repos["go-log"], "should contain issues from mock repos")
+}
+
 func TestScan_Good_AllRepos(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{

@@ -43,3 +43,38 @@ func TestRemote_RemoteToken_Good_EnvPrecedence(t *testing.T) {
 	token := remoteToken("PRIO")
 	assert.Equal(t, "specific-token", token, "host-specific env should take precedence")
 }
+
+// --- resolveHost Bad/Ugly ---
+
+func TestRemote_ResolveHost_Bad(t *testing.T) {
+	// Empty string — returns empty host with default port appended
+	result := resolveHost("")
+	assert.Equal(t, ":9101", result)
+}
+
+func TestRemote_ResolveHost_Ugly(t *testing.T) {
+	// Unicode host name — not an alias, no colon, so default port appended
+	result := resolveHost("\u00e9nchantr\u00efx")
+	assert.Equal(t, "\u00e9nchantr\u00efx:9101", result)
+}
+
+// --- remoteToken Bad/Ugly ---
+
+func TestRemote_RemoteToken_Bad(t *testing.T) {
+	// Host with no matching env var and no file — returns empty
+	t.Setenv("AGENT_TOKEN_NOHOST", "")
+	t.Setenv("MCP_AUTH_TOKEN", "")
+	t.Setenv("DIR_HOME", t.TempDir()) // no token files
+	token := remoteToken("nohost")
+	assert.Equal(t, "", token)
+}
+
+func TestRemote_RemoteToken_Ugly(t *testing.T) {
+	// Host name with dashes and dots — creates odd env key like AGENT_TOKEN_MY-HOST.LOCAL
+	// Env lookup will use the exact uppercased key
+	t.Setenv("AGENT_TOKEN_MY-HOST.LOCAL", "")
+	t.Setenv("MCP_AUTH_TOKEN", "")
+	t.Setenv("DIR_HOME", t.TempDir())
+	token := remoteToken("my-host.local")
+	assert.Equal(t, "", token)
+}

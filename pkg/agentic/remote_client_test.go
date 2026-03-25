@@ -125,6 +125,19 @@ func TestRemoteClient_SetHeaders_Good_NoToken(t *testing.T) {
 	assert.Empty(t, req.Header.Get("Mcp-Session-Id"))
 }
 
+// --- setHeaders Bad ---
+
+func TestRemoteClient_SetHeaders_Bad(t *testing.T) {
+	// Both token and session empty — only Content-Type and Accept are set
+	req, _ := http.NewRequest("POST", "http://example.com", nil)
+	setHeaders(req, "", "")
+
+	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
+	assert.Equal(t, "application/json, text/event-stream", req.Header.Get("Accept"))
+	assert.Empty(t, req.Header.Get("Authorization"), "no auth header when token is empty")
+	assert.Empty(t, req.Header.Get("Mcp-Session-Id"), "no session header when session is empty")
+}
+
 // --- readSSEData ---
 
 func TestRemoteClient_ReadSSEData_Good(t *testing.T) {

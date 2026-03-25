@@ -757,6 +757,68 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
+// --- CmdRunTaskFactory Good/Bad/Ugly ---
+
+func TestCommands_CmdRunTaskFactory_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fn := s.cmdRunTaskFactory(ctx)
+	assert.NotNil(t, fn, "factory should return a non-nil func")
+}
+
+func TestCommands_CmdRunTaskFactory_Bad(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancelled ctx
+
+	fn := s.cmdRunTaskFactory(ctx)
+	assert.NotNil(t, fn, "factory should return a func even with cancelled ctx")
+}
+
+func TestCommands_CmdRunTaskFactory_Ugly(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fn := s.cmdRunTaskFactory(ctx)
+	// Call with empty options — should fail gracefully (missing repo+task)
+	r := fn(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+// --- CmdOrchestratorFactory Good/Bad/Ugly ---
+
+func TestCommands_CmdOrchestratorFactory_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fn := s.cmdOrchestratorFactory(ctx)
+	assert.NotNil(t, fn, "factory should return a non-nil func")
+}
+
+func TestCommands_CmdOrchestratorFactory_Bad(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancelled ctx
+
+	fn := s.cmdOrchestratorFactory(ctx)
+	assert.NotNil(t, fn, "factory should return a func even with cancelled ctx")
+}
+
+func TestCommands_CmdOrchestratorFactory_Ugly(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // pre-cancelled
+
+	fn := s.cmdOrchestratorFactory(ctx)
+	// Calling the factory result with a cancelled ctx should return OK (exits immediately)
+	r := fn(core.NewOptions())
+	assert.True(t, r.OK)
+}
+
 // --- CmdStatus Bad/Ugly ---
 
 func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {

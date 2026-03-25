@@ -491,6 +491,106 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 
 // --- DrainQueue Bad ---
 
+// --- UnmarshalYAML (renamed convention) ---
+
+func TestQueue_UnmarshalYAML_Good(t *testing.T) {
+	var cfg struct {
+		Limit ConcurrencyLimit `yaml:"limit"`
+	}
+	err := yaml.Unmarshal([]byte("limit: 5"), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, 5, cfg.Limit.Total)
+	assert.Nil(t, cfg.Limit.Models)
+}
+
+func TestQueue_UnmarshalYAML_Bad(t *testing.T) {
+	var cfg struct {
+		Limit ConcurrencyLimit `yaml:"limit"`
+	}
+	// Invalid YAML — nested map with bad types
+	err := yaml.Unmarshal([]byte("limit: [1, 2, 3]"), &cfg)
+	assert.Error(t, err)
+}
+
+func TestQueue_UnmarshalYAML_Ugly(t *testing.T) {
+	var cfg struct {
+		Limit ConcurrencyLimit `yaml:"limit"`
+	}
+	// Float value — YAML truncates to int, so 3.5 becomes 3
+	err := yaml.Unmarshal([]byte("limit: 3.5"), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, 3, cfg.Limit.Total)
+	assert.Nil(t, cfg.Limit.Models)
+}
+
+// --- loadAgentsConfig ---
+
+func TestQueue_LoadAgentsConfig_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	cfg := `version: 1
+concurrency:
+  claude: 1
+  codex: 2
+rates:
+  codex:
+    sustained_delay: 60`
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	loaded := s.loadAgentsConfig()
+	assert.NotNil(t, loaded)
+	assert.Equal(t, 1, loaded.Version)
+	assert.Equal(t, 1, loaded.Concurrency["claude"].Total)
+	assert.Equal(t, 2, loaded.Concurrency["codex"].Total)
+	assert.Equal(t, 60, loaded.Rates["codex"].SustainedDelay)
+}
+
+func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	// Corrupt YAML file
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "{{{not yaml!!!").OK)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Should return defaults when YAML is corrupt
+	loaded := s.loadAgentsConfig()
+	assert.NotNil(t, loaded)
+	assert.Equal(t, "claude", loaded.Dispatch.DefaultAgent)
+}
+
+func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	// No agents.yaml file at all — should return defaults
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	loaded := s.loadAgentsConfig()
+	assert.NotNil(t, loaded)
+	assert.Equal(t, "claude", loaded.Dispatch.DefaultAgent)
+	assert.Equal(t, "coding", loaded.Dispatch.DefaultTemplate)
+	assert.NotNil(t, loaded.Concurrency)
+}
+
+// --- DrainQueue Bad ---
+
 func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)

@@ -55,6 +55,36 @@ func TestRegister_Good_AgentsConfigLoaded(t *testing.T) {
 	assert.NotNil(t, concurrency, "Register must store agents.concurrency in Core Config")
 }
 
+// --- ProcessRegister ---
+
+func TestProcessRegister_ProcessRegister_Good(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	c := core.New()
+	result := ProcessRegister(c)
+	assert.True(t, result.OK, "ProcessRegister should succeed with a real Core instance")
+	assert.NotNil(t, result.Value)
+}
+
+func TestProcessRegister_ProcessRegister_Bad(t *testing.T) {
+	// nil Core — the process.NewService factory tolerates nil Core, returns a result
+	result := ProcessRegister(nil)
+	// Either OK (service created without Core) or not OK (error) — must not panic
+	_ = result
+}
+
+func TestProcessRegister_ProcessRegister_Ugly(t *testing.T) {
+	// Call twice with same Core — second call should still succeed
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	c := core.New()
+	r1 := ProcessRegister(c)
+	assert.True(t, r1.OK)
+
+	r2 := ProcessRegister(c)
+	assert.True(t, r2.OK, "second ProcessRegister call should not fail")
+}
+
 // --- OnStartup ---
 
 func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {

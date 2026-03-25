@@ -485,6 +485,20 @@ func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
 	assert.Contains(t, dir, "pr-3")
 }
 
+// --- containerCommand ---
+
+func TestDispatch_ContainerCommand_Bad(t *testing.T) {
+	t.Setenv("AGENT_DOCKER_IMAGE", "")
+	t.Setenv("DIR_HOME", "/home/dev")
+
+	// Empty command string — docker still runs, just with no command after image
+	cmd, args := containerCommand("codex", "", []string{}, "/ws/repo", "/ws/.meta")
+	assert.Equal(t, "docker", cmd)
+	assert.Contains(t, args, "run")
+	// The image should still be present in args
+	assert.Contains(t, args, defaultDockerImage)
+}
+
 // --- canDispatchAgent ---
 // Good: tested in queue_test.go
 // Bad: tested in queue_test.go

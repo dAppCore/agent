@@ -472,6 +472,35 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// --- PrepWorkspace Ugly ---
+
+func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	s := &PrepSubsystem{
+		codePath:  t.TempDir(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Repo name "." — should be rejected as invalid
+	_, _, err := s.prepWorkspace(context.Background(), nil, PrepInput{
+		Repo:  ".",
+		Issue: 1,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid repo name")
+
+	// Repo name ".." — should be rejected as invalid
+	_, _, err2 := s.prepWorkspace(context.Background(), nil, PrepInput{
+		Repo:  "..",
+		Issue: 1,
+	})
+	assert.Error(t, err2)
+	assert.Contains(t, err2.Error(), "invalid repo name")
+}
+
 // --- findConsumersList Ugly ---
 
 func TestPrep_FindConsumersList_Ugly(t *testing.T) {
