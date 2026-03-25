@@ -355,6 +355,94 @@ func TestCmdWorkspaceDispatch_Good_Stub(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+// --- commands.go extracted methods ---
+
+func TestCmdPrep_Bad_MissingRepo(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPrep(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCmdPrep_Good_DefaultsToDev(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	// Will fail (no local clone) but exercises the default branch logic
+	r := s.cmdPrep(core.NewOptions(core.Option{Key: "_arg", Value: "nonexistent-repo"}))
+	assert.False(t, r.OK) // expected — no local repo
+}
+
+func TestCmdStatus_Good_Empty(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdStatus(core.NewOptions())
+	assert.True(t, r.OK)
+}
+
+func TestCmdStatus_Good_WithWorkspaces(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	wsRoot := WorkspaceRoot()
+	ws := filepath.Join(wsRoot, "ws-1")
+	os.MkdirAll(ws, 0o755)
+	data, _ := json.Marshal(WorkspaceStatus{Status: "completed", Repo: "test", Agent: "codex"})
+	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+
+	r := s.cmdStatus(core.NewOptions())
+	assert.True(t, r.OK)
+}
+
+func TestCmdPrompt_Bad_MissingRepo(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPrompt(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCmdPrompt_Good_DefaultTask(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPrompt(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
+	assert.True(t, r.OK)
+}
+
+func TestCmdExtract_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	target := filepath.Join(t.TempDir(), "extract-test")
+	r := s.cmdExtract(core.NewOptions(
+		core.Option{Key: "_arg", Value: "default"},
+		core.Option{Key: "target", Value: target},
+	))
+	assert.True(t, r.OK)
+}
+
+func TestCmdRunTask_Bad_MissingArgs(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := s.cmdRunTask(ctx, core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCmdRunTask_Bad_MissingTask(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := s.cmdRunTask(ctx, core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
+	assert.False(t, r.OK)
+}
+
+func TestCmdOrchestrator_Good_CancelledCtx(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	assert.True(t, r.OK)
+}
+
+func TestParseIntStr_Good(t *testing.T) {
+	assert.Equal(t, 42, parseIntStr("42"))
+	assert.Equal(t, 123, parseIntStr("issue-123"))
+	assert.Equal(t, 0, parseIntStr(""))
+	assert.Equal(t, 0, parseIntStr("abc"))
+	assert.Equal(t, 7, parseIntStr("#7"))
+}
+
 // --- Registration verification ---
 
 func TestRegisterCommands_Good_AllRegistered(t *testing.T) {
