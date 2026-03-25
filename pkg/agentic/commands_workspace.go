@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-package main
+// Workspace CLI commands registered by the agentic service during OnStartup.
+
+package agentic
 
 import (
 	"os"
 
-	"dappco.re/go/core"
-
-	"dappco.re/go/agent/pkg/agentic"
+	core "dappco.re/go/core"
 )
 
-func registerWorkspaceCommands(c *core.Core) {
+// registerWorkspaceCommands adds workspace management commands.
+func (s *PrepSubsystem) registerWorkspaceCommands() {
+	c := s.core
 
-	// workspace/list — show all workspaces with status
 	c.Command("workspace/list", core.Command{
 		Description: "List all agent workspaces with status",
 		Action: func(opts core.Options) core.Result {
-			wsRoot := agentic.WorkspaceRoot()
+			wsRoot := WorkspaceRoot()
 			fsys := c.Fs()
 
 			r := fsys.List(wsRoot)
@@ -33,7 +34,6 @@ func registerWorkspaceCommands(c *core.Core) {
 				}
 				statusFile := core.JoinPath(wsRoot, e.Name(), "status.json")
 				if sr := fsys.Read(statusFile); sr.OK {
-					// Quick parse for status field
 					content := sr.Value.(string)
 					status := extractField(content, "status")
 					repo := extractField(content, "repo")
@@ -49,11 +49,10 @@ func registerWorkspaceCommands(c *core.Core) {
 		},
 	})
 
-	// workspace/clean — remove stale workspaces
 	c.Command("workspace/clean", core.Command{
 		Description: "Remove completed/failed/blocked workspaces",
 		Action: func(opts core.Options) core.Result {
-			wsRoot := agentic.WorkspaceRoot()
+			wsRoot := WorkspaceRoot()
 			fsys := c.Fs()
 			filter := opts.String("_arg")
 			if filter == "" {
@@ -115,16 +114,14 @@ func registerWorkspaceCommands(c *core.Core) {
 		},
 	})
 
-	// workspace/dispatch — dispatch an agent (CLI wrapper for MCP tool)
 	c.Command("workspace/dispatch", core.Command{
 		Description: "Dispatch an agent to work on a repo task",
 		Action: func(opts core.Options) core.Result {
 			repo := opts.String("_arg")
 			if repo == "" {
-				core.Print(nil, "usage: core-agent workspace/dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
+				core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
 				return core.Result{OK: false}
 			}
-
 			core.Print(nil, "dispatch via CLI not yet wired — use MCP agentic_dispatch tool")
 			core.Print(nil, "repo: %s, task: %s", repo, opts.String("task"))
 			return core.Result{OK: true}
@@ -133,9 +130,7 @@ func registerWorkspaceCommands(c *core.Core) {
 }
 
 // extractField does a quick JSON field extraction without full unmarshal.
-// Looks for "field":"value" pattern. Good enough for status.json.
 func extractField(jsonStr, field string) string {
-	// Match both "field":"value" and "field": "value"
 	needle := core.Concat("\"", field, "\"")
 	idx := -1
 	for i := 0; i <= len(jsonStr)-len(needle); i++ {
@@ -147,14 +142,13 @@ func extractField(jsonStr, field string) string {
 	if idx < 0 {
 		return ""
 	}
-	// Skip : and whitespace to find opening quote
 	for idx < len(jsonStr) && (jsonStr[idx] == ':' || jsonStr[idx] == ' ' || jsonStr[idx] == '\t') {
 		idx++
 	}
 	if idx >= len(jsonStr) || jsonStr[idx] != '"' {
 		return ""
 	}
-	idx++ // skip opening quote
+	idx++
 	end := idx
 	for end < len(jsonStr) && jsonStr[end] != '"' {
 		end++

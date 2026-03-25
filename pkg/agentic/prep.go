@@ -91,6 +91,7 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 func (s *PrepSubsystem) OnStartup(ctx context.Context) error {
 	s.StartRunner()
 	s.registerCommands(ctx)
+	s.registerWorkspaceCommands()
 	return nil
 }
 
