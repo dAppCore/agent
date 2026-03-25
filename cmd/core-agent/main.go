@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"dappco.re/go/core"
-	"dappco.re/go/core/process"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
@@ -15,16 +14,7 @@ import (
 func main() {
 	c := core.New(
 		core.WithOption("name", "core-agent"),
-		core.WithService(func(c *core.Core) core.Result {
-			svc, err := process.NewService(process.Options{})(c)
-			if err != nil {
-				return core.Result{Value: err, OK: false}
-			}
-			if procSvc, ok := svc.(*process.Service); ok {
-				_ = process.SetDefault(procSvc)
-			}
-			return core.Result{Value: svc, OK: true}
-		}),
+		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
@@ -99,9 +89,7 @@ func main() {
 		},
 	})
 
-	// Forge + Workspace CLI commands (in separate files)
-	registerForgeCommands(c)
-	registerWorkspaceCommands(c)
+	// All commands registered by services during OnStartup
 	// registerFlowCommands(c) — on feat/flow-system branch
 
 	// Run: ServiceStartup → Cli → ServiceShutdown → os.Exit if error
