@@ -507,3 +507,81 @@ func TestTruncate_Bad_ZeroMax(t *testing.T) {
 func TestTruncate_Ugly_EmptyString(t *testing.T) {
 	assert.Equal(t, "", truncate("", 10))
 }
+
+// --- autoVerifyAndMerge (extended Ugly) ---
+
+func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
+	// Workspace with status=completed, repo=test, PRURL="not-a-url"
+	// extractPRNumber returns 0 for "not-a-url" → early return, no panic
+	dir := t.TempDir()
+	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "test",
+		Branch: "agent/fix",
+		PRURL:  "not-a-url",
+	}))
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// PR number is 0 → should return early without panicking
+	assert.NotPanics(t, func() {
+		s.autoVerifyAndMerge(dir)
+	})
+
+	// Status should remain unchanged (not "merged")
+	st, err := ReadStatus(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", st.Status)
+}
+
+// --- attemptVerifyAndMerge (Ugly — Go project that fails build) ---
+
+func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
+	// Go project that fails build (go.mod but no valid Go code)
+	// with httptest Forge mock for comment API → returns testFailed
+	commentCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && containsStr(r.URL.Path, "/comments") {
+			commentCalled = true
+			json.NewEncoder(w).Encode(map[string]any{"id": 1})
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	// Write a go.mod so runVerification detects Go and runs "go test ./..."
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module broken-test\n\ngo 1.22").OK)
+	// Write invalid Go code to force test failure
+	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	result := s.attemptVerifyAndMerge(dir, "core", "test-repo", "agent/fix", 42)
+	assert.Equal(t, testFailed, result)
+	assert.True(t, commentCalled, "should have posted a comment about test failure")
+}
+
+// --- extractPRNumber (extended Ugly) ---
+
+func TestVerify_ExtractPRNumber_Ugly(t *testing.T) {
+	// Just a bare number "5" → last segment is "5" → returns 5
+	assert.Equal(t, 5, extractPRNumber("5"))
+
+	// Trailing slash → last segment is empty string → parseInt("") → 0
+	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
+
+	// Non-numeric string → parseInt("abc") → 0
+	assert.Equal(t, 0, extractPRNumber("abc"))
+}

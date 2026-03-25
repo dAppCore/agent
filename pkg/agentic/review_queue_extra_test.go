@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,4 +209,37 @@ func TestFindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 
 	result := findWorkspaceByPR("agent", "agent/tests")
 	assert.Equal(t, ws, result)
+}
+
+// --- loadRateLimitState (Ugly — corrupt JSON) ---
+
+func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
+	// core.Env("DIR_HOME") is cached at init, so we must write to the real path.
+	// Save original content, write corrupt JSON, test, then restore.
+	ratePath := filepath.Join(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
+
+	// Save original content (may or may not exist)
+	original, readErr := os.ReadFile(ratePath)
+	hadFile := readErr == nil
+
+	// Ensure parent dir exists
+	os.MkdirAll(filepath.Dir(ratePath), 0o755)
+
+	// Write corrupt JSON
+	require.NoError(t, os.WriteFile(ratePath, []byte("not-valid-json{{{"), 0o644))
+	t.Cleanup(func() {
+		if hadFile {
+			os.WriteFile(ratePath, original, 0o644)
+		} else {
+			os.Remove(ratePath)
+		}
+	})
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	result := s.loadRateLimitState()
+	assert.Nil(t, result, "corrupt JSON should return nil")
 }

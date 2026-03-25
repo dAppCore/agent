@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -184,4 +185,50 @@ func TestDrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 		failCount: make(map[string]int),
 	}
 	assert.False(t, s.drainOne())
+}
+
+// --- canDispatchAgent (Ugly — with Core.Config concurrency) ---
+
+func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
+
+	c := core.New()
+	// Set concurrency on Core.Config() — same path that Register() uses
+	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
+		"claude": {Total: 1},
+		"gemini": {Total: 3},
+	})
+
+	s := &PrepSubsystem{
+		core:      c,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// No running workspaces → should be able to dispatch
+	assert.True(t, s.canDispatchAgent("claude"))
+	assert.True(t, s.canDispatchAgent("gemini:flash"))
+	// Agent with no limit configured → always allowed
+	assert.True(t, s.canDispatchAgent("codex:gpt-5.4"))
+}
+
+// --- drainQueue (Ugly — with Core lock path) ---
+
+func TestQueue_DrainQueue_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
+
+	c := core.New()
+	s := &PrepSubsystem{
+		core:      c,
+		frozen:    false,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Not frozen, Core is present, empty workspace → drainQueue runs the Core lock path without panic
+	assert.NotPanics(t, func() { s.drainQueue() })
 }

@@ -533,3 +533,39 @@ func TestDrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 		s.drainQueue()
 	})
 }
+
+// --- shutdownNow (Ugly — deep layout with queued status) ---
+
+func TestShutdown_ShutdownNow_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Create workspace in deep layout (org/repo/task)
+	ws := filepath.Join(wsRoot, "core", "go-io", "task-5")
+	require.True(t, fs.EnsureDir(ws).OK)
+	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+		Status: "queued",
+		Repo:   "go-io",
+		Agent:  "codex",
+		Task:   "Add tests",
+	}))
+
+	s := &PrepSubsystem{
+		frozen:    false,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.True(t, s.frozen)
+	assert.Contains(t, out.Message, "cleared 1")
+
+	// Verify the queued workspace is now failed
+	st, err := ReadStatus(ws)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", st.Status)
+	assert.Contains(t, st.Question, "cleared by shutdown_now")
+}

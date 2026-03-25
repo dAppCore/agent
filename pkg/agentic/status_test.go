@@ -254,3 +254,48 @@ func TestStatus_Status_Ugly(t *testing.T) {
 	assert.Equal(t, "failed", st3.Status)
 	assert.Equal(t, "Agent process died (no output log)", st3.Question)
 }
+
+// --- writeStatus (extended Ugly) ---
+
+func TestStatus_WriteStatus_Ugly(t *testing.T) {
+	// Write a status with all fields, read back, verify UpdatedAt is set and all fields preserved
+	dir := t.TempDir()
+
+	original := &WorkspaceStatus{
+		Status:    "blocked",
+		Agent:     "gemini:flash",
+		Repo:      "go-mcp",
+		Org:       "core",
+		Task:      "Refactor IPC handler",
+		Branch:    "agent/refactor-ipc",
+		Issue:     77,
+		PID:       999999, // dead PID — non-existent
+		StartedAt: time.Now().Add(-10 * time.Minute).Truncate(time.Second),
+		Question:  "Should I break backward compat?",
+		Runs:      5,
+		PRURL:     "https://forge.lthn.ai/core/go-mcp/pulls/12",
+	}
+
+	err := writeStatus(dir, original)
+	require.NoError(t, err)
+
+	// UpdatedAt should have been set by writeStatus
+	assert.False(t, original.UpdatedAt.IsZero(), "writeStatus must set UpdatedAt")
+
+	// Read back and verify every field
+	read, err := ReadStatus(dir)
+	require.NoError(t, err)
+
+	assert.Equal(t, "blocked", read.Status)
+	assert.Equal(t, "gemini:flash", read.Agent)
+	assert.Equal(t, "go-mcp", read.Repo)
+	assert.Equal(t, "core", read.Org)
+	assert.Equal(t, "Refactor IPC handler", read.Task)
+	assert.Equal(t, "agent/refactor-ipc", read.Branch)
+	assert.Equal(t, 77, read.Issue)
+	assert.Equal(t, 999999, read.PID)
+	assert.Equal(t, "Should I break backward compat?", read.Question)
+	assert.Equal(t, 5, read.Runs)
+	assert.Equal(t, "https://forge.lthn.ai/core/go-mcp/pulls/12", read.PRURL)
+	assert.False(t, read.UpdatedAt.IsZero(), "UpdatedAt must survive roundtrip")
+}
