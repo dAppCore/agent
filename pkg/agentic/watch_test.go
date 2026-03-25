@@ -83,3 +83,74 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 	active := s.findActiveWorkspaces()
 	assert.Empty(t, active)
 }
+
+// --- findActiveWorkspaces Bad/Ugly ---
+
+func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
+	// Workspace dir doesn't exist
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", filepath.Join(root, "nonexistent"))
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() {
+		active := s.findActiveWorkspaces()
+		assert.Empty(t, active)
+	})
+}
+
+func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
+	// Workspaces with corrupt status.json
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := filepath.Join(root, "workspace")
+
+	// Create workspace with corrupt status.json
+	ws1 := filepath.Join(wsRoot, "ws-corrupt")
+	os.MkdirAll(ws1, 0o755)
+	os.WriteFile(filepath.Join(ws1, "status.json"), []byte("not-valid-json{{{"), 0o644)
+
+	// Create valid running workspace
+	ws2 := filepath.Join(wsRoot, "ws-valid")
+	os.MkdirAll(ws2, 0o755)
+	st, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"})
+	os.WriteFile(filepath.Join(ws2, "status.json"), st, 0o644)
+
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	active := s.findActiveWorkspaces()
+	// Corrupt workspace should be skipped, valid one should be found
+	assert.Contains(t, active, "ws-valid")
+	assert.NotContains(t, active, "ws-corrupt")
+}
+
+// --- resolveWorkspaceDir Bad/Ugly ---
+
+func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
+	// Empty name
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	dir := s.resolveWorkspaceDir("")
+	assert.NotEmpty(t, dir, "empty name should still resolve to workspace root")
+	assert.True(t, filepath.IsAbs(dir))
+}
+
+func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
+	// Name with path traversal "../.."
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() {
+		dir := s.resolveWorkspaceDir("../..")
+		// JoinPath handles traversal; result should be absolute
+		assert.True(t, filepath.IsAbs(dir))
+	})
+}

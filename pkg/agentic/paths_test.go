@@ -321,7 +321,20 @@ func TestPaths_ParseInt_Ugly_LeadingTrailingWhitespace(t *testing.T) {
 	assert.Equal(t, 42, parseInt("  42  "))
 }
 
-// --- newFs Bad/Ugly ---
+// --- newFs Good/Bad/Ugly ---
+
+func TestPaths_NewFs_Good(t *testing.T) {
+	f := newFs("/tmp")
+	assert.NotNil(t, f, "newFs should return a non-nil Fs")
+	assert.IsType(t, &core.Fs{}, f)
+}
+
+// --- parseInt Good ---
+
+func TestPaths_ParseInt_Good(t *testing.T) {
+	assert.Equal(t, 42, parseInt("42"))
+	assert.Equal(t, 0, parseInt("0"))
+}
 
 func TestPaths_NewFs_Bad_EmptyRoot(t *testing.T) {
 	f := newFs("")

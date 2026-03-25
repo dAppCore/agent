@@ -3,9 +3,11 @@
 package agentic
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
@@ -326,4 +328,202 @@ func TestSanitise_TrimRuneEdges_Ugly_Unicode(t *testing.T) {
 
 func TestSanitise_TrimRuneEdges_Ugly_NoMatch(t *testing.T) {
 	assert.Equal(t, "hello", trimRuneEdges("hello", '-'))
+}
+
+// --- PrepSubsystem Name Bad/Ugly ---
+
+func TestPrep_Name_Bad(t *testing.T) {
+	s := &PrepSubsystem{}
+	name := s.Name()
+	assert.NotEmpty(t, name, "Name should never return empty")
+	assert.Equal(t, "agentic", name)
+}
+
+func TestPrep_Name_Ugly(t *testing.T) {
+	// Zero-value struct — Name() should still work
+	var s PrepSubsystem
+	assert.NotPanics(t, func() {
+		name := s.Name()
+		assert.Equal(t, "agentic", name)
+	})
+}
+
+// --- NewPrep Bad/Ugly ---
+
+func TestPrep_NewPrep_Bad(t *testing.T) {
+	// Call without any env — verify doesn't panic, returns valid struct
+	t.Setenv("FORGE_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("FORGE_URL", "")
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("SPECS_PATH", "")
+	t.Setenv("CODE_PATH", "")
+
+	assert.NotPanics(t, func() {
+		s := NewPrep()
+		assert.NotNil(t, s)
+	})
+}
+
+func TestPrep_NewPrep_Ugly(t *testing.T) {
+	// Verify returned struct has non-nil backoff/failCount maps
+	t.Setenv("FORGE_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+
+	s := NewPrep()
+	assert.NotNil(t, s.backoff, "backoff map must not be nil")
+	assert.NotNil(t, s.failCount, "failCount map must not be nil")
+	assert.NotNil(t, s.client, "HTTP client must not be nil")
+	assert.NotNil(t, s.forge, "Forge client must not be nil")
+}
+
+// --- SetCore Bad/Ugly ---
+
+func TestPrep_SetCore_Bad(t *testing.T) {
+	// SetCore with nil — should not panic
+	s := &PrepSubsystem{}
+	assert.NotPanics(t, func() {
+		s.SetCore(nil)
+	})
+	assert.Nil(t, s.core)
+}
+
+func TestPrep_SetCore_Ugly(t *testing.T) {
+	// SetCore twice — second overwrites first
+	s := &PrepSubsystem{}
+	c1 := core.New(core.WithOption("name", "first"))
+	c2 := core.New(core.WithOption("name", "second"))
+
+	s.SetCore(c1)
+	assert.Equal(t, c1, s.core)
+
+	s.SetCore(c2)
+	assert.Equal(t, c2, s.core, "second SetCore should overwrite first")
+}
+
+// --- OnStartup Bad/Ugly ---
+
+func TestPrep_OnStartup_Bad(t *testing.T) {
+	// OnStartup without SetCore (nil core) — panics because registerCommands
+	// needs core.Command(). Verify the panic is from nil core, not a logic error.
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.Panics(t, func() {
+		_ = s.OnStartup(context.Background())
+	}, "OnStartup without core should panic on registerCommands")
+}
+
+func TestPrep_OnStartup_Ugly(t *testing.T) {
+	// OnStartup called twice with valid core — second call should not panic
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	c := core.New(core.WithOption("name", "test"))
+	s.SetCore(c)
+
+	assert.NotPanics(t, func() {
+		_ = s.OnStartup(context.Background())
+		_ = s.OnStartup(context.Background())
+	})
+}
+
+// --- OnShutdown Bad ---
+
+func TestPrep_OnShutdown_Bad(t *testing.T) {
+	// OnShutdown without Core
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() {
+		err := s.OnShutdown(context.Background())
+		assert.NoError(t, err)
+	})
+	assert.True(t, s.frozen)
+}
+
+// --- Shutdown Bad/Ugly ---
+
+func TestPrep_Shutdown_Bad(t *testing.T) {
+	// Shutdown always returns nil
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	err := s.Shutdown(context.Background())
+	assert.NoError(t, err)
+	assert.Nil(t, err)
+}
+
+func TestPrep_Shutdown_Ugly(t *testing.T) {
+	// Shutdown on zero-value struct
+	var s PrepSubsystem
+	assert.NotPanics(t, func() {
+		err := s.Shutdown(context.Background())
+		assert.NoError(t, err)
+	})
+}
+
+// --- EnvOr Bad/Ugly ---
+
+func TestPrep_EnvOr_Bad(t *testing.T) {
+	// Both env empty and fallback empty
+	t.Setenv("TEST_ENVVAR_EMPTY_ALL", "")
+	assert.Equal(t, "", envOr("TEST_ENVVAR_EMPTY_ALL", ""))
+}
+
+func TestPrep_EnvOr_Ugly(t *testing.T) {
+	// Env set to whitespace — whitespace is non-empty, so returned as-is
+	t.Setenv("TEST_ENVVAR_WHITESPACE", "   ")
+	assert.Equal(t, "   ", envOr("TEST_ENVVAR_WHITESPACE", "fallback"))
+}
+
+// --- DetectLanguage Bad/Ugly ---
+
+func TestPrep_DetectLanguage_Bad(t *testing.T) {
+	// Empty dir — defaults to go
+	dir := t.TempDir()
+	assert.Equal(t, "go", detectLanguage(dir))
+}
+
+func TestPrep_DetectLanguage_Ugly(t *testing.T) {
+	// Dir with multiple project files (go.mod + package.json) — go wins (first match)
+	dir := t.TempDir()
+	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
+	require.True(t, fs.Write(filepath.Join(dir, "package.json"), "{}").OK)
+	assert.Equal(t, "go", detectLanguage(dir), "go.mod checked first, so go wins")
+}
+
+// --- DetectBuildCmd Bad/Ugly ---
+
+func TestPrep_DetectBuildCmd_Bad(t *testing.T) {
+	// Unknown/non-existent path — defaults to go build
+	assert.Equal(t, "go build ./...", detectBuildCmd("/nonexistent/path/that/does/not/exist"))
+}
+
+func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
+	// Path that doesn't exist at all — defaults to go build
+	assert.NotPanics(t, func() {
+		result := detectBuildCmd("")
+		assert.Equal(t, "go build ./...", result)
+	})
+}
+
+// --- DetectTestCmd Bad/Ugly ---
+
+func TestPrep_DetectTestCmd_Bad(t *testing.T) {
+	// Unknown path — defaults to go test
+	assert.Equal(t, "go test ./...", detectTestCmd("/nonexistent/path/that/does/not/exist"))
+}
+
+func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
+	// Path that doesn't exist — defaults to go test
+	assert.NotPanics(t, func() {
+		result := detectTestCmd("")
+		assert.Equal(t, "go test ./...", result)
+	})
 }

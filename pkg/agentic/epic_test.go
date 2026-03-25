@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -390,4 +391,56 @@ func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
+}
+
+// --- Ugly tests ---
+
+func TestEpic_CreateEpic_Ugly(t *testing.T) {
+	// Very long title/description
+	srv, _ := mockForgeServer(t)
+	s := newTestSubsystem(t, srv)
+
+	longTitle := strings.Repeat("Very Long Epic Title ", 50)
+	longBody := strings.Repeat("Detailed description of the epic work to be done. ", 100)
+
+	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+		Repo:  "test-repo",
+		Title: longTitle,
+		Body:  longBody,
+		Tasks: []string{"Task 1"},
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotZero(t, out.EpicNumber)
+}
+
+func TestEpic_CreateIssue_Ugly(t *testing.T) {
+	// Issue with HTML in body
+	srv, _ := mockForgeServer(t)
+	s := newTestSubsystem(t, srv)
+
+	htmlBody := "<h1>Issue</h1><p>This has <b>bold</b> and <script>alert('xss')</script></p>"
+	child, err := s.createIssue(context.Background(), "core", "test-repo", "HTML Issue", htmlBody, []int64{1})
+	require.NoError(t, err)
+	assert.Equal(t, "HTML Issue", child.Title)
+	assert.NotZero(t, child.Number)
+}
+
+func TestEpic_ResolveLabelIDs_Ugly(t *testing.T) {
+	// Label names with special chars
+	srv, _ := mockForgeServer(t)
+	s := newTestSubsystem(t, srv)
+
+	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", []string{"bug/fix", "feature:new", "label with spaces"})
+	// These will all be created as new labels since they don't match existing ones
+	assert.NotNil(t, ids)
+}
+
+func TestEpic_CreateLabel_Ugly(t *testing.T) {
+	// Label with unicode name
+	srv, _ := mockForgeServer(t)
+	s := newTestSubsystem(t, srv)
+
+	id := s.createLabel(context.Background(), "core", "test-repo", "\u00e9nhancement-\u00fc\u00f1ic\u00f6de")
+	assert.NotZero(t, id)
 }

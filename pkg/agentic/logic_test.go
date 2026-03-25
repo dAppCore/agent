@@ -377,6 +377,106 @@ func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 	})
 }
 
+// --- emitStartEvent/emitCompletionEvent (Good/Bad/Ugly) ---
+
+func TestEvents_EmitStartEvent_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	emitStartEvent("codex", "core/go-io/task-10")
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	content := r.Value.(string)
+	assert.Contains(t, content, "agent_started")
+	assert.Contains(t, content, "codex")
+	assert.Contains(t, content, "core/go-io/task-10")
+}
+
+func TestEvents_EmitStartEvent_Bad(t *testing.T) {
+	// Empty agent name
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	assert.NotPanics(t, func() {
+		emitStartEvent("", "core/go-io/task-10")
+	})
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	content := r.Value.(string)
+	assert.Contains(t, content, "agent_started")
+}
+
+func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
+	// Very long workspace name
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	longName := strings.Repeat("very-long-workspace-name-", 50)
+	assert.NotPanics(t, func() {
+		emitStartEvent("claude", longName)
+	})
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	assert.Contains(t, r.Value.(string), "agent_started")
+}
+
+func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	emitCompletionEvent("gemini", "core/go-log/task-5", "completed")
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	content := r.Value.(string)
+	assert.Contains(t, content, "agent_completed")
+	assert.Contains(t, content, "gemini")
+	assert.Contains(t, content, "completed")
+}
+
+func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
+	// Empty status
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	assert.NotPanics(t, func() {
+		emitCompletionEvent("claude", "core/agent/task-1", "")
+	})
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	assert.Contains(t, r.Value.(string), "agent_completed")
+}
+
+func TestEvents_EmitCompletionEvent_Ugly(t *testing.T) {
+	// Unicode in agent name
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+
+	assert.NotPanics(t, func() {
+		emitCompletionEvent("\u00e9nchantr\u00efx-\u2603", "core/agent/task-1", "completed")
+	})
+
+	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	r := fs.Read(eventsFile)
+	require.True(t, r.OK)
+	assert.Contains(t, r.Value.(string), "\u00e9nchantr\u00efx")
+}
+
 // --- countFileRefs ---
 
 func TestIngest_CountFileRefs_Good_GoRefs(t *testing.T) {

@@ -506,3 +506,92 @@ func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
 	assert.False(t, validPlanStatus(" draft"))      // leading space
 	assert.False(t, validPlanStatus("draft "))      // trailing space
 }
+
+// --- generatePlanID Bad/Ugly ---
+
+func TestPlan_GeneratePlanID_Bad(t *testing.T) {
+	// Empty title — slug will be empty, but random suffix is still appended
+	id := generatePlanID("")
+	assert.NotEmpty(t, id, "should still generate an ID with random suffix")
+	assert.Contains(t, id, "-", "should have random suffix separated by dash")
+}
+
+func TestPlan_GeneratePlanID_Ugly(t *testing.T) {
+	// Title with only special chars — slug will be empty
+	id := generatePlanID("!@#$%^&*()")
+	assert.NotEmpty(t, id, "should still generate an ID with random suffix")
+}
+
+// --- planList Bad/Ugly ---
+
+func TestPlan_PlanList_Bad(t *testing.T) {
+	// Plans dir doesn't exist yet — should create it
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, 0, out.Count)
+}
+
+func TestPlan_PlanList_Ugly(t *testing.T) {
+	// Plans dir has corrupt JSON files
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	// Create a real plan
+	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "Real Plan", Objective: "Test"})
+
+	// Write corrupt JSON file in plans dir
+	plansDir := PlansRoot()
+	os.WriteFile(plansDir+"/corrupt-plan.json", []byte("not valid json {{{"), 0o644)
+
+	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, out.Count, "corrupt JSON file should be skipped")
+}
+
+// --- writePlan Bad/Ugly ---
+
+func TestPlan_WritePlan_Bad(t *testing.T) {
+	// Plan with empty ID
+	dir := t.TempDir()
+	plan := &Plan{
+		ID:        "",
+		Title:     "No ID Plan",
+		Status:    "draft",
+		Objective: "Test empty ID",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	// Should write with planPath sanitising empty ID to "invalid"
+	path, err := writePlan(dir, plan)
+	require.NoError(t, err)
+	assert.Contains(t, path, "invalid.json")
+}
+
+func TestPlan_WritePlan_Ugly(t *testing.T) {
+	// Plan with moderately long ID (within filesystem limits)
+	dir := t.TempDir()
+	longID := strings.Repeat("a", 100)
+	plan := &Plan{
+		ID:        longID,
+		Title:     "Long ID Plan",
+		Status:    "draft",
+		Objective: "Test long ID",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	path, err := writePlan(dir, plan)
+	require.NoError(t, err)
+	assert.NotEmpty(t, path)
+	assert.Contains(t, path, ".json")
+
+	// Verify we can read it back
+	readBack, err := readPlan(dir, longID)
+	require.NoError(t, err)
+	assert.Equal(t, "Long ID Plan", readBack.Title)
+}

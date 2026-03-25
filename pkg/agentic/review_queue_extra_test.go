@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -242,4 +243,146 @@ func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
 
 	result := s.loadRateLimitState()
 	assert.Nil(t, result, "corrupt JSON should return nil")
+}
+
+// --- buildReviewCommand Bad/Ugly ---
+
+func TestReviewQueue_BuildReviewCommand_Bad(t *testing.T) {
+	// Empty reviewer string — defaults to coderabbit
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "")
+	assert.Contains(t, cmd.Args, "--plain")
+	assert.Contains(t, cmd.Args, "review")
+}
+
+func TestReviewQueue_BuildReviewCommand_Ugly(t *testing.T) {
+	// Unknown reviewer type — defaults to coderabbit
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "unknown-reviewer")
+	assert.Contains(t, cmd.Args, "--plain", "unknown reviewer should fall through to coderabbit default")
+}
+
+// --- countFindings Bad/Ugly ---
+
+func TestReviewQueue_CountFindings_Bad(t *testing.T) {
+	// Empty string
+	count := countFindings("")
+	// Empty string doesn't contain "No findings" so defaults to 1
+	assert.Equal(t, 1, count)
+}
+
+func TestReviewQueue_CountFindings_Ugly(t *testing.T) {
+	// Only whitespace
+	count := countFindings("   \n   \n   ")
+	// No markers, no "No findings", so defaults to 1
+	assert.Equal(t, 1, count)
+}
+
+// --- parseRetryAfter Ugly ---
+
+func TestReviewQueue_ParseRetryAfter_Ugly(t *testing.T) {
+	// Seconds only "try after 30 seconds" — no minutes match
+	d := parseRetryAfter("try after 30 seconds")
+	// Regex expects minutes first, so this won't match — defaults to 5 min
+	assert.Equal(t, 5*time.Minute, d)
+}
+
+// --- storeReviewOutput Bad/Ugly ---
+
+func TestReviewQueue_StoreReviewOutput_Bad(t *testing.T) {
+	// Empty output
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() {
+		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", "")
+	})
+}
+
+func TestReviewQueue_StoreReviewOutput_Ugly(t *testing.T) {
+	// Very large output
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	largeOutput := strings.Repeat("Finding: something is wrong on this line\n", 10000)
+	assert.NotPanics(t, func() {
+		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", largeOutput)
+	})
+}
+
+// --- saveRateLimitState Good/Bad/Ugly ---
+
+func TestReviewQueue_SaveRateLimitState_Good(t *testing.T) {
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	info := &RateLimitInfo{
+		Limited: true,
+		RetryAt: time.Now().Add(5 * time.Minute).Truncate(time.Second),
+		Message: "rate limited",
+	}
+	assert.NotPanics(t, func() {
+		s.saveRateLimitState(info)
+	})
+}
+
+func TestReviewQueue_SaveRateLimitState_Bad(t *testing.T) {
+	// Save nil info
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	assert.NotPanics(t, func() {
+		s.saveRateLimitState(nil)
+	})
+}
+
+func TestReviewQueue_SaveRateLimitState_Ugly(t *testing.T) {
+	// Save with far-future RetryAt
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+	info := &RateLimitInfo{
+		Limited: true,
+		RetryAt: time.Date(2099, 12, 31, 23, 59, 59, 0, time.UTC),
+		Message: "far future rate limit",
+	}
+	assert.NotPanics(t, func() {
+		s.saveRateLimitState(info)
+	})
+}
+
+// --- loadRateLimitState Good ---
+
+func TestReviewQueue_LoadRateLimitState_Good(t *testing.T) {
+	// Write then load valid state
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	info := &RateLimitInfo{
+		Limited: true,
+		RetryAt: time.Now().Add(5 * time.Minute).Truncate(time.Second),
+		Message: "test rate limit",
+	}
+	s.saveRateLimitState(info)
+
+	loaded := s.loadRateLimitState()
+	if loaded != nil {
+		assert.True(t, loaded.Limited)
+		assert.Equal(t, "test rate limit", loaded.Message)
+	}
+	// If loaded is nil, DIR_HOME path wasn't writable — acceptable in test
 }

@@ -374,3 +374,155 @@ func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 	result := s.runQA(dir)
 	assert.False(t, result)
 }
+
+// --- pullWikiContent Bad/Ugly ---
+
+func TestPrep_PullWikiContent_Bad(t *testing.T) {
+	// Forge returns error on wiki pages
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	content := s.pullWikiContent(context.Background(), "core", "go-io")
+	assert.Empty(t, content)
+}
+
+func TestPrep_PullWikiContent_Ugly(t *testing.T) {
+	// Forge returns pages with empty content
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
+			json.NewEncoder(w).Encode([]map[string]any{
+				{"title": "EmptyPage", "sub_url": "EmptyPage"},
+			})
+		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/EmptyPage":
+			json.NewEncoder(w).Encode(map[string]any{
+				"title":          "EmptyPage",
+				"content_base64": "",
+			})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	content := s.pullWikiContent(context.Background(), "core", "go-io")
+	// Empty content_base64 means the page is skipped
+	assert.Empty(t, content)
+}
+
+// --- renderPlan Ugly ---
+
+func TestPrep_RenderPlan_Ugly(t *testing.T) {
+	// Template with variables that don't exist in template — variables just won't match
+	s := &PrepSubsystem{
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Passing variables that won't match any {{placeholder}} in the template
+	result := s.renderPlan("coding", map[string]string{
+		"nonexistent_var": "value1",
+		"another_missing": "value2",
+	}, "Test task")
+	// Should return the template rendered without substitution (if template exists)
+	// or empty if template doesn't exist. Either way, no panic.
+	_ = result
+}
+
+// --- brainRecall Ugly ---
+
+func TestPrep_BrainRecall_Ugly(t *testing.T) {
+	// Server returns unexpected JSON structure
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		// Return JSON that doesn't have "memories" key
+		json.NewEncoder(w).Encode(map[string]any{
+			"unexpected_key": "unexpected_value",
+			"data":           []string{"not", "the", "right", "shape"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		brainURL:  srv.URL,
+		brainKey:  "test-key",
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	recall, count := s.brainRecall(context.Background(), "go-io")
+	assert.Empty(t, recall, "unexpected JSON structure should yield no memories")
+	assert.Equal(t, 0, count)
+}
+
+// --- findConsumersList Ugly ---
+
+func TestPrep_FindConsumersList_Ugly(t *testing.T) {
+	// go.work with modules that don't have go.mod
+	dir := t.TempDir()
+
+	goWork := "go 1.22\n\nuse (\n\t./core/go\n\t./core/missing\n)"
+	os.WriteFile(filepath.Join(dir, "go.work"), []byte(goWork), 0o644)
+
+	// Create only the first module dir with go.mod
+	modDir := filepath.Join(dir, "core", "go")
+	os.MkdirAll(modDir, 0o755)
+	os.WriteFile(filepath.Join(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
+
+	// core/missing has no go.mod
+	os.MkdirAll(filepath.Join(dir, "core", "missing"), 0o755)
+
+	s := &PrepSubsystem{
+		codePath:  dir,
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	// Should not panic, just skip missing go.mod entries
+	list, count := s.findConsumersList("go")
+	assert.Equal(t, 0, count)
+	assert.Empty(t, list)
+}
+
+// --- getIssueBody Ugly ---
+
+func TestPrep_GetIssueBody_Ugly(t *testing.T) {
+	// Issue body with HTML/special chars
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"number": 99,
+			"title":  "Issue with <script>alert('xss')</script>",
+			"body":   "Body has &amp; HTML &lt;tags&gt; and \"quotes\" and 'apostrophes' <b>bold</b>",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:     forge.NewForge(srv.URL, "test-token"),
+		client:    srv.Client(),
+		backoff:   make(map[string]time.Time),
+		failCount: make(map[string]int),
+	}
+
+	body := s.getIssueBody(context.Background(), "core", "go-io", 99)
+	assert.NotEmpty(t, body)
+	assert.Contains(t, body, "HTML")
+	assert.Contains(t, body, "<script>")
+}

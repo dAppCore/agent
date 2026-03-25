@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -263,4 +265,276 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 
 	s.commentOnIssue(context.Background(), "core", "go-io", 42, "Test comment")
 	assert.True(t, commentPosted)
+}
+
+// --- buildPRBody ---
+
+func TestPr_BuildPRBody_Good(t *testing.T) {
+	s := &PrepSubsystem{}
+	st := &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Task:   "Fix the login bug",
+		Agent:  "codex",
+		Branch: "agent/fix-login",
+		Issue:  42,
+		Runs:   3,
+	}
+	body := s.buildPRBody(st)
+	assert.Contains(t, body, "## Summary")
+	assert.Contains(t, body, "Fix the login bug")
+	assert.Contains(t, body, "Closes #42")
+	assert.Contains(t, body, "**Agent:** codex")
+	assert.Contains(t, body, "**Runs:** 3")
+}
+
+func TestPr_BuildPRBody_Bad(t *testing.T) {
+	// Empty status struct
+	s := &PrepSubsystem{}
+	st := &WorkspaceStatus{}
+	body := s.buildPRBody(st)
+	assert.Contains(t, body, "## Summary")
+	assert.Contains(t, body, "**Agent:**")
+	assert.NotContains(t, body, "Closes #")
+}
+
+func TestPr_BuildPRBody_Ugly(t *testing.T) {
+	// Very long task string
+	s := &PrepSubsystem{}
+	longTask := strings.Repeat("This is a very long task description. ", 100)
+	st := &WorkspaceStatus{
+		Task:  longTask,
+		Agent: "claude",
+		Runs:  1,
+	}
+	body := s.buildPRBody(st)
+	assert.Contains(t, body, "## Summary")
+	assert.Contains(t, body, "very long task")
+}
+
+// --- commentOnIssue Bad/Ugly ---
+
+func TestPr_CommentOnIssue_Bad(t *testing.T) {
+	// Forge returns error (500)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	// Should not panic even on server error
+	assert.NotPanics(t, func() {
+		s.commentOnIssue(context.Background(), "core", "go-io", 42, "Test comment")
+	})
+}
+
+func TestPr_CommentOnIssue_Ugly(t *testing.T) {
+	// Very long comment body
+	commentPosted := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			commentPosted = true
+			w.WriteHeader(201)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	longComment := strings.Repeat("This is a very long comment with details. ", 1000)
+	s.commentOnIssue(context.Background(), "core", "go-io", 42, longComment)
+	assert.True(t, commentPosted)
+}
+
+// --- createPR Ugly ---
+
+func TestPr_CreatePR_Ugly(t *testing.T) {
+	// Workspace with no branch in status (auto-detect from git)
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := filepath.Join(root, "workspace", "test-ws-ugly")
+	repoDir := filepath.Join(wsDir, "repo")
+	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
+	gitCmd := exec.Command("git", "config", "user.name", "Test")
+	gitCmd.Dir = repoDir
+	gitCmd.Run()
+	gitCmd = exec.Command("git", "config", "user.email", "test@test.com")
+	gitCmd.Dir = repoDir
+	gitCmd.Run()
+
+	// Need an initial commit so HEAD exists for branch detection
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("# Test"), 0o644))
+	addCmd := exec.Command("git", "add", ".")
+	addCmd.Dir = repoDir
+	require.NoError(t, addCmd.Run())
+	commitCmd := exec.Command("git", "commit", "-m", "init")
+	commitCmd.Dir = repoDir
+	require.NoError(t, commitCmd.Run())
+
+	// Write status with empty branch
+	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Branch: "", // empty branch — should auto-detect
+		Task:   "Fix something",
+	}))
+
+	s := &PrepSubsystem{
+		forgeToken: "test-token",
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	_, out, err := s.createPR(context.Background(), nil, CreatePRInput{
+		Workspace: "test-ws-ugly",
+		DryRun:    true,
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotEmpty(t, out.Branch, "branch should be auto-detected from git")
+}
+
+// --- forgeCreatePR Ugly ---
+
+func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
+	// Server returns 201 with unexpected JSON
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			w.WriteHeader(201)
+			json.NewEncoder(w).Encode(map[string]any{
+				"unexpected": "fields",
+				"number":     0,
+			})
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	// Should not panic — may return zero values for missing fields
+	assert.NotPanics(t, func() {
+		_, _, _ = s.forgeCreatePR(
+			context.Background(),
+			"core", "test-repo",
+			"agent/fix", "dev",
+			"Title", "Body",
+		)
+	})
+}
+
+// --- listPRs Ugly ---
+
+func TestPr_ListPRs_Ugly(t *testing.T) {
+	// State filter "all"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if containsStr(r.URL.Path, "/repos") && !containsStr(r.URL.Path, "/pulls") {
+			json.NewEncoder(w).Encode([]map[string]any{
+				{"name": "go-io", "full_name": "core/go-io"},
+			})
+			return
+		}
+		json.NewEncoder(w).Encode([]map[string]any{})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	_, out, err := s.listPRs(context.Background(), nil, ListPRsInput{
+		State: "all",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+}
+
+// --- listRepoPRs Good/Bad/Ugly ---
+
+func TestPr_ListRepoPRs_Good(t *testing.T) {
+	// Specific repo with PRs
+	srv := mockPRForgeServer(t)
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	prs, err := s.listRepoPRs(context.Background(), "core", "test-repo", "open")
+	require.NoError(t, err)
+	// May be empty depending on mock, but should not error
+	_ = prs
+}
+
+func TestPr_ListRepoPRs_Bad(t *testing.T) {
+	// Forge returns error
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	_, err := s.listRepoPRs(context.Background(), "core", "go-io", "open")
+	assert.Error(t, err)
+}
+
+func TestPr_ListRepoPRs_Ugly(t *testing.T) {
+	// Repo with no PRs
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]any{})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		forge:      forge.NewForge(srv.URL, "test-token"),
+		forgeURL:   srv.URL,
+		forgeToken: "test-token",
+		client:     srv.Client(),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+	}
+
+	prs, err := s.listRepoPRs(context.Background(), "core", "empty-repo", "open")
+	require.NoError(t, err)
+	assert.Empty(t, prs)
 }
