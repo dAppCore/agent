@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os/exec"
 
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
@@ -67,14 +66,11 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	if st.Branch == "" {
-		// Detect branch from git
-		branchCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
-		branchCmd.Dir = repoDir
-		out, err := branchCmd.Output()
-		if err != nil {
-			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", err)
+		branch := gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		if branch == "" {
+			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", nil)
 		}
-		st.Branch = core.Trim(string(out))
+		st.Branch = branch
 	}
 
 	org := st.Org
@@ -112,11 +108,9 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	// Push branch to Forge (origin is the local clone, not Forge)
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	pushCmd := exec.CommandContext(ctx, "git", "push", forgeRemote, st.Branch)
-	pushCmd.Dir = repoDir
-	pushOut, err := pushCmd.CombinedOutput()
-	if err != nil {
-		return nil, CreatePROutput{}, core.E("createPR", "git push failed: "+string(pushOut), err)
+	pushOut, pushErr := gitCmd(ctx, repoDir, "push", forgeRemote, st.Branch)
+	if pushErr != nil {
+		return nil, CreatePROutput{}, core.E("createPR", "git push failed: "+pushOut, pushErr)
 	}
 
 	// Create PR via Forge API

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"time"
 
@@ -173,9 +172,8 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	if reviewer == "" {
 		reviewer = "coderabbit"
 	}
-	cmd := s.buildReviewCommand(ctx, repoDir, reviewer)
-	out, err := cmd.CombinedOutput()
-	output := string(out)
+	command, args := s.buildReviewCommand(repoDir, reviewer)
+	output, err := runCmd(ctx, repoDir, command, args...)
 
 	// Parse rate limit (both reviewers use similar patterns)
 	if core.Contains(output, "Rate limit exceeded") || core.Contains(output, "rate limit") {
@@ -249,23 +247,15 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 
 // pushAndMerge pushes to GitHub dev and merges the PR.
 func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
-	// Push to dev
-	pushCmd := exec.CommandContext(ctx, "git", "push", "github", "HEAD:refs/heads/dev", "--force")
-	pushCmd.Dir = repoDir
-	if out, err := pushCmd.CombinedOutput(); err != nil {
-		return core.E("pushAndMerge", "push failed: "+string(out), err)
+	if out, err := gitCmd(ctx, repoDir, "push", "github", "HEAD:refs/heads/dev", "--force"); err != nil {
+		return core.E("pushAndMerge", "push failed: "+out, err)
 	}
 
 	// Mark PR ready if draft
-	readyCmd := exec.CommandContext(ctx, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
-	readyCmd.Dir = repoDir
-	readyCmd.Run() // Ignore error — might already be ready
+	runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
 
-	// Try to merge
-	mergeCmd := exec.CommandContext(ctx, "gh", "pr", "merge", "--merge", "--delete-branch")
-	mergeCmd.Dir = repoDir
-	if out, err := mergeCmd.CombinedOutput(); err != nil {
-		return core.E("pushAndMerge", "merge failed: "+string(out), err)
+	if out, err := runCmd(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); err != nil {
+		return core.E("pushAndMerge", "merge failed: "+out, err)
 	}
 
 	return nil
@@ -324,16 +314,15 @@ func parseRetryAfter(message string) time.Duration {
 	return 5 * time.Minute
 }
 
-// buildReviewCommand creates the CLI command for the chosen reviewer.
-func (s *PrepSubsystem) buildReviewCommand(ctx context.Context, repoDir, reviewer string) *exec.Cmd {
+// buildReviewCommand returns the command and args for the chosen reviewer.
+//
+//	cmd, args := s.buildReviewCommand(repoDir, "coderabbit")
+func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []string) {
 	switch reviewer {
 	case "codex":
-		cmd := exec.CommandContext(ctx, "codex", "review", "--base", "github/main")
-		cmd.Dir = repoDir
-		return cmd
+		return "codex", []string{"review", "--base", "github/main"}
 	default: // coderabbit
-		return exec.CommandContext(ctx, "coderabbit", "review", "--plain",
-			"--base", "github/main", "--config", "CLAUDE.md", "--cwd", repoDir)
+		return "coderabbit", []string{"review", "--plain", "--base", "github/main", "--config", "CLAUDE.md", "--cwd", repoDir}
 	}
 }
 

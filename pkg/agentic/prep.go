@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	goio "io"
 	"net/http"
-	"os/exec"
 	"sync"
 	"time"
 
@@ -248,8 +247,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	if !resumed {
 		// Clone repo into repo/
-		cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, repoDir)
-		if cloneErr := cloneCmd.Run(); cloneErr != nil {
+		if _, cloneErr := gitCmd(ctx, ".", "clone", repoPath, repoDir); cloneErr != nil {
 			return nil, PrepOutput{}, core.E("prep", "git clone failed for "+input.Repo, cloneErr)
 		}
 
@@ -266,19 +264,13 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		branchName := core.Sprintf("agent/%s", taskSlug)
 
-		branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
-		branchCmd.Dir = repoDir
-		if branchErr := branchCmd.Run(); branchErr != nil {
+		if _, branchErr := gitCmd(ctx, repoDir, "checkout", "-b", branchName); branchErr != nil {
 			return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), branchErr)
 		}
 		out.Branch = branchName
 	} else {
 		// Resume: read branch from existing checkout
-		branchCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
-		branchCmd.Dir = repoDir
-		if branchOut, branchErr := branchCmd.Output(); branchErr == nil {
-			out.Branch = core.Trim(string(branchOut))
-		}
+		out.Branch = gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	}
 
 	// Build the rich prompt with all context
@@ -492,13 +484,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 }
 
 func (s *PrepSubsystem) getGitLog(repoPath string) string {
-	cmd := exec.Command("git", "log", "--oneline", "-20")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return core.Trim(string(output))
+	return gitOutput(context.Background(), repoPath, "log", "--oneline", "-20")
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {

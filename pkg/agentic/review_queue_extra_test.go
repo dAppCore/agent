@@ -19,38 +19,27 @@ import (
 // --- buildReviewCommand ---
 
 func TestReviewQueue_BuildReviewCommand_Good_CodeRabbit(t *testing.T) {
-	s := &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
-	}
-	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "coderabbit")
-	assert.Equal(t, "coderabbit", cmd.Path[len(cmd.Path)-len("coderabbit"):])
-	assert.Contains(t, cmd.Args, "review")
-	assert.Contains(t, cmd.Args, "--plain")
-	assert.Contains(t, cmd.Args, "--base")
-	assert.Contains(t, cmd.Args, "github/main")
+	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	cmd, args := s.buildReviewCommand("/tmp/repo", "coderabbit")
+	assert.Equal(t, "coderabbit", cmd)
+	assert.Contains(t, args, "review")
+	assert.Contains(t, args, "--plain")
+	assert.Contains(t, args, "github/main")
 }
 
 func TestReviewQueue_BuildReviewCommand_Good_Codex(t *testing.T) {
-	s := &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
-	}
-	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "codex")
-	assert.Contains(t, cmd.Args, "review")
-	assert.Contains(t, cmd.Args, "--base")
-	assert.Contains(t, cmd.Args, "github/main")
-	assert.Equal(t, "/tmp/repo", cmd.Dir)
+	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	cmd, args := s.buildReviewCommand("/tmp/repo", "codex")
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "review")
+	assert.Contains(t, args, "github/main")
 }
 
 func TestReviewQueue_BuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
-	s := &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
-	}
-	// Empty string → defaults to coderabbit
-	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "")
-	assert.Contains(t, cmd.Args, "--plain")
+	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	cmd, args := s.buildReviewCommand("/tmp/repo", "")
+	assert.Equal(t, "coderabbit", cmd)
+	assert.Contains(t, args, "--plain")
 }
 
 // --- saveRateLimitState / loadRateLimitState ---
@@ -253,19 +242,16 @@ func TestReviewQueue_BuildReviewCommand_Bad(t *testing.T) {
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
-	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "")
-	assert.Contains(t, cmd.Args, "--plain")
-	assert.Contains(t, cmd.Args, "review")
+	cmd, args := s.buildReviewCommand("/tmp/repo", "")
+	assert.Equal(t, "coderabbit", cmd)
+	assert.Contains(t, args, "--plain")
 }
 
 func TestReviewQueue_BuildReviewCommand_Ugly(t *testing.T) {
-	// Unknown reviewer type — defaults to coderabbit
-	s := &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
-	}
-	cmd := s.buildReviewCommand(context.Background(), "/tmp/repo", "unknown-reviewer")
-	assert.Contains(t, cmd.Args, "--plain", "unknown reviewer should fall through to coderabbit default")
+	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	cmd, args := s.buildReviewCommand("/tmp/repo", "unknown-reviewer")
+	assert.Equal(t, "coderabbit", cmd)
+	assert.Contains(t, args, "--plain")
 }
 
 // --- countFindings Bad/Ugly ---

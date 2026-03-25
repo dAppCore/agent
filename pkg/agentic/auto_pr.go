@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os/exec"
 	"time"
 
 	core "dappco.re/go/core"
@@ -18,21 +17,19 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 		return
 	}
 
+	ctx := context.Background()
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	// PRs target dev — agents never merge directly to main
 	base := "dev"
 
-	diffCmd := exec.Command("git", "log", "--oneline", "origin/"+base+"..HEAD")
-	diffCmd.Dir = repoDir
-	out, err := diffCmd.Output()
-	if err != nil || len(core.Trim(string(out))) == 0 {
+	out := gitOutput(ctx, repoDir, "log", "--oneline", "origin/"+base+"..HEAD")
+	if out == "" {
 		return
 	}
 
-	commitCount := len(core.Split(core.Trim(string(out)), "\n"))
+	commitCount := len(core.Split(out, "\n"))
 
-	// Get the repo's forge remote URL to extract org/repo
 	org := st.Org
 	if org == "" {
 		org = "core"
@@ -40,12 +37,9 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	pushCmd := exec.Command("git", "push", forgeRemote, st.Branch)
-	pushCmd.Dir = repoDir
-	if pushErr := pushCmd.Run(); pushErr != nil {
-		// Push failed — update status with error but don't block
+	if !gitCmdOK(ctx, repoDir, "push", forgeRemote, st.Branch) {
 		if st2, err := ReadStatus(wsDir); err == nil {
-			st2.Question = core.Sprintf("PR push failed: %v", pushErr)
+			st2.Question = "PR push failed"
 			writeStatus(wsDir, st2)
 		}
 		return

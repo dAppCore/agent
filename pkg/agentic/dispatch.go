@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os/exec"
 	"syscall"
 	"time"
 
@@ -394,20 +393,17 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 // runQA runs build + test checks on the repo after agent completion.
 // Returns true if QA passes, false if build or tests fail.
 func (s *PrepSubsystem) runQA(wsDir string) bool {
+	ctx := context.Background()
 	repoDir := core.JoinPath(wsDir, "repo")
 
-	// Detect language and run appropriate checks
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
-		// Go: build + vet + test
 		for _, args := range [][]string{
 			{"go", "build", "./..."},
 			{"go", "vet", "./..."},
 			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
 		} {
-			cmd := exec.Command(args[0], args[1:]...)
-			cmd.Dir = repoDir
-			if err := cmd.Run(); err != nil {
-				core.Warn("QA failed", "cmd", core.Join(" ", args...), "err", err)
+			if !runCmdOK(ctx, repoDir, args[0], args[1:]...) {
+				core.Warn("QA failed", "cmd", core.Join(" ", args...))
 				return false
 			}
 		}
@@ -415,28 +411,19 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
-		install := exec.Command("composer", "install", "--no-interaction")
-		install.Dir = repoDir
-		if err := install.Run(); err != nil {
+		if !runCmdOK(ctx, repoDir, "composer", "install", "--no-interaction") {
 			return false
 		}
-		test := exec.Command("composer", "test")
-		test.Dir = repoDir
-		return test.Run() == nil
+		return runCmdOK(ctx, repoDir, "composer", "test")
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
-		install := exec.Command("npm", "install")
-		install.Dir = repoDir
-		if err := install.Run(); err != nil {
+		if !runCmdOK(ctx, repoDir, "npm", "install") {
 			return false
 		}
-		test := exec.Command("npm", "test")
-		test.Dir = repoDir
-		return test.Run() == nil
+		return runCmdOK(ctx, repoDir, "npm", "test")
 	}
 
-	// Unknown language — pass QA (no checks to run)
 	return true
 }
 

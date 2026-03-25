@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
-	"os/exec"
 	"time"
 
 	core "dappco.re/go/core"
@@ -108,27 +106,18 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
+	ctx := context.Background()
 	base := DefaultBranch(repoDir)
 
-	// Fetch latest default branch
-	fetch := exec.Command("git", "fetch", "origin", base)
-	fetch.Dir = repoDir
-	if err := fetch.Run(); err != nil {
+	if !gitCmdOK(ctx, repoDir, "fetch", "origin", base) {
 		return false
 	}
 
-	// Rebase onto default branch
-	rebase := exec.Command("git", "rebase", "origin/"+base)
-	rebase.Dir = repoDir
-	if err := rebase.Run(); err != nil {
-		// Rebase failed — abort and give up
-		abort := exec.Command("git", "rebase", "--abort")
-		abort.Dir = repoDir
-		abort.Run()
+	if !gitCmdOK(ctx, repoDir, "rebase", "origin/"+base) {
+		gitCmdOK(ctx, repoDir, "rebase", "--abort")
 		return false
 	}
 
-	// Force-push the rebased branch to Forge (origin is local clone)
 	st, _ := ReadStatus(core.PathDir(repoDir))
 	org := "core"
 	repo := ""
@@ -139,9 +128,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 		repo = st.Repo
 	}
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
-	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
-	push.Dir = repoDir
-	return push.Run() == nil
+	return gitCmdOK(ctx, repoDir, "push", "--force-with-lease", forgeRemote, branch)
 }
 
 // flagForReview adds the "needs-review" label to the PR via Forge API.
@@ -237,44 +224,28 @@ func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 }
 
 func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
-	cmd := exec.Command("go", "test", "./...", "-count=1", "-timeout", "120s")
-	cmd.Dir = repoDir
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	out, err := cmd.CombinedOutput()
-
+	ctx := context.Background()
+	out, err := runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
+	passed := err == nil
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
+		exitCode = 1
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "go test ./..."}
+	return verifyResult{passed: passed, output: out, exitCode: exitCode, testCmd: "go test ./..."}
 }
 
 func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
-	cmd := exec.Command("composer", "test", "--no-interaction")
-	cmd.Dir = repoDir
-	out, err := cmd.CombinedOutput()
-
-	exitCode := 0
+	ctx := context.Background()
+	out, err := runCmd(ctx, repoDir, "composer", "test", "--no-interaction")
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			cmd2 := exec.Command("./vendor/bin/pest", "--no-interaction")
-			cmd2.Dir = repoDir
-			out2, err2 := cmd2.CombinedOutput()
-			if err2 != nil {
-				return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
-			}
-			return verifyResult{passed: true, output: string(out2), exitCode: 0, testCmd: "vendor/bin/pest"}
+		// Try pest as fallback
+		out2, err2 := runCmd(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
+		if err2 != nil {
+			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
+		return verifyResult{passed: true, output: out2, exitCode: 0, testCmd: "vendor/bin/pest"}
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "composer test"}
+	return verifyResult{passed: true, output: out, exitCode: 0, testCmd: "composer test"}
 }
 
 func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
@@ -290,20 +261,14 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 		return verifyResult{passed: true, testCmd: "none", output: "No test script in package.json"}
 	}
 
-	cmd := exec.Command("npm", "test")
-	cmd.Dir = repoDir
-	out, err := cmd.CombinedOutput()
-
+	ctx := context.Background()
+	out, err := runCmd(ctx, repoDir, "npm", "test")
+	passed := err == nil
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
+		exitCode = 1
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "npm test"}
+	return verifyResult{passed: passed, output: out, exitCode: exitCode, testCmd: "npm test"}
 }
 
 // forgeMergePR merges a PR via the Forge API.

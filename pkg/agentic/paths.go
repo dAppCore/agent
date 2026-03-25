@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	"os/exec"
+	"context"
 	"strconv"
 	"unsafe"
 
@@ -76,19 +76,15 @@ func AgentName() string {
 //
 //	base := agentic.DefaultBranch("./src")
 func DefaultBranch(repoDir string) string {
-	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
-	cmd.Dir = repoDir
-	if out, err := cmd.Output(); err == nil {
-		ref := core.Trim(string(out))
+	ctx := context.Background()
+	if ref := gitOutput(ctx, repoDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
 		if core.HasPrefix(ref, "origin/") {
 			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
 	for _, branch := range []string{"main", "master"} {
-		cmd := exec.Command("git", "rev-parse", "--verify", branch)
-		cmd.Dir = repoDir
-		if cmd.Run() == nil {
+		if gitCmdOK(ctx, repoDir, "rev-parse", "--verify", branch) {
 			return branch
 		}
 	}
