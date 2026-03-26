@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -33,8 +32,8 @@ func TestStatus_WriteStatus_Good(t *testing.T) {
 	require.True(t, r.OK)
 
 	var read WorkspaceStatus
-	err = json.Unmarshal([]byte(r.Value.(string)), &read)
-	require.NoError(t, err)
+	ur := core.JSONUnmarshalString(r.Value.(string), &read)
+	require.True(t, ur.OK)
 
 	assert.Equal(t, "running", read.Status)
 	assert.Equal(t, "gemini", read.Agent)
@@ -75,9 +74,7 @@ func TestStatus_ReadStatus_Good(t *testing.T) {
 		PRURL:     "https://forge.lthn.ai/core/go-log/pulls/5",
 	}
 
-	data, err := json.MarshalIndent(status, "", "  ")
-	require.NoError(t, err)
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
 
 	read, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -115,9 +112,7 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 		Question: "Which interface should I implement?",
 	}
 
-	data, err := json.MarshalIndent(status, "", "  ")
-	require.NoError(t, err)
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
 
 	read, err := ReadStatus(dir)
 	require.NoError(t, err)
