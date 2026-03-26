@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -24,12 +22,11 @@ func TestResume_Resume_Good(t *testing.T) {
 	wsRoot := WorkspaceRoot()
 	ws := core.JoinPath(wsRoot, "ws-blocked")
 	repoDir := core.JoinPath(ws, "repo")
-	os.MkdirAll(repoDir, 0o755)
+	fs.EnsureDir(repoDir)
 	exec.Command("git", "init", repoDir).Run()
 
 	st := &WorkspaceStatus{Status: "blocked", Repo: "go-io", Agent: "codex", Task: "Fix the tests"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, err := s.resume(context.Background(), nil, ResumeInput{
@@ -42,8 +39,8 @@ func TestResume_Resume_Good(t *testing.T) {
 	assert.Contains(t, out.Prompt, "Fix the tests")
 	assert.Contains(t, out.Prompt, "Use the new Core API")
 
-	answerContent, _ := os.ReadFile(core.JoinPath(repoDir, "ANSWER.md"))
-	assert.Contains(t, string(answerContent), "Use the new Core API")
+	answerR := fs.Read(core.JoinPath(repoDir, "ANSWER.md"))
+	assert.Contains(t, answerR.Value.(string), "Use the new Core API")
 
 	// Agent override
 	_, out2, _ := s.resume(context.Background(), nil, ResumeInput{
@@ -53,11 +50,10 @@ func TestResume_Resume_Good(t *testing.T) {
 
 	// Completed workspace is resumable too
 	ws2 := core.JoinPath(wsRoot, "ws-done")
-	os.MkdirAll(core.JoinPath(ws2, "repo"), 0o755)
+	fs.EnsureDir(core.JoinPath(ws2, "repo"))
 	exec.Command("git", "init", core.JoinPath(ws2, "repo")).Run()
 	st2 := &WorkspaceStatus{Status: "completed", Repo: "go-io", Agent: "codex", Task: "Review code"}
-	data2, _ := json.Marshal(st2)
-	os.WriteFile(core.JoinPath(ws2, "status.json"), data2, 0o644)
+	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st2))
 
 	_, out3, err3 := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-done", DryRun: true})
 	require.NoError(t, err3)
@@ -82,11 +78,10 @@ func TestResume_Resume_Bad(t *testing.T) {
 
 	// Not resumable (running)
 	ws := core.JoinPath(WorkspaceRoot(), "ws-running")
-	os.MkdirAll(core.JoinPath(ws, "repo"), 0o755)
+	fs.EnsureDir(core.JoinPath(ws, "repo"))
 	exec.Command("git", "init", core.JoinPath(ws, "repo")).Run()
 	st := &WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	_, _, err = s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-running"})
 	assert.Error(t, err)
@@ -99,7 +94,7 @@ func TestResume_Resume_Ugly(t *testing.T) {
 
 	// Workspace exists but no status.json
 	ws := core.JoinPath(WorkspaceRoot(), "ws-nostatus")
-	os.MkdirAll(core.JoinPath(ws, "repo"), 0o755)
+	fs.EnsureDir(core.JoinPath(ws, "repo"))
 	exec.Command("git", "init", core.JoinPath(ws, "repo")).Run()
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -109,11 +104,10 @@ func TestResume_Resume_Ugly(t *testing.T) {
 
 	// No answer provided — prompt has no ANSWER section
 	ws2 := core.JoinPath(WorkspaceRoot(), "ws-noanswer")
-	os.MkdirAll(core.JoinPath(ws2, "repo"), 0o755)
+	fs.EnsureDir(core.JoinPath(ws2, "repo"))
 	exec.Command("git", "init", core.JoinPath(ws2, "repo")).Run()
 	st := &WorkspaceStatus{Status: "blocked", Repo: "test", Agent: "codex", Task: "Fix"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws2, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st))
 
 	_, out, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-noanswer", DryRun: true})
 	require.NoError(t, err)
