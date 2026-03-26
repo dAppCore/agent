@@ -251,10 +251,12 @@ func baseAgent(agent string) string {
 //
 //	codex: {total: 2, models: {gpt-5.4: 1}} → max 2 codex total, max 1 gpt-5.4
 func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
-	// Read concurrency from shared config (loaded once at startup)
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
-		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](s.Core().Config(), "agents.concurrency")
+		r := s.Core().Config().Get("agents.concurrency")
+		if r.OK {
+			concurrency, _ = r.Value.(map[string]ConcurrencyLimit)
+		}
 	}
 	if concurrency == nil {
 		cfg := s.loadAgentsConfig()

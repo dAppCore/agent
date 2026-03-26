@@ -107,8 +107,10 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 func (s *Service) canDispatchAgent(agent string) bool {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
-		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](
-			s.Core().Config(), "agents.concurrency")
+		r := s.Core().Config().Get("agents.concurrency")
+		if r.OK {
+			concurrency, _ = r.Value.(map[string]ConcurrencyLimit)
+		}
 	}
 	if concurrency == nil {
 		cfg := s.loadAgentsConfig()
