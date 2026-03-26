@@ -193,13 +193,12 @@ func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Resu
 	if s.frozen {
 		return core.Result{Value: "queue is frozen", OK: false}
 	}
-	// Dispatch is called by agentic via IPC — the actual spawn logic
-	// is delegated back to agentic which owns workspace prep + prompt building.
-	// Runner just gates: frozen check + concurrency check.
+
 	agent := opts.String("agent")
 	if agent == "" {
 		agent = "codex"
 	}
+	repo := opts.String("repo")
 
 	s.dispatchMu.Lock()
 	defer s.dispatchMu.Unlock()
@@ -207,6 +206,16 @@ func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Resu
 	if !s.canDispatchAgent(agent) {
 		return core.Result{Value: "queued — at concurrency limit", OK: false}
 	}
+
+	// Reserve the slot immediately — before returning to agentic.
+	// Without this, parallel dispatches all see count < limit.
+	name := core.Concat("pending/", repo)
+	s.workspaces.Set(name, &WorkspaceStatus{
+		Status: "running",
+		Agent:  agent,
+		Repo:   repo,
+		PID:    -1, // placeholder — agentic will update with real PID via TrackWorkspace
+	})
 
 	return core.Result{OK: true}
 }

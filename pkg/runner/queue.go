@@ -147,7 +147,9 @@ func (s *Service) countRunningByAgent(agent string) int {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 			if st.Status == "running" && baseAgent(st.Agent) == agent {
-				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+				// PID < 0 = reservation (pending spawn), always count
+				// PID > 0 = verify process is alive
+				if st.PID < 0 || (st.PID > 0 && syscall.Kill(st.PID, 0) == nil) {
 					count++
 				}
 			}
@@ -184,7 +186,7 @@ func (s *Service) countRunningByModel(agent string) int {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 			if st.Status == "running" && st.Agent == agent {
-				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+				if st.PID < 0 || (st.PID > 0 && syscall.Kill(st.PID, 0) == nil) {
 					count++
 				}
 			}

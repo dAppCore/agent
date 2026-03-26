@@ -506,6 +506,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	if s.ServiceRuntime != nil {
 		r := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
 			core.Option{Key: "agent", Value: input.Agent},
+			core.Option{Key: "repo", Value: input.Repo},
 		))
 		if !r.OK {
 			// Runner denied — queue it
