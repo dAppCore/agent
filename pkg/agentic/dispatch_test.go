@@ -134,8 +134,7 @@ func TestDispatch_StartIssueTracking_Good(t *testing.T) {
 
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Org: "core", Issue: 15}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir)
@@ -155,8 +154,7 @@ func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
 	// Status has no issue — early return
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "test"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir) // no issue → skips API call
@@ -172,8 +170,7 @@ func TestDispatch_StopIssueTracking_Good(t *testing.T) {
 
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "go-io", Issue: 10}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
@@ -188,8 +185,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 	// Status has no issue
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "test"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
@@ -202,9 +198,8 @@ func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
-	os.MkdirAll(wsDir, 0o755)
-	data, _ := json.Marshal(WorkspaceStatus{Repo: "go-io", Agent: "codex"})
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.EnsureDir(wsDir)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(WorkspaceStatus{Repo: "go-io", Agent: "codex"}))
 
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
