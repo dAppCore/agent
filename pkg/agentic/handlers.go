@@ -27,6 +27,27 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 				s.ingestFindings(wsDir)
 			}
 		}
+
+	case messages.SpawnQueued:
+		// Runner asks agentic to spawn a queued workspace
+		wsDir := resolveWorkspace(ev.Workspace)
+		if wsDir == "" {
+			break
+		}
+		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
+		pid, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
+		if err != nil {
+			break
+		}
+		// Update status with real PID
+		if st, serr := ReadStatus(wsDir); serr == nil {
+			st.PID = pid
+			writeStatus(wsDir, st)
+			if runnerSvc, ok := core.ServiceFor[workspaceTracker](c, "runner"); ok {
+				runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+			}
+		}
+		_ = outputFile
 	}
 
 	return core.Result{OK: true}
