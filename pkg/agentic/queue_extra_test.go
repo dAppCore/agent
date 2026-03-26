@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -90,7 +89,7 @@ rates:
     sustained_delay: 120
     burst_window: 2
     burst_delay: 15`
-	os.WriteFile(core.JoinPath(root, "agents.yaml"), []byte(cfg), 0o644)
+	fs.Write(core.JoinPath(root, "agents.yaml"), cfg)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -109,7 +108,7 @@ rates:
 func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
+	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -124,7 +123,7 @@ func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
+	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: nil,
@@ -138,7 +137,7 @@ func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
+	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -155,10 +154,9 @@ func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-done")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Status: "completed", Agent: "codex", Repo: "test"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -175,10 +173,9 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-queued")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Status: "queued", Agent: "codex", Repo: "test", Task: "do it"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -196,7 +193,7 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
+	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	c := core.New()
 	// Set concurrency on Core.Config() — same path that Register() uses
@@ -223,7 +220,7 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 func TestQueue_DrainQueue_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
+	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	c := core.New()
 	s := &PrepSubsystem{
@@ -246,15 +243,14 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 
 	// Create a running workspace with a valid-looking PID (use our own PID)
 	ws := core.JoinPath(wsRoot, "ws-running")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{
 		Status: "running",
 		Agent:  "claude",
 		Repo:   "go-io",
 		PID:    os.Getpid(), // Our own PID so Kill(pid, 0) succeeds
 	}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	c := core.New()
 	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
@@ -280,15 +276,14 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 
 	// Create a running workspace for a different agent type
 	ws := core.JoinPath(wsRoot, "ws-gemini")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{
 		Status: "running",
 		Agent:  "gemini",
 		Repo:   "go-io",
 		PID:    os.Getpid(),
 	}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -307,8 +302,8 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 
 	// Create a workspace with corrupt status.json
 	ws := core.JoinPath(wsRoot, "ws-corrupt")
-	os.MkdirAll(ws, 0o755)
-	os.WriteFile(core.JoinPath(ws, "status.json"), []byte("{not valid json!!!"), 0o644)
+	fs.EnsureDir(ws)
+	fs.Write(core.JoinPath(ws, "status.json"), "{not valid json!!!")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -328,15 +323,14 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-1")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{
 		Status: "running",
 		Agent:  "codex:gpt-5.4",
 		Repo:   "go-io",
 		PID:    os.Getpid(),
 	}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -361,10 +355,9 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 		{"ws-b", "codex:gpt-5.3-codex-spark"},
 	} {
 		d := core.JoinPath(wsRoot, ws.name)
-		os.MkdirAll(d, 0o755)
+		fs.EnsureDir(d)
 		st := &WorkspaceStatus{Status: "running", Agent: ws.agent, Repo: "test", PID: os.Getpid()}
-		data, _ := json.Marshal(st)
-		os.WriteFile(core.JoinPath(d, "status.json"), data, 0o644)
+		fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(st))
 	}
 
 	s := &PrepSubsystem{
@@ -392,7 +385,7 @@ rates:
     sustained_delay: 0
     burst_window: 0
     burst_delay: 0`
-	os.WriteFile(core.JoinPath(root, "agents.yaml"), []byte(cfg), 0o644)
+	fs.Write(core.JoinPath(root, "agents.yaml"), cfg)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -417,7 +410,7 @@ rates:
     sustained_delay: 60
     burst_window: 2
     burst_delay: 10`
-	os.WriteFile(core.JoinPath(root, "agents.yaml"), []byte(cfg), 0o644)
+	fs.Write(core.JoinPath(root, "agents.yaml"), cfg)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -442,22 +435,20 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 
 	// Create a running workspace that uses our PID
 	wsRunning := core.JoinPath(wsRoot, "ws-running")
-	os.MkdirAll(wsRunning, 0o755)
+	fs.EnsureDir(wsRunning)
 	stRunning := &WorkspaceStatus{
 		Status: "running",
 		Agent:  "claude",
 		Repo:   "go-io",
 		PID:    os.Getpid(),
 	}
-	dataRunning, _ := json.Marshal(stRunning)
-	os.WriteFile(core.JoinPath(wsRunning, "status.json"), dataRunning, 0o644)
+	fs.Write(core.JoinPath(wsRunning, "status.json"), core.JSONMarshalString(stRunning))
 
 	// Create a queued workspace
 	wsQueued := core.JoinPath(wsRoot, "ws-queued")
-	os.MkdirAll(wsQueued, 0o755)
+	fs.EnsureDir(wsQueued)
 	stQueued := &WorkspaceStatus{Status: "queued", Agent: "claude", Repo: "go-log", Task: "do it"}
-	dataQueued, _ := json.Marshal(stQueued)
-	os.WriteFile(core.JoinPath(wsQueued, "status.json"), dataQueued, 0o644)
+	fs.Write(core.JoinPath(wsQueued, "status.json"), core.JSONMarshalString(stQueued))
 
 	c := core.New()
 	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
@@ -482,10 +473,9 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 
 	// Create a queued workspace
 	ws := core.JoinPath(wsRoot, "ws-queued")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Status: "queued", Agent: "codex", Repo: "go-io", Task: "fix it"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -612,10 +602,9 @@ func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 
 	// Create a queued workspace that would normally be drained
 	ws := core.JoinPath(wsRoot, "ws-queued")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Status: "queued", Agent: "codex", Repo: "go-io", Task: "fix it"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
