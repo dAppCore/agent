@@ -9,16 +9,18 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newTestPrep creates a PrepSubsystem for testing.
+// newTestPrep creates a PrepSubsystem for testing with testCore wired in.
 func newTestPrep(t *testing.T) *PrepSubsystem {
 	t.Helper()
 	return &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 }
 

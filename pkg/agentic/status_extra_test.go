@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,7 @@ func TestStatus_Good_EmptyWorkspace(t *testing.T) {
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -78,6 +80,7 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -108,6 +111,7 @@ func TestStatus_Good_DeepLayout(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -128,6 +132,7 @@ func TestStatus_Good_CorruptStatusFile(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(ws, "status.json"), "invalid-json{{{").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -142,6 +147,7 @@ func TestStatus_Good_CorruptStatusFile(t *testing.T) {
 
 func TestShutdown_DispatchStart_Good(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    true,
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -160,6 +166,7 @@ func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -178,6 +185,7 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -207,6 +215,7 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	}
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -242,6 +251,7 @@ func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -264,6 +274,7 @@ func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -278,6 +289,7 @@ func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 
 func TestPrep_BrainRecall_Bad_NoBrainKey(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainKey:  "",
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -295,6 +307,7 @@ func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -311,6 +324,7 @@ func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Bad_NoRepo(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -325,6 +339,7 @@ func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -342,6 +357,7 @@ func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -377,6 +393,7 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -401,6 +418,7 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 
 func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -418,6 +436,7 @@ func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
 
 func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -434,6 +453,7 @@ func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
 
 func TestRunner_Poke_Bad_NilChannel(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		pokeCh:    nil,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -506,13 +526,14 @@ func TestWriteReadStatus_Good_AllFields(t *testing.T) {
 
 func TestPrep_OnShutdown_Good(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
 
-	err := s.OnShutdown(context.Background())
-	assert.NoError(t, err)
+	r := s.OnShutdown(context.Background())
+	assert.True(t, r.OK)
 	assert.True(t, s.frozen)
 }
 
@@ -523,6 +544,7 @@ func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    true,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -552,6 +574,7 @@ func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -574,6 +597,7 @@ func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 
 func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    true,
 		pokeCh:    nil,
 		backoff:   make(map[string]time.Time),
@@ -589,6 +613,7 @@ func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
 
 func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false, // already unfrozen
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -609,6 +634,7 @@ func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    true, // already frozen
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -638,6 +664,7 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	}
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -670,6 +697,7 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	}
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),

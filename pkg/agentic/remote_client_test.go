@@ -41,7 +41,7 @@ func TestRemoteClient_McpInitialize_Good(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	sessionID, err := mcpInitialize(context.Background(), srv.Client(), srv.URL, "test-token")
+	sessionID, err := mcpInitialize(context.Background(), srv.URL, "test-token")
 	require.NoError(t, err)
 	assert.Equal(t, "session-abc", sessionID)
 	assert.Equal(t, 2, callCount, "should make init + notification requests")
@@ -53,13 +53,13 @@ func TestRemoteClient_McpInitialize_Bad_ServerError(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := mcpInitialize(context.Background(), srv.Client(), srv.URL, "")
+	_, err := mcpInitialize(context.Background(), srv.URL, "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
 func TestRemoteClient_McpInitialize_Bad_Unreachable(t *testing.T) {
-	_, err := mcpInitialize(context.Background(), http.DefaultClient, "http://127.0.0.1:1", "")
+	_, err := mcpInitialize(context.Background(), "http://127.0.0.1:1", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "request failed")
 }
@@ -77,7 +77,7 @@ func TestRemoteClient_McpCall_Good(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
-	result, err := mcpCall(context.Background(), srv.Client(), srv.URL, "mytoken", "sess-123", body)
+	result, err := mcpCall(context.Background(), srv.URL, "mytoken", "sess-123", body)
 	require.NoError(t, err)
 	assert.Contains(t, string(result), "hello")
 }
@@ -88,7 +88,7 @@ func TestRemoteClient_McpCall_Bad_HTTP500(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := mcpCall(context.Background(), srv.Client(), srv.URL, "", "", nil)
+	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
@@ -100,7 +100,7 @@ func TestRemoteClient_McpCall_Bad_NoSSEData(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := mcpCall(context.Background(), srv.Client(), srv.URL, "", "", nil)
+	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no data")
 }
@@ -109,7 +109,7 @@ func TestRemoteClient_McpCall_Bad_NoSSEData(t *testing.T) {
 
 func TestRemoteClient_SetHeaders_Good_All(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	setHeaders(req, "my-token", "my-session")
+	mcpHeaders(req, "my-token", "my-session")
 
 	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
 	assert.Equal(t, "application/json, text/event-stream", req.Header.Get("Accept"))
@@ -119,7 +119,7 @@ func TestRemoteClient_SetHeaders_Good_All(t *testing.T) {
 
 func TestRemoteClient_SetHeaders_Good_NoToken(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	setHeaders(req, "", "")
+	mcpHeaders(req, "", "")
 
 	assert.Empty(t, req.Header.Get("Authorization"))
 	assert.Empty(t, req.Header.Get("Mcp-Session-Id"))
@@ -130,7 +130,7 @@ func TestRemoteClient_SetHeaders_Good_NoToken(t *testing.T) {
 func TestRemoteClient_SetHeaders_Bad(t *testing.T) {
 	// Both token and session empty — only Content-Type and Accept are set
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	setHeaders(req, "", "")
+	mcpHeaders(req, "", "")
 
 	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
 	assert.Equal(t, "application/json, text/event-stream", req.Header.Get("Accept"))
@@ -199,7 +199,7 @@ func TestRemoteClient_McpInitialize_Ugly_NonJSONSSE(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// mcpInitialize drains the SSE body but doesn't parse it — should succeed
-	sessionID, err := mcpInitialize(context.Background(), srv.Client(), srv.URL, "tok")
+	sessionID, err := mcpInitialize(context.Background(), srv.URL, "tok")
 	require.NoError(t, err)
 	assert.Equal(t, "sess-ugly", sessionID)
 }
@@ -213,7 +213,7 @@ func TestRemoteClient_McpCall_Ugly_EmptyResponseBody(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := mcpCall(context.Background(), srv.Client(), srv.URL, "", "", nil)
+	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no data")
 }
@@ -242,7 +242,7 @@ func TestRemoteClient_ReadSSEData_Ugly_OnlyEventLines(t *testing.T) {
 func TestRemoteClient_SetHeaders_Ugly_VeryLongToken(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	longToken := strings.Repeat("a", 10000)
-	setHeaders(req, longToken, "sess-123")
+	mcpHeaders(req, longToken, "sess-123")
 
 	assert.Equal(t, "Bearer "+longToken, req.Header.Get("Authorization"))
 	assert.Equal(t, "sess-123", req.Header.Get("Mcp-Session-Id"))

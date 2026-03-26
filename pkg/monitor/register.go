@@ -15,7 +15,7 @@ import (
 //	)
 func Register(c *core.Core) core.Result {
 	mon := New()
-	mon.core = c
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 
 	// Register IPC handler for agent lifecycle events
 	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {

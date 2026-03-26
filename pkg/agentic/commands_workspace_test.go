@@ -77,7 +77,7 @@ func TestCommandsWorkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T)
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -108,7 +108,7 @@ func TestCommandsWorkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -138,7 +138,7 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -175,7 +175,7 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -204,7 +204,7 @@ func TestCommandsWorkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

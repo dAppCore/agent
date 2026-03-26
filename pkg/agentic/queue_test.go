@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"path/filepath"
@@ -20,7 +21,7 @@ func TestQueue_BaseAgent_Ugly_MultipleColons(t *testing.T) {
 
 func TestDispatchConfig_Good_Defaults(t *testing.T) {
 	// loadAgentsConfig falls back to defaults when no config file exists
-	s := &PrepSubsystem{codePath: t.TempDir()}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	cfg := s.loadAgentsConfig()
@@ -36,7 +37,7 @@ func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
-	s := &PrepSubsystem{codePath: t.TempDir()}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("gemini"))
 }
 
@@ -46,7 +47,7 @@ func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
-	s := &PrepSubsystem{codePath: t.TempDir()}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("unknown-agent"))
 }
 
@@ -55,7 +56,7 @@ func TestQueue_CountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByAgent("gemini"))
 	assert.Equal(t, 0, s.countRunningByAgent("claude"))
 }
@@ -73,13 +74,13 @@ func TestQueue_CountRunningByAgent_Good_NoRunning(t *testing.T) {
 		PID:    0,
 	}))
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByAgent("gemini"))
 }
 
 func TestQueue_DelayForAgent_Good_NoConfig(t *testing.T) {
 	// With no config, delay should be 0
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
-	s := &PrepSubsystem{codePath: t.TempDir()}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	assert.Equal(t, 0, int(s.delayForAgent("gemini").Seconds()))
 }

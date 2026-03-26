@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -120,22 +118,11 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	u := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {
-		u += "&labels=" + core.Replace(core.Replace(label, " ", "%20"), "&", "%26")
+		u = core.Concat(u, "&labels=", core.Replace(core.Replace(label, " ", "%20"), "&", "%26"))
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
-	if err != nil {
-		return nil, core.E("scan.listRepoIssues", "failed to create request", err)
-	}
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, core.E("scan.listRepoIssues", "failed to list issues for "+repo, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, core.E("scan.listRepoIssues", core.Sprintf("HTTP %d listing issues for %s", resp.StatusCode, repo), nil)
+	r := HTTPGet(ctx, u, s.forgeToken, "token")
+	if !r.OK {
+		return nil, core.E("scan.listRepoIssues", core.Concat("failed to list issues for ", repo), nil)
 	}
 
 	var issues []struct {
@@ -149,7 +136,7 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 		} `json:"assignee"`
 		HTMLURL string `json:"html_url"`
 	}
-	json.NewDecoder(resp.Body).Decode(&issues)
+	core.JSONUnmarshalString(r.Value.(string), &issues)
 
 	var result []ScanIssue
 	for _, issue := range issues {

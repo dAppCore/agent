@@ -4,10 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
-
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -47,13 +43,11 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	token := remoteToken(input.Host)
 	url := "http://" + addr + "/mcp"
 
-	client := &http.Client{Timeout: 15 * time.Second}
-
-	sessionID, err := mcpInitialize(ctx, client, url, token)
+	sessionID, err := mcpInitialize(ctx, url, token)
 	if err != nil {
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
-			Error: "unreachable: " + err.Error(),
+			Error: core.Concat("unreachable: ", err.Error()),
 		}, nil
 	}
 
@@ -66,13 +60,13 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			"arguments": map[string]any{},
 		},
 	}
-	body, _ := json.Marshal(rpcReq)
+	body := []byte(core.JSONMarshalString(rpcReq))
 
-	result, err := mcpCall(ctx, client, url, token, sessionID, body)
+	result, err := mcpCall(ctx, url, token, sessionID, body)
 	if err != nil {
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
-			Error: "call failed: " + err.Error(),
+			Error: core.Concat("call failed: ", err.Error()),
 		}, nil
 	}
 
@@ -92,7 +86,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(result, &rpcResp) != nil {
+	if r := core.JSONUnmarshal(result, &rpcResp); !r.OK {
 		output.Success = false
 		output.Error = "failed to parse response"
 		return nil, output, nil
@@ -104,7 +98,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	}
 	if len(rpcResp.Result.Content) > 0 {
 		var statusOut StatusOutput
-		if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &statusOut) == nil {
+		if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &statusOut); r.OK {
 			output.Stats = statusOut
 		}
 	}

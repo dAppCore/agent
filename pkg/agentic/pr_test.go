@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	forge_types "dappco.re/go/core/forge/types"
 	"github.com/stretchr/testify/assert"
@@ -64,6 +65,7 @@ func mockPRForgeServer(t *testing.T) *httptest.Server {
 func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -91,6 +93,7 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -112,6 +115,7 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 
 func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -124,6 +128,7 @@ func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 
 func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -141,6 +146,7 @@ func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -176,6 +182,7 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -214,6 +221,7 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -232,6 +240,7 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 
 func TestPr_ListPRs_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -255,6 +264,7 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -270,7 +280,7 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 // --- buildPRBody ---
 
 func TestPr_BuildPRBody_Good(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
@@ -290,7 +300,7 @@ func TestPr_BuildPRBody_Good(t *testing.T) {
 
 func TestPr_BuildPRBody_Bad(t *testing.T) {
 	// Empty status struct
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{}
 	body := s.buildPRBody(st)
 	assert.Contains(t, body, "## Summary")
@@ -300,7 +310,7 @@ func TestPr_BuildPRBody_Bad(t *testing.T) {
 
 func TestPr_BuildPRBody_Ugly(t *testing.T) {
 	// Very long task string
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	longTask := strings.Repeat("This is a very long task description. ", 100)
 	st := &WorkspaceStatus{
 		Task:  longTask,
@@ -322,6 +332,7 @@ func TestPr_CommentOnIssue_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -348,6 +359,7 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -396,6 +408,7 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "test-token",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -428,6 +441,7 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -463,6 +477,7 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -484,6 +499,7 @@ func TestPr_ListRepoPRs_Good(t *testing.T) {
 	// Specific repo with PRs
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -506,6 +522,7 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -526,6 +543,7 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",

@@ -22,6 +22,7 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -29,7 +30,7 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 	}
 
 	c := core.New()
-	s.core = c
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 	RegisterHandlers(c, s)
 
 	return c, s
@@ -51,7 +52,7 @@ func TestHandlers_RegisterHandlers_Good_PokeOnCompletion(t *testing.T) {
 	}
 
 	// Send AgentCompleted — should trigger poke
-	s.core.ACTION(messages.AgentCompleted{
+	s.Core().ACTION(messages.AgentCompleted{
 		Workspace: "nonexistent",
 		Repo:      "test",
 		Status:    "completed",
@@ -155,7 +156,7 @@ func TestCommandsForge_RegisterForgeCommands_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
-		core:      core.New(),
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -168,7 +169,7 @@ func TestCommandsWorkspace_RegisterWorkspaceCommands_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
-		core:      core.New(),
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -183,7 +184,7 @@ func TestCommands_RegisterCommands_Good(t *testing.T) {
 	defer cancel()
 
 	s := &PrepSubsystem{
-		core:      core.New(),
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -207,8 +208,8 @@ func TestPrep_OnStartup_Good_Registers(t *testing.T) {
 	c := core.New()
 	s.SetCore(c)
 
-	err := s.OnStartup(context.Background())
-	assert.NoError(t, err)
+	r := s.OnStartup(context.Background())
+	assert.True(t, r.OK)
 }
 
 // --- RegisterTools (exercises all register*Tool functions) ---
@@ -228,6 +229,7 @@ func TestPrep_RegisterTools_Bad(t *testing.T) {
 	// RegisterTools on prep without Core — should still register tools
 	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.1"}, nil)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

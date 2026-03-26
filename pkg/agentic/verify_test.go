@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,6 +36,7 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-forge-token",
 		client:     srv.Client(),
@@ -42,8 +44,8 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
-	assert.NoError(t, err)
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
+	assert.True(t, r.OK)
 }
 
 func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
@@ -53,6 +55,7 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -60,8 +63,8 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.NoError(t, err)
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
+	assert.True(t, r.OK)
 }
 
 func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
@@ -74,6 +77,7 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -81,10 +85,9 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "409")
-	assert.Contains(t, err.Error(), "merge conflict")
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
+	assert.False(t, r.OK)
+	assert.Contains(t, r.Value.(string), "merge conflict")
 }
 
 func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
@@ -97,6 +100,7 @@ func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -104,9 +108,9 @@ func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
+	assert.False(t, r.OK)
+	assert.Contains(t, r.Value.(string), "internal server error")
 }
 
 func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
@@ -114,6 +118,7 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 	srv.Close() // close immediately to cause connection error
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     &http.Client{},
@@ -121,8 +126,8 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.Error(t, err)
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
+	assert.False(t, r.OK)
 }
 
 // --- extractPRNumber (additional _Ugly cases) ---
@@ -163,6 +168,7 @@ func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -179,6 +185,7 @@ func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 	srv.Close()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     &http.Client{},
@@ -204,6 +211,7 @@ func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -224,6 +232,7 @@ func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -240,6 +249,7 @@ func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
 	srv.Close()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     &http.Client{},
@@ -257,6 +267,7 @@ func TestVerify_RunVerification_Good_NoProjectFile(t *testing.T) {
 	dir := t.TempDir() // No go.mod, composer.json, or package.json
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -271,6 +282,7 @@ func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -285,6 +297,7 @@ func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -299,6 +312,7 @@ func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -312,6 +326,7 @@ func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{}}`).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -345,6 +360,7 @@ func TestVerify_FileExists_Bad_IsDirectory(t *testing.T) {
 func TestVerify_AutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
 	dir := t.TempDir()
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -363,6 +379,7 @@ func TestVerify_AutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -381,6 +398,7 @@ func TestVerify_AutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -400,6 +418,7 @@ func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -442,6 +461,7 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -475,6 +495,7 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -523,6 +544,7 @@ func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -561,6 +583,7 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -598,6 +621,7 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -620,6 +644,7 @@ func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -641,6 +666,7 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -648,8 +674,8 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 		failCount:  make(map[string]int),
 	}
 
-	err := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
-	assert.NoError(t, err) // 200 is success even with empty body
+	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
+	assert.True(t, r.OK) // 200 is success even with empty body
 }
 
 // --- FileExists Ugly ---
@@ -673,6 +699,7 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -700,6 +727,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -722,6 +750,7 @@ func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 	// go.mod exists but no .go files — go test should fail
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -739,6 +768,7 @@ func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -756,6 +786,7 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -783,6 +814,7 @@ func TestAdd(t *testing.T) {
 `).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -800,6 +832,7 @@ func TestVerify_RunGoTests_Bad(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -817,6 +850,7 @@ func TestVerify_RunGoTests_Ugly(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "main.go"), "package empty\n").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

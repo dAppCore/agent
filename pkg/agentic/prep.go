@@ -7,9 +7,6 @@ package agentic
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
-	goio "io"
-	"net/http"
 	"sync"
 	"time"
 
@@ -21,21 +18,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// AgentOptions configures the agentic service.
+type AgentOptions struct{}
+
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.
-// Agent lifecycle events are broadcast via c.ACTION(messages.AgentCompleted{}).
+// Agent lifecycle events are broadcast via s.Core().ACTION(messages.AgentCompleted{}).
 //
-//	sub := agentic.NewPrep()
-//	sub.SetCore(c)
-//	sub.RegisterTools(server)
+//	core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
-	core       *core.Core // Core framework instance for IPC, Config, Lock
+	*core.ServiceRuntime[AgentOptions]
 	forge      *forge.Forge
 	forgeURL   string
 	forgeToken string
 	brainURL   string
 	brainKey   string
 	codePath   string
-	client     *http.Client
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
@@ -73,34 +70,95 @@ func NewPrep() *PrepSubsystem {
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
 		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
-		client:     &http.Client{Timeout: 30 * time.Second},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
 }
 
-// SetCore wires the Core framework instance for IPC, Config, and Lock access.
+// SetCore wires the Core framework instance via ServiceRuntime.
+// Deprecated: Use Register with core.WithService(agentic.Register) instead.
 //
 //	prep.SetCore(c)
 func (s *PrepSubsystem) SetCore(c *core.Core) {
-	s.core = c
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 }
 
-// OnStartup implements core.Startable — starts the queue runner and registers commands.
-func (s *PrepSubsystem) OnStartup(ctx context.Context) error {
+// OnStartup implements core.Startable — registers named Actions, starts the queue runner,
+// and registers CLI commands. The Action registry IS the capability map.
+//
+//	c.Action("agentic.dispatch").Run(ctx, opts)
+//	c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
+func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
+	c := s.Core()
+
+	// Transport — register HTTP protocol + Drive endpoints
+	RegisterHTTPTransport(c)
+	c.Drive().New(core.NewOptions(
+		core.Option{Key: "name", Value: "forge"},
+		core.Option{Key: "transport", Value: s.forgeURL},
+		core.Option{Key: "token", Value: s.forgeToken},
+	))
+	c.Drive().New(core.NewOptions(
+		core.Option{Key: "name", Value: "brain"},
+		core.Option{Key: "transport", Value: s.brainURL},
+		core.Option{Key: "token", Value: s.brainKey},
+	))
+
+	// Dispatch & workspace
+	c.Action("agentic.dispatch", s.handleDispatch)
+	c.Action("agentic.prep", s.handlePrep)
+	c.Action("agentic.status", s.handleStatus)
+	c.Action("agentic.resume", s.handleResume)
+	c.Action("agentic.scan", s.handleScan)
+	c.Action("agentic.watch", s.handleWatch)
+
+	// Pipeline
+	c.Action("agentic.qa", s.handleQA)
+	c.Action("agentic.auto-pr", s.handleAutoPR)
+	c.Action("agentic.verify", s.handleVerify)
+	c.Action("agentic.ingest", s.handleIngest)
+	c.Action("agentic.poke", s.handlePoke)
+	c.Action("agentic.mirror", s.handleMirror)
+
+	// Forge
+	c.Action("agentic.issue.get", s.handleIssueGet)
+	c.Action("agentic.issue.list", s.handleIssueList)
+	c.Action("agentic.issue.create", s.handleIssueCreate)
+	c.Action("agentic.pr.get", s.handlePRGet)
+	c.Action("agentic.pr.list", s.handlePRList)
+	c.Action("agentic.pr.merge", s.handlePRMerge)
+
+	// Review
+	c.Action("agentic.review-queue", s.handleReviewQueue)
+
+	// Epic
+	c.Action("agentic.epic", s.handleEpic)
+
+	// Completion pipeline — Task composition
+	c.Task("agent.completion", core.Task{
+		Description: "QA → PR → Verify → Merge",
+		Steps: []core.Step{
+			{Action: "agentic.qa"},
+			{Action: "agentic.auto-pr"},
+			{Action: "agentic.verify"},
+			{Action: "agentic.ingest", Async: true},
+			{Action: "agentic.poke", Async: true},
+		},
+	})
+
 	s.StartRunner()
 	s.registerCommands(ctx)
 	s.registerWorkspaceCommands()
 	s.registerForgeCommands()
-	return nil
+	return core.Result{OK: true}
 }
 
 // registerCommands is in commands.go
 
 // OnShutdown implements core.Stoppable — freezes the queue.
-func (s *PrepSubsystem) OnShutdown(ctx context.Context) error {
+func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
-	return nil
+	return core.Result{OK: true}
 }
 
 func envOr(key, fallback string) string {
@@ -247,8 +305,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	if !resumed {
 		// Clone repo into repo/
-		if _, cloneErr := gitCmd(ctx, ".", "clone", repoPath, repoDir); cloneErr != nil {
-			return nil, PrepOutput{}, core.E("prep", "git clone failed for "+input.Repo, cloneErr)
+		if r := s.gitCmd(ctx, ".", "clone", repoPath, repoDir); !r.OK {
+			return nil, PrepOutput{}, core.E("prep", "git clone failed for "+input.Repo, nil)
 		}
 
 		// Create feature branch
@@ -264,13 +322,13 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		branchName := core.Sprintf("agent/%s", taskSlug)
 
-		if _, branchErr := gitCmd(ctx, repoDir, "checkout", "-b", branchName); branchErr != nil {
-			return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), branchErr)
+		if r := s.gitCmd(ctx, repoDir, "checkout", "-b", branchName); !r.OK {
+			return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), nil)
 		}
 		out.Branch = branchName
 	} else {
 		// Resume: read branch from existing checkout
-		out.Branch = gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		out.Branch = s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	}
 
 	// Build the rich prompt with all context
@@ -400,32 +458,22 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 		return "", 0
 	}
 
-	body, _ := json.Marshal(map[string]any{
-		"query":    "architecture conventions key interfaces for " + repo,
+	body := core.JSONMarshalString(map[string]any{
+		"query":    core.Concat("architecture conventions key interfaces for ", repo),
 		"top_k":    10,
 		"project":  repo,
 		"agent_id": "cladius",
 	})
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", s.brainURL+"/v1/brain/recall", core.NewReader(string(body)))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.brainKey)
-
-	resp, err := s.client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		if resp != nil {
-			resp.Body.Close()
-		}
+	r := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/recall"), body, s.brainKey, "Bearer")
+	if !r.OK {
 		return "", 0
 	}
-	defer resp.Body.Close()
 
-	respData, _ := goio.ReadAll(resp.Body)
 	var result struct {
 		Memories []map[string]any `json:"memories"`
 	}
-	json.Unmarshal(respData, &result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 
 	if len(result.Memories) == 0 {
 		return "", 0
@@ -444,7 +492,7 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	goWorkPath := core.JoinPath(s.codePath, "go.work")
-	modulePath := "forge.lthn.ai/core/" + repo
+	modulePath := core.Concat("forge.lthn.ai/core/", repo)
 
 	r := fs.Read(goWorkPath)
 	if !r.OK {
@@ -476,7 +524,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 
 	b := core.NewBuilder()
 	for _, c := range consumers {
-		b.WriteString("- " + c + "\n")
+		b.WriteString(core.Concat("- ", c, "\n"))
 	}
 	b.WriteString(core.Sprintf("Breaking change risk: %d consumers.\n", len(consumers)))
 
@@ -484,7 +532,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 }
 
 func (s *PrepSubsystem) getGitLog(repoPath string) string {
-	return gitOutput(context.Background(), repoPath, "log", "--oneline", "-20")
+	return s.gitOutput(context.Background(), repoPath, "log", "--oneline", "-20")
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
@@ -504,7 +552,7 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 			continue
 		}
 		content, _ := base64.StdEncoding.DecodeString(page.ContentBase64)
-		b.WriteString("### " + meta.Title + "\n\n")
+		b.WriteString(core.Concat("### ", meta.Title, "\n\n"))
 		b.WriteString(string(content))
 		b.WriteString("\n\n")
 	}
@@ -539,18 +587,18 @@ func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]str
 	}
 
 	plan := core.NewBuilder()
-	plan.WriteString("# " + tmpl.Name + "\n\n")
+	plan.WriteString(core.Concat("# ", tmpl.Name, "\n\n"))
 	if task != "" {
-		plan.WriteString("**Task:** " + task + "\n\n")
+		plan.WriteString(core.Concat("**Task:** ", task, "\n\n"))
 	}
 	if tmpl.Description != "" {
-		plan.WriteString(tmpl.Description + "\n\n")
+		plan.WriteString(core.Concat(tmpl.Description, "\n\n"))
 	}
 
 	if len(tmpl.Guidelines) > 0 {
 		plan.WriteString("## Guidelines\n\n")
 		for _, g := range tmpl.Guidelines {
-			plan.WriteString("- " + g + "\n")
+			plan.WriteString(core.Concat("- ", g, "\n"))
 		}
 		plan.WriteString("\n")
 	}
@@ -558,15 +606,15 @@ func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]str
 	for i, phase := range tmpl.Phases {
 		plan.WriteString(core.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
 		if phase.Description != "" {
-			plan.WriteString(phase.Description + "\n\n")
+			plan.WriteString(core.Concat(phase.Description, "\n\n"))
 		}
 		for _, t := range phase.Tasks {
 			switch v := t.(type) {
 			case string:
-				plan.WriteString("- [ ] " + v + "\n")
+				plan.WriteString(core.Concat("- [ ] ", v, "\n"))
 			case map[string]any:
 				if name, ok := v["name"].(string); ok {
-					plan.WriteString("- [ ] " + name + "\n")
+					plan.WriteString(core.Concat("- [ ] ", name, "\n"))
 				}
 			}
 		}

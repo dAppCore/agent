@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,6 +17,7 @@ import (
 
 func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -26,6 +28,7 @@ func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 
 func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -60,6 +63,7 @@ func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 	os.WriteFile(filepath.Join(ws3, "status.json"), st3, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -77,6 +81,7 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -92,6 +97,7 @@ func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", filepath.Join(root, "nonexistent"))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -119,6 +125,7 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 	os.WriteFile(filepath.Join(ws2, "status.json"), st, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -134,6 +141,7 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 	// Empty name
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -145,6 +153,7 @@ func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
 	// Name with path traversal "../.."
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

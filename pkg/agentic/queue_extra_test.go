@@ -94,6 +94,7 @@ rates:
 	os.WriteFile(filepath.Join(root, "agents.yaml"), []byte(cfg), 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -112,6 +113,7 @@ func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -126,8 +128,8 @@ func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: nil,
 		frozen:    false,
-		core:      nil,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -140,6 +142,7 @@ func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -159,6 +162,7 @@ func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -178,6 +182,7 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath: t.TempDir(),
 		backoff: map[string]time.Time{
 			"codex": time.Now().Add(1 * time.Hour),
@@ -202,7 +207,7 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 	})
 
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -223,7 +228,7 @@ func TestQueue_DrainQueue_Ugly(t *testing.T) {
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -258,7 +263,7 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 	})
 
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -287,6 +292,7 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -306,6 +312,7 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), []byte("{not valid json!!!"), 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -333,6 +340,7 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -361,6 +369,7 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 	}
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -387,6 +396,7 @@ rates:
 	os.WriteFile(filepath.Join(root, "agents.yaml"), []byte(cfg), 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -411,6 +421,7 @@ rates:
 	os.WriteFile(filepath.Join(root, "agents.yaml"), []byte(cfg), 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -455,7 +466,7 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 	})
 
 	s := &PrepSubsystem{
-		core:     c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		codePath: t.TempDir(),
 		backoff:  make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -478,6 +489,7 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath: t.TempDir(),
 		backoff: map[string]time.Time{
 			"codex": time.Now().Add(1 * time.Hour), // pool is backed off
@@ -539,6 +551,7 @@ rates:
 	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -560,6 +573,7 @@ func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "{{{not yaml!!!").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -577,6 +591,7 @@ func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
 	// No agents.yaml file at all — should return defaults
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -604,6 +619,7 @@ func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		frozen:    true, // queue is frozen
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),

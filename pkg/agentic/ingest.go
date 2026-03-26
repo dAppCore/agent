@@ -3,9 +3,7 @@
 package agentic
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
+	"context"
 
 	core "dappco.re/go/core"
 )
@@ -56,7 +54,7 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	// Truncate body to reasonable size for issue description
 	description := body
 	if len(description) > 10000 {
-		description = description[:10000] + "\n\n... (truncated, see full log in workspace)"
+		description = core.Concat(description[:10000], "\n\n... (truncated, see full log in workspace)")
 	}
 
 	s.createIssueViaAPI(st.Repo, title, description, issueType, priority, "scan")
@@ -96,7 +94,7 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 	}
 	apiKey := core.Trim(r.Value.(string))
 
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"title":       title,
 		"description": description,
 		"type":        issueType,
@@ -104,14 +102,5 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 		"reporter":    "cladius",
 	})
 
-	req, _ := http.NewRequest("POST", s.brainURL+"/v1/issues", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return
-	}
-	resp.Body.Close()
+	HTTPPost(context.Background(), core.Concat(s.brainURL, "/v1/issues"), payload, apiKey, "Bearer")
 }

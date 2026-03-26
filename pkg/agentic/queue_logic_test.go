@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestQueue_CountRunningByModel_Good_Empty(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByModel("claude:opus"))
 }
 
@@ -35,7 +36,7 @@ func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 		PID:    0,
 	}))
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
@@ -51,7 +52,7 @@ func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 		PID:    0,
 	}))
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	// Asking for gemini:pro — must not count gemini:flash
 	assert.Equal(t, 0, s.countRunningByModel("gemini:pro"))
 }
@@ -68,7 +69,7 @@ func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 		Agent:  "codex:gpt-5.4",
 	}))
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	// Completed, so count is still 0
 	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
@@ -79,7 +80,7 @@ func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	s := &PrepSubsystem{frozen: true, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: true, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// Must not panic and must not block
 	assert.NotPanics(t, func() {
 		s.drainQueue()
@@ -90,7 +91,7 @@ func TestQueue_DrainQueue_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	s := &PrepSubsystem{frozen: false, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// No workspaces — must return without error/panic
 	assert.NotPanics(t, func() {
 		s.drainQueue()
@@ -100,7 +101,7 @@ func TestQueue_DrainQueue_Good_EmptyWorkspace(t *testing.T) {
 // --- Poke ---
 
 func TestRunner_Poke_Good_NilChannel(t *testing.T) {
-	s := &PrepSubsystem{pokeCh: nil}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), pokeCh: nil}
 	// Must not panic when pokeCh is nil
 	assert.NotPanics(t, func() {
 		s.Poke()
@@ -108,7 +109,7 @@ func TestRunner_Poke_Good_NilChannel(t *testing.T) {
 }
 
 func TestRunner_Poke_Good_ChannelReceivesSignal(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.pokeCh = make(chan struct{}, 1)
 
 	s.Poke()
@@ -116,7 +117,7 @@ func TestRunner_Poke_Good_ChannelReceivesSignal(t *testing.T) {
 }
 
 func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.pokeCh = make(chan struct{}, 1)
 	// Pre-fill the channel
 	s.pokeCh <- struct{}{}
@@ -169,7 +170,7 @@ func TestRunner_Poke_Ugly(t *testing.T) {
 	// but closing + sending would panic. However, Poke uses non-blocking send,
 	// so we test that pokeCh=nil is safe (already tested), and that
 	// double-filling is safe (already tested). Here we test rapid multi-poke.
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.pokeCh = make(chan struct{}, 1)
 
 	// Rapid-fire pokes — should all be safe
@@ -218,7 +219,7 @@ func TestRunner_StartRunner_Ugly(t *testing.T) {
 func TestPaths_DefaultBranch_Good_DefaultsToMain(t *testing.T) {
 	// Non-git temp dir — git commands fail, fallback is "main"
 	dir := t.TempDir()
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
@@ -227,7 +228,7 @@ func TestPaths_DefaultBranch_Good_RealGitRepo(t *testing.T) {
 	// Init a real git repo with a main branch
 	require.NoError(t, runGitInit(dir))
 
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	// Any valid branch name — just must not panic or be empty
 	assert.NotEmpty(t, branch)
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -223,6 +224,7 @@ func TestStatus_Status_Ugly(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -339,6 +341,7 @@ func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -358,6 +361,7 @@ func TestStatus_Status_Bad_EmptyWorkspaceRoot(t *testing.T) {
 	// Do NOT create the workspace/ subdirectory
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

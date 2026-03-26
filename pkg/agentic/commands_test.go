@@ -33,7 +33,7 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 	}
 
 	s := &PrepSubsystem{
-		core:       c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		forge:      f,
 		forgeURL:   "",
 		forgeToken: "test-token",
@@ -828,7 +828,7 @@ func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {
 
 	c := core.New()
 	s := &PrepSubsystem{
-		core:      c,
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +24,7 @@ func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -103,6 +105,7 @@ func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

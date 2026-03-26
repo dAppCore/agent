@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"syscall"
 	"time"
 
@@ -48,11 +47,8 @@ type WorkspaceStatus struct {
 
 func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	status.UpdatedAt = time.Now()
-	data, err := json.MarshalIndent(status, "", "  ")
-	if err != nil {
-		return err
-	}
-	if r := fs.Write(core.JoinPath(wsDir, "status.json"), string(data)); !r.OK {
+	statusPath := core.JoinPath(wsDir, "status.json")
+	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
 		return core.E("writeStatus", "failed to write status", err)
 	}
@@ -68,8 +64,9 @@ func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 		return nil, core.E("ReadStatus", "status not found", nil)
 	}
 	var s WorkspaceStatus
-	if err := json.Unmarshal([]byte(r.Value.(string)), &s); err != nil {
-		return nil, err
+	if ur := core.JSONUnmarshalString(r.Value.(string), &s); !ur.OK {
+		err, _ := ur.Value.(error)
+		return nil, core.E("ReadStatus", "invalid status json", err)
 	}
 	return &s, nil
 }

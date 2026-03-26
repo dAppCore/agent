@@ -28,7 +28,7 @@ func fmtIndex(n int64) string { return strconv.FormatInt(n, 10) }
 
 // registerForgeCommands adds Forge API commands to Core's command tree.
 func (s *PrepSubsystem) registerForgeCommands() {
-	c := s.core
+	c := s.Core()
 	c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
 	c.Command("issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList})
 	c.Command("issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment})

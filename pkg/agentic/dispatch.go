@@ -151,11 +151,11 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 		// Host access for Ollama (local models)
 		"--add-host=host.docker.internal:host-gateway",
 		// Workspace: repo + meta
-		"-v", repoDir + ":/workspace",
-		"-v", metaDir + ":/workspace/.meta",
+		"-v", core.Concat(repoDir, ":/workspace"),
+		"-v", core.Concat(metaDir, ":/workspace/.meta"),
 		"-w", "/workspace",
 		// Auth: agent configs only — NO SSH keys, git push runs on host
-		"-v", core.JoinPath(home, ".codex") + ":/home/dev/.codex:ro",
+		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/dev/.codex:ro"),
 		// API keys — passed by name, Docker resolves from host env
 		"-e", "OPENAI_API_KEY",
 		"-e", "ANTHROPIC_API_KEY",
@@ -272,13 +272,13 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 
 // broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
-	if s.core != nil {
-		st, _ := ReadStatus(wsDir)
-		repo := ""
-		if st != nil {
-			repo = st.Repo
-		}
-		s.core.ACTION(messages.AgentStarted{
+	st, _ := ReadStatus(wsDir)
+	repo := ""
+	if st != nil {
+		repo = st.Repo
+	}
+	if s.ServiceRuntime != nil {
+		s.Core().ACTION(messages.AgentStarted{
 			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
 		})
 	}
@@ -288,13 +288,13 @@ func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
 // broadcastComplete emits IPC + audit events for agent completion.
 func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
 	emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
-	if s.core != nil {
+	if s.ServiceRuntime != nil {
 		st, _ := ReadStatus(wsDir)
 		repo := ""
 		if st != nil {
 			repo = st.Repo
 		}
-		s.core.ACTION(messages.AgentCompleted{
+		s.Core().ACTION(messages.AgentCompleted{
 			Agent: agent, Repo: repo,
 			Workspace: core.PathBase(wsDir), Status: finalStatus,
 		})
@@ -352,15 +352,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	agentBase := core.SplitN(agent, ":", 2)[0]
 	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
 
-	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
+	sr := process.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
 		Dir:     repoDir,
 		Detach:  true,
 	})
-	if err != nil {
-		return 0, "", core.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
+	if !sr.OK {
+		return 0, "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), nil)
 	}
+	proc := sr.Value.(*process.Process)
 
 	proc.CloseStdin()
 	pid := proc.Info().PID
@@ -389,7 +390,7 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 			{"go", "vet", "./..."},
 			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
 		} {
-			if !runCmdOK(ctx, repoDir, args[0], args[1:]...) {
+			if !s.runCmdOK(ctx, repoDir, args[0], args[1:]...) {
 				core.Warn("QA failed", "cmd", core.Join(" ", args...))
 				return false
 			}
@@ -398,17 +399,17 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
-		if !runCmdOK(ctx, repoDir, "composer", "install", "--no-interaction") {
+		if !s.runCmdOK(ctx, repoDir, "composer", "install", "--no-interaction") {
 			return false
 		}
-		return runCmdOK(ctx, repoDir, "composer", "test")
+		return s.runCmdOK(ctx, repoDir, "composer", "test")
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
-		if !runCmdOK(ctx, repoDir, "npm", "install") {
+		if !s.runCmdOK(ctx, repoDir, "npm", "install") {
 			return false
 		}
-		return runCmdOK(ctx, repoDir, "npm", "test")
+		return s.runCmdOK(ctx, repoDir, "npm", "test")
 	}
 
 	return true

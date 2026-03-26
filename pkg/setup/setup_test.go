@@ -6,9 +6,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testSvc creates a setup Service for tests.
+func testSvc() *Service {
+	c := core.New()
+	return &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+}
 
 func TestDetect_Good(t *testing.T) {
 	dir := t.TempDir()
@@ -54,7 +61,7 @@ func TestRun_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(filepath.Join(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := Run(Options{Path: dir})
+	err := testSvc().Run(Options{Path: dir})
 	require.NoError(t, err)
 
 	build := fs.Read(filepath.Join(dir, ".core", "build.yaml"))
@@ -70,7 +77,7 @@ func TestRun_TemplateAlias_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(filepath.Join(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := Run(Options{Path: dir, Template: "agent"})
+	err := testSvc().Run(Options{Path: dir, Template: "agent"})
 	require.NoError(t, err)
 
 	prompt := fs.Read(filepath.Join(dir, "PROMPT.md"))

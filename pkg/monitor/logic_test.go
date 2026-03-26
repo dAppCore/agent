@@ -17,7 +17,7 @@ import (
 
 // --- handleAgentStarted ---
 
-func TestHandleAgentStarted_Good(t *testing.T) {
+func TestLogic_HandleAgentStarted_Good(t *testing.T) {
 	mon := New()
 	ev := messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-1"}
 	mon.handleAgentStarted(ev)
@@ -27,7 +27,7 @@ func TestHandleAgentStarted_Good(t *testing.T) {
 	assert.True(t, mon.seenRunning["core/go-io/task-1"])
 }
 
-func TestHandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
+func TestLogic_HandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
 	mon := New()
 	// Empty workspace key must not panic and must record empty string key.
 	ev := messages.AgentStarted{Agent: "", Repo: "", Workspace: ""}
@@ -40,13 +40,13 @@ func TestHandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
 
 // --- handleAgentCompleted ---
 
-func TestHandleAgentCompleted_Good_NilNotifier(t *testing.T) {
+func TestLogic_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
 	mon := New()
-	// notifier is nil — must not panic, must record completion and poke.
+	// ServiceRuntime is nil — must not panic, must record completion and poke.
 	ev := messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-1", Status: "completed"}
 	assert.NotPanics(t, func() { mon.handleAgentCompleted(ev) })
 
@@ -55,67 +55,54 @@ func TestHandleAgentCompleted_Good_NilNotifier(t *testing.T) {
 	assert.True(t, mon.seenCompleted["ws-1"])
 }
 
-func TestHandleAgentCompleted_Good_WithNotifier(t *testing.T) {
+func TestLogic_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
-	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	// Use Register so IPC handlers are wired
+	c := core.New(core.WithService(Register))
+	mon, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	require.True(t, ok)
 
 	ev := messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-2", Status: "completed"}
-	mon.handleAgentCompleted(ev)
+	c.ACTION(ev)
 
-	// Give the goroutine spawned by checkIdleAfterDelay time to not fire within test
-	// (it has a 5s sleep inside, so we just verify the notifier got the immediate event)
-	events := notifier.Events()
-	require.GreaterOrEqual(t, len(events), 1)
-	assert.Equal(t, "agent.completed", events[0].channel)
-
-	data := events[0].data.(map[string]any)
-	assert.Equal(t, "go-io", data["repo"])
-	assert.Equal(t, "codex", data["agent"])
-	assert.Equal(t, "ws-2", data["workspace"])
-	assert.Equal(t, "completed", data["status"])
+	mon.mu.Lock()
+	defer mon.mu.Unlock()
+	assert.True(t, mon.seenCompleted["ws-2"])
 }
 
-func TestHandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
+func TestLogic_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 
-	// All fields empty — must not panic.
+	// All fields empty — must not panic, must record empty workspace key.
 	ev := messages.AgentCompleted{}
 	assert.NotPanics(t, func() { mon.handleAgentCompleted(ev) })
 
-	events := notifier.Events()
-	require.GreaterOrEqual(t, len(events), 1)
-	assert.Equal(t, "agent.completed", events[0].channel)
+	mon.mu.Lock()
+	defer mon.mu.Unlock()
+	assert.True(t, mon.seenCompleted[""])
 }
 
 // --- checkIdleAfterDelay ---
 
-func TestCheckIdleAfterDelay_Bad_NilNotifier(t *testing.T) {
+func TestLogic_CheckIdleAfterDelay_Bad_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
-	mon := New() // notifier is nil
+	mon := New() // ServiceRuntime is nil
 
 	// Should return immediately without panic after the 5s sleep.
-	// We override the sleep by calling it via a short-circuit: replace the
-	// notifier check path — we just verify it doesn't panic and returns.
+	// We test the "ServiceRuntime == nil" return branch by exercising the guard directly.
 	done := make(chan struct{})
 	go func() {
-		// checkIdleAfterDelay has a time.Sleep(5s) — call with nil notifier path.
-		// To avoid a 5-second wait we test the "notifier == nil" return branch
-		// by only exercising the guard directly.
-		if mon.notifier == nil {
+		if mon.ServiceRuntime == nil {
 			close(done)
 			return
 		}
@@ -126,41 +113,44 @@ func TestCheckIdleAfterDelay_Bad_NilNotifier(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(1 * time.Second):
-		t.Fatal("checkIdleAfterDelay nil-notifier guard did not return quickly")
+		t.Fatal("checkIdleAfterDelay nil-runtime guard did not return quickly")
 	}
 }
 
-func TestCheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
+func TestLogic_CheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
+	// Create a Core with an IPC handler to capture QueueDrained messages
+	var captured []messages.QueueDrained
+	c := core.New()
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.QueueDrained); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 
 	// With empty workspace, running=0 and queued=0, so queue.drained fires.
-	// We run countLiveWorkspaces + the notifier call path directly to avoid the
-	// 5s sleep in checkIdleAfterDelay.
 	running, queued := mon.countLiveWorkspaces()
 	assert.Equal(t, 0, running)
 	assert.Equal(t, 0, queued)
 
 	if running == 0 && queued == 0 {
-		mon.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
-			"running": running,
-			"queued":  queued,
-		})
+		mon.Core().ACTION(messages.QueueDrained{Completed: 0})
 	}
 
-	events := notifier.Events()
-	require.Len(t, events, 1)
-	assert.Equal(t, "queue.drained", events[0].channel)
+	require.Len(t, captured, 1)
+	assert.Equal(t, 0, captured[0].Completed)
 }
 
 // --- countLiveWorkspaces ---
 
-func TestCountLiveWorkspaces_Good_EmptyWorkspace(t *testing.T) {
+func TestLogic_CountLiveWorkspaces_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -171,7 +161,7 @@ func TestCountLiveWorkspaces_Good_EmptyWorkspace(t *testing.T) {
 	assert.Equal(t, 0, queued)
 }
 
-func TestCountLiveWorkspaces_Good_QueuedStatus(t *testing.T) {
+func TestLogic_CountLiveWorkspaces_Good_QueuedStatus(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -187,7 +177,7 @@ func TestCountLiveWorkspaces_Good_QueuedStatus(t *testing.T) {
 	assert.Equal(t, 1, queued)
 }
 
-func TestCountLiveWorkspaces_Bad_RunningDeadPID(t *testing.T) {
+func TestLogic_CountLiveWorkspaces_Bad_RunningDeadPID(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -209,7 +199,7 @@ func TestCountLiveWorkspaces_Bad_RunningDeadPID(t *testing.T) {
 	assert.Equal(t, 0, queued)
 }
 
-func TestCountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
+func TestLogic_CountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -230,46 +220,49 @@ func TestCountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
 
 // --- pidAlive ---
 
-func TestPidAlive_Good_CurrentProcess(t *testing.T) {
+func TestLogic_PidAlive_Good_CurrentProcess(t *testing.T) {
 	pid := os.Getpid()
 	assert.True(t, pidAlive(pid), "current process must be alive")
 }
 
-func TestPidAlive_Bad_DeadPID(t *testing.T) {
+func TestLogic_PidAlive_Bad_DeadPID(t *testing.T) {
 	// PID 99999999 is virtually guaranteed to not exist.
 	assert.False(t, pidAlive(99999999))
 }
 
-func TestPidAlive_Ugly_ZeroPID(t *testing.T) {
+func TestLogic_PidAlive_Ugly_ZeroPID(t *testing.T) {
 	// PID 0 is not a valid user process. pidAlive must return false or at
 	// least not panic.
 	assert.NotPanics(t, func() { pidAlive(0) })
 }
 
-func TestPidAlive_Ugly_NegativePID(t *testing.T) {
+func TestLogic_PidAlive_Ugly_NegativePID(t *testing.T) {
 	// Negative PID is invalid. Must not panic.
 	assert.NotPanics(t, func() { pidAlive(-1) })
 }
 
 // --- SetCore ---
 
-func TestSetCore_Good_RegistersIPCHandler(t *testing.T) {
+func TestLogic_SetCore_Good_RegistersIPCHandler(t *testing.T) {
 	c := core.New()
 	mon := New()
 
-	// SetCore must not panic and must wire mon.core.
+	// SetCore must not panic and must wire ServiceRuntime.
 	assert.NotPanics(t, func() { mon.SetCore(c) })
-	assert.Equal(t, c, mon.core)
+	assert.NotNil(t, mon.ServiceRuntime)
+	assert.Equal(t, c, mon.Core())
 }
 
-func TestSetCore_Good_IPCHandlerFires(t *testing.T) {
+func TestLogic_SetCore_Good_IPCHandlerFires(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
-	c := core.New()
-	mon := New()
-	mon.SetCore(c)
+	// IPC handlers are registered via Register, not SetCore
+	c := core.New(core.WithService(Register))
+
+	mon, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	require.True(t, ok)
 
 	// Dispatch an AgentStarted via Core IPC — handler must update seenRunning.
 	c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "ws-ipc"})
@@ -279,14 +272,16 @@ func TestSetCore_Good_IPCHandlerFires(t *testing.T) {
 	assert.True(t, mon.seenRunning["ws-ipc"])
 }
 
-func TestSetCore_Good_CompletedIPCHandler(t *testing.T) {
+func TestLogic_SetCore_Good_CompletedIPCHandler(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
-	c := core.New()
-	mon := New()
-	mon.SetCore(c)
+	// IPC handlers are registered via Register, not SetCore
+	c := core.New(core.WithService(Register))
+
+	mon, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	require.True(t, ok)
 
 	// Dispatch AgentCompleted — handler must update seenCompleted.
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-done", Status: "completed"})
@@ -298,7 +293,7 @@ func TestSetCore_Good_CompletedIPCHandler(t *testing.T) {
 
 // --- OnStartup / OnShutdown ---
 
-func TestOnStartup_Good_StartsLoop(t *testing.T) {
+func TestLogic_OnStartup_Good_StartsLoop(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -307,32 +302,33 @@ func TestOnStartup_Good_StartsLoop(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	mon := New(Options{Interval: 1 * time.Hour})
-	err := mon.OnStartup(context.Background())
-	require.NoError(t, err)
+	r := mon.OnStartup(context.Background())
+	assert.True(t, r.OK)
 
 	// cancel must be non-nil after startup (loop running)
 	assert.NotNil(t, mon.cancel)
 
 	// Cleanup.
-	require.NoError(t, mon.OnShutdown(context.Background()))
+	r2 := mon.OnShutdown(context.Background())
+	assert.True(t, r2.OK)
 }
 
-func TestOnStartup_Good_NoError(t *testing.T) {
+func TestLogic_OnStartup_Good_NoError(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
 	mon := New(Options{Interval: 1 * time.Hour})
-	assert.NoError(t, mon.OnStartup(context.Background()))
+	assert.True(t, mon.OnStartup(context.Background()).OK)
 	_ = mon.OnShutdown(context.Background())
 }
 
-func TestOnShutdown_Good_NoError(t *testing.T) {
+func TestLogic_OnShutdown_Good_NoError(t *testing.T) {
 	mon := New(Options{Interval: 1 * time.Hour})
-	assert.NoError(t, mon.OnShutdown(context.Background()))
+	assert.True(t, mon.OnShutdown(context.Background()).OK)
 }
 
-func TestOnShutdown_Good_StopsLoop(t *testing.T) {
+func TestLogic_OnShutdown_Good_StopsLoop(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -341,22 +337,22 @@ func TestOnShutdown_Good_StopsLoop(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	mon := New(Options{Interval: 1 * time.Hour})
-	require.NoError(t, mon.OnStartup(context.Background()))
+	require.True(t, mon.OnStartup(context.Background()).OK)
 
-	done := make(chan error, 1)
+	done := make(chan bool, 1)
 	go func() {
-		done <- mon.OnShutdown(context.Background())
+		done <- mon.OnShutdown(context.Background()).OK
 	}()
 
 	select {
-	case err := <-done:
-		assert.NoError(t, err)
+	case ok := <-done:
+		assert.True(t, ok)
 	case <-time.After(5 * time.Second):
 		t.Fatal("OnShutdown did not return in time")
 	}
 }
 
-func TestOnShutdown_Ugly_NilCancel(t *testing.T) {
+func TestLogic_OnShutdown_Ugly_NilCancel(t *testing.T) {
 	// OnShutdown without prior OnStartup must not panic.
 	mon := New()
 	assert.NotPanics(t, func() {
@@ -366,7 +362,7 @@ func TestOnShutdown_Ugly_NilCancel(t *testing.T) {
 
 // --- Register ---
 
-func TestRegister_Good_ReturnsSubsystem(t *testing.T) {
+func TestLogic_Register_Good_ReturnsSubsystem(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -380,7 +376,7 @@ func TestRegister_Good_ReturnsSubsystem(t *testing.T) {
 	assert.NotNil(t, svc)
 }
 
-func TestRegister_Good_CoreWired(t *testing.T) {
+func TestLogic_Register_Good_CoreWired(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -390,11 +386,12 @@ func TestRegister_Good_CoreWired(t *testing.T) {
 	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
 	require.True(t, ok)
 
-	// Register must set mon.core to the Core instance.
-	assert.Equal(t, c, svc.core)
+	// Register must set ServiceRuntime.
+	assert.NotNil(t, svc.ServiceRuntime)
+	assert.Equal(t, c, svc.Core())
 }
 
-func TestRegister_Good_IPCHandlerActive(t *testing.T) {
+func TestLogic_Register_Good_IPCHandlerActive(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))

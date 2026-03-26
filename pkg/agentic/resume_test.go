@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ func TestResume_Resume_Good(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, err := s.resume(context.Background(), nil, ResumeInput{
 		Workspace: "ws-blocked", Answer: "Use the new Core API", DryRun: true,
 	})
@@ -68,7 +69,7 @@ func TestResume_Resume_Bad(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Empty workspace
 	_, _, err := s.resume(context.Background(), nil, ResumeInput{})
@@ -102,7 +103,7 @@ func TestResume_Resume_Ugly(t *testing.T) {
 	os.MkdirAll(filepath.Join(ws, "repo"), 0o755)
 	exec.Command("git", "init", filepath.Join(ws, "repo")).Run()
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, _, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-nostatus"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no status.json")

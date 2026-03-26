@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,6 +14,7 @@ import (
 
 func TestPrep_RenderPlan_Good_BugFix(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -28,6 +30,7 @@ func TestPrep_RenderPlan_Good_BugFix(t *testing.T) {
 
 func TestPrep_RenderPlan_Good_WithVariables(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -44,6 +47,7 @@ func TestPrep_RenderPlan_Good_WithVariables(t *testing.T) {
 
 func TestPrep_RenderPlan_Bad_UnknownTemplate(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -53,6 +57,7 @@ func TestPrep_RenderPlan_Bad_UnknownTemplate(t *testing.T) {
 
 func TestPrep_RenderPlan_Good_NoTask(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -65,6 +70,7 @@ func TestPrep_RenderPlan_Good_NoTask(t *testing.T) {
 
 func TestPrep_RenderPlan_Good_NewFeature(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

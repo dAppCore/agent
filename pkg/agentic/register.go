@@ -8,15 +8,15 @@ import (
 
 // Register is the service factory for core.WithService.
 // Returns the PrepSubsystem instance — WithService auto-discovers the name
-// from the package path and registers it. Startable/Stoppable/HandleIPCEvents
-// are auto-discovered by RegisterService.
+// from the package path and registers it.
 //
 //	core.New(
+//	    core.WithService(agentic.ProcessRegister),
 //	    core.WithService(agentic.Register),
 //	)
 func Register(c *core.Core) core.Result {
 	prep := NewPrep()
-	prep.core = c
+	prep.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	// Load agents config once into Core shared config
 	cfg := prep.loadAgentsConfig()

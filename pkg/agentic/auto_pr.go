@@ -23,7 +23,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// PRs target dev — agents never merge directly to main
 	base := "dev"
 
-	out := gitOutput(ctx, repoDir, "log", "--oneline", "origin/"+base+"..HEAD")
+	out := s.gitOutput(ctx, repoDir, "log", "--oneline", "origin/"+base+"..HEAD")
 	if out == "" {
 		return
 	}
@@ -37,7 +37,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	if !gitCmdOK(ctx, repoDir, "push", forgeRemote, st.Branch) {
+	if !s.gitCmdOK(ctx, repoDir, "push", forgeRemote, st.Branch) {
 		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = "PR push failed"
 			writeStatus(wsDir, st2)
@@ -89,5 +89,5 @@ func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}
-	return s[:max] + "..."
+	return core.Concat(s[:max], "...")
 }

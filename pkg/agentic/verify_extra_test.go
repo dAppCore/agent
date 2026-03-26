@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,7 @@ func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -81,6 +83,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -114,6 +117,7 @@ func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) 
 	dir := t.TempDir() // No project files = passes verification
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -140,6 +144,7 @@ func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 	dir := t.TempDir()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",

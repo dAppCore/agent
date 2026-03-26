@@ -2,6 +2,8 @@
 package core
 
 import (
+	"io"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -13,17 +15,53 @@ type Fs struct {
 	root string
 }
 
+// New initialises an Fs with the given root directory.
+// Root "/" means unrestricted access. Empty root defaults to "/".
+//
+//	fs := (&core.Fs{}).New("/")
+func (m *Fs) New(root string) *Fs {
+	if root == "" {
+		root = "/"
+	}
+	m.root = root
+	return m
+}
+
+// NewUnrestricted returns a new Fs with root "/", granting full filesystem access.
+// Use this instead of unsafe.Pointer to bypass the sandbox.
+//
+//	fs := c.Fs().NewUnrestricted()
+//	fs.Read("/etc/hostname")  // works — no sandbox
+func (m *Fs) NewUnrestricted() *Fs {
+	return (&Fs{}).New("/")
+}
+
+// Root returns the sandbox root path.
+//
+//	root := c.Fs().Root()  // e.g. "/home/agent/.core"
+func (m *Fs) Root() string {
+	if m.root == "" {
+		return "/"
+	}
+	return m.root
+}
+
 // path sanitises and returns the full path.
 // Absolute paths are sandboxed under root (unless root is "/").
+// Empty root defaults to "/" — the zero value of Fs is usable.
 func (m *Fs) path(p string) string {
+	root := m.root
+	if root == "" {
+		root = "/"
+	}
 	if p == "" {
-		return m.root
+		return root
 	}
 
 	// If the path is relative and the medium is rooted at "/",
 	// treat it as relative to the current working directory.
 	// This makes io.Local behave more like the standard 'os' package.
-	if m.root == "/" && !filepath.IsAbs(p) {
+	if root == "/" && !filepath.IsAbs(p) {
 		cwd, _ := os.Getwd()
 		return filepath.Join(cwd, p)
 	}
@@ -33,23 +71,27 @@ func (m *Fs) path(p string) string {
 	clean := filepath.Clean("/" + p)
 
 	// If root is "/", allow absolute paths through
-	if m.root == "/" {
+	if root == "/" {
 		return clean
 	}
 
 	// Strip leading "/" so Join works correctly with root
-	return filepath.Join(m.root, clean[1:])
+	return filepath.Join(root, clean[1:])
 }
 
 // validatePath ensures the path is within the sandbox, following symlinks if they exist.
 func (m *Fs) validatePath(p string) Result {
-	if m.root == "/" {
+	root := m.root
+	if root == "" {
+		root = "/"
+	}
+	if root == "/" {
 		return Result{m.path(p), true}
 	}
 
 	// Split the cleaned path into components
 	parts := Split(filepath.Clean("/"+p), string(os.PathSeparator))
-	current := m.root
+	current := root
 
 	for _, part := range parts {
 		if part == "" {
@@ -70,7 +112,7 @@ func (m *Fs) validatePath(p string) Result {
 		}
 
 		// Verify the resolved part is still within the root
-		rel, err := filepath.Rel(m.root, realNext)
+		rel, err := filepath.Rel(root, realNext)
 		if err != nil || HasPrefix(rel, "..") {
 			// Security event: sandbox escape attempt
 			username := "unknown"
@@ -78,7 +120,7 @@ func (m *Fs) validatePath(p string) Result {
 				username = u.Username
 			}
 			Print(os.Stderr, "[%s] SECURITY sandbox escape detected root=%s path=%s attempted=%s user=%s",
-				time.Now().Format(time.RFC3339), m.root, p, realNext, username)
+				time.Now().Format(time.RFC3339), root, p, realNext, username)
 			if err == nil {
 				err = E("fs.validatePath", Concat("sandbox escape: ", p, " resolves outside ", m.root), nil)
 			}
@@ -122,6 +164,52 @@ func (m *Fs) WriteMode(p, content string, mode os.FileMode) Result {
 		return Result{err, false}
 	}
 	if err := os.WriteFile(full, []byte(content), mode); err != nil {
+		return Result{err, false}
+	}
+	return Result{OK: true}
+}
+
+// TempDir creates a temporary directory and returns its path.
+// The caller is responsible for cleanup via fs.DeleteAll().
+//
+//	dir := fs.TempDir("agent-workspace")
+//	defer fs.DeleteAll(dir)
+func (m *Fs) TempDir(prefix string) string {
+	dir, err := os.MkdirTemp("", prefix)
+	if err != nil {
+		return ""
+	}
+	return dir
+}
+
+// DirFS returns an fs.FS rooted at the given directory path.
+//
+//	fsys := core.DirFS("/path/to/templates")
+func DirFS(dir string) fs.FS {
+	return os.DirFS(dir)
+}
+
+// WriteAtomic writes content by writing to a temp file then renaming.
+// Rename is atomic on POSIX — concurrent readers never see a partial file.
+// Use this for status files, config, or any file read from multiple goroutines.
+//
+//	r := fs.WriteAtomic("/status.json", jsonData)
+func (m *Fs) WriteAtomic(p, content string) Result {
+	vp := m.validatePath(p)
+	if !vp.OK {
+		return vp
+	}
+	full := vp.Value.(string)
+	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+		return Result{err, false}
+	}
+
+	tmp := full + ".tmp." + shortRand()
+	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+		return Result{err, false}
+	}
+	if err := os.Rename(tmp, full); err != nil {
+		os.Remove(tmp)
 		return Result{err, false}
 	}
 	return Result{OK: true}
@@ -181,7 +269,7 @@ func (m *Fs) List(p string) Result {
 	if !vp.OK {
 		return vp
 	}
-	return Result{}.Result(os.ReadDir(vp.Value.(string)))
+	return Result{}.New(os.ReadDir(vp.Value.(string)))
 }
 
 // Stat returns file info.
@@ -190,7 +278,7 @@ func (m *Fs) Stat(p string) Result {
 	if !vp.OK {
 		return vp
 	}
-	return Result{}.Result(os.Stat(vp.Value.(string)))
+	return Result{}.New(os.Stat(vp.Value.(string)))
 }
 
 // Open opens the named file for reading.
@@ -199,7 +287,7 @@ func (m *Fs) Open(p string) Result {
 	if !vp.OK {
 		return vp
 	}
-	return Result{}.Result(os.Open(vp.Value.(string)))
+	return Result{}.New(os.Open(vp.Value.(string)))
 }
 
 // Create creates or truncates the named file.
@@ -212,7 +300,7 @@ func (m *Fs) Create(p string) Result {
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
 		return Result{err, false}
 	}
-	return Result{}.Result(os.Create(full))
+	return Result{}.New(os.Create(full))
 }
 
 // Append opens the named file for appending, creating it if it doesn't exist.
@@ -225,7 +313,7 @@ func (m *Fs) Append(p string) Result {
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
 		return Result{err, false}
 	}
-	return Result{}.Result(os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644))
+	return Result{}.New(os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644))
 }
 
 // ReadStream returns a reader for the file content.
@@ -236,6 +324,54 @@ func (m *Fs) ReadStream(path string) Result {
 // WriteStream returns a writer for the file content.
 func (m *Fs) WriteStream(path string) Result {
 	return m.Create(path)
+}
+
+// ReadAll reads all bytes from a ReadCloser and closes it.
+// Wraps io.ReadAll so consumers don't import "io".
+//
+//	r := fs.ReadStream(path)
+//	data := core.ReadAll(r.Value)
+func ReadAll(reader any) Result {
+	rc, ok := reader.(io.Reader)
+	if !ok {
+		return Result{E("core.ReadAll", "not a reader", nil), false}
+	}
+	data, err := io.ReadAll(rc)
+	if closer, ok := reader.(io.Closer); ok {
+		closer.Close()
+	}
+	if err != nil {
+		return Result{err, false}
+	}
+	return Result{string(data), true}
+}
+
+// WriteAll writes content to a writer and closes it if it implements Closer.
+//
+//	r := fs.WriteStream(path)
+//	core.WriteAll(r.Value, "content")
+func WriteAll(writer any, content string) Result {
+	wc, ok := writer.(io.Writer)
+	if !ok {
+		return Result{E("core.WriteAll", "not a writer", nil), false}
+	}
+	_, err := wc.Write([]byte(content))
+	if closer, ok := writer.(io.Closer); ok {
+		closer.Close()
+	}
+	if err != nil {
+		return Result{err, false}
+	}
+	return Result{OK: true}
+}
+
+// CloseStream closes any value that implements io.Closer.
+//
+//	core.CloseStream(r.Value)
+func CloseStream(v any) {
+	if closer, ok := v.(io.Closer); ok {
+		closer.Close()
+	}
 }
 
 // Delete removes a file or empty directory.

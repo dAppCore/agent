@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"strconv"
-	"unsafe"
 
 	core "dappco.re/go/core"
 )
@@ -14,21 +13,12 @@ import (
 //
 //	r := fs.Read("/etc/hostname")
 //	if r.OK { core.Print(nil, "%s", r.Value.(string)) }
-var fs = newFs("/")
-
-// newFs creates a core.Fs with the given root directory.
-// Root "/" means unrestricted access (same as coreio.Local).
-func newFs(root string) *core.Fs {
-	type fsRoot struct{ root string }
-	f := &core.Fs{}
-	(*fsRoot)(unsafe.Pointer(f)).root = root
-	return f
-}
+var fs = (&core.Fs{}).NewUnrestricted()
 
 // LocalFs returns an unrestricted filesystem instance for use by other packages.
 //
-//	r := agentic.LocalFs().Read("/tmp/agent-status.json")
-//	if r.OK { core.Print(nil, "%s", r.Value.(string)) }
+//	f := agentic.LocalFs()
+//	r := f.Read("/tmp/agent-status.json")
 func LocalFs() *core.Fs { return fs }
 
 // WorkspaceRoot returns the root directory for agent workspaces.
@@ -74,17 +64,17 @@ func AgentName() string {
 
 // DefaultBranch detects the default branch of a repo (main, master, etc.).
 //
-//	base := agentic.DefaultBranch("./src")
-func DefaultBranch(repoDir string) string {
+//	base := s.DefaultBranch("./src")
+func (s *PrepSubsystem) DefaultBranch(repoDir string) string {
 	ctx := context.Background()
-	if ref := gitOutput(ctx, repoDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
+	if ref := s.gitOutput(ctx, repoDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
 		if core.HasPrefix(ref, "origin/") {
 			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
 	for _, branch := range []string{"main", "master"} {
-		if gitCmdOK(ctx, repoDir, "rev-parse", "--verify", branch) {
+		if s.gitCmdOK(ctx, repoDir, "rev-parse", "--verify", branch) {
 			return branch
 		}
 	}

@@ -3,10 +3,7 @@
 package agentic
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -159,27 +156,18 @@ func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body 
 		payload["labels"] = labelIDs
 	}
 
-	data, _ := json.Marshal(payload)
+	data := core.JSONMarshalString(payload)
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return ChildRef{}, core.E("createIssue", "create issue request failed", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 201 {
-		return ChildRef{}, core.E("createIssue", core.Sprintf("create issue returned %d", resp.StatusCode), nil)
+	r := HTTPPost(ctx, url, data, s.forgeToken, "token")
+	if !r.OK {
+		return ChildRef{}, core.E("createIssue", "create issue request failed", nil)
 	}
 
 	var result struct {
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 
 	return ChildRef{
 		Number: result.Number,
@@ -196,16 +184,8 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 
 	// Fetch existing labels
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels?limit=50", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
+	r := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !r.OK {
 		return nil
 	}
 
@@ -213,7 +193,7 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	json.NewDecoder(resp.Body).Decode(&existing)
+	core.JSONUnmarshalString(r.Value.(string), &existing)
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -249,29 +229,20 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 		colour = "#6b7280"
 	}
 
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"name":  name,
 		"color": colour,
 	})
 
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return 0
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 201 {
+	r := HTTPPost(ctx, url, payload, s.forgeToken, "token")
+	if !r.OK {
 		return 0
 	}
 
 	var result struct {
 		ID int64 `json:"id"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 	return result.ID
 }

@@ -23,8 +23,6 @@ package lib
 
 import (
 	"embed"
-	"io/fs"
-	"path/filepath"
 
 	core "dappco.re/go/core"
 )
@@ -50,7 +48,20 @@ var (
 	flowFS      = mustMount(flowFiles, "flow")
 	personaFS   = mustMount(personaFiles, "persona")
 	workspaceFS = mustMount(workspaceFiles, "workspace")
+
+	// data wraps all embeds for ListNames access (avoids io/fs DirEntry import)
+	data = newData()
 )
+
+func newData() *core.Data {
+	d := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
+	d.Set("prompt", promptFS)
+	d.Set("task", taskFS)
+	d.Set("flow", flowFS)
+	d.Set("persona", personaFS)
+	d.Set("workspace", workspaceFS)
+	return d
+}
 
 func mustMount(fsys embed.FS, basedir string) *core.Embed {
 	r := core.Mount(fsys, basedir)
@@ -91,7 +102,7 @@ func Task(slug string) core.Result {
 			return r
 		}
 	}
-	return core.Result{Value: fs.ErrNotExist}
+	return core.Result{OK: false}
 }
 
 // Bundle holds a task's main content plus companion files.
@@ -117,12 +128,16 @@ func TaskBundle(slug string) core.Result {
 	if !r.OK {
 		return core.Result{Value: b, OK: true}
 	}
-	for _, e := range r.Value.([]fs.DirEntry) {
-		if e.IsDir() {
-			continue
-		}
-		if fr := taskFS.ReadString(slug + "/" + e.Name()); fr.OK {
-			b.Files[e.Name()] = fr.Value.(string)
+	nr := data.ListNames(core.Concat("task/", slug))
+	if nr.OK {
+		for _, name := range nr.Value.([]string) {
+			for _, ext := range []string{".md", ".yaml", ".yml", ".txt", ""} {
+				fullName := core.Concat(name, ext)
+				if fr := taskFS.ReadString(core.Concat(slug, "/", fullName)); fr.OK {
+					b.Files[fullName] = fr.Value.(string)
+					break
+				}
+			}
 		}
 	}
 	return core.Result{Value: b, OK: true}
@@ -186,55 +201,58 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 
 // --- List Functions ---
 
-func ListPrompts() []string    { return listDir(promptFS) }
-func ListFlows() []string      { return listDir(flowFS) }
-func ListWorkspaces() []string { return listDir(workspaceFS) }
+func ListPrompts() []string    { return listNames("prompt") }
+func ListFlows() []string      { return listNames("flow") }
+func ListWorkspaces() []string { return listNames("workspace") }
 
 func ListTasks() []string {
-	var slugs []string
-	base := taskFS.BaseDirectory()
-	fs.WalkDir(taskFS.FS(), base, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		rel := core.TrimPrefix(path, base+"/")
-		ext := filepath.Ext(rel)
-		slugs = append(slugs, core.TrimSuffix(rel, ext))
-		return nil
-	})
-	return slugs
+	result := listNamesRecursive("task", taskFS, ".")
+	a := core.NewArray(result...)
+	a.Deduplicate()
+	return a.AsSlice()
 }
 
 func ListPersonas() []string {
-	var paths []string
-	base := personaFS.BaseDirectory()
-	fs.WalkDir(personaFS.FS(), base, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if core.HasSuffix(path, ".md") {
-			rel := core.TrimPrefix(path, base+"/")
-			rel = core.TrimSuffix(rel, ".md")
-			paths = append(paths, rel)
-		}
-		return nil
-	})
-	return paths
+	a := core.NewArray(listNamesRecursive("persona", personaFS, ".")...)
+	a.Deduplicate()
+	return a.AsSlice()
 }
 
-func listDir(emb *core.Embed) []string {
-	r := emb.ReadDir(".")
+
+// listNamesRecursive walks an embed tree via Data.ListNames.
+// Directories are recursed into. Files are added as slugs (extension stripped by ListNames).
+// A name can be both a file AND a directory (e.g. code/review.md + code/review/).
+func listNamesRecursive(mount string, emb *core.Embed, dir string) []string {
+	path := core.Concat(mount, "/", dir)
+	nr := data.ListNames(path)
+	if !nr.OK {
+		return nil
+	}
+
+	var slugs []string
+	for _, name := range nr.Value.([]string) {
+		relPath := name
+		if dir != "." {
+			relPath = core.Concat(dir, "/", name)
+		}
+
+		subPath := core.Concat(mount, "/", relPath)
+
+		// Try as directory — recurse if it has contents
+		if sub := data.ListNames(subPath); sub.OK {
+			slugs = append(slugs, listNamesRecursive(mount, emb, relPath)...)
+		}
+
+		// Always add the slug — ListNames includes both files and dirs
+		slugs = append(slugs, relPath)
+	}
+	return slugs
+}
+
+func listNames(mount string) []string {
+	r := data.ListNames(core.Concat(mount, "/."))
 	if !r.OK {
 		return nil
 	}
-	var slugs []string
-	for _, e := range r.Value.([]fs.DirEntry) {
-		name := e.Name()
-		if e.IsDir() {
-			slugs = append(slugs, name)
-			continue
-		}
-		slugs = append(slugs, core.TrimSuffix(name, filepath.Ext(name)))
-	}
-	return slugs
+	return r.Value.([]string)
 }

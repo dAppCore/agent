@@ -6,8 +6,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"os"
 	"time"
 
 	core "dappco.re/go/core"
@@ -299,19 +297,11 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", err)
 	}
 
-	r := fs.List(dir)
-	if !r.OK {
-		return nil, PlanListOutput{}, nil
-	}
-	entries := r.Value.([]os.DirEntry)
+	jsonFiles := core.PathGlob(core.JoinPath(dir, "*.json"))
 
 	var plans []Plan
-	for _, entry := range entries {
-		if entry.IsDir() || !core.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-
-		id := core.TrimSuffix(entry.Name(), ".json")
+	for _, f := range jsonFiles {
+		id := core.TrimSuffix(core.PathBase(f), ".json")
 		plan, err := readPlan(dir, id)
 		if err != nil {
 			continue
@@ -352,7 +342,7 @@ func generatePlanID(title string) string {
 	// Append short random suffix for uniqueness
 	b := make([]byte, 3)
 	rand.Read(b)
-	return slug + "-" + hex.EncodeToString(b)
+	return core.Concat(slug, "-", hex.EncodeToString(b))
 }
 
 func readPlan(dir, id string) (*Plan, error) {
@@ -362,8 +352,8 @@ func readPlan(dir, id string) (*Plan, error) {
 	}
 
 	var plan Plan
-	if err := json.Unmarshal([]byte(r.Value.(string)), &plan); err != nil {
-		return nil, core.E("readPlan", "failed to parse plan "+id, err)
+	if ur := core.JSONUnmarshalString(r.Value.(string), &plan); !ur.OK {
+		return nil, core.E("readPlan", "failed to parse plan "+id, nil)
 	}
 	return &plan, nil
 }
@@ -375,12 +365,8 @@ func writePlan(dir string, plan *Plan) (string, error) {
 	}
 
 	path := planPath(dir, plan.ID)
-	data, err := json.MarshalIndent(plan, "", "  ")
-	if err != nil {
-		return "", err
-	}
 
-	if r := fs.Write(path, string(data)); !r.OK {
+	if r := fs.Write(path, core.JSONMarshalString(plan)); !r.OK {
 		err, _ := r.Value.(error)
 		return "", core.E("writePlan", "failed to write plan", err)
 	}

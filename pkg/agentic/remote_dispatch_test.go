@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +45,7 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, err := s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{
 		Host: srv.Listener.Addr().String(), Repo: "go-io", Task: "Fix tests",
 	})
@@ -54,7 +55,7 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 }
 
 func TestRemote_DispatchRemote_Bad(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
 	_, _, err := s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{Repo: "go-io", Task: "do"})
@@ -97,7 +98,7 @@ func TestRemote_DispatchRemote_Ugly(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, err := s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{
 		Host: srv.Listener.Addr().String(), Repo: "go-io", Task: "test",
 		Agent: "claude:opus", Org: "core", Template: "coding", Persona: "eng",

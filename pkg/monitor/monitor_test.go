@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"dappco.re/go/agent/pkg/messages"
+	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,32 +52,32 @@ func writeWorkspaceStatus(t *testing.T, wsRoot, name string, fields map[string]a
 
 // --- New ---
 
-func TestNew_Good_Defaults(t *testing.T) {
+func TestMonitor_New_Good_Defaults(t *testing.T) {
 	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New()
 	assert.Equal(t, 2*time.Minute, mon.interval)
 	assert.NotNil(t, mon.poke)
 }
 
-func TestNew_Good_CustomInterval(t *testing.T) {
+func TestMonitor_New_Good_CustomInterval(t *testing.T) {
 	mon := New(Options{Interval: 30 * time.Second})
 	assert.Equal(t, 30*time.Second, mon.interval)
 }
 
-func TestNew_Bad_ZeroInterval(t *testing.T) {
+func TestMonitor_New_Bad_ZeroInterval(t *testing.T) {
 	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New(Options{Interval: 0})
 	assert.Equal(t, 2*time.Minute, mon.interval)
 }
 
-func TestName_Good(t *testing.T) {
+func TestMonitor_Name_Good(t *testing.T) {
 	mon := New()
 	assert.Equal(t, "monitor", mon.Name())
 }
 
 // --- Poke ---
 
-func TestPoke_Good(t *testing.T) {
+func TestMonitor_Poke_Good(t *testing.T) {
 	mon := New()
 	mon.Poke()
 
@@ -85,7 +88,7 @@ func TestPoke_Good(t *testing.T) {
 	}
 }
 
-func TestPoke_Good_NonBlocking(t *testing.T) {
+func TestMonitor_Poke_Good_NonBlocking(t *testing.T) {
 	mon := New()
 	mon.Poke()
 	mon.Poke() // second poke should be a no-op, not block
@@ -105,7 +108,7 @@ func TestPoke_Good_NonBlocking(t *testing.T) {
 
 // --- Start / Shutdown ---
 
-func TestStartShutdown_Good(t *testing.T) {
+func TestMonitor_StartShutdown_Good(t *testing.T) {
 	mon := New(Options{Interval: 1 * time.Hour})
 
 	ctx := context.Background()
@@ -115,7 +118,7 @@ func TestStartShutdown_Good(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestShutdown_Good_NilCancel(t *testing.T) {
+func TestMonitor_Shutdown_Good_NilCancel(t *testing.T) {
 	mon := New()
 	err := mon.Shutdown(context.Background())
 	assert.NoError(t, err)
@@ -123,15 +126,24 @@ func TestShutdown_Good_NilCancel(t *testing.T) {
 
 // --- checkCompletions ---
 
-func TestCheckCompletions_Good_NewCompletions(t *testing.T) {
+func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
+	// Create Core with IPC handler to capture QueueDrained messages
+	var drainEvents []messages.QueueDrained
+	c := core.New()
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.QueueDrained); ok {
+			drainEvents = append(drainEvents, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 	assert.Equal(t, "", mon.checkCompletions())
 
 	for i := 0; i < 2; i++ {
@@ -145,24 +157,18 @@ func TestCheckCompletions_Good_NewCompletions(t *testing.T) {
 	msg := mon.checkCompletions()
 	assert.Contains(t, msg, "2 agent(s) completed")
 
-	events := notifier.Events()
-	require.Len(t, events, 3) // 2 agent.completed + 1 queue.drained
-	assert.Equal(t, "agent.completed", events[0].channel)
-	assert.Equal(t, "agent.completed", events[1].channel)
-	assert.Equal(t, "queue.drained", events[2].channel)
-	drainData := events[2].data.(map[string]any)
-	assert.Equal(t, 2, drainData["completed"])
+	// checkCompletions emits QueueDrained via c.ACTION() when running=0 and queued=0
+	require.Len(t, drainEvents, 1)
+	assert.Equal(t, 2, drainEvents[0].Completed)
 }
 
-func TestCheckCompletions_Good_MixedStatuses(t *testing.T) {
+func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 	assert.Equal(t, "", mon.checkCompletions())
 
 	for i, status := range []string{"completed", "running", "queued"} {
@@ -179,7 +185,7 @@ func TestCheckCompletions_Good_MixedStatuses(t *testing.T) {
 	assert.Contains(t, msg, "1 queued")
 }
 
-func TestCheckCompletions_Good_NoNewCompletions(t *testing.T) {
+func TestMonitor_CheckCompletions_Good_NoNewCompletions(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -194,7 +200,7 @@ func TestCheckCompletions_Good_NoNewCompletions(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckCompletions_Good_EmptyWorkspace(t *testing.T) {
+func TestMonitor_CheckCompletions_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -204,7 +210,7 @@ func TestCheckCompletions_Good_EmptyWorkspace(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckCompletions_Bad_InvalidJSON(t *testing.T) {
+func TestMonitor_CheckCompletions_Bad_InvalidJSON(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -217,7 +223,7 @@ func TestCheckCompletions_Bad_InvalidJSON(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckCompletions_Good_NoNotifierSet(t *testing.T) {
+func TestMonitor_CheckCompletions_Good_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -236,7 +242,7 @@ func TestCheckCompletions_Good_NoNotifierSet(t *testing.T) {
 
 // --- checkInbox ---
 
-func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
+func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/v1/messages/inbox", r.URL.Path)
 		assert.NotEmpty(t, r.URL.Query().Get("agent"))
@@ -257,27 +263,29 @@ func TestCheckInbox_Good_UnreadMessages(t *testing.T) {
 	t.Setenv("CORE_API_URL", srv.URL)
 	t.Setenv("AGENT_NAME", "test-agent")
 
+	// Create Core with IPC handler to capture InboxMessage
+	var captured []messages.InboxMessage
+	c := core.New()
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.InboxMessage); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 	mon.inboxSeeded = true
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "2 unread message(s) in inbox")
 
-	events := notifier.Events()
-	require.Len(t, events, 1)
-	assert.Equal(t, "inbox.message", events[0].channel)
-	eventData := events[0].data.(map[string]any)
-	assert.Equal(t, 3, eventData["new"])
-	assert.Equal(t, 2, eventData["total"])
-	payload, err := json.Marshal(eventData["messages"])
-	require.NoError(t, err)
-	assert.Contains(t, string(payload), "\"subject\":\"task done\"")
-	assert.Contains(t, string(payload), "\"subject\":\"review ready\"")
+	require.Len(t, captured, 1)
+	assert.Equal(t, 3, captured[0].New)
+	assert.Equal(t, 2, captured[0].Total)
 }
 
-func TestCheckInbox_Good_NoUnread(t *testing.T) {
+func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
@@ -296,7 +304,7 @@ func TestCheckInbox_Good_NoUnread(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckInbox_Good_SameCountNoRepeat(t *testing.T) {
+func TestMonitor_CheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
@@ -317,7 +325,7 @@ func TestCheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckInbox_Bad_NoBrainKey(t *testing.T) {
+func TestMonitor_CheckInbox_Bad_NoBrainKey(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -326,7 +334,7 @@ func TestCheckInbox_Bad_NoBrainKey(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckInbox_Bad_APIError(t *testing.T) {
+func TestMonitor_CheckInbox_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -339,7 +347,7 @@ func TestCheckInbox_Bad_APIError(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckInbox_Bad_InvalidJSON(t *testing.T) {
+func TestMonitor_CheckInbox_Bad_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("not json"))
@@ -353,7 +361,7 @@ func TestCheckInbox_Bad_InvalidJSON(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
+func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": []map[string]any{
@@ -369,29 +377,31 @@ func TestCheckInbox_Good_MultipleSameSender(t *testing.T) {
 
 	setupAPIEnv(t, srv.URL)
 
+	// Create Core with IPC handler to capture InboxMessage
+	var captured []messages.InboxMessage
+	c := core.New()
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.InboxMessage); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 	mon.inboxSeeded = true
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
 
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "3 unread message(s)")
 
-	events := notifier.Events()
-	require.Len(t, events, 1)
-	eventData := events[0].data.(map[string]any)
-	assert.Equal(t, 3, eventData["new"])
-	assert.Equal(t, 3, eventData["total"])
-	payload, err := json.Marshal(eventData["messages"])
-	require.NoError(t, err)
-	assert.Contains(t, string(payload), "\"from\":\"clotho\"")
-	assert.Contains(t, string(payload), "\"subject\":\"msg1\"")
-	assert.Contains(t, string(payload), "\"subject\":\"msg2\"")
+	require.Len(t, captured, 1)
+	assert.Equal(t, 3, captured[0].New)
+	assert.Equal(t, 3, captured[0].Total)
 }
 
 // --- check (integration of sub-checks) ---
 
-func TestCheck_Good_CombinesMessages(t *testing.T) {
+func TestMonitor_Check_Good_CombinesMessages(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -411,7 +421,7 @@ func TestCheck_Good_CombinesMessages(t *testing.T) {
 	mon.mu.Unlock()
 }
 
-func TestCheck_Good_NoMessages(t *testing.T) {
+func TestMonitor_Check_Good_NoMessages(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -425,14 +435,14 @@ func TestCheck_Good_NoMessages(t *testing.T) {
 
 // --- notify ---
 
-func TestNotify_Good_NilServer(t *testing.T) {
+func TestMonitor_Notify_Good_NilServer(t *testing.T) {
 	mon := New()
 	mon.notify(context.Background(), "test message")
 }
 
 // --- loop ---
 
-func TestLoop_Good_ImmediateCancel(t *testing.T) {
+func TestMonitor_Loop_Good_ImmediateCancel(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -457,7 +467,7 @@ func TestLoop_Good_ImmediateCancel(t *testing.T) {
 	}
 }
 
-func TestLoop_Good_PokeTriggersCheck(t *testing.T) {
+func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -498,7 +508,7 @@ func TestLoop_Good_PokeTriggersCheck(t *testing.T) {
 
 // --- initSyncTimestamp ---
 
-func TestInitSyncTimestamp_Good(t *testing.T) {
+func TestMonitor_InitSyncTimestamp_Good(t *testing.T) {
 	mon := New()
 	assert.Equal(t, int64(0), mon.lastSyncTimestamp)
 
@@ -514,7 +524,7 @@ func TestInitSyncTimestamp_Good(t *testing.T) {
 	assert.LessOrEqual(t, ts, after)
 }
 
-func TestInitSyncTimestamp_Good_NoOverwrite(t *testing.T) {
+func TestMonitor_InitSyncTimestamp_Good_NoOverwrite(t *testing.T) {
 	mon := New()
 	mon.lastSyncTimestamp = 12345
 
@@ -527,7 +537,7 @@ func TestInitSyncTimestamp_Good_NoOverwrite(t *testing.T) {
 
 // --- syncRepos ---
 
-func TestSyncRepos_Good_NoChanges(t *testing.T) {
+func TestMonitor_SyncRepos_Good_NoChanges(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
 		resp := CheckinResponse{Timestamp: time.Now().Unix()}
@@ -543,7 +553,7 @@ func TestSyncRepos_Good_NoChanges(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestSyncRepos_Bad_APIError(t *testing.T) {
+func TestMonitor_SyncRepos_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -556,7 +566,7 @@ func TestSyncRepos_Bad_APIError(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestSyncRepos_Good_UpdatesTimestamp(t *testing.T) {
+func TestMonitor_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
 	newTS := time.Now().Unix() + 1000
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := CheckinResponse{Timestamp: newTS}
@@ -577,7 +587,7 @@ func TestSyncRepos_Good_UpdatesTimestamp(t *testing.T) {
 
 // --- agentStatusResource ---
 
-func TestAgentStatusResource_Good(t *testing.T) {
+func TestMonitor_AgentStatusResource_Good(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -600,7 +610,7 @@ func TestAgentStatusResource_Good(t *testing.T) {
 	assert.Len(t, workspaces, 2)
 }
 
-func TestAgentStatusResource_Good_Empty(t *testing.T) {
+func TestMonitor_AgentStatusResource_Good_Empty(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
@@ -612,7 +622,7 @@ func TestAgentStatusResource_Good_Empty(t *testing.T) {
 	assert.Equal(t, "null", result.Contents[0].Text)
 }
 
-func TestAgentStatusResource_Bad_InvalidJSON(t *testing.T) {
+func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -628,7 +638,7 @@ func TestAgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 
 // --- syncRepos (git pull path) ---
 
-func TestSyncRepos_Good_PullsChangedRepo(t *testing.T) {
+func TestMonitor_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	remoteDir := filepath.Join(t.TempDir(), "remote")
 	require.NoError(t, os.MkdirAll(remoteDir, 0755))
 	run(t, remoteDir, "git", "init", "--bare")
@@ -666,12 +676,13 @@ func TestSyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	t.Setenv("CODE_PATH", codeDir)
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
 	assert.Contains(t, msg, "Synced 1 repo(s)")
 	assert.Contains(t, msg, "test-repo")
 }
 
-func TestSyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
+func TestMonitor_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 	remoteDir := filepath.Join(t.TempDir(), "remote")
 	require.NoError(t, os.MkdirAll(remoteDir, 0755))
 	run(t, remoteDir, "git", "init", "--bare")
@@ -702,11 +713,12 @@ func TestSyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 	t.Setenv("CODE_PATH", codeDir)
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
 	assert.Equal(t, "", msg)
 }
 
-func TestSyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
+func TestMonitor_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
 	remoteDir := filepath.Join(t.TempDir(), "remote")
 	require.NoError(t, os.MkdirAll(remoteDir, 0755))
 	run(t, remoteDir, "git", "init", "--bare")
@@ -735,11 +747,12 @@ func TestSyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
 	t.Setenv("CODE_PATH", codeDir)
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
 	assert.Equal(t, "", msg)
 }
 
-func TestSyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
+func TestMonitor_SyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := CheckinResponse{
 			Changed:   []ChangedRepo{{Repo: "nonexistent", Branch: "main", SHA: "abc"}},
@@ -758,7 +771,7 @@ func TestSyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
-func TestSyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
+func TestMonitor_SyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
 	var authHeader string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader = r.Header.Get("Authorization")
@@ -781,7 +794,7 @@ func TestSyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
 
 // --- harvestCompleted (full path) ---
 
-func TestHarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
+func TestMonitor_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -808,30 +821,40 @@ func TestHarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 		writeStatus(t, wsDir, "completed", fmt.Sprintf("repo-%d", i), "agent/test-task")
 	}
 
+	// Create Core with IPC handler to capture HarvestComplete messages
+	var harvests []messages.HarvestComplete
+	c := core.New(core.WithService(process.Register))
+	c.ServiceStartup(context.Background(), nil)
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.HarvestComplete); ok {
+			harvests = append(harvests, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 
 	msg := mon.harvestCompleted()
 	assert.Contains(t, msg, "Harvested:")
 	assert.Contains(t, msg, "repo-0")
 	assert.Contains(t, msg, "repo-1")
 
-	events := notifier.Events()
-	assert.GreaterOrEqual(t, len(events), 2)
+	assert.GreaterOrEqual(t, len(harvests), 2)
 }
 
-func TestHarvestCompleted_Good_Empty(t *testing.T) {
+func TestMonitor_HarvestCompleted_Good_Empty(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.harvestCompleted()
 	assert.Equal(t, "", msg)
 }
 
-func TestHarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
+func TestMonitor_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
@@ -859,14 +882,23 @@ func TestHarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 
 	writeStatus(t, wsDir, "completed", "rej-repo", "agent/test-task")
 
+	// Create Core with IPC handler to capture HarvestRejected messages
+	var rejections []messages.HarvestRejected
+	c := core.New(core.WithService(process.Register))
+	c.ServiceStartup(context.Background(), nil)
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.HarvestRejected); ok {
+			rejections = append(rejections, ev)
+		}
+		return core.Result{OK: true}
+	})
+
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 
 	msg := mon.harvestCompleted()
 	assert.Contains(t, msg, "REJECTED")
 
-	events := notifier.Events()
-	require.Len(t, events, 1)
-	assert.Equal(t, "harvest.rejected", events[0].channel)
+	require.Len(t, rejections, 1)
+	assert.Contains(t, rejections[0].Reason, "binary file added")
 }

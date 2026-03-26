@@ -38,9 +38,9 @@ func TestRegister_Good_CoreWired(t *testing.T) {
 
 	prep, ok := core.ServiceFor[*PrepSubsystem](c, "agentic")
 	require.True(t, ok)
-	// Register must wire s.core — service needs it for config access
-	assert.NotNil(t, prep.core, "Register must set prep.core")
-	assert.Equal(t, c, prep.core)
+	// Register must wire ServiceRuntime — service needs it for Core access
+	assert.NotNil(t, prep.ServiceRuntime, "Register must set ServiceRuntime")
+	assert.Equal(t, c, prep.Core())
 }
 
 func TestRegister_Good_AgentsConfigLoaded(t *testing.T) {
@@ -97,8 +97,8 @@ func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
 
 	assert.Nil(t, s.pokeCh, "pokeCh should be nil before OnStartup")
 
-	err := s.OnStartup(context.Background())
-	require.NoError(t, err)
+	r := s.OnStartup(context.Background())
+	assert.True(t, r.OK)
 
 	assert.NotNil(t, s.pokeCh, "OnStartup must initialise pokeCh via StartRunner")
 }
@@ -111,7 +111,7 @@ func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
 	s := NewPrep()
 	s.SetCore(c)
 
-	require.NoError(t, s.OnStartup(context.Background()))
+	assert.True(t, s.OnStartup(context.Background()).OK)
 	assert.True(t, s.frozen, "queue must be frozen after OnStartup without CORE_AGENT_DISPATCH=1")
 }
 
@@ -123,8 +123,7 @@ func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 	s := NewPrep()
 	s.SetCore(c)
 
-	err := s.OnStartup(context.Background())
-	assert.NoError(t, err)
+	assert.True(t, s.OnStartup(context.Background()).OK)
 }
 
 // --- OnShutdown ---
@@ -132,28 +131,28 @@ func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 func TestPrep_OnShutdown_Good_FreezesQueue(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
-	s := &PrepSubsystem{frozen: false}
-	err := s.OnShutdown(context.Background())
-	require.NoError(t, err)
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false}
+	r := s.OnShutdown(context.Background())
+	assert.True(t, r.OK)
 	assert.True(t, s.frozen, "OnShutdown must set frozen=true")
 }
 
 func TestPrep_OnShutdown_Good_AlreadyFrozen(t *testing.T) {
 	// Calling OnShutdown twice must be idempotent
-	s := &PrepSubsystem{frozen: true}
-	err := s.OnShutdown(context.Background())
-	require.NoError(t, err)
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: true}
+	r := s.OnShutdown(context.Background())
+	assert.True(t, r.OK)
 	assert.True(t, s.frozen)
 }
 
 func TestPrep_OnShutdown_Good_NoError(t *testing.T) {
-	s := &PrepSubsystem{}
-	assert.NoError(t, s.OnShutdown(context.Background()))
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	assert.True(t, s.OnShutdown(context.Background()).OK)
 }
 
 func TestPrep_OnShutdown_Ugly_NilCore(t *testing.T) {
 	// OnShutdown must not panic even if s.core is nil
-	s := &PrepSubsystem{core: nil, frozen: false}
+	s := &PrepSubsystem{ServiceRuntime: nil, frozen: false}
 	assert.NotPanics(t, func() {
 		_ = s.OnShutdown(context.Background())
 	})

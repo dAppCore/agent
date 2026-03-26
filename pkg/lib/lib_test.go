@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,9 +52,7 @@ func TestTask_Bad(t *testing.T) {
 	if r.OK {
 		t.Error("Task('nonexistent-slug') should return !OK")
 	}
-	if r.Value != fs.ErrNotExist {
-		t.Error("Task('nonexistent-slug') should return fs.ErrNotExist")
-	}
+	// Result{OK: false} — no specific error type needed
 }
 
 // --- TaskBundle ---

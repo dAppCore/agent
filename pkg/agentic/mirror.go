@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -79,23 +77,23 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		repoDir := core.JoinPath(basePath, repo)
 
 		// Check if github remote exists
-		if !hasRemote(repoDir, "github") {
+		if !s.hasRemote(repoDir, "github") {
 			skipped = append(skipped, repo+": no github remote")
 			continue
 		}
 
 		// Fetch github to get current state
-		gitCmdOK(ctx, repoDir, "fetch", "github")
+		s.gitCmdOK(ctx, repoDir, "fetch", "github")
 
 		// Check how far ahead local default branch is vs github
-		localBase := DefaultBranch(repoDir)
-		ahead := commitsAhead(repoDir, "github/main", localBase)
+		localBase := s.DefaultBranch(repoDir)
+		ahead := s.commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
 			continue // Already in sync
 		}
 
 		// Count files changed
-		files := filesChanged(repoDir, "github/main", localBase)
+		files := s.filesChanged(repoDir, "github/main", localBase)
 
 		sync := MirrorSync{
 			Repo:         repo,
@@ -117,12 +115,12 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		// Ensure dev branch exists on GitHub
-		ensureDevBranch(repoDir)
+		s.ensureDevBranch(repoDir)
 
 		// Push local main to github dev (explicit main, not HEAD)
-		base := DefaultBranch(repoDir)
-		if _, err := gitCmd(ctx, repoDir, "push", "github", base+":refs/heads/dev", "--force"); err != nil {
-			sync.Skipped = core.Sprintf("push failed: %v", err)
+		base := s.DefaultBranch(repoDir)
+		if r := s.gitCmd(ctx, repoDir, "push", "github", base+":refs/heads/dev", "--force"); !r.OK {
+			sync.Skipped = core.Sprintf("push failed: %s", r.Value)
 			synced = append(synced, sync)
 			continue
 		}
@@ -152,10 +150,13 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
 
 	// Check if there's already an open PR from dev
-	out, err := runCmd(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
-	if err == nil && core.Contains(out, "url") {
-		if url := extractJSONField(out, "url"); url != "" {
-			return url, nil
+	r := s.runCmd(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
+	if r.OK {
+		out := r.Value.(string)
+		if core.Contains(out, "url") {
+			if url := extractJSONField(out, "url"); url != "" {
+				return url, nil
+			}
 		}
 	}
 
@@ -168,13 +169,14 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 
 	title := core.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
 
-	prOut, err := runCmd(ctx, repoDir, "gh", "pr", "create",
+	r = s.runCmd(ctx, repoDir, "gh", "pr", "create",
 		"--repo", ghRepo, "--head", "dev", "--base", "main",
 		"--title", title, "--body", body)
-	if err != nil {
-		return "", core.E("createGitHubPR", prOut, err)
+	if !r.OK {
+		return "", core.E("createGitHubPR", r.Value.(string), nil)
 	}
 
+	prOut := r.Value.(string)
 	lines := core.Split(core.Trim(prOut), "\n")
 	if len(lines) > 0 {
 		return lines[len(lines)-1], nil
@@ -183,24 +185,24 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 }
 
 // ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
-func ensureDevBranch(repoDir string) {
-	gitCmdOK(context.Background(), repoDir, "push", "github", "HEAD:refs/heads/dev")
+func (s *PrepSubsystem) ensureDevBranch(repoDir string) {
+	s.gitCmdOK(context.Background(), repoDir, "push", "github", "HEAD:refs/heads/dev")
 }
 
 // hasRemote checks if a git remote exists.
-func hasRemote(repoDir, name string) bool {
-	return gitCmdOK(context.Background(), repoDir, "remote", "get-url", name)
+func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {
+	return s.gitCmdOK(context.Background(), repoDir, "remote", "get-url", name)
 }
 
 // commitsAhead returns how many commits HEAD is ahead of the ref.
-func commitsAhead(repoDir, base, head string) int {
-	out := gitOutput(context.Background(), repoDir, "rev-list", base+".."+head, "--count")
+func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
+	out := s.gitOutput(context.Background(), repoDir, "rev-list", base+".."+head, "--count")
 	return parseInt(out)
 }
 
 // filesChanged returns the number of files changed between two refs.
-func filesChanged(repoDir, base, head string) int {
-	out := gitOutput(context.Background(), repoDir, "diff", "--name-only", base+".."+head)
+func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
+	out := s.gitOutput(context.Background(), repoDir, "diff", "--name-only", base+".."+head)
 	if out == "" {
 		return 0
 	}
@@ -209,19 +211,16 @@ func filesChanged(repoDir, base, head string) int {
 
 // listLocalRepos returns repo names that exist as directories in basePath.
 func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
-	r := fs.List(basePath)
-	if !r.OK {
-		return nil
-	}
-	entries := r.Value.([]os.DirEntry)
+	paths := core.PathGlob(core.JoinPath(basePath, "*"))
 	var repos []string
-	for _, e := range entries {
-		if !e.IsDir() {
+	for _, p := range paths {
+		name := core.PathBase(p)
+		if !fs.IsDir(p) {
 			continue
 		}
 		// Must have a .git directory
-		if fs.IsDir(core.JoinPath(basePath, e.Name(), ".git")) {
-			repos = append(repos, e.Name())
+		if fs.IsDir(core.JoinPath(basePath, name, ".git")) {
+			repos = append(repos, name)
 		}
 	}
 	return repos
@@ -234,7 +233,7 @@ func extractJSONField(jsonStr, field string) string {
 	}
 
 	var list []map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &list); err == nil {
+	if r := core.JSONUnmarshalString(jsonStr, &list); r.OK {
 		for _, item := range list {
 			if value, ok := item[field].(string); ok {
 				return value
@@ -243,7 +242,7 @@ func extractJSONField(jsonStr, field string) string {
 	}
 
 	var item map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &item); err != nil {
+	if r := core.JSONUnmarshalString(jsonStr, &item); !r.OK {
 		return ""
 	}
 

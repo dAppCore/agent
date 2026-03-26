@@ -3,16 +3,13 @@
 package setup
 
 import (
-	"os"
-	"path/filepath"
-
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
 )
 
 // Options controls setup behaviour.
 //
-//	err := setup.Run(setup.Options{Path: ".", Force: true})
+//	err := svc.Run(setup.Options{Path: ".", Force: true})
 type Options struct {
 	Path     string // Target directory (default: cwd)
 	DryRun   bool   // Preview only, don't write
@@ -24,21 +21,17 @@ type Options struct {
 // It detects the project type, generates .core/ configs,
 // and optionally scaffolds a workspace from a dir template.
 //
-//	err := setup.Run(setup.Options{Path: ".", Template: "auto"})
-func Run(opts Options) error {
+//	svc.Run(setup.Options{Path: ".", Template: "auto"})
+func (s *Service) Run(opts Options) error {
 	if opts.Path == "" {
-		var err error
-		opts.Path, err = os.Getwd()
-		if err != nil {
-			return core.E("setup.Run", "resolve working directory", err)
-		}
+		opts.Path = core.Env("DIR_CWD")
 	}
 	opts.Path = absolutePath(opts.Path)
 
 	projType := Detect(opts.Path)
 	allTypes := DetectAll(opts.Path)
 
-	core.Print(nil, "Project: %s", filepath.Base(opts.Path))
+	core.Print(nil, "Project: %s", core.PathBase(opts.Path))
 	core.Print(nil, "Type:    %s", projType)
 	if len(allTypes) > 1 {
 		core.Print(nil, "Also:    %v (polyglot)", allTypes)
@@ -51,7 +44,7 @@ func Run(opts Options) error {
 
 	// Scaffold from dir template if requested
 	if opts.Template != "" {
-		return scaffoldTemplate(opts, projType)
+		return s.scaffoldTemplate(opts, projType)
 	}
 
 	return nil
@@ -59,7 +52,7 @@ func Run(opts Options) error {
 
 // setupCoreDir creates .core/ with build.yaml and test.yaml.
 func setupCoreDir(opts Options, projType ProjectType) error {
-	coreDir := filepath.Join(opts.Path, ".core")
+	coreDir := core.JoinPath(opts.Path, ".core")
 
 	if opts.DryRun {
 		core.Print(nil, "")
@@ -76,7 +69,7 @@ func setupCoreDir(opts Options, projType ProjectType) error {
 	if err != nil {
 		return core.E("setup.setupCoreDir", "generate build config", err)
 	}
-	if err := writeConfig(filepath.Join(coreDir, "build.yaml"), buildConfig, opts); err != nil {
+	if err := writeConfig(core.JoinPath(coreDir, "build.yaml"), buildConfig, opts); err != nil {
 		return err
 	}
 
@@ -85,7 +78,7 @@ func setupCoreDir(opts Options, projType ProjectType) error {
 	if err != nil {
 		return core.E("setup.setupCoreDir", "generate test config", err)
 	}
-	if err := writeConfig(filepath.Join(coreDir, "test.yaml"), testConfig, opts); err != nil {
+	if err := writeConfig(core.JoinPath(coreDir, "test.yaml"), testConfig, opts); err != nil {
 		return err
 	}
 
@@ -93,7 +86,7 @@ func setupCoreDir(opts Options, projType ProjectType) error {
 }
 
 // scaffoldTemplate extracts a dir template into the target path.
-func scaffoldTemplate(opts Options, projType ProjectType) error {
+func (s *Service) scaffoldTemplate(opts Options, projType ProjectType) error {
 	tmplName, err := resolveTemplateName(opts.Template, projType)
 	if err != nil {
 		return err
@@ -102,14 +95,14 @@ func scaffoldTemplate(opts Options, projType ProjectType) error {
 	core.Print(nil, "Template: %s", tmplName)
 
 	data := &lib.WorkspaceData{
-		Repo:            filepath.Base(opts.Path),
+		Repo:            core.PathBase(opts.Path),
 		Branch:          "main",
 		Task:            core.Sprintf("Initialise %s project tooling.", projType),
 		Agent:           "setup",
 		Language:        string(projType),
 		Prompt:          "This workspace was scaffolded by pkg/setup. Review the repository and continue from the generated context files.",
 		Flow:            formatFlow(projType),
-		RepoDescription: detectGitRemote(opts.Path),
+		RepoDescription: s.DetectGitRemote(opts.Path),
 		BuildCmd:        defaultBuildCommand(projType),
 		TestCmd:         defaultTestCommand(projType),
 	}
@@ -137,13 +130,13 @@ func writeConfig(path, content string, opts Options) error {
 	}
 
 	if !opts.Force && fs.Exists(path) {
-		core.Print(nil, "  skip %s (exists, use --force to overwrite)", filepath.Base(path))
+		core.Print(nil, "  skip %s (exists, use --force to overwrite)", core.PathBase(path))
 		return nil
 	}
 
 	if r := fs.WriteMode(path, content, 0644); !r.OK {
 		err, _ := r.Value.(error)
-		return core.E("setup.writeConfig", "write "+filepath.Base(path), err)
+		return core.E("setup.writeConfig", "write "+core.PathBase(path), err)
 	}
 	core.Print(nil, "  created %s", path)
 	return nil

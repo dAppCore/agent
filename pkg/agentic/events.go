@@ -3,8 +3,6 @@
 package agentic
 
 import (
-	"encoding/json"
-	"io"
 	"time"
 
 	core "dappco.re/go/core"
@@ -34,19 +32,14 @@ func emitEvent(eventType, agent, workspace, status string) {
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	data, err := json.Marshal(event)
-	if err != nil {
-		return
-	}
+	line := core.Concat(core.JSONMarshalString(event), "\n")
 
 	// Append to events log
 	r := fs.Append(eventsFile)
 	if !r.OK {
 		return
 	}
-	wc := r.Value.(io.WriteCloser)
-	defer wc.Close()
-	wc.Write(append(data, '\n'))
+	core.WriteAll(r.Value, line)
 }
 
 // emitStartEvent logs that an agent has been spawned.

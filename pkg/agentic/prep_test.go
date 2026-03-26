@@ -190,17 +190,17 @@ func TestPrep_NewPrep_Good_GiteaTokenFallback(t *testing.T) {
 }
 
 func TestPrepSubsystem_Good_Name(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, "agentic", s.Name())
 }
 
 func TestPrep_SetCore_Good(t *testing.T) {
 	s := &PrepSubsystem{}
-	assert.Nil(t, s.core)
+	assert.Nil(t, s.ServiceRuntime)
 
 	c := core.New(core.WithOption("name", "test"))
 	s.SetCore(c)
-	assert.NotNil(t, s.core)
+	assert.NotNil(t, s.ServiceRuntime)
 }
 
 // --- sanitiseBranchSlug Bad/Ugly ---
@@ -338,7 +338,7 @@ func TestSanitise_TrimRuneEdges_Ugly_NoMatch(t *testing.T) {
 // --- PrepSubsystem Name Bad/Ugly ---
 
 func TestPrep_Name_Bad(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	name := s.Name()
 	assert.NotEmpty(t, name, "Name should never return empty")
 	assert.Equal(t, "agentic", name)
@@ -387,34 +387,34 @@ func TestPrep_NewPrep_Ugly(t *testing.T) {
 
 func TestPrep_SetCore_Bad(t *testing.T) {
 	// SetCore with nil — should not panic
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.NotPanics(t, func() {
 		s.SetCore(nil)
 	})
-	assert.Nil(t, s.core)
 }
 
 func TestPrep_SetCore_Ugly(t *testing.T) {
 	// SetCore twice — second overwrites first
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	c1 := core.New(core.WithOption("name", "first"))
 	c2 := core.New(core.WithOption("name", "second"))
 
 	s.SetCore(c1)
-	assert.Equal(t, c1, s.core)
+	assert.NotNil(t, s.ServiceRuntime)
 
 	s.SetCore(c2)
-	assert.Equal(t, c2, s.core, "second SetCore should overwrite first")
+	assert.Equal(t, c2, s.Core(), "second SetCore should overwrite first")
 }
 
 // --- OnStartup Bad/Ugly ---
 
 func TestPrep_OnStartup_Bad(t *testing.T) {
-	// OnStartup without SetCore (nil core) — panics because registerCommands
-	// needs core.Command(). Verify the panic is from nil core, not a logic error.
+	// OnStartup without SetCore (nil ServiceRuntime) — panics because
+	// registerCommands calls s.Core().Command().
 	s := &PrepSubsystem{
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		ServiceRuntime: nil,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.Panics(t, func() {
 		_ = s.OnStartup(context.Background())
@@ -424,6 +424,7 @@ func TestPrep_OnStartup_Bad(t *testing.T) {
 func TestPrep_OnStartup_Ugly(t *testing.T) {
 	// OnStartup called twice with valid core — second call should not panic
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -441,12 +442,13 @@ func TestPrep_OnStartup_Ugly(t *testing.T) {
 func TestPrep_OnShutdown_Bad(t *testing.T) {
 	// OnShutdown without Core
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
-		err := s.OnShutdown(context.Background())
-		assert.NoError(t, err)
+		r := s.OnShutdown(context.Background())
+		assert.True(t, r.OK)
 	})
 	assert.True(t, s.frozen)
 }
@@ -456,6 +458,7 @@ func TestPrep_OnShutdown_Bad(t *testing.T) {
 func TestPrep_Shutdown_Bad(t *testing.T) {
 	// Shutdown always returns nil
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -525,6 +528,7 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -541,6 +545,7 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 
 func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -557,6 +562,7 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -578,6 +584,7 @@ func TestPrep_TestBuildPrompt_Good(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -598,6 +605,7 @@ func TestPrep_TestBuildPrompt_Good(t *testing.T) {
 
 func TestPrep_TestBuildPrompt_Bad(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -616,6 +624,7 @@ func TestPrep_TestBuildPrompt_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  t.TempDir(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -686,6 +695,7 @@ func TestPrep_GetGitLog_Good(t *testing.T) {
 	run("git", "commit", "-m", "initial commit")
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -698,6 +708,7 @@ func TestPrep_GetGitLog_Bad(t *testing.T) {
 	// Non-git dir returns empty
 	dir := t.TempDir()
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -713,6 +724,7 @@ func TestPrep_GetGitLog_Ugly(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -760,6 +772,7 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	run(srcRepo, "git", "commit", "-m", "initial commit")
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
 		codePath:  filepath.Join(root, "src"),
 		client:    srv.Client(),

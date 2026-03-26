@@ -8,37 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	"testing"
 
+	"dappco.re/go/agent/pkg/messages"
+	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// mockNotifier captures channel events for testing.
-type mockNotifier struct {
-	mu     sync.Mutex
-	events []mockEvent
-}
-
-type mockEvent struct {
-	channel string
-	data    any
-}
-
-func (m *mockNotifier) ChannelSend(_ context.Context, channel string, data any) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.events = append(m.events, mockEvent{channel: channel, data: data})
-}
-
-func (m *mockNotifier) Events() []mockEvent {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cp := make([]mockEvent, len(m.events))
-	copy(cp, m.events)
-	return cp
-}
 
 // initTestRepo creates a bare git repo and a workspace clone with a branch.
 func initTestRepo(t *testing.T) (sourceDir, wsDir string) {
@@ -90,44 +67,44 @@ func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
 
 // --- Tests ---
 
-func TestDetectBranch_Good(t *testing.T) {
+func TestHarvest_DetectBranch_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
-	branch := detectBranch(srcDir)
+	branch := testMon.detectBranch(srcDir)
 	assert.Equal(t, "agent/test-task", branch)
 }
 
-func TestDetectBranch_Bad_NoRepo(t *testing.T) {
-	branch := detectBranch(t.TempDir())
+func TestHarvest_DetectBranch_Bad_NoRepo(t *testing.T) {
+	branch := testMon.detectBranch(t.TempDir())
 	assert.Equal(t, "", branch)
 }
 
-func TestCountUnpushed_Good(t *testing.T) {
+func TestHarvest_CountUnpushed_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
-	count := countUnpushed(srcDir, "agent/test-task")
+	count := testMon.countUnpushed(srcDir, "agent/test-task")
 	assert.Equal(t, 1, count)
 }
 
-func TestCountChangedFiles_Good(t *testing.T) {
+func TestHarvest_CountChangedFiles_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
-	count := countChangedFiles(srcDir)
+	count := testMon.countChangedFiles(srcDir)
 	assert.Equal(t, 1, count)
 }
 
-func TestCheckSafety_Good_CleanWorkspace(t *testing.T) {
+func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
-	reason := checkSafety(srcDir)
+	reason := testMon.checkSafety(srcDir)
 	assert.Equal(t, "", reason)
 }
 
-func TestCheckSafety_Bad_BinaryFile(t *testing.T) {
+func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
@@ -136,12 +113,12 @@ func TestCheckSafety_Bad_BinaryFile(t *testing.T) {
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 
-	reason := checkSafety(srcDir)
+	reason := testMon.checkSafety(srcDir)
 	assert.Contains(t, reason, "binary file added")
 	assert.Contains(t, reason, "app.exe")
 }
 
-func TestCheckSafety_Bad_LargeFile(t *testing.T) {
+func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
@@ -151,18 +128,17 @@ func TestCheckSafety_Bad_LargeFile(t *testing.T) {
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add large file")
 
-	reason := checkSafety(srcDir)
+	reason := testMon.checkSafety(srcDir)
 	assert.Contains(t, reason, "large file")
 	assert.Contains(t, reason, "huge.txt")
 }
 
-func TestHarvestWorkspace_Good(t *testing.T) {
+func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
 
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = testMon.ServiceRuntime
 
 	result := mon.harvestWorkspace(wsDir)
 	require.NotNil(t, result)
@@ -179,16 +155,17 @@ func TestHarvestWorkspace_Good(t *testing.T) {
 	assert.Equal(t, "ready-for-review", st["status"])
 }
 
-func TestHarvestWorkspace_Bad_NotCompleted(t *testing.T) {
+func TestHarvest_HarvestWorkspace_Bad_NotCompleted(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	writeStatus(t, wsDir, "running", "test-repo", "agent/test-task")
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.harvestWorkspace(wsDir)
 	assert.Nil(t, result)
 }
 
-func TestHarvestWorkspace_Bad_MainBranch(t *testing.T) {
+func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 
 	// Switch back to main
@@ -198,11 +175,12 @@ func TestHarvestWorkspace_Bad_MainBranch(t *testing.T) {
 	writeStatus(t, wsDir, "completed", "test-repo", "main")
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.harvestWorkspace(wsDir)
 	assert.Nil(t, result)
 }
 
-func TestHarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
+func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	srcDir := filepath.Join(wsDir, "src")
 
@@ -214,8 +192,7 @@ func TestHarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
 
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = testMon.ServiceRuntime
 
 	result := mon.harvestWorkspace(wsDir)
 	require.NotNil(t, result)
@@ -228,43 +205,39 @@ func TestHarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	assert.Equal(t, "rejected", st["status"])
 }
 
-func TestHarvestCompleted_Good_ChannelEvents(t *testing.T) {
+func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
 
-	// Override workspace root so harvestCompleted finds our workspace
-	origRoot := os.Getenv("CORE_WORKSPACE_ROOT")
-	os.Setenv("CORE_WORKSPACE_ROOT", filepath.Dir(wsDir))
-	defer os.Setenv("CORE_WORKSPACE_ROOT", origRoot)
+	// Create a Core with process + IPC handler to capture HarvestComplete messages
+	var captured []messages.HarvestComplete
+	c := core.New(core.WithService(process.Register))
+	c.ServiceStartup(context.Background(), nil)
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.HarvestComplete); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
 
 	mon := New()
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 
 	// Call harvestWorkspace directly since harvestCompleted uses agentic.WorkspaceRoot()
 	result := mon.harvestWorkspace(wsDir)
 	require.NotNil(t, result)
 	assert.Equal(t, "", result.rejected)
 
-	// Simulate what harvestCompleted does with the result
-	if result.rejected == "" {
-		mon.notifier.ChannelSend(context.Background(), "harvest.complete", map[string]any{
-			"repo":   result.repo,
-			"branch": result.branch,
-			"files":  result.files,
-		})
-	}
+	// Simulate what harvestCompleted does with the result — emit IPC
+	mon.Core().ACTION(messages.HarvestComplete{Repo: result.repo, Branch: result.branch, Files: result.files})
 
-	events := notifier.Events()
-	require.Len(t, events, 1)
-	assert.Equal(t, "harvest.complete", events[0].channel)
-
-	eventData := events[0].data.(map[string]any)
-	assert.Equal(t, "test-repo", eventData["repo"])
-	assert.Equal(t, 1, eventData["files"])
+	require.Len(t, captured, 1)
+	assert.Equal(t, "test-repo", captured[0].Repo)
+	assert.Equal(t, "agent/test-task", captured[0].Branch)
+	assert.Equal(t, 1, captured[0].Files)
 }
 
-func TestUpdateStatus_Good(t *testing.T) {
+func TestHarvest_UpdateStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
 	data, _ := json.MarshalIndent(initial, "", "  ")
@@ -278,7 +251,7 @@ func TestUpdateStatus_Good(t *testing.T) {
 	assert.Equal(t, "ready-for-review", st["status"])
 }
 
-func TestUpdateStatus_Good_WithQuestion(t *testing.T) {
+func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
 	data, _ := json.MarshalIndent(initial, "", "  ")
@@ -293,11 +266,3 @@ func TestUpdateStatus_Good_WithQuestion(t *testing.T) {
 	assert.Equal(t, "binary file: app.exe", st["question"])
 }
 
-func TestSetNotifier_Good(t *testing.T) {
-	mon := New()
-	assert.Nil(t, mon.notifier)
-
-	notifier := &mockNotifier{}
-	mon.SetNotifier(notifier)
-	assert.NotNil(t, mon.notifier)
-}

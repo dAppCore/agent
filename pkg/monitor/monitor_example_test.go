@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: EUPL-1.2
+
+package monitor
+
+import (
+	"time"
+
+	core "dappco.re/go/core"
+)
+
+func ExampleNew() {
+	mon := New(Options{Interval: 30 * time.Second})
+	core.Println(mon.Name())
+	// Output: monitor
+}
+
+func ExampleRegister() {
+	c := core.New(core.WithService(Register))
+
+	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	core.Println(ok)
+	core.Println(svc.Name())
+	// Output:
+	// true
+	// monitor
+}

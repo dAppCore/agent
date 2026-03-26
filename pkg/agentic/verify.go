@@ -3,10 +3,7 @@
 package agentic
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 	"time"
 
 	core "dappco.re/go/core"
@@ -93,8 +90,8 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.forgeMergePR(ctx, org, repo, prNum); err != nil {
-		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed: %v", testResult.testCmd, err)
+	if r := s.forgeMergePR(ctx, org, repo, prNum); !r.OK {
+		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed", testResult.testCmd)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return mergeConflict
 	}
@@ -107,14 +104,14 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	ctx := context.Background()
-	base := DefaultBranch(repoDir)
+	base := s.DefaultBranch(repoDir)
 
-	if !gitCmdOK(ctx, repoDir, "fetch", "origin", base) {
+	if !s.gitCmdOK(ctx, repoDir, "fetch", "origin", base) {
 		return false
 	}
 
-	if !gitCmdOK(ctx, repoDir, "rebase", "origin/"+base) {
-		gitCmdOK(ctx, repoDir, "rebase", "--abort")
+	if !s.gitCmdOK(ctx, repoDir, "rebase", "origin/"+base) {
+		s.gitCmdOK(ctx, repoDir, "rebase", "--abort")
 		return false
 	}
 
@@ -128,7 +125,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 		repo = st.Repo
 	}
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
-	return gitCmdOK(ctx, repoDir, "push", "--force-with-lease", forgeRemote, branch)
+	return s.gitCmdOK(ctx, repoDir, "push", "--force-with-lease", forgeRemote, branch)
 }
 
 // flagForReview adds the "needs-review" label to the PR via Forge API.
@@ -140,17 +137,11 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 	s.ensureLabel(ctx, org, repo, "needs-review", "e11d48")
 
 	// Add label to PR
-	payload, _ := json.Marshal(map[string]any{
+	payload := core.JSONMarshalString(map[string]any{
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
+	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 
 	// Comment explaining the situation
 	reason := "Tests failed after rebase"
@@ -163,36 +154,27 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 
 // ensureLabel creates a label if it doesn't exist.
 func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour string) {
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"name":  name,
-		"color": "#" + colour,
+		"color": core.Concat("#", colour),
 	})
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
+	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err != nil {
+	r := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !r.OK {
 		return 0
 	}
-	defer resp.Body.Close()
 
 	var labels []struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	}
-	json.NewDecoder(resp.Body).Decode(&labels)
+	core.JSONUnmarshalString(r.Value.(string), &labels)
 	for _, l := range labels {
 		if l.Name == name {
 			return l.ID
@@ -225,27 +207,27 @@ func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 
 func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 	ctx := context.Background()
-	out, err := runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
-	passed := err == nil
+	r := s.runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
+	out := r.Value.(string)
 	exitCode := 0
-	if err != nil {
+	if !r.OK {
 		exitCode = 1
 	}
-	return verifyResult{passed: passed, output: out, exitCode: exitCode, testCmd: "go test ./..."}
+	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "go test ./..."}
 }
 
 func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 	ctx := context.Background()
-	out, err := runCmd(ctx, repoDir, "composer", "test", "--no-interaction")
-	if err != nil {
+	r := s.runCmd(ctx, repoDir, "composer", "test", "--no-interaction")
+	if !r.OK {
 		// Try pest as fallback
-		out2, err2 := runCmd(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
-		if err2 != nil {
+		r2 := s.runCmd(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
+		if !r2.OK {
 			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
-		return verifyResult{passed: true, output: out2, exitCode: 0, testCmd: "vendor/bin/pest"}
+		return verifyResult{passed: true, output: r2.Value.(string), exitCode: 0, testCmd: "vendor/bin/pest"}
 	}
-	return verifyResult{passed: true, output: out, exitCode: 0, testCmd: "composer test"}
+	return verifyResult{passed: true, output: r.Value.(string), exitCode: 0, testCmd: "composer test"}
 }
 
 func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
@@ -257,47 +239,30 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 	var pkg struct {
 		Scripts map[string]string `json:"scripts"`
 	}
-	if json.Unmarshal([]byte(r.Value.(string)), &pkg) != nil || pkg.Scripts["test"] == "" {
+	if ur := core.JSONUnmarshalString(r.Value.(string), &pkg); !ur.OK || pkg.Scripts["test"] == "" {
 		return verifyResult{passed: true, testCmd: "none", output: "No test script in package.json"}
 	}
 
 	ctx := context.Background()
-	out, err := runCmd(ctx, repoDir, "npm", "test")
-	passed := err == nil
+	r = s.runCmd(ctx, repoDir, "npm", "test")
+	out := r.Value.(string)
 	exitCode := 0
-	if err != nil {
+	if !r.OK {
 		exitCode = 1
 	}
-	return verifyResult{passed: passed, output: out, exitCode: exitCode, testCmd: "npm test"}
+	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "npm test"}
 }
 
 // forgeMergePR merges a PR via the Forge API.
-func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNum int) error {
-	payload, _ := json.Marshal(map[string]any{
+func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNum int) core.Result {
+	payload := core.JSONMarshalString(map[string]any{
 		"Do":                        "merge",
 		"merge_message_field":       "Auto-merged by core-agent after verification\n\nCo-Authored-By: Virgil <virgil@lethean.io>",
 		"delete_branch_after_merge": true,
 	})
 
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return core.E("forgeMergePR", "request failed", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 && resp.StatusCode != 204 {
-		var errBody map[string]any
-		json.NewDecoder(resp.Body).Decode(&errBody)
-		msg, _ := errBody["message"].(string)
-		return core.E("forgeMergePR", core.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
-	}
-
-	return nil
+	return HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
 // extractPRNumber gets the PR number from a Forge PR URL.

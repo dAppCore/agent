@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,6 +129,7 @@ func itoa(n int) string {
 func newTestSubsystem(t *testing.T, srv *httptest.Server) *PrepSubsystem {
 	t.Helper()
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -178,6 +180,7 @@ func TestEpic_CreateIssue_Bad_ServerDown(t *testing.T) {
 	srv.Close() // immediately close
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     &http.Client{},
@@ -196,6 +199,7 @@ func TestEpic_CreateIssue_Bad_Non201Response(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -243,6 +247,7 @@ func TestEpic_ResolveLabelIDs_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -278,6 +283,7 @@ func TestEpic_CreateLabel_Bad_ServerDown(t *testing.T) {
 	srv.Close()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     &http.Client{},
@@ -317,6 +323,7 @@ func TestEpic_CreateEpic_Bad_NoTasks(t *testing.T) {
 
 func TestEpic_CreateEpic_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),

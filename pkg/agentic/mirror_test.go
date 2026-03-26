@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +49,7 @@ func TestMirror_HasRemote_Good_OriginExists(t *testing.T) {
 	cmd.Dir = dir
 	require.NoError(t, cmd.Run())
 
-	assert.True(t, hasRemote(dir, "origin"))
+	assert.True(t, testPrep.hasRemote(dir, "origin"))
 }
 
 func TestMirror_HasRemote_Good_CustomRemote(t *testing.T) {
@@ -57,24 +58,24 @@ func TestMirror_HasRemote_Good_CustomRemote(t *testing.T) {
 	cmd.Dir = dir
 	require.NoError(t, cmd.Run())
 
-	assert.True(t, hasRemote(dir, "github"))
+	assert.True(t, testPrep.hasRemote(dir, "github"))
 }
 
 func TestMirror_HasRemote_Bad_NoSuchRemote(t *testing.T) {
 	dir := initBareRepo(t)
-	assert.False(t, hasRemote(dir, "nonexistent"))
+	assert.False(t, testPrep.hasRemote(dir, "nonexistent"))
 }
 
 func TestMirror_HasRemote_Bad_NotAGitRepo(t *testing.T) {
 	dir := t.TempDir() // plain directory, no .git
-	assert.False(t, hasRemote(dir, "origin"))
+	assert.False(t, testPrep.hasRemote(dir, "origin"))
 }
 
 func TestMirror_HasRemote_Ugly_EmptyDir(t *testing.T) {
 	// Empty dir defaults to cwd which may or may not be a repo.
 	// Just ensure no panic.
 	assert.NotPanics(t, func() {
-		hasRemote("", "origin")
+		testPrep.hasRemote("", "origin")
 	})
 }
 
@@ -105,7 +106,7 @@ func TestMirror_CommitsAhead_Good_OneAhead(t *testing.T) {
 	run("git", "add", "new.txt")
 	run("git", "commit", "-m", "second commit")
 
-	ahead := commitsAhead(dir, "base", "main")
+	ahead := testPrep.commitsAhead(dir, "base", "main")
 	assert.Equal(t, 1, ahead)
 }
 
@@ -134,30 +135,30 @@ func TestMirror_CommitsAhead_Good_ThreeAhead(t *testing.T) {
 		run("git", "commit", "-m", "commit "+string(rune('0'+i)))
 	}
 
-	ahead := commitsAhead(dir, "base", "main")
+	ahead := testPrep.commitsAhead(dir, "base", "main")
 	assert.Equal(t, 3, ahead)
 }
 
 func TestMirror_CommitsAhead_Good_ZeroAhead(t *testing.T) {
 	dir := initBareRepo(t)
 	// Same ref on both sides
-	ahead := commitsAhead(dir, "main", "main")
+	ahead := testPrep.commitsAhead(dir, "main", "main")
 	assert.Equal(t, 0, ahead)
 }
 
 func TestMirror_CommitsAhead_Bad_InvalidRef(t *testing.T) {
 	dir := initBareRepo(t)
-	ahead := commitsAhead(dir, "nonexistent-ref", "main")
+	ahead := testPrep.commitsAhead(dir, "nonexistent-ref", "main")
 	assert.Equal(t, 0, ahead)
 }
 
 func TestMirror_CommitsAhead_Bad_NotARepo(t *testing.T) {
-	ahead := commitsAhead(t.TempDir(), "main", "dev")
+	ahead := testPrep.commitsAhead(t.TempDir(), "main", "dev")
 	assert.Equal(t, 0, ahead)
 }
 
 func TestMirror_CommitsAhead_Ugly_EmptyDir(t *testing.T) {
-	ahead := commitsAhead("", "a", "b")
+	ahead := testPrep.commitsAhead("", "a", "b")
 	assert.Equal(t, 0, ahead)
 }
 
@@ -185,7 +186,7 @@ func TestMirror_FilesChanged_Good_OneFile(t *testing.T) {
 	run("git", "add", "changed.txt")
 	run("git", "commit", "-m", "add file")
 
-	files := filesChanged(dir, "base", "main")
+	files := testPrep.filesChanged(dir, "base", "main")
 	assert.Equal(t, 1, files)
 }
 
@@ -213,29 +214,29 @@ func TestMirror_FilesChanged_Good_MultipleFiles(t *testing.T) {
 	run("git", "add", ".")
 	run("git", "commit", "-m", "add three files")
 
-	files := filesChanged(dir, "base", "main")
+	files := testPrep.filesChanged(dir, "base", "main")
 	assert.Equal(t, 3, files)
 }
 
 func TestMirror_FilesChanged_Good_NoChanges(t *testing.T) {
 	dir := initBareRepo(t)
-	files := filesChanged(dir, "main", "main")
+	files := testPrep.filesChanged(dir, "main", "main")
 	assert.Equal(t, 0, files)
 }
 
 func TestMirror_FilesChanged_Bad_InvalidRef(t *testing.T) {
 	dir := initBareRepo(t)
-	files := filesChanged(dir, "nonexistent", "main")
+	files := testPrep.filesChanged(dir, "nonexistent", "main")
 	assert.Equal(t, 0, files)
 }
 
 func TestMirror_FilesChanged_Bad_NotARepo(t *testing.T) {
-	files := filesChanged(t.TempDir(), "main", "dev")
+	files := testPrep.filesChanged(t.TempDir(), "main", "dev")
 	assert.Equal(t, 0, files)
 }
 
 func TestMirror_FilesChanged_Ugly_EmptyDir(t *testing.T) {
-	files := filesChanged("", "a", "b")
+	files := testPrep.filesChanged("", "a", "b")
 	assert.Equal(t, 0, files)
 }
 
@@ -298,14 +299,14 @@ func TestMirror_ExtractJSONField_Ugly_NullValue(t *testing.T) {
 func TestPaths_DefaultBranch_Good_MainBranch(t *testing.T) {
 	dir := initBareRepo(t)
 	// initBareRepo creates with -b main
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
 func TestPaths_DefaultBranch_Bad_NotARepo(t *testing.T) {
 	dir := t.TempDir()
 	// Falls back to "main" when detection fails
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
@@ -324,7 +325,7 @@ func TestMirror_ListLocalRepos_Good_FindsRepos(t *testing.T) {
 	// Create a non-repo directory
 	require.True(t, fs.EnsureDir(filepath.Join(base, "not-a-repo")).OK)
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos(base)
 	assert.Contains(t, repos, "repo-a")
 	assert.Contains(t, repos, "repo-b")
@@ -333,13 +334,13 @@ func TestMirror_ListLocalRepos_Good_FindsRepos(t *testing.T) {
 
 func TestMirror_ListLocalRepos_Bad_EmptyDir(t *testing.T) {
 	base := t.TempDir()
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos(base)
 	assert.Empty(t, repos)
 }
 
 func TestMirror_ListLocalRepos_Bad_NonExistentDir(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos("/nonexistent/path/that/doesnt/exist")
 	assert.Nil(t, repos)
 }
@@ -376,7 +377,7 @@ func TestMirror_ListLocalRepos_Ugly(t *testing.T) {
 	// Create a regular file (not a directory)
 	require.True(t, fs.Write(filepath.Join(base, "some-file.txt"), "hello").OK)
 
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos(base)
 	assert.Contains(t, repos, "real-repo-a")
 	assert.Contains(t, repos, "real-repo-b")

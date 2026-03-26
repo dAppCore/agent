@@ -4,9 +4,6 @@
 package setup
 
 import (
-	"path/filepath"
-	"unsafe"
-
 	core "dappco.re/go/core"
 )
 
@@ -22,15 +19,7 @@ const (
 )
 
 // fs provides unrestricted filesystem access for setup operations.
-var fs = newFs("/")
-
-// newFs creates a core.Fs with the given root directory.
-func newFs(root string) *core.Fs {
-	type fsRoot struct{ root string }
-	f := &core.Fs{}
-	(*fsRoot)(unsafe.Pointer(f)).root = root
-	return f
-}
+var fs = (&core.Fs{}).NewUnrestricted()
 
 // Detect identifies the project type from files present at the given path.
 //
@@ -47,7 +36,7 @@ func Detect(path string) ProjectType {
 		{"package.json", TypeNode},
 	}
 	for _, c := range checks {
-		if fs.IsFile(filepath.Join(base, c.file)) {
+		if fs.IsFile(core.JoinPath(base, c.file)) {
 			return c.projType
 		}
 	}
@@ -70,7 +59,7 @@ func DetectAll(path string) []ProjectType {
 		{"wails.json", TypeWails},
 	}
 	for _, c := range all {
-		if fs.IsFile(filepath.Join(base, c.file)) {
+		if fs.IsFile(core.JoinPath(base, c.file)) {
 			types = append(types, c.projType)
 		}
 	}
@@ -79,11 +68,7 @@ func DetectAll(path string) []ProjectType {
 
 func absolutePath(path string) string {
 	if path == "" {
-		path = "."
+		return core.Env("DIR_CWD")
 	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
+	return core.Path(path)
 }

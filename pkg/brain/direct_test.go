@@ -15,7 +15,7 @@ import (
 
 // newTestDirect returns a DirectSubsystem wired to the given test server.
 func newTestDirect(srv *httptest.Server) *DirectSubsystem {
-	return &DirectSubsystem{apiURL: srv.URL, apiKey: "test-key", client: srv.Client()}
+	return &DirectSubsystem{apiURL: srv.URL, apiKey: "test-key"}
 }
 
 // jsonHandler returns an http.Handler that responds with the given JSON payload.
@@ -42,7 +42,7 @@ func TestNewDirect_Good_Defaults(t *testing.T) {
 
 	sub := NewDirect()
 	assert.Equal(t, "https://api.lthn.sh", sub.apiURL)
-	assert.NotNil(t, sub.client)
+	assert.NotEmpty(t, sub.apiURL)
 }
 
 func TestNewDirect_Good_CustomEnv(t *testing.T) {
@@ -129,7 +129,7 @@ func TestApiCall_Bad_ServerError(t *testing.T) {
 
 	_, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
+	assert.Contains(t, err.Error(), "API call failed")
 }
 
 func TestApiCall_Bad_InvalidJSON(t *testing.T) {
@@ -145,7 +145,7 @@ func TestApiCall_Bad_InvalidJSON(t *testing.T) {
 }
 
 func TestApiCall_Bad_ConnectionRefused(t *testing.T) {
-	sub := &DirectSubsystem{apiURL: "http://127.0.0.1:1", apiKey: "test-key", client: http.DefaultClient}
+	sub := &DirectSubsystem{apiURL: "http://127.0.0.1:1", apiKey: "test-key"}
 	_, err := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API call failed")
@@ -157,7 +157,7 @@ func TestApiCall_Bad_BadRequest(t *testing.T) {
 
 	_, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "400")
+	assert.Contains(t, err.Error(), "API call failed")
 }
 
 // --- remember ---

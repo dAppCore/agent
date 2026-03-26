@@ -11,11 +11,6 @@ package monitor
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -47,7 +42,7 @@ func workspaceStatusPath(wsDir string) string {
 }
 
 func brainKeyPath(home string) string {
-	return filepath.Join(home, ".claude", "brain.key")
+	return core.JoinPath(home, ".claude", "brain.key")
 }
 
 func monitorPath(path string) string {
@@ -89,22 +84,15 @@ func resultString(r core.Result) (string, bool) {
 	return value, true
 }
 
-// ChannelNotifier pushes events to connected MCP sessions.
-//
-//	mon.SetNotifier(notifier)
-type ChannelNotifier interface {
-	ChannelSend(ctx context.Context, channel string, data any)
-}
+// MonitorOptions configures the monitor service.
+type MonitorOptions struct{}
 
 // Subsystem implements mcp.Subsystem for background monitoring.
 //
-//	mon := monitor.New(monitor.Options{Interval: 2 * time.Minute})
-//	mon.SetNotifier(notifier)
-//	mon.Start(ctx)
+//	core.New(core.WithService(monitor.Register))
 type Subsystem struct {
-	core     *core.Core // Core framework instance for IPC
+	*core.ServiceRuntime[MonitorOptions]
 	server   *mcp.Server
-	notifier ChannelNotifier // TODO(phase3): remove — replaced by c.ACTION()
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -125,22 +113,12 @@ type Subsystem struct {
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
-// SetCore wires the Core framework instance and registers IPC handlers.
+// SetCore wires the Core framework instance via ServiceRuntime.
+// Deprecated: Use Register with core.WithService(monitor.Register) instead.
 //
 //	mon.SetCore(c)
 func (m *Subsystem) SetCore(c *core.Core) {
-	m.core = c
-
-	// Register IPC handler for agent lifecycle events
-	c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
-		switch ev := msg.(type) {
-		case messages.AgentCompleted:
-			m.handleAgentCompleted(ev)
-		case messages.AgentStarted:
-			m.handleAgentStarted(ev)
-		}
-		return core.Result{OK: true}
-	})
+	m.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
 }
 
 // handleAgentStarted tracks started agents.
@@ -156,26 +134,8 @@ func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
 	m.seenCompleted[ev.Workspace] = true
 	m.mu.Unlock()
 
-	// Emit agent.completed to MCP clients
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
-			"repo":      ev.Repo,
-			"agent":     ev.Agent,
-			"workspace": ev.Workspace,
-			"status":    ev.Status,
-		})
-	}
-
 	m.Poke()
 	go m.checkIdleAfterDelay()
-}
-
-// SetNotifier wires up channel event broadcasting.
-// Deprecated: Phase 3 replaces this with c.ACTION(messages.X{}).
-//
-//	mon.SetNotifier(notifier)
-func (m *Subsystem) SetNotifier(n ChannelNotifier) {
-	m.notifier = n
 }
 
 // Options configures the monitor interval.
@@ -195,7 +155,7 @@ func New(opts ...Options) *Subsystem {
 		interval = opts[0].Interval
 	}
 	// Override via env for debugging
-	if envInterval := os.Getenv("MONITOR_INTERVAL"); envInterval != "" {
+	if envInterval := core.Env("MONITOR_INTERVAL"); envInterval != "" {
 		if d, err := time.ParseDuration(envInterval); err == nil {
 			interval = d
 		}
@@ -208,11 +168,9 @@ func New(opts ...Options) *Subsystem {
 	}
 }
 
-// debugChannel sends a debug message via the notifier so it arrives as a channel event.
+// debugChannel logs a debug message.
 func (m *Subsystem) debugChannel(msg string) {
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "monitor.debug", map[string]any{"msg": msg})
-	}
+	core.Debug(msg)
 }
 
 // Name returns the subsystem identifier used by MCP registration.
@@ -242,7 +200,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	monCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 
-	core.Print(os.Stderr, "monitor: started (interval=%s, notifier=%v)", m.interval, m.notifier != nil)
+	core.Info( "monitor: started (interval=%s)", m.interval)
 
 	m.wg.Add(1)
 	go func() {
@@ -252,14 +210,15 @@ func (m *Subsystem) Start(ctx context.Context) {
 }
 
 // OnStartup implements core.Startable — starts the monitoring loop.
-func (m *Subsystem) OnStartup(ctx context.Context) error {
+func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 	m.Start(ctx)
-	return nil
+	return core.Result{OK: true}
 }
 
 // OnShutdown implements core.Stoppable — stops the monitoring loop.
-func (m *Subsystem) OnShutdown(ctx context.Context) error {
-	return m.Shutdown(ctx)
+func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
+	_ = m.Shutdown(ctx)
+	return core.Result{OK: true}
 }
 
 // Shutdown stops the monitoring loop and waits for it to exit.
@@ -287,16 +246,13 @@ func (m *Subsystem) Poke() {
 // verified by checking PIDs are alive, not just trusting status files.
 func (m *Subsystem) checkIdleAfterDelay() {
 	time.Sleep(5 * time.Second) // wait for queue drain to fill slots
-	if m.notifier == nil {
+	if m.ServiceRuntime == nil {
 		return
 	}
 
 	running, queued := m.countLiveWorkspaces()
 	if running == 0 && queued == 0 {
-		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
-			"running": running,
-			"queued":  queued,
-		})
+		m.Core().ACTION(messages.QueueDrained{Completed: 0})
 	}
 }
 
@@ -326,12 +282,10 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 
 // pidAlive checks whether a process is still running.
 func pidAlive(pid int) bool {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
+	if pid <= 0 {
 		return false
 	}
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
+	return syscall.Kill(pid, 0) == nil
 }
 
 func (m *Subsystem) loop(ctx context.Context) {
@@ -430,12 +384,12 @@ func (m *Subsystem) checkCompletions() string {
 			Repo   string `json:"repo"`
 			Agent  string `json:"agent"`
 		}
-		if json.Unmarshal([]byte(entryData), &st) != nil {
+		if r := core.JSONUnmarshalString(entryData, &st); !r.OK {
 			continue
 		}
 
 		// Use full relative path as dedup key — "core/go/main" not just "main"
-		wsDir := filepath.Dir(entry)
+		wsDir := core.PathDir(entry)
 		wsName := wsDir
 		if len(wsDir) > len(wsRoot)+1 {
 			wsName = wsDir[len(wsRoot)+1:]
@@ -475,21 +429,10 @@ func (m *Subsystem) checkCompletions() string {
 		return ""
 	}
 
-	// Emit agent.completed for each newly finished task
-	if m.notifier != nil {
-		for _, desc := range newlyCompleted {
-			m.notifier.ChannelSend(context.Background(), "agent.completed", map[string]any{
-				"description": desc,
-			})
-		}
-	}
-
 	// Only emit queue.drained when genuinely empty — verified by live PID check
 	liveRunning, liveQueued := m.countLiveWorkspaces()
-	if m.notifier != nil && liveRunning == 0 && liveQueued == 0 {
-		m.notifier.ChannelSend(context.Background(), "queue.drained", map[string]any{
-			"completed": len(newlyCompleted),
-		})
+	if m.ServiceRuntime != nil && liveRunning == 0 && liveQueued == 0 {
+		m.Core().ACTION(messages.QueueDrained{Completed: len(newlyCompleted)})
 	}
 
 	msg := core.Sprintf("%d agent(s) completed", len(newlyCompleted))
@@ -504,9 +447,9 @@ func (m *Subsystem) checkCompletions() string {
 
 // checkInbox checks for unread messages.
 func (m *Subsystem) checkInbox() string {
-	apiKeyStr := os.Getenv("CORE_BRAIN_KEY")
+	apiKeyStr := core.Env("CORE_BRAIN_KEY")
 	if apiKeyStr == "" {
-		home, _ := os.UserHomeDir()
+		home := core.Env("DIR_HOME")
 		keyFile := brainKeyPath(home)
 		r := fs.Read(keyFile)
 		if !r.OK {
@@ -520,24 +463,13 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	// Call the API to check inbox
-	apiURL := os.Getenv("CORE_API_URL")
+	apiURL := core.Env("CORE_API_URL")
 	if apiURL == "" {
 		apiURL = "https://api.lthn.sh"
 	}
-	req, err := http.NewRequest("GET", core.Concat(apiURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName())), nil)
-	if err != nil {
-		return ""
-	}
-	req.Header.Set("Authorization", core.Concat("Bearer ", core.Trim(apiKeyStr)))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	httpResp, err := client.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer httpResp.Body.Close()
-
-	if httpResp.StatusCode != 200 {
+	inboxURL := core.Concat(apiURL, "/v1/messages/inbox?agent=", core.Replace(agentic.AgentName(), " ", "%20"))
+	hr := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(apiKeyStr), "Bearer")
+	if !hr.OK {
 		return ""
 	}
 
@@ -550,7 +482,7 @@ func (m *Subsystem) checkInbox() string {
 			Content string `json:"content"`
 		} `json:"data"`
 	}
-	if json.NewDecoder(httpResp.Body).Decode(&resp) != nil {
+	if r := core.JSONUnmarshalString(hr.Value.(string), &resp); !r.OK {
 		m.debugChannel("checkInbox: failed to decode response")
 		return ""
 	}
@@ -606,12 +538,8 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	// Push channel event with full message content
-	if m.notifier != nil {
-		m.notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-			"new":      len(newMessages),
-			"total":    unread,
-			"messages": newMessages,
-		})
+	if m.ServiceRuntime != nil {
+		m.Core().ACTION(messages.InboxMessage{New: len(newMessages), Total: unread})
 	}
 
 	return core.Sprintf("%d unread message(s) in inbox", unread)
@@ -662,10 +590,10 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 			Agent  string `json:"agent"`
 			PRURL  string `json:"pr_url"`
 		}
-		if json.Unmarshal([]byte(entryData), &st) != nil {
+		if r := core.JSONUnmarshalString(entryData, &st); !r.OK {
 			continue
 		}
-		entryDir := filepath.Dir(entry)
+		entryDir := core.PathDir(entry)
 		entryName := entryDir
 		if len(entryDir) > len(wsRoot)+1 {
 			entryName = entryDir[len(wsRoot)+1:]
@@ -679,16 +607,12 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 		})
 	}
 
-	result, err := json.Marshal(workspaces)
-	if err != nil {
-		return nil, core.E("monitor.agentStatus", "failed to encode workspace status", err)
-	}
 	return &mcp.ReadResourceResult{
 		Contents: []*mcp.ResourceContents{
 			{
 				URI:      "status://agents",
 				MIMEType: "application/json",
-				Text:     string(result),
+				Text:     core.JSONMarshalString(workspaces),
 			},
 		},
 	}, nil

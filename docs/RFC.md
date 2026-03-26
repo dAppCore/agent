@@ -3,7 +3,7 @@
 > `dappco.re/go/core/agent` — Agentic dispatch, orchestration, and pipeline management.
 > An agent should be able to understand core/agent's architecture from this document alone.
 
-**Status:** v0.8.0
+**Status:** v0.8.0+alpha.1
 **Module:** `dappco.re/go/core/agent`
 **Depends on:** core/go v0.8.0, go-process v0.8.0
 
@@ -15,38 +15,21 @@ core/agent dispatches AI agents (Claude, Codex, Gemini) to work on tasks in sand
 
 core/go provides the primitives. core/agent composes them.
 
-### Current State (2026-03-25)
-
-The codebase is PRE-migration. The RFC describes the v0.8.0 target. What exists today:
-
-- `pkg/agentic/proc.go` — standalone process helpers with `ensureProcess()`. **Delete** — replace with `s.Core().Process()`
-- `pkg/agentic/handlers.go` — nested `c.ACTION()` cascade 4 levels deep. **Replace** with `c.Task("agent.completion")`
-- `pkg/agentic/commands.go` — closures already extracted to named methods (done in prior session)
-- `pkg/agentic/commands_forge.go` — forge command methods (done)
-- `pkg/agentic/commands_workspace.go` — workspace command methods (done)
-- `pkg/agentic/dispatch.go` — `spawnAgent` decomposed into 7 functions (done)
-- `pkg/agentic/status.go` — uses `os.WriteFile` for status.json. **Replace** with `Fs.WriteAtomic`
-- `pkg/agentic/paths.go` — uses `unsafe.Pointer` to bypass Fs.root. **Replace** with `Fs.NewUnrestricted()`
-- `pkg/messages/` — typed IPC message structs (`AgentCompleted`, `QAResult`, etc.)
-- `pkg/brain/` — OpenBrain integration (recall/remember)
-- `pkg/monitor/` — agent monitoring + notifications
-- `pkg/setup/` — workspace scaffolding
-- `OnStartup`/`OnShutdown` — currently return `error`. **Change** to return `Result`
-
 ### File Layout
 
 ```
 cmd/core-agent/main.go       — entry point: core.New + Run
 pkg/agentic/                  — orchestration (dispatch, prep, verify, scan, commands)
-pkg/agentic/proc.go           — DELETE (replace with c.Process())
-pkg/agentic/handlers.go       — REWRITE (cascade → Task pipeline)
-pkg/agentic/status.go         — MIGRATE (os.WriteFile → WriteAtomic)
-pkg/agentic/paths.go          — MIGRATE (unsafe.Pointer → NewUnrestricted)
+pkg/agentic/actions.go        — named Action handlers (ctx, Options) → Result
+pkg/agentic/proc.go           — process helpers via s.Core().Process()
+pkg/agentic/handlers.go       — IPC completion pipeline handlers
+pkg/agentic/status.go         — workspace status (WriteAtomic + JSONMarshalString)
+pkg/agentic/paths.go          — paths, fs (NewUnrestricted), helpers
 pkg/brain/                    — OpenBrain (recall, remember, search)
 pkg/lib/                      — embedded templates, personas, flows, plans
 pkg/messages/                 — typed message structs for IPC broadcast
-pkg/monitor/                  — agent monitoring + channel notifications
-pkg/setup/                    — workspace detection + scaffolding
+pkg/monitor/                  — agent monitoring via IPC (ServiceRuntime)
+pkg/setup/                    — workspace detection + scaffolding (Service)
 claude/                       — Claude Code plugin definitions
 docs/                         — RFC, plans, architecture
 ```
@@ -55,12 +38,19 @@ docs/                         — RFC, plans, architecture
 
 ## 2. Service Registration
 
+All services use `ServiceRuntime[T]` — no raw `core *core.Core` fields.
+
 ```go
 func Register(c *core.Core) core.Result {
-    svc := &PrepSubsystem{
-        ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-    }
-    return core.Result{Value: svc, OK: true}
+    prep := NewPrep()
+    prep.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+    cfg := prep.loadAgentsConfig()
+    c.Config().Set("agents.concurrency", cfg.Concurrency)
+    c.Config().Set("agents.rates", cfg.Rates)
+
+    RegisterHandlers(c, prep)
+    return core.Result{Value: prep, OK: true}
 }
 
 // In main:
@@ -84,12 +74,13 @@ All capabilities registered as named Actions during OnStartup. Inspectable, comp
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
     c := s.Core()
 
-    // Dispatch
+    // Dispatch & workspace
     c.Action("agentic.dispatch", s.handleDispatch)
     c.Action("agentic.prep", s.handlePrep)
     c.Action("agentic.status", s.handleStatus)
     c.Action("agentic.resume", s.handleResume)
     c.Action("agentic.scan", s.handleScan)
+    c.Action("agentic.watch", s.handleWatch)
 
     // Pipeline
     c.Action("agentic.qa", s.handleQA)
@@ -107,11 +98,11 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
     c.Action("agentic.pr.list", s.handlePRList)
     c.Action("agentic.pr.merge", s.handlePRMerge)
 
-    // Brain
-    c.Action("brain.recall", s.handleBrainRecall)
-    c.Action("brain.remember", s.handleBrainRemember)
+    // Review & Epic
+    c.Action("agentic.review-queue", s.handleReviewQueue)
+    c.Action("agentic.epic", s.handleEpic)
 
-    // Completion pipeline
+    // Completion pipeline — Task composition
     c.Task("agent.completion", core.Task{
         Description: "QA → PR → Verify → Merge",
         Steps: []core.Step{
@@ -123,7 +114,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
         },
     })
 
+    s.StartRunner()
     s.registerCommands(ctx)
+    s.registerWorkspaceCommands()
+    s.registerForgeCommands()
     return core.Result{OK: true}
 }
 ```
@@ -132,38 +126,35 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 ## 4. Completion Pipeline
 
-When an agent completes, the Task runs sequentially. Async steps fire without blocking the queue drain.
+When an agent completes, the IPC handler chain fires. Registered in `RegisterHandlers()`:
 
-```go
-c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
-    if ev, ok := msg.(messages.AgentCompleted); ok {
-        opts := core.NewOptions(
-            core.Option{Key: "repo", Value: ev.Repo},
-            core.Option{Key: "workspace", Value: ev.Workspace},
-        )
-        c.PerformAsync("agent.completion", opts)
-    }
-    return core.Result{OK: true}
-})
+```
+AgentCompleted → QA handler → QAResult
+QAResult{Passed} → PR handler → PRCreated
+PRCreated → Verify handler → PRMerged | PRNeedsReview
+AgentCompleted → Ingest handler (findings → issues)
+AgentCompleted → Poke handler (drain queue)
 ```
 
-Steps: QA (build+test) → Auto-PR (git push + Forge API) → Verify (test + merge).
-Ingest and Poke run async — Poke drains the queue immediately.
+All handlers use `c.ACTION(messages.X{})` — no ChannelNotifier, no callbacks.
 
 ---
 
 ## 5. Process Execution
 
-All commands via `c.Process()`. No `os/exec`, no `proc.go`, no `ensureProcess()`.
+All commands via `s.Core().Process()`. Returns `core.Result` — Value is always a string.
 
 ```go
-// Git operations
-func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
-    return s.Core().Process().RunIn(ctx, dir, "git", args...)
+func (s *PrepSubsystem) runCmd(ctx context.Context, dir, command string, args ...string) core.Result {
+    return s.Core().Process().RunIn(ctx, dir, command, args...)
 }
 
-func (s *PrepSubsystem) gitOK(ctx context.Context, dir string, args ...string) bool {
-    return s.gitCmd(ctx, dir, args...).OK
+func (s *PrepSubsystem) runCmdOK(ctx context.Context, dir, command string, args ...string) bool {
+    return s.runCmd(ctx, dir, command, args...).OK
+}
+
+func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
+    return s.runCmd(ctx, dir, "git", args...)
 }
 
 func (s *PrepSubsystem) gitOutput(ctx context.Context, dir string, args ...string) string {
@@ -173,243 +164,199 @@ func (s *PrepSubsystem) gitOutput(ctx context.Context, dir string, args ...strin
 }
 ```
 
+go-process is fully Result-native. `Start`, `Run`, `StartWithOptions`, `RunWithOptions` all return `core.Result`. Value is `*Process` for Start, `string` for Run. OK=true guarantees the type.
+
 ---
 
 ## 6. Status Management
 
-Workspace status uses `WriteAtomic` for safe concurrent access + per-workspace mutex for read-modify-write:
+Workspace status uses `WriteAtomic` + `JSONMarshalString` for safe concurrent access:
 
 ```go
-// Write
-s.Core().Fs().WriteAtomic(statusPath, core.JSONMarshalString(status))
-
-// Read-modify-write with lock
-s.withLock(wsDir, func() {
-    var st WorkspaceStatus
-    core.JSONUnmarshalString(s.Core().Fs().Read(statusPath).Value.(string), &st)
-    st.Status = "completed"
-    s.Core().Fs().WriteAtomic(statusPath, core.JSONMarshalString(st))
-})
+func writeStatus(wsDir string, status *WorkspaceStatus) error {
+    status.UpdatedAt = time.Now()
+    statusPath := core.JoinPath(wsDir, "status.json")
+    if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
+        err, _ := r.Value.(error)
+        return core.E("writeStatus", "failed to write status", err)
+    }
+    return nil
+}
 ```
 
 ---
 
 ## 7. Filesystem
 
-No `unsafe.Pointer`. Sandboxed by default, unrestricted when needed:
+No `unsafe.Pointer`. Package-level unrestricted Fs via Core primitive:
 
 ```go
-// Sandboxed to workspace
-f := (&core.Fs{}).New(workspaceDir)
-
-// Full access when required
-f := s.Core().Fs().NewUnrestricted()
+var fs = (&core.Fs{}).NewUnrestricted()
 ```
 
 ---
 
-## 8. Validation and IDs
+## 8. IPC Messages
+
+All inter-service communication via typed messages in `pkg/messages/`:
 
 ```go
-// Validate input
-if r := core.ValidateName(input.Repo); !r.OK { return r }
-safe := core.SanitisePath(userInput)
+// Agent lifecycle
+messages.AgentStarted{Agent, Repo, Workspace}
+messages.AgentCompleted{Agent, Repo, Workspace, Status}
 
-// Generate unique identifiers
-id := core.ID()  // "id-42-a3f2b1"
+// Pipeline
+messages.QAResult{Workspace, Repo, Passed}
+messages.PRCreated{Repo, Branch, PRURL, PRNum}
+messages.PRMerged{Repo, PRURL, PRNum}
+messages.PRNeedsReview{Repo, PRURL, PRNum, Reason}
+
+// Queue
+messages.QueueDrained{Completed}
+messages.PokeQueue{}
+
+// Monitor
+messages.HarvestComplete{Repo, Branch, Files}
+messages.HarvestRejected{Repo, Branch, Reason}
+messages.InboxMessage{New, Total}
 ```
 
 ---
 
-## 9. Entitlements
+## 9. Monitor
+
+Embeds `*core.ServiceRuntime[MonitorOptions]`. All notifications via `m.Core().ACTION(messages.X{})` — no ChannelNotifier interface. Git operations via `m.Core().Process()`.
+
+```go
+func Register(c *core.Core) core.Result {
+    mon := New()
+    mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+
+    c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
+        switch ev := msg.(type) {
+        case messages.AgentCompleted:
+            mon.handleAgentCompleted(ev)
+        case messages.AgentStarted:
+            mon.handleAgentStarted(ev)
+        }
+        return core.Result{OK: true}
+    })
+
+    return core.Result{Value: mon, OK: true}
+}
+```
+
+---
+
+## 10. Setup
+
+Service with `*core.ServiceRuntime[SetupOptions]`. Detects project type, generates configs, scaffolds workspaces.
+
+```go
+func Register(c *core.Core) core.Result {
+    svc := &Service{
+        ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{}),
+    }
+    return core.Result{Value: svc, OK: true}
+}
+```
+
+---
+
+## 11. Entitlements
 
 Actions are gated by `c.Entitled()` — checked automatically in `Action.Run()`.
 
-For explicit gating with quantity checks:
-
 ```go
 func (s *PrepSubsystem) handleDispatch(ctx context.Context, opts core.Options) core.Result {
-    // Concurrency limit
     e := s.Core().Entitled("agentic.concurrency", 1)
     if !e.Allowed {
         return core.Result{Value: core.E("dispatch", e.Reason, nil), OK: false}
     }
-
     // ... dispatch agent ...
-
     s.Core().RecordUsage("agentic.dispatch")
     return core.Result{OK: true}
 }
 ```
 
-Enables: SaaS tier gating, usage tracking, workspace isolation.
+---
+
+## 12. MCP — Action Aggregator
+
+MCP auto-exposes all registered Actions as tools via `c.Actions()`. Register an Action → it appears as an MCP tool. The API stream primitive (`c.API()`) handles transport.
 
 ---
 
-## 10. MCP — Action Aggregator
-
-MCP auto-exposes all registered Actions as tools:
-
-```go
-func (s *MCPService) OnStartup(ctx context.Context) core.Result {
-    for _, name := range s.Core().Actions() {
-        name := name  // capture loop variable
-        action := s.Core().Action(name)
-        s.server.AddTool(mcp.Tool{
-            Name:        name,
-            Description: action.Description,
-            InputSchema: schemaFromOptions(action.Schema),
-            Handler: func(ctx context.Context, input map[string]any) (any, error) {
-                // Re-resolve action at call time (not captured pointer)
-                r := s.Core().Action(name).Run(ctx, optionsFromInput(input))
-                if !r.OK { return nil, r.Value.(error) }
-                return r.Value, nil
-            },
-        })
-    }
-    return core.Result{OK: true}
-}
-```
-
-Register an Action → it appears as an MCP tool. No hand-wiring.
-
----
-
-## 11. Remote Dispatch
+## 13. Remote Dispatch
 
 Transparent local/remote via `host:action` syntax:
 
 ```go
-// Local
-r := c.RemoteAction("agentic.status", ctx, opts)
-
-// Remote — same API
-r := c.RemoteAction("charon:agentic.dispatch", ctx, opts)
-
-// Web3
-r := c.RemoteAction("snider.lthn:brain.recall", ctx, opts)
+r := c.RemoteAction("agentic.status", ctx, opts)           // local
+r := c.RemoteAction("charon:agentic.dispatch", ctx, opts)   // remote
+r := c.RemoteAction("snider.lthn:brain.recall", ctx, opts)  // web3
 ```
 
 ---
 
-## 12. JSON Serialisation
+## 14. Quality Gates
+
+```bash
+# No disallowed imports (source files only)
+grep -rn '"os"\|"os/exec"\|"io"\|"fmt"\|"errors"\|"log"\|"encoding/json"\|"path/filepath"\|"unsafe"\|"strings"' *.go **/*.go \
+  | grep -v _test.go
+
+# Test naming: TestFile_Function_{Good,Bad,Ugly}
+grep -rn "^func Test" *_test.go **/*_test.go \
+  | grep -v "Test[A-Z][a-z]*_.*_\(Good\|Bad\|Ugly\)"
+```
+
+---
+
+## 15. Validation and IDs
+
+```go
+if r := core.ValidateName(input.Repo); !r.OK { return r }
+safe := core.SanitisePath(userInput)
+id := core.ID()  // "id-42-a3f2b1"
+```
+
+---
+
+## 16. JSON Serialisation
 
 All JSON via Core primitives. No `encoding/json` import.
 
 ```go
 data := core.JSONMarshalString(status)
-core.JSONUnmarshal(responseBytes, &result)
+core.JSONUnmarshalString(jsonStr, &result)
 ```
 
 ---
 
-## 13. Test Strategy
-
-AX-7: `TestFile_Function_{Good,Bad,Ugly}` — 100% naming compliance target.
-
-```
-TestHandlers_CompletionPipeline_Good     — QA+PR+Verify succeed, Poke fires
-TestHandlers_CompletionPipeline_Bad      — QA fails, chain stops
-TestHandlers_CompletionPipeline_Ugly     — handler panics, pipeline recovers
-TestDispatch_Entitlement_Good            — entitled workspace dispatches
-TestDispatch_Entitlement_Bad             — denied workspace gets error
-TestPrep_GitCmd_Good                     — via c.Process()
-TestStatus_WriteAtomic_Ugly              — concurrent writes don't corrupt
-TestMCP_ActionAggregator_Good            — Actions appear as MCP tools
-```
-
----
-
-## 14. Error Handling and Logging
-
-All errors via `core.E()`. All logging via Core. No `fmt`, `errors`, or `log` imports.
+## 17. Configuration
 
 ```go
-// Structured errors
-return core.E("dispatch.prep", "workspace not found", nil)
-return core.E("dispatch.prep", core.Concat("repo ", repo, " invalid"), cause)
-
-// Error inspection
-core.Operation(err)      // "dispatch.prep"
-core.ErrorMessage(err)   // "workspace not found"
-core.Root(err)           // unwrap to root cause
-
-// Logging
-core.Info("agent dispatched", "repo", repo, "agent", agent)
-core.Warn("queue full", "pending", count)
-core.Error("dispatch failed", "err", err)
-core.Security("entitlement.denied", "action", action, "reason", reason)
-```
-
----
-
-## 15. Configuration
-
-```go
-// Runtime settings
 c.Config().Set("agents.concurrency", 5)
 c.Config().String("workspace.root")
 c.Config().Int("agents.concurrency")
-
-// Feature flags
 c.Config().Enable("auto-merge")
 if c.Config().Enabled("auto-merge") { ... }
 ```
 
 ---
 
-## 16. Registry
+## 18. Registry
 
 Use `Registry[T]` for any named collection. No `map[string]*T + sync.Mutex`.
 
 ```go
-// Workspace status tracking
 workspaces := core.NewRegistry[*WorkspaceStatus]()
 workspaces.Set(wsDir, status)
 workspaces.Get(wsDir)
 workspaces.Each(func(dir string, st *WorkspaceStatus) { ... })
 workspaces.Names()  // insertion order
-
-// Cross-cutting queries via Core
 c.RegistryOf("actions").List("agentic.*")
-c.RegistryOf("services").Names()
-```
-
----
-
-## 17. Stream Helpers
-
-No `io` import. Core wraps all stream operations:
-
-```go
-// Read entire stream
-r := c.Fs().ReadStream(path)
-content := core.ReadAll(r.Value)
-
-// Write to stream
-w := c.Fs().WriteStream(path)
-core.WriteAll(w.Value, data)
-
-// Close any stream
-core.CloseStream(handle)
-```
-
----
-
-## 18. Data and Drive
-
-```go
-// Embedded assets (prompts, templates, personas)
-r := c.Data().ReadString("prompts/coding.md")
-c.Data().List("templates/")
-c.Data().Mounts()  // all mounted asset namespaces
-
-// Transport configuration
-c.Drive().New(core.NewOptions(
-    core.Option{Key: "name", Value: "charon"},
-    core.Option{Key: "transport", Value: "http://10.69.69.165:9101"},
-))
-c.Drive().Get("charon")
 ```
 
 ---
@@ -430,7 +377,34 @@ core.Trim(s)                          // not strings.TrimSpace
 
 ---
 
-## 20. Comments (AX Principle 2)
+## 20. Error Handling and Logging
+
+All errors via `core.E()`. All logging via Core. No `fmt`, `errors`, or `log` imports.
+
+```go
+return core.E("dispatch.prep", "workspace not found", nil)
+return core.E("dispatch.prep", core.Concat("repo ", repo, " invalid"), cause)
+core.Info("agent dispatched", "repo", repo, "agent", agent)
+core.Error("dispatch failed", "err", err)
+core.Security("entitlement.denied", "action", action, "reason", reason)
+```
+
+---
+
+## 21. Stream Helpers and Data
+
+```go
+r := c.Data().ReadString("prompts/coding.md")
+c.Data().List("templates/")
+c.Drive().New(core.NewOptions(
+    core.Option{Key: "name", Value: "charon"},
+    core.Option{Key: "transport", Value: "http://10.69.69.165:9101"},
+))
+```
+
+---
+
+## 22. Comments (AX Principle 2)
 
 Every exported function MUST have a usage-example comment:
 
@@ -441,41 +415,11 @@ Every exported function MUST have a usage-example comment:
 func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
 ```
 
-No exceptions. The comment is for every model that will ever read the code.
-
 ---
 
-## 21. Example Tests (AX Principle 7b)
+## 23. Test Strategy (AX Principle 7)
 
-One `{source}_example_test.go` per source file. Examples serve as test + documentation + godoc.
-
-```go
-// file: dispatch_example_test.go
-
-func ExamplePrepSubsystem_handleDispatch() {
-    c := core.New(core.WithService(agentic.Register))
-    r := c.Action("agentic.dispatch").Run(ctx, opts)
-    core.Println(r.OK)
-    // Output: true
-}
-```
-
----
-
-## 22. Quality Gates (AX Principle 9)
-
-```bash
-# No disallowed imports (all 10)
-grep -rn '"os"\|"os/exec"\|"io"\|"fmt"\|"errors"\|"log"\|"encoding/json"\|"path/filepath"\|"unsafe"\|"strings"' *.go **/*.go \
-  | grep -v _test.go
-
-# Test naming
-grep -rn "^func Test" *_test.go **/*_test.go \
-  | grep -v "Test[A-Z][a-z]*_.*_\(Good\|Bad\|Ugly\)"
-
-# String concat
-grep -rn '" + \| + "' *.go **/*.go | grep -v _test.go | grep -v "//"
-```
+`TestFile_Function_{Good,Bad,Ugly}` — 100% naming compliance target.
 
 ---
 
@@ -484,10 +428,12 @@ grep -rn '" + \| + "' *.go **/*.go | grep -v _test.go | grep -v "//"
 | Package | RFC | Role |
 |---------|-----|------|
 | core/go | `core/go/docs/RFC.md` | Primitives — all 21 sections |
-| go-process | `core/go-process/docs/RFC.md` | Process Action handlers |
+| go-process | `core/go-process/docs/RFC.md` | Process Action handlers (Result-native) |
 
 ---
 
 ## Changelog
 
+- 2026-03-26: WIP — net/http consolidated to transport.go (ONE file). net/url + io/fs eliminated. RFC-025 updated with 3 new quality gates (net/http, net/url, io/fs). 1:1 test + example test coverage. Array[T].Deduplicate replaces custom helpers. Remaining: remove dead `client` field from test literals, brain/provider.go Gin handler.
+- 2026-03-25: Quality gates pass. Zero disallowed imports (all 10). encoding/json→Core JSON. path/filepath→Core Path. os→Core Env/Fs. io→Core ReadAll/WriteAll. go-process fully Result-native. ServiceRuntime on all subsystems. 22 named Actions + Task pipeline. ChannelNotifier→IPC. Reference docs synced.
 - 2026-03-25: Initial spec — written with full core/go v0.8.0 domain context.

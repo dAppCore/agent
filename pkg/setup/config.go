@@ -3,10 +3,6 @@
 package setup
 
 import (
-	neturl "net/url"
-	"os/exec"
-	"path/filepath"
-
 	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
@@ -50,7 +46,7 @@ type configValue struct {
 //
 //	content, err := setup.GenerateBuildConfig("/repo", setup.TypeGo)
 func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
-	name := filepath.Base(path)
+	name := core.PathBase(path)
 	sections := []configSection{
 		{
 			Key: "project",
@@ -66,7 +62,7 @@ func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
 		sections = append(sections, configSection{
 			Key: "build",
 			Values: []configValue{
-				{Key: "main", Value: "./cmd/" + name},
+				{Key: "main", Value: core.Concat("./cmd/", name)},
 				{Key: "binary", Value: name},
 				{Key: "cgo", Value: false},
 			},
@@ -169,24 +165,24 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 	return builder.String(), nil
 }
 
-// detectGitRemote extracts owner/repo from git remote origin.
-func detectGitRemote(path string) string {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
-	cmd.Dir = path
-	output, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return parseGitRemote(core.Trim(string(output)))
-}
-
 func parseGitRemote(remote string) string {
 	if remote == "" {
 		return ""
 	}
 
-	if parsed, err := neturl.Parse(remote); err == nil && parsed.Host != "" {
-		return trimRemotePath(parsed.Path)
+	// HTTPS/HTTP URL — extract path after host
+	if core.Contains(remote, "://") {
+		parts := core.SplitN(remote, "://", 2)
+		if len(parts) == 2 {
+			rest := parts[1]
+			if idx := core.Split(rest, "/"); len(idx) > 1 {
+				// Skip host, take path
+				pathStart := len(idx[0]) + 1
+				if pathStart < len(rest) {
+					return trimRemotePath(rest[pathStart:])
+				}
+			}
+		}
 	}
 
 	parts := core.SplitN(remote, ":", 2)

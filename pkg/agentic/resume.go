@@ -78,11 +78,11 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Build resume prompt — inline the task and answer, no file references
-	prompt := "You are resuming previous work.\n\nORIGINAL TASK:\n" + st.Task
+	prompt := core.Concat("You are resuming previous work.\n\nORIGINAL TASK:\n", st.Task)
 	if input.Answer != "" {
-		prompt += "\n\nANSWER TO YOUR QUESTION:\n" + input.Answer
+		prompt = core.Concat(prompt, "\n\nANSWER TO YOUR QUESTION:\n", input.Answer)
 	}
-	prompt += "\n\nContinue working. Read BLOCKED.md to see what you were stuck on. Commit when done."
+	prompt = core.Concat(prompt, "\n\nContinue working. Read BLOCKED.md to see what you were stuck on. Commit when done.")
 
 	if input.DryRun {
 		return nil, ResumeOutput{

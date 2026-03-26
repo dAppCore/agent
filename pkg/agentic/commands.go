@@ -6,7 +6,6 @@ package agentic
 
 import (
 	"context"
-	"os"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
@@ -14,7 +13,7 @@ import (
 
 // registerCommands adds agentic CLI commands to Core's command tree.
 func (s *PrepSubsystem) registerCommands(ctx context.Context) {
-	c := s.core
+	c := s.Core()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTaskFactory(ctx)})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestratorFactory(ctx)})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
@@ -48,27 +47,27 @@ func (s *PrepSubsystem) cmdRunTask(ctx context.Context, opts core.Options) core.
 
 	issue := parseIntStr(issueStr)
 
-	core.Print(os.Stderr, "core-agent run task")
-	core.Print(os.Stderr, "  repo:  %s/%s", org, repo)
-	core.Print(os.Stderr, "  agent: %s", agent)
+	core.Print(nil, "core-agent run task")
+	core.Print(nil, "  repo:  %s/%s", org, repo)
+	core.Print(nil, "  agent: %s", agent)
 	if issue > 0 {
-		core.Print(os.Stderr, "  issue: #%d", issue)
+		core.Print(nil, "  issue: #%d", issue)
 	}
-	core.Print(os.Stderr, "  task:  %s", task)
-	core.Print(os.Stderr, "")
+	core.Print(nil, "  task:  %s", task)
+	core.Print(nil, "")
 
 	result := s.DispatchSync(ctx, DispatchSyncInput{
 		Org: org, Repo: repo, Agent: agent, Task: task, Issue: issue,
 	})
 
 	if !result.OK {
-		core.Print(os.Stderr, "FAILED: %v", result.Error)
+		core.Print(nil, "FAILED: %v", result.Error)
 		return core.Result{Value: result.Error, OK: false}
 	}
 
-	core.Print(os.Stderr, "DONE: %s", result.Status)
+	core.Print(nil, "DONE: %s", result.Status)
 	if result.PRURL != "" {
-		core.Print(os.Stderr, "  PR: %s", result.PRURL)
+		core.Print(nil, "  PR: %s", result.PRURL)
 	}
 	return core.Result{OK: true}
 }
@@ -79,12 +78,12 @@ func (s *PrepSubsystem) cmdOrchestratorFactory(ctx context.Context) func(core.Op
 }
 
 func (s *PrepSubsystem) cmdOrchestrator(ctx context.Context, _ core.Options) core.Result {
-	core.Print(os.Stderr, "core-agent orchestrator running (pid %s)", core.Env("PID"))
-	core.Print(os.Stderr, "  workspace: %s", WorkspaceRoot())
-	core.Print(os.Stderr, "  watching queue, draining on 30s tick + completion poke")
+	core.Print(nil, "core-agent orchestrator running (pid %s)", core.Env("PID"))
+	core.Print(nil, "  workspace: %s", WorkspaceRoot())
+	core.Print(nil, "  watching queue, draining on 30s tick + completion poke")
 
 	<-ctx.Done()
-	core.Print(os.Stderr, "orchestrator shutting down")
+	core.Print(nil, "orchestrator shutting down")
 	return core.Result{OK: true}
 }
 
@@ -143,27 +142,21 @@ func (s *PrepSubsystem) cmdPrep(opts core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdStatus(opts core.Options) core.Result {
 	wsRoot := WorkspaceRoot()
-	fsys := s.core.Fs()
+	fsys := s.Core().Fs()
 	r := fsys.List(wsRoot)
 	if !r.OK {
 		core.Print(nil, "no workspaces found at %s", wsRoot)
 		return core.Result{OK: true}
 	}
 
-	entries := r.Value.([]os.DirEntry)
-	if len(entries) == 0 {
+	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	if len(statusFiles) == 0 {
 		core.Print(nil, "no workspaces")
 		return core.Result{OK: true}
 	}
 
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		statusFile := core.JoinPath(wsRoot, e.Name(), "status.json")
-		if sr := fsys.Read(statusFile); sr.OK {
-			core.Print(nil, "  %s", e.Name())
-		}
+	for _, sf := range statusFiles {
+		core.Print(nil, "  %s", core.PathBase(core.PathDir(sf)))
 	}
 	return core.Result{OK: true}
 }
@@ -224,16 +217,15 @@ func (s *PrepSubsystem) cmdExtract(opts core.Options) core.Result {
 		return core.Result{Value: err, OK: false}
 	}
 
-	fsys := s.core.Fs()
-	r := fsys.List(target)
-	if r.OK {
-		for _, e := range r.Value.([]os.DirEntry) {
-			marker := " "
-			if e.IsDir() {
-				marker = "/"
-			}
-			core.Print(nil, "  %s%s", e.Name(), marker)
+	fsys := s.Core().Fs()
+	paths := core.PathGlob(core.JoinPath(target, "*"))
+	for _, p := range paths {
+		name := core.PathBase(p)
+		marker := " "
+		if fsys.IsDir(p) {
+			marker = "/"
 		}
+		core.Print(nil, "  %s%s", name, marker)
 	}
 
 	core.Print(nil, "done")

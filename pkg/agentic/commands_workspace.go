@@ -5,14 +5,12 @@
 package agentic
 
 import (
-	"os"
-
 	core "dappco.re/go/core"
 )
 
 // registerWorkspaceCommands adds workspace management commands.
 func (s *PrepSubsystem) registerWorkspaceCommands() {
-	c := s.core
+	c := s.Core()
 	c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
 	c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
 	c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
@@ -20,27 +18,18 @@ func (s *PrepSubsystem) registerWorkspaceCommands() {
 
 func (s *PrepSubsystem) cmdWorkspaceList(opts core.Options) core.Result {
 	wsRoot := WorkspaceRoot()
-	fsys := s.core.Fs()
+	fsys := s.Core().Fs()
 
-	r := fsys.List(wsRoot)
-	if !r.OK {
-		core.Print(nil, "no workspaces at %s", wsRoot)
-		return core.Result{OK: true}
-	}
-
-	entries := r.Value.([]os.DirEntry)
+	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
 	count := 0
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		statusFile := core.JoinPath(wsRoot, e.Name(), "status.json")
-		if sr := fsys.Read(statusFile); sr.OK {
+	for _, sf := range statusFiles {
+		wsName := core.PathBase(core.PathDir(sf))
+		if sr := fsys.Read(sf); sr.OK {
 			content := sr.Value.(string)
 			status := extractField(content, "status")
 			repo := extractField(content, "repo")
 			agent := extractField(content, "agent")
-			core.Print(nil, "  %-8s %-8s %-10s %s", status, agent, repo, e.Name())
+			core.Print(nil, "  %-8s %-8s %-10s %s", status, agent, repo, wsName)
 			count++
 		}
 	}
@@ -52,27 +41,18 @@ func (s *PrepSubsystem) cmdWorkspaceList(opts core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 	wsRoot := WorkspaceRoot()
-	fsys := s.core.Fs()
+	fsys := s.Core().Fs()
 	filter := opts.String("_arg")
 	if filter == "" {
 		filter = "all"
 	}
 
-	r := fsys.List(wsRoot)
-	if !r.OK {
-		core.Print(nil, "no workspaces")
-		return core.Result{OK: true}
-	}
-
-	entries := r.Value.([]os.DirEntry)
+	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
 	var toRemove []string
 
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		statusFile := core.JoinPath(wsRoot, e.Name(), "status.json")
-		sr := fsys.Read(statusFile)
+	for _, sf := range statusFiles {
+		wsName := core.PathBase(core.PathDir(sf))
+		sr := fsys.Read(sf)
 		if !sr.OK {
 			continue
 		}
@@ -81,19 +61,19 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 		switch filter {
 		case "all":
 			if status == "completed" || status == "failed" || status == "blocked" || status == "merged" || status == "ready-for-review" {
-				toRemove = append(toRemove, e.Name())
+				toRemove = append(toRemove, wsName)
 			}
 		case "completed":
 			if status == "completed" || status == "merged" || status == "ready-for-review" {
-				toRemove = append(toRemove, e.Name())
+				toRemove = append(toRemove, wsName)
 			}
 		case "failed":
 			if status == "failed" {
-				toRemove = append(toRemove, e.Name())
+				toRemove = append(toRemove, wsName)
 			}
 		case "blocked":
 			if status == "blocked" {
-				toRemove = append(toRemove, e.Name())
+				toRemove = append(toRemove, wsName)
 			}
 		}
 	}

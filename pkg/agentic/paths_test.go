@@ -167,14 +167,14 @@ func TestPaths_DefaultBranch_Good(t *testing.T) {
 	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
 	require.NoError(t, cmd.Run())
 
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
 func TestPaths_DefaultBranch_Bad(t *testing.T) {
 	// Non-git directory — should return "main" (default)
 	dir := t.TempDir()
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
 }
 
@@ -196,7 +196,7 @@ func TestPaths_DefaultBranch_Ugly(t *testing.T) {
 	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
 	require.NoError(t, cmd.Run())
 
-	branch := DefaultBranch(dir)
+	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "master", branch)
 }
 
@@ -321,12 +321,11 @@ func TestPaths_ParseInt_Ugly_LeadingTrailingWhitespace(t *testing.T) {
 	assert.Equal(t, 42, parseInt("  42  "))
 }
 
-// --- newFs Good/Bad/Ugly ---
+// --- fs (NewUnrestricted) Good ---
 
-func TestPaths_NewFs_Good(t *testing.T) {
-	f := newFs("/tmp")
-	assert.NotNil(t, f, "newFs should return a non-nil Fs")
-	assert.IsType(t, &core.Fs{}, f)
+func TestPaths_Fs_Good_Unrestricted(t *testing.T) {
+	assert.NotNil(t, fs, "package-level fs should be non-nil")
+	assert.IsType(t, &core.Fs{}, fs)
 }
 
 // --- parseInt Good ---
@@ -334,21 +333,4 @@ func TestPaths_NewFs_Good(t *testing.T) {
 func TestPaths_ParseInt_Good(t *testing.T) {
 	assert.Equal(t, 42, parseInt("42"))
 	assert.Equal(t, 0, parseInt("0"))
-}
-
-func TestPaths_NewFs_Bad_EmptyRoot(t *testing.T) {
-	f := newFs("")
-	assert.NotNil(t, f, "newFs with empty root should not return nil")
-}
-
-func TestPaths_NewFs_Ugly_UnicodeRoot(t *testing.T) {
-	assert.NotPanics(t, func() {
-		f := newFs("/tmp/\u00e9\u00e0\u00fc/\u00f1o\u00f0\u00e9s")
-		assert.NotNil(t, f)
-	})
-}
-
-func TestPaths_NewFs_Ugly_VerifyIsFs(t *testing.T) {
-	f := newFs("/tmp")
-	assert.IsType(t, &core.Fs{}, f)
 }

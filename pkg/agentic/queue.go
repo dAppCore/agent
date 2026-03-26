@@ -214,8 +214,8 @@ func baseAgent(agent string) string {
 func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	// Read concurrency from shared config (loaded once at startup)
 	var concurrency map[string]ConcurrencyLimit
-	if s.core != nil {
-		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](s.core.Config(), "agents.concurrency")
+	if s.ServiceRuntime != nil {
+		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](s.Core().Config(), "agents.concurrency")
 	}
 	if concurrency == nil {
 		cfg := s.loadAgentsConfig()
@@ -267,9 +267,9 @@ func (s *PrepSubsystem) drainQueue() {
 	if s.frozen {
 		return
 	}
-	if s.core != nil {
-		s.core.Lock("drain").Mutex.Lock()
-		defer s.core.Lock("drain").Mutex.Unlock()
+	if s.ServiceRuntime != nil {
+		s.Core().Lock("drain").Mutex.Lock()
+		defer s.Core().Lock("drain").Mutex.Unlock()
 	} else {
 		s.drainMu.Lock()
 		defer s.drainMu.Unlock()
@@ -318,7 +318,7 @@ func (s *PrepSubsystem) drainOne() bool {
 			continue
 		}
 
-		prompt := "TASK: " + st.Task + "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done."
+		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
 		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
 		if err != nil {

@@ -4,9 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"os"
 	"regexp"
 	"time"
 
@@ -134,24 +131,20 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 
 // findReviewCandidates returns repos that are ahead of GitHub main.
 func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
-	r := fs.List(basePath)
-	if !r.OK {
-		return nil
-	}
-	entries := r.Value.([]os.DirEntry)
+	paths := core.PathGlob(core.JoinPath(basePath, "*"))
 
 	var candidates []string
-	for _, e := range entries {
-		if !e.IsDir() {
+	for _, p := range paths {
+		if !fs.IsDir(p) {
 			continue
 		}
-		repoDir := core.JoinPath(basePath, e.Name())
-		if !hasRemote(repoDir, "github") {
+		name := core.PathBase(p)
+		if !s.hasRemote(p, "github") {
 			continue
 		}
-		ahead := commitsAhead(repoDir, "github/main", "HEAD")
+		ahead := s.commitsAhead(p, "github/main", "HEAD")
 		if ahead > 0 {
-			candidates = append(candidates, e.Name())
+			candidates = append(candidates, name)
 		}
 	}
 	return candidates
@@ -173,7 +166,8 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 		reviewer = "coderabbit"
 	}
 	command, args := s.buildReviewCommand(repoDir, reviewer)
-	output, err := runCmd(ctx, repoDir, command, args...)
+	r := s.runCmd(ctx, repoDir, command, args...)
+	output, _ := r.Value.(string)
 
 	// Parse rate limit (both reviewers use similar patterns)
 	if core.Contains(output, "Rate limit exceeded") || core.Contains(output, "rate limit") {
@@ -183,7 +177,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	}
 
 	// Parse error
-	if err != nil && !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
+	if !r.OK && !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
 		result.Verdict = "error"
 		result.Detail = output
 		return result
@@ -209,7 +203,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 
 		// Push to GitHub and mark PR ready / merge
 		if err := s.pushAndMerge(ctx, repoDir, repo); err != nil {
-			result.Action = "push failed: " + err.Error()
+			result.Action = core.Concat("push failed: ", err.Error())
 		} else {
 			result.Action = "merged"
 		}
@@ -247,15 +241,15 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 
 // pushAndMerge pushes to GitHub dev and merges the PR.
 func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
-	if out, err := gitCmd(ctx, repoDir, "push", "github", "HEAD:refs/heads/dev", "--force"); err != nil {
-		return core.E("pushAndMerge", "push failed: "+out, err)
+	if r := s.gitCmd(ctx, repoDir, "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
+		return core.E("pushAndMerge", "push failed: "+r.Value.(string), nil)
 	}
 
 	// Mark PR ready if draft
-	runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
+	s.runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
 
-	if out, err := runCmd(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); err != nil {
-		return core.E("pushAndMerge", "merge failed: "+out, err)
+	if r := s.runCmd(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
+		return core.E("pushAndMerge", "merge failed: "+r.Value.(string), nil)
 	}
 
 	return nil
@@ -348,23 +342,20 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	if !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
 		entry["verdict"] = "findings"
 	}
-	jsonLine, _ := json.Marshal(entry)
+	jsonLine := core.JSONMarshalString(entry)
 
 	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
 	r := fs.Append(jsonlPath)
 	if !r.OK {
 		return
 	}
-	wc := r.Value.(io.WriteCloser)
-	defer wc.Close()
-	wc.Write(append(jsonLine, '\n'))
+	core.WriteAll(r.Value, core.Concat(jsonLine, "\n"))
 }
 
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
-	data, _ := json.Marshal(info)
-	fs.Write(path, string(data))
+	fs.Write(path, core.JSONMarshalString(info))
 }
 
 // loadRateLimitState reads persisted rate limit info.
@@ -375,7 +366,7 @@ func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
 		return nil
 	}
 	var info RateLimitInfo
-	if json.Unmarshal([]byte(r.Value.(string)), &info) != nil {
+	if ur := core.JSONUnmarshalString(r.Value.(string), &info); !ur.OK {
 		return nil
 	}
 	return &info

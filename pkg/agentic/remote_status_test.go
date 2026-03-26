@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +45,7 @@ func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, err := s.statusRemote(context.Background(), nil, RemoteStatusInput{
 		Host: srv.Listener.Addr().String(),
 	})
@@ -55,7 +56,7 @@ func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
 }
 
 func TestRemoteStatus_StatusRemote_Bad(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
 	_, _, err := s.statusRemote(context.Background(), nil, RemoteStatusInput{})
@@ -108,7 +109,7 @@ func TestRemoteStatus_StatusRemote_Ugly(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, out, _ := s.statusRemote(context.Background(), nil, RemoteStatusInput{Host: srv.Listener.Addr().String()})
 	assert.False(t, out.Success)
 	assert.Contains(t, out.Error, "internal error")

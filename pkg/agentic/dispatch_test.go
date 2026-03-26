@@ -95,7 +95,7 @@ func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
 // --- trackFailureRate ---
 
 func TestDispatch_TrackFailureRate_Good(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
 
 	// Success resets count
 	triggered := s.trackFailureRate("codex", "completed", time.Now().Add(-10*time.Second))
@@ -104,7 +104,7 @@ func TestDispatch_TrackFailureRate_Good(t *testing.T) {
 }
 
 func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
 
 	// 3rd fast failure triggers backoff
 	triggered := s.trackFailureRate("codex", "failed", time.Now().Add(-10*time.Second))
@@ -113,7 +113,7 @@ func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
 }
 
 func TestDispatch_TrackFailureRate_Ugly(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 
 	// Slow failure (>60s) resets count instead of incrementing
 	s.failCount["codex"] = 2
@@ -138,17 +138,17 @@ func TestDispatch_StartIssueTracking_Good(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir)
 }
 
 func TestDispatch_StartIssueTracking_Bad(t *testing.T) {
 	// No forge — returns early
-	s := &PrepSubsystem{forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(t.TempDir())
 
 	// No status file
-	s2 := &PrepSubsystem{forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s2 := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s2.startIssueTracking(t.TempDir())
 }
 
@@ -159,7 +159,7 @@ func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir) // no issue → skips API call
 }
 
@@ -176,12 +176,12 @@ func TestDispatch_StopIssueTracking_Good(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
 func TestDispatch_StopIssueTracking_Bad(t *testing.T) {
-	s := &PrepSubsystem{forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(t.TempDir())
 }
 
@@ -192,7 +192,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
@@ -208,20 +208,20 @@ func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
 	c := core.New()
-	s := &PrepSubsystem{core: c, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastStart("codex", wsDir)
 }
 
 func TestDispatch_BroadcastStart_Bad(t *testing.T) {
 	// No Core — should not panic
-	s := &PrepSubsystem{core: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastStart("codex", t.TempDir())
 }
 
 func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
 	// No status file — broadcasts with empty repo
 	c := core.New()
-	s := &PrepSubsystem{core: c, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastStart("codex", t.TempDir())
 }
 
@@ -237,19 +237,19 @@ func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
 	c := core.New()
-	s := &PrepSubsystem{core: c, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", wsDir, "completed")
 }
 
 func TestDispatch_BroadcastComplete_Bad(t *testing.T) {
-	s := &PrepSubsystem{core: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", t.TempDir(), "failed")
 }
 
 func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 	// No status file
 	c := core.New()
-	s := &PrepSubsystem{core: c, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", t.TempDir(), "completed")
 }
 
@@ -269,7 +269,7 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	outputFile := filepath.Join(metaDir, "agent-codex.log")
 	s.onAgentComplete("codex", wsDir, outputFile, 0, "completed", "test output")
 
@@ -296,7 +296,7 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, filepath.Join(metaDir, "agent-codex.log"), 1, "failed", "error")
 
 	updated, _ := ReadStatus(wsDir)
@@ -319,7 +319,7 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	data, _ := json.Marshal(st)
 	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, filepath.Join(metaDir, "agent-codex.log"), 0, "completed", "")
 
 	updated, _ := ReadStatus(wsDir)
@@ -340,7 +340,7 @@ func TestDispatch_RunQA_Good(t *testing.T) {
 	os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
 	os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
 }
 
@@ -353,7 +353,7 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 	os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
 	os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nfunc main( {\n}\n"), 0o644)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	assert.False(t, s.runQA(wsDir))
 
 	// PHP project — composer not available
@@ -370,7 +370,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 	wsDir := t.TempDir()
 	os.MkdirAll(filepath.Join(wsDir, "repo"), 0o755)
 
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
 
 	// Go vet failure (compiles but bad printf)
@@ -408,10 +408,10 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	exec.Command("git", "-C", srcRepo, "add", ".").Run()
 	exec.Command("git", "-C", srcRepo, "commit", "-m", "init").Run()
 
-	s := &PrepSubsystem{
-		forge: forge.NewForge(forgeSrv.URL, "tok"), codePath: filepath.Dir(filepath.Dir(srcRepo)),
-		client: forgeSrv.Client(), backoff: make(map[string]time.Time), failCount: make(map[string]int),
-	}
+	s := newPrepWithProcess()
+	s.forge = forge.NewForge(forgeSrv.URL, "tok")
+	s.codePath = filepath.Dir(filepath.Dir(srcRepo))
+	s.client = forgeSrv.Client()
 
 	_, out, err := s.dispatch(context.Background(), nil, DispatchInput{
 		Repo: "go-io", Task: "Fix stuff", Issue: 42, DryRun: true,
@@ -423,7 +423,7 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 }
 
 func TestDispatch_Dispatch_Bad(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := newPrepWithProcess()
 
 	// No repo
 	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{Task: "do"})
@@ -441,7 +441,7 @@ func TestDispatch_Dispatch_Ugly(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Prep fails (no local clone)
-	s := &PrepSubsystem{codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{
 		Repo: "nonexistent", Task: "do", Issue: 1,
 	})

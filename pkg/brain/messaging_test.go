@@ -16,7 +16,7 @@ import (
 // localDirect returns a DirectSubsystem that never hits the network.
 // Suitable for tests that validate input before making API calls.
 func localDirect() *DirectSubsystem {
-	return &DirectSubsystem{apiURL: "http://localhost", apiKey: "test-key", client: http.DefaultClient}
+	return &DirectSubsystem{apiURL: "http://localhost", apiKey: "test-key"}
 }
 
 // --- sendMessage ---

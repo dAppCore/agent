@@ -3,10 +3,7 @@
 package brain
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -22,7 +19,6 @@ import (
 type DirectSubsystem struct {
 	apiURL string
 	apiKey string
-	client *http.Client
 }
 
 var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
@@ -57,7 +53,6 @@ func NewDirect() *DirectSubsystem {
 	return &DirectSubsystem{
 		apiURL: apiURL,
 		apiKey: apiKey,
-		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -114,52 +109,21 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 		return nil, core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
 	}
 
-	var reqBody *bytes.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			core.Error("brain API request marshal failed", "method", method, "path", path, "err", err)
-			return nil, core.E("brain.apiCall", "marshal request", err)
-		}
-		reqBody = bytes.NewReader(data)
-	}
-
 	requestURL := core.Concat(s.apiURL, path)
-	req, err := http.NewRequestWithContext(ctx, method, requestURL, nil)
-	if reqBody != nil {
-		req, err = http.NewRequestWithContext(ctx, method, requestURL, reqBody)
+	var bodyStr string
+	if body != nil {
+		bodyStr = core.JSONMarshalString(body)
 	}
-	if err != nil {
-		core.Error("brain API request creation failed", "method", method, "path", path, "err", err)
-		return nil, core.E("brain.apiCall", "create request", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", core.Concat("Bearer ", s.apiKey))
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		core.Error("brain API call failed", "method", method, "path", path, "err", err)
-		return nil, core.E("brain.apiCall", "API call failed", err)
-	}
-	defer resp.Body.Close()
-
-	respBuffer := bytes.NewBuffer(nil)
-	if _, err := respBuffer.ReadFrom(resp.Body); err != nil {
-		core.Error("brain API response read failed", "method", method, "path", path, "err", err)
-		return nil, core.E("brain.apiCall", "read response", err)
-	}
-	respData := respBuffer.Bytes()
-
-	if resp.StatusCode >= 400 {
-		core.Warn("brain API returned error status", "method", method, "path", path, "status", resp.StatusCode)
-		return nil, core.E("brain.apiCall", core.Sprintf("API returned %d: %s", resp.StatusCode, string(respData)), nil)
+	r := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
+	if !r.OK {
+		core.Error("brain API call failed", "method", method, "path", path)
+		return nil, core.E("brain.apiCall", "API call failed", nil)
 	}
 
 	var result map[string]any
-	if err := json.Unmarshal(respData, &result); err != nil {
-		core.Error("brain API response parse failed", "method", method, "path", path, "err", err)
-		return nil, core.E("brain.apiCall", "parse response", err)
+	if ur := core.JSONUnmarshalString(r.Value.(string), &result); !ur.OK {
+		core.Error("brain API response parse failed", "method", method, "path", path)
+		return nil, core.E("brain.apiCall", "parse response", nil)
 	}
 
 	return result, nil

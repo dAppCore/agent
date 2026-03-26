@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +56,7 @@ func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-api-key").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -74,6 +76,7 @@ func TestIngest_IngestFindings_Bad_NotCompleted(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -92,6 +95,7 @@ func TestIngest_IngestFindings_Bad_NoLogFile(t *testing.T) {
 	}))
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -114,6 +118,7 @@ func TestIngest_IngestFindings_Bad_TooFewFindings(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -135,6 +140,7 @@ func TestIngest_IngestFindings_Bad_QuotaExhausted(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -148,6 +154,7 @@ func TestIngest_IngestFindings_Bad_NoStatusFile(t *testing.T) {
 	wsDir := t.TempDir()
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -168,6 +175,7 @@ func TestIngest_IngestFindings_Bad_ShortLogFile(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), "short").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -199,6 +207,7 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -212,6 +221,7 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 
 func TestIngest_CreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainKey:  "",
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -229,6 +239,7 @@ func TestIngest_CreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 	// No agent-api.key file
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   "https://example.com",
 		brainKey:   "test-brain-key",
 		client:     &http.Client{},
@@ -254,6 +265,7 @@ func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		client:     srv.Client(),
@@ -289,6 +301,7 @@ func TestIngest_IngestFindings_Ugly(t *testing.T) {
 	// No agent-*.log files at all
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -321,6 +334,7 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:  srv.URL,
 		brainKey:  "test-brain-key",
 		client:    srv.Client(),

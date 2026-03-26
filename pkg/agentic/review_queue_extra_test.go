@@ -19,7 +19,7 @@ import (
 // --- buildReviewCommand ---
 
 func TestReviewQueue_BuildReviewCommand_Good_CodeRabbit(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "coderabbit")
 	assert.Equal(t, "coderabbit", cmd)
 	assert.Contains(t, args, "review")
@@ -28,7 +28,7 @@ func TestReviewQueue_BuildReviewCommand_Good_CodeRabbit(t *testing.T) {
 }
 
 func TestReviewQueue_BuildReviewCommand_Good_Codex(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "codex")
 	assert.Equal(t, "codex", cmd)
 	assert.Contains(t, args, "review")
@@ -36,7 +36,7 @@ func TestReviewQueue_BuildReviewCommand_Good_Codex(t *testing.T) {
 }
 
 func TestReviewQueue_BuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "")
 	assert.Equal(t, "coderabbit", cmd)
 	assert.Contains(t, args, "--plain")
@@ -55,6 +55,7 @@ func TestSaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 	// We need to work around this by using CORE_WORKSPACE for the load,
 	// but save/load use DIR_HOME. Skip if not writable.
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -80,6 +81,7 @@ func TestReviewQueue_StoreReviewOutput_Good(t *testing.T) {
 	// storeReviewOutput uses core.Env("DIR_HOME") so we can't fully control the path
 	// but we can verify it doesn't panic
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -99,6 +101,7 @@ func TestReviewQueue_Good_NoCandidates(t *testing.T) {
 	os.MkdirAll(coreDir, 0o755)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:  root,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -135,6 +138,7 @@ func TestStatus_Good_FilteredByStatus(t *testing.T) {
 	}
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -226,6 +230,7 @@ func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
 	})
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -239,6 +244,7 @@ func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
 func TestReviewQueue_BuildReviewCommand_Bad(t *testing.T) {
 	// Empty reviewer string — defaults to coderabbit
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -248,7 +254,7 @@ func TestReviewQueue_BuildReviewCommand_Bad(t *testing.T) {
 }
 
 func TestReviewQueue_BuildReviewCommand_Ugly(t *testing.T) {
-	s := &PrepSubsystem{backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "unknown-reviewer")
 	assert.Equal(t, "coderabbit", cmd)
 	assert.Contains(t, args, "--plain")
@@ -284,6 +290,7 @@ func TestReviewQueue_ParseRetryAfter_Ugly(t *testing.T) {
 func TestReviewQueue_StoreReviewOutput_Bad(t *testing.T) {
 	// Empty output
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -295,6 +302,7 @@ func TestReviewQueue_StoreReviewOutput_Bad(t *testing.T) {
 func TestReviewQueue_StoreReviewOutput_Ugly(t *testing.T) {
 	// Very large output
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -308,6 +316,7 @@ func TestReviewQueue_StoreReviewOutput_Ugly(t *testing.T) {
 
 func TestReviewQueue_SaveRateLimitState_Good(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -325,6 +334,7 @@ func TestReviewQueue_SaveRateLimitState_Good(t *testing.T) {
 func TestReviewQueue_SaveRateLimitState_Bad(t *testing.T) {
 	// Save nil info
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -336,6 +346,7 @@ func TestReviewQueue_SaveRateLimitState_Bad(t *testing.T) {
 func TestReviewQueue_SaveRateLimitState_Ugly(t *testing.T) {
 	// Save with far-future RetryAt
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -354,6 +365,7 @@ func TestReviewQueue_SaveRateLimitState_Ugly(t *testing.T) {
 func TestReviewQueue_LoadRateLimitState_Good(t *testing.T) {
 	// Write then load valid state
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -378,6 +390,7 @@ func TestReviewQueue_LoadRateLimitState_Good(t *testing.T) {
 func TestReviewQueue_LoadRateLimitState_Bad(t *testing.T) {
 	// File doesn't exist — should return nil
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

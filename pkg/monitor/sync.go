@@ -3,10 +3,7 @@
 package monitor
 
 import (
-	"encoding/json"
-	"net/http"
-	neturl "net/url"
-	"os/exec"
+	"context"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -36,32 +33,16 @@ type ChangedRepo struct {
 // Returns a human-readable message if repos were updated, empty string otherwise.
 func (m *Subsystem) syncRepos() string {
 	agentName := agentic.AgentName()
-	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), neturl.QueryEscape(agentName), m.lastSyncTimestamp)
+	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), core.Replace(agentName, " ", "%20"), m.lastSyncTimestamp)
 
-	req, err := http.NewRequest("GET", checkinURL, nil)
-	if err != nil {
-		return ""
-	}
-
-	// Use brain key for auth
 	brainKey := monitorBrainKey()
-	if brainKey != "" {
-		req.Header.Set("Authorization", core.Concat("Bearer ", brainKey))
-	}
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
+	hr := agentic.HTTPGet(context.Background(), checkinURL, brainKey, "Bearer")
+	if !hr.OK {
 		return ""
 	}
 
 	var checkin CheckinResponse
-	if json.NewDecoder(resp.Body).Decode(&checkin) != nil {
+	if r := core.JSONUnmarshalString(hr.Value.(string), &checkin); !r.OK {
 		return ""
 	}
 
@@ -92,13 +73,10 @@ func (m *Subsystem) syncRepos() string {
 		}
 
 		// Check if on the default branch and clean
-		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-		branchCmd.Dir = repoDir
-		currentBranch, err := branchCmd.Output()
-		if err != nil {
+		current := m.gitOutput(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		if current == "" {
 			continue
 		}
-		current := core.Trim(string(currentBranch))
 
 		// Determine which branch to pull — use server-reported branch,
 		// fall back to current if server didn't specify
@@ -112,17 +90,13 @@ func (m *Subsystem) syncRepos() string {
 			continue // On a different branch — skip
 		}
 
-		statusCmd := exec.Command("git", "status", "--porcelain")
-		statusCmd.Dir = repoDir
-		status, _ := statusCmd.Output()
-		if len(core.Trim(string(status))) > 0 {
+		status := m.gitOutput(repoDir, "status", "--porcelain")
+		if len(status) > 0 {
 			continue // Don't pull if dirty
 		}
 
 		// Fast-forward pull the target branch
-		pullCmd := exec.Command("git", "pull", "--ff-only", "origin", targetBranch)
-		pullCmd.Dir = repoDir
-		if pullCmd.Run() == nil {
+		if m.gitOK(repoDir, "pull", "--ff-only", "origin", targetBranch) {
 			pulled = append(pulled, repo.Repo)
 		}
 	}

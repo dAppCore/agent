@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,7 @@ func mockScanServer(t *testing.T) *httptest.Server {
 func TestScan_Scan_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -100,6 +102,7 @@ func TestScan_Scan_Good(t *testing.T) {
 func TestScan_Good_AllRepos(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -117,6 +120,7 @@ func TestScan_Good_AllRepos(t *testing.T) {
 func TestScan_Good_WithLimit(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -134,6 +138,7 @@ func TestScan_Good_WithLimit(t *testing.T) {
 func TestScan_Good_DefaultLabels(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -151,6 +156,7 @@ func TestScan_Good_DefaultLabels(t *testing.T) {
 func TestScan_Good_CustomLabels(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -169,6 +175,7 @@ func TestScan_Good_CustomLabels(t *testing.T) {
 func TestScan_Good_Deduplicates(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -196,6 +203,7 @@ func TestScan_Good_Deduplicates(t *testing.T) {
 
 func TestScan_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "",
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
@@ -211,6 +219,7 @@ func TestScan_Bad_NoToken(t *testing.T) {
 func TestScan_ListRepoIssues_Good_ReturnsIssues(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -229,6 +238,7 @@ func TestScan_ListRepoIssues_Good_ReturnsIssues(t *testing.T) {
 func TestScan_ListRepoIssues_Good_EmptyResult(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -244,6 +254,7 @@ func TestScan_ListRepoIssues_Good_EmptyResult(t *testing.T) {
 func TestScan_ListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -265,6 +276,7 @@ func TestScan_ListRepoIssues_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -286,6 +298,7 @@ func TestScan_Scan_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -310,6 +323,7 @@ func TestScan_Scan_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -329,6 +343,7 @@ func TestScan_Scan_Ugly(t *testing.T) {
 func TestScan_ListOrgRepos_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -353,6 +368,7 @@ func TestScan_ListOrgRepos_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -373,6 +389,7 @@ func TestScan_ListOrgRepos_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
@@ -405,6 +422,7 @@ func TestScan_ListRepoIssues_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),
@@ -433,6 +451,7 @@ func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
 		client:     srv.Client(),

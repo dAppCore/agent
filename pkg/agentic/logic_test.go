@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,7 +197,7 @@ func TestDispatch_ContainerCommand_Ugly_EmptyDirs(t *testing.T) {
 // --- buildAutoPRBody ---
 
 func TestAutoPr_BuildAutoPRBody_Good_Basic(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Fix the login bug",
 		Agent:  "codex",
@@ -211,7 +212,7 @@ func TestAutoPr_BuildAutoPRBody_Good_Basic(t *testing.T) {
 }
 
 func TestAutoPr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Add rate limiting",
 		Agent:  "claude",
@@ -223,7 +224,7 @@ func TestAutoPr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
 }
 
 func TestAutoPr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Refactor internals",
 		Agent:  "gemini",
@@ -234,7 +235,7 @@ func TestAutoPr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
 }
 
 func TestAutoPr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/foo"}
 	body1 := s.buildAutoPRBody(st, 1)
 	body5 := s.buildAutoPRBody(st, 5)
@@ -243,7 +244,7 @@ func TestAutoPr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
 }
 
 func TestAutoPr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "",
 		Agent:  "codex",
@@ -256,7 +257,7 @@ func TestAutoPr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
 }
 
 func TestAutoPr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
-	s := &PrepSubsystem{}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/test"}
 	body := s.buildAutoPRBody(st, 0)
 	assert.Contains(t, body, "**Commits:** 0")

@@ -4,10 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
-
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -97,10 +93,9 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	}
 
 	url := core.Sprintf("http://%s/mcp", addr)
-	client := &http.Client{Timeout: 30 * time.Second}
 
 	// Step 1: Initialize session
-	sessionID, err := mcpInitialize(ctx, client, url, token)
+	sessionID, err := mcpInitialize(ctx, url, token)
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
@@ -109,8 +104,8 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	}
 
 	// Step 2: Call the tool
-	body, _ := json.Marshal(rpcReq)
-	result, err := mcpCall(ctx, client, url, token, sessionID, body)
+	body := []byte(core.JSONMarshalString(rpcReq))
+	result, err := mcpCall(ctx, url, token, sessionID, body)
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
@@ -136,13 +131,13 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(result, &rpcResp) == nil {
+	if r := core.JSONUnmarshal(result, &rpcResp); r.OK {
 		if rpcResp.Error != nil {
 			output.Success = false
 			output.Error = rpcResp.Error.Message
 		} else if len(rpcResp.Result.Content) > 0 {
 			var dispatchOut DispatchOutput
-			if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &dispatchOut) == nil {
+			if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &dispatchOut); r.OK {
 				output.Success = dispatchOut.Success
 				output.WorkspaceDir = dispatchOut.WorkspaceDir
 				output.PID = dispatchOut.PID
@@ -169,7 +164,7 @@ func resolveHost(host string) string {
 
 	// If no port specified, add default
 	if !core.Contains(host, ":") {
-		return host + ":9101"
+		return core.Concat(host, ":9101")
 	}
 
 	return host
