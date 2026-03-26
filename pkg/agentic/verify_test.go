@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -26,7 +24,7 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 		assert.Equal(t, "token test-forge-token", r.Header.Get("Authorization"))
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "merge", body["Do"])
 		assert.Equal(t, true, body["delete_branch_after_merge"])
 
@@ -67,9 +65,9 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"message": "merge conflict",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -89,9 +87,9 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"message": "internal server error",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -153,7 +151,7 @@ func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 		called = true
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "needs-review", body["name"])
 		assert.Equal(t, "#e11d48", body["color"])
 
@@ -195,10 +193,10 @@ func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 
 func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{"id": 10, "name": "agentic"},
 			{"id": 20, "name": "needs-review"},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -216,9 +214,9 @@ func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 
 func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{"id": 10, "name": "agentic"},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -435,9 +433,9 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 			return
 		}
 		if r.Method == "GET" && containsStr(r.URL.Path, "/labels") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"id": 99, "name": "needs-review"},
-			})
+			})))
 			return
 		}
 		if r.Method == "POST" && containsStr(r.URL.Path, "/comments") {
@@ -468,12 +466,12 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && containsStr(r.URL.Path, "/labels") {
-			json.NewEncoder(w).Encode([]map[string]any{})
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 			return
 		}
 		if r.Method == "POST" && containsStr(r.URL.Path, "/comments") {
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 			commentBody = body["body"]
 			w.WriteHeader(201)
 			return
@@ -497,23 +495,23 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 // --- truncate ---
 
-func TestAutoPr_Truncate_Good_Short(t *testing.T) {
+func TestAutopr_Truncate_Good_Short(t *testing.T) {
 	assert.Equal(t, "hello", truncate("hello", 10))
 }
 
-func TestAutoPr_Truncate_Good_Exact(t *testing.T) {
+func TestAutopr_Truncate_Good_Exact(t *testing.T) {
 	assert.Equal(t, "hello", truncate("hello", 5))
 }
 
-func TestAutoPr_Truncate_Good_Long(t *testing.T) {
+func TestAutopr_Truncate_Good_Long(t *testing.T) {
 	assert.Equal(t, "hel...", truncate("hello world", 3))
 }
 
-func TestAutoPr_Truncate_Bad_ZeroMax(t *testing.T) {
+func TestAutopr_Truncate_Bad_ZeroMax(t *testing.T) {
 	assert.Equal(t, "...", truncate("hello", 0))
 }
 
-func TestAutoPr_Truncate_Ugly_EmptyString(t *testing.T) {
+func TestAutopr_Truncate_Ugly_EmptyString(t *testing.T) {
 	assert.Equal(t, "", truncate("", 10))
 }
 
@@ -556,7 +554,7 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && containsStr(r.URL.Path, "/comments") {
 			commentCalled = true
-			json.NewEncoder(w).Encode(map[string]any{"id": 1})
+			w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 1})))
 			return
 		}
 		w.WriteHeader(200)
@@ -602,7 +600,7 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Server returns 409 Conflict — label already exists
 		w.WriteHeader(409)
-		json.NewEncoder(w).Encode(map[string]any{"message": "label already exists"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"message": "label already exists"})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -624,7 +622,7 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 
 func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -666,7 +664,7 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 func TestVerify_FileExists_Ugly_PathIsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	sub := core.JoinPath(dir, "subdir")
-	require.NoError(t, os.MkdirAll(sub, 0o755))
+	fs.EnsureDir(sub)
 
 	// A directory is not a file — fileExists should return false
 	assert.False(t, fileExists(sub))
@@ -677,7 +675,7 @@ func TestVerify_FileExists_Ugly_PathIsDirectory(t *testing.T) {
 func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		json.NewEncoder(w).Encode(map[string]any{"message": "server error"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"message": "server error"})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -700,7 +698,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && containsStr(r.URL.Path, "/labels") {
 			// getLabelID returns empty array → label ID is 0
-			json.NewEncoder(w).Encode([]map[string]any{})
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 			return
 		}
 		// All other calls succeed
@@ -787,7 +785,7 @@ func TestVerify_RunGoTests_Good(t *testing.T) {
 
 import "testing"
 
-func TestAdd(t *testing.T) {
+func TestVerify_Add_Good(t *testing.T) {
 	if Add(1, 2) != 3 {
 		t.Fatal("expected 3")
 	}

@@ -16,7 +16,7 @@ func testSvc() *Service {
 	return &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
 }
 
-func TestDetect_Good(t *testing.T) {
+func TestSetup_Detect_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
@@ -24,7 +24,7 @@ func TestDetect_Good(t *testing.T) {
 	assert.Equal(t, []ProjectType{TypeGo}, DetectAll(dir))
 }
 
-func TestGenerateBuildConfig_Good(t *testing.T) {
+func TestSetup_GenerateBuildConfig_Good(t *testing.T) {
 	cfg, err := GenerateBuildConfig("/tmp/example", TypeGo)
 	require.NoError(t, err)
 
@@ -36,7 +36,7 @@ func TestGenerateBuildConfig_Good(t *testing.T) {
 	assert.Contains(t, cfg, "cgo: false")
 }
 
-func TestParseGitRemote_Good(t *testing.T) {
+func TestSetup_ParseGitRemote_Good(t *testing.T) {
 	tests := map[string]string{
 		"https://github.com/dAppCore/go-io.git":       "dAppCore/go-io",
 		"git@github.com:dAppCore/go-io.git":           "dAppCore/go-io",
@@ -51,12 +51,12 @@ func TestParseGitRemote_Good(t *testing.T) {
 	}
 }
 
-func TestParseGitRemote_Bad(t *testing.T) {
+func TestSetup_ParseGitRemote_Bad(t *testing.T) {
 	assert.Equal(t, "", parseGitRemote(""))
 	assert.Equal(t, "", parseGitRemote("origin"))
 }
 
-func TestRun_Good(t *testing.T) {
+func TestSetup_Run_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
@@ -72,7 +72,7 @@ func TestRun_Good(t *testing.T) {
 	assert.Contains(t, test.Value.(string), "go test ./...")
 }
 
-func TestRun_TemplateAlias_Good(t *testing.T) {
+func TestSetup_RunTemplateAlias_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 

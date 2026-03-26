@@ -111,10 +111,17 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 // delayForAgent calculates how long to wait before spawning the next task
 // for a given agent type, based on rate config and time of day.
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
-	cfg := s.loadAgentsConfig()
-	// Strip variant suffix (claude:opus → claude) for config lookup
+	// Read from Core Config (loaded once at registration)
+	var rates map[string]RateConfig
+	if s.ServiceRuntime != nil {
+		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
+	}
+	if rates == nil {
+		cfg := s.loadAgentsConfig()
+		rates = cfg.Rates
+	}
 	base := baseAgent(agent)
-	rate, ok := cfg.Rates[base]
+	rate, ok := rates[base]
 	if !ok || rate.SustainedDelay == 0 {
 		return 0
 	}
@@ -329,6 +336,7 @@ func (s *PrepSubsystem) drainOne() bool {
 		st.PID = pid
 		st.Runs++
 		writeStatus(wsDir, st)
+		s.TrackWorkspace(core.PathBase(wsDir), st)
 
 		return true
 	}

@@ -13,7 +13,7 @@ import (
 
 // --- parseForgeArgs ---
 
-func TestCommandsForge_ParseForgeArgs_Good_AllFields(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Good_AllFields(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "org", Value: "myorg"},
 		core.Option{Key: "_arg", Value: "myrepo"},
@@ -25,7 +25,7 @@ func TestCommandsForge_ParseForgeArgs_Good_AllFields(t *testing.T) {
 	assert.Equal(t, int64(42), num)
 }
 
-func TestCommandsForge_ParseForgeArgs_Good_DefaultOrg(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Good_DefaultOrg(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "_arg", Value: "go-io"},
 	)
@@ -35,7 +35,7 @@ func TestCommandsForge_ParseForgeArgs_Good_DefaultOrg(t *testing.T) {
 	assert.Equal(t, int64(0), num, "no number provided")
 }
 
-func TestCommandsForge_ParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
 	opts := core.NewOptions()
 	org, repo, num := parseForgeArgs(opts)
 	assert.Equal(t, "core", org, "should default to 'core'")
@@ -43,7 +43,7 @@ func TestCommandsForge_ParseForgeArgs_Bad_EmptyOpts(t *testing.T) {
 	assert.Equal(t, int64(0), num)
 }
 
-func TestCommandsForge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "_arg", Value: "repo"},
 		core.Option{Key: "number", Value: "not-a-number"},
@@ -54,7 +54,7 @@ func TestCommandsForge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 
 // --- fmtIndex ---
 
-func TestCommandsForge_FmtIndex_Good(t *testing.T) {
+func TestCommandsforge_FmtIndex_Good(t *testing.T) {
 	assert.Equal(t, "1", fmtIndex(1))
 	assert.Equal(t, "42", fmtIndex(42))
 	assert.Equal(t, "0", fmtIndex(0))
@@ -63,7 +63,7 @@ func TestCommandsForge_FmtIndex_Good(t *testing.T) {
 
 // --- parseForgeArgs Ugly ---
 
-func TestCommandsForge_ParseForgeArgs_Ugly_OrgSetButNoRepo(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Ugly_OrgSetButNoRepo(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "org", Value: "custom-org"},
 	)
@@ -73,7 +73,7 @@ func TestCommandsForge_ParseForgeArgs_Ugly_OrgSetButNoRepo(t *testing.T) {
 	assert.Equal(t, int64(0), num)
 }
 
-func TestCommandsForge_ParseForgeArgs_Ugly_NegativeNumber(t *testing.T) {
+func TestCommandsforge_ParseForgeArgs_Ugly_NegativeNumber(t *testing.T) {
 	opts := core.NewOptions(
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "-5"},
@@ -84,17 +84,17 @@ func TestCommandsForge_ParseForgeArgs_Ugly_NegativeNumber(t *testing.T) {
 
 // --- fmtIndex Bad/Ugly ---
 
-func TestCommandsForge_FmtIndex_Bad_Negative(t *testing.T) {
+func TestCommandsforge_FmtIndex_Bad_Negative(t *testing.T) {
 	result := fmtIndex(-1)
 	assert.Equal(t, "-1", result, "negative should format as negative string")
 }
 
-func TestCommandsForge_FmtIndex_Ugly_VeryLarge(t *testing.T) {
+func TestCommandsforge_FmtIndex_Ugly_VeryLarge(t *testing.T) {
 	result := fmtIndex(9999999999)
 	assert.Equal(t, "9999999999", result)
 }
 
-func TestCommandsForge_FmtIndex_Ugly_MaxInt64(t *testing.T) {
+func TestCommandsforge_FmtIndex_Ugly_MaxInt64(t *testing.T) {
 	result := fmtIndex(9223372036854775807) // math.MaxInt64
 	assert.NotEmpty(t, result)
 	assert.Equal(t, "9223372036854775807", result)
@@ -102,7 +102,7 @@ func TestCommandsForge_FmtIndex_Ugly_MaxInt64(t *testing.T) {
 
 // --- Forge commands Ugly (special chars → API returns 404/error) ---
 
-func TestCommandsForge_CmdIssueGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueGet_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -113,7 +113,7 @@ func TestCommandsForge_CmdIssueGet_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdIssueList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueList_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -121,7 +121,7 @@ func TestCommandsForge_CmdIssueList_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdIssueComment_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueComment_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -133,7 +133,7 @@ func TestCommandsForge_CmdIssueComment_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdIssueCreate_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueCreate_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -144,7 +144,7 @@ func TestCommandsForge_CmdIssueCreate_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdPRGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRGet_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -155,7 +155,7 @@ func TestCommandsForge_CmdPRGet_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdPRList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRList_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -163,7 +163,7 @@ func TestCommandsForge_CmdPRList_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdPRMerge_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRMerge_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(422) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -175,7 +175,7 @@ func TestCommandsForge_CmdPRMerge_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdRepoGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdRepoGet_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -186,7 +186,7 @@ func TestCommandsForge_CmdRepoGet_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-func TestCommandsForge_CmdRepoList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdRepoList_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)

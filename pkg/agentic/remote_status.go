@@ -41,7 +41,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 
 	addr := resolveHost(input.Host)
 	token := remoteToken(input.Host)
-	url := "http://" + addr + "/mcp"
+	url := core.Concat("http://", addr, "/mcp")
 
 	sessionID, err := mcpInitialize(ctx, url, token)
 	if err != nil {

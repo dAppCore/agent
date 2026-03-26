@@ -13,7 +13,7 @@ import (
 
 // --- Register ---
 
-func TestRegister_Good_ServiceRegistered(t *testing.T) {
+func TestRegister_ServiceRegistered_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("FORGE_URL", "")
@@ -29,7 +29,7 @@ func TestRegister_Good_ServiceRegistered(t *testing.T) {
 	assert.NotNil(t, prep)
 }
 
-func TestRegister_Good_CoreWired(t *testing.T) {
+func TestRegister_CoreWired_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("FORGE_URL", "")
@@ -43,7 +43,7 @@ func TestRegister_Good_CoreWired(t *testing.T) {
 	assert.Equal(t, c, prep.Core())
 }
 
-func TestRegister_Good_AgentsConfigLoaded(t *testing.T) {
+func TestRegister_AgentsConfig_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("FORGE_URL", "")
@@ -57,7 +57,7 @@ func TestRegister_Good_AgentsConfigLoaded(t *testing.T) {
 
 // --- ProcessRegister ---
 
-func TestProcessRegister_ProcessRegister_Good(t *testing.T) {
+func TestRegister_ProcessRegister_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	c := core.New()
@@ -66,14 +66,14 @@ func TestProcessRegister_ProcessRegister_Good(t *testing.T) {
 	assert.NotNil(t, result.Value)
 }
 
-func TestProcessRegister_ProcessRegister_Bad(t *testing.T) {
+func TestRegister_ProcessRegister_Bad(t *testing.T) {
 	// nil Core — the process.NewService factory tolerates nil Core, returns a result
 	result := ProcessRegister(nil)
 	// Either OK (service created without Core) or not OK (error) — must not panic
 	_ = result
 }
 
-func TestProcessRegister_ProcessRegister_Ugly(t *testing.T) {
+func TestRegister_ProcessRegister_Ugly(t *testing.T) {
 	// Call twice with same Core — second call should still succeed
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 

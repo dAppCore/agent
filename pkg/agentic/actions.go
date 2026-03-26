@@ -12,6 +12,7 @@ package agentic
 import (
 	"context"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 )
 
@@ -126,11 +127,35 @@ func (s *PrepSubsystem) handleWatch(ctx context.Context, opts core.Options) core
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
 func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Result {
+	// Feature flag gate — skip QA if disabled
+	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-qa") {
+		return core.Result{Value: true, OK: true}
+	}
 	wsDir := opts.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.qa", "workspace is required", nil), OK: false}
 	}
 	passed := s.runQA(wsDir)
+	if !passed {
+		if st, err := ReadStatus(wsDir); err == nil {
+			st.Status = "failed"
+			st.Question = "QA check failed — build or tests did not pass"
+			writeStatus(wsDir, st)
+		}
+	}
+	// Emit QA result for observability (monitor picks this up)
+	if s.ServiceRuntime != nil {
+		st, _ := ReadStatus(wsDir)
+		repo := ""
+		if st != nil {
+			repo = st.Repo
+		}
+		s.Core().ACTION(messages.QAResult{
+			Workspace: core.PathBase(wsDir),
+			Repo:      repo,
+			Passed:    passed,
+		})
+	}
 	return core.Result{Value: passed, OK: passed}
 }
 
@@ -140,11 +165,26 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Re
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
 func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) core.Result {
+	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-pr") {
+		return core.Result{OK: true}
+	}
 	wsDir := opts.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.auto-pr", "workspace is required", nil), OK: false}
 	}
 	s.autoCreatePR(wsDir)
+
+	// Emit PRCreated for observability
+	if s.ServiceRuntime != nil {
+		if st, err := ReadStatus(wsDir); err == nil && st.PRURL != "" {
+			s.Core().ACTION(messages.PRCreated{
+				Repo:   st.Repo,
+				Branch: st.Branch,
+				PRURL:  st.PRURL,
+				PRNum:  extractPRNumber(st.PRURL),
+			})
+		}
+	}
 	return core.Result{OK: true}
 }
 
@@ -154,11 +194,34 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) cor
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
 func (s *PrepSubsystem) handleVerify(ctx context.Context, opts core.Options) core.Result {
+	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-merge") {
+		return core.Result{OK: true}
+	}
 	wsDir := opts.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.verify", "workspace is required", nil), OK: false}
 	}
 	s.autoVerifyAndMerge(wsDir)
+
+	// Emit merge/review events for observability
+	if s.ServiceRuntime != nil {
+		if st, err := ReadStatus(wsDir); err == nil {
+			if st.Status == "merged" {
+				s.Core().ACTION(messages.PRMerged{
+					Repo:  st.Repo,
+					PRURL: st.PRURL,
+					PRNum: extractPRNumber(st.PRURL),
+				})
+			} else if st.Question != "" {
+				s.Core().ACTION(messages.PRNeedsReview{
+					Repo:   st.Repo,
+					PRURL:  st.PRURL,
+					PRNum:  extractPRNumber(st.PRURL),
+					Reason: st.Question,
+				})
+			}
+		}
+	}
 	return core.Result{OK: true}
 }
 

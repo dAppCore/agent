@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	"os/exec"
+	"context"
 	"testing"
 	"time"
 
@@ -275,10 +275,9 @@ func runGitInit(dir string) error {
 		{"git", "commit", "--allow-empty", "-m", "init"},
 	}
 	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		if err := cmd.Run(); err != nil {
-			return err
+		r := testCore.Process().RunIn(context.Background(), dir, args[0], args[1:]...)
+		if !r.OK {
+			return core.E("runGitInit", core.Sprintf("cmd %v failed", args), nil)
 		}
 	}
 	return nil

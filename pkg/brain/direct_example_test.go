@@ -4,6 +4,12 @@ package brain
 
 import core "dappco.re/go/core"
 
+func ExampleNewDirect_name() {
+	sub := NewDirect()
+	core.Println(sub.Name())
+	// Output: brain
+}
+
 func ExampleRememberInput() {
 	input := RememberInput{Content: "Core uses Result pattern", Type: "observation"}
 	core.Println(input.Type)

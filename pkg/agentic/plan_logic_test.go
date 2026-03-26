@@ -50,7 +50,7 @@ func TestPlan_PlanPath_Bad_EmptyID(t *testing.T) {
 
 // --- readPlan / writePlan ---
 
-func TestReadWritePlan_Good_BasicRoundtrip(t *testing.T) {
+func TestPlan_ReadWrite_Good_BasicRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now().Truncate(time.Second)
 
@@ -82,7 +82,7 @@ func TestReadWritePlan_Good_BasicRoundtrip(t *testing.T) {
 	assert.Equal(t, plan.Agent, read.Agent)
 }
 
-func TestReadWritePlan_Good_WithPhases(t *testing.T) {
+func TestPlan_ReadWrite_Good_WithPhases(t *testing.T) {
 	dir := t.TempDir()
 
 	plan := &Plan{

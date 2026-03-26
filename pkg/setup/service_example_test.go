@@ -6,6 +6,16 @@ import (
 	core "dappco.re/go/core"
 )
 
+func ExampleRegister_serviceFor() {
+	c := core.New(core.WithService(Register))
+	svc, ok := core.ServiceFor[*Service](c, "setup")
+	core.Println(ok)
+	core.Println(svc != nil)
+	// Output:
+	// true
+	// true
+}
+
 func ExampleService_DetectGitRemote() {
 	c := core.New()
 	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}

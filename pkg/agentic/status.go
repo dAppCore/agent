@@ -45,6 +45,17 @@ type WorkspaceStatus struct {
 	PRURL     string    `json:"pr_url,omitempty"`   // pull request URL (after PR created)
 }
 
+// WorkspaceQuery is the QUERY type for workspace state lookups.
+// Returns the workspace Registry via c.QUERY(agentic.WorkspaceQuery{}).
+//
+//	r := c.QUERY(agentic.WorkspaceQuery{})
+//	if r.OK { reg := r.Value.(*core.Registry[*WorkspaceStatus]) }
+//	r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-5"})
+type WorkspaceQuery struct {
+	Name   string // specific workspace (empty = all)
+	Status string // filter by status (empty = all)
+}
+
 func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	status.UpdatedAt = time.Now()
 	statusPath := core.JoinPath(wsDir, "status.json")

@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -385,17 +383,17 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"title": "Issue", "body": "Fix"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"title": "Issue", "body": "Fix"})))
 	}))
 	t.Cleanup(forgeSrv.Close)
 
 	srcRepo := core.JoinPath(t.TempDir(), "core", "go-io")
-	exec.Command("git", "init", "-b", "main", srcRepo).Run()
-	exec.Command("git", "-C", srcRepo, "config", "user.name", "T").Run()
-	exec.Command("git", "-C", srcRepo, "config", "user.email", "t@t.com").Run()
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", srcRepo)
+	testCore.Process().RunIn(context.Background(), srcRepo, "git", "config", "user.name", "T")
+	testCore.Process().RunIn(context.Background(), srcRepo, "git", "config", "user.email", "t@t.com")
 	fs.Write(core.JoinPath(srcRepo, "go.mod"), "module test\ngo 1.22\n")
-	exec.Command("git", "-C", srcRepo, "add", ".").Run()
-	exec.Command("git", "-C", srcRepo, "commit", "-m", "init").Run()
+	testCore.Process().RunIn(context.Background(), srcRepo, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), srcRepo, "git", "commit", "-m", "init")
 
 	s := newPrepWithProcess()
 	s.forge = forge.NewForge(forgeSrv.URL, "tok")

@@ -32,3 +32,16 @@ func ExampleDetect_node() {
 	core.Println(Detect(dir))
 	// Output: node
 }
+
+func ExampleDetectAll_polyglot() {
+	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
+
+	f := (&core.Fs{}).NewUnrestricted()
+	f.Write(core.JoinPath(dir, "go.mod"), "module test")
+	f.Write(core.JoinPath(dir, "package.json"), "{}")
+
+	types := DetectAll(dir)
+	core.Println(len(types))
+	// Output: 2
+}

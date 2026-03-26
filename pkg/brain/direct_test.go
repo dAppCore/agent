@@ -4,7 +4,6 @@ package brain
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +22,7 @@ func newTestDirect(srv *httptest.Server) *DirectSubsystem {
 func jsonHandler(payload any) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(payload)
+		w.Write([]byte(core.JSONMarshalString(payload)))
 	})
 }
 
@@ -37,7 +36,7 @@ func errorHandler(status int, body string) http.Handler {
 
 // --- DirectSubsystem construction ---
 
-func TestNewDirect_Good_Defaults(t *testing.T) {
+func TestDirect_NewDirect_Good_Defaults(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "")
 	t.Setenv("CORE_BRAIN_KEY", "")
 
@@ -46,7 +45,7 @@ func TestNewDirect_Good_Defaults(t *testing.T) {
 	assert.NotEmpty(t, sub.apiURL)
 }
 
-func TestNewDirect_Good_CustomEnv(t *testing.T) {
+func TestDirect_NewDirect_Good_CustomEnv(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "https://custom.api.test")
 	t.Setenv("CORE_BRAIN_KEY", "test-key-123")
 
@@ -55,7 +54,7 @@ func TestNewDirect_Good_CustomEnv(t *testing.T) {
 	assert.Equal(t, "test-key-123", sub.apiKey)
 }
 
-func TestNewDirect_Good_KeyFromFile(t *testing.T) {
+func TestDirect_NewDirect_Good_KeyFromFile(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "")
 	t.Setenv("CORE_BRAIN_KEY", "")
 
@@ -69,26 +68,26 @@ func TestNewDirect_Good_KeyFromFile(t *testing.T) {
 	assert.Equal(t, "file-key-456", sub.apiKey)
 }
 
-func TestDirectSubsystem_Good_Name(t *testing.T) {
+func TestDirect_Subsystem_Good_Name(t *testing.T) {
 	sub := &DirectSubsystem{}
 	assert.Equal(t, "brain", sub.Name())
 }
 
-func TestDirectSubsystem_Good_Shutdown(t *testing.T) {
+func TestDirect_Subsystem_Good_Shutdown(t *testing.T) {
 	sub := &DirectSubsystem{}
 	assert.NoError(t, sub.Shutdown(context.Background()))
 }
 
 // --- apiCall ---
 
-func TestApiCall_Bad_NoAPIKey(t *testing.T) {
+func TestDirect_ApiCall_Bad_NoAPIKey(t *testing.T) {
 	sub := &DirectSubsystem{apiURL: "http://localhost", apiKey: ""}
 	_, err := sub.apiCall(context.Background(), "GET", "/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no API key")
 }
 
-func TestApiCall_Good_GET(t *testing.T) {
+func TestDirect_ApiCall_Good_GET(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/v1/test", r.URL.Path)
@@ -96,7 +95,7 @@ func TestApiCall_Good_GET(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Accept"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"status": "ok"})))
 	}))
 	defer srv.Close()
 
@@ -105,17 +104,17 @@ func TestApiCall_Good_GET(t *testing.T) {
 	assert.Equal(t, "ok", result["status"])
 }
 
-func TestApiCall_Good_POSTWithBody(t *testing.T) {
+func TestDirect_ApiCall_Good_POSTWithBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "hello", body["content"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"id": "mem-123"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": "mem-123"})))
 	}))
 	defer srv.Close()
 
@@ -124,7 +123,7 @@ func TestApiCall_Good_POSTWithBody(t *testing.T) {
 	assert.Equal(t, "mem-123", result["id"])
 }
 
-func TestApiCall_Bad_ServerError(t *testing.T) {
+func TestDirect_ApiCall_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusInternalServerError, `{"error":"internal"}`))
 	defer srv.Close()
 
@@ -133,7 +132,7 @@ func TestApiCall_Bad_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "API call failed")
 }
 
-func TestApiCall_Bad_InvalidJSON(t *testing.T) {
+func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("not json"))
@@ -145,14 +144,14 @@ func TestApiCall_Bad_InvalidJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse response")
 }
 
-func TestApiCall_Bad_ConnectionRefused(t *testing.T) {
+func TestDirect_ApiCall_Bad_ConnectionRefused(t *testing.T) {
 	sub := &DirectSubsystem{apiURL: "http://127.0.0.1:1", apiKey: "test-key"}
 	_, err := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API call failed")
 }
 
-func TestApiCall_Bad_BadRequest(t *testing.T) {
+func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusBadRequest, `{"error":"bad input"}`))
 	defer srv.Close()
 
@@ -163,18 +162,18 @@ func TestApiCall_Bad_BadRequest(t *testing.T) {
 
 // --- remember ---
 
-func TestRemember_Good(t *testing.T) {
+func TestDirect_Remember_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/v1/brain/remember", r.URL.Path)
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "test content", body["content"])
 		assert.Equal(t, "observation", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"id": "mem-abc"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": "mem-abc"})))
 	}))
 	defer srv.Close()
 
@@ -190,7 +189,7 @@ func TestRemember_Good(t *testing.T) {
 	assert.False(t, out.Timestamp.IsZero())
 }
 
-func TestRemember_Bad_APIError(t *testing.T) {
+func TestDirect_Remember_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusInternalServerError, `{"error":"db down"}`))
 	defer srv.Close()
 
@@ -204,17 +203,17 @@ func TestRemember_Bad_APIError(t *testing.T) {
 
 // --- recall ---
 
-func TestRecall_Good_WithMemories(t *testing.T) {
+func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/v1/brain/recall", r.URL.Path)
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "architecture", body["query"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"memories": []any{
 				map[string]any{
 					"id":         "mem-1",
@@ -236,7 +235,7 @@ func TestRecall_Good_WithMemories(t *testing.T) {
 					"created_at": "2026-03-04T10:00:00Z",
 				},
 			},
-		})
+		})))
 	}))
 	defer srv.Close()
 
@@ -259,14 +258,14 @@ func TestRecall_Good_WithMemories(t *testing.T) {
 	assert.Equal(t, "mem-2", out.Memories[1].ID)
 }
 
-func TestRecall_Good_DefaultTopK(t *testing.T) {
+func TestDirect_Recall_Good_DefaultTopK(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, float64(10), body["top_k"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"memories": []any{}})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"memories": []any{}})))
 	}))
 	defer srv.Close()
 
@@ -279,16 +278,16 @@ func TestRecall_Good_DefaultTopK(t *testing.T) {
 	assert.Equal(t, 0, out.Count)
 }
 
-func TestRecall_Good_WithFilters(t *testing.T) {
+func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "cladius", body["agent_id"])
 		assert.Equal(t, "eaas", body["project"])
 		assert.Equal(t, "decision", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"memories": []any{}})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"memories": []any{}})))
 	}))
 	defer srv.Close()
 
@@ -304,7 +303,7 @@ func TestRecall_Good_WithFilters(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRecall_Good_EmptyMemories(t *testing.T) {
+func TestDirect_Recall_Good_EmptyMemories(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(map[string]any{"memories": []any{}}))
 	defer srv.Close()
 
@@ -315,7 +314,7 @@ func TestRecall_Good_EmptyMemories(t *testing.T) {
 	assert.Empty(t, out.Memories)
 }
 
-func TestRecall_Bad_APIError(t *testing.T) {
+func TestDirect_Recall_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusServiceUnavailable, `{"error":"qdrant down"}`))
 	defer srv.Close()
 
@@ -326,13 +325,13 @@ func TestRecall_Bad_APIError(t *testing.T) {
 
 // --- forget ---
 
-func TestForget_Good(t *testing.T) {
+func TestDirect_Forget_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "DELETE", r.Method)
 		assert.Equal(t, "/v1/brain/forget/mem-123", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"deleted": true})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"deleted": true})))
 	}))
 	defer srv.Close()
 
@@ -346,7 +345,7 @@ func TestForget_Good(t *testing.T) {
 	assert.False(t, out.Timestamp.IsZero())
 }
 
-func TestForget_Bad_APIError(t *testing.T) {
+func TestDirect_Forget_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusNotFound, `{"error":"not found"}`))
 	defer srv.Close()
 

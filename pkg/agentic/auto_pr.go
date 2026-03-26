@@ -23,7 +23,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// PRs target dev — agents never merge directly to main
 	base := "dev"
 
-	out := s.gitOutput(ctx, repoDir, "log", "--oneline", "origin/"+base+"..HEAD")
+	out := s.gitOutput(ctx, repoDir, "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
 	if out == "" {
 		return
 	}

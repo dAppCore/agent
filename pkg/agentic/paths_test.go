@@ -3,13 +3,11 @@
 package agentic
 
 import (
-	"os"
-	"os/exec"
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	core "dappco.re/go/core"
 )
@@ -21,7 +19,7 @@ func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
 
 func TestPaths_CoreRoot_Good_Fallback(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 	assert.Equal(t, home+"/Code/.core", CoreRoot())
 }
 
@@ -73,28 +71,28 @@ func TestVerify_ExtractPRNumber_Bad_Empty(t *testing.T) {
 	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/agent/pulls/"))
 }
 
-func TestAutoPr_Truncate_Good(t *testing.T) {
+func TestAutopr_Truncate_Good(t *testing.T) {
 	assert.Equal(t, "hello", truncate("hello", 10))
 	assert.Equal(t, "hel...", truncate("hello world", 3))
 }
 
-func TestReviewQueue_CountFindings_Good(t *testing.T) {
+func TestReviewqueue_CountFindings_Good(t *testing.T) {
 	assert.Equal(t, 0, countFindings("No findings"))
 	assert.Equal(t, 2, countFindings("- Issue one\n- Issue two\nSummary"))
 	assert.Equal(t, 1, countFindings("⚠ Warning here"))
 }
 
-func TestReviewQueue_ParseRetryAfter_Good(t *testing.T) {
+func TestReviewqueue_ParseRetryAfter_Good(t *testing.T) {
 	d := parseRetryAfter("please try after 4 minutes and 56 seconds")
 	assert.InDelta(t, 296.0, d.Seconds(), 1.0)
 }
 
-func TestReviewQueue_ParseRetryAfter_Good_MinutesOnly(t *testing.T) {
+func TestReviewqueue_ParseRetryAfter_Good_MinutesOnly(t *testing.T) {
 	d := parseRetryAfter("try after 5 minutes")
 	assert.InDelta(t, 300.0, d.Seconds(), 1.0)
 }
 
-func TestReviewQueue_ParseRetryAfter_Bad_NoMatch(t *testing.T) {
+func TestReviewqueue_ParseRetryAfter_Bad_NoMatch(t *testing.T) {
 	d := parseRetryAfter("some random text")
 	assert.InDelta(t, 300.0, d.Seconds(), 1.0) // defaults to 5 min
 }
@@ -153,19 +151,13 @@ func TestPaths_DefaultBranch_Good(t *testing.T) {
 	dir := t.TempDir()
 
 	// Init git repo with "main" branch
-	cmd := exec.Command("git", "init", "-b", "main", dir)
-	require.NoError(t, cmd.Run())
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", dir)
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.email", "test@test.com")
 
-	cmd = exec.Command("git", "-C", dir, "config", "user.name", "Test")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", dir, "config", "user.email", "test@test.com")
-	require.NoError(t, cmd.Run())
-
-	require.NoError(t, os.WriteFile(dir+"/README.md", []byte("# Test"), 0o644))
-	cmd = exec.Command("git", "-C", dir, "add", ".")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
-	require.NoError(t, cmd.Run())
+	fs.Write(dir+"/README.md", "# Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), dir, "git", "commit", "-m", "init")
 
 	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "main", branch)
@@ -182,19 +174,13 @@ func TestPaths_DefaultBranch_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	// Init git repo with "master" branch
-	cmd := exec.Command("git", "init", "-b", "master", dir)
-	require.NoError(t, cmd.Run())
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "master", dir)
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.email", "test@test.com")
 
-	cmd = exec.Command("git", "-C", dir, "config", "user.name", "Test")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", dir, "config", "user.email", "test@test.com")
-	require.NoError(t, cmd.Run())
-
-	require.NoError(t, os.WriteFile(dir+"/README.md", []byte("# Test"), 0o644))
-	cmd = exec.Command("git", "-C", dir, "add", ".")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", dir, "commit", "-m", "init")
-	require.NoError(t, cmd.Run())
+	fs.Write(dir+"/README.md", "# Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), dir, "git", "commit", "-m", "init")
 
 	branch := testPrep.DefaultBranch(dir)
 	assert.Equal(t, "master", branch)
@@ -219,7 +205,7 @@ func TestPaths_LocalFs_Ugly_EmptyPath(t *testing.T) {
 
 func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 	// Should fall back to ~/Code/.core/workspace
 	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
@@ -253,7 +239,7 @@ func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
 
 func TestPaths_PlansRoot_Bad_EmptyEnv(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 	assert.Equal(t, home+"/Code/.core/plans", PlansRoot())
 }
 

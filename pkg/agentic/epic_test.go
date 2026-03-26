@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,34 +31,34 @@ func mockForgeServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
 		if r.Method == "POST" && pathEndsWith(r.URL.Path, "/issues") {
 			num := int(issueCounter.Add(1))
 			w.WriteHeader(201)
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"number":   num,
 				"html_url": "https://forge.test/core/test-repo/issues/" + itoa(num),
-			})
+			})))
 			return
 		}
 
 		// Create/list labels
 		if pathEndsWith(r.URL.Path, "/labels") {
 			if r.Method == "GET" {
-				json.NewEncoder(w).Encode([]map[string]any{
+				w.Write([]byte(core.JSONMarshalString([]map[string]any{
 					{"id": 1, "name": "agentic"},
 					{"id": 2, "name": "bug"},
-				})
+				})))
 				return
 			}
 			if r.Method == "POST" {
 				w.WriteHeader(201)
-				json.NewEncoder(w).Encode(map[string]any{
+				w.Write([]byte(core.JSONMarshalString(map[string]any{
 					"id": issueCounter.Load() + 100,
-				})
+				})))
 				return
 			}
 		}
 
 		// List issues (for scan)
 		if r.Method == "GET" && pathEndsWith(r.URL.Path, "/issues") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{
 					"number":   1,
 					"title":    "Test issue",
@@ -67,7 +66,7 @@ func mockForgeServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
 					"assignee": nil,
 					"html_url": "https://forge.test/core/test-repo/issues/1",
 				},
-			})
+			})))
 			return
 		}
 

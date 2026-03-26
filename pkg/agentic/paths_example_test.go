@@ -35,3 +35,9 @@ func ExampleGitHubOrg() {
 	core.Println(org)
 	// Output: dAppCore
 }
+
+func ExampleLocalFs() {
+	f := LocalFs()
+	core.Println(f.Root())
+	// Output: /
+}

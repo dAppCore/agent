@@ -10,6 +10,22 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 )
 
+func ExampleRegister_fullService() {
+	c := core.New(
+		core.WithService(agentic.ProcessRegister),
+		core.WithService(agentic.Register),
+	)
+	c.ServiceStartup(context.Background(), nil)
+
+	// All agentic Actions are now registered
+	core.Println(c.Action("agentic.dispatch").Exists())
+	core.Println(c.Action("agentic.status").Exists())
+	c.ServiceShutdown(context.Background())
+	// Output:
+	// true
+	// true
+}
+
 func ExampleProcessRegister() {
 	c := core.New(
 		core.WithService(agentic.ProcessRegister),

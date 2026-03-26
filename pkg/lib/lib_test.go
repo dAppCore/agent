@@ -1,14 +1,16 @@
 package lib
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
+
+	core "dappco.re/go/core"
 )
+
+var testFs = (&core.Fs{}).NewUnrestricted()
 
 // --- Prompt ---
 
-func TestPrompt_Good(t *testing.T) {
+func TestLib_Prompt_Good(t *testing.T) {
 	r := Prompt("coding")
 	if !r.OK {
 		t.Fatal("Prompt('coding') returned !OK")
@@ -18,7 +20,7 @@ func TestPrompt_Good(t *testing.T) {
 	}
 }
 
-func TestPrompt_Bad(t *testing.T) {
+func TestLib_Prompt_Bad(t *testing.T) {
 	r := Prompt("nonexistent-slug")
 	if r.OK {
 		t.Error("Prompt('nonexistent-slug') should return !OK")
@@ -27,7 +29,7 @@ func TestPrompt_Bad(t *testing.T) {
 
 // --- Task ---
 
-func TestTask_Good_Yaml(t *testing.T) {
+func TestLib_Task_Good(t *testing.T) {
 	r := Task("bug-fix")
 	if !r.OK {
 		t.Fatal("Task('bug-fix') returned !OK")
@@ -37,7 +39,7 @@ func TestTask_Good_Yaml(t *testing.T) {
 	}
 }
 
-func TestTask_Good_Md(t *testing.T) {
+func TestLib_TaskNested_Good(t *testing.T) {
 	r := Task("code/review")
 	if !r.OK {
 		t.Fatal("Task('code/review') returned !OK")
@@ -47,17 +49,16 @@ func TestTask_Good_Md(t *testing.T) {
 	}
 }
 
-func TestTask_Bad(t *testing.T) {
+func TestLib_Task_Bad(t *testing.T) {
 	r := Task("nonexistent-slug")
 	if r.OK {
 		t.Error("Task('nonexistent-slug') should return !OK")
 	}
-	// Result{OK: false} — no specific error type needed
 }
 
 // --- TaskBundle ---
 
-func TestTaskBundle_Good(t *testing.T) {
+func TestLib_TaskBundle_Good(t *testing.T) {
 	r := TaskBundle("code/review")
 	if !r.OK {
 		t.Fatal("TaskBundle('code/review') returned !OK")
@@ -71,7 +72,7 @@ func TestTaskBundle_Good(t *testing.T) {
 	}
 }
 
-func TestTaskBundle_Bad(t *testing.T) {
+func TestLib_TaskBundle_Bad(t *testing.T) {
 	r := TaskBundle("nonexistent")
 	if r.OK {
 		t.Error("TaskBundle('nonexistent') should return !OK")
@@ -80,7 +81,7 @@ func TestTaskBundle_Bad(t *testing.T) {
 
 // --- Flow ---
 
-func TestFlow_Good(t *testing.T) {
+func TestLib_Flow_Good(t *testing.T) {
 	r := Flow("go")
 	if !r.OK {
 		t.Fatal("Flow('go') returned !OK")
@@ -92,8 +93,7 @@ func TestFlow_Good(t *testing.T) {
 
 // --- Persona ---
 
-func TestPersona_Good(t *testing.T) {
-	// Use first persona from list to avoid hardcoding
+func TestLib_Persona_Good(t *testing.T) {
 	personas := ListPersonas()
 	if len(personas) == 0 {
 		t.Skip("no personas found")
@@ -109,7 +109,7 @@ func TestPersona_Good(t *testing.T) {
 
 // --- Template ---
 
-func TestTemplate_Good_Prompt(t *testing.T) {
+func TestLib_Template_Good(t *testing.T) {
 	r := Template("coding")
 	if !r.OK {
 		t.Fatal("Template('coding') returned !OK")
@@ -119,14 +119,14 @@ func TestTemplate_Good_Prompt(t *testing.T) {
 	}
 }
 
-func TestTemplate_Good_TaskFallback(t *testing.T) {
+func TestLib_TemplateFallback_Good(t *testing.T) {
 	r := Template("bug-fix")
 	if !r.OK {
 		t.Fatal("Template('bug-fix') returned !OK — should fall through to Task")
 	}
 }
 
-func TestTemplate_Bad(t *testing.T) {
+func TestLib_Template_Bad(t *testing.T) {
 	r := Template("nonexistent-slug")
 	if r.OK {
 		t.Error("Template('nonexistent-slug') should return !OK")
@@ -135,19 +135,18 @@ func TestTemplate_Bad(t *testing.T) {
 
 // --- List Functions ---
 
-func TestListPrompts(t *testing.T) {
+func TestLib_ListPrompts_Good(t *testing.T) {
 	prompts := ListPrompts()
 	if len(prompts) == 0 {
 		t.Error("ListPrompts() returned empty")
 	}
 }
 
-func TestListTasks(t *testing.T) {
+func TestLib_ListTasks_Good(t *testing.T) {
 	tasks := ListTasks()
 	if len(tasks) == 0 {
 		t.Fatal("ListTasks() returned empty")
 	}
-	// Verify nested paths are included (e.g., "code/review")
 	found := false
 	for _, s := range tasks {
 		if s == "code/review" {
@@ -160,15 +159,14 @@ func TestListTasks(t *testing.T) {
 	}
 }
 
-func TestListPersonas(t *testing.T) {
+func TestLib_ListPersonas_Good(t *testing.T) {
 	personas := ListPersonas()
 	if len(personas) == 0 {
 		t.Error("ListPersonas() returned empty")
 	}
-	// Should have nested paths like "code/go"
 	hasNested := false
 	for _, p := range personas {
-		if len(p) > 0 && filepath.Dir(p) != "." {
+		if len(p) > 0 && core.PathDir(p) != "." {
 			hasNested = true
 			break
 		}
@@ -178,14 +176,14 @@ func TestListPersonas(t *testing.T) {
 	}
 }
 
-func TestListFlows(t *testing.T) {
+func TestLib_ListFlows_Good(t *testing.T) {
 	flows := ListFlows()
 	if len(flows) == 0 {
 		t.Error("ListFlows() returned empty")
 	}
 }
 
-func TestListWorkspaces(t *testing.T) {
+func TestLib_ListWorkspaces_Good(t *testing.T) {
 	workspaces := ListWorkspaces()
 	if len(workspaces) == 0 {
 		t.Error("ListWorkspaces() returned empty")
@@ -194,7 +192,7 @@ func TestListWorkspaces(t *testing.T) {
 
 // --- ExtractWorkspace ---
 
-func TestExtractWorkspace_CreatesFiles(t *testing.T) {
+func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
 
@@ -204,14 +202,13 @@ func TestExtractWorkspace_CreatesFiles(t *testing.T) {
 	}
 
 	for _, name := range []string{"CODEX.md", "CLAUDE.md", "PROMPT.md", "TODO.md", "CONTEXT.md", "go.work"} {
-		path := filepath.Join(dir, name)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		if !testFs.Exists(core.JoinPath(dir, name)) {
 			t.Errorf("expected %s to exist", name)
 		}
 	}
 }
 
-func TestExtractWorkspace_CreatesSubdirectories(t *testing.T) {
+func TestLib_ExtractWorkspaceSubdirs_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
 
@@ -220,38 +217,28 @@ func TestExtractWorkspace_CreatesSubdirectories(t *testing.T) {
 		t.Fatalf("ExtractWorkspace failed: %v", err)
 	}
 
-	refDir := filepath.Join(dir, ".core", "reference")
-	if _, err := os.Stat(refDir); os.IsNotExist(err) {
+	refDir := core.JoinPath(dir, ".core", "reference")
+	if !testFs.IsDir(refDir) {
 		t.Fatalf(".core/reference/ directory not created")
 	}
 
-	axSpec := filepath.Join(refDir, "RFC-025-AGENT-EXPERIENCE.md")
-	if _, err := os.Stat(axSpec); os.IsNotExist(err) {
+	axSpec := core.JoinPath(refDir, "RFC-025-AGENT-EXPERIENCE.md")
+	if !testFs.Exists(axSpec) {
 		t.Errorf("AX spec not extracted: %s", axSpec)
 	}
 
-	entries, err := os.ReadDir(refDir)
-	if err != nil {
-		t.Fatalf("failed to read reference dir: %v", err)
-	}
-
-	goFiles := 0
-	for _, e := range entries {
-		if filepath.Ext(e.Name()) == ".go" {
-			goFiles++
-		}
-	}
-	if goFiles == 0 {
+	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
+	if len(goFiles) == 0 {
 		t.Error("no .go files in .core/reference/")
 	}
 
-	docsDir := filepath.Join(refDir, "docs")
-	if _, err := os.Stat(docsDir); os.IsNotExist(err) {
+	docsDir := core.JoinPath(refDir, "docs")
+	if !testFs.IsDir(docsDir) {
 		t.Errorf(".core/reference/docs/ not created")
 	}
 }
 
-func TestExtractWorkspace_TemplateSubstitution(t *testing.T) {
+func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "my-repo", Task: "fix the bug"}
 
@@ -260,11 +247,11 @@ func TestExtractWorkspace_TemplateSubstitution(t *testing.T) {
 		t.Fatalf("ExtractWorkspace failed: %v", err)
 	}
 
-	content, err := os.ReadFile(filepath.Join(dir, "TODO.md"))
-	if err != nil {
-		t.Fatalf("failed to read TODO.md: %v", err)
+	r := testFs.Read(core.JoinPath(dir, "TODO.md"))
+	if !r.OK {
+		t.Fatalf("failed to read TODO.md")
 	}
-	if len(content) == 0 {
+	if r.Value.(string) == "" {
 		t.Error("TODO.md is empty")
 	}
 }

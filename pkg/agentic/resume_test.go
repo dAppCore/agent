@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ func TestResume_Resume_Good(t *testing.T) {
 	ws := core.JoinPath(wsRoot, "ws-blocked")
 	repoDir := core.JoinPath(ws, "repo")
 	fs.EnsureDir(repoDir)
-	exec.Command("git", "init", repoDir).Run()
+	testCore.Process().Run(context.Background(), "git", "init", repoDir)
 
 	st := &WorkspaceStatus{Status: "blocked", Repo: "go-io", Agent: "codex", Task: "Fix the tests"}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
@@ -51,7 +50,7 @@ func TestResume_Resume_Good(t *testing.T) {
 	// Completed workspace is resumable too
 	ws2 := core.JoinPath(wsRoot, "ws-done")
 	fs.EnsureDir(core.JoinPath(ws2, "repo"))
-	exec.Command("git", "init", core.JoinPath(ws2, "repo")).Run()
+	testCore.Process().Run(context.Background(), "git", "init", core.JoinPath(ws2, "repo"))
 	st2 := &WorkspaceStatus{Status: "completed", Repo: "go-io", Agent: "codex", Task: "Review code"}
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st2))
 
@@ -79,7 +78,7 @@ func TestResume_Resume_Bad(t *testing.T) {
 	// Not resumable (running)
 	ws := core.JoinPath(WorkspaceRoot(), "ws-running")
 	fs.EnsureDir(core.JoinPath(ws, "repo"))
-	exec.Command("git", "init", core.JoinPath(ws, "repo")).Run()
+	testCore.Process().Run(context.Background(), "git", "init", core.JoinPath(ws, "repo"))
 	st := &WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
@@ -95,7 +94,7 @@ func TestResume_Resume_Ugly(t *testing.T) {
 	// Workspace exists but no status.json
 	ws := core.JoinPath(WorkspaceRoot(), "ws-nostatus")
 	fs.EnsureDir(core.JoinPath(ws, "repo"))
-	exec.Command("git", "init", core.JoinPath(ws, "repo")).Run()
+	testCore.Process().Run(context.Background(), "git", "init", core.JoinPath(ws, "repo"))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, _, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-nostatus"})
@@ -105,7 +104,7 @@ func TestResume_Resume_Ugly(t *testing.T) {
 	// No answer provided — prompt has no ANSWER section
 	ws2 := core.JoinPath(WorkspaceRoot(), "ws-noanswer")
 	fs.EnsureDir(core.JoinPath(ws2, "repo"))
-	exec.Command("git", "init", core.JoinPath(ws2, "repo")).Run()
+	testCore.Process().Run(context.Background(), "git", "init", core.JoinPath(ws2, "repo"))
 	st := &WorkspaceStatus{Status: "blocked", Repo: "test", Agent: "codex", Task: "Fix"}
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st))
 

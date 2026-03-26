@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -188,7 +186,7 @@ func TestPrep_NewPrep_Good_GiteaTokenFallback(t *testing.T) {
 	assert.Equal(t, "gitea-fallback-token", s.forgeToken)
 }
 
-func TestPrepSubsystem_Good_Name(t *testing.T) {
+func TestPrep_Subsystem_Good_Name(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, "agentic", s.Name())
 }
@@ -672,18 +670,11 @@ func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
 
 func TestPrep_GetGitLog_Good(t *testing.T) {
 	dir := t.TempDir()
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.name", "Test")
@@ -717,9 +708,7 @@ func TestPrep_GetGitLog_Bad(t *testing.T) {
 func TestPrep_GetGitLog_Ugly(t *testing.T) {
 	// Git repo with no commits — git log should fail, returns empty
 	dir := t.TempDir()
-	cmd := exec.Command("git", "init", "-b", "main")
-	cmd.Dir = dir
-	require.NoError(t, cmd.Run())
+	testCore.Process().RunIn(context.Background(), dir, "git", "init", "-b", "main")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -738,28 +727,21 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 
 	// Mock Forge API for issue body
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 1,
 			"title":  "Fix tests",
 			"body":   "Tests are broken",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
 	// Create a source repo to clone from
 	srcRepo := core.JoinPath(root, "src", "core", "test-repo")
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(dir string, args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 	require.True(t, fs.EnsureDir(srcRepo).OK)
 	run(srcRepo, "git", "init", "-b", "main")

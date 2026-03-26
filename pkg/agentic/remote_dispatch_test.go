@@ -6,8 +6,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,7 +26,7 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
@@ -39,8 +37,7 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 					},
 				},
 			}
-			data, _ := json.Marshal(result)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			core.Print(w, "data: %s\n", core.JSONMarshalString(result))
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -86,14 +83,13 @@ func TestRemote_DispatchRemote_Ugly(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
 			// JSON-RPC error response
 			result := map[string]any{"error": map[string]any{"message": "tool not found"}}
-			data, _ := json.Marshal(result)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			core.Print(w, "data: %s\n", core.JSONMarshalString(result))
 		}
 	}))
 	t.Cleanup(srv.Close)

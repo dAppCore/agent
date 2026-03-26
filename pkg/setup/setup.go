@@ -108,7 +108,7 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType) error {
 	}
 
 	if !templateExists(tmplName) {
-		return core.E("setup.scaffoldTemplate", "template not found: "+tmplName, nil)
+		return core.E("setup.scaffoldTemplate", core.Concat("template not found: ", tmplName), nil)
 	}
 
 	if opts.DryRun {
@@ -118,7 +118,7 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType) error {
 	}
 
 	if err := lib.ExtractWorkspace(tmplName, opts.Path, data); err != nil {
-		return core.E("setup.scaffoldTemplate", "extract workspace template "+tmplName, err)
+		return core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err)
 	}
 	return nil
 }
@@ -136,7 +136,7 @@ func writeConfig(path, content string, opts Options) error {
 
 	if r := fs.WriteMode(path, content, 0644); !r.OK {
 		err, _ := r.Value.(error)
-		return core.E("setup.writeConfig", "write "+core.PathBase(path), err)
+		return core.E("setup.writeConfig", core.Concat("write ", core.PathBase(path)), err)
 	}
 	core.Print(nil, "  created %s", path)
 	return nil

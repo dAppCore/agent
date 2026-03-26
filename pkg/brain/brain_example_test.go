@@ -6,6 +6,12 @@ import (
 	core "dappco.re/go/core"
 )
 
+func ExampleNew() {
+	sub := New(nil)
+	core.Println(sub.Name())
+	// Output: brain
+}
+
 func ExampleRegister_services() {
 	c := core.New(core.WithService(Register))
 	core.Println(c.Services())

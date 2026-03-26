@@ -24,7 +24,20 @@ func Register(c *core.Core) core.Result {
 	c.Config().Set("agents.rates", cfg.Rates)
 	c.Config().Set("agents.dispatch", cfg.Dispatch)
 
-	RegisterHandlers(c, prep)
+	// Pipeline feature flags — all enabled by default.
+	// Disable with c.Config().Disable("auto-qa") etc.
+	//
+	//	c.Config().Enabled("auto-qa")     // true — run QA after completion
+	//	c.Config().Enabled("auto-pr")     // true — create PR on QA pass
+	//	c.Config().Enabled("auto-merge")  // true — verify + merge PR
+	//	c.Config().Enabled("auto-ingest") // true — create issues from findings
+	c.Config().Enable("auto-qa")
+	c.Config().Enable("auto-pr")
+	c.Config().Enable("auto-merge")
+	c.Config().Enable("auto-ingest")
+
+	// IPC handlers auto-discovered via HandleIPCEvents interface on PrepSubsystem.
+	// No manual RegisterHandlers call needed — WithService wires it.
 
 	return core.Result{Value: prep, OK: true}
 }

@@ -237,7 +237,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	// Apply partial updates
 	if input.Status != "" {
 		if !validPlanStatus(input.Status) {
-			return nil, PlanUpdateOutput{}, core.E("planUpdate", "invalid status: "+input.Status+" (valid: draft, ready, in_progress, needs_verification, verified, approved)", nil)
+			return nil, PlanUpdateOutput{}, core.E("planUpdate", core.Concat("invalid status: ", input.Status, " (valid: draft, ready, in_progress, needs_verification, verified, approved)"), nil)
 		}
 		plan.Status = input.Status
 	}
@@ -276,7 +276,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 
 	path := planPath(PlansRoot(), input.ID)
 	if !fs.Exists(path) {
-		return nil, PlanDeleteOutput{}, core.E("planDelete", "plan not found: "+input.ID, nil)
+		return nil, PlanDeleteOutput{}, core.E("planDelete", core.Concat("plan not found: ", input.ID), nil)
 	}
 
 	if r := fs.Delete(path); !r.OK {
@@ -333,7 +333,7 @@ func planPath(dir, id string) string {
 	if safe == "." || safe == ".." || safe == "" {
 		safe = "invalid"
 	}
-	return core.JoinPath(dir, safe+".json")
+	return core.JoinPath(dir, core.Concat(safe, ".json"))
 }
 
 func generatePlanID(title string) string {
@@ -348,12 +348,12 @@ func generatePlanID(title string) string {
 func readPlan(dir, id string) (*Plan, error) {
 	r := fs.Read(planPath(dir, id))
 	if !r.OK {
-		return nil, core.E("readPlan", "plan not found: "+id, nil)
+		return nil, core.E("readPlan", core.Concat("plan not found: ", id), nil)
 	}
 
 	var plan Plan
 	if ur := core.JSONUnmarshalString(r.Value.(string), &plan); !ur.OK {
-		return nil, core.E("readPlan", "failed to parse plan "+id, nil)
+		return nil, core.E("readPlan", core.Concat("failed to parse plan ", id), nil)
 	}
 	return &plan, nil
 }

@@ -4,9 +4,6 @@ package monitor
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"os/exec"
 	"testing"
 
 	"dappco.re/go/agent/pkg/messages"
@@ -22,22 +19,22 @@ func initTestRepo(t *testing.T) (sourceDir, wsDir string) {
 
 	// Create bare "source" repo
 	sourceDir = core.JoinPath(t.TempDir(), "source")
-	require.NoError(t, os.MkdirAll(sourceDir, 0755))
+	fs.EnsureDir(sourceDir)
 	run(t, sourceDir, "git", "init")
 	run(t, sourceDir, "git", "checkout", "-b", "main")
-	os.WriteFile(core.JoinPath(sourceDir, "README.md"), []byte("# test"), 0644)
+	fs.Write(core.JoinPath(sourceDir, "README.md"), "# test")
 	run(t, sourceDir, "git", "add", ".")
 	run(t, sourceDir, "git", "commit", "-m", "init")
 
 	// Create workspace dir with src/ clone
 	wsDir = core.JoinPath(t.TempDir(), "workspace")
 	srcDir := core.JoinPath(wsDir, "src")
-	require.NoError(t, os.MkdirAll(wsDir, 0755))
+	fs.EnsureDir(wsDir)
 	run(t, wsDir, "git", "clone", sourceDir, "src")
 
 	// Create agent branch with a commit
 	run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-	os.WriteFile(core.JoinPath(srcDir, "new.go"), []byte("package main\n"), 0644)
+	fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "agent work")
 
@@ -46,11 +43,9 @@ func initTestRepo(t *testing.T) (sourceDir, wsDir string) {
 
 func run(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test")
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "command %s %v failed: %s", name, args, out)
+	gitEnv := []string{"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test"}
+	r := testMon.Core().Process().RunWithEnv(context.Background(), dir, gitEnv, name, args...)
+	require.True(t, r.OK, "command %s %v failed: %s", name, args, r.Value)
 }
 
 func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
@@ -60,8 +55,7 @@ func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
 		"repo":   repo,
 		"branch": branch,
 	}
-	data, _ := json.MarshalIndent(st, "", "  ")
-	require.NoError(t, os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0644))
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 }
 
 // --- Tests ---
@@ -108,7 +102,7 @@ func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 	srcDir := core.JoinPath(wsDir, "src")
 
 	// Add a binary file
-	os.WriteFile(core.JoinPath(srcDir, "app.exe"), []byte("binary"), 0644)
+	fs.Write(core.JoinPath(srcDir, "app.exe"), "binary")
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 
@@ -123,7 +117,7 @@ func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 
 	// Add a file > 1MB
 	bigData := make([]byte, 1024*1024+1)
-	os.WriteFile(core.JoinPath(srcDir, "huge.txt"), bigData, 0644)
+	fs.Write(core.JoinPath(srcDir, "huge.txt"), string(bigData))
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add large file")
 
@@ -147,10 +141,8 @@ func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
 	assert.Equal(t, "", result.rejected)
 
 	// Verify status updated
-	data, err := os.ReadFile(core.JoinPath(wsDir, "status.json"))
-	require.NoError(t, err)
 	var st map[string]any
-	json.Unmarshal(data, &st)
+	require.True(t, core.JSONUnmarshalString(fs.Read(core.JoinPath(wsDir, "status.json")).Value.(string), &st).OK)
 	assert.Equal(t, "ready-for-review", st["status"])
 }
 
@@ -184,7 +176,7 @@ func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	srcDir := core.JoinPath(wsDir, "src")
 
 	// Add binary
-	os.WriteFile(core.JoinPath(srcDir, "build.so"), []byte("elf"), 0644)
+	fs.Write(core.JoinPath(srcDir, "build.so"), "elf")
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 
@@ -198,9 +190,8 @@ func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	assert.Contains(t, result.rejected, "binary file added")
 
 	// Verify status set to rejected
-	data, _ := os.ReadFile(core.JoinPath(wsDir, "status.json"))
 	var st map[string]any
-	json.Unmarshal(data, &st)
+	core.JSONUnmarshalString(fs.Read(core.JoinPath(wsDir, "status.json")).Value.(string), &st)
 	assert.Equal(t, "rejected", st["status"])
 }
 
@@ -239,28 +230,24 @@ func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 func TestHarvest_UpdateStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
-	data, _ := json.MarshalIndent(initial, "", "  ")
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(initial))
 
 	updateStatus(dir, "ready-for-review", "")
 
-	out, _ := os.ReadFile(core.JoinPath(dir, "status.json"))
 	var st map[string]any
-	json.Unmarshal(out, &st)
+	core.JSONUnmarshalString(fs.Read(core.JoinPath(dir, "status.json")).Value.(string), &st)
 	assert.Equal(t, "ready-for-review", st["status"])
 }
 
 func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
-	data, _ := json.MarshalIndent(initial, "", "  ")
-	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0644)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(initial))
 
 	updateStatus(dir, "rejected", "binary file: app.exe")
 
-	out, _ := os.ReadFile(core.JoinPath(dir, "status.json"))
 	var st map[string]any
-	json.Unmarshal(out, &st)
+	core.JSONUnmarshalString(fs.Read(core.JoinPath(dir, "status.json")).Value.(string), &st)
 	assert.Equal(t, "rejected", st["status"])
 	assert.Equal(t, "binary file: app.exe", st["question"])
 }

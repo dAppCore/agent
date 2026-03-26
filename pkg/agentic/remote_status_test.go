@@ -6,8 +6,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +18,7 @@ import (
 
 // --- statusRemote ---
 
-func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
+func TestRemotestatus_StatusRemote_Good(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -28,7 +26,7 @@ func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
@@ -39,8 +37,7 @@ func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
 					},
 				},
 			}
-			data, _ := json.Marshal(result)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			core.Print(w, "data: %s\n", core.JSONMarshalString(result))
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -55,7 +52,7 @@ func TestRemoteStatus_StatusRemote_Good(t *testing.T) {
 	assert.Equal(t, 2, out.Stats.Running)
 }
 
-func TestRemoteStatus_StatusRemote_Bad(t *testing.T) {
+func TestRemotestatus_StatusRemote_Bad(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
@@ -76,7 +73,7 @@ func TestRemoteStatus_StatusRemote_Bad(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
@@ -89,7 +86,7 @@ func TestRemoteStatus_StatusRemote_Bad(t *testing.T) {
 	assert.Contains(t, out2.Error, "call failed")
 }
 
-func TestRemoteStatus_StatusRemote_Ugly(t *testing.T) {
+func TestRemotestatus_StatusRemote_Ugly(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -97,14 +94,13 @@ func TestRemoteStatus_StatusRemote_Ugly(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
 			// JSON-RPC error
 			result := map[string]any{"error": map[string]any{"code": -32000, "message": "internal error"}}
-			data, _ := json.Marshal(result)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			core.Print(w, "data: %s\n", core.JSONMarshalString(result))
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -122,11 +118,11 @@ func TestRemoteStatus_StatusRemote_Ugly(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		switch callCount2 {
 		case 1:
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			core.Print(w, "data: {\"result\":{}}\n")
 		case 2:
 			w.WriteHeader(200)
 		case 3:
-			fmt.Fprintf(w, "data: not-json\n\n")
+			core.Print(w, "data: not-json\n")
 		}
 	}))
 	t.Cleanup(srv2.Close)

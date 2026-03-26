@@ -59,3 +59,36 @@ func ExampleTemplate() {
 	core.Println(r.OK)
 	// Output: true
 }
+
+func ExampleMountData() {
+	c := core.New()
+	MountData(c)
+
+	// Other services can now access content via Core
+	r := c.Data().ReadString("prompts/coding.md")
+	core.Println(r.OK)
+	// Output: true
+}
+
+func ExampleTaskBundle() {
+	r := TaskBundle("code/review")
+	if r.OK {
+		b := r.Value.(Bundle)
+		core.Println(b.Main != "")
+		core.Println(len(b.Files) > 0)
+	}
+	// Output:
+	// true
+	// true
+}
+
+func ExampleExtractWorkspace() {
+	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
+	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
+
+	err := ExtractWorkspace("default", dir, &WorkspaceData{
+		Repo: "go-io", Task: "fix tests",
+	})
+	core.Println(err == nil)
+	// Output: true
+}

@@ -85,7 +85,7 @@ func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
 		})
 	}
 
-	return renderConfig(name+" build configuration", sections)
+	return renderConfig(core.Concat(name, " build configuration"), sections)
 }
 
 // GenerateTestConfig renders a test.yaml for the detected project type.
@@ -147,7 +147,7 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 		for _, value := range section.Values {
 			scalar, err := yaml.Marshal(value.Value)
 			if err != nil {
-				return "", core.E("setup.renderConfig", "marshal "+section.Key+"."+value.Key, err)
+				return "", core.E("setup.renderConfig", core.Concat("marshal ", section.Key, ".", value.Key), err)
 			}
 
 			builder.WriteString("  ")

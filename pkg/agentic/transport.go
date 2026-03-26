@@ -113,6 +113,52 @@ func HTTPDo(ctx context.Context, method, url, body, token, authScheme string) co
 	return httpDo(ctx, method, url, body, token, authScheme)
 }
 
+// --- Drive-aware REST helpers — route through c.Drive() for endpoint resolution ---
+
+// DriveGet performs a GET request using a named Drive endpoint.
+// Reads base URL and token from the Drive handle registered in Core.
+//
+//	r := DriveGet(c, "forge", "/api/v1/repos/core/go-io", "token")
+func DriveGet(c *core.Core, drive, path, authScheme string) core.Result {
+	base, token := driveEndpoint(c, drive)
+	if base == "" {
+		return core.Result{Value: core.E("DriveGet", core.Concat("drive not found: ", drive), nil), OK: false}
+	}
+	return httpDo(context.Background(), "GET", core.Concat(base, path), "", token, authScheme)
+}
+
+// DrivePost performs a POST request using a named Drive endpoint.
+//
+//	r := DrivePost(c, "forge", "/api/v1/repos/core/go-io/issues", body, "token")
+func DrivePost(c *core.Core, drive, path, body, authScheme string) core.Result {
+	base, token := driveEndpoint(c, drive)
+	if base == "" {
+		return core.Result{Value: core.E("DrivePost", core.Concat("drive not found: ", drive), nil), OK: false}
+	}
+	return httpDo(context.Background(), "POST", core.Concat(base, path), body, token, authScheme)
+}
+
+// DriveDo performs an HTTP request using a named Drive endpoint.
+//
+//	r := DriveDo(c, "forge", "PATCH", "/api/v1/repos/core/go-io/pulls/5", body, "token")
+func DriveDo(c *core.Core, drive, method, path, body, authScheme string) core.Result {
+	base, token := driveEndpoint(c, drive)
+	if base == "" {
+		return core.Result{Value: core.E("DriveDo", core.Concat("drive not found: ", drive), nil), OK: false}
+	}
+	return httpDo(context.Background(), method, core.Concat(base, path), body, token, authScheme)
+}
+
+// driveEndpoint reads base URL and token from a named Drive handle.
+func driveEndpoint(c *core.Core, name string) (base, token string) {
+	r := c.Drive().Get(name)
+	if !r.OK {
+		return "", ""
+	}
+	h := r.Value.(*core.DriveHandle)
+	return h.Transport, h.Options.String("token")
+}
+
 // httpDo is the single HTTP execution point. Every HTTP call in core/agent routes here.
 func httpDo(ctx context.Context, method, url, body, token, authScheme string) core.Result {
 	var req *http.Request

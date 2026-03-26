@@ -65,7 +65,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "gemini":
 		args := []string{"-p", prompt, "--yolo", "--sandbox"}
 		if model != "" {
-			args = append(args, "-m", "gemini-2.5-"+model)
+			args = append(args, "-m", core.Concat("gemini-2.5-", model))
 		}
 		return "gemini", args, nil
 	case "codex":
@@ -95,8 +95,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			"--output-format", "text",
 			"--dangerously-skip-permissions",
 			"--no-session-persistence",
-			"--append-system-prompt", "SANDBOX: You are restricted to the current directory only. " +
-				"Do NOT use absolute paths. Do NOT navigate outside this repository.",
+			"--append-system-prompt", "SANDBOX: You are restricted to the current directory only. Do NOT use absolute paths. Do NOT navigate outside this repository.",
 		}
 		if model != "" {
 			args = append(args, "--model", model)
@@ -125,7 +124,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		)
 		return "sh", []string{"-c", script}, nil
 	default:
-		return "", nil, core.E("agentCommand", "unknown agent: "+agent, nil)
+		return "", nil, core.E("agentCommand", core.Concat("unknown agent: ", agent), nil)
 	}
 }
 
@@ -174,14 +173,14 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 	// Mount Claude config if dispatching claude agent
 	if command == "claude" {
 		dockerArgs = append(dockerArgs,
-			"-v", core.JoinPath(home, ".claude")+":/home/dev/.claude:ro",
+			"-v", core.Concat(core.JoinPath(home, ".claude"), ":/home/dev/.claude:ro"),
 		)
 	}
 
 	// Mount Gemini config if dispatching gemini agent
 	if command == "gemini" {
 		dockerArgs = append(dockerArgs,
-			"-v", core.JoinPath(home, ".gemini")+":/home/dev/.gemini:ro",
+			"-v", core.Concat(core.JoinPath(home, ".gemini"), ":/home/dev/.gemini:ro"),
 		)
 	}
 
@@ -312,12 +311,13 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 	repoDir := core.JoinPath(wsDir, "repo")
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
 
-	// Update workspace status
+	// Update workspace status (disk + registry)
 	if st, err := ReadStatus(wsDir); err == nil {
 		st.Status = finalStatus
 		st.PID = 0
 		st.Question = question
 		writeStatus(wsDir, st)
+		s.TrackWorkspace(core.PathBase(wsDir), st)
 	}
 
 	// Rate-limit tracking
@@ -330,6 +330,16 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 
 	// Broadcast completion
 	s.broadcastComplete(agent, wsDir, finalStatus)
+
+	// Run completion pipeline via PerformAsync for successful agents.
+	// Gets ActionTaskStarted/Completed broadcasts + WaitGroup integration for graceful shutdown.
+	//
+	//   c.PerformAsync("agentic.complete", opts) → runs agent.completion Task in background
+	if finalStatus == "completed" && s.ServiceRuntime != nil {
+		s.Core().PerformAsync("agentic.complete", core.NewOptions(
+			core.Option{Key: "workspace", Value: wsDir},
+		))
+	}
 }
 
 // spawnAgent launches an agent inside a Docker container.

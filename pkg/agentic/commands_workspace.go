@@ -5,6 +5,8 @@
 package agentic
 
 import (
+	"context"
+
 	core "dappco.re/go/core"
 )
 
@@ -98,8 +100,35 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(opts core.Options) core.Result {
 		core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
 		return core.Result{OK: false}
 	}
-	core.Print(nil, "dispatch via CLI not yet wired — use MCP agentic_dispatch tool")
-	core.Print(nil, "repo: %s, task: %s", repo, opts.String("task"))
+
+	// Call dispatch directly — CLI is an explicit user action,
+	// not gated by the frozen-queue entitlement.
+	input := DispatchInput{
+		Repo:     repo,
+		Task:     opts.String("task"),
+		Agent:    opts.String("agent"),
+		Org:      opts.String("org"),
+		Template: opts.String("template"),
+		Branch:   opts.String("branch"),
+		Issue:    parseIntStr(opts.String("issue")),
+		PR:       parseIntStr(opts.String("pr")),
+	}
+	_, out, err := s.dispatch(context.Background(), nil, input)
+	if err != nil {
+		core.Print(nil, "dispatch failed: %s", err.Error())
+		return core.Result{Value: err, OK: false}
+	}
+	agent := out.Agent
+	if agent == "" {
+		agent = "codex"
+	}
+	core.Print(nil, "dispatched %s to %s", agent, repo)
+	if out.WorkspaceDir != "" {
+		core.Print(nil, "  workspace: %s", out.WorkspaceDir)
+	}
+	if out.PID > 0 {
+		core.Print(nil, "  pid:       %d", out.PID)
+	}
 	return core.Result{OK: true}
 }
 

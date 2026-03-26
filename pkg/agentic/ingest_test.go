@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +22,7 @@ func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 		if r.Method == "POST" && containsStr(r.URL.Path, "/issues") {
 			issueCalled = true
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 			assert.Contains(t, body["title"], "Scan findings")
 			w.WriteHeader(201)
 			return
@@ -195,7 +194,7 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 		assert.Contains(t, r.Header.Get("Authorization"), "Bearer ")
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "Test Issue", body["title"])
 		assert.Equal(t, "bug", body["type"])
 		assert.Equal(t, "high", body["priority"])
@@ -315,7 +314,7 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		// Verify the body preserved HTML chars
 		assert.Contains(t, body["description"], "<script>")
 		assert.Contains(t, body["description"], "alert('xss')")

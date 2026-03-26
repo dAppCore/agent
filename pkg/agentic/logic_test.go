@@ -3,9 +3,6 @@
 package agentic
 
 import (
-	"bufio"
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
@@ -195,7 +192,7 @@ func TestDispatch_ContainerCommand_Ugly_EmptyDirs(t *testing.T) {
 
 // --- buildAutoPRBody ---
 
-func TestAutoPr_BuildAutoPRBody_Good_Basic(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Good_Basic(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Fix the login bug",
@@ -210,7 +207,7 @@ func TestAutoPr_BuildAutoPRBody_Good_Basic(t *testing.T) {
 	assert.Contains(t, body, "Co-Authored-By: Virgil <virgil@lethean.io>")
 }
 
-func TestAutoPr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Add rate limiting",
@@ -222,7 +219,7 @@ func TestAutoPr_BuildAutoPRBody_Good_WithIssue(t *testing.T) {
 	assert.Contains(t, body, "Closes #42")
 }
 
-func TestAutoPr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "Refactor internals",
@@ -233,7 +230,7 @@ func TestAutoPr_BuildAutoPRBody_Good_NoIssue(t *testing.T) {
 	assert.NotContains(t, body, "Closes #")
 }
 
-func TestAutoPr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/foo"}
 	body1 := s.buildAutoPRBody(st, 1)
@@ -242,7 +239,7 @@ func TestAutoPr_BuildAutoPRBody_Good_CommitCount(t *testing.T) {
 	assert.Contains(t, body5, "**Commits:** 5")
 }
 
-func TestAutoPr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Task:   "",
@@ -255,7 +252,7 @@ func TestAutoPr_BuildAutoPRBody_Bad_EmptyTask(t *testing.T) {
 	assert.Contains(t, body, "**Agent:** codex")
 }
 
-func TestAutoPr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
+func TestAutopr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{Agent: "codex", Branch: "agent/test"}
 	body := s.buildAutoPRBody(st, 0)
@@ -290,18 +287,15 @@ func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 	emitEvent("agent_started", "claude", "core/agent/task-1", "running")
 
 	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
-	f, err := os.Open(eventsFile)
-	require.NoError(t, err)
-	defer f.Close()
+	content := fs.Read(eventsFile)
+	require.True(t, content.OK)
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
+	for _, line := range core.Split(content.Value.(string), "\n") {
 		if line == "" {
 			continue
 		}
 		var ev CompletionEvent
-		require.NoError(t, json.Unmarshal([]byte(line), &ev), "each line must be valid JSON")
+		require.True(t, core.JSONUnmarshalString(line, &ev).OK, "each line must be valid JSON")
 		assert.Equal(t, "agent_started", ev.Type)
 	}
 }

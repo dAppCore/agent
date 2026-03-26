@@ -18,7 +18,7 @@ func TestQueue_BaseAgent_Ugly_MultipleColons(t *testing.T) {
 	assert.Equal(t, "claude", baseAgent("claude:opus:extra"))
 }
 
-func TestDispatchConfig_Good_Defaults(t *testing.T) {
+func TestQueue_DispatchConfig_Good_Defaults(t *testing.T) {
 	// loadAgentsConfig falls back to defaults when no config file exists
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	t.Setenv("CORE_WORKSPACE", t.TempDir())

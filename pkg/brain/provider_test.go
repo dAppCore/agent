@@ -4,11 +4,11 @@ package brain
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,22 +44,22 @@ func providerRequest(t *testing.T, p *BrainProvider, method, path string, body [
 
 // --- Provider construction ---
 
-func TestNewProvider_Good(t *testing.T) {
+func TestProvider_NewProvider_Good(t *testing.T) {
 	p := NewProvider(nil, nil)
 	assert.NotNil(t, p)
 	assert.Nil(t, p.bridge)
 	assert.Nil(t, p.hub)
 }
 
-func TestBrainProvider_Good_Name(t *testing.T) {
+func TestProvider_BrainProvider_Good_Name(t *testing.T) {
 	assert.Equal(t, "brain", NewProvider(nil, nil).Name())
 }
 
-func TestBrainProvider_Good_BasePath(t *testing.T) {
+func TestProvider_BrainProvider_Good_BasePath(t *testing.T) {
 	assert.Equal(t, "/api/brain", NewProvider(nil, nil).BasePath())
 }
 
-func TestBrainProvider_Good_Channels(t *testing.T) {
+func TestProvider_BrainProvider_Good_Channels(t *testing.T) {
 	channels := NewProvider(nil, nil).Channels()
 	assert.Len(t, channels, 3)
 	assert.Contains(t, channels, "brain.remember.complete")
@@ -67,13 +67,13 @@ func TestBrainProvider_Good_Channels(t *testing.T) {
 	assert.Contains(t, channels, "brain.forget.complete")
 }
 
-func TestBrainProvider_Good_Element(t *testing.T) {
+func TestProvider_BrainProvider_Good_Element(t *testing.T) {
 	el := NewProvider(nil, nil).Element()
 	assert.Equal(t, "core-brain-panel", el.Tag)
 	assert.Equal(t, "/assets/brain-panel.js", el.Source)
 }
 
-func TestBrainProvider_Good_Describe(t *testing.T) {
+func TestProvider_BrainProvider_Good_Describe(t *testing.T) {
 	descs := NewProvider(nil, nil).Describe()
 	assert.Len(t, descs, 5)
 
@@ -90,51 +90,51 @@ func TestBrainProvider_Good_Describe(t *testing.T) {
 
 // --- Handler: status ---
 
-func TestStatus_Good_NilBridge(t *testing.T) {
+func TestProvider_Status_Good(t *testing.T) {
 	p := NewProvider(nil, nil)
 	w := providerRequest(t, p, "GET", "/api/brain/status", nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.True(t, core.JSONUnmarshal(w.Body.Bytes(), &resp).OK)
 	data, _ := resp["data"].(map[string]any)
 	assert.Equal(t, false, data["connected"])
 }
 
 // --- Nil bridge handlers return 503 ---
 
-func TestRememberHandler_Bad_NilBridge(t *testing.T) {
-	body, _ := json.Marshal(map[string]any{"content": "test memory", "type": "observation"})
+func TestProvider_RememberHandler_Bad(t *testing.T) {
+	body := []byte(core.JSONMarshalString(map[string]any{"content": "test memory", "type": "observation"}))
 	w := providerRequest(t, NewProvider(nil, nil), "POST", "/api/brain/remember", body)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestRememberHandler_Bad_NilBridgeInvalidBody(t *testing.T) {
+func TestProvider_RememberHandlerInvalid_Bad(t *testing.T) {
 	// nil bridge returns 503 before JSON validation.
 	w := providerRequest(t, NewProvider(nil, nil), "POST", "/api/brain/remember", []byte("not json"))
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestRecallHandler_Bad_NilBridge(t *testing.T) {
-	body, _ := json.Marshal(map[string]any{"query": "test"})
+func TestProvider_RecallHandler_Bad(t *testing.T) {
+	body := []byte(core.JSONMarshalString(map[string]any{"query": "test"}))
 	w := providerRequest(t, NewProvider(nil, nil), "POST", "/api/brain/recall", body)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestForgetHandler_Bad_NilBridge(t *testing.T) {
-	body, _ := json.Marshal(map[string]any{"id": "mem-123"})
+func TestProvider_ForgetHandler_Bad(t *testing.T) {
+	body := []byte(core.JSONMarshalString(map[string]any{"id": "mem-123"}))
 	w := providerRequest(t, NewProvider(nil, nil), "POST", "/api/brain/forget", body)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func TestListHandler_Bad_NilBridge(t *testing.T) {
+func TestProvider_ListHandler_Bad(t *testing.T) {
 	w := providerRequest(t, NewProvider(nil, nil), "GET", "/api/brain/list", nil)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 // --- emitEvent ---
 
-func TestEmitEvent_Good_NilHub(t *testing.T) {
+func TestProvider_EmitEvent_Good(t *testing.T) {
 	p := NewProvider(nil, nil)
 	p.emitEvent("brain.test", map[string]any{"foo": "bar"})
 }

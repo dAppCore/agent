@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,16 +24,16 @@ func mockScanServer(t *testing.T) *httptest.Server {
 
 	// List org repos
 	mux.HandleFunc("/api/v1/orgs/core/repos", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{"name": "go-io", "full_name": "core/go-io"},
 			{"name": "go-log", "full_name": "core/go-log"},
 			{"name": "agent", "full_name": "core/agent"},
-		})
+		})))
 	})
 
 	// List issues for repos
 	mux.HandleFunc("/api/v1/repos/core/go-io/issues", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   10,
 				"title":    "Replace fmt.Errorf with E()",
@@ -49,11 +48,11 @@ func mockScanServer(t *testing.T) *httptest.Server {
 				"assignee": map[string]any{"login": "virgil"},
 				"html_url": "https://forge.lthn.ai/core/go-io/issues/11",
 			},
-		})
+		})))
 	})
 
 	mux.HandleFunc("/api/v1/repos/core/go-log/issues", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   5,
 				"title":    "Fix log rotation",
@@ -61,11 +60,11 @@ func mockScanServer(t *testing.T) *httptest.Server {
 				"assignee": nil,
 				"html_url": "https://forge.lthn.ai/core/go-log/issues/5",
 			},
-		})
+		})))
 	})
 
 	mux.HandleFunc("/api/v1/repos/core/agent/issues", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	})
 
 	srv := httptest.NewServer(mux)
@@ -98,7 +97,7 @@ func TestScan_Scan_Good(t *testing.T) {
 	assert.True(t, repos["go-io"] || repos["go-log"], "should contain issues from mock repos")
 }
 
-func TestScan_Good_AllRepos(t *testing.T) {
+func TestScan_AllRepos_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -115,7 +114,7 @@ func TestScan_Good_AllRepos(t *testing.T) {
 	assert.Greater(t, out.Count, 0)
 }
 
-func TestScan_Good_WithLimit(t *testing.T) {
+func TestScan_WithLimit_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -132,7 +131,7 @@ func TestScan_Good_WithLimit(t *testing.T) {
 	assert.LessOrEqual(t, out.Count, 1)
 }
 
-func TestScan_Good_DefaultLabels(t *testing.T) {
+func TestScan_DefaultLabels_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -149,7 +148,7 @@ func TestScan_Good_DefaultLabels(t *testing.T) {
 	assert.True(t, out.Success)
 }
 
-func TestScan_Good_CustomLabels(t *testing.T) {
+func TestScan_CustomLabels_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -167,7 +166,7 @@ func TestScan_Good_CustomLabels(t *testing.T) {
 	assert.True(t, out.Success)
 }
 
-func TestScan_Good_Deduplicates(t *testing.T) {
+func TestScan_Deduplicates_Good(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -195,7 +194,7 @@ func TestScan_Good_Deduplicates(t *testing.T) {
 	}
 }
 
-func TestScan_Bad_NoToken(t *testing.T) {
+func TestScan_NoToken_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken: "",
@@ -304,7 +303,7 @@ func TestScan_Scan_Ugly(t *testing.T) {
 	// Org with no repos
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/orgs/") {
-			json.NewEncoder(w).Encode([]map[string]any{})
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 			return
 		}
 		w.WriteHeader(404)
@@ -370,7 +369,7 @@ func TestScan_ListOrgRepos_Bad(t *testing.T) {
 func TestScan_ListOrgRepos_Ugly(t *testing.T) {
 	// Empty org name
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -394,7 +393,7 @@ func TestScan_ListRepoIssues_Ugly(t *testing.T) {
 	// Issues with very long titles
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		longTitle := strings.Repeat("Very Long Issue Title ", 50)
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   1,
 				"title":    longTitle,
@@ -402,7 +401,7 @@ func TestScan_ListRepoIssues_Ugly(t *testing.T) {
 				"assignee": nil,
 				"html_url": "https://forge.lthn.ai/core/go-io/issues/1",
 			},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -422,7 +421,7 @@ func TestScan_ListRepoIssues_Ugly(t *testing.T) {
 
 func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   1,
 				"title":    "Test",
@@ -430,7 +429,7 @@ func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
 				"assignee": nil,
 				"html_url": "https://forge.lthn.ai/core/go-io/issues/1",
 			},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 

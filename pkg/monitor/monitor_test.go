@@ -4,11 +4,9 @@ package monitor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -26,8 +24,8 @@ func setupBrainKey(t *testing.T, key string) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	claudeDir := core.JoinPath(home, ".claude")
-	require.NoError(t, os.MkdirAll(claudeDir, 0755))
-	require.NoError(t, os.WriteFile(core.JoinPath(claudeDir, "brain.key"), []byte(key), 0644))
+	fs.EnsureDir(claudeDir)
+	fs.Write(core.JoinPath(claudeDir, "brain.key"), key)
 }
 
 // setupAPIEnv sets up brain key, CORE_API_URL, and AGENT_NAME for API tests.
@@ -43,9 +41,8 @@ func setupAPIEnv(t *testing.T, apiURL string) {
 func writeWorkspaceStatus(t *testing.T, wsRoot, name string, fields map[string]any) string {
 	t.Helper()
 	dir := core.JoinPath(wsRoot, "workspace", name)
-	require.NoError(t, os.MkdirAll(dir, 0755))
-	data, _ := json.Marshal(fields)
-	require.NoError(t, os.WriteFile(core.JoinPath(dir, "status.json"), data, 0644))
+	fs.EnsureDir(dir)
+	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(fields))
 	return dir
 }
 
@@ -129,7 +126,7 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	// Create Core with IPC handler to capture QueueDrained messages
 	var drainEvents []messages.QueueDrained
@@ -165,7 +162,7 @@ func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
 	assert.Equal(t, "", mon.checkCompletions())
@@ -202,7 +199,7 @@ func TestMonitor_CheckCompletions_Good_NoNewCompletions(t *testing.T) {
 func TestMonitor_CheckCompletions_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
 	msg := mon.checkCompletions()
@@ -214,8 +211,8 @@ func TestMonitor_CheckCompletions_Bad_InvalidJSON(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	dir := core.JoinPath(wsRoot, "workspace", "ws-bad")
-	require.NoError(t, os.MkdirAll(dir, 0755))
-	require.NoError(t, os.WriteFile(core.JoinPath(dir, "status.json"), []byte("not json"), 0644))
+	fs.EnsureDir(dir)
+	fs.Write(core.JoinPath(dir, "status.json"), "not json")
 
 	mon := New()
 	msg := mon.checkCompletions()
@@ -226,7 +223,7 @@ func TestMonitor_CheckCompletions_Good_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
 	assert.Equal(t, "", mon.checkCompletions())
@@ -254,7 +251,7 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -292,7 +289,7 @@ func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -311,7 +308,7 @@ func TestMonitor_CheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -370,7 +367,7 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -423,7 +420,7 @@ func TestMonitor_Check_Good_CombinesMessages(t *testing.T) {
 func TestMonitor_Check_Good_NoMessages(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -444,7 +441,7 @@ func TestMonitor_Notify_Good_NilServer(t *testing.T) {
 func TestMonitor_Loop_Good_ImmediateCancel(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -469,7 +466,7 @@ func TestMonitor_Loop_Good_ImmediateCancel(t *testing.T) {
 func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -541,7 +538,7 @@ func TestMonitor_SyncRepos_Good_NoChanges(t *testing.T) {
 		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
 		resp := CheckinResponse{Timestamp: time.Now().Unix()}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -570,7 +567,7 @@ func TestMonitor_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := CheckinResponse{Timestamp: newTS}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -605,14 +602,14 @@ func TestMonitor_AgentStatusResource_Good(t *testing.T) {
 	assert.Equal(t, "status://agents", result.Contents[0].URI)
 
 	var workspaces []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(result.Contents[0].Text), &workspaces))
+	require.True(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
 	assert.Len(t, workspaces, 2)
 }
 
 func TestMonitor_AgentStatusResource_Good_Empty(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
@@ -626,8 +623,8 @@ func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	dir := core.JoinPath(wsRoot, "workspace", "ws-bad")
-	require.NoError(t, os.MkdirAll(dir, 0755))
-	require.NoError(t, os.WriteFile(core.JoinPath(dir, "status.json"), []byte("bad"), 0644))
+	fs.EnsureDir(dir)
+	fs.Write(core.JoinPath(dir, "status.json"), "bad")
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
@@ -639,14 +636,14 @@ func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 
 func TestMonitor_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	remoteDir := core.JoinPath(t.TempDir(), "remote")
-	require.NoError(t, os.MkdirAll(remoteDir, 0755))
+	fs.EnsureDir(remoteDir)
 	run(t, remoteDir, "git", "init", "--bare")
 
 	codeDir := t.TempDir()
 	repoDir := core.JoinPath(codeDir, "test-repo")
 	run(t, codeDir, "git", "clone", remoteDir, "test-repo")
 	run(t, repoDir, "git", "checkout", "-b", "main")
-	os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# test"), 0644)
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
 	run(t, repoDir, "git", "add", ".")
 	run(t, repoDir, "git", "commit", "-m", "init")
 	run(t, repoDir, "git", "push", "-u", "origin", "main")
@@ -656,7 +653,7 @@ func TestMonitor_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	tmpClone := core.JoinPath(clone2Parent, "clone2")
 	run(t, clone2Parent, "git", "clone", remoteDir, "clone2")
 	run(t, tmpClone, "git", "checkout", "main")
-	os.WriteFile(core.JoinPath(tmpClone, "new.go"), []byte("package main\n"), 0644)
+	fs.Write(core.JoinPath(tmpClone, "new.go"), "package main\n")
 	run(t, tmpClone, "git", "add", ".")
 	run(t, tmpClone, "git", "commit", "-m", "agent work")
 	run(t, tmpClone, "git", "push", "origin", "main")
@@ -667,7 +664,7 @@ func TestMonitor_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 			Timestamp: time.Now().Unix() + 100,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -683,20 +680,20 @@ func TestMonitor_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 
 func TestMonitor_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 	remoteDir := core.JoinPath(t.TempDir(), "remote")
-	require.NoError(t, os.MkdirAll(remoteDir, 0755))
+	fs.EnsureDir(remoteDir)
 	run(t, remoteDir, "git", "init", "--bare")
 
 	codeDir := t.TempDir()
 	repoDir := core.JoinPath(codeDir, "dirty-repo")
 	run(t, codeDir, "git", "clone", remoteDir, "dirty-repo")
 	run(t, repoDir, "git", "checkout", "-b", "main")
-	os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# test"), 0644)
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
 	run(t, repoDir, "git", "add", ".")
 	run(t, repoDir, "git", "commit", "-m", "init")
 	run(t, repoDir, "git", "push", "-u", "origin", "main")
 
 	// Make the repo dirty
-	os.WriteFile(core.JoinPath(repoDir, "dirty.txt"), []byte("uncommitted"), 0644)
+	fs.Write(core.JoinPath(repoDir, "dirty.txt"), "uncommitted")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := CheckinResponse{
@@ -704,7 +701,7 @@ func TestMonitor_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 			Timestamp: time.Now().Unix() + 100,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -719,14 +716,14 @@ func TestMonitor_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 
 func TestMonitor_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
 	remoteDir := core.JoinPath(t.TempDir(), "remote")
-	require.NoError(t, os.MkdirAll(remoteDir, 0755))
+	fs.EnsureDir(remoteDir)
 	run(t, remoteDir, "git", "init", "--bare")
 
 	codeDir := t.TempDir()
 	repoDir := core.JoinPath(codeDir, "feature-repo")
 	run(t, codeDir, "git", "clone", remoteDir, "feature-repo")
 	run(t, repoDir, "git", "checkout", "-b", "main")
-	os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# test"), 0644)
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
 	run(t, repoDir, "git", "add", ".")
 	run(t, repoDir, "git", "commit", "-m", "init")
 	run(t, repoDir, "git", "push", "-u", "origin", "main")
@@ -738,7 +735,7 @@ func TestMonitor_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
 			Timestamp: time.Now().Unix() + 100,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -758,7 +755,7 @@ func TestMonitor_SyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
 			Timestamp: time.Now().Unix() + 100,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -776,7 +773,7 @@ func TestMonitor_SyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
 		authHeader = r.Header.Get("Authorization")
 		resp := CheckinResponse{Timestamp: time.Now().Unix()}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.Write([]byte(core.JSONMarshalString(resp)))
 	}))
 	defer srv.Close()
 
@@ -802,18 +799,18 @@ func TestMonitor_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 		wsDir := core.JoinPath(wsRoot, "workspace", name)
 
 		sourceDir := core.JoinPath(wsRoot, fmt.Sprintf("source-%d", i))
-		require.NoError(t, os.MkdirAll(sourceDir, 0755))
+		fs.EnsureDir(sourceDir)
 		run(t, sourceDir, "git", "init")
 		run(t, sourceDir, "git", "checkout", "-b", "main")
-		os.WriteFile(core.JoinPath(sourceDir, "README.md"), []byte("# test"), 0644)
+		fs.Write(core.JoinPath(sourceDir, "README.md"), "# test")
 		run(t, sourceDir, "git", "add", ".")
 		run(t, sourceDir, "git", "commit", "-m", "init")
 
-		require.NoError(t, os.MkdirAll(wsDir, 0755))
+		fs.EnsureDir(wsDir)
 		run(t, wsDir, "git", "clone", sourceDir, "src")
 		srcDir := core.JoinPath(wsDir, "src")
 		run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-		os.WriteFile(core.JoinPath(srcDir, "new.go"), []byte("package main\n"), 0644)
+		fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
 		run(t, srcDir, "git", "add", ".")
 		run(t, srcDir, "git", "commit", "-m", "agent work")
 
@@ -845,7 +842,7 @@ func TestMonitor_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 func TestMonitor_HarvestCompleted_Good_Empty(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
@@ -858,24 +855,24 @@ func TestMonitor_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	sourceDir := core.JoinPath(wsRoot, "source-rej")
-	require.NoError(t, os.MkdirAll(sourceDir, 0755))
+	fs.EnsureDir(sourceDir)
 	run(t, sourceDir, "git", "init")
 	run(t, sourceDir, "git", "checkout", "-b", "main")
-	os.WriteFile(core.JoinPath(sourceDir, "README.md"), []byte("# test"), 0644)
+	fs.Write(core.JoinPath(sourceDir, "README.md"), "# test")
 	run(t, sourceDir, "git", "add", ".")
 	run(t, sourceDir, "git", "commit", "-m", "init")
 
 	wsDir := core.JoinPath(wsRoot, "workspace", "ws-rej")
-	require.NoError(t, os.MkdirAll(wsDir, 0755))
+	fs.EnsureDir(wsDir)
 	run(t, wsDir, "git", "clone", sourceDir, "src")
 	srcDir := core.JoinPath(wsDir, "src")
 	run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-	os.WriteFile(core.JoinPath(srcDir, "new.go"), []byte("package main\n"), 0644)
+	fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "agent work")
 
 	// Add binary to trigger rejection
-	os.WriteFile(core.JoinPath(srcDir, "app.exe"), []byte("binary"), 0644)
+	fs.Write(core.JoinPath(srcDir, "app.exe"), "binary")
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 

@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,7 +17,7 @@ import (
 
 // --- status tool ---
 
-func TestStatus_Good_EmptyWorkspace(t *testing.T) {
+func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
@@ -36,7 +35,7 @@ func TestStatus_Good_EmptyWorkspace(t *testing.T) {
 	assert.Equal(t, 0, out.Completed)
 }
 
-func TestStatus_Good_MixedWorkspaces(t *testing.T) {
+func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -95,7 +94,7 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	assert.Equal(t, "agent", out.Blocked[0].Repo)
 }
 
-func TestStatus_Good_DeepLayout(t *testing.T) {
+func TestStatus_DeepLayout_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -121,7 +120,7 @@ func TestStatus_Good_DeepLayout(t *testing.T) {
 	assert.Equal(t, 1, out.Completed)
 }
 
-func TestStatus_Good_CorruptStatusFile(t *testing.T) {
+func TestStatus_CorruptStatus_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -240,12 +239,12 @@ func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/v1/brain/recall")
 
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"memories": []map[string]any{
 				{"type": "architecture", "content": "Core uses DI pattern", "project": "go-core"},
 				{"type": "convention", "content": "Use E() for errors", "project": "go-core"},
 			},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -265,9 +264,9 @@ func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 
 func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"memories": []map[string]any{},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -372,7 +371,7 @@ func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return mock PRs
-		json.NewEncoder(w).Encode([]map[string]any{
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":    1,
 				"title":     "Fix tests",
@@ -384,7 +383,7 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 				"base":      map[string]any{"ref": "dev"},
 				"labels":    []map[string]any{{"name": "agentic"}},
 			},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -462,7 +461,7 @@ func TestRunner_Poke_Bad_NilChannel(t *testing.T) {
 
 // --- ReadStatus / writeStatus (extended) ---
 
-func TestWriteReadStatus_Good_WithPID(t *testing.T) {
+func TestStatus_WriteRead_Good_WithPID(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{
 		Status: "running",
@@ -485,7 +484,7 @@ func TestWriteReadStatus_Good_WithPID(t *testing.T) {
 	assert.False(t, got.UpdatedAt.IsZero())
 }
 
-func TestWriteReadStatus_Good_AllFields(t *testing.T) {
+func TestStatus_WriteRead_Good_AllFields(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now()
 	st := &WorkspaceStatus{

@@ -78,7 +78,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// Check if github remote exists
 		if !s.hasRemote(repoDir, "github") {
-			skipped = append(skipped, repo+": no github remote")
+			skipped = append(skipped, core.Concat(repo, ": no github remote"))
 			continue
 		}
 
@@ -119,7 +119,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// Push local main to github dev (explicit main, not HEAD)
 		base := s.DefaultBranch(repoDir)
-		if r := s.gitCmd(ctx, repoDir, "push", "github", base+":refs/heads/dev", "--force"); !r.OK {
+		if r := s.gitCmd(ctx, repoDir, "push", "github", core.Concat(base, ":refs/heads/dev"), "--force"); !r.OK {
 			sync.Skipped = core.Sprintf("push failed: %s", r.Value)
 			synced = append(synced, sync)
 			continue
@@ -160,11 +160,8 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 		}
 	}
 
-	body := core.Sprintf("## Forge → GitHub Sync\n\n"+
-		"**Commits:** %d\n**Files changed:** %d\n\n"+
-		"Automated sync from Forge (forge.lthn.ai) to GitHub mirror.\n"+
-		"Review with CodeRabbit before merging.\n\n---\n"+
-		"Co-Authored-By: Virgil <virgil@lethean.io>",
+	body := core.Sprintf(
+		"## Forge → GitHub Sync\n\n**Commits:** %d\n**Files changed:** %d\n\nAutomated sync from Forge (forge.lthn.ai) to GitHub mirror.\nReview with CodeRabbit before merging.\n\n---\nCo-Authored-By: Virgil <virgil@lethean.io>",
 		commits, files)
 
 	title := core.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
@@ -196,13 +193,13 @@ func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {
 
 // commitsAhead returns how many commits HEAD is ahead of the ref.
 func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
-	out := s.gitOutput(context.Background(), repoDir, "rev-list", base+".."+head, "--count")
+	out := s.gitOutput(context.Background(), repoDir, "rev-list", core.Concat(base, "..", head), "--count")
 	return parseInt(out)
 }
 
 // filesChanged returns the number of files changed between two refs.
 func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
-	out := s.gitOutput(context.Background(), repoDir, "diff", "--name-only", base+".."+head)
+	out := s.gitOutput(context.Background(), repoDir, "diff", "--name-only", core.Concat(base, "..", head))
 	if out == "" {
 		return 0
 	}

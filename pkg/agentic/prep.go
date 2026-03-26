@@ -36,8 +36,9 @@ type PrepSubsystem struct {
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
-	backoff    map[string]time.Time // pool → paused until
-	failCount  map[string]int       // pool → consecutive fast failures
+	backoff    map[string]time.Time            // pool → paused until
+	failCount  map[string]int                  // pool → consecutive fast failures
+	workspaces *core.Registry[*WorkspaceStatus] // in-memory workspace state
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -72,6 +73,7 @@ func NewPrep() *PrepSubsystem {
 		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
+		workspaces: core.NewRegistry[*WorkspaceStatus](),
 	}
 }
 
@@ -91,6 +93,38 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
+	// Entitlement — gates agentic Actions when queue is frozen.
+	// Per-agent concurrency is checked inside handlers (needs Options for agent name).
+	// Entitlement gates the global capability: "can this Core dispatch at all?"
+	//
+	//   e := c.Entitled("agentic.dispatch")
+	//   e.Allowed  // false when frozen
+	//   e.Reason   // "agent queue is frozen"
+	c.SetEntitlementChecker(func(action string, qty int, _ context.Context) core.Entitlement {
+		// Only gate agentic.* actions
+		if !core.HasPrefix(action, "agentic.") {
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
+		// Read-only actions always allowed
+		switch action {
+		case "agentic.status", "agentic.scan", "agentic.watch",
+			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",
+			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona":
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
+		// Write actions gated by frozen state
+		if s.frozen {
+			return core.Entitlement{Allowed: false, Reason: "agent queue is frozen — shutting down"}
+		}
+		return core.Entitlement{Allowed: true}
+	})
+
+	// Data — mount embedded content so other services can access it via c.Data()
+	//
+	//   c.Data().ReadString("prompts/coding.md")
+	//   c.Data().ListNames("flows")
+	lib.MountData(c)
+
 	// Transport — register HTTP protocol + Drive endpoints
 	RegisterHTTPTransport(c)
 	c.Drive().New(core.NewOptions(
@@ -105,34 +139,48 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	))
 
 	// Dispatch & workspace
-	c.Action("agentic.dispatch", s.handleDispatch)
-	c.Action("agentic.prep", s.handlePrep)
-	c.Action("agentic.status", s.handleStatus)
-	c.Action("agentic.resume", s.handleResume)
-	c.Action("agentic.scan", s.handleScan)
-	c.Action("agentic.watch", s.handleWatch)
+	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
+	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
+	c.Action("agentic.status", s.handleStatus).Description = "List workspace states (running/completed/blocked)"
+	c.Action("agentic.resume", s.handleResume).Description = "Resume a blocked or completed workspace"
+	c.Action("agentic.scan", s.handleScan).Description = "Scan Forge repos for actionable issues"
+	c.Action("agentic.watch", s.handleWatch).Description = "Watch workspace for changes and report"
 
 	// Pipeline
-	c.Action("agentic.qa", s.handleQA)
-	c.Action("agentic.auto-pr", s.handleAutoPR)
-	c.Action("agentic.verify", s.handleVerify)
-	c.Action("agentic.ingest", s.handleIngest)
-	c.Action("agentic.poke", s.handlePoke)
-	c.Action("agentic.mirror", s.handleMirror)
+	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
+	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
+	c.Action("agentic.verify", s.handleVerify).Description = "Verify PR and auto-merge if clean"
+	c.Action("agentic.ingest", s.handleIngest).Description = "Create issues from agent findings"
+	c.Action("agentic.poke", s.handlePoke).Description = "Drain next queued task from the queue"
+	c.Action("agentic.mirror", s.handleMirror).Description = "Mirror agent branches to GitHub"
 
 	// Forge
-	c.Action("agentic.issue.get", s.handleIssueGet)
-	c.Action("agentic.issue.list", s.handleIssueList)
-	c.Action("agentic.issue.create", s.handleIssueCreate)
-	c.Action("agentic.pr.get", s.handlePRGet)
-	c.Action("agentic.pr.list", s.handlePRList)
-	c.Action("agentic.pr.merge", s.handlePRMerge)
+	c.Action("agentic.issue.get", s.handleIssueGet).Description = "Get a Forge issue by number"
+	c.Action("agentic.issue.list", s.handleIssueList).Description = "List Forge issues for a repo"
+	c.Action("agentic.issue.create", s.handleIssueCreate).Description = "Create a Forge issue"
+	c.Action("agentic.pr.get", s.handlePRGet).Description = "Get a Forge PR by number"
+	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
+	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
 
 	// Review
-	c.Action("agentic.review-queue", s.handleReviewQueue)
+	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
 	// Epic
-	c.Action("agentic.epic", s.handleEpic)
+	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
+
+	// Content — accessible via IPC, no lib import needed
+	c.Action("agentic.prompt", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Prompt(opts.String("slug"))
+	}).Description = "Read a system prompt by slug"
+	c.Action("agentic.task", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Task(opts.String("slug"))
+	}).Description = "Read a task plan by slug"
+	c.Action("agentic.flow", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Flow(opts.String("slug"))
+	}).Description = "Read a build/release flow by slug"
+	c.Action("agentic.persona", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Persona(opts.String("path"))
+	}).Description = "Read a persona by path"
 
 	// Completion pipeline — Task composition
 	c.Task("agent.completion", core.Task{
@@ -144,6 +192,42 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 			{Action: "agentic.ingest", Async: true},
 			{Action: "agentic.poke", Async: true},
 		},
+	})
+
+	// PerformAsync wrapper — runs the completion Task in background with progress tracking.
+	// c.PerformAsync("agentic.complete", opts) broadcasts ActionTaskStarted/Completed.
+	c.Action("agentic.complete", func(ctx context.Context, opts core.Options) core.Result {
+		return c.Task("agent.completion").Run(ctx, c, opts)
+	}).Description = "Run completion pipeline (QA → PR → Verify) in background"
+
+	// Hydrate workspace registry from disk
+	s.hydrateWorkspaces()
+
+	// QUERY handler — "what workspaces exist?"
+	//
+	//   r := c.QUERY(agentic.WorkspaceQuery{})
+	//   if r.OK { workspaces := r.Value.(*core.Registry[*WorkspaceStatus]) }
+	c.RegisterQuery(func(_ *core.Core, q core.Query) core.Result {
+		wq, ok := q.(WorkspaceQuery)
+		if !ok {
+			return core.Result{}
+		}
+		// Specific workspace lookup
+		if wq.Name != "" {
+			return s.workspaces.Get(wq.Name)
+		}
+		// Status filter — return matching names
+		if wq.Status != "" {
+			var names []string
+			s.workspaces.Each(func(name string, st *WorkspaceStatus) {
+				if st.Status == wq.Status {
+					names = append(names, name)
+				}
+			})
+			return core.Result{Value: names, OK: true}
+		}
+		// No filter — return full registry
+		return core.Result{Value: s.workspaces, OK: true}
 	})
 
 	s.StartRunner()
@@ -159,6 +243,53 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	return core.Result{OK: true}
+}
+
+// hydrateWorkspaces scans disk and populates the workspace Registry on startup.
+// Keyed by workspace name (relative path from workspace root).
+//
+//	s.hydrateWorkspaces()
+//	s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", ...]
+func (s *PrepSubsystem) hydrateWorkspaces() {
+	if s.workspaces == nil {
+		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
+	}
+	wsRoot := WorkspaceRoot()
+	// Scan shallow (ws-name/) and deep (org/repo/task/) layouts
+	for _, pattern := range []string{
+		core.JoinPath(wsRoot, "*", "status.json"),
+		core.JoinPath(wsRoot, "*", "*", "*", "status.json"),
+	} {
+		for _, path := range core.PathGlob(pattern) {
+			wsDir := core.PathDir(path)
+			st, err := ReadStatus(wsDir)
+			if err != nil || st == nil {
+				continue
+			}
+			// Key is the relative path from workspace root
+			name := core.TrimPrefix(wsDir, wsRoot)
+			name = core.TrimPrefix(name, "/")
+			s.workspaces.Set(name, st)
+		}
+	}
+}
+
+// TrackWorkspace registers or updates a workspace in the in-memory Registry.
+//
+//	s.TrackWorkspace("core/go-io/task-5", st)
+func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
+	if s.workspaces != nil {
+		s.workspaces.Set(name, st)
+	}
+}
+
+// Workspaces returns the workspace Registry for cross-cutting queries.
+//
+//	s.Workspaces().Names()                        // all workspace names
+//	s.Workspaces().List("core/*")                 // org-scoped workspaces
+//	s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
+func (s *PrepSubsystem) Workspaces() *core.Registry[*WorkspaceStatus] {
+	return s.workspaces
 }
 
 func envOr(key, fallback string) string {
@@ -282,7 +413,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// Source repo path — sanitise to prevent path traversal
 	repoName := core.PathBase(input.Repo)
 	if repoName == "." || repoName == ".." || repoName == "" {
-		return nil, PrepOutput{}, core.E("prep", "invalid repo name: "+input.Repo, nil)
+		return nil, PrepOutput{}, core.E("prep", core.Concat("invalid repo name: ", input.Repo), nil)
 	}
 	repoPath := core.JoinPath(s.codePath, input.Org, repoName)
 
@@ -306,7 +437,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if !resumed {
 		// Clone repo into repo/
 		if r := s.gitCmd(ctx, ".", "clone", repoPath, repoDir); !r.OK {
-			return nil, PrepOutput{}, core.E("prep", "git clone failed for "+input.Repo, nil)
+			return nil, PrepOutput{}, core.E("prep", core.Concat("git clone failed for ", input.Repo), nil)
 		}
 
 		// Create feature branch
@@ -513,7 +644,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 			continue
 		}
 		modData := mr.Value.(string)
-		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, "module "+modulePath) {
+		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, core.Concat("module ", modulePath)) {
 			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
@@ -567,8 +698,8 @@ func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]str
 
 	content := r.Value.(string)
 	for key, value := range variables {
-		content = core.Replace(content, "{{"+key+"}}", value)
-		content = core.Replace(content, "{{ "+key+" }}", value)
+		content = core.Replace(content, core.Concat("{{", key, "}}"), value)
+		content = core.Replace(content, core.Concat("{{ ", key, " }}"), value)
 	}
 
 	var tmpl struct {

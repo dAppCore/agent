@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	"os/exec"
+	"context"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -15,18 +15,16 @@ import (
 func initBareRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	gitEnv := []string{
+		"GIT_AUTHOR_NAME=Test",
+		"GIT_AUTHOR_EMAIL=test@test.com",
+		"GIT_COMMITTER_NAME=Test",
+		"GIT_COMMITTER_EMAIL=test@test.com",
+	}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.name", "Test")
@@ -44,18 +42,14 @@ func initBareRepo(t *testing.T) string {
 func TestMirror_HasRemote_Good_OriginExists(t *testing.T) {
 	dir := initBareRepo(t)
 	// origin won't exist for a fresh repo, so add it
-	cmd := exec.Command("git", "remote", "add", "origin", "https://example.com/repo.git")
-	cmd.Dir = dir
-	require.NoError(t, cmd.Run())
+	testCore.Process().RunIn(context.Background(), dir, "git", "remote", "add", "origin", "https://example.com/repo.git")
 
 	assert.True(t, testPrep.hasRemote(dir, "origin"))
 }
 
 func TestMirror_HasRemote_Good_CustomRemote(t *testing.T) {
 	dir := initBareRepo(t)
-	cmd := exec.Command("git", "remote", "add", "github", "https://github.com/test/repo.git")
-	cmd.Dir = dir
-	require.NoError(t, cmd.Run())
+	testCore.Process().RunIn(context.Background(), dir, "git", "remote", "add", "github", "https://github.com/test/repo.git")
 
 	assert.True(t, testPrep.hasRemote(dir, "github"))
 }
@@ -84,18 +78,11 @@ func TestMirror_CommitsAhead_Good_OneAhead(t *testing.T) {
 	dir := initBareRepo(t)
 
 	// Create a branch at the current commit to act as "base"
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 
 	run("git", "branch", "base")
@@ -111,18 +98,11 @@ func TestMirror_CommitsAhead_Good_OneAhead(t *testing.T) {
 
 func TestMirror_CommitsAhead_Good_ThreeAhead(t *testing.T) {
 	dir := initBareRepo(t)
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 
 	run("git", "branch", "base")
@@ -165,18 +145,11 @@ func TestMirror_CommitsAhead_Ugly_EmptyDir(t *testing.T) {
 
 func TestMirror_FilesChanged_Good_OneFile(t *testing.T) {
 	dir := initBareRepo(t)
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 
 	run("git", "branch", "base")
@@ -191,18 +164,11 @@ func TestMirror_FilesChanged_Good_OneFile(t *testing.T) {
 
 func TestMirror_FilesChanged_Good_MultipleFiles(t *testing.T) {
 	dir := initBareRepo(t)
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 
 	run("git", "branch", "base")
@@ -317,8 +283,7 @@ func TestMirror_ListLocalRepos_Good_FindsRepos(t *testing.T) {
 	// Create two git repos under base
 	for _, name := range []string{"repo-a", "repo-b"} {
 		repoDir := core.JoinPath(base, name)
-		cmd := exec.Command("git", "init", repoDir)
-		require.NoError(t, cmd.Run())
+		testCore.Process().Run(context.Background(), "git", "init", repoDir)
 	}
 
 	// Create a non-repo directory
@@ -364,8 +329,7 @@ func TestMirror_ListLocalRepos_Ugly(t *testing.T) {
 	// Create two git repos
 	for _, name := range []string{"real-repo-a", "real-repo-b"} {
 		repoDir := core.JoinPath(base, name)
-		cmd := exec.Command("git", "init", repoDir)
-		require.NoError(t, cmd.Run())
+		testCore.Process().Run(context.Background(), "git", "init", repoDir)
 	}
 
 	// Create non-git directories (no .git inside)

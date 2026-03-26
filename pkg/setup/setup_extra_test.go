@@ -10,101 +10,73 @@ import (
 
 // --- defaultBuildCommand ---
 
-func TestDefaultBuildCommand_Good_Go(t *testing.T) {
+func TestSetup_DefaultBuildCommand_Good(t *testing.T) {
 	assert.Equal(t, "go build ./...", defaultBuildCommand(TypeGo))
-}
-
-func TestDefaultBuildCommand_Good_Wails(t *testing.T) {
 	assert.Equal(t, "go build ./...", defaultBuildCommand(TypeWails))
-}
-
-func TestDefaultBuildCommand_Good_PHP(t *testing.T) {
 	assert.Equal(t, "composer test", defaultBuildCommand(TypePHP))
-}
-
-func TestDefaultBuildCommand_Good_Node(t *testing.T) {
 	assert.Equal(t, "npm run build", defaultBuildCommand(TypeNode))
-}
-
-func TestDefaultBuildCommand_Good_Unknown(t *testing.T) {
 	assert.Equal(t, "make build", defaultBuildCommand(TypeUnknown))
 }
 
 // --- defaultTestCommand ---
 
-func TestDefaultTestCommand_Good_Go(t *testing.T) {
+func TestSetup_DefaultTestCommand_Good(t *testing.T) {
 	assert.Equal(t, "go test ./...", defaultTestCommand(TypeGo))
-}
-
-func TestDefaultTestCommand_Good_Wails(t *testing.T) {
 	assert.Equal(t, "go test ./...", defaultTestCommand(TypeWails))
-}
-
-func TestDefaultTestCommand_Good_PHP(t *testing.T) {
 	assert.Equal(t, "composer test", defaultTestCommand(TypePHP))
-}
-
-func TestDefaultTestCommand_Good_Node(t *testing.T) {
 	assert.Equal(t, "npm test", defaultTestCommand(TypeNode))
-}
-
-func TestDefaultTestCommand_Good_Unknown(t *testing.T) {
 	assert.Equal(t, "make test", defaultTestCommand(TypeUnknown))
 }
 
 // --- formatFlow ---
 
-func TestFormatFlow_Good_Go(t *testing.T) {
-	result := formatFlow(TypeGo)
-	assert.Contains(t, result, "go build ./...")
-	assert.Contains(t, result, "go test ./...")
-}
+func TestSetup_FormatFlow_Good(t *testing.T) {
+	goFlow := formatFlow(TypeGo)
+	assert.Contains(t, goFlow, "go build ./...")
+	assert.Contains(t, goFlow, "go test ./...")
 
-func TestFormatFlow_Good_PHP(t *testing.T) {
-	result := formatFlow(TypePHP)
-	assert.Contains(t, result, "composer test")
-}
+	phpFlow := formatFlow(TypePHP)
+	assert.Contains(t, phpFlow, "composer test")
 
-func TestFormatFlow_Good_Node(t *testing.T) {
-	result := formatFlow(TypeNode)
-	assert.Contains(t, result, "npm run build")
-	assert.Contains(t, result, "npm test")
+	nodeFlow := formatFlow(TypeNode)
+	assert.Contains(t, nodeFlow, "npm run build")
+	assert.Contains(t, nodeFlow, "npm test")
 }
 
 // --- Detect ---
 
-func TestDetect_Good_GoProject(t *testing.T) {
+func TestSetup_DetectGo_Good(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(dir+"/go.mod", "module test\n")
 	assert.Equal(t, TypeGo, Detect(dir))
 }
 
-func TestDetect_Good_PHPProject(t *testing.T) {
+func TestSetup_DetectPHP_Good(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(dir+"/composer.json", `{"name":"test"}`)
 	assert.Equal(t, TypePHP, Detect(dir))
 }
 
-func TestDetect_Good_NodeProject(t *testing.T) {
+func TestSetup_DetectNode_Good(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(dir+"/package.json", `{"name":"test"}`)
 	assert.Equal(t, TypeNode, Detect(dir))
 }
 
-func TestDetect_Good_WailsProject(t *testing.T) {
+func TestSetup_DetectWails_Good(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(dir+"/wails.json", `{}`)
 	assert.Equal(t, TypeWails, Detect(dir))
 }
 
-func TestDetect_Good_Unknown(t *testing.T) {
+func TestSetup_Detect_Bad(t *testing.T) {
 	dir := t.TempDir()
 	assert.Equal(t, TypeUnknown, Detect(dir))
 }
 
 // --- DetectAll ---
 
-func TestDetectAll_Good_Polyglot(t *testing.T) {
+func TestSetup_DetectAll_Good(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(dir+"/go.mod", "module test\n")
 	fs.Write(dir+"/package.json", `{"name":"test"}`)
@@ -115,7 +87,7 @@ func TestDetectAll_Good_Polyglot(t *testing.T) {
 	assert.NotContains(t, types, TypePHP)
 }
 
-func TestDetectAll_Good_Empty(t *testing.T) {
+func TestSetup_DetectAll_Bad(t *testing.T) {
 	dir := t.TempDir()
 	types := DetectAll(dir)
 	assert.Empty(t, types)

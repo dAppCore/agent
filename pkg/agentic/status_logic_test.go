@@ -119,7 +119,7 @@ func TestStatus_WriteStatus_Good_Overwrites(t *testing.T) {
 
 // --- WorkspaceStatus JSON round-trip ---
 
-func TestWorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
+func TestStatus_WorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	original := WorkspaceStatus{
 		Status:    "blocked",
@@ -155,7 +155,7 @@ func TestWorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
 	assert.Equal(t, original.PRURL, decoded.PRURL)
 }
 
-func TestWorkspaceStatus_Good_OmitemptyFields(t *testing.T) {
+func TestStatus_WorkspaceStatus_Good_OmitemptyFields(t *testing.T) {
 	st := WorkspaceStatus{Status: "queued", Agent: "claude"}
 
 	// Optional fields with omitempty must be absent when zero

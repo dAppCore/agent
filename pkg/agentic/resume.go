@@ -48,7 +48,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Verify workspace exists
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
-		return nil, ResumeOutput{}, core.E("resume", "workspace not found: "+input.Workspace, nil)
+		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
 	// Read current status
@@ -58,7 +58,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	if st.Status != "blocked" && st.Status != "failed" && st.Status != "completed" {
-		return nil, ResumeOutput{}, core.E("resume", "workspace is "+st.Status+", not resumable (must be blocked, failed, or completed)", nil)
+		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace is ", st.Status, ", not resumable (must be blocked, failed, or completed)"), nil)
 	}
 
 	// Determine agent

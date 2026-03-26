@@ -4,11 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -49,7 +46,7 @@ use (
 	./core/agent
 	./core/mcp
 )`
-	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
+	fs.Write(core.JoinPath(dir, "go.work"), goWork)
 
 	// Create module dirs with go.mod
 	for _, mod := range []struct {
@@ -61,8 +58,8 @@ use (
 		{"core/mcp", "module forge.lthn.ai/core/mcp\n\nrequire forge.lthn.ai/core/go v0.7.0\n"},
 	} {
 		modDir := core.JoinPath(dir, mod.path)
-		os.MkdirAll(modDir, 0o755)
-		os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte(mod.content), 0o644)
+		fs.EnsureDir(modDir)
+		fs.Write(core.JoinPath(modDir, "go.mod"), mod.content)
 	}
 
 	s := &PrepSubsystem{
@@ -87,11 +84,11 @@ func TestPrep_FindConsumersList_Good_NoConsumers(t *testing.T) {
 use (
 	./core/go
 )`
-	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
+	fs.Write(core.JoinPath(dir, "go.work"), goWork)
 
 	modDir := core.JoinPath(dir, "core", "go")
-	os.MkdirAll(modDir, 0o755)
-	os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
+	fs.EnsureDir(modDir)
+	fs.Write(core.JoinPath(modDir, "go.mod"), "module forge.lthn.ai/core/go\n")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -124,21 +121,21 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
-			json.NewEncoder(w).Encode([]map[string]any{
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"title": "Home", "sub_url": "Home"},
 				{"title": "Architecture", "sub_url": "Architecture"},
-			})
+			})))
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/Home":
 			// "Hello World" base64
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "Home",
 				"content_base64": "SGVsbG8gV29ybGQ=",
-			})
+			})))
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/Architecture":
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "Architecture",
 				"content_base64": "TGF5ZXJlZA==",
-			})
+			})))
 		default:
 			w.WriteHeader(404)
 		}
@@ -161,7 +158,7 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 
 func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -180,11 +177,11 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 
 func TestPrep_GetIssueBody_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 15,
 			"title":  "Fix tests",
 			"body":   "The tests are broken in pkg/core",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -221,7 +218,7 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language
-	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -249,11 +246,11 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 	dir := t.TempDir()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 42,
 			"title":  "Bug report",
 			"body":   "Steps to reproduce the bug",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -281,7 +278,7 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 func TestPrep_BuildPrompt_Good(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language as "go"
-	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -329,14 +326,14 @@ func TestPrep_BuildPrompt_Bad(t *testing.T) {
 
 func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 99,
 			"title":  "Critical bug",
 			"body":   "Server crashes on startup",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -367,14 +364,14 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 
 func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
 	// Init a real git repo with commits so git log path is covered
-	exec.Command("git", "init", "-b", "main", dir).Run()
-	exec.Command("git", "-C", dir, "config", "user.email", "t@t.com").Run()
-	exec.Command("git", "-C", dir, "config", "user.name", "T").Run()
-	exec.Command("git", "-C", dir, "add", ".").Run()
-	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", dir)
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.email", "t@t.com")
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.name", "T")
+	testCore.Process().RunIn(context.Background(), dir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), dir, "git", "commit", "-m", "init")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -396,9 +393,9 @@ func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 	dir := t.TempDir()
 	repoDir := core.JoinPath(dir, "repo")
-	os.MkdirAll(repoDir, 0o755)
+	fs.EnsureDir(repoDir)
 	// composer.json present but no composer binary
-	os.WriteFile(core.JoinPath(repoDir, "composer.json"), []byte(`{"name":"test"}`), 0o644)
+	fs.Write(core.JoinPath(repoDir, "composer.json"), `{"name":"test"}`)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -435,14 +432,14 @@ func TestPrep_PullWikiContent_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
-			json.NewEncoder(w).Encode([]map[string]any{
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"title": "EmptyPage", "sub_url": "EmptyPage"},
-			})
+			})))
 		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/EmptyPage":
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "EmptyPage",
 				"content_base64": "",
-			})
+			})))
 		default:
 			w.WriteHeader(404)
 		}
@@ -488,10 +485,10 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		// Return JSON that doesn't have "memories" key
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"unexpected_key": "unexpected_value",
 			"data":           []string{"not", "the", "right", "shape"},
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -545,15 +542,15 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	goWork := "go 1.22\n\nuse (\n\t./core/go\n\t./core/missing\n)"
-	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
+	fs.Write(core.JoinPath(dir, "go.work"), goWork)
 
 	// Create only the first module dir with go.mod
 	modDir := core.JoinPath(dir, "core", "go")
-	os.MkdirAll(modDir, 0o755)
-	os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
+	fs.EnsureDir(modDir)
+	fs.Write(core.JoinPath(modDir, "go.mod"), "module forge.lthn.ai/core/go\n")
 
 	// core/missing has no go.mod
-	os.MkdirAll(core.JoinPath(dir, "core", "missing"), 0o755)
+	fs.EnsureDir(core.JoinPath(dir, "core", "missing"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -573,11 +570,11 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 func TestPrep_GetIssueBody_Ugly(t *testing.T) {
 	// Issue body with HTML/special chars
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 99,
 			"title":  "Issue with <script>alert('xss')</script>",
 			"body":   "Body has &amp; HTML &lt;tags&gt; and \"quotes\" and 'apostrophes' <b>bold</b>",
-		})
+		})))
 	}))
 	t.Cleanup(srv.Close)
 

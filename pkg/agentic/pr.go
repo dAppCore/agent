@@ -56,7 +56,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
-		return nil, CreatePROutput{}, core.E("createPR", "workspace not found: "+input.Workspace, nil)
+		return nil, CreatePROutput{}, core.E("createPR", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
 	// Read workspace status for repo, branch, issue context
@@ -110,7 +110,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
 	r := s.gitCmd(ctx, repoDir, "push", forgeRemote, st.Branch)
 	if !r.OK {
-		return nil, CreatePROutput{}, core.E("createPR", "git push failed: "+r.Value.(string), nil)
+		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", r.Value.(string)), nil)
 	}
 
 	// Create PR via Forge API
@@ -271,7 +271,7 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
 	prs, err := s.forge.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
 	if err != nil {
-		return nil, core.E("listRepoPRs", "failed to list PRs for "+repo, err)
+		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), err)
 	}
 
 	var result []PRInfo

@@ -4,7 +4,6 @@ package brain
 
 import (
 	"context"
-	"net/url"
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
@@ -127,7 +126,8 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 	if agent == "" {
 		agent = agentic.AgentName()
 	}
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/inbox?agent="+url.QueryEscape(agent), nil)
+	// Agent names are validated identifiers — no URL escaping needed.
+	result, err := s.apiCall(ctx, "GET", core.Concat("/v1/messages/inbox?agent=", agent), nil)
 	if err != nil {
 		return nil, InboxOutput{}, err
 	}
@@ -143,7 +143,7 @@ func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolReque
 		return nil, ConversationOutput{}, core.E("brain.conversation", "agent is required", nil)
 	}
 
-	result, err := s.apiCall(ctx, "GET", "/v1/messages/conversation/"+url.PathEscape(input.Agent)+"?me="+url.QueryEscape(agentic.AgentName()), nil)
+	result, err := s.apiCall(ctx, "GET", core.Concat("/v1/messages/conversation/", input.Agent, "?me=", agentic.AgentName()), nil)
 	if err != nil {
 		return nil, ConversationOutput{}, err
 	}

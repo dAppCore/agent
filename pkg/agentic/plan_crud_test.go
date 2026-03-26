@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -47,8 +46,7 @@ func TestPlan_PlanCreate_Good(t *testing.T) {
 	assert.Contains(t, out.ID, "migrate-core")
 	assert.NotEmpty(t, out.Path)
 
-	_, statErr := os.Stat(out.Path)
-	assert.NoError(t, statErr)
+	assert.True(t, fs.Exists(out.Path))
 }
 
 func TestPlan_PlanCreate_Bad_MissingTitle(t *testing.T) {
@@ -249,8 +247,7 @@ func TestPlan_PlanDelete_Good(t *testing.T) {
 	assert.True(t, delOut.Success)
 	assert.Equal(t, createOut.ID, delOut.Deleted)
 
-	_, statErr := os.Stat(createOut.Path)
-	assert.True(t, os.IsNotExist(statErr))
+	assert.False(t, fs.Exists(createOut.Path))
 }
 
 func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
@@ -335,7 +332,7 @@ func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 
 	// Write a non-JSON file in the plans dir
 	plansDir := PlansRoot()
-	os.WriteFile(plansDir+"/notes.txt", []byte("not a plan"), 0o644)
+	fs.Write(plansDir+"/notes.txt", "not a plan")
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
 	require.NoError(t, err)
@@ -387,8 +384,7 @@ func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.ID)
 	// Should be readable from disk
-	_, statErr := os.Stat(out.Path)
-	assert.NoError(t, statErr)
+	assert.True(t, fs.Exists(out.Path))
 }
 
 // --- planRead Ugly ---
@@ -549,7 +545,7 @@ func TestPlan_PlanList_Ugly(t *testing.T) {
 
 	// Write corrupt JSON file in plans dir
 	plansDir := PlansRoot()
-	os.WriteFile(plansDir+"/corrupt-plan.json", []byte("not valid json {{{"), 0o644)
+	fs.Write(plansDir+"/corrupt-plan.json", "not valid json {{{")
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
 	require.NoError(t, err)

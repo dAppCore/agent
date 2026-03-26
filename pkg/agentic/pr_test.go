@@ -4,11 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -30,19 +27,20 @@ func mockPRForgeServer(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/v1/repos/core/test-repo/pulls", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			var body forge_types.CreatePullRequestOption
-			json.NewDecoder(r.Body).Decode(&body)
+			bodyStr := core.ReadAll(r.Body)
+			core.JSONUnmarshalString(bodyStr.Value.(string), &body)
 			w.WriteHeader(201)
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"number":   12,
 				"html_url": "https://forge.test/core/test-repo/pulls/12",
 				"title":    body.Title,
 				"head":     map[string]any{"ref": body.Head},
 				"base":     map[string]any{"ref": body.Base},
-			})
+			})))
 			return
 		}
 		// GET — list PRs
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	})
 
 	// Issue comments
@@ -86,7 +84,7 @@ func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		json.NewEncoder(w).Encode(map[string]any{"message": "internal error"})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"message": "internal error"})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -163,13 +161,9 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	// Create workspace with repo/.git
 	wsDir := core.JoinPath(root, "workspace", "test-ws")
 	repoDir := core.JoinPath(wsDir, "repo")
-	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
-	gitCmd := exec.Command("git", "config", "user.name", "Test")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
-	gitCmd = exec.Command("git", "config", "user.email", "test@test.com")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", repoDir)
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -202,13 +196,9 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-2")
 	repoDir := core.JoinPath(wsDir, "repo")
-	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
-	gitCmd := exec.Command("git", "config", "user.name", "Test")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
-	gitCmd = exec.Command("git", "config", "user.email", "test@test.com")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", repoDir)
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -376,22 +366,14 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-ugly")
 	repoDir := core.JoinPath(wsDir, "repo")
-	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
-	gitCmd := exec.Command("git", "config", "user.name", "Test")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
-	gitCmd = exec.Command("git", "config", "user.email", "test@test.com")
-	gitCmd.Dir = repoDir
-	gitCmd.Run()
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "main", repoDir)
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
 	// Need an initial commit so HEAD exists for branch detection
-	require.NoError(t, os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# Test"), 0o644))
-	addCmd := exec.Command("git", "add", ".")
-	addCmd.Dir = repoDir
-	require.NoError(t, addCmd.Run())
-	commitCmd := exec.Command("git", "commit", "-m", "init")
-	commitCmd.Dir = repoDir
-	require.NoError(t, commitCmd.Run())
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# Test")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init")
 
 	// Write status with empty branch
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
@@ -424,10 +406,10 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			w.WriteHeader(201)
-			json.NewEncoder(w).Encode(map[string]any{
+			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"unexpected": "fields",
 				"number":     0,
-			})
+			})))
 			return
 		}
 		w.WriteHeader(200)
@@ -460,12 +442,12 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 	// State filter "all"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if containsStr(r.URL.Path, "/repos") && !containsStr(r.URL.Path, "/pulls") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"name": "go-io", "full_name": "core/go-io"},
-			})
+			})))
 			return
 		}
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -528,7 +510,7 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 	// Repo with no PRs
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]any{})
+		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
 

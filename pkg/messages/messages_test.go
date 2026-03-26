@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestMessageTypes_Good_AllSatisfyMessage verifies every message type can be
-// used as a core.Message (which is `any`). This is a compile-time + runtime check.
-func TestMessageTypes_Good_AllSatisfyMessage(t *testing.T) {
+// TestMessages_AllSatisfyMessage_Good verifies every message type can be
+// used as a core.Message (which is `any`). Compile-time + runtime check.
+func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
 	msgs := []core.Message{
 		AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"},
 		AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed"},
@@ -33,8 +33,8 @@ func TestMessageTypes_Good_AllSatisfyMessage(t *testing.T) {
 	}
 }
 
-// TestAgentCompleted_Good_TypeSwitch verifies the IPC dispatch pattern works.
-func TestAgentCompleted_Good_TypeSwitch(t *testing.T) {
+// TestMessages_TypeSwitch_Good verifies the IPC dispatch pattern works.
+func TestMessages_TypeSwitch_Good(t *testing.T) {
 	var msg core.Message = AgentCompleted{
 		Agent:     "codex",
 		Repo:      "go-io",
@@ -53,8 +53,8 @@ func TestAgentCompleted_Good_TypeSwitch(t *testing.T) {
 	assert.True(t, handled)
 }
 
-// TestPokeQueue_Good_EmptyMessage verifies zero-field messages work as signals.
-func TestPokeQueue_Good_EmptyMessage(t *testing.T) {
+// TestMessages_EmptySignal_Good verifies zero-field messages work as signals.
+func TestMessages_EmptySignal_Good(t *testing.T) {
 	var msg core.Message = PokeQueue{}
 	_, ok := msg.(PokeQueue)
 	assert.True(t, ok)

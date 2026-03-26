@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -25,10 +23,11 @@ func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/issues/7/comments")
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		bodyStr := core.ReadAll(r.Body)
+		core.JSONUnmarshalString(bodyStr.Value.(string), &body)
 		assert.Equal(t, "Test comment", body["body"])
 
-		json.NewEncoder(w).Encode(map[string]any{"id": 99})
+		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 99})))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -57,7 +56,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 			w.WriteHeader(200)
 		case r.Method == "POST" && r.URL.Path == "/api/v1/repos/core/test-repo/issues/5/comments":
 			commented = true
-			json.NewEncoder(w).Encode(map[string]any{"id": 1})
+			w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 1})))
 		default:
 			w.WriteHeader(200)
 		}
@@ -67,7 +66,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	dir := t.TempDir()
 	wsDir := core.JoinPath(dir, "ws")
 	repoDir := core.JoinPath(wsDir, "repo")
-	os.MkdirAll(repoDir, 0o755)
+	fs.EnsureDir(repoDir)
 
 	// No go.mod, composer.json, or package.json = no test runner = passes
 	st := &WorkspaceStatus{
@@ -77,8 +76,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 		Branch: "agent/fix",
 		PRURL:  "https://forge.lthn.ai/core/test-repo/pulls/5",
 	}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -106,7 +104,7 @@ func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) 
 		if r.URL.Path == "/api/v1/repos/core/test/pulls/1/merge" {
 			w.WriteHeader(200)
 		} else {
-			json.NewEncoder(w).Encode(map[string]any{"id": 1})
+			w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 1})))
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -130,9 +128,9 @@ func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/core/test/pulls/1/merge" {
 			w.WriteHeader(409)
-			json.NewEncoder(w).Encode(map[string]any{"message": "conflict"})
+			w.Write([]byte(core.JSONMarshalString(map[string]any{"message": "conflict"})))
 		} else {
-			json.NewEncoder(w).Encode(map[string]any{"id": 1})
+			w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 1})))
 		}
 	}))
 	t.Cleanup(srv.Close)

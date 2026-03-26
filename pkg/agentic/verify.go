@@ -110,7 +110,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 		return false
 	}
 
-	if !s.gitCmdOK(ctx, repoDir, "rebase", "origin/"+base) {
+	if !s.gitCmdOK(ctx, repoDir, "rebase", core.Concat("origin/", base)) {
 		s.gitCmdOK(ctx, repoDir, "rebase", "--abort")
 		return false
 	}

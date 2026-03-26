@@ -3,20 +3,19 @@
 package agentic
 
 import (
-	"os/exec"
+	"context"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestAutoPR_AutoCreatePR_Good(t *testing.T) {
+func TestAutopr_AutoCreatePR_Good(t *testing.T) {
 	t.Skip("needs real git + forge integration")
 }
 
-func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
+func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -54,7 +53,7 @@ func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
 	})
 }
 
-func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
+func TestAutopr_AutoCreatePR_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -64,18 +63,13 @@ func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
 	fs.EnsureDir(repoDir)
 
 	// Init the repo
-	cmd := exec.Command("git", "init", "-b", "dev", repoDir)
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", repoDir, "config", "user.name", "Test")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", repoDir, "config", "user.email", "test@test.com")
-	require.NoError(t, cmd.Run())
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "dev", repoDir)
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
 	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
-	cmd = exec.Command("git", "-C", repoDir, "add", ".")
-	require.NoError(t, cmd.Run())
-	cmd = exec.Command("git", "-C", repoDir, "commit", "-m", "init")
-	require.NoError(t, cmd.Run())
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init")
 
 	// Write status with valid branch + repo
 	st := &WorkspaceStatus{

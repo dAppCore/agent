@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 	"os"
-	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,6 +27,12 @@ func TestMain(m *testing.M) {
 		core.WithService(process.Register),
 	)
 	testCore.ServiceStartup(context.Background(), nil)
+
+	// Enable pipeline feature flags (matches Register defaults)
+	testCore.Config().Enable("auto-qa")
+	testCore.Config().Enable("auto-pr")
+	testCore.Config().Enable("auto-merge")
+	testCore.Config().Enable("auto-ingest")
 
 	testPrep = &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -178,7 +184,7 @@ func TestProc_GitOutput_Ugly(t *testing.T) {
 
 func TestProc_ProcessIsRunning_Good(t *testing.T) {
 	// Own PID should be running
-	pid := os.Getpid()
+	pid, _ := strconv.Atoi(core.Env("PID"))
 	assert.True(t, processIsRunning("", pid))
 }
 
@@ -213,18 +219,16 @@ func TestProc_ProcessKill_Ugly(t *testing.T) {
 func initTestRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	gitEnv := []string{
+		"GIT_AUTHOR_NAME=Test",
+		"GIT_AUTHOR_EMAIL=test@test.com",
+		"GIT_COMMITTER_NAME=Test",
+		"GIT_COMMITTER_EMAIL=test@test.com",
+	}
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		cmd.Env = append(cmd.Environ(),
-			"GIT_AUTHOR_NAME=Test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=Test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
 	}
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.name", "Test")

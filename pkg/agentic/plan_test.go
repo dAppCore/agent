@@ -101,7 +101,7 @@ func TestPlan_ReadPlan_Bad_InvalidJSON(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestWriteReadPlan_Good_Roundtrip(t *testing.T) {
+func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 	dir := t.TempDir()
 
 	plan := &Plan{

@@ -83,13 +83,13 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 
 	for _, repo := range candidates {
 		if len(processed) >= limit {
-			skipped = append(skipped, repo+" (limit reached)")
+			skipped = append(skipped, core.Concat(repo, " (limit reached)"))
 			continue
 		}
 
 		// Check rate limit from previous run
 		if rateInfo != nil && rateInfo.Limited && time.Now().Before(rateInfo.RetryAt) {
-			skipped = append(skipped, repo+" (rate limited)")
+			skipped = append(skipped, core.Concat(repo, " (rate limited)"))
 			continue
 		}
 
@@ -109,7 +109,7 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 				Message: result.Detail,
 			}
 			// Don't count rate-limited as processed — save the slot
-			skipped = append(skipped, repo+" (rate limited: "+retryAfter.String()+")")
+			skipped = append(skipped, core.Concat(repo, " (rate limited: ", retryAfter.String(), ")"))
 			continue
 		}
 
@@ -223,9 +223,8 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 		fs.Write(findingsFile, output)
 
 		// Dispatch fix agent with the findings
-		task := core.Sprintf("Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. "+
-			"Read it, verify each finding against the code, fix what's valid. Run tests. "+
-			"Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
+		task := core.Sprintf(
+			"Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. Read it, verify each finding against the code, fix what's valid. Run tests. Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
 
 		if err := s.dispatchFixFromQueue(ctx, repo, task); err != nil {
@@ -242,14 +241,14 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 // pushAndMerge pushes to GitHub dev and merges the PR.
 func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
 	if r := s.gitCmd(ctx, repoDir, "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
-		return core.E("pushAndMerge", "push failed: "+r.Value.(string), nil)
+		return core.E("pushAndMerge", core.Concat("push failed: ", r.Value.(string)), nil)
 	}
 
 	// Mark PR ready if draft
-	s.runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", GitHubOrg()+"/"+repo)
+	s.runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
 
 	if r := s.runCmd(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
-		return core.E("pushAndMerge", "merge failed: "+r.Value.(string), nil)
+		return core.E("pushAndMerge", core.Concat("merge failed: ", r.Value.(string)), nil)
 	}
 
 	return nil
@@ -268,7 +267,7 @@ func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task str
 		return err
 	}
 	if !out.Success {
-		return core.E("dispatchFixFromQueue", "dispatch failed for "+repo, nil)
+		return core.E("dispatchFixFromQueue", core.Concat("dispatch failed for ", repo), nil)
 	}
 	return nil
 }

@@ -121,7 +121,7 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 	assert.Equal(t, "Which interface should I implement?", read.Question)
 }
 
-func TestWriteReadStatus_Good_Roundtrip(t *testing.T) {
+func TestStatus_WriteRead_Good_Roundtrip(t *testing.T) {
 	dir := t.TempDir()
 
 	original := &WorkspaceStatus{

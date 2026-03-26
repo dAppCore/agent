@@ -9,3 +9,9 @@ func ExampleNewDirect() {
 	core.Println(svc != nil)
 	// Output: true
 }
+
+func ExampleNewProvider() {
+	p := NewProvider(nil, nil)
+	core.Println(p.Name())
+	// Output: brain
+}

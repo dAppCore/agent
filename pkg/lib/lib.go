@@ -63,6 +63,41 @@ func newData() *core.Data {
 	return d
 }
 
+// MountData registers all embedded content (prompts, tasks, flows, personas, workspaces)
+// into Core's Data registry. Other services can then access content without importing lib:
+//
+//	lib.MountData(c)
+//	r := c.Data().ReadString("prompts/coding.md")
+//	r := c.Data().ListNames("flows")
+func MountData(c *core.Core) {
+	d := c.Data()
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "prompts"},
+		core.Option{Key: "source", Value: promptFiles},
+		core.Option{Key: "path", Value: "prompt"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "tasks"},
+		core.Option{Key: "source", Value: taskFiles},
+		core.Option{Key: "path", Value: "task"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "flows"},
+		core.Option{Key: "source", Value: flowFiles},
+		core.Option{Key: "path", Value: "flow"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "personas"},
+		core.Option{Key: "source", Value: personaFiles},
+		core.Option{Key: "path", Value: "persona"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "workspaces"},
+		core.Option{Key: "source", Value: workspaceFiles},
+		core.Option{Key: "path", Value: "workspace"},
+	))
+}
+
 func mustMount(fsys embed.FS, basedir string) *core.Embed {
 	r := core.Mount(fsys, basedir)
 	if !r.OK {
@@ -89,7 +124,7 @@ func Template(slug string) core.Result {
 //	r := lib.Prompt("coding")
 //	if r.OK { content := r.Value.(string) }
 func Prompt(slug string) core.Result {
-	return promptFS.ReadString(slug + ".md")
+	return promptFS.ReadString(core.Concat(slug, ".md"))
 }
 
 // Task reads a structured task plan by slug. Tries .md, .yaml, .yml.
@@ -98,7 +133,7 @@ func Prompt(slug string) core.Result {
 //	if r.OK { content := r.Value.(string) }
 func Task(slug string) core.Result {
 	for _, ext := range []string{".md", ".yaml", ".yml"} {
-		if r := taskFS.ReadString(slug + ext); r.OK {
+		if r := taskFS.ReadString(core.Concat(slug, ext)); r.OK {
 			return r
 		}
 	}
@@ -148,7 +183,7 @@ func TaskBundle(slug string) core.Result {
 //	r := lib.Flow("go")
 //	if r.OK { content := r.Value.(string) }
 func Flow(slug string) core.Result {
-	return flowFS.ReadString(slug + ".md")
+	return flowFS.ReadString(core.Concat(slug, ".md"))
 }
 
 // Persona reads a domain/role persona by path.
@@ -156,7 +191,7 @@ func Flow(slug string) core.Result {
 //	r := lib.Persona("secops/developer")
 //	if r.OK { content := r.Value.(string) }
 func Persona(path string) core.Result {
-	return personaFS.ReadString(path + ".md")
+	return personaFS.ReadString(core.Concat(path, ".md"))
 }
 
 // --- Workspace Templates ---
@@ -182,13 +217,17 @@ type WorkspaceData struct {
 
 // ExtractWorkspace creates an agent workspace from a template.
 // Template names: "default", "security", "review".
+//
+//	lib.ExtractWorkspace("default", "/tmp/ws", &lib.WorkspaceData{
+//	    Repo: "go-io", Task: "fix tests", Agent: "codex",
+//	})
 func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 	r := workspaceFS.Sub(tmplName)
 	if !r.OK {
 		if err, ok := r.Value.(error); ok {
 			return err
 		}
-		return core.E("ExtractWorkspace", "template not found: "+tmplName, nil)
+		return core.E("ExtractWorkspace", core.Concat("template not found: ", tmplName), nil)
 	}
 	result := core.Extract(r.Value.(*core.Embed).FS(), targetDir, data)
 	if !result.OK {
@@ -201,10 +240,24 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 
 // --- List Functions ---
 
-func ListPrompts() []string    { return listNames("prompt") }
-func ListFlows() []string      { return listNames("flow") }
+// ListPrompts returns available system prompt slugs.
+//
+//	prompts := lib.ListPrompts() // ["coding", "review", ...]
+func ListPrompts() []string { return listNames("prompt") }
+
+// ListFlows returns available build/release flow slugs.
+//
+//	flows := lib.ListFlows() // ["go", "php", "node", ...]
+func ListFlows() []string { return listNames("flow") }
+
+// ListWorkspaces returns available workspace template names.
+//
+//	templates := lib.ListWorkspaces() // ["default", "security", ...]
 func ListWorkspaces() []string { return listNames("workspace") }
 
+// ListTasks returns available task plan slugs, including nested paths.
+//
+//	tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
 func ListTasks() []string {
 	result := listNamesRecursive("task", taskFS, ".")
 	a := core.NewArray(result...)
@@ -212,6 +265,9 @@ func ListTasks() []string {
 	return a.AsSlice()
 }
 
+// ListPersonas returns available persona paths, including nested directories.
+//
+//	personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
 func ListPersonas() []string {
 	a := core.NewArray(listNamesRecursive("persona", personaFS, ".")...)
 	a.Deduplicate()

@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,9 +13,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// mustPID returns the current process PID as int via Core's cached Env.
+func mustPID() int {
+	pid, _ := strconv.Atoi(core.Env("PID"))
+	return pid
+}
+
 // --- UnmarshalYAML for ConcurrencyLimit ---
 
-func TestConcurrencyLimit_Good_IntForm(t *testing.T) {
+func TestQueue_ConcurrencyLimit_Good_IntForm(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
@@ -25,7 +31,7 @@ func TestConcurrencyLimit_Good_IntForm(t *testing.T) {
 	assert.Nil(t, cfg.Limit.Models)
 }
 
-func TestConcurrencyLimit_Good_MapForm(t *testing.T) {
+func TestQueue_ConcurrencyLimit_Good_MapForm(t *testing.T) {
 	data := `limit:
   total: 2
   gpt-5.4: 1
@@ -41,7 +47,7 @@ func TestConcurrencyLimit_Good_MapForm(t *testing.T) {
 	assert.Equal(t, 1, cfg.Limit.Models["gpt-5.3-codex-spark"])
 }
 
-func TestConcurrencyLimit_Good_MapNoTotal(t *testing.T) {
+func TestQueue_ConcurrencyLimit_Good_MapNoTotal(t *testing.T) {
 	data := `limit:
   flash: 2
   pro: 1`
@@ -55,7 +61,7 @@ func TestConcurrencyLimit_Good_MapNoTotal(t *testing.T) {
 	assert.Equal(t, 2, cfg.Limit.Models["flash"])
 }
 
-func TestConcurrencyLimit_Good_FullConfig(t *testing.T) {
+func TestQueue_ConcurrencyLimit_Good_FullConfig(t *testing.T) {
 	data := `version: 1
 concurrency:
   claude: 1
@@ -248,7 +254,7 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 		Status: "running",
 		Agent:  "claude",
 		Repo:   "go-io",
-		PID:    os.Getpid(), // Our own PID so Kill(pid, 0) succeeds
+		PID:    mustPID(), // Our own PID so Kill(pid, 0) succeeds
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
@@ -281,7 +287,7 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 		Status: "running",
 		Agent:  "gemini",
 		Repo:   "go-io",
-		PID:    os.Getpid(),
+		PID:    mustPID(),
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
@@ -328,7 +334,7 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 		Status: "running",
 		Agent:  "codex:gpt-5.4",
 		Repo:   "go-io",
-		PID:    os.Getpid(),
+		PID:    mustPID(),
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
@@ -356,7 +362,7 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 	} {
 		d := core.JoinPath(wsRoot, ws.name)
 		fs.EnsureDir(d)
-		st := &WorkspaceStatus{Status: "running", Agent: ws.agent, Repo: "test", PID: os.Getpid()}
+		st := &WorkspaceStatus{Status: "running", Agent: ws.agent, Repo: "test", PID: mustPID()}
 		fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(st))
 	}
 
@@ -440,7 +446,7 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 		Status: "running",
 		Agent:  "claude",
 		Repo:   "go-io",
-		PID:    os.Getpid(),
+		PID:    mustPID(),
 	}
 	fs.Write(core.JoinPath(wsRunning, "status.json"), core.JSONMarshalString(stRunning))
 
