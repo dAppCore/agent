@@ -166,8 +166,9 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 		"-e", "CI=true",
 		"-e", "GIT_USER_NAME=Virgil",
 		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
-		// Local model access — Ollama on host
-		"-e", "OLLAMA_HOST=http://host.docker.internal:11434",
+		// Go workspace — local modules bypass checksum verification
+		"-e", "GONOSUMCHECK=dappco.re/*,forge.lthn.ai/*",
+		"-e", "GOFLAGS=-mod=mod",
 	}
 
 	// Mount Claude config if dispatching claude agent
@@ -184,8 +185,18 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 		)
 	}
 
-	dockerArgs = append(dockerArgs, image, command)
-	dockerArgs = append(dockerArgs, args...)
+	// Wrap agent command in sh -c to chmod workspace after exit.
+	// Docker runs as a different user — without this, host can't delete workspace files.
+	quoted := core.NewBuilder()
+	quoted.WriteString(command)
+	for _, a := range args {
+		quoted.WriteString(" '")
+		quoted.WriteString(core.Replace(a, "'", "'\\''"))
+		quoted.WriteString("'")
+	}
+	quoted.WriteString("; chmod -R a+w /workspace /workspace/.meta 2>/dev/null; true")
+
+	dockerArgs = append(dockerArgs, image, "sh", "-c", quoted.String())
 
 	return "docker", dockerArgs
 }

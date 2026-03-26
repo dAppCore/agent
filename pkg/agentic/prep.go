@@ -465,6 +465,11 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		out.Branch = s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	}
 
+	// Clone workspace dependencies — Core modules needed to build the repo.
+	// Reads go.mod, finds dappco.re/go/core/* imports, clones from Forge,
+	// and updates go.work so the agent can build inside the workspace.
+	s.cloneWorkspaceDeps(ctx, wsDir, repoDir, input.Org)
+
 	// Build the rich prompt with all context
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 

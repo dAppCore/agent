@@ -127,7 +127,9 @@ func TestDispatch_ContainerCommand_Good_Codex(t *testing.T) {
 	assert.Contains(t, args, "--rm")
 	assert.Contains(t, args, "/ws/repo:/workspace")
 	assert.Contains(t, args, "/ws/.meta:/workspace/.meta")
-	assert.Contains(t, args, "codex")
+	// Command is wrapped in sh -c for chmod cleanup
+	shCmd := args[len(args)-1]
+	assert.Contains(t, shCmd, "codex")
 	// Should use default image
 	assert.Contains(t, args, defaultDockerImage)
 }
