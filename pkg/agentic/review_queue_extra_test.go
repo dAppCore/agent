@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +48,7 @@ func TestSaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", dir)
 
 	// Ensure .core dir exists
-	os.MkdirAll(filepath.Join(dir, ".core"), 0o755)
+	os.MkdirAll(core.JoinPath(dir, ".core"), 0o755)
 
 	// Note: saveRateLimitState uses core.Env("DIR_HOME") which is pre-populated.
 	// We need to work around this by using CORE_WORKSPACE for the load,
@@ -97,7 +96,7 @@ func TestReviewQueue_Good_NoCandidates(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Create an empty core dir (no repos)
-	coreDir := filepath.Join(root, "core")
+	coreDir := core.JoinPath(root, "core")
 	os.MkdirAll(coreDir, 0o755)
 
 	s := &PrepSubsystem{
@@ -118,7 +117,7 @@ func TestReviewQueue_Good_NoCandidates(t *testing.T) {
 func TestStatus_Good_FilteredByStatus(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with different statuses
 	for _, ws := range []struct {
@@ -130,11 +129,11 @@ func TestStatus_Good_FilteredByStatus(t *testing.T) {
 		{"ws-3", "completed"},
 		{"ws-4", "queued"},
 	} {
-		wsDir := filepath.Join(wsRoot, ws.name)
+		wsDir := core.JoinPath(wsRoot, ws.name)
 		os.MkdirAll(wsDir, 0o755)
 		st := &WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"}
 		data, _ := json.Marshal(st)
-		os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+		os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 	}
 
 	s := &PrepSubsystem{
@@ -156,10 +155,10 @@ func TestStatus_Good_FilteredByStatus(t *testing.T) {
 func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace dir
-	ws := filepath.Join(wsRoot, "core", "go-io", "task-15")
+	ws := core.JoinPath(wsRoot, "core", "go-io", "task-15")
 	os.MkdirAll(ws, 0o755)
 
 	result := resolveWorkspace("core/go-io/task-15")
@@ -177,13 +176,13 @@ func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
 func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
-	ws := filepath.Join(wsRoot, "ws-test")
+	ws := core.JoinPath(wsRoot, "ws-test")
 	os.MkdirAll(ws, 0o755)
 	st := &WorkspaceStatus{Repo: "go-io", Branch: "agent/fix", Status: "completed"}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	result := findWorkspaceByPR("go-io", "agent/fix")
 	assert.Equal(t, ws, result)
@@ -192,14 +191,14 @@ func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Deep layout: org/repo/task
-	ws := filepath.Join(wsRoot, "core", "agent", "task-5")
+	ws := core.JoinPath(wsRoot, "core", "agent", "task-5")
 	os.MkdirAll(ws, 0o755)
 	st := &WorkspaceStatus{Repo: "agent", Branch: "agent/tests", Status: "completed"}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	result := findWorkspaceByPR("agent", "agent/tests")
 	assert.Equal(t, ws, result)
@@ -210,14 +209,14 @@ func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
 	// core.Env("DIR_HOME") is cached at init, so we must write to the real path.
 	// Save original content, write corrupt JSON, test, then restore.
-	ratePath := filepath.Join(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
+	ratePath := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 
 	// Save original content (may or may not exist)
 	original, readErr := os.ReadFile(ratePath)
 	hadFile := readErr == nil
 
 	// Ensure parent dir exists
-	os.MkdirAll(filepath.Dir(ratePath), 0o755)
+	os.MkdirAll(core.PathDir(ratePath), 0o755)
 
 	// Write corrupt JSON
 	require.NoError(t, os.WriteFile(ratePath, []byte("not-valid-json{{{"), 0o644))

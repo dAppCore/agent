@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -81,12 +80,12 @@ func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	// BLOCKED.md exists but is whitespace only — NOT blocked
-	os.WriteFile(filepath.Join(dir, "BLOCKED.md"), []byte("  \n  "), 0o644)
+	os.WriteFile(core.JoinPath(dir, "BLOCKED.md"), []byte("  \n  "), 0o644)
 	status, _ := detectFinalStatus(dir, 0, "completed")
 	assert.Equal(t, "completed", status)
 
 	// BLOCKED.md takes precedence over non-zero exit
-	os.WriteFile(filepath.Join(dir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
+	os.WriteFile(core.JoinPath(dir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
 	status2, question2 := detectFinalStatus(dir, 1, "failed")
 	assert.Equal(t, "blocked", status2)
 	assert.Equal(t, "Need credentials", question2)
@@ -136,7 +135,7 @@ func TestDispatch_StartIssueTracking_Good(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Org: "core", Issue: 15}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir)
@@ -157,7 +156,7 @@ func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "test"}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir) // no issue → skips API call
@@ -174,7 +173,7 @@ func TestDispatch_StopIssueTracking_Good(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "go-io", Issue: 10}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
@@ -190,7 +189,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "test"}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
@@ -202,10 +201,10 @@ func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "ws-test")
+	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	os.MkdirAll(wsDir, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -231,10 +230,10 @@ func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "ws-test")
+	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	os.MkdirAll(wsDir, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -259,18 +258,18 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "ws-test")
-	repoDir := filepath.Join(wsDir, "repo")
-	metaDir := filepath.Join(wsDir, ".meta")
+	wsDir := core.JoinPath(root, "ws-test")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
 	os.MkdirAll(repoDir, 0o755)
 	os.MkdirAll(metaDir, 0o755)
 
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	s := newPrepWithProcess()
-	outputFile := filepath.Join(metaDir, "agent-codex.log")
+	outputFile := core.JoinPath(metaDir, "agent-codex.log")
 	s.onAgentComplete("codex", wsDir, outputFile, 0, "completed", "test output")
 
 	updated, err := ReadStatus(wsDir)
@@ -286,18 +285,18 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "ws-fail")
-	repoDir := filepath.Join(wsDir, "repo")
-	metaDir := filepath.Join(wsDir, ".meta")
+	wsDir := core.JoinPath(root, "ws-fail")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
 	os.MkdirAll(repoDir, 0o755)
 	os.MkdirAll(metaDir, 0o755)
 
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	s := newPrepWithProcess()
-	s.onAgentComplete("codex", wsDir, filepath.Join(metaDir, "agent-codex.log"), 1, "failed", "error")
+	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 1, "failed", "error")
 
 	updated, _ := ReadStatus(wsDir)
 	assert.Equal(t, "failed", updated.Status)
@@ -308,26 +307,26 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "ws-blocked")
-	repoDir := filepath.Join(wsDir, "repo")
-	metaDir := filepath.Join(wsDir, ".meta")
+	wsDir := core.JoinPath(root, "ws-blocked")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
 	os.MkdirAll(repoDir, 0o755)
 	os.MkdirAll(metaDir, 0o755)
 
-	os.WriteFile(filepath.Join(repoDir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	s := newPrepWithProcess()
-	s.onAgentComplete("codex", wsDir, filepath.Join(metaDir, "agent-codex.log"), 0, "completed", "")
+	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 0, "completed", "")
 
 	updated, _ := ReadStatus(wsDir)
 	assert.Equal(t, "blocked", updated.Status)
 	assert.Equal(t, "Need credentials", updated.Question)
 
 	// Empty output should NOT create log file
-	_, err := os.Stat(filepath.Join(metaDir, "agent-codex.log"))
+	_, err := os.Stat(core.JoinPath(metaDir, "agent-codex.log"))
 	assert.True(t, os.IsNotExist(err))
 }
 
@@ -335,10 +334,10 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 
 func TestDispatch_RunQA_Good(t *testing.T) {
 	wsDir := t.TempDir()
-	repoDir := filepath.Join(wsDir, "repo")
+	repoDir := core.JoinPath(wsDir, "repo")
 	os.MkdirAll(repoDir, 0o755)
-	os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
 	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
@@ -346,21 +345,21 @@ func TestDispatch_RunQA_Good(t *testing.T) {
 
 func TestDispatch_RunQA_Bad(t *testing.T) {
 	wsDir := t.TempDir()
-	repoDir := filepath.Join(wsDir, "repo")
+	repoDir := core.JoinPath(wsDir, "repo")
 	os.MkdirAll(repoDir, 0o755)
 
 	// Broken Go code
-	os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nfunc main( {\n}\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "main.go"), []byte("package main\nfunc main( {\n}\n"), 0o644)
 
 	s := newPrepWithProcess()
 	assert.False(t, s.runQA(wsDir))
 
 	// PHP project — composer not available
 	wsDir2 := t.TempDir()
-	repoDir2 := filepath.Join(wsDir2, "repo")
+	repoDir2 := core.JoinPath(wsDir2, "repo")
 	os.MkdirAll(repoDir2, 0o755)
-	os.WriteFile(filepath.Join(repoDir2, "composer.json"), []byte(`{"name":"test"}`), 0o644)
+	os.WriteFile(core.JoinPath(repoDir2, "composer.json"), []byte(`{"name":"test"}`), 0o644)
 
 	assert.False(t, s.runQA(wsDir2))
 }
@@ -368,24 +367,24 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 func TestDispatch_RunQA_Ugly(t *testing.T) {
 	// Unknown language — passes QA (no checks)
 	wsDir := t.TempDir()
-	os.MkdirAll(filepath.Join(wsDir, "repo"), 0o755)
+	os.MkdirAll(core.JoinPath(wsDir, "repo"), 0o755)
 
 	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
 
 	// Go vet failure (compiles but bad printf)
 	wsDir2 := t.TempDir()
-	repoDir2 := filepath.Join(wsDir2, "repo")
+	repoDir2 := core.JoinPath(wsDir2, "repo")
 	os.MkdirAll(repoDir2, 0o755)
-	os.WriteFile(filepath.Join(repoDir2, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(filepath.Join(repoDir2, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Printf(\"%d\", \"x\") }\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir2, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir2, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Printf(\"%d\", \"x\") }\n"), 0o644)
 	assert.False(t, s.runQA(wsDir2))
 
 	// Node project — npm install likely fails
 	wsDir3 := t.TempDir()
-	repoDir3 := filepath.Join(wsDir3, "repo")
+	repoDir3 := core.JoinPath(wsDir3, "repo")
 	os.MkdirAll(repoDir3, 0o755)
-	os.WriteFile(filepath.Join(repoDir3, "package.json"), []byte(`{"name":"test","scripts":{"test":"echo ok"}}`), 0o644)
+	os.WriteFile(core.JoinPath(repoDir3, "package.json"), []byte(`{"name":"test","scripts":{"test":"echo ok"}}`), 0o644)
 	_ = s.runQA(wsDir3) // exercises the node path
 }
 
@@ -400,17 +399,17 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	}))
 	t.Cleanup(forgeSrv.Close)
 
-	srcRepo := filepath.Join(t.TempDir(), "core", "go-io")
+	srcRepo := core.JoinPath(t.TempDir(), "core", "go-io")
 	exec.Command("git", "init", "-b", "main", srcRepo).Run()
 	exec.Command("git", "-C", srcRepo, "config", "user.name", "T").Run()
 	exec.Command("git", "-C", srcRepo, "config", "user.email", "t@t.com").Run()
-	os.WriteFile(filepath.Join(srcRepo, "go.mod"), []byte("module test\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(srcRepo, "go.mod"), []byte("module test\ngo 1.22\n"), 0o644)
 	exec.Command("git", "-C", srcRepo, "add", ".").Run()
 	exec.Command("git", "-C", srcRepo, "commit", "-m", "init").Run()
 
 	s := newPrepWithProcess()
 	s.forge = forge.NewForge(forgeSrv.URL, "tok")
-	s.codePath = filepath.Dir(filepath.Dir(srcRepo))
+	s.codePath = core.PathDir(core.PathDir(srcRepo))
 
 	_, out, err := s.dispatch(context.Background(), nil, DispatchInput{
 		Repo: "go-io", Task: "Fix stuff", Issue: 42, DryRun: true,

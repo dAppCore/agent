@@ -5,7 +5,6 @@ package agentic
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 	}
 	dir := s.resolveWorkspaceDir("go-io-abc123")
 	assert.Contains(t, dir, "go-io-abc123")
-	assert.True(t, filepath.IsAbs(dir))
+	assert.True(t, core.PathIsAbs(dir))
 }
 
 func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
@@ -42,25 +41,25 @@ func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create running workspace
-	ws1 := filepath.Join(wsRoot, "ws-running")
+	ws1 := core.JoinPath(wsRoot, "ws-running")
 	os.MkdirAll(ws1, 0o755)
 	st1, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws1, "status.json"), st1, 0o644)
+	os.WriteFile(core.JoinPath(ws1, "status.json"), st1, 0o644)
 
 	// Create completed workspace (should not be in active list)
-	ws2 := filepath.Join(wsRoot, "ws-done")
+	ws2 := core.JoinPath(wsRoot, "ws-done")
 	os.MkdirAll(ws2, 0o755)
 	st2, _ := json.Marshal(WorkspaceStatus{Status: "completed", Repo: "go-crypt", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws2, "status.json"), st2, 0o644)
+	os.WriteFile(core.JoinPath(ws2, "status.json"), st2, 0o644)
 
 	// Create queued workspace
-	ws3 := filepath.Join(wsRoot, "ws-queued")
+	ws3 := core.JoinPath(wsRoot, "ws-queued")
 	os.MkdirAll(ws3, 0o755)
 	st3, _ := json.Marshal(WorkspaceStatus{Status: "queued", Repo: "go-log", Agent: "gemini"})
-	os.WriteFile(filepath.Join(ws3, "status.json"), st3, 0o644)
+	os.WriteFile(core.JoinPath(ws3, "status.json"), st3, 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -78,7 +77,7 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Ensure workspace dir exists but is empty
-	os.MkdirAll(filepath.Join(root, "workspace"), 0o755)
+	os.MkdirAll(core.JoinPath(root, "workspace"), 0o755)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -94,7 +93,7 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 	// Workspace dir doesn't exist
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", filepath.Join(root, "nonexistent"))
+	t.Setenv("CORE_WORKSPACE", core.JoinPath(root, "nonexistent"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -111,18 +110,18 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 	// Workspaces with corrupt status.json
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace with corrupt status.json
-	ws1 := filepath.Join(wsRoot, "ws-corrupt")
+	ws1 := core.JoinPath(wsRoot, "ws-corrupt")
 	os.MkdirAll(ws1, 0o755)
-	os.WriteFile(filepath.Join(ws1, "status.json"), []byte("not-valid-json{{{"), 0o644)
+	os.WriteFile(core.JoinPath(ws1, "status.json"), []byte("not-valid-json{{{"), 0o644)
 
 	// Create valid running workspace
-	ws2 := filepath.Join(wsRoot, "ws-valid")
+	ws2 := core.JoinPath(wsRoot, "ws-valid")
 	os.MkdirAll(ws2, 0o755)
 	st, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws2, "status.json"), st, 0o644)
+	os.WriteFile(core.JoinPath(ws2, "status.json"), st, 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -147,7 +146,7 @@ func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 	}
 	dir := s.resolveWorkspaceDir("")
 	assert.NotEmpty(t, dir, "empty name should still resolve to workspace root")
-	assert.True(t, filepath.IsAbs(dir))
+	assert.True(t, core.PathIsAbs(dir))
 }
 
 func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
@@ -160,6 +159,6 @@ func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
 	assert.NotPanics(t, func() {
 		dir := s.resolveWorkspaceDir("../..")
 		// JoinPath handles traversal; result should be absolute
-		assert.True(t, filepath.IsAbs(dir))
+		assert.True(t, core.PathIsAbs(dir))
 	})
 }

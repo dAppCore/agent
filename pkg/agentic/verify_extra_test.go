@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -66,8 +65,8 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	dir := t.TempDir()
-	wsDir := filepath.Join(dir, "ws")
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(dir, "ws")
+	repoDir := core.JoinPath(wsDir, "repo")
 	os.MkdirAll(repoDir, 0o755)
 
 	// No go.mod, composer.json, or package.json = no test runner = passes
@@ -79,7 +78,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 		PRURL:  "https://forge.lthn.ai/core/test-repo/pulls/5",
 	}
 	data, _ := json.Marshal(st)
-	os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

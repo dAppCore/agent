@@ -4,10 +4,10 @@ package agentic
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 	}
 	data, err := json.MarshalIndent(original, "", "  ")
 	require.NoError(t, err)
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
 
 	st, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestStatus_ReadStatus_Bad_MissingFile(t *testing.T) {
 
 func TestStatus_ReadStatus_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), `{"status": "running", broken`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), `{"status": "running", broken`).OK)
 
 	_, err := ReadStatus(dir)
 	assert.Error(t, err, "corrupt JSON must return an error")
@@ -67,7 +67,7 @@ func TestStatus_ReadStatus_Bad_CorruptJSON(t *testing.T) {
 
 func TestStatus_ReadStatus_Bad_NullJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "null").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "null").OK)
 
 	// null is valid JSON — ReadStatus returns a zero-value struct, not an error
 	st, err := ReadStatus(dir)

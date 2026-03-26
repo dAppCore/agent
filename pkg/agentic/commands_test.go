@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -460,10 +459,10 @@ func TestCommandsWorkspace_CmdWorkspaceList_Good_WithEntries(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
-	ws := filepath.Join(wsRoot, "ws-1")
+	ws := core.JoinPath(wsRoot, "ws-1")
 	os.MkdirAll(ws, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	r := s.cmdWorkspaceList(core.NewOptions())
 	assert.True(t, r.OK)
@@ -479,10 +478,10 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Good_RemovesCompleted(t *testing.T)
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
-	ws := filepath.Join(wsRoot, "ws-done")
+	ws := core.JoinPath(wsRoot, "ws-done")
 	os.MkdirAll(ws, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Status: "completed", Repo: "go-io", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	r := s.cmdWorkspaceClean(core.NewOptions())
 	assert.True(t, r.OK)
@@ -499,18 +498,18 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
 		{"ws-ok", "completed"},
 		{"ws-bad", "failed"},
 	} {
-		d := filepath.Join(wsRoot, ws.name)
+		d := core.JoinPath(wsRoot, ws.name)
 		os.MkdirAll(d, 0o755)
 		data, _ := json.Marshal(WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"})
-		os.WriteFile(filepath.Join(d, "status.json"), data, 0o644)
+		os.WriteFile(core.JoinPath(d, "status.json"), data, 0o644)
 	}
 
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "failed"}))
 	assert.True(t, r.OK)
 
-	_, err1 := os.Stat(filepath.Join(wsRoot, "ws-bad"))
+	_, err1 := os.Stat(core.JoinPath(wsRoot, "ws-bad"))
 	assert.True(t, os.IsNotExist(err1))
-	_, err2 := os.Stat(filepath.Join(wsRoot, "ws-ok"))
+	_, err2 := os.Stat(core.JoinPath(wsRoot, "ws-ok"))
 	assert.NoError(t, err2)
 }
 
@@ -518,10 +517,10 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
-	d := filepath.Join(wsRoot, "ws-stuck")
+	d := core.JoinPath(wsRoot, "ws-stuck")
 	os.MkdirAll(d, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Status: "blocked", Repo: "test", Agent: "codex"})
-	os.WriteFile(filepath.Join(d, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(d, "status.json"), data, 0o644)
 
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "blocked"}))
 	assert.True(t, r.OK)
@@ -567,10 +566,10 @@ func TestCommands_CmdStatus_Good_WithWorkspaces(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	wsRoot := WorkspaceRoot()
-	ws := filepath.Join(wsRoot, "ws-1")
+	ws := core.JoinPath(wsRoot, "ws-1")
 	os.MkdirAll(ws, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Status: "completed", Repo: "test", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	r := s.cmdStatus(core.NewOptions())
 	assert.True(t, r.OK)
@@ -590,7 +589,7 @@ func TestCommands_CmdPrompt_Good_DefaultTask(t *testing.T) {
 
 func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	target := filepath.Join(t.TempDir(), "extract-test")
+	target := core.JoinPath(t.TempDir(), "extract-test")
 	r := s.cmdExtract(core.NewOptions(
 		core.Option{Key: "_arg", Value: "default"},
 		core.Option{Key: "target", Value: target},
@@ -651,9 +650,9 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 
 func TestCommands_CmdExtract_Bad_TargetDirAlreadyHasFiles(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	target := filepath.Join(t.TempDir(), "extract-existing")
+	target := core.JoinPath(t.TempDir(), "extract-existing")
 	os.MkdirAll(target, 0o755)
-	os.WriteFile(filepath.Join(target, "existing.txt"), []byte("data"), 0o644)
+	os.WriteFile(core.JoinPath(target, "existing.txt"), []byte("data"), 0o644)
 
 	// Missing template arg uses "default", target already has files — still succeeds (overwrites)
 	r := s.cmdExtract(core.NewOptions(
@@ -664,7 +663,7 @@ func TestCommands_CmdExtract_Bad_TargetDirAlreadyHasFiles(t *testing.T) {
 
 func TestCommands_CmdExtract_Ugly_TargetIsFile(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	target := filepath.Join(t.TempDir(), "not-a-dir")
+	target := core.JoinPath(t.TempDir(), "not-a-dir")
 	os.WriteFile(target, []byte("I am a file"), 0o644)
 
 	r := s.cmdExtract(core.NewOptions(
@@ -840,13 +839,13 @@ func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
 	os.MkdirAll(wsRoot, 0o755)
 
 	// Create a file (not a dir) inside workspace root
-	os.WriteFile(filepath.Join(wsRoot, "not-a-workspace.txt"), []byte("junk"), 0o644)
+	os.WriteFile(core.JoinPath(wsRoot, "not-a-workspace.txt"), []byte("junk"), 0o644)
 
 	// Also create a proper workspace
-	ws := filepath.Join(wsRoot, "ws-valid")
+	ws := core.JoinPath(wsRoot, "ws-valid")
 	os.MkdirAll(ws, 0o755)
 	data, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"})
-	os.WriteFile(filepath.Join(ws, "status.json"), data, 0o644)
+	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
 
 	r := s.cmdStatus(core.NewOptions())
 	assert.True(t, r.OK)

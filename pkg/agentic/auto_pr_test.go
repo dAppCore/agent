@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -30,14 +29,14 @@ func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
 	}
 
 	// No status file → early return (no panic)
-	wsNoStatus := filepath.Join(root, "ws-no-status")
+	wsNoStatus := core.JoinPath(root, "ws-no-status")
 	require.NoError(t, os.MkdirAll(wsNoStatus, 0o755))
 	assert.NotPanics(t, func() {
 		s.autoCreatePR(wsNoStatus)
 	})
 
 	// Empty branch → early return
-	wsNoBranch := filepath.Join(root, "ws-no-branch")
+	wsNoBranch := core.JoinPath(root, "ws-no-branch")
 	require.NoError(t, os.MkdirAll(wsNoBranch, 0o755))
 	st := &WorkspaceStatus{
 		Status: "completed",
@@ -47,13 +46,13 @@ func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
 	}
 	data, err := json.MarshalIndent(st, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(wsNoBranch, "status.json"), data, 0o644))
+	require.NoError(t, os.WriteFile(core.JoinPath(wsNoBranch, "status.json"), data, 0o644))
 	assert.NotPanics(t, func() {
 		s.autoCreatePR(wsNoBranch)
 	})
 
 	// Empty repo → early return
-	wsNoRepo := filepath.Join(root, "ws-no-repo")
+	wsNoRepo := core.JoinPath(root, "ws-no-repo")
 	require.NoError(t, os.MkdirAll(wsNoRepo, 0o755))
 	st2 := &WorkspaceStatus{
 		Status: "completed",
@@ -63,7 +62,7 @@ func TestAutoPR_AutoCreatePR_Bad(t *testing.T) {
 	}
 	data2, err := json.MarshalIndent(st2, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(wsNoRepo, "status.json"), data2, 0o644))
+	require.NoError(t, os.WriteFile(core.JoinPath(wsNoRepo, "status.json"), data2, 0o644))
 	assert.NotPanics(t, func() {
 		s.autoCreatePR(wsNoRepo)
 	})
@@ -74,8 +73,8 @@ func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Set up a real git repo with no commits ahead of origin/dev
-	wsDir := filepath.Join(root, "ws-no-ahead")
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, "ws-no-ahead")
+	repoDir := core.JoinPath(wsDir, "repo")
 	require.NoError(t, os.MkdirAll(repoDir, 0o755))
 
 	// Init the repo
@@ -86,7 +85,7 @@ func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
 	cmd = exec.Command("git", "-C", repoDir, "config", "user.email", "test@test.com")
 	require.NoError(t, cmd.Run())
 
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("# test"), 0o644))
+	require.NoError(t, os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# test"), 0o644))
 	cmd = exec.Command("git", "-C", repoDir, "add", ".")
 	require.NoError(t, cmd.Run())
 	cmd = exec.Command("git", "-C", repoDir, "commit", "-m", "init")
@@ -102,7 +101,7 @@ func TestAutoPR_AutoCreatePR_Ugly(t *testing.T) {
 	}
 	data, err := json.MarshalIndent(st, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0o644))
+	require.NoError(t, os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

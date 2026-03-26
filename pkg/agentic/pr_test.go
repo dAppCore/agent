@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -162,8 +161,8 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Create workspace with repo/.git
-	wsDir := filepath.Join(root, "workspace", "test-ws")
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, "workspace", "test-ws")
+	repoDir := core.JoinPath(wsDir, "repo")
 	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
 	gitCmd := exec.Command("git", "config", "user.name", "Test")
 	gitCmd.Dir = repoDir
@@ -201,8 +200,8 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "test-ws-2")
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, "workspace", "test-ws-2")
+	repoDir := core.JoinPath(wsDir, "repo")
 	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
 	gitCmd := exec.Command("git", "config", "user.name", "Test")
 	gitCmd.Dir = repoDir
@@ -375,8 +374,8 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "test-ws-ugly")
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, "workspace", "test-ws-ugly")
+	repoDir := core.JoinPath(wsDir, "repo")
 	require.NoError(t, exec.Command("git", "init", "-b", "main", repoDir).Run())
 	gitCmd := exec.Command("git", "config", "user.name", "Test")
 	gitCmd.Dir = repoDir
@@ -386,7 +385,7 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 	gitCmd.Run()
 
 	// Need an initial commit so HEAD exists for branch detection
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("# Test"), 0o644))
+	require.NoError(t, os.WriteFile(core.JoinPath(repoDir, "README.md"), []byte("# Test"), 0o644))
 	addCmd := exec.Command("git", "add", ".")
 	addCmd.Dir = repoDir
 	require.NoError(t, addCmd.Run())

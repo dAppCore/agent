@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -269,7 +268,7 @@ func TestVerify_RunVerification_Good_NoProjectFile(t *testing.T) {
 
 func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -284,7 +283,7 @@ func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 
 func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -299,7 +298,7 @@ func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 
 func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -313,7 +312,7 @@ func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 
 func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{}}`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -330,7 +329,7 @@ func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 
 func TestVerify_FileExists_Good_Exists(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "test.txt")
+	path := core.JoinPath(dir, "test.txt")
 	require.True(t, fs.Write(path, "hello").OK)
 
 	assert.True(t, fileExists(path))
@@ -566,9 +565,9 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 
 	dir := t.TempDir()
 	// Write a go.mod so runVerification detects Go and runs "go test ./..."
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module broken-test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken-test\n\ngo 1.22").OK)
 	// Write invalid Go code to force test failure
-	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -666,7 +665,7 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 
 func TestVerify_FileExists_Ugly_PathIsDirectory(t *testing.T) {
 	dir := t.TempDir()
-	sub := filepath.Join(dir, "subdir")
+	sub := core.JoinPath(dir, "subdir")
 	require.NoError(t, os.MkdirAll(sub, 0o755))
 
 	// A directory is not a file — fileExists should return false
@@ -728,7 +727,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 
 func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
 	// go.mod exists but no .go files — go test should fail
 
 	s := &PrepSubsystem{
@@ -746,8 +745,8 @@ func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 	dir := t.TempDir()
 	// Both go.mod and package.json exist — Go takes priority
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -764,8 +763,8 @@ func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 
 func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test\n\ngo 1.22").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), `{"require":{}}`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -782,9 +781,9 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 func TestVerify_RunGoTests_Good(t *testing.T) {
 	dir := t.TempDir()
 	// Create a valid Go project with a passing test
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "main.go"), "package testproj\n\nfunc Add(a, b int) int { return a + b }\n").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "main_test.go"), `package testproj
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "main.go"), "package testproj\n\nfunc Add(a, b int) int { return a + b }\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "main_test.go"), `package testproj
 
 import "testing"
 
@@ -810,8 +809,8 @@ func TestAdd(t *testing.T) {
 func TestVerify_RunGoTests_Bad(t *testing.T) {
 	dir := t.TempDir()
 	// Create a broken Go project — compilation error
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -828,8 +827,8 @@ func TestVerify_RunGoTests_Bad(t *testing.T) {
 func TestVerify_RunGoTests_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	// go.mod but no test files — Go considers this a pass
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "main.go"), "package empty\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "main.go"), "package empty\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

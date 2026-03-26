@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"os/exec"
-	"path/filepath"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -34,7 +33,7 @@ func initBareRepo(t *testing.T) string {
 	run("git", "config", "user.email", "test@test.com")
 
 	// Create a file and commit
-	require.True(t, fs.Write(filepath.Join(dir, "README.md"), "# Test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "README.md"), "# Test").OK)
 	run("git", "add", "README.md")
 	run("git", "commit", "-m", "initial commit")
 	return dir
@@ -102,7 +101,7 @@ func TestMirror_CommitsAhead_Good_OneAhead(t *testing.T) {
 	run("git", "branch", "base")
 
 	// Add a commit on main
-	require.True(t, fs.Write(filepath.Join(dir, "new.txt"), "data").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "new.txt"), "data").OK)
 	run("git", "add", "new.txt")
 	run("git", "commit", "-m", "second commit")
 
@@ -129,7 +128,7 @@ func TestMirror_CommitsAhead_Good_ThreeAhead(t *testing.T) {
 	run("git", "branch", "base")
 
 	for i := 0; i < 3; i++ {
-		name := filepath.Join(dir, "file"+string(rune('a'+i))+".txt")
+		name := core.JoinPath(dir, "file"+string(rune('a'+i))+".txt")
 		require.True(t, fs.Write(name, "content").OK)
 		run("git", "add", ".")
 		run("git", "commit", "-m", "commit "+string(rune('0'+i)))
@@ -182,7 +181,7 @@ func TestMirror_FilesChanged_Good_OneFile(t *testing.T) {
 
 	run("git", "branch", "base")
 
-	require.True(t, fs.Write(filepath.Join(dir, "changed.txt"), "new").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "changed.txt"), "new").OK)
 	run("git", "add", "changed.txt")
 	run("git", "commit", "-m", "add file")
 
@@ -209,7 +208,7 @@ func TestMirror_FilesChanged_Good_MultipleFiles(t *testing.T) {
 	run("git", "branch", "base")
 
 	for _, name := range []string{"a.go", "b.go", "c.go"} {
-		require.True(t, fs.Write(filepath.Join(dir, name), "package main").OK)
+		require.True(t, fs.Write(core.JoinPath(dir, name), "package main").OK)
 	}
 	run("git", "add", ".")
 	run("git", "commit", "-m", "add three files")
@@ -317,13 +316,13 @@ func TestMirror_ListLocalRepos_Good_FindsRepos(t *testing.T) {
 
 	// Create two git repos under base
 	for _, name := range []string{"repo-a", "repo-b"} {
-		repoDir := filepath.Join(base, name)
+		repoDir := core.JoinPath(base, name)
 		cmd := exec.Command("git", "init", repoDir)
 		require.NoError(t, cmd.Run())
 	}
 
 	// Create a non-repo directory
-	require.True(t, fs.EnsureDir(filepath.Join(base, "not-a-repo")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(base, "not-a-repo")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos(base)
@@ -364,18 +363,18 @@ func TestMirror_ListLocalRepos_Ugly(t *testing.T) {
 
 	// Create two git repos
 	for _, name := range []string{"real-repo-a", "real-repo-b"} {
-		repoDir := filepath.Join(base, name)
+		repoDir := core.JoinPath(base, name)
 		cmd := exec.Command("git", "init", repoDir)
 		require.NoError(t, cmd.Run())
 	}
 
 	// Create non-git directories (no .git inside)
 	for _, name := range []string{"plain-dir", "another-dir"} {
-		require.True(t, fs.EnsureDir(filepath.Join(base, name)).OK)
+		require.True(t, fs.EnsureDir(core.JoinPath(base, name)).OK)
 	}
 
 	// Create a regular file (not a directory)
-	require.True(t, fs.Write(filepath.Join(base, "some-file.txt"), "hello").OK)
+	require.True(t, fs.Write(core.JoinPath(base, "some-file.txt"), "hello").OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	repos := s.listLocalRepos(base)

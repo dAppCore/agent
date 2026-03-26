@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,7 +27,7 @@ func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Completed workspace — must not be counted
-	ws := filepath.Join(root, "workspace", "test-ws")
+	ws := core.JoinPath(root, "workspace", "test-ws")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
@@ -44,7 +43,7 @@ func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	ws := filepath.Join(root, "workspace", "model-ws")
+	ws := core.JoinPath(root, "workspace", "model-ws")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "running",
@@ -62,7 +61,7 @@ func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Deep layout: workspace/org/repo/task-N/status.json
-	ws := filepath.Join(root, "workspace", "core", "go-io", "task-1")
+	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-1")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
@@ -242,7 +241,7 @@ func TestPaths_LocalFs_Good_NonNil(t *testing.T) {
 
 func TestPaths_LocalFs_Good_CanRead(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hello.txt")
+	path := core.JoinPath(dir, "hello.txt")
 	require.True(t, fs.Write(path, "hello").OK)
 
 	f := LocalFs()

@@ -3,10 +3,10 @@
 package agentic
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +27,7 @@ func TestPlan_WritePlan_Good(t *testing.T) {
 
 	path, err := writePlan(dir, plan)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(dir, "test-plan-abc123.json"), path)
+	assert.Equal(t, core.JoinPath(dir, "test-plan-abc123.json"), path)
 
 	// Verify file exists
 	assert.True(t, fs.IsFile(path))
@@ -35,7 +35,7 @@ func TestPlan_WritePlan_Good(t *testing.T) {
 
 func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {
 	base := t.TempDir()
-	dir := filepath.Join(base, "nested", "plans")
+	dir := core.JoinPath(base, "nested", "plans")
 
 	plan := &Plan{
 		ID:        "nested-plan-abc123",
@@ -95,7 +95,7 @@ func TestPlan_ReadPlan_Bad_NotFound(t *testing.T) {
 
 func TestPlan_ReadPlan_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "bad-json.json"), "{broken").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "bad-json.json"), "{broken").OK)
 
 	_, err := readPlan(dir, "bad-json")
 	assert.Error(t, err)
@@ -204,7 +204,7 @@ func TestPlan_WritePlan_Good_OverwriteExisting(t *testing.T) {
 
 func TestPlan_ReadPlan_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "empty.json"), "").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
 
 	_, err := readPlan(dir, "empty")
 	assert.Error(t, err)

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,7 +21,7 @@ import (
 func TestStatus_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -40,10 +39,10 @@ func TestStatus_Good_EmptyWorkspace(t *testing.T) {
 func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create completed workspace (old layout)
-	ws1 := filepath.Join(wsRoot, "task-1")
+	ws1 := core.JoinPath(wsRoot, "task-1")
 	require.True(t, fs.EnsureDir(ws1).OK)
 	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
 		Status: "completed",
@@ -52,7 +51,7 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	}))
 
 	// Create failed workspace (old layout)
-	ws2 := filepath.Join(wsRoot, "task-2")
+	ws2 := core.JoinPath(wsRoot, "task-2")
 	require.True(t, fs.EnsureDir(ws2).OK)
 	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status: "failed",
@@ -61,7 +60,7 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	}))
 
 	// Create blocked workspace (old layout)
-	ws3 := filepath.Join(wsRoot, "task-3")
+	ws3 := core.JoinPath(wsRoot, "task-3")
 	require.True(t, fs.EnsureDir(ws3).OK)
 	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
 		Status:   "blocked",
@@ -71,7 +70,7 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 	}))
 
 	// Create queued workspace (old layout)
-	ws4 := filepath.Join(wsRoot, "task-4")
+	ws4 := core.JoinPath(wsRoot, "task-4")
 	require.True(t, fs.EnsureDir(ws4).OK)
 	require.NoError(t, writeStatus(ws4, &WorkspaceStatus{
 		Status: "queued",
@@ -99,10 +98,10 @@ func TestStatus_Good_MixedWorkspaces(t *testing.T) {
 func TestStatus_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace in deep layout (org/repo/task)
-	ws := filepath.Join(wsRoot, "core", "go-io", "task-15")
+	ws := core.JoinPath(wsRoot, "core", "go-io", "task-15")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
@@ -125,11 +124,11 @@ func TestStatus_Good_DeepLayout(t *testing.T) {
 func TestStatus_Good_CorruptStatusFile(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
-	ws := filepath.Join(wsRoot, "corrupt-ws")
+	ws := core.JoinPath(wsRoot, "corrupt-ws")
 	require.True(t, fs.EnsureDir(ws).OK)
-	require.True(t, fs.Write(filepath.Join(ws, "status.json"), "invalid-json{{{").OK)
+	require.True(t, fs.Write(core.JoinPath(ws, "status.json"), "invalid-json{{{").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -182,7 +181,7 @@ func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -201,11 +200,11 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create queued workspaces
 	for i := 1; i <= 3; i++ {
-		ws := filepath.Join(wsRoot, "task-"+itoa(i))
+		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
 		require.True(t, fs.EnsureDir(ws).OK)
 		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "queued",
@@ -226,7 +225,7 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 
 	// Verify queued workspaces are now failed
 	for i := 1; i <= 3; i++ {
-		ws := filepath.Join(wsRoot, "task-"+itoa(i))
+		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
 		st, err := ReadStatus(ws)
 		require.NoError(t, err)
 		assert.Equal(t, "failed", st.Status)
@@ -557,10 +556,10 @@ func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace in deep layout (org/repo/task)
-	ws := filepath.Join(wsRoot, "core", "go-io", "task-5")
+	ws := core.JoinPath(wsRoot, "core", "go-io", "task-5")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "queued",
@@ -646,11 +645,11 @@ func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with various statuses
 	for _, name := range []string{"ws-completed", "ws-failed", "ws-blocked"} {
-		ws := filepath.Join(wsRoot, name)
+		ws := core.JoinPath(wsRoot, name)
 		require.True(t, fs.EnsureDir(ws).OK)
 		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "completed",
@@ -679,11 +678,11 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create completed workspaces only (no running PIDs to kill)
 	for i := 1; i <= 2; i++ {
-		ws := filepath.Join(wsRoot, "task-"+itoa(i))
+		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
 		require.True(t, fs.EnsureDir(ws).OK)
 		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "completed",

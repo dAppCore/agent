@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -50,7 +49,7 @@ use (
 	./core/agent
 	./core/mcp
 )`
-	os.WriteFile(filepath.Join(dir, "go.work"), []byte(goWork), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
 
 	// Create module dirs with go.mod
 	for _, mod := range []struct {
@@ -61,9 +60,9 @@ use (
 		{"core/agent", "module forge.lthn.ai/core/agent\n\nrequire forge.lthn.ai/core/go v0.7.0\n"},
 		{"core/mcp", "module forge.lthn.ai/core/mcp\n\nrequire forge.lthn.ai/core/go v0.7.0\n"},
 	} {
-		modDir := filepath.Join(dir, mod.path)
+		modDir := core.JoinPath(dir, mod.path)
 		os.MkdirAll(modDir, 0o755)
-		os.WriteFile(filepath.Join(modDir, "go.mod"), []byte(mod.content), 0o644)
+		os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte(mod.content), 0o644)
 	}
 
 	s := &PrepSubsystem{
@@ -88,11 +87,11 @@ func TestPrep_FindConsumersList_Good_NoConsumers(t *testing.T) {
 use (
 	./core/go
 )`
-	os.WriteFile(filepath.Join(dir, "go.work"), []byte(goWork), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
 
-	modDir := filepath.Join(dir, "core", "go")
+	modDir := core.JoinPath(dir, "core", "go")
 	os.MkdirAll(modDir, 0o755)
-	os.WriteFile(filepath.Join(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
+	os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -222,7 +221,7 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -282,7 +281,7 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 func TestPrep_BuildPrompt_Good(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language as "go"
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -330,7 +329,7 @@ func TestPrep_BuildPrompt_Bad(t *testing.T) {
 
 func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
@@ -368,7 +367,7 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 
 func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
 
 	// Init a real git repo with commits so git log path is covered
 	exec.Command("git", "init", "-b", "main", dir).Run()
@@ -396,10 +395,10 @@ func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 
 func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 	dir := t.TempDir()
-	repoDir := filepath.Join(dir, "repo")
+	repoDir := core.JoinPath(dir, "repo")
 	os.MkdirAll(repoDir, 0o755)
 	// composer.json present but no composer binary
-	os.WriteFile(filepath.Join(repoDir, "composer.json"), []byte(`{"name":"test"}`), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "composer.json"), []byte(`{"name":"test"}`), 0o644)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -546,15 +545,15 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	goWork := "go 1.22\n\nuse (\n\t./core/go\n\t./core/missing\n)"
-	os.WriteFile(filepath.Join(dir, "go.work"), []byte(goWork), 0o644)
+	os.WriteFile(core.JoinPath(dir, "go.work"), []byte(goWork), 0o644)
 
 	// Create only the first module dir with go.mod
-	modDir := filepath.Join(dir, "core", "go")
+	modDir := core.JoinPath(dir, "core", "go")
 	os.MkdirAll(modDir, 0o755)
-	os.WriteFile(filepath.Join(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
+	os.WriteFile(core.JoinPath(modDir, "go.mod"), []byte("module forge.lthn.ai/core/go\n"), 0o644)
 
 	// core/missing has no go.mod
-	os.MkdirAll(filepath.Join(dir, "core", "missing"), 0o755)
+	os.MkdirAll(core.JoinPath(dir, "core", "missing"), 0o755)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

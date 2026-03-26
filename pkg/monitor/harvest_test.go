@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"dappco.re/go/agent/pkg/messages"
@@ -22,23 +21,23 @@ func initTestRepo(t *testing.T) (sourceDir, wsDir string) {
 	t.Helper()
 
 	// Create bare "source" repo
-	sourceDir = filepath.Join(t.TempDir(), "source")
+	sourceDir = core.JoinPath(t.TempDir(), "source")
 	require.NoError(t, os.MkdirAll(sourceDir, 0755))
 	run(t, sourceDir, "git", "init")
 	run(t, sourceDir, "git", "checkout", "-b", "main")
-	os.WriteFile(filepath.Join(sourceDir, "README.md"), []byte("# test"), 0644)
+	os.WriteFile(core.JoinPath(sourceDir, "README.md"), []byte("# test"), 0644)
 	run(t, sourceDir, "git", "add", ".")
 	run(t, sourceDir, "git", "commit", "-m", "init")
 
 	// Create workspace dir with src/ clone
-	wsDir = filepath.Join(t.TempDir(), "workspace")
-	srcDir := filepath.Join(wsDir, "src")
+	wsDir = core.JoinPath(t.TempDir(), "workspace")
+	srcDir := core.JoinPath(wsDir, "src")
 	require.NoError(t, os.MkdirAll(wsDir, 0755))
 	run(t, wsDir, "git", "clone", sourceDir, "src")
 
 	// Create agent branch with a commit
 	run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-	os.WriteFile(filepath.Join(srcDir, "new.go"), []byte("package main\n"), 0644)
+	os.WriteFile(core.JoinPath(srcDir, "new.go"), []byte("package main\n"), 0644)
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "agent work")
 
@@ -62,14 +61,14 @@ func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
 		"branch": branch,
 	}
 	data, _ := json.MarshalIndent(st, "", "  ")
-	require.NoError(t, os.WriteFile(filepath.Join(wsDir, "status.json"), data, 0644))
+	require.NoError(t, os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0644))
 }
 
 // --- Tests ---
 
 func TestHarvest_DetectBranch_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	branch := testMon.detectBranch(srcDir)
 	assert.Equal(t, "agent/test-task", branch)
@@ -82,7 +81,7 @@ func TestHarvest_DetectBranch_Bad_NoRepo(t *testing.T) {
 
 func TestHarvest_CountUnpushed_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	count := testMon.countUnpushed(srcDir, "agent/test-task")
 	assert.Equal(t, 1, count)
@@ -90,7 +89,7 @@ func TestHarvest_CountUnpushed_Good(t *testing.T) {
 
 func TestHarvest_CountChangedFiles_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	count := testMon.countChangedFiles(srcDir)
 	assert.Equal(t, 1, count)
@@ -98,7 +97,7 @@ func TestHarvest_CountChangedFiles_Good(t *testing.T) {
 
 func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	reason := testMon.checkSafety(srcDir)
 	assert.Equal(t, "", reason)
@@ -106,10 +105,10 @@ func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
 
 func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	// Add a binary file
-	os.WriteFile(filepath.Join(srcDir, "app.exe"), []byte("binary"), 0644)
+	os.WriteFile(core.JoinPath(srcDir, "app.exe"), []byte("binary"), 0644)
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 
@@ -120,11 +119,11 @@ func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 
 func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	// Add a file > 1MB
 	bigData := make([]byte, 1024*1024+1)
-	os.WriteFile(filepath.Join(srcDir, "huge.txt"), bigData, 0644)
+	os.WriteFile(core.JoinPath(srcDir, "huge.txt"), bigData, 0644)
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add large file")
 
@@ -148,7 +147,7 @@ func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
 	assert.Equal(t, "", result.rejected)
 
 	// Verify status updated
-	data, err := os.ReadFile(filepath.Join(wsDir, "status.json"))
+	data, err := os.ReadFile(core.JoinPath(wsDir, "status.json"))
 	require.NoError(t, err)
 	var st map[string]any
 	json.Unmarshal(data, &st)
@@ -169,7 +168,7 @@ func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 
 	// Switch back to main
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 	run(t, srcDir, "git", "checkout", "main")
 
 	writeStatus(t, wsDir, "completed", "test-repo", "main")
@@ -182,10 +181,10 @@ func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 
 func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := filepath.Join(wsDir, "src")
+	srcDir := core.JoinPath(wsDir, "src")
 
 	// Add binary
-	os.WriteFile(filepath.Join(srcDir, "build.so"), []byte("elf"), 0644)
+	os.WriteFile(core.JoinPath(srcDir, "build.so"), []byte("elf"), 0644)
 	run(t, srcDir, "git", "add", ".")
 	run(t, srcDir, "git", "commit", "-m", "add binary")
 
@@ -199,7 +198,7 @@ func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	assert.Contains(t, result.rejected, "binary file added")
 
 	// Verify status set to rejected
-	data, _ := os.ReadFile(filepath.Join(wsDir, "status.json"))
+	data, _ := os.ReadFile(core.JoinPath(wsDir, "status.json"))
 	var st map[string]any
 	json.Unmarshal(data, &st)
 	assert.Equal(t, "rejected", st["status"])
@@ -241,11 +240,11 @@ func TestHarvest_UpdateStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
 	data, _ := json.MarshalIndent(initial, "", "  ")
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0644)
 
 	updateStatus(dir, "ready-for-review", "")
 
-	out, _ := os.ReadFile(filepath.Join(dir, "status.json"))
+	out, _ := os.ReadFile(core.JoinPath(dir, "status.json"))
 	var st map[string]any
 	json.Unmarshal(out, &st)
 	assert.Equal(t, "ready-for-review", st["status"])
@@ -255,11 +254,11 @@ func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
 	data, _ := json.MarshalIndent(initial, "", "  ")
-	os.WriteFile(filepath.Join(dir, "status.json"), data, 0644)
+	os.WriteFile(core.JoinPath(dir, "status.json"), data, 0644)
 
 	updateStatus(dir, "rejected", "binary file: app.exe")
 
-	out, _ := os.ReadFile(filepath.Join(dir, "status.json"))
+	out, _ := os.ReadFile(core.JoinPath(dir, "status.json"))
 	var st map[string]any
 	json.Unmarshal(out, &st)
 	assert.Equal(t, "rejected", st["status"])

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -36,43 +35,43 @@ func TestPrep_EnvOr_Good_UnsetUsesFallback(t *testing.T) {
 
 func TestPrep_DetectLanguage_Good_Go(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 	assert.Equal(t, "go", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_PHP(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "composer.json"), "{}").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), "{}").OK)
 	assert.Equal(t, "php", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_TypeScript(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "package.json"), "{}").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
 	assert.Equal(t, "ts", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Rust(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "Cargo.toml"), "[package]").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "Cargo.toml"), "[package]").OK)
 	assert.Equal(t, "rust", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Python(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "requirements.txt"), "flask").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "requirements.txt"), "flask").OK)
 	assert.Equal(t, "py", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Cpp(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "CMakeLists.txt"), "cmake_minimum_required").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "CMakeLists.txt"), "cmake_minimum_required").OK)
 	assert.Equal(t, "cpp", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Docker(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "Dockerfile"), "FROM alpine").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "Dockerfile"), "FROM alpine").OK)
 	assert.Equal(t, "docker", detectLanguage(dir))
 }
 
@@ -98,7 +97,7 @@ func TestPrep_DetectBuildCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.True(t, fs.Write(filepath.Join(dir, tt.file), tt.content).OK)
+			require.True(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
 			assert.Equal(t, tt.expected, detectBuildCmd(dir))
 		})
 	}
@@ -126,7 +125,7 @@ func TestPrep_DetectTestCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.True(t, fs.Write(filepath.Join(dir, tt.file), tt.content).OK)
+			require.True(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
 			assert.Equal(t, tt.expected, detectTestCmd(dir))
 		})
 	}
@@ -500,8 +499,8 @@ func TestPrep_DetectLanguage_Bad(t *testing.T) {
 func TestPrep_DetectLanguage_Ugly(t *testing.T) {
 	// Dir with multiple project files (go.mod + package.json) — go wins (first match)
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
-	require.True(t, fs.Write(filepath.Join(dir, "package.json"), "{}").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
 	assert.Equal(t, "go", detectLanguage(dir), "go.mod checked first, so go wins")
 }
 
@@ -580,7 +579,7 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 
 func TestPrep_TestBuildPrompt_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "go.mod"), "module test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -689,7 +688,7 @@ func TestPrep_GetGitLog_Good(t *testing.T) {
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.name", "Test")
 	run("git", "config", "user.email", "test@test.com")
-	require.True(t, fs.Write(filepath.Join(dir, "README.md"), "# Test").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "README.md"), "# Test").OK)
 	run("git", "add", "README.md")
 	run("git", "commit", "-m", "initial commit")
 
@@ -748,7 +747,7 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// Create a source repo to clone from
-	srcRepo := filepath.Join(root, "src", "core", "test-repo")
+	srcRepo := core.JoinPath(root, "src", "core", "test-repo")
 	run := func(dir string, args ...string) {
 		t.Helper()
 		cmd := exec.Command(args[0], args[1:]...)
@@ -766,14 +765,14 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	run(srcRepo, "git", "init", "-b", "main")
 	run(srcRepo, "git", "config", "user.name", "Test")
 	run(srcRepo, "git", "config", "user.email", "test@test.com")
-	require.True(t, fs.Write(filepath.Join(srcRepo, "README.md"), "# Test").OK)
+	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
 	run(srcRepo, "git", "add", "README.md")
 	run(srcRepo, "git", "commit", "-m", "initial commit")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		codePath:  filepath.Join(root, "src"),
+		codePath:  core.JoinPath(root, "src"),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

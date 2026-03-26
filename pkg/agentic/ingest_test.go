@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -47,13 +46,13 @@ func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 		"- `pkg/core/service.go:100` has a missing error check\n" +
 		"- `pkg/core/config.go:25` needs documentation\n" +
 		"This is padding to get past the 100 char minimum length requirement for the log file content parsing."
-	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
 
 	// Set up HOME for the agent-api.key read
 	home := t.TempDir()
 	t.Setenv("DIR_HOME", home)
-	require.True(t, fs.EnsureDir(filepath.Join(home, ".claude")).OK)
-	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-api-key").OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
+	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-api-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -114,7 +113,7 @@ func TestIngest_IngestFindings_Bad_TooFewFindings(t *testing.T) {
 
 	// Only 1 finding (need >= 2 to ingest)
 	logContent := "Found: `main.go:1` has an issue. This padding makes the content long enough to pass the 100 char minimum check."
-	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -136,7 +135,7 @@ func TestIngest_IngestFindings_Bad_QuotaExhausted(t *testing.T) {
 
 	// Log contains quota error — should skip
 	logContent := "QUOTA_EXHAUSTED: Rate limit exceeded. `main.go:1` `other.go:2` padding to ensure we pass length check and get past the threshold."
-	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -171,7 +170,7 @@ func TestIngest_IngestFindings_Bad_ShortLogFile(t *testing.T) {
 	}))
 
 	// Log content is less than 100 bytes — should skip
-	require.True(t, fs.Write(filepath.Join(wsDir, "agent-codex.log"), "short").OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), "short").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -258,8 +257,8 @@ func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("DIR_HOME", home)
-	require.True(t, fs.EnsureDir(filepath.Join(home, ".claude")).OK)
-	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-key").OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
+	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -326,8 +325,8 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("DIR_HOME", home)
-	require.True(t, fs.EnsureDir(filepath.Join(home, ".claude")).OK)
-	require.True(t, fs.Write(filepath.Join(home, ".claude", "agent-api.key"), "test-key").OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
+	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

@@ -5,7 +5,6 @@ package monitor
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -43,7 +42,7 @@ func TestLogic_HandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
 func TestLogic_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	mon := New()
 	// ServiceRuntime is nil — must not panic, must record completion and poke.
@@ -58,7 +57,7 @@ func TestLogic_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
 func TestLogic_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	// Use Register so IPC handlers are wired
 	c := core.New(core.WithService(Register))
@@ -76,7 +75,7 @@ func TestLogic_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 func TestLogic_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	mon := New()
 
@@ -94,7 +93,7 @@ func TestLogic_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
 func TestLogic_CheckIdleAfterDelay_Bad_NilRuntime(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	mon := New() // ServiceRuntime is nil
 
@@ -120,7 +119,7 @@ func TestLogic_CheckIdleAfterDelay_Bad_NilRuntime(t *testing.T) {
 func TestLogic_CheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	// Create a Core with an IPC handler to capture QueueDrained messages
 	var captured []messages.QueueDrained
@@ -153,7 +152,7 @@ func TestLogic_CheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
 func TestLogic_CountLiveWorkspaces_Good_EmptyWorkspace(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	mon := New()
 	running, queued := mon.countLiveWorkspaces()
@@ -256,7 +255,7 @@ func TestLogic_SetCore_Good_RegistersIPCHandler(t *testing.T) {
 func TestLogic_SetCore_Good_IPCHandlerFires(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	// IPC handlers are registered via Register, not SetCore
 	c := core.New(core.WithService(Register))
@@ -275,7 +274,7 @@ func TestLogic_SetCore_Good_IPCHandlerFires(t *testing.T) {
 func TestLogic_SetCore_Good_CompletedIPCHandler(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	// IPC handlers are registered via Register, not SetCore
 	c := core.New(core.WithService(Register))
@@ -296,7 +295,7 @@ func TestLogic_SetCore_Good_CompletedIPCHandler(t *testing.T) {
 func TestLogic_OnStartup_Good_StartsLoop(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -316,7 +315,7 @@ func TestLogic_OnStartup_Good_StartsLoop(t *testing.T) {
 func TestLogic_OnStartup_Good_NoError(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	mon := New(Options{Interval: 1 * time.Hour})
 	assert.True(t, mon.OnStartup(context.Background()).OK)
@@ -331,7 +330,7 @@ func TestLogic_OnShutdown_Good_NoError(t *testing.T) {
 func TestLogic_OnShutdown_Good_StopsLoop(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -394,7 +393,7 @@ func TestLogic_Register_Good_CoreWired(t *testing.T) {
 func TestLogic_Register_Good_IPCHandlerActive(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
-	require.NoError(t, os.MkdirAll(filepath.Join(wsRoot, "workspace"), 0755))
+	require.NoError(t, os.MkdirAll(core.JoinPath(wsRoot, "workspace"), 0755))
 
 	c := core.New(core.WithService(Register))
 	require.NotNil(t, c)

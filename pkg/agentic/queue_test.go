@@ -6,7 +6,6 @@ import (
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"path/filepath"
 	"testing"
 )
 
@@ -35,7 +34,7 @@ func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	// With no running workspaces and default config, should be able to dispatch
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("gemini"))
@@ -45,7 +44,7 @@ func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	// Unknown agent has no limit, so always allowed
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	assert.True(t, s.canDispatchAgent("unknown-agent"))
@@ -54,7 +53,7 @@ func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 func TestQueue_CountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByAgent("gemini"))
@@ -66,7 +65,7 @@ func TestQueue_CountRunningByAgent_Good_NoRunning(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Create a workspace with completed status under workspace/
-	ws := filepath.Join(root, "workspace", "test-ws")
+	ws := core.JoinPath(root, "workspace", "test-ws")
 	require.True(t, fs.EnsureDir(ws).OK)
 	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",

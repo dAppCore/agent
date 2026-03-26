@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -30,7 +29,7 @@ func TestStatus_WriteStatus_Good(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify file was written via core.Fs
-	r := fs.Read(filepath.Join(dir, "status.json"))
+	r := fs.Read(core.JoinPath(dir, "status.json"))
 	require.True(t, r.OK)
 
 	var read WorkspaceStatus
@@ -78,7 +77,7 @@ func TestStatus_ReadStatus_Good(t *testing.T) {
 
 	data, err := json.MarshalIndent(status, "", "  ")
 	require.NoError(t, err)
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
 
 	read, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -100,7 +99,7 @@ func TestStatus_ReadStatus_Bad_NoFile(t *testing.T) {
 
 func TestStatus_ReadStatus_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "not json{").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "not json{").OK)
 
 	_, err := ReadStatus(dir)
 	assert.Error(t, err)
@@ -118,7 +117,7 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 
 	data, err := json.MarshalIndent(status, "", "  ")
 	require.NoError(t, err)
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
 
 	read, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -178,7 +177,7 @@ func TestStatus_WriteStatus_Good_OverwriteExisting(t *testing.T) {
 
 func TestStatus_ReadStatus_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "status.json"), "").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "").OK)
 
 	_, err := ReadStatus(dir)
 	assert.Error(t, err)
@@ -189,33 +188,33 @@ func TestStatus_ReadStatus_Ugly_EmptyFile(t *testing.T) {
 func TestStatus_Status_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Case 1: running + dead PID + BLOCKED.md → should detect as blocked
-	ws1 := filepath.Join(wsRoot, "dead-blocked")
-	require.True(t, fs.EnsureDir(filepath.Join(ws1, "repo")).OK)
+	ws1 := core.JoinPath(wsRoot, "dead-blocked")
+	require.True(t, fs.EnsureDir(core.JoinPath(ws1, "repo")).OK)
 	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
 		Status: "running",
 		Repo:   "go-io",
 		Agent:  "codex",
 		PID:    999999,
 	}))
-	require.True(t, fs.Write(filepath.Join(ws1, "repo", "BLOCKED.md"), "Need API credentials").OK)
+	require.True(t, fs.Write(core.JoinPath(ws1, "repo", "BLOCKED.md"), "Need API credentials").OK)
 
 	// Case 2: running + dead PID + agent log → completed
-	ws2 := filepath.Join(wsRoot, "dead-completed")
-	require.True(t, fs.EnsureDir(filepath.Join(ws2, "repo")).OK)
+	ws2 := core.JoinPath(wsRoot, "dead-completed")
+	require.True(t, fs.EnsureDir(core.JoinPath(ws2, "repo")).OK)
 	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status: "running",
 		Repo:   "go-log",
 		Agent:  "claude",
 		PID:    999999,
 	}))
-	require.True(t, fs.Write(filepath.Join(ws2, "agent-claude.log"), "agent finished ok").OK)
+	require.True(t, fs.Write(core.JoinPath(ws2, "agent-claude.log"), "agent finished ok").OK)
 
 	// Case 3: running + dead PID + no log + no BLOCKED.md → failed
-	ws3 := filepath.Join(wsRoot, "dead-failed")
-	require.True(t, fs.EnsureDir(filepath.Join(ws3, "repo")).OK)
+	ws3 := core.JoinPath(wsRoot, "dead-failed")
+	require.True(t, fs.EnsureDir(core.JoinPath(ws3, "repo")).OK)
 	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
 		Status: "running",
 		Repo:   "agent",
@@ -318,11 +317,11 @@ func TestStatus_WriteStatus_Bad_ReadOnlyPath(t *testing.T) {
 func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	wsRoot := filepath.Join(root, "workspace")
+	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a running workspace with a live PID (our own PID)
-	ws1 := filepath.Join(wsRoot, "task-running")
-	require.True(t, fs.EnsureDir(filepath.Join(ws1, "repo")).OK)
+	ws1 := core.JoinPath(wsRoot, "task-running")
+	require.True(t, fs.EnsureDir(core.JoinPath(ws1, "repo")).OK)
 	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
@@ -331,8 +330,8 @@ func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 	}))
 
 	// Create a blocked workspace
-	ws2 := filepath.Join(wsRoot, "task-blocked")
-	require.True(t, fs.EnsureDir(filepath.Join(ws2, "repo")).OK)
+	ws2 := core.JoinPath(wsRoot, "task-blocked")
+	require.True(t, fs.EnsureDir(core.JoinPath(ws2, "repo")).OK)
 	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status:   "blocked",
 		Repo:     "go-log",

@@ -5,7 +5,6 @@ package agentic
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -72,13 +71,13 @@ func TestHandlers_RegisterHandlers_Good_QAFailsUpdatesStatus(t *testing.T) {
 
 	root := WorkspaceRoot()
 	wsName := "core/test/task-1"
-	wsDir := filepath.Join(root, wsName)
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, wsName)
+	repoDir := core.JoinPath(wsDir, "repo")
 	os.MkdirAll(repoDir, 0o755)
 
 	// Create a Go project that will fail vet/build
-	os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nimport \"fmt\"\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "go.mod"), []byte("module test\n\ngo 1.22\n"), 0o644)
+	os.WriteFile(core.JoinPath(repoDir, "main.go"), []byte("package main\nimport \"fmt\"\n"), 0o644)
 
 	st := &WorkspaceStatus{
 		Status: "completed",
@@ -108,8 +107,8 @@ func TestHandlers_RegisterHandlers_Good_IngestOnCompletion(t *testing.T) {
 
 	root := WorkspaceRoot()
 	wsName := "core/test/task-2"
-	wsDir := filepath.Join(root, wsName)
-	repoDir := filepath.Join(wsDir, "repo")
+	wsDir := core.JoinPath(root, wsName)
+	repoDir := core.JoinPath(wsDir, "repo")
 	os.MkdirAll(repoDir, 0o755)
 
 	st := &WorkspaceStatus{

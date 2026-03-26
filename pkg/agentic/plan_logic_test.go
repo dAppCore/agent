@@ -3,10 +3,10 @@
 package agentic
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +68,7 @@ func TestReadWritePlan_Good_BasicRoundtrip(t *testing.T) {
 
 	path, err := writePlan(dir, plan)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(dir, "basic-plan-abc.json"), path)
+	assert.Equal(t, core.JoinPath(dir, "basic-plan-abc.json"), path)
 
 	read, err := readPlan(dir, "basic-plan-abc")
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestPlan_ReadPlan_Bad_MissingFile(t *testing.T) {
 
 func TestPlan_ReadPlan_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "bad.json"), `{broken`).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "bad.json"), `{broken`).OK)
 
 	_, err := readPlan(dir, "bad")
 	assert.Error(t, err)
@@ -128,7 +128,7 @@ func TestPlan_ReadPlan_Bad_CorruptJSON(t *testing.T) {
 
 func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
 	base := t.TempDir()
-	nested := filepath.Join(base, "deep", "nested", "plans")
+	nested := core.JoinPath(base, "deep", "nested", "plans")
 
 	plan := &Plan{
 		ID:        "deep-plan-xyz",
@@ -139,7 +139,7 @@ func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
 
 	path, err := writePlan(nested, plan)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(nested, "deep-plan-xyz.json"), path)
+	assert.Equal(t, core.JoinPath(nested, "deep-plan-xyz.json"), path)
 	assert.True(t, fs.IsFile(path))
 }
 
@@ -168,7 +168,7 @@ func TestPlan_WritePlan_Good_OverwriteExistingLogic(t *testing.T) {
 
 func TestPlan_ReadPlan_Ugly_EmptyFileLogic(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(filepath.Join(dir, "empty.json"), "").OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
 
 	_, err := readPlan(dir, "empty")
 	assert.Error(t, err)

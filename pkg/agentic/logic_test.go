@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -268,11 +267,11 @@ func TestAutoPr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_completed", "codex", "core/go-io/task-5", "completed")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK, "events.jsonl should exist after emitEvent")
 
@@ -286,11 +285,11 @@ func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "claude", "core/agent/task-1", "running")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	f, err := os.Open(eventsFile)
 	require.NoError(t, err)
 	defer f.Close()
@@ -310,12 +309,12 @@ func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "codex", "core/go-io/task-1", "running")
 	emitEvent("agent_completed", "codex", "core/go-io/task-1", "completed")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 
@@ -331,11 +330,11 @@ func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("gemini", "core/go-log/task-3")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	assert.Contains(t, r.Value.(string), "agent_started")
@@ -345,11 +344,11 @@ func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 func TestEvents_EmitEvent_Good_CompletionHelper(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("claude", "core/agent/task-7", "failed")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	assert.Contains(t, r.Value.(string), "agent_completed")
@@ -370,7 +369,7 @@ func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	// Should not panic with all empty fields
 	assert.NotPanics(t, func() {
@@ -383,11 +382,11 @@ func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 func TestEvents_EmitStartEvent_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("codex", "core/go-io/task-10")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	content := r.Value.(string)
@@ -400,13 +399,13 @@ func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 	// Empty agent name
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
 		emitStartEvent("", "core/go-io/task-10")
 	})
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	content := r.Value.(string)
@@ -417,14 +416,14 @@ func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 	// Very long workspace name
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	longName := strings.Repeat("very-long-workspace-name-", 50)
 	assert.NotPanics(t, func() {
 		emitStartEvent("claude", longName)
 	})
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	assert.Contains(t, r.Value.(string), "agent_started")
@@ -433,11 +432,11 @@ func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("gemini", "core/go-log/task-5", "completed")
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	content := r.Value.(string)
@@ -450,13 +449,13 @@ func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 	// Empty status
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
 		emitCompletionEvent("claude", "core/agent/task-1", "")
 	})
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	assert.Contains(t, r.Value.(string), "agent_completed")
@@ -466,13 +465,13 @@ func TestEvents_EmitCompletionEvent_Ugly(t *testing.T) {
 	// Unicode in agent name
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
-	require.True(t, fs.EnsureDir(filepath.Join(root, "workspace")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
 		emitCompletionEvent("\u00e9nchantr\u00efx-\u2603", "core/agent/task-1", "completed")
 	})
 
-	eventsFile := filepath.Join(root, "workspace", "events.jsonl")
+	eventsFile := core.JoinPath(root, "workspace", "events.jsonl")
 	r := fs.Read(eventsFile)
 	require.True(t, r.OK)
 	assert.Contains(t, r.Value.(string), "\u00e9nchantr\u00efx")
@@ -597,7 +596,7 @@ func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 
 	// Create the workspace directory structure
 	wsName := "core/go-io/task-5"
-	wsDir := filepath.Join(root, "workspace", wsName)
+	wsDir := core.JoinPath(root, "workspace", wsName)
 	require.True(t, fs.EnsureDir(wsDir).OK)
 
 	result := resolveWorkspace(wsName)
@@ -609,7 +608,7 @@ func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	wsName := "core/agent/pr-42"
-	wsDir := filepath.Join(root, "workspace", wsName)
+	wsDir := core.JoinPath(root, "workspace", wsName)
 	require.True(t, fs.EnsureDir(wsDir).OK)
 
 	result := resolveWorkspace(wsName)
@@ -651,7 +650,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "task-10")
+	wsDir := core.JoinPath(root, "workspace", "task-10")
 	require.True(t, fs.EnsureDir(wsDir).OK)
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -667,7 +666,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "core", "go-io", "task-15")
+	wsDir := core.JoinPath(root, "workspace", "core", "go-io", "task-15")
 	require.True(t, fs.EnsureDir(wsDir).OK)
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "running",
@@ -683,7 +682,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "task-99")
+	wsDir := core.JoinPath(root, "workspace", "task-99")
 	require.True(t, fs.EnsureDir(wsDir).OK)
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -707,7 +706,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "task-5")
+	wsDir := core.JoinPath(root, "workspace", "task-5")
 	require.True(t, fs.EnsureDir(wsDir).OK)
 	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
@@ -724,9 +723,9 @@ func TestHandlers_FindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsDir := filepath.Join(root, "workspace", "corrupt-ws")
+	wsDir := core.JoinPath(root, "workspace", "corrupt-ws")
 	require.True(t, fs.EnsureDir(wsDir).OK)
-	require.True(t, fs.Write(filepath.Join(wsDir, "status.json"), "not-valid-json{").OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "status.json"), "not-valid-json{").OK)
 
 	// Should skip corrupt entries, not panic
 	result := findWorkspaceByPR("go-io", "agent/any")
