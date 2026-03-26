@@ -59,7 +59,6 @@ func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -210,7 +209,6 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -242,7 +240,6 @@ func TestIngest_CreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   "https://example.com",
 		brainKey:   "test-brain-key",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -268,7 +265,6 @@ func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -337,7 +333,6 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:  srv.URL,
 		brainKey:  "test-brain-key",
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

@@ -69,7 +69,6 @@ func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -97,7 +96,6 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -268,7 +266,6 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -336,7 +333,6 @@ func TestPr_CommentOnIssue_Bad(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -363,7 +359,6 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -445,7 +440,6 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -481,7 +475,6 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -503,7 +496,6 @@ func TestPr_ListRepoPRs_Good(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -526,7 +518,6 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -547,7 +538,6 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}

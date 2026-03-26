@@ -38,7 +38,6 @@ func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -87,7 +86,6 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -121,7 +119,6 @@ func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) 
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -148,7 +145,6 @@ func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}

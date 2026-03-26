@@ -254,7 +254,6 @@ func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -277,7 +276,6 @@ func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -310,7 +308,6 @@ func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -397,7 +394,6 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}

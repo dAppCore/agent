@@ -162,7 +162,7 @@ func TestPrep_NewPrep_Good_Defaults(t *testing.T) {
 	s := NewPrep()
 	assert.Equal(t, "https://forge.lthn.ai", s.forgeURL)
 	assert.Equal(t, "https://api.lthn.sh", s.brainURL)
-	assert.NotNil(t, s.client)
+	assert.NotEmpty(t, s.codePath)
 }
 
 func TestPrep_NewPrep_Good_EnvOverrides(t *testing.T) {
@@ -379,7 +379,6 @@ func TestPrep_NewPrep_Ugly(t *testing.T) {
 	s := NewPrep()
 	assert.NotNil(t, s.backoff, "backoff map must not be nil")
 	assert.NotNil(t, s.failCount, "failCount map must not be nil")
-	assert.NotNil(t, s.client, "HTTP client must not be nil")
 	assert.NotNil(t, s.forge, "Forge client must not be nil")
 }
 
@@ -775,7 +774,6 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
 		codePath:  filepath.Join(root, "src"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

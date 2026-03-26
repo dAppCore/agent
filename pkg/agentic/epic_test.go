@@ -136,7 +136,6 @@ func newTestSubsystem(t *testing.T, srv *httptest.Server) *PrepSubsystem {
 		brainURL:   srv.URL,
 		brainKey:   "test-brain-key",
 		codePath:   t.TempDir(),
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -183,7 +182,6 @@ func TestEpic_CreateIssue_Bad_ServerDown(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -202,7 +200,6 @@ func TestEpic_CreateIssue_Bad_Non201Response(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -250,7 +247,6 @@ func TestEpic_ResolveLabelIDs_Bad_ServerError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -286,7 +282,6 @@ func TestEpic_CreateLabel_Bad_ServerDown(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}

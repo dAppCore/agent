@@ -39,7 +39,6 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-forge-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -58,7 +57,6 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -80,7 +78,6 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -103,7 +100,6 @@ func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -121,7 +117,6 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -171,7 +166,6 @@ func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -188,7 +182,6 @@ func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -214,7 +207,6 @@ func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -235,7 +227,6 @@ func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -252,7 +243,6 @@ func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     &http.Client{},
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -465,7 +455,6 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -499,7 +488,6 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -587,7 +575,6 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -624,7 +611,6 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -647,7 +633,6 @@ func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -669,7 +654,6 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -703,7 +687,6 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}
@@ -731,7 +714,6 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 		forge:      forge.NewForge(srv.URL, "test-token"),
 		forgeURL:   srv.URL,
 		forgeToken: "test-token",
-		client:     srv.Client(),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 	}

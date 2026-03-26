@@ -149,7 +149,6 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -170,7 +169,6 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -194,7 +192,6 @@ func TestPrep_GetIssueBody_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -212,7 +209,6 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -266,7 +262,6 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
 		codePath:  t.TempDir(),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -350,7 +345,6 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
 		codePath:  t.TempDir(),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -429,7 +423,6 @@ func TestPrep_PullWikiContent_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -460,7 +453,6 @@ func TestPrep_PullWikiContent_Ugly(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -508,7 +500,6 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		brainURL:  srv.URL,
 		brainKey:  "test-key",
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
@@ -594,7 +585,6 @@ func TestPrep_GetIssueBody_Ugly(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forge:     forge.NewForge(srv.URL, "test-token"),
-		client:    srv.Client(),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}

@@ -26,10 +26,8 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 	c := core.New()
 
 	var f *forge.Forge
-	var client *http.Client
 	if srv != nil {
 		f = forge.NewForge(srv.URL, "test-token")
-		client = srv.Client()
 	}
 
 	s := &PrepSubsystem{
@@ -37,7 +35,6 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 		forge:      f,
 		forgeURL:   "",
 		forgeToken: "test-token",
-		client:     client,
 		codePath:   t.TempDir(),
 		pokeCh:     make(chan struct{}, 1),
 		backoff:    make(map[string]time.Time),

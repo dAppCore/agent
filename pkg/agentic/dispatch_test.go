@@ -411,7 +411,6 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	s := newPrepWithProcess()
 	s.forge = forge.NewForge(forgeSrv.URL, "tok")
 	s.codePath = filepath.Dir(filepath.Dir(srcRepo))
-	s.client = forgeSrv.Client()
 
 	_, out, err := s.dispatch(context.Background(), nil, DispatchInput{
 		Repo: "go-io", Task: "Fix stuff", Issue: 42, DryRun: true,
