@@ -7,7 +7,6 @@ import (
 	"syscall"
 	"time"
 
-	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
@@ -261,18 +260,40 @@ func (s *Service) drainOne() bool {
 
 		// Ask agentic to spawn — runner doesn't own the spawn logic,
 		// just the gate. Send IPC to trigger the actual spawn.
-		if s.ServiceRuntime != nil {
-			s.Core().ACTION(messages.SpawnQueued{
-				Workspace: core.PathBase(wsDir),
-				Agent:     st.Agent,
-				Task:      st.Task,
-			})
+		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
+		wsRoot := WorkspaceRoot()
+		wsName := wsDir
+		if len(wsDir) > len(wsRoot)+1 {
+			wsName = wsDir[len(wsRoot)+1:]
+		}
+		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", st.Agent)
+
+		// Spawn directly — agentic is a Core service, use ServiceFor to get it
+		if s.ServiceRuntime == nil {
+			continue
+		}
+		type spawner interface {
+			SpawnFromQueue(agent, prompt, wsDir string) (int, error)
+		}
+		prep, ok := core.ServiceFor[spawner](s.Core(), "agentic")
+		if !ok {
+			core.Error("drainOne: agentic service not found")
+			continue
+		}
+		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
+		pid, err := prep.SpawnFromQueue(st.Agent, prompt, wsDir)
+		if err != nil {
+			core.Error("drainOne: spawn failed", "err", err)
+			continue
 		}
 
+		// Only mark running AFTER successful spawn
 		st.Status = "running"
+		st.PID = pid
 		st.Runs++
 		WriteStatus(wsDir, st)
-		s.TrackWorkspace(core.PathBase(wsDir), st)
+		s.TrackWorkspace(wsName, st)
+		core.Info("drainOne: spawned", "pid", pid, "workspace", wsName)
 
 		return true
 	}

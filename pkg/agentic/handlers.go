@@ -30,14 +30,15 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 
 	case messages.SpawnQueued:
 		// Runner asks agentic to spawn a queued workspace
+		// Runner asks agentic to spawn a queued workspace
 		wsDir := resolveWorkspace(ev.Workspace)
 		if wsDir == "" {
-			break
+				break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 		pid, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
 		if err != nil {
-			break
+				break
 		}
 		// Update status with real PID
 		if st, serr := ReadStatus(wsDir); serr == nil {
@@ -51,6 +52,15 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 	}
 
 	return core.Result{OK: true}
+}
+
+// SpawnFromQueue spawns an agent in a pre-prepped workspace.
+// Called by runner.Service via ServiceFor interface matching.
+//
+//	pid, err := prep.SpawnFromQueue("codex", prompt, wsDir)
+func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) (int, error) {
+	pid, _, err := s.spawnAgent(agent, prompt, wsDir)
+	return pid, err
 }
 
 // resolveWorkspace converts a workspace name back to the full path.
