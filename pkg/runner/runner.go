@@ -134,6 +134,13 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 		})
 
 	case messages.AgentCompleted:
+		// Update workspace status in Registry so concurrency count drops
+		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
+			if st.Repo == ev.Repo && st.Status == "running" {
+				st.Status = ev.Status
+				st.PID = 0
+			}
+		})
 		c.ACTION(coremcp.ChannelPush{
 			Channel: "agent.status",
 			Data: map[string]any{

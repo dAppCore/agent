@@ -1,0 +1,63 @@
+name: v0.8.0 Upgrade Plan
+description: Generate UPGRADE.md for a Go package — audit banned imports, test naming, usage comments
+agent: codex
+template: coding
+
+steps:
+  - name: audit-deps
+    description: Check go.mod for core dependency version
+    check: "grep dappco.re/go/core go.mod"
+
+  - name: audit-imports
+    description: Find all banned stdlib imports with file:line
+    banned:
+      - import: os
+        replace: "core.Env() for env vars, core.Fs for file ops"
+      - import: os/exec
+        replace: "go-process package"
+      - import: encoding/json
+        replace: "core.JSONMarshalString(), core.JSONUnmarshalString()"
+      - import: fmt
+        replace: "core.Sprintf(), core.Concat(), core.E() for errors"
+      - import: errors
+        replace: "core.E(), core.Is()"
+      - import: strings
+        replace: "core.Contains(), core.HasPrefix(), core.Split(), core.Trim(), core.Replace(), core.Lower(), core.SplitN()"
+      - import: path/filepath
+        replace: "core.JoinPath(), core.PathBase(), core.PathDir(), core.PathGlob()"
+
+  - name: audit-tests
+    description: Find tests not matching TestFile_Function_{Good,Bad,Ugly}
+    pattern: "^func Test[A-Z]"
+    convention: "TestFilename_FunctionName_{Good,Bad,Ugly}"
+    categories:
+      Good: happy path — proves the contract works
+      Bad: expected errors — proves error handling works
+      Ugly: edge cases, panics — proves it doesn't blow up
+
+  - name: audit-comments
+    description: Find exported functions missing usage-example comments
+    pattern: "^func [A-Z]|^func \\(.*\\) [A-Z]"
+    required: |
+      // FunctionName does X.
+      //
+      //	result := pkg.FunctionName("input")
+
+  - name: write-plan
+    description: Write UPGRADE.md with all findings
+    output: UPGRADE.md
+    sections:
+      - "1. Dependency Upgrade"
+      - "2. Banned Imports (file:line → replacement)"
+      - "3. Test Naming Violations (file:line → suggested rename)"
+      - "4. Missing Usage Comments (file:line)"
+
+verify:
+  - go build ./...
+  - go vet ./...
+  - go test ./... -count=1 -timeout 120s
+  - go mod tidy
+
+commit:
+  message: "docs({{repo}}): add v0.8.0 AX upgrade plan"
+  co_author: "Virgil <virgil@lethean.io>"
