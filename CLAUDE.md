@@ -10,7 +10,7 @@ Running on **Claude Max20 plan** with **1M context window** (Opus 4.6).
 
 **core-agent** is the AI agent orchestration platform for the Core ecosystem. Single Go binary (`core-agent`) that runs as an MCP server — either via stdio (Claude Code integration) or HTTP daemon (cross-agent communication).
 
-**Module:** `forge.lthn.ai/core/agent`
+**Module:** `dappco.re/go/agent`
 
 ## Build & Test
 
