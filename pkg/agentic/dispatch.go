@@ -362,7 +362,11 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	agentBase := core.SplitN(agent, ":", 2)[0]
 	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
 
-	sr := process.StartWithOptions(context.Background(), process.RunOptions{
+	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
+	if !ok {
+		return 0, "", core.E("dispatch.spawnAgent", "process service not registered", nil)
+	}
+	sr := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
 		Dir:     repoDir,
