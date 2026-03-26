@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -80,12 +79,12 @@ func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	// BLOCKED.md exists but is whitespace only — NOT blocked
-	os.WriteFile(core.JoinPath(dir, "BLOCKED.md"), []byte("  \n  "), 0o644)
+	fs.Write(core.JoinPath(dir, "BLOCKED.md"), "  \n  ")
 	status, _ := detectFinalStatus(dir, 0, "completed")
 	assert.Equal(t, "completed", status)
 
 	// BLOCKED.md takes precedence over non-zero exit
-	os.WriteFile(core.JoinPath(dir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
+	fs.Write(core.JoinPath(dir, "BLOCKED.md"), "Need credentials")
 	status2, question2 := detectFinalStatus(dir, 1, "failed")
 	assert.Equal(t, "blocked", status2)
 	assert.Equal(t, "Need credentials", question2)
@@ -226,9 +225,8 @@ func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
-	os.MkdirAll(wsDir, 0o755)
-	data, _ := json.Marshal(WorkspaceStatus{Repo: "go-io", Agent: "codex"})
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.EnsureDir(wsDir)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(WorkspaceStatus{Repo: "go-io", Agent: "codex"}))
 
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -256,12 +254,11 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	wsDir := core.JoinPath(root, "ws-test")
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	os.MkdirAll(repoDir, 0o755)
-	os.MkdirAll(metaDir, 0o755)
+	fs.EnsureDir(repoDir)
+	fs.EnsureDir(metaDir)
 
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 
 	s := newPrepWithProcess()
 	outputFile := core.JoinPath(metaDir, "agent-codex.log")
@@ -272,8 +269,9 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	assert.Equal(t, "completed", updated.Status)
 	assert.Equal(t, 0, updated.PID)
 
-	content, _ := os.ReadFile(outputFile)
-	assert.Equal(t, "test output", string(content))
+	r := fs.Read(outputFile)
+	assert.True(t, r.OK)
+	assert.Equal(t, "test output", r.Value.(string))
 }
 
 func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
@@ -283,12 +281,11 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	wsDir := core.JoinPath(root, "ws-fail")
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	os.MkdirAll(repoDir, 0o755)
-	os.MkdirAll(metaDir, 0o755)
+	fs.EnsureDir(repoDir)
+	fs.EnsureDir(metaDir)
 
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 
 	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 1, "failed", "error")
@@ -305,13 +302,12 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	wsDir := core.JoinPath(root, "ws-blocked")
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	os.MkdirAll(repoDir, 0o755)
-	os.MkdirAll(metaDir, 0o755)
+	fs.EnsureDir(repoDir)
+	fs.EnsureDir(metaDir)
 
-	os.WriteFile(core.JoinPath(repoDir, "BLOCKED.md"), []byte("Need credentials"), 0o644)
+	fs.Write(core.JoinPath(repoDir, "BLOCKED.md"), "Need credentials")
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 
 	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 0, "completed", "")
@@ -321,8 +317,7 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	assert.Equal(t, "Need credentials", updated.Question)
 
 	// Empty output should NOT create log file
-	_, err := os.Stat(core.JoinPath(metaDir, "agent-codex.log"))
-	assert.True(t, os.IsNotExist(err))
+	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
 }
 
 // --- runQA ---
@@ -330,9 +325,9 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 func TestDispatch_RunQA_Good(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
-	os.MkdirAll(repoDir, 0o755)
-	os.WriteFile(core.JoinPath(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(core.JoinPath(repoDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
+	fs.EnsureDir(repoDir)
+	fs.Write(core.JoinPath(repoDir, "go.mod"), "module testmod\n\ngo 1.22\n")
+	fs.Write(core.JoinPath(repoDir, "main.go"), "package main\nfunc main() {}\n")
 
 	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
@@ -341,11 +336,11 @@ func TestDispatch_RunQA_Good(t *testing.T) {
 func TestDispatch_RunQA_Bad(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
-	os.MkdirAll(repoDir, 0o755)
+	fs.EnsureDir(repoDir)
 
 	// Broken Go code
-	os.WriteFile(core.JoinPath(repoDir, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(core.JoinPath(repoDir, "main.go"), []byte("package main\nfunc main( {\n}\n"), 0o644)
+	fs.Write(core.JoinPath(repoDir, "go.mod"), "module testmod\n\ngo 1.22\n")
+	fs.Write(core.JoinPath(repoDir, "main.go"), "package main\nfunc main( {\n}\n")
 
 	s := newPrepWithProcess()
 	assert.False(t, s.runQA(wsDir))
@@ -353,8 +348,8 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 	// PHP project — composer not available
 	wsDir2 := t.TempDir()
 	repoDir2 := core.JoinPath(wsDir2, "repo")
-	os.MkdirAll(repoDir2, 0o755)
-	os.WriteFile(core.JoinPath(repoDir2, "composer.json"), []byte(`{"name":"test"}`), 0o644)
+	fs.EnsureDir(repoDir2)
+	fs.Write(core.JoinPath(repoDir2, "composer.json"), `{"name":"test"}`)
 
 	assert.False(t, s.runQA(wsDir2))
 }
@@ -362,7 +357,7 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 func TestDispatch_RunQA_Ugly(t *testing.T) {
 	// Unknown language — passes QA (no checks)
 	wsDir := t.TempDir()
-	os.MkdirAll(core.JoinPath(wsDir, "repo"), 0o755)
+	fs.EnsureDir(core.JoinPath(wsDir, "repo"))
 
 	s := newPrepWithProcess()
 	assert.True(t, s.runQA(wsDir))
@@ -370,16 +365,16 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 	// Go vet failure (compiles but bad printf)
 	wsDir2 := t.TempDir()
 	repoDir2 := core.JoinPath(wsDir2, "repo")
-	os.MkdirAll(repoDir2, 0o755)
-	os.WriteFile(core.JoinPath(repoDir2, "go.mod"), []byte("module testmod\n\ngo 1.22\n"), 0o644)
-	os.WriteFile(core.JoinPath(repoDir2, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Printf(\"%d\", \"x\") }\n"), 0o644)
+	fs.EnsureDir(repoDir2)
+	fs.Write(core.JoinPath(repoDir2, "go.mod"), "module testmod\n\ngo 1.22\n")
+	fs.Write(core.JoinPath(repoDir2, "main.go"), "package main\nimport \"fmt\"\nfunc main() { fmt.Printf(\"%d\", \"x\") }\n")
 	assert.False(t, s.runQA(wsDir2))
 
 	// Node project — npm install likely fails
 	wsDir3 := t.TempDir()
 	repoDir3 := core.JoinPath(wsDir3, "repo")
-	os.MkdirAll(repoDir3, 0o755)
-	os.WriteFile(core.JoinPath(repoDir3, "package.json"), []byte(`{"name":"test","scripts":{"test":"echo ok"}}`), 0o644)
+	fs.EnsureDir(repoDir3)
+	fs.Write(core.JoinPath(repoDir3, "package.json"), `{"name":"test","scripts":{"test":"echo ok"}}`)
 	_ = s.runQA(wsDir3) // exercises the node path
 }
 
@@ -398,7 +393,7 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	exec.Command("git", "init", "-b", "main", srcRepo).Run()
 	exec.Command("git", "-C", srcRepo, "config", "user.name", "T").Run()
 	exec.Command("git", "-C", srcRepo, "config", "user.email", "t@t.com").Run()
-	os.WriteFile(core.JoinPath(srcRepo, "go.mod"), []byte("module test\ngo 1.22\n"), 0o644)
+	fs.Write(core.JoinPath(srcRepo, "go.mod"), "module test\ngo 1.22\n")
 	exec.Command("git", "-C", srcRepo, "add", ".").Run()
 	exec.Command("git", "-C", srcRepo, "commit", "-m", "init").Run()
 
