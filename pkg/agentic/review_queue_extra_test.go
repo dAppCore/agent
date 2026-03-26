@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -48,7 +46,7 @@ func TestSaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", dir)
 
 	// Ensure .core dir exists
-	os.MkdirAll(core.JoinPath(dir, ".core"), 0o755)
+	fs.EnsureDir(core.JoinPath(dir, ".core"))
 
 	// Note: saveRateLimitState uses core.Env("DIR_HOME") which is pre-populated.
 	// We need to work around this by using CORE_WORKSPACE for the load,
@@ -97,7 +95,7 @@ func TestReviewQueue_Good_NoCandidates(t *testing.T) {
 
 	// Create an empty core dir (no repos)
 	coreDir := core.JoinPath(root, "core")
-	os.MkdirAll(coreDir, 0o755)
+	fs.EnsureDir(coreDir)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -130,10 +128,9 @@ func TestStatus_Good_FilteredByStatus(t *testing.T) {
 		{"ws-4", "queued"},
 	} {
 		wsDir := core.JoinPath(wsRoot, ws.name)
-		os.MkdirAll(wsDir, 0o755)
+		fs.EnsureDir(wsDir)
 		st := &WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"}
-		data, _ := json.Marshal(st)
-		os.WriteFile(core.JoinPath(wsDir, "status.json"), data, 0o644)
+		fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 	}
 
 	s := &PrepSubsystem{
@@ -159,7 +156,7 @@ func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 
 	// Create workspace dir
 	ws := core.JoinPath(wsRoot, "core", "go-io", "task-15")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 
 	result := resolveWorkspace("core/go-io/task-15")
 	assert.Equal(t, ws, result)
@@ -179,10 +176,9 @@ func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-test")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Repo: "go-io", Branch: "agent/fix", Status: "completed"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("go-io", "agent/fix")
 	assert.Equal(t, ws, result)
@@ -195,10 +191,9 @@ func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 
 	// Deep layout: org/repo/task
 	ws := core.JoinPath(wsRoot, "core", "agent", "task-5")
-	os.MkdirAll(ws, 0o755)
+	fs.EnsureDir(ws)
 	st := &WorkspaceStatus{Repo: "agent", Branch: "agent/tests", Status: "completed"}
-	data, _ := json.Marshal(st)
-	os.WriteFile(core.JoinPath(ws, "status.json"), data, 0o644)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("agent", "agent/tests")
 	assert.Equal(t, ws, result)
@@ -212,19 +207,23 @@ func TestReviewQueue_LoadRateLimitState_Ugly(t *testing.T) {
 	ratePath := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
 
 	// Save original content (may or may not exist)
-	original, readErr := os.ReadFile(ratePath)
-	hadFile := readErr == nil
+	origResult := fs.Read(ratePath)
+	hadFile := origResult.OK
+	var original string
+	if hadFile {
+		original = origResult.Value.(string)
+	}
 
 	// Ensure parent dir exists
-	os.MkdirAll(core.PathDir(ratePath), 0o755)
+	fs.EnsureDir(core.PathDir(ratePath))
 
 	// Write corrupt JSON
-	require.NoError(t, os.WriteFile(ratePath, []byte("not-valid-json{{{"), 0o644))
+	fs.Write(ratePath, "not-valid-json{{{")
 	t.Cleanup(func() {
 		if hadFile {
-			os.WriteFile(ratePath, original, 0o644)
+			fs.Write(ratePath, original)
 		} else {
-			os.Remove(ratePath)
+			fs.Delete(ratePath)
 		}
 	})
 
