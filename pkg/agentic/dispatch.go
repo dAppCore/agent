@@ -12,6 +12,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// workspaceTracker is the interface runner.Service satisfies.
+// Uses *WorkspaceStatus from agentic — runner imports agentic for the type.
+type workspaceTracker interface {
+	TrackWorkspace(name string, st any)
+}
+
 // DispatchInput is the input for agentic_dispatch.
 //
 //	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
@@ -495,25 +501,36 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		}, nil
 	}
 
-	// Step 2: Check per-agent concurrency limit
-	if !s.canDispatchAgent(input.Agent) {
-		writeStatus(wsDir, &WorkspaceStatus{
-			Status:    "queued",
-			Agent:     input.Agent,
-			Repo:      input.Repo,
-			Org:       input.Org,
-			Task:      input.Task,
-			Branch:    prepOut.Branch,
-			StartedAt: time.Now(),
-			Runs:      0,
-		})
-		return nil, DispatchOutput{
-			Success:      true,
-			Agent:        input.Agent,
-			Repo:         input.Repo,
-			WorkspaceDir: wsDir,
-			OutputFile:   "queued — waiting for a slot",
-		}, nil
+	// Step 2: Ask runner service for permission (frozen + concurrency check).
+	// Runner owns the gate — agentic owns the spawn.
+	if s.ServiceRuntime != nil {
+		r := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
+			core.Option{Key: "agent", Value: input.Agent},
+		))
+		if !r.OK {
+			// Runner denied — queue it
+			st := &WorkspaceStatus{
+				Status:    "queued",
+				Agent:     input.Agent,
+				Repo:      input.Repo,
+				Org:       input.Org,
+				Task:      input.Task,
+				Branch:    prepOut.Branch,
+				StartedAt: time.Now(),
+				Runs:      0,
+			}
+			writeStatus(wsDir, st)
+			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
+				runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+			}
+			return nil, DispatchOutput{
+				Success:      true,
+				Agent:        input.Agent,
+				Repo:         input.Repo,
+				WorkspaceDir: wsDir,
+				OutputFile:   "queued — at concurrency limit or frozen",
+			}, nil
+		}
 	}
 
 	// Step 3: Spawn agent in repo/ directory
@@ -522,7 +539,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		return nil, DispatchOutput{}, err
 	}
 
-	writeStatus(wsDir, &WorkspaceStatus{
+	st := &WorkspaceStatus{
 		Status:    "running",
 		Agent:     input.Agent,
 		Repo:      input.Repo,
@@ -532,7 +549,14 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		PID:       pid,
 		StartedAt: time.Now(),
 		Runs:      1,
-	})
+	}
+	writeStatus(wsDir, st)
+	// Track in runner's registry (runner owns workspace state)
+	if s.ServiceRuntime != nil {
+		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
+			runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+		}
+	}
 
 	return nil, DispatchOutput{
 		Success:      true,

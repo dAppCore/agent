@@ -33,6 +33,7 @@ type PrepSubsystem struct {
 	brainURL   string
 	brainKey   string
 	codePath   string
+	dispatchMu sync.Mutex // serialises concurrency check + spawn
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool

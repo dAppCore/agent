@@ -156,18 +156,36 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	return time.Duration(rate.SustainedDelay) * time.Second
 }
 
-// countRunningByAgent counts running workspaces for a specific agent type.
-// Scans both old (*/status.json) and new (*/*/*/status.json) workspace layouts.
+// countRunningByAgent counts running workspaces for a specific agent type
+// using the in-memory Registry. Falls back to disk scan if Registry is empty.
+//
+//	n := s.countRunningByAgent("codex") // counts all codex:* variants
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
-	wsRoot := WorkspaceRoot()
+	if s.workspaces != nil && s.workspaces.Len() > 0 {
+		count := 0
+		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
+			if st.Status == "running" && baseAgent(st.Agent) == agent {
+				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+					count++
+				}
+			}
+		})
+		return count
+	}
 
-	// Scan both old and new workspace layouts
+	// Fallback: scan disk (cold start before hydration)
+	return s.countRunningByAgentDisk(agent)
+}
+
+// countRunningByAgentDisk scans workspace status.json files on disk.
+// Used only as fallback before Registry hydration completes.
+func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
+	wsRoot := WorkspaceRoot()
 	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	new := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	paths := append(old, new...)
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
 
 	count := 0
-	for _, statusPath := range paths {
+	for _, statusPath := range append(old, deep...) {
 		st, err := ReadStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
@@ -175,17 +193,31 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 		if baseAgent(st.Agent) != agent {
 			continue
 		}
-
 		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
 			count++
 		}
 	}
-
 	return count
 }
 
-// countRunningByModel counts running workspaces for a specific agent:model string.
+// countRunningByModel counts running workspaces for a specific agent:model string
+// using the in-memory Registry.
+//
+//	n := s.countRunningByModel("codex:gpt-5.4") // counts only that model
 func (s *PrepSubsystem) countRunningByModel(agent string) int {
+	if s.workspaces != nil && s.workspaces.Len() > 0 {
+		count := 0
+		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
+			if st.Status == "running" && st.Agent == agent {
+				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+					count++
+				}
+			}
+		})
+		return count
+	}
+
+	// Fallback: scan disk
 	wsRoot := WorkspaceRoot()
 	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
 	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))

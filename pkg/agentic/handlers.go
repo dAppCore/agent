@@ -16,12 +16,8 @@ import (
 //
 // Handles:
 //
-//	AgentCompleted → ingest findings + poke queue
-//	PokeQueue → drain queue
-//
-// The completion pipeline (QA → PR → Verify) runs via the "agent.completion" Task,
-// triggered by PerformAsync in onAgentComplete. These handlers cover cross-cutting
-// concerns that fire on ALL completions.
+//	AgentCompleted → ingest findings (runner handles channel push + queue poke)
+//	SpawnQueued → runner asks agentic to spawn a queued workspace
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentCompleted:
@@ -31,12 +27,6 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 				s.ingestFindings(wsDir)
 			}
 		}
-		// Poke queue to fill freed slot
-		s.Poke()
-
-	case messages.PokeQueue:
-		s.drainQueue()
-		_ = ev // signal message, no fields
 	}
 
 	return core.Result{OK: true}

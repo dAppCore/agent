@@ -83,6 +83,16 @@ type QueueDrained struct {
 //	c.ACTION(messages.PokeQueue{})
 type PokeQueue struct{}
 
+// SpawnQueued is sent by the runner to request agentic spawn a queued workspace.
+// Runner gates (frozen + concurrency), agentic owns the actual process spawn.
+//
+//	c.ACTION(messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "review"})
+type SpawnQueued struct {
+	Workspace string
+	Agent     string
+	Task      string
+}
+
 // RateLimitDetected is broadcast when fast failures trigger agent pool backoff.
 //
 //	c.ACTION(messages.RateLimitDetected{Pool: "codex", Duration: "30m"})

@@ -6,6 +6,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
+	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/mcp/pkg/mcp"
 )
 
@@ -18,6 +19,7 @@ func main() {
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
+		core.WithService(runner.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
 		core.WithService(mcp.Register),
