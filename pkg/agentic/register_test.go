@@ -88,6 +88,8 @@ func TestRegister_ProcessRegister_Ugly(t *testing.T) {
 // --- OnStartup ---
 
 func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
+	// StartRunner is now a no-op — pokeCh is no longer initialised by OnStartup.
+	// Verify OnStartup succeeds and pokeCh remains nil.
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
@@ -100,10 +102,12 @@ func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
 	r := s.OnStartup(context.Background())
 	assert.True(t, r.OK)
 
-	assert.NotNil(t, s.pokeCh, "OnStartup must initialise pokeCh via StartRunner")
+	assert.Nil(t, s.pokeCh, "pokeCh should remain nil — queue drain is owned by pkg/runner")
 }
 
 func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
+	// Frozen state is now owned by pkg/runner.Service, not agentic.
+	// Verify OnStartup succeeds without asserting frozen state.
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
@@ -112,7 +116,6 @@ func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
 	s.SetCore(c)
 
 	assert.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, s.frozen, "queue must be frozen after OnStartup without CORE_AGENT_DISPATCH=1")
 }
 
 func TestPrep_OnStartup_Good_NoError(t *testing.T) {

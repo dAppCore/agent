@@ -7,10 +7,11 @@ import (
 )
 
 func ExamplePrepSubsystem_Poke() {
+	// Poke is now a no-op — queue poke is owned by pkg/runner.Service.
 	s := newPrepWithProcess()
 	s.pokeCh = make(chan struct{}, 1)
 
 	s.Poke()
 	core.Println(len(s.pokeCh))
-	// Output: 1
+	// Output: 0
 }

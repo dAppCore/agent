@@ -15,6 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// coreWithRunnerActions builds a Core with stub runner.start/stop/kill Actions
+// so shutdown tool tests can verify delegation without a real runner service.
+func coreWithRunnerActions() *core.Core {
+	c := core.New()
+	c.Action("runner.start", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
+	c.Action("runner.stop", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
+	c.Action("runner.kill", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
+	return c
+}
+
 // --- status tool ---
 
 func TestStatus_EmptyWorkspace_Good(t *testing.T) {
@@ -144,8 +154,10 @@ func TestStatus_CorruptStatus_Good(t *testing.T) {
 // --- shutdown tools ---
 
 func TestShutdown_DispatchStart_Good(t *testing.T) {
+	// dispatchStart delegates to runner.start Action — verify it calls the Action and returns success.
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    true,
 		pokeCh:    make(chan struct{}, 1),
 		backoff:   make(map[string]time.Time),
@@ -155,16 +167,17 @@ func TestShutdown_DispatchStart_Good(t *testing.T) {
 	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.False(t, s.frozen)
 	assert.Contains(t, out.Message, "started")
 }
 
 func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
+	// shutdownGraceful delegates to runner.stop Action — verify it returns success and frozen message.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -173,17 +186,18 @@ func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.True(t, s.frozen)
 	assert.Contains(t, out.Message, "frozen")
 }
 
 func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
+	// shutdownNow delegates to runner.kill Action — verify it returns success.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -192,16 +206,17 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.True(t, s.frozen)
-	assert.Contains(t, out.Message, "killed 0")
+	assert.Contains(t, out.Message, "killed all agents, cleared queue")
 }
 
 func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
+	// shutdownNow delegates to runner.kill Action — queue clearing is now
+	// handled by the runner service. Verify the delegation returns success.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
 
-	// Create queued workspaces
+	// Create queued workspaces (runner.kill would clear these in production)
 	for i := 1; i <= 3; i++ {
 		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
 		require.True(t, fs.EnsureDir(ws).OK)
@@ -212,24 +227,17 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 		}))
 	}
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
 
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
-	assert.Contains(t, out.Message, "cleared 3")
-
-	// Verify queued workspaces are now failed
-	for i := 1; i <= 3; i++ {
-		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
-		st, err := ReadStatus(ws)
-		require.NoError(t, err)
-		assert.Equal(t, "failed", st.Status)
-		assert.Contains(t, st.Question, "cleared by shutdown_now")
-	}
+	assert.True(t, out.Success)
+	assert.Contains(t, out.Message, "killed all agents, cleared queue")
 }
 
 // --- brainRecall ---
@@ -411,6 +419,8 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 // --- Poke ---
 
 func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
+	// Poke is now a no-op — queue poke is owned by pkg/runner.Service.
+	// Verify it does not panic and does not send to the channel.
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		pokeCh:    make(chan struct{}, 1),
@@ -418,14 +428,8 @@ func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
 		failCount: make(map[string]int),
 	}
 
-	s.Poke()
-	// Should have something in the channel
-	select {
-	case <-s.pokeCh:
-		// ok
-	default:
-		t.Fatal("expected poke signal in channel")
-	}
+	assert.NotPanics(t, func() { s.Poke() })
+	assert.Len(t, s.pokeCh, 0, "no-op Poke should not send to channel")
 }
 
 func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
@@ -553,6 +557,8 @@ func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 // --- shutdownNow (Ugly — deep layout with queued status) ---
 
 func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
+	// shutdownNow delegates to runner.kill Action — queue clearing is now
+	// handled by the runner service. Verify delegation with deep-layout workspaces.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -567,8 +573,9 @@ func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 		Task:   "Add tests",
 	}))
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -577,32 +584,26 @@ func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.True(t, s.frozen)
-	assert.Contains(t, out.Message, "cleared 1")
-
-	// Verify the queued workspace is now failed
-	st, err := ReadStatus(ws)
-	require.NoError(t, err)
-	assert.Equal(t, "failed", st.Status)
-	assert.Contains(t, st.Question, "cleared by shutdown_now")
+	assert.Contains(t, out.Message, "killed all agents, cleared queue")
 }
 
 // --- dispatchStart Bad/Ugly ---
 
 func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
+	// dispatchStart delegates to runner.start Action — verify it succeeds with nil pokeCh.
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    true,
 		pokeCh:    nil,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
 	}
 
-	// Should not panic even with nil pokeCh (Poke is nil-safe)
 	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.False(t, s.frozen, "frozen should be cleared even with nil pokeCh")
+	assert.Contains(t, out.Message, "started")
 }
 
 func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
@@ -642,6 +643,8 @@ func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 }
 
 func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
+	// shutdownGraceful delegates to runner.stop Action — verify it returns success
+	// even when workspaces exist.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -657,8 +660,9 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 		}))
 	}
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -667,14 +671,14 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.True(t, s.frozen)
-	// Running count should be 0 (no live PIDs)
-	assert.Equal(t, 0, out.Running)
+	assert.Contains(t, out.Message, "frozen")
 }
 
 // --- shutdownNow Bad ---
 
 func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
+	// shutdownNow delegates to runner.kill Action — verify it returns success
+	// even when there are no running PIDs. Kill counting is now in pkg/runner.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -690,8 +694,9 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 		}))
 	}
 
+	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
-		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		frozen:    false,
 		backoff:   make(map[string]time.Time),
 		failCount: make(map[string]int),
@@ -700,7 +705,5 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
-	assert.True(t, s.frozen)
-	assert.Contains(t, out.Message, "killed 0")
-	assert.Contains(t, out.Message, "cleared 0")
+	assert.Contains(t, out.Message, "killed all agents, cleared queue")
 }

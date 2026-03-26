@@ -127,6 +127,8 @@ func TestQueue_CanDispatchAgent_Ugly_ZeroLimit(t *testing.T) {
 
 func TestQueue_CountRunningByAgent_Good_Empty(t *testing.T) {
 	svc := New()
+	// Add a non-running entry so Registry is non-empty (avoids disk fallback)
+	svc.TrackWorkspace("ws-seed", &WorkspaceStatus{Status: "completed", Agent: "claude"})
 	assert.Equal(t, 0, svc.countRunningByAgent("codex"))
 }
 

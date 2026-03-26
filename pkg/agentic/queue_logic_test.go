@@ -108,11 +108,13 @@ func TestRunner_Poke_Good_NilChannel(t *testing.T) {
 }
 
 func TestRunner_Poke_Good_ChannelReceivesSignal(t *testing.T) {
+	// Poke is now a no-op — queue poke is owned by pkg/runner.Service.
+	// Verify it does not send to the channel and does not panic.
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.pokeCh = make(chan struct{}, 1)
 
-	s.Poke()
-	assert.Len(t, s.pokeCh, 1, "poke should enqueue one signal")
+	assert.NotPanics(t, func() { s.Poke() })
+	assert.Len(t, s.pokeCh, 0, "no-op poke should not enqueue a signal")
 }
 
 func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
@@ -131,6 +133,8 @@ func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
 // --- StartRunner ---
 
 func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
+	// StartRunner is now a no-op — queue drain is owned by pkg/runner.Service.
+	// Verify it does not panic and does not set pokeCh.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
@@ -138,28 +142,30 @@ func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
 	s := NewPrep()
 	assert.Nil(t, s.pokeCh)
 
-	s.StartRunner()
-	assert.NotNil(t, s.pokeCh, "StartRunner should initialise pokeCh")
+	assert.NotPanics(t, func() { s.StartRunner() })
+	assert.Nil(t, s.pokeCh, "no-op StartRunner should not initialise pokeCh")
 }
 
 func TestRunner_StartRunner_Good_FrozenByDefault(t *testing.T) {
+	// StartRunner is now a no-op — frozen state is owned by pkg/runner.Service.
+	// Verify it does not panic; frozen state is not managed here.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
-	s.StartRunner()
-	assert.True(t, s.frozen, "queue should be frozen by default")
+	assert.NotPanics(t, func() { s.StartRunner() })
 }
 
 func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
+	// StartRunner is now a no-op — env var handling is in pkg/runner.Service.
+	// Verify the no-op does not panic.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
 
 	s := NewPrep()
-	s.StartRunner()
-	assert.False(t, s.frozen, "CORE_AGENT_DISPATCH=1 should unfreeze the queue")
+	assert.NotPanics(t, func() { s.StartRunner() })
 }
 
 // --- Poke Ugly ---
@@ -183,34 +189,29 @@ func TestRunner_Poke_Ugly(t *testing.T) {
 // --- StartRunner Bad/Ugly ---
 
 func TestRunner_StartRunner_Bad(t *testing.T) {
+	// StartRunner is now a no-op — frozen state and pokeCh are owned by pkg/runner.Service.
+	// Verify the no-op does not panic and does not modify state.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
-	s.StartRunner()
-	// Without CORE_AGENT_DISPATCH=1, queue should be frozen
-	assert.True(t, s.frozen, "queue must be frozen when CORE_AGENT_DISPATCH is not set")
-	assert.NotNil(t, s.pokeCh)
+	assert.NotPanics(t, func() { s.StartRunner() })
+	assert.Nil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
 }
 
 func TestRunner_StartRunner_Ugly(t *testing.T) {
+	// StartRunner is now a no-op — calling it multiple times must not panic.
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
 
 	s := NewPrep()
 
-	// Start twice — second call overwrites pokeCh
-	s.StartRunner()
-	firstCh := s.pokeCh
-	assert.NotNil(t, firstCh)
-
-	s.StartRunner()
-	secondCh := s.pokeCh
-	assert.NotNil(t, secondCh)
-	// The channels should be different objects (new make each time)
-	assert.NotSame(t, &firstCh, &secondCh)
+	// Call twice — both are no-ops, must not panic
+	assert.NotPanics(t, func() { s.StartRunner() })
+	assert.NotPanics(t, func() { s.StartRunner() })
+	assert.Nil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
 }
 
 // --- DefaultBranch ---

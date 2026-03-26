@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"syscall"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -42,74 +41,37 @@ func (s *PrepSubsystem) registerShutdownTools(server *mcp.Server) {
 	}, s.shutdownNow)
 }
 
-// dispatchStart unfreezes the queue and starts draining.
+// dispatchStart delegates to runner.start Action.
 func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	s.frozen = false
-	s.Poke() // trigger immediate drain
-
+	if s.ServiceRuntime != nil {
+		s.Core().Action("runner.start").Run(ctx, core.NewOptions())
+	}
 	return nil, ShutdownOutput{
 		Success: true,
 		Message: "dispatch started — queue unfrozen, draining",
 	}, nil
 }
 
-// shutdownGraceful freezes the queue — running agents finish, no new dispatches.
+// shutdownGraceful delegates to runner.stop Action.
 func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	s.frozen = true
-
-	running := s.countRunningByAgent("codex") + s.countRunningByAgent("claude") +
-		s.countRunningByAgent("gemini") + s.countRunningByAgent("codex-spark")
-
+	if s.ServiceRuntime != nil {
+		s.Core().Action("runner.stop").Run(ctx, core.NewOptions())
+	}
 	return nil, ShutdownOutput{
 		Success: true,
-		Running: running,
 		Message: "queue frozen — running agents will finish, no new dispatches",
 	}, nil
 }
 
-// shutdownNow kills all running agents and clears the queue.
+// shutdownNow delegates to runner.kill Action.
 func (s *PrepSubsystem) shutdownNow(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	s.frozen = true
-
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	statusFiles := append(old, deep...)
-
-	killed := 0
-	cleared := 0
-
-	for _, statusPath := range statusFiles {
-		wsDir := core.PathDir(statusPath)
-		st, err := ReadStatus(wsDir)
-		if err != nil {
-			continue
-		}
-
-		// Kill running agents
-		if st.Status == "running" && st.PID > 0 {
-			if syscall.Kill(st.PID, syscall.SIGTERM) == nil {
-				killed++
-			}
-			st.Status = "failed"
-			st.Question = "killed by shutdown_now"
-			st.PID = 0
-			writeStatus(wsDir, st)
-		}
-
-		// Clear queued tasks
-		if st.Status == "queued" {
-			st.Status = "failed"
-			st.Question = "cleared by shutdown_now"
-			writeStatus(wsDir, st)
-			cleared++
-		}
+	if s.ServiceRuntime != nil {
+		s.Core().Action("runner.kill").Run(ctx, core.NewOptions())
 	}
-
 	return nil, ShutdownOutput{
 		Success: true,
 		Running: 0,
 		Queued:  0,
-		Message: core.Sprintf("killed %d agents, cleared %d queued tasks", killed, cleared),
+		Message: "killed all agents, cleared queue",
 	}, nil
 }

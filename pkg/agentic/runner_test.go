@@ -8,17 +8,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// StartRunner and Poke are no-ops — queue drain is owned by pkg/runner.Service.
+
 func TestRunner_StartRunner_Good(t *testing.T) {
 	s := newPrepWithProcess()
-	assert.Nil(t, s.pokeCh)
-	s.StartRunner()
-	assert.NotNil(t, s.pokeCh)
+	assert.NotPanics(t, func() { s.StartRunner() })
 }
 
 func TestRunner_StartRunner_Bad_AlreadyRunning(t *testing.T) {
 	s := newPrepWithProcess()
 	s.StartRunner()
-	// Second call should not panic
 	assert.NotPanics(t, func() { s.StartRunner() })
 }
 
