@@ -3,7 +3,7 @@ module dappco.re/go/agent
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.7.0
+	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/core/api v0.2.0
 	dappco.re/go/core/process v0.3.0
 	dappco.re/go/core/ws v0.3.0
