@@ -105,7 +105,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		if !core.HasPrefix(action, "agentic.") {
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
-		// Read-only actions always allowed
+		// Read-only + internal actions always allowed
+		if core.HasPrefix(action, "agentic.monitor.") || core.HasPrefix(action, "agentic.complete") {
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
 		switch action {
 		case "agentic.status", "agentic.scan", "agentic.watch",
 			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",

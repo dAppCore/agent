@@ -383,11 +383,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	s.broadcastStart(agent, wsDir)
 	s.startIssueTracking(wsDir)
 
-	go func() {
+	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
+	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
+	monitorAction := core.Concat("agentic.monitor.", core.PathBase(wsDir))
+	s.Core().Action(monitorAction, func(_ context.Context, _ core.Options) core.Result {
 		<-proc.Done()
 		s.onAgentComplete(agent, wsDir, outputFile,
 			proc.Info().ExitCode, string(proc.Info().Status), proc.Output())
-	}()
+		return core.Result{OK: true}
+	})
+	s.Core().PerformAsync(monitorAction, core.NewOptions())
 
 	return pid, outputFile, nil
 }
