@@ -14,103 +14,184 @@
 //
 // Usage:
 //
-//	prompt, _ := lib.Prompt("coding")
-//	task, _ := lib.Task("code/review")
-//	persona, _ := lib.Persona("secops/developer")
-//	flow, _ := lib.Flow("go")
+//	r := lib.Prompt("coding")        // r.Value.(string)
+//	r := lib.Task("code/review")     // r.Value.(string)
+//	r := lib.Persona("secops/dev")   // r.Value.(string)
+//	r := lib.Flow("go")              // r.Value.(string)
 //	lib.ExtractWorkspace("default", "/tmp/ws", data)
 package lib
 
 import (
-	"bytes"
 	"embed"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
-	"text/template"
+
+	core "dappco.re/go/core"
 )
 
-//go:embed prompt/*.md
-var promptFS embed.FS
+//go:embed all:prompt
+var promptFiles embed.FS
 
 //go:embed all:task
-var taskFS embed.FS
+var taskFiles embed.FS
 
-//go:embed flow/*.md
-var flowFS embed.FS
+//go:embed all:flow
+var flowFiles embed.FS
 
-//go:embed persona
-var personaFS embed.FS
+//go:embed all:persona
+var personaFiles embed.FS
 
 //go:embed all:workspace
-var workspaceFS embed.FS
+var workspaceFiles embed.FS
+
+var (
+	promptFS    = mustMount(promptFiles, "prompt")
+	taskFS      = mustMount(taskFiles, "task")
+	flowFS      = mustMount(flowFiles, "flow")
+	personaFS   = mustMount(personaFiles, "persona")
+	workspaceFS = mustMount(workspaceFiles, "workspace")
+
+	// data wraps all embeds for ListNames access (avoids io/fs DirEntry import)
+	data = newData()
+)
+
+func newData() *core.Data {
+	d := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
+	d.Set("prompt", promptFS)
+	d.Set("task", taskFS)
+	d.Set("flow", flowFS)
+	d.Set("persona", personaFS)
+	d.Set("workspace", workspaceFS)
+	return d
+}
+
+// MountData registers all embedded content (prompts, tasks, flows, personas, workspaces)
+// into Core's Data registry. Other services can then access content without importing lib:
+//
+//	lib.MountData(c)
+//	r := c.Data().ReadString("prompts/coding.md")
+//	r := c.Data().ListNames("flows")
+func MountData(c *core.Core) {
+	d := c.Data()
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "prompts"},
+		core.Option{Key: "source", Value: promptFiles},
+		core.Option{Key: "path", Value: "prompt"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "tasks"},
+		core.Option{Key: "source", Value: taskFiles},
+		core.Option{Key: "path", Value: "task"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "flows"},
+		core.Option{Key: "source", Value: flowFiles},
+		core.Option{Key: "path", Value: "flow"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "personas"},
+		core.Option{Key: "source", Value: personaFiles},
+		core.Option{Key: "path", Value: "persona"},
+	))
+	d.New(core.NewOptions(
+		core.Option{Key: "name", Value: "workspaces"},
+		core.Option{Key: "source", Value: workspaceFiles},
+		core.Option{Key: "path", Value: "workspace"},
+	))
+}
+
+func mustMount(fsys embed.FS, basedir string) *core.Embed {
+	r := core.Mount(fsys, basedir)
+	if !r.OK {
+		panic(r.Value)
+	}
+	return r.Value.(*core.Embed)
+}
 
 // --- Prompts ---
 
 // Template tries Prompt then Task (backwards compat).
-func Template(slug string) (string, error) {
-	if content, err := Prompt(slug); err == nil {
-		return content, nil
+//
+//	r := lib.Template("coding")
+//	if r.OK { content := r.Value.(string) }
+func Template(slug string) core.Result {
+	if r := Prompt(slug); r.OK {
+		return r
 	}
 	return Task(slug)
 }
 
-func Prompt(slug string) (string, error) {
-	data, err := promptFS.ReadFile("prompt/" + slug + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Prompt reads a system prompt by slug.
+//
+//	r := lib.Prompt("coding")
+//	if r.OK { content := r.Value.(string) }
+func Prompt(slug string) core.Result {
+	return promptFS.ReadString(core.Concat(slug, ".md"))
 }
 
-func Task(slug string) (string, error) {
+// Task reads a structured task plan by slug. Tries .md, .yaml, .yml.
+//
+//	r := lib.Task("code/review")
+//	if r.OK { content := r.Value.(string) }
+func Task(slug string) core.Result {
 	for _, ext := range []string{".md", ".yaml", ".yml"} {
-		data, err := taskFS.ReadFile("task/" + slug + ext)
-		if err == nil {
-			return string(data), nil
+		if r := taskFS.ReadString(core.Concat(slug, ext)); r.OK {
+			return r
 		}
 	}
-	return "", fs.ErrNotExist
+	return core.Result{OK: false}
 }
 
-func TaskBundle(slug string) (string, map[string]string, error) {
-	main, err := Task(slug)
-	if err != nil {
-		return "", nil, err
+// Bundle holds a task's main content plus companion files.
+//
+//	r := lib.TaskBundle("code/review")
+//	if r.OK { b := r.Value.(lib.Bundle) }
+type Bundle struct {
+	Main  string
+	Files map[string]string
+}
+
+// TaskBundle reads a task and its companion files.
+//
+//	r := lib.TaskBundle("code/review")
+//	if r.OK { b := r.Value.(lib.Bundle) }
+func TaskBundle(slug string) core.Result {
+	main := Task(slug)
+	if !main.OK {
+		return main
 	}
-	bundleDir := "task/" + slug
-	entries, err := fs.ReadDir(taskFS, bundleDir)
-	if err != nil {
-		return main, nil, nil
+	b := Bundle{Main: main.Value.(string), Files: make(map[string]string)}
+	r := taskFS.ReadDir(slug)
+	if !r.OK {
+		return core.Result{Value: b, OK: true}
 	}
-	bundle := make(map[string]string)
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
+	nr := data.ListNames(core.Concat("task/", slug))
+	if nr.OK {
+		for _, name := range nr.Value.([]string) {
+			for _, ext := range []string{".md", ".yaml", ".yml", ".txt", ""} {
+				fullName := core.Concat(name, ext)
+				if fr := taskFS.ReadString(core.Concat(slug, "/", fullName)); fr.OK {
+					b.Files[fullName] = fr.Value.(string)
+					break
+				}
+			}
 		}
-		data, err := taskFS.ReadFile(bundleDir + "/" + e.Name())
-		if err == nil {
-			bundle[e.Name()] = string(data)
-		}
 	}
-	return main, bundle, nil
+	return core.Result{Value: b, OK: true}
 }
 
-func Flow(slug string) (string, error) {
-	data, err := flowFS.ReadFile("flow/" + slug + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Flow reads a build/release workflow by slug.
+//
+//	r := lib.Flow("go")
+//	if r.OK { content := r.Value.(string) }
+func Flow(slug string) core.Result {
+	return flowFS.ReadString(core.Concat(slug, ".md"))
 }
 
-func Persona(path string) (string, error) {
-	data, err := personaFS.ReadFile("persona/" + path + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+// Persona reads a domain/role persona by path.
+//
+//	r := lib.Persona("secops/developer")
+//	if r.OK { content := r.Value.(string) }
+func Persona(path string) core.Result {
+	return personaFS.ReadString(core.Concat(path, ".md"))
 }
 
 // --- Workspace Templates ---
@@ -136,102 +217,98 @@ type WorkspaceData struct {
 
 // ExtractWorkspace creates an agent workspace from a template.
 // Template names: "default", "security", "review".
+//
+//	lib.ExtractWorkspace("default", "/tmp/ws", &lib.WorkspaceData{
+//	    Repo: "go-io", Task: "fix tests", Agent: "codex",
+//	})
 func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
-	wsDir := "workspace/" + tmplName
-	entries, err := fs.ReadDir(workspaceFS, wsDir)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		content, err := fs.ReadFile(workspaceFS, wsDir+"/"+name)
-		if err != nil {
+	r := workspaceFS.Sub(tmplName)
+	if !r.OK {
+		if err, ok := r.Value.(error); ok {
 			return err
 		}
-
-		// Process .tmpl files through text/template
-		outputName := name
-		if strings.HasSuffix(name, ".tmpl") {
-			outputName = strings.TrimSuffix(name, ".tmpl")
-			tmpl, err := template.New(name).Parse(string(content))
-			if err != nil {
-				return err
-			}
-			var buf bytes.Buffer
-			if err := tmpl.Execute(&buf, data); err != nil {
-				return err
-			}
-			content = buf.Bytes()
-		}
-
-		if err := os.WriteFile(filepath.Join(targetDir, outputName), content, 0644); err != nil {
+		return core.E("ExtractWorkspace", core.Concat("template not found: ", tmplName), nil)
+	}
+	result := core.Extract(r.Value.(*core.Embed).FS(), targetDir, data)
+	if !result.OK {
+		if err, ok := result.Value.(error); ok {
 			return err
 		}
 	}
-
 	return nil
 }
 
 // --- List Functions ---
 
-func ListPrompts() []string    { return listDir(promptFS, "prompt") }
-func ListFlows() []string      { return listDir(flowFS, "flow") }
-func ListWorkspaces() []string { return listDir(workspaceFS, "workspace") }
+// ListPrompts returns available system prompt slugs.
+//
+//	prompts := lib.ListPrompts() // ["coding", "review", ...]
+func ListPrompts() []string { return listNames("prompt") }
 
+// ListFlows returns available build/release flow slugs.
+//
+//	flows := lib.ListFlows() // ["go", "php", "node", ...]
+func ListFlows() []string { return listNames("flow") }
+
+// ListWorkspaces returns available workspace template names.
+//
+//	templates := lib.ListWorkspaces() // ["default", "security", ...]
+func ListWorkspaces() []string { return listNames("workspace") }
+
+// ListTasks returns available task plan slugs, including nested paths.
+//
+//	tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
 func ListTasks() []string {
-	var slugs []string
-	fs.WalkDir(taskFS, "task", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		rel := strings.TrimPrefix(path, "task/")
-		ext := filepath.Ext(rel)
-		slugs = append(slugs, strings.TrimSuffix(rel, ext))
-		return nil
-	})
-	return slugs
+	result := listNamesRecursive("task", taskFS, ".")
+	a := core.NewArray(result...)
+	a.Deduplicate()
+	return a.AsSlice()
 }
 
+// ListPersonas returns available persona paths, including nested directories.
+//
+//	personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
 func ListPersonas() []string {
-	var paths []string
-	fs.WalkDir(personaFS, "persona", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, ".md") {
-			rel := strings.TrimPrefix(path, "persona/")
-			rel = strings.TrimSuffix(rel, ".md")
-			paths = append(paths, rel)
-		}
-		return nil
-	})
-	return paths
+	a := core.NewArray(listNamesRecursive("persona", personaFS, ".")...)
+	a.Deduplicate()
+	return a.AsSlice()
 }
 
-func listDir(fsys embed.FS, dir string) []string {
-	entries, err := fsys.ReadDir(dir)
-	if err != nil {
+
+// listNamesRecursive walks an embed tree via Data.ListNames.
+// Directories are recursed into. Files are added as slugs (extension stripped by ListNames).
+// A name can be both a file AND a directory (e.g. code/review.md + code/review/).
+func listNamesRecursive(mount string, emb *core.Embed, dir string) []string {
+	path := core.Concat(mount, "/", dir)
+	nr := data.ListNames(path)
+	if !nr.OK {
 		return nil
 	}
+
 	var slugs []string
-	for _, e := range entries {
-		if e.IsDir() {
-			name := e.Name()
-			slugs = append(slugs, name)
-			continue
+	for _, name := range nr.Value.([]string) {
+		relPath := name
+		if dir != "." {
+			relPath = core.Concat(dir, "/", name)
 		}
-		name := e.Name()
-		ext := filepath.Ext(name)
-		slugs = append(slugs, strings.TrimSuffix(name, ext))
+
+		subPath := core.Concat(mount, "/", relPath)
+
+		// Try as directory — recurse if it has contents
+		if sub := data.ListNames(subPath); sub.OK {
+			slugs = append(slugs, listNamesRecursive(mount, emb, relPath)...)
+		}
+
+		// Always add the slug — ListNames includes both files and dirs
+		slugs = append(slugs, relPath)
 	}
 	return slugs
+}
+
+func listNames(mount string) []string {
+	r := data.ListNames(core.Concat(mount, "/."))
+	if !r.OK {
+		return nil
+	}
+	return r.Value.([]string)
 }

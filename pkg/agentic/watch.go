@@ -4,15 +4,15 @@ package agentic
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"time"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // WatchInput is the input for agentic_watch.
+//
+//	input := agentic.WatchInput{Workspaces: []string{"go-io-123"}, PollInterval: 5, Timeout: 600}
 type WatchInput struct {
 	// Workspaces to watch. If empty, watches all running/queued workspaces.
 	Workspaces []string `json:"workspaces,omitempty"`
@@ -23,6 +23,8 @@ type WatchInput struct {
 }
 
 // WatchOutput is the result when all watched workspaces complete.
+//
+//	out := agentic.WatchOutput{Success: true, Completed: []agentic.WatchResult{{Workspace: "go-io-123", Status: "completed"}}}
 type WatchOutput struct {
 	Success   bool          `json:"success"`
 	Completed []WatchResult `json:"completed"`
@@ -31,6 +33,8 @@ type WatchOutput struct {
 }
 
 // WatchResult describes one completed workspace.
+//
+//	result := agentic.WatchResult{Workspace: "go-io-123", Agent: "codex", Repo: "go-io", Status: "completed"}
 type WatchResult struct {
 	Workspace string `json:"workspace"`
 	Agent     string `json:"agent"`
@@ -99,13 +103,13 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 		select {
 		case <-ctx.Done():
-			return nil, WatchOutput{}, coreerr.E("watch", "cancelled", ctx.Err())
+			return nil, WatchOutput{}, core.E("watch", "cancelled", ctx.Err())
 		case <-time.After(pollInterval):
 		}
 
 		for ws := range remaining {
 			wsDir := s.resolveWorkspaceDir(ws)
-			st, err := readStatus(wsDir)
+			st, err := ReadStatus(wsDir)
 			if err != nil {
 				continue
 			}
@@ -128,7 +132,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       fmt.Sprintf("%s completed (%s)", st.Repo, st.Agent),
+						Message:       core.Sprintf("%s completed (%s)", st.Repo, st.Agent),
 					})
 				}
 
@@ -149,7 +153,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       fmt.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+						Message:       core.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
 					})
 				}
 
@@ -169,7 +173,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       fmt.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+						Message:       core.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
 					})
 				}
 			}
@@ -187,20 +191,17 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 // findActiveWorkspaces returns workspace names that are running or queued.
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	wsRoot := WorkspaceRoot()
-	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
-	if err != nil {
-		return nil
-	}
+	entries := core.PathGlob(core.JoinPath(wsRoot, "*/status.json"))
 
 	var active []string
 	for _, entry := range entries {
-		wsDir := filepath.Dir(entry)
-		st, err := readStatus(wsDir)
+		wsDir := core.PathDir(entry)
+		st, err := ReadStatus(wsDir)
 		if err != nil {
 			continue
 		}
 		if st.Status == "running" || st.Status == "queued" {
-			active = append(active, filepath.Base(wsDir))
+			active = append(active, core.PathBase(wsDir))
 		}
 	}
 	return active
@@ -208,8 +209,8 @@ func (s *PrepSubsystem) findActiveWorkspaces() []string {
 
 // resolveWorkspaceDir converts a workspace name to full path.
 func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
-	if filepath.IsAbs(name) {
+	if core.PathIsAbs(name) {
 		return name
 	}
-	return filepath.Join(WorkspaceRoot(), name)
+	return core.JoinPath(WorkspaceRoot(), name)
 }

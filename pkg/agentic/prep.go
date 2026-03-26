@@ -1,83 +1,302 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 // Package agentic provides MCP tools for agent orchestration.
-// Prepares sandboxed workspaces and dispatches subagents.
+// Prepares workspaces and dispatches subagents.
 package agentic
 
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
 
-// CompletionNotifier is called when an agent completes, to trigger
-// immediate notifications to connected clients.
-type CompletionNotifier interface {
-	Poke()
+// AgentOptions configures the agentic service.
+type AgentOptions struct{}
+
+// PrepSubsystem provides agentic MCP tools for workspace orchestration.
+// Agent lifecycle events are broadcast via s.Core().ACTION(messages.AgentCompleted{}).
+//
+//	core.New(core.WithService(agentic.Register))
+type PrepSubsystem struct {
+	*core.ServiceRuntime[AgentOptions]
+	forge      *forge.Forge
+	forgeURL   string
+	forgeToken string
+	brainURL   string
+	brainKey   string
+	codePath   string
+	drainMu    sync.Mutex
+	pokeCh     chan struct{}
+	frozen     bool
+	backoff    map[string]time.Time            // pool → paused until
+	failCount  map[string]int                  // pool → consecutive fast failures
+	workspaces *core.Registry[*WorkspaceStatus] // in-memory workspace state
 }
 
-// PrepSubsystem provides agentic MCP tools.
-type PrepSubsystem struct {
-	forgeURL    string
-	forgeToken  string
-	brainURL    string
-	brainKey    string
-	specsPath   string
-	codePath    string
-	client      *http.Client
-	onComplete  CompletionNotifier
-	drainMu     sync.Mutex // protects drainQueue from concurrent execution
-}
+var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 
 // NewPrep creates an agentic subsystem.
+//
+//	sub := agentic.NewPrep()
+//	sub.SetCompletionNotifier(monitor)
 func NewPrep() *PrepSubsystem {
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 
-	forgeToken := os.Getenv("FORGE_TOKEN")
+	forgeToken := core.Env("FORGE_TOKEN")
 	if forgeToken == "" {
-		forgeToken = os.Getenv("GITEA_TOKEN")
+		forgeToken = core.Env("GITEA_TOKEN")
 	}
 
-	brainKey := os.Getenv("CORE_BRAIN_KEY")
+	brainKey := core.Env("CORE_BRAIN_KEY")
 	if brainKey == "" {
-		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			brainKey = strings.TrimSpace(data)
+		if r := fs.Read(core.JoinPath(home, ".claude", "brain.key")); r.OK {
+			brainKey = core.Trim(r.Value.(string))
 		}
 	}
 
+	forgeURL := envOr("FORGE_URL", "https://forge.lthn.ai")
+
 	return &PrepSubsystem{
-		forgeURL:   envOr("FORGE_URL", "https://forge.lthn.ai"),
+		forge:      forge.NewForge(forgeURL, forgeToken),
+		forgeURL:   forgeURL,
 		forgeToken: forgeToken,
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
-		specsPath:  envOr("SPECS_PATH", filepath.Join(home, "Code", "specs")),
-		codePath:   envOr("CODE_PATH", filepath.Join(home, "Code")),
-		client:     &http.Client{Timeout: 30 * time.Second},
+		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
+		backoff:    make(map[string]time.Time),
+		failCount:  make(map[string]int),
+		workspaces: core.NewRegistry[*WorkspaceStatus](),
 	}
 }
 
-// SetCompletionNotifier wires up the monitor for immediate push on agent completion.
-func (s *PrepSubsystem) SetCompletionNotifier(n CompletionNotifier) {
-	s.onComplete = n
+// SetCore wires the Core framework instance via ServiceRuntime.
+// Deprecated: Use Register with core.WithService(agentic.Register) instead.
+//
+//	prep.SetCore(c)
+func (s *PrepSubsystem) SetCore(c *core.Core) {
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+}
+
+// OnStartup implements core.Startable — registers named Actions, starts the queue runner,
+// and registers CLI commands. The Action registry IS the capability map.
+//
+//	c.Action("agentic.dispatch").Run(ctx, opts)
+//	c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
+func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
+	c := s.Core()
+
+	// Entitlement — gates agentic Actions when queue is frozen.
+	// Per-agent concurrency is checked inside handlers (needs Options for agent name).
+	// Entitlement gates the global capability: "can this Core dispatch at all?"
+	//
+	//   e := c.Entitled("agentic.dispatch")
+	//   e.Allowed  // false when frozen
+	//   e.Reason   // "agent queue is frozen"
+	c.SetEntitlementChecker(func(action string, qty int, _ context.Context) core.Entitlement {
+		// Only gate agentic.* actions
+		if !core.HasPrefix(action, "agentic.") {
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
+		// Read-only + internal actions always allowed
+		if core.HasPrefix(action, "agentic.monitor.") || core.HasPrefix(action, "agentic.complete") {
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
+		switch action {
+		case "agentic.status", "agentic.scan", "agentic.watch",
+			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",
+			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona":
+			return core.Entitlement{Allowed: true, Unlimited: true}
+		}
+		// Write actions gated by frozen state
+		if s.frozen {
+			return core.Entitlement{Allowed: false, Reason: "agent queue is frozen — shutting down"}
+		}
+		return core.Entitlement{Allowed: true}
+	})
+
+	// Data — mount embedded content so other services can access it via c.Data()
+	//
+	//   c.Data().ReadString("prompts/coding.md")
+	//   c.Data().ListNames("flows")
+	lib.MountData(c)
+
+	// Transport — register HTTP protocol + Drive endpoints
+	RegisterHTTPTransport(c)
+	c.Drive().New(core.NewOptions(
+		core.Option{Key: "name", Value: "forge"},
+		core.Option{Key: "transport", Value: s.forgeURL},
+		core.Option{Key: "token", Value: s.forgeToken},
+	))
+	c.Drive().New(core.NewOptions(
+		core.Option{Key: "name", Value: "brain"},
+		core.Option{Key: "transport", Value: s.brainURL},
+		core.Option{Key: "token", Value: s.brainKey},
+	))
+
+	// Dispatch & workspace
+	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
+	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
+	c.Action("agentic.status", s.handleStatus).Description = "List workspace states (running/completed/blocked)"
+	c.Action("agentic.resume", s.handleResume).Description = "Resume a blocked or completed workspace"
+	c.Action("agentic.scan", s.handleScan).Description = "Scan Forge repos for actionable issues"
+	c.Action("agentic.watch", s.handleWatch).Description = "Watch workspace for changes and report"
+
+	// Pipeline
+	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
+	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
+	c.Action("agentic.verify", s.handleVerify).Description = "Verify PR and auto-merge if clean"
+	c.Action("agentic.ingest", s.handleIngest).Description = "Create issues from agent findings"
+	c.Action("agentic.poke", s.handlePoke).Description = "Drain next queued task from the queue"
+	c.Action("agentic.mirror", s.handleMirror).Description = "Mirror agent branches to GitHub"
+
+	// Forge
+	c.Action("agentic.issue.get", s.handleIssueGet).Description = "Get a Forge issue by number"
+	c.Action("agentic.issue.list", s.handleIssueList).Description = "List Forge issues for a repo"
+	c.Action("agentic.issue.create", s.handleIssueCreate).Description = "Create a Forge issue"
+	c.Action("agentic.pr.get", s.handlePRGet).Description = "Get a Forge PR by number"
+	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
+	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
+
+	// Review
+	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
+
+	// Epic
+	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
+
+	// Content — accessible via IPC, no lib import needed
+	c.Action("agentic.prompt", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Prompt(opts.String("slug"))
+	}).Description = "Read a system prompt by slug"
+	c.Action("agentic.task", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Task(opts.String("slug"))
+	}).Description = "Read a task plan by slug"
+	c.Action("agentic.flow", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Flow(opts.String("slug"))
+	}).Description = "Read a build/release flow by slug"
+	c.Action("agentic.persona", func(_ context.Context, opts core.Options) core.Result {
+		return lib.Persona(opts.String("path"))
+	}).Description = "Read a persona by path"
+
+	// Completion pipeline — Task composition
+	c.Task("agent.completion", core.Task{
+		Description: "QA → PR → Verify → Merge",
+		Steps: []core.Step{
+			{Action: "agentic.qa"},
+			{Action: "agentic.auto-pr"},
+			{Action: "agentic.verify"},
+			{Action: "agentic.ingest", Async: true},
+			{Action: "agentic.poke", Async: true},
+		},
+	})
+
+	// PerformAsync wrapper — runs the completion Task in background with progress tracking.
+	// c.PerformAsync("agentic.complete", opts) broadcasts ActionTaskStarted/Completed.
+	c.Action("agentic.complete", func(ctx context.Context, opts core.Options) core.Result {
+		return c.Task("agent.completion").Run(ctx, c, opts)
+	}).Description = "Run completion pipeline (QA → PR → Verify) in background"
+
+	// Hydrate workspace registry from disk
+	s.hydrateWorkspaces()
+
+	// QUERY handler — "what workspaces exist?"
+	//
+	//   r := c.QUERY(agentic.WorkspaceQuery{})
+	//   if r.OK { workspaces := r.Value.(*core.Registry[*WorkspaceStatus]) }
+	c.RegisterQuery(func(_ *core.Core, q core.Query) core.Result {
+		wq, ok := q.(WorkspaceQuery)
+		if !ok {
+			return core.Result{}
+		}
+		// Specific workspace lookup
+		if wq.Name != "" {
+			return s.workspaces.Get(wq.Name)
+		}
+		// Status filter — return matching names
+		if wq.Status != "" {
+			var names []string
+			s.workspaces.Each(func(name string, st *WorkspaceStatus) {
+				if st.Status == wq.Status {
+					names = append(names, name)
+				}
+			})
+			return core.Result{Value: names, OK: true}
+		}
+		// No filter — return full registry
+		return core.Result{Value: s.workspaces, OK: true}
+	})
+
+	s.StartRunner()
+	s.registerCommands(ctx)
+	s.registerWorkspaceCommands()
+	s.registerForgeCommands()
+	return core.Result{OK: true}
+}
+
+// registerCommands is in commands.go
+
+// OnShutdown implements core.Stoppable — freezes the queue.
+func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
+	s.frozen = true
+	return core.Result{OK: true}
+}
+
+// hydrateWorkspaces scans disk and populates the workspace Registry on startup.
+// Keyed by workspace name (relative path from workspace root).
+//
+//	s.hydrateWorkspaces()
+//	s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", ...]
+func (s *PrepSubsystem) hydrateWorkspaces() {
+	if s.workspaces == nil {
+		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
+	}
+	wsRoot := WorkspaceRoot()
+	// Scan shallow (ws-name/) and deep (org/repo/task/) layouts
+	for _, pattern := range []string{
+		core.JoinPath(wsRoot, "*", "status.json"),
+		core.JoinPath(wsRoot, "*", "*", "*", "status.json"),
+	} {
+		for _, path := range core.PathGlob(pattern) {
+			wsDir := core.PathDir(path)
+			st, err := ReadStatus(wsDir)
+			if err != nil || st == nil {
+				continue
+			}
+			// Key is the relative path from workspace root
+			name := core.TrimPrefix(wsDir, wsRoot)
+			name = core.TrimPrefix(name, "/")
+			s.workspaces.Set(name, st)
+		}
+	}
+}
+
+// TrackWorkspace registers or updates a workspace in the in-memory Registry.
+//
+//	s.TrackWorkspace("core/go-io/task-5", st)
+func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
+	if s.workspaces != nil {
+		s.workspaces.Set(name, st)
+	}
+}
+
+// Workspaces returns the workspace Registry for cross-cutting queries.
+//
+//	s.Workspaces().Names()                        // all workspace names
+//	s.Workspaces().List("core/*")                 // org-scoped workspaces
+//	s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
+func (s *PrepSubsystem) Workspaces() *core.Registry[*WorkspaceStatus] {
+	return s.workspaces
 }
 
 func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := core.Env(key); v != "" {
 		return v
 	}
 	return fallback
@@ -90,7 +309,7 @@ func (s *PrepSubsystem) Name() string { return "agentic" }
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prep_workspace",
-		Description: "Prepare a sandboxed agent workspace with TODO.md, CLAUDE.md, CONTEXT.md, CONSUMERS.md, RECENT.md, and a git clone of the target repo in src/.",
+		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
 
 	s.registerDispatchTool(server)
@@ -103,6 +322,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerRemoteDispatchTool(server)
 	s.registerRemoteStatusTool(server)
 	s.registerReviewQueueTool(server)
+	s.registerShutdownTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
@@ -119,33 +339,62 @@ func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 // --- Input/Output types ---
 
 // PrepInput is the input for agentic_prep_workspace.
+// One of Issue, PR, Branch, or Tag is required.
+//
+//	input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
 type PrepInput struct {
-	Repo         string            `json:"repo"`                    // e.g. "go-io"
+	Repo         string            `json:"repo"`                    // required: e.g. "go-io"
 	Org          string            `json:"org,omitempty"`           // default "core"
-	Issue        int               `json:"issue,omitempty"`         // Forge issue number
-	Task         string            `json:"task,omitempty"`          // Task description (if no issue)
-	Template     string            `json:"template,omitempty"`      // Prompt template: conventions, security, coding (default: coding)
-	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template slug: bug-fix, code-review, new-feature, refactor, feature-port
-	Variables    map[string]string `json:"variables,omitempty"`     // Template variable substitution
-	Persona      string            `json:"persona,omitempty"`       // Persona slug: engineering/backend-architect, testing/api-tester, etc.
+	Task         string            `json:"task,omitempty"`          // task description
+	Agent        string            `json:"agent,omitempty"`         // agent type
+	Issue        int               `json:"issue,omitempty"`         // Forge issue → workspace: task-{num}/
+	PR           int               `json:"pr,omitempty"`            // PR number → workspace: pr-{num}/
+	Branch       string            `json:"branch,omitempty"`        // branch → workspace: {branch}/
+	Tag          string            `json:"tag,omitempty"`           // tag → workspace: {tag}/ (immutable)
+	Template     string            `json:"template,omitempty"`      // prompt template slug
+	PlanTemplate string            `json:"plan_template,omitempty"` // plan template slug
+	Variables    map[string]string `json:"variables,omitempty"`     // template variable substitution
+	Persona      string            `json:"persona,omitempty"`       // persona slug
+	DryRun       bool              `json:"dry_run,omitempty"`       // preview without executing
 }
 
 // PrepOutput is the output for agentic_prep_workspace.
+//
+//	out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type PrepOutput struct {
-	Success       bool   `json:"success"`
-	WorkspaceDir  string `json:"workspace_dir"`
-	Branch        string `json:"branch"`
-	WikiPages     int    `json:"wiki_pages"`
-	SpecFiles     int    `json:"spec_files"`
-	Memories      int    `json:"memories"`
-	Consumers     int    `json:"consumers"`
-	ClaudeMd      bool   `json:"claude_md"`
-	GitLog        int    `json:"git_log_entries"`
+	Success      bool   `json:"success"`
+	WorkspaceDir string `json:"workspace_dir"`
+	RepoDir      string `json:"repo_dir"`
+	Branch       string `json:"branch"`
+	Prompt       string `json:"prompt,omitempty"`
+	Memories     int    `json:"memories"`
+	Consumers    int    `json:"consumers"`
+	Resumed      bool   `json:"resumed"`
+}
+
+// workspaceDir resolves the workspace path from the input identifier.
+//
+//	dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
+//	// → ".core/workspace/core/go-io/task-15"
+func workspaceDir(org, repo string, input PrepInput) (string, error) {
+	base := core.JoinPath(WorkspaceRoot(), org, repo)
+	switch {
+	case input.PR > 0:
+		return core.JoinPath(base, core.Sprintf("pr-%d", input.PR)), nil
+	case input.Issue > 0:
+		return core.JoinPath(base, core.Sprintf("task-%d", input.Issue)), nil
+	case input.Branch != "":
+		return core.JoinPath(base, input.Branch), nil
+	case input.Tag != "":
+		return core.JoinPath(base, input.Tag), nil
+	default:
+		return "", core.E("workspaceDir", "one of issue, pr, branch, or tag is required", nil)
+	}
 }
 
 func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
 	if input.Repo == "" {
-		return nil, PrepOutput{}, coreerr.E("prepWorkspace", "repo is required", nil)
+		return nil, PrepOutput{}, core.E("prepWorkspace", "repo is required", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
@@ -154,463 +403,368 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		input.Template = "coding"
 	}
 
-	// Workspace root: .core/workspace/{repo}-{timestamp}/
-	wsRoot := WorkspaceRoot()
-	wsName := fmt.Sprintf("%s-%d", input.Repo, time.Now().UnixNano())
-	wsDir := filepath.Join(wsRoot, wsName)
-
-	// Create workspace structure
-	// kb/ and specs/ will be created inside src/ after clone
-
-	// Ensure workspace directory exists
-	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		return nil, PrepOutput{}, coreerr.E("prep", "failed to create workspace dir", err)
+	// Resolve workspace directory from identifier
+	wsDir, err := workspaceDir(input.Org, input.Repo, input)
+	if err != nil {
+		return nil, PrepOutput{}, err
 	}
 
-	out := PrepOutput{WorkspaceDir: wsDir}
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	out := PrepOutput{WorkspaceDir: wsDir, RepoDir: repoDir}
 
 	// Source repo path — sanitise to prevent path traversal
-	repoName := filepath.Base(input.Repo) // strips ../ and absolute paths
+	repoName := core.PathBase(input.Repo)
 	if repoName == "." || repoName == ".." || repoName == "" {
-		return nil, PrepOutput{}, coreerr.E("prep", "invalid repo name: "+input.Repo, nil)
+		return nil, PrepOutput{}, core.E("prep", core.Concat("invalid repo name: ", input.Repo), nil)
 	}
-	repoPath := filepath.Join(s.codePath, "core", repoName)
+	repoPath := core.JoinPath(s.codePath, input.Org, repoName)
 
-	// 1. Clone repo into src/ and create feature branch
-	srcDir := filepath.Join(wsDir, "src")
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", repoPath, srcDir)
-	if err := cloneCmd.Run(); err != nil {
-		return nil, PrepOutput{}, coreerr.E("prep", "git clone failed for "+input.Repo, err)
+	// Ensure meta directory exists
+	if r := fs.EnsureDir(metaDir); !r.OK {
+		return nil, PrepOutput{}, core.E("prep", "failed to create meta dir", nil)
 	}
 
-	// Create feature branch
-	taskSlug := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
-			return r
+	// Check for resume: if repo/ already has .git, skip clone
+	resumed := fs.IsDir(core.JoinPath(repoDir, ".git"))
+	out.Resumed = resumed
+
+	// Extract default workspace template (go.work etc.)
+	lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
+		Repo:   input.Repo,
+		Branch: "",
+		Task:   input.Task,
+		Agent:  input.Agent,
+	})
+
+	if !resumed {
+		// Clone repo into repo/
+		if r := s.gitCmd(ctx, ".", "clone", repoPath, repoDir); !r.OK {
+			return nil, PrepOutput{}, core.E("prep", core.Concat("git clone failed for ", input.Repo), nil)
 		}
-		if r >= 'A' && r <= 'Z' {
-			return r + 32 // lowercase
+
+		// Create feature branch
+		taskSlug := sanitiseBranchSlug(input.Task, 40)
+		if taskSlug == "" {
+			if input.Issue > 0 {
+				taskSlug = core.Sprintf("issue-%d", input.Issue)
+			} else if input.PR > 0 {
+				taskSlug = core.Sprintf("pr-%d", input.PR)
+			} else {
+				taskSlug = core.Sprintf("work-%d", time.Now().Unix())
+			}
 		}
-		return '-'
-	}, input.Task)
-	if len(taskSlug) > 40 {
-		taskSlug = taskSlug[:40]
-	}
-	taskSlug = strings.Trim(taskSlug, "-")
-	if taskSlug == "" {
-		// Fallback for issue-only dispatches with no task text
-		taskSlug = fmt.Sprintf("issue-%d", input.Issue)
-		if input.Issue == 0 {
-			taskSlug = fmt.Sprintf("work-%d", time.Now().Unix())
+		branchName := core.Sprintf("agent/%s", taskSlug)
+
+		if r := s.gitCmd(ctx, repoDir, "checkout", "-b", branchName); !r.OK {
+			return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), nil)
 		}
-	}
-	branchName := fmt.Sprintf("agent/%s", taskSlug)
-
-	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
-	branchCmd.Dir = srcDir
-	if err := branchCmd.Run(); err != nil {
-		return nil, PrepOutput{}, coreerr.E("prep.branch", fmt.Sprintf("failed to create branch %q", branchName), err)
-	}
-	out.Branch = branchName
-
-	// Create context dirs inside src/
-	coreio.Local.EnsureDir(filepath.Join(srcDir, "kb"))
-	coreio.Local.EnsureDir(filepath.Join(srcDir, "specs"))
-
-	// Remote stays as local clone origin — agent cannot push to forge.
-	// Reviewer pulls changes from workspace and pushes after verification.
-
-	// 2. Extract workspace template
-	wsTmpl := "default"
-	if input.Template == "security" {
-		wsTmpl = "security"
-	} else if input.Template == "verify" || input.Template == "conventions" {
-		wsTmpl = "review"
+		out.Branch = branchName
+	} else {
+		// Resume: read branch from existing checkout
+		out.Branch = s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	}
 
-	promptContent, _ := lib.Prompt(input.Template)
-	personaContent := ""
-	if input.Persona != "" {
-		personaContent, _ = lib.Persona(input.Persona)
-	}
-	flowContent, _ := lib.Flow(detectLanguage(repoPath))
+	// Clone workspace dependencies — Core modules needed to build the repo.
+	// Reads go.mod, finds dappco.re/go/core/* imports, clones from Forge,
+	// and updates go.work so the agent can build inside the workspace.
+	s.cloneWorkspaceDeps(ctx, wsDir, repoDir, input.Org)
 
-	wsData := &lib.WorkspaceData{
-		Repo:     input.Repo,
-		Branch:   branchName,
-		Task:     input.Task,
-		Agent:    "agent",
-		Language: detectLanguage(repoPath),
-		Prompt:   promptContent,
-		Persona:  personaContent,
-		Flow:     flowContent,
-		BuildCmd: detectBuildCmd(repoPath),
-		TestCmd:  detectTestCmd(repoPath),
-	}
-
-	lib.ExtractWorkspace(wsTmpl, srcDir, wsData)
-	out.ClaudeMd = true
-
-	// Copy repo's own CLAUDE.md over template if it exists
-	claudeMdPath := filepath.Join(repoPath, "CLAUDE.md")
-	if data, err := coreio.Local.Read(claudeMdPath); err == nil {
-		coreio.Local.Write(filepath.Join(srcDir, "CLAUDE.md"), data)
-	}
-	// Copy GEMINI.md from core/agent (ethics framework for all agents)
-	agentGeminiMd := filepath.Join(s.codePath, "core", "agent", "GEMINI.md")
-	if data, err := coreio.Local.Read(agentGeminiMd); err == nil {
-		coreio.Local.Write(filepath.Join(srcDir, "GEMINI.md"), data)
-	}
-
-	// 3. Generate TODO.md from issue (overrides template)
-	if input.Issue > 0 {
-		s.generateTodo(ctx, input.Org, input.Repo, input.Issue, wsDir)
-	}
-
-	// 4. Generate CONTEXT.md from OpenBrain
-	out.Memories = s.generateContext(ctx, input.Repo, wsDir)
-
-	// 5. Generate CONSUMERS.md
-	out.Consumers = s.findConsumers(input.Repo, wsDir)
-
-	// 6. Generate RECENT.md
-	out.GitLog = s.gitLog(repoPath, wsDir)
-
-	// 7. Pull wiki pages into kb/
-	out.WikiPages = s.pullWiki(ctx, input.Org, input.Repo, wsDir)
-
-	// 8. Copy spec files into specs/
-	out.SpecFiles = s.copySpecs(wsDir)
-
-	// 9. Write PLAN.md from template (if specified)
-	if input.PlanTemplate != "" {
-		s.writePlanFromTemplate(input.PlanTemplate, input.Variables, input.Task, wsDir)
-	}
-
-	// 10. Write prompt template
-	s.writePromptTemplate(input.Template, wsDir)
+	// Build the rich prompt with all context
+	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 
 	out.Success = true
 	return nil, out, nil
 }
 
-// --- Prompt templates ---
+// --- Public API for CLI testing ---
 
-func (s *PrepSubsystem) writePromptTemplate(template, wsDir string) {
-	prompt, err := lib.Template(template)
+// TestPrepWorkspace exposes prepWorkspace for CLI testing.
+//
+//	_, out, err := prep.TestPrepWorkspace(ctx, input)
+func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return s.prepWorkspace(ctx, nil, input)
+}
+
+// TestBuildPrompt exposes buildPrompt for CLI testing.
+//
+//	prompt, memories, consumers := prep.TestBuildPrompt(ctx, input, "dev", repoPath)
+func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
+	return s.buildPrompt(ctx, input, branch, repoPath)
+}
+
+// --- Prompt Building ---
+
+// buildPrompt assembles all context into a single prompt string.
+// Context is gathered from: persona, flow, issue, brain, consumers, git log, wiki, plan.
+func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
+	b := core.NewBuilder()
+	memories := 0
+	consumers := 0
+
+	// Task
+	b.WriteString("TASK: ")
+	b.WriteString(input.Task)
+	b.WriteString("\n\n")
+
+	// Repo info
+	b.WriteString(core.Sprintf("REPO: %s/%s on branch %s\n", input.Org, input.Repo, branch))
+	b.WriteString(core.Sprintf("LANGUAGE: %s\n", detectLanguage(repoPath)))
+	b.WriteString(core.Sprintf("BUILD: %s\n", detectBuildCmd(repoPath)))
+	b.WriteString(core.Sprintf("TEST: %s\n\n", detectTestCmd(repoPath)))
+
+	// Persona
+	if input.Persona != "" {
+		if r := lib.Persona(input.Persona); r.OK {
+			b.WriteString("PERSONA:\n")
+			b.WriteString(r.Value.(string))
+			b.WriteString("\n\n")
+		}
+	}
+
+	// Flow
+	if r := lib.Flow(detectLanguage(repoPath)); r.OK {
+		b.WriteString("WORKFLOW:\n")
+		b.WriteString(r.Value.(string))
+		b.WriteString("\n\n")
+	}
+
+	// Issue body
+	if input.Issue > 0 {
+		if body := s.getIssueBody(ctx, input.Org, input.Repo, input.Issue); body != "" {
+			b.WriteString("ISSUE:\n")
+			b.WriteString(body)
+			b.WriteString("\n\n")
+		}
+	}
+
+	// Brain recall
+	if recall, count := s.brainRecall(ctx, input.Repo); recall != "" {
+		b.WriteString("CONTEXT (from OpenBrain):\n")
+		b.WriteString(recall)
+		b.WriteString("\n\n")
+		memories = count
+	}
+
+	// Consumers
+	if list, count := s.findConsumersList(input.Repo); list != "" {
+		b.WriteString("CONSUMERS (modules that import this repo):\n")
+		b.WriteString(list)
+		b.WriteString("\n\n")
+		consumers = count
+	}
+
+	// Recent git log
+	if log := s.getGitLog(repoPath); log != "" {
+		b.WriteString("RECENT CHANGES:\n```\n")
+		b.WriteString(log)
+		b.WriteString("```\n\n")
+	}
+
+	// Plan template
+	if input.PlanTemplate != "" {
+		if plan := s.renderPlan(input.PlanTemplate, input.Variables, input.Task); plan != "" {
+			b.WriteString("PLAN:\n")
+			b.WriteString(plan)
+			b.WriteString("\n\n")
+		}
+	}
+
+	// Constraints
+	b.WriteString("CONSTRAINTS:\n")
+	b.WriteString("- Read CODEX.md for coding conventions (if it exists)\n")
+	b.WriteString("- Read CLAUDE.md for project-specific instructions (if it exists)\n")
+	b.WriteString("- Commit with conventional commit format: type(scope): description\n")
+	b.WriteString("- Co-Authored-By: Virgil <virgil@lethean.io>\n")
+	b.WriteString("- Run build and tests before committing\n")
+
+	return b.String(), memories, consumers
+}
+
+// --- Context Helpers (return strings, not write files) ---
+
+func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
+	idx := core.Sprintf("%d", issue)
+	iss, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": idx})
 	if err != nil {
-		// Fallback to default template
-		prompt, _ = lib.Template("default")
-		if prompt == "" {
-			prompt = "Read TODO.md and complete the task. Work in src/.\n"
-		}
+		return ""
 	}
-
-	coreio.Local.Write(filepath.Join(wsDir, "src", "PROMPT.md"), prompt)
+	return core.Sprintf("# %s\n\n%s", iss.Title, iss.Body)
 }
 
-// --- Plan template rendering ---
-
-// writePlanFromTemplate loads a YAML plan template, substitutes variables,
-// and writes PLAN.md into the workspace src/ directory.
-func (s *PrepSubsystem) writePlanFromTemplate(templateSlug string, variables map[string]string, task string, wsDir string) {
-	// Load template from embedded prompts package
-	data, err := lib.Template(templateSlug)
-	if err != nil {
-		return // Template not found, skip silently
-	}
-
-	content := data
-
-	// Substitute variables ({{variable_name}} → value)
-	for key, value := range variables {
-		content = strings.ReplaceAll(content, "{{"+key+"}}", value)
-		content = strings.ReplaceAll(content, "{{ "+key+" }}", value)
-	}
-
-	// Parse the YAML to render as markdown
-	var tmpl struct {
-		Name        string   `yaml:"name"`
-		Description string   `yaml:"description"`
-		Guidelines  []string `yaml:"guidelines"`
-		Phases      []struct {
-			Name        string   `yaml:"name"`
-			Description string   `yaml:"description"`
-			Tasks       []any    `yaml:"tasks"`
-		} `yaml:"phases"`
-	}
-
-	if err := yaml.Unmarshal([]byte(content), &tmpl); err != nil {
-		return
-	}
-
-	// Render as PLAN.md
-	var plan strings.Builder
-	plan.WriteString("# Plan: " + tmpl.Name + "\n\n")
-	if task != "" {
-		plan.WriteString("**Task:** " + task + "\n\n")
-	}
-	if tmpl.Description != "" {
-		plan.WriteString(tmpl.Description + "\n\n")
-	}
-
-	if len(tmpl.Guidelines) > 0 {
-		plan.WriteString("## Guidelines\n\n")
-		for _, g := range tmpl.Guidelines {
-			plan.WriteString("- " + g + "\n")
-		}
-		plan.WriteString("\n")
-	}
-
-	for i, phase := range tmpl.Phases {
-		plan.WriteString(fmt.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
-		if phase.Description != "" {
-			plan.WriteString(phase.Description + "\n\n")
-		}
-		for _, task := range phase.Tasks {
-			switch t := task.(type) {
-			case string:
-				plan.WriteString("- [ ] " + t + "\n")
-			case map[string]any:
-				if name, ok := t["name"].(string); ok {
-					plan.WriteString("- [ ] " + name + "\n")
-				}
-			}
-		}
-		plan.WriteString("\n**Commit after completing this phase.**\n\n---\n\n")
-	}
-
-	coreio.Local.Write(filepath.Join(wsDir, "src", "PLAN.md"), plan.String())
-}
-
-// --- Helpers (unchanged) ---
-
-func (s *PrepSubsystem) pullWiki(ctx context.Context, org, repo, wsDir string) int {
-	if s.forgeToken == "" {
-		return 0
-	}
-
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/wiki/pages", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return 0
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return 0
-	}
-
-	var pages []struct {
-		Title  string `json:"title"`
-		SubURL string `json:"sub_url"`
-	}
-	json.NewDecoder(resp.Body).Decode(&pages)
-
-	count := 0
-	for _, page := range pages {
-		subURL := page.SubURL
-		if subURL == "" {
-			subURL = page.Title
-		}
-
-		pageURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/wiki/page/%s", s.forgeURL, org, repo, subURL)
-		pageReq, _ := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
-		pageReq.Header.Set("Authorization", "token "+s.forgeToken)
-
-		pageResp, err := s.client.Do(pageReq)
-		if err != nil {
-			continue
-		}
-		if pageResp.StatusCode != 200 {
-			pageResp.Body.Close()
-			continue
-		}
-
-		var pageData struct {
-			ContentBase64 string `json:"content_base64"`
-		}
-		json.NewDecoder(pageResp.Body).Decode(&pageData)
-		pageResp.Body.Close()
-
-		if pageData.ContentBase64 == "" {
-			continue
-		}
-
-		content, _ := base64.StdEncoding.DecodeString(pageData.ContentBase64)
-		filename := strings.Map(func(r rune) rune {
-			if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.' {
-				return r
-			}
-			return '-'
-		}, page.Title) + ".md"
-
-		coreio.Local.Write(filepath.Join(wsDir, "src", "kb", filename), string(content))
-		count++
-	}
-
-	return count
-}
-
-func (s *PrepSubsystem) copySpecs(wsDir string) int {
-	specFiles := []string{"AGENT_CONTEXT.md", "TASK_PROTOCOL.md"}
-	count := 0
-
-	for _, file := range specFiles {
-		src := filepath.Join(s.specsPath, file)
-		if data, err := coreio.Local.Read(src); err == nil {
-			coreio.Local.Write(filepath.Join(wsDir, "src", "specs", file), data)
-			count++
-		}
-	}
-
-	return count
-}
-
-func (s *PrepSubsystem) generateContext(ctx context.Context, repo, wsDir string) int {
+func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, int) {
 	if s.brainKey == "" {
-		return 0
+		return "", 0
 	}
 
-	body, _ := json.Marshal(map[string]any{
-		"query":    "architecture conventions key interfaces for " + repo,
+	body := core.JSONMarshalString(map[string]any{
+		"query":    core.Concat("architecture conventions key interfaces for ", repo),
 		"top_k":    10,
 		"project":  repo,
 		"agent_id": "cladius",
 	})
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", s.brainURL+"/v1/brain/recall", strings.NewReader(string(body)))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.brainKey)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return 0
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return 0
+	r := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/recall"), body, s.brainKey, "Bearer")
+	if !r.OK {
+		return "", 0
 	}
 
-	respData, _ := io.ReadAll(resp.Body)
 	var result struct {
 		Memories []map[string]any `json:"memories"`
 	}
-	json.Unmarshal(respData, &result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 
-	var content strings.Builder
-	content.WriteString("# Context — " + repo + "\n\n")
-	content.WriteString("> Relevant knowledge from OpenBrain.\n\n")
+	if len(result.Memories) == 0 {
+		return "", 0
+	}
 
+	b := core.NewBuilder()
 	for i, mem := range result.Memories {
 		memType, _ := mem["type"].(string)
 		memContent, _ := mem["content"].(string)
 		memProject, _ := mem["project"].(string)
-		score, _ := mem["score"].(float64)
-		content.WriteString(fmt.Sprintf("### %d. %s [%s] (score: %.3f)\n\n%s\n\n", i+1, memProject, memType, score, memContent))
+		b.WriteString(core.Sprintf("%d. [%s] %s: %s\n", i+1, memType, memProject, memContent))
 	}
 
-	coreio.Local.Write(filepath.Join(wsDir, "src", "CONTEXT.md"), content.String())
-	return len(result.Memories)
+	return b.String(), len(result.Memories)
 }
 
-func (s *PrepSubsystem) findConsumers(repo, wsDir string) int {
-	goWorkPath := filepath.Join(s.codePath, "go.work")
-	modulePath := "forge.lthn.ai/core/" + repo
+func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
+	goWorkPath := core.JoinPath(s.codePath, "go.work")
+	modulePath := core.Concat("forge.lthn.ai/core/", repo)
 
-	workData, err := coreio.Local.Read(goWorkPath)
-	if err != nil {
-		return 0
+	r := fs.Read(goWorkPath)
+	if !r.OK {
+		return "", 0
 	}
+	workData := r.Value.(string)
 
 	var consumers []string
-	for _, line := range strings.Split(workData, "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "./") {
+	for _, line := range core.Split(workData, "\n") {
+		line = core.Trim(line)
+		if !core.HasPrefix(line, "./") {
 			continue
 		}
-		dir := filepath.Join(s.codePath, strings.TrimPrefix(line, "./"))
-		goMod := filepath.Join(dir, "go.mod")
-		modData, err := coreio.Local.Read(goMod)
-		if err != nil {
+		dir := core.JoinPath(s.codePath, core.TrimPrefix(line, "./"))
+		goMod := core.JoinPath(dir, "go.mod")
+		mr := fs.Read(goMod)
+		if !mr.OK {
 			continue
 		}
-		if strings.Contains(modData, modulePath) && !strings.HasPrefix(modData, "module "+modulePath) {
-			consumers = append(consumers, filepath.Base(dir))
+		modData := mr.Value.(string)
+		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, core.Concat("module ", modulePath)) {
+			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
 
-	if len(consumers) > 0 {
-		content := "# Consumers of " + repo + "\n\n"
-		content += "These modules import `" + modulePath + "`:\n\n"
-		for _, c := range consumers {
-			content += "- " + c + "\n"
+	if len(consumers) == 0 {
+		return "", 0
+	}
+
+	b := core.NewBuilder()
+	for _, c := range consumers {
+		b.WriteString(core.Concat("- ", c, "\n"))
+	}
+	b.WriteString(core.Sprintf("Breaking change risk: %d consumers.\n", len(consumers)))
+
+	return b.String(), len(consumers)
+}
+
+func (s *PrepSubsystem) getGitLog(repoPath string) string {
+	return s.gitOutput(context.Background(), repoPath, "log", "--oneline", "-20")
+}
+
+func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
+	pages, err := s.forge.Wiki.ListPages(ctx, org, repo)
+	if err != nil || len(pages) == 0 {
+		return ""
+	}
+
+	b := core.NewBuilder()
+	for _, meta := range pages {
+		name := meta.SubURL
+		if name == "" {
+			name = meta.Title
 		}
-		content += fmt.Sprintf("\n**Breaking change risk: %d consumers.**\n", len(consumers))
-		coreio.Local.Write(filepath.Join(wsDir, "src", "CONSUMERS.md"), content)
+		page, pErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
+		if pErr != nil || page.ContentBase64 == "" {
+			continue
+		}
+		content, _ := base64.StdEncoding.DecodeString(page.ContentBase64)
+		b.WriteString(core.Concat("### ", meta.Title, "\n\n"))
+		b.WriteString(string(content))
+		b.WriteString("\n\n")
 	}
-
-	return len(consumers)
+	return b.String()
 }
 
-func (s *PrepSubsystem) gitLog(repoPath, wsDir string) int {
-	cmd := exec.Command("git", "log", "--oneline", "-20")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
+func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]string, task string) string {
+	r := lib.Template(templateSlug)
+	if !r.OK {
+		return ""
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(lines) > 0 && lines[0] != "" {
-		content := "# Recent Changes\n\n```\n" + string(output) + "```\n"
-		coreio.Local.Write(filepath.Join(wsDir, "src", "RECENT.md"), content)
+	content := r.Value.(string)
+	for key, value := range variables {
+		content = core.Replace(content, core.Concat("{{", key, "}}"), value)
+		content = core.Replace(content, core.Concat("{{ ", key, " }}"), value)
 	}
 
-	return len(lines)
+	var tmpl struct {
+		Name        string   `yaml:"name"`
+		Description string   `yaml:"description"`
+		Guidelines  []string `yaml:"guidelines"`
+		Phases      []struct {
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+			Tasks       []any  `yaml:"tasks"`
+		} `yaml:"phases"`
+	}
+
+	if err := yaml.Unmarshal([]byte(content), &tmpl); err != nil {
+		return ""
+	}
+
+	plan := core.NewBuilder()
+	plan.WriteString(core.Concat("# ", tmpl.Name, "\n\n"))
+	if task != "" {
+		plan.WriteString(core.Concat("**Task:** ", task, "\n\n"))
+	}
+	if tmpl.Description != "" {
+		plan.WriteString(core.Concat(tmpl.Description, "\n\n"))
+	}
+
+	if len(tmpl.Guidelines) > 0 {
+		plan.WriteString("## Guidelines\n\n")
+		for _, g := range tmpl.Guidelines {
+			plan.WriteString(core.Concat("- ", g, "\n"))
+		}
+		plan.WriteString("\n")
+	}
+
+	for i, phase := range tmpl.Phases {
+		plan.WriteString(core.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
+		if phase.Description != "" {
+			plan.WriteString(core.Concat(phase.Description, "\n\n"))
+		}
+		for _, t := range phase.Tasks {
+			switch v := t.(type) {
+			case string:
+				plan.WriteString(core.Concat("- [ ] ", v, "\n"))
+			case map[string]any:
+				if name, ok := v["name"].(string); ok {
+					plan.WriteString(core.Concat("- [ ] ", name, "\n"))
+				}
+			}
+		}
+		plan.WriteString("\n")
+	}
+
+	return plan.String()
 }
 
-func (s *PrepSubsystem) generateTodo(ctx context.Context, org, repo string, issue int, wsDir string) {
-	if s.forgeToken == "" {
-		return
-	}
+// --- Detection helpers (unchanged) ---
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, issue)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return
-	}
-
-	var issueData struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
-	}
-	json.NewDecoder(resp.Body).Decode(&issueData)
-
-	content := fmt.Sprintf("# TASK: %s\n\n", issueData.Title)
-	content += fmt.Sprintf("**Status:** ready\n")
-	content += fmt.Sprintf("**Source:** %s/%s/%s/issues/%d\n", s.forgeURL, org, repo, issue)
-	content += fmt.Sprintf("**Repo:** %s/%s\n\n---\n\n", org, repo)
-	content += "## Objective\n\n" + issueData.Body + "\n"
-
-	coreio.Local.Write(filepath.Join(wsDir, "src", "TODO.md"), content)
-}
-
-// detectLanguage guesses the primary language from repo contents.
-// Checks in priority order (Go first) to avoid nondeterministic results.
 func detectLanguage(repoPath string) string {
 	checks := []struct {
 		file string
@@ -625,7 +779,7 @@ func detectLanguage(repoPath string) string {
 		{"Dockerfile", "docker"},
 	}
 	for _, c := range checks {
-		if _, err := os.Stat(filepath.Join(repoPath, c.file)); err == nil {
+		if fs.IsFile(core.JoinPath(repoPath, c.file)) {
 			return c.lang
 		}
 	}

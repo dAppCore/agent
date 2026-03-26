@@ -1,8 +1,9 @@
 .idea/
+.vscode/
+*.log
 .core/
-docker/.env
-ui/node_modules
-# Compiled binaries
+node_modules/
+bin/
+dist/
 core-agent
-mcp
-*.exe
+core-agent-*

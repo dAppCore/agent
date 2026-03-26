@@ -3,40 +3,34 @@
 package agentic
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
+	"context"
 
-	coreio "forge.lthn.ai/core/go-io"
+	core "dappco.re/go/core"
 )
 
 // ingestFindings reads the agent output log and creates issues via the API
 // for scan/audit results. Only runs for conventions and security templates.
 func (s *PrepSubsystem) ingestFindings(wsDir string) {
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil || st.Status != "completed" {
 		return
 	}
 
 	// Read the log file
-	logFiles, _ := filepath.Glob(filepath.Join(wsDir, "agent-*.log"))
+	logFiles := core.PathGlob(core.JoinPath(wsDir, "agent-*.log"))
 	if len(logFiles) == 0 {
 		return
 	}
 
-	contentStr, err := coreio.Local.Read(logFiles[0])
-	if err != nil || len(contentStr) < 100 {
+	r := fs.Read(logFiles[0])
+	if !r.OK || len(r.Value.(string)) < 100 {
 		return
 	}
 
-	body := contentStr
+	body := r.Value.(string)
 
 	// Skip quota errors
-	if strings.Contains(body, "QUOTA_EXHAUSTED") || strings.Contains(body, "QuotaError") {
+	if core.Contains(body, "QUOTA_EXHAUSTED") || core.Contains(body, "QuotaError") {
 		return
 	}
 
@@ -49,18 +43,18 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	// Determine issue type from the template used
 	issueType := "task"
 	priority := "normal"
-	if strings.Contains(body, "security") || strings.Contains(body, "Security") {
+	if core.Contains(body, "security") || core.Contains(body, "Security") {
 		issueType = "bug"
 		priority = "high"
 	}
 
 	// Create a single issue per repo with all findings in the body
-	title := fmt.Sprintf("Scan findings for %s (%d items)", st.Repo, findings)
+	title := core.Sprintf("Scan findings for %s (%d items)", st.Repo, findings)
 
 	// Truncate body to reasonable size for issue description
 	description := body
 	if len(description) > 10000 {
-		description = description[:10000] + "\n\n... (truncated, see full log in workspace)"
+		description = core.Concat(description[:10000], "\n\n... (truncated, see full log in workspace)")
 	}
 
 	s.createIssueViaAPI(st.Repo, title, description, issueType, priority, "scan")
@@ -78,7 +72,7 @@ func countFileRefs(body string) int {
 			}
 			if j < len(body) && body[j] == '`' {
 				ref := body[i+1 : j]
-				if strings.Contains(ref, ".go:") || strings.Contains(ref, ".php:") {
+				if core.Contains(ref, ".go:") || core.Contains(ref, ".php:") {
 					count++
 				}
 			}
@@ -94,14 +88,13 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 	}
 
 	// Read the agent API key from file
-	home, _ := os.UserHomeDir()
-	apiKeyStr, err := coreio.Local.Read(filepath.Join(home, ".claude", "agent-api.key"))
-	if err != nil {
+	r := fs.Read(core.JoinPath(core.Env("DIR_HOME"), ".claude", "agent-api.key"))
+	if !r.OK {
 		return
 	}
-	apiKey := strings.TrimSpace(apiKeyStr)
+	apiKey := core.Trim(r.Value.(string))
 
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"title":       title,
 		"description": description,
 		"type":        issueType,
@@ -109,14 +102,5 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 		"reporter":    "cladius",
 	})
 
-	req, _ := http.NewRequest("POST", s.brainURL+"/v1/issues", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return
-	}
-	resp.Body.Close()
+	HTTPPost(context.Background(), core.Concat(s.brainURL, "/v1/issues"), payload, apiKey, "Bearer")
 }

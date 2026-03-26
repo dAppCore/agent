@@ -3,42 +3,43 @@
 package agentic
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // --- agentic_create_epic ---
 
 // EpicInput is the input for agentic_create_epic.
+//
+//	input := agentic.EpicInput{Repo: "go-scm", Title: "Port agentic plans", Tasks: []string{"Read PHP flow", "Implement Go MCP tools"}}
 type EpicInput struct {
 	Repo     string   `json:"repo"`               // Target repo (e.g. "go-scm")
-	Org      string   `json:"org,omitempty"`       // Forge org (default "core")
-	Title    string   `json:"title"`               // Epic title
-	Body     string   `json:"body,omitempty"`      // Epic description (above checklist)
-	Tasks    []string `json:"tasks"`               // Sub-task titles (become child issues)
-	Labels   []string `json:"labels,omitempty"`    // Labels for epic + children (e.g. ["agentic"])
-	Dispatch bool     `json:"dispatch,omitempty"`  // Auto-dispatch agents to each child
-	Agent    string   `json:"agent,omitempty"`     // Agent type for dispatch (default "claude")
-	Template string   `json:"template,omitempty"`  // Prompt template for dispatch (default "coding")
+	Org      string   `json:"org,omitempty"`      // Forge org (default "core")
+	Title    string   `json:"title"`              // Epic title
+	Body     string   `json:"body,omitempty"`     // Epic description (above checklist)
+	Tasks    []string `json:"tasks"`              // Sub-task titles (become child issues)
+	Labels   []string `json:"labels,omitempty"`   // Labels for epic + children (e.g. ["agentic"])
+	Dispatch bool     `json:"dispatch,omitempty"` // Auto-dispatch agents to each child
+	Agent    string   `json:"agent,omitempty"`    // Agent type for dispatch (default "claude")
+	Template string   `json:"template,omitempty"` // Prompt template for dispatch (default "coding")
 }
 
 // EpicOutput is the output for agentic_create_epic.
+//
+//	out := agentic.EpicOutput{Success: true, EpicNumber: 42, EpicURL: "https://forge.example/core/go-scm/issues/42"}
 type EpicOutput struct {
-	Success     bool       `json:"success"`
-	EpicNumber  int        `json:"epic_number"`
-	EpicURL     string     `json:"epic_url"`
-	Children    []ChildRef `json:"children"`
-	Dispatched  int        `json:"dispatched,omitempty"`
+	Success    bool       `json:"success"`
+	EpicNumber int        `json:"epic_number"`
+	EpicURL    string     `json:"epic_url"`
+	Children   []ChildRef `json:"children"`
+	Dispatched int        `json:"dispatched,omitempty"`
 }
 
 // ChildRef references a child issue.
+//
+//	child := agentic.ChildRef{Number: 43, Title: "Implement plan list", URL: "https://forge.example/core/go-scm/issues/43"}
 type ChildRef struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
@@ -54,13 +55,13 @@ func (s *PrepSubsystem) registerEpicTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
 	if input.Title == "" {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "title is required", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "title is required", nil)
 	}
 	if len(input.Tasks) == 0 {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "at least one task is required", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "at least one task is required", nil)
 	}
 	if s.forgeToken == "" {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "no Forge token configured", nil)
+		return nil, EpicOutput{}, core.E("createEpic", "no Forge token configured", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
@@ -99,21 +100,21 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest
 	}
 
 	// Step 2: Build epic body with checklist
-	var body strings.Builder
+	body := core.NewBuilder()
 	if input.Body != "" {
 		body.WriteString(input.Body)
 		body.WriteString("\n\n")
 	}
 	body.WriteString("## Tasks\n\n")
 	for _, child := range children {
-		body.WriteString(fmt.Sprintf("- [ ] #%d %s\n", child.Number, child.Title))
+		body.WriteString(core.Sprintf("- [ ] #%d %s\n", child.Number, child.Title))
 	}
 
 	// Step 3: Create epic issue
 	epicLabels := append(labelIDs, s.resolveLabelIDs(ctx, input.Org, input.Repo, []string{"epic"})...)
 	epic, err := s.createIssue(ctx, input.Org, input.Repo, input.Title, body.String(), epicLabels)
 	if err != nil {
-		return nil, EpicOutput{}, coreerr.E("createEpic", "failed to create epic", err)
+		return nil, EpicOutput{}, core.E("createEpic", "failed to create epic", err)
 	}
 
 	out := EpicOutput{
@@ -155,27 +156,18 @@ func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body 
 		payload["labels"] = labelIDs
 	}
 
-	data, _ := json.Marshal(payload)
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return ChildRef{}, coreerr.E("createIssue", "create issue request failed", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 201 {
-		return ChildRef{}, coreerr.E("createIssue", fmt.Sprintf("create issue returned %d", resp.StatusCode), nil)
+	data := core.JSONMarshalString(payload)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues", s.forgeURL, org, repo)
+	r := HTTPPost(ctx, url, data, s.forgeToken, "token")
+	if !r.OK {
+		return ChildRef{}, core.E("createIssue", "create issue request failed", nil)
 	}
 
 	var result struct {
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 
 	return ChildRef{
 		Number: result.Number,
@@ -191,17 +183,9 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 	}
 
 	// Fetch existing labels
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels?limit=50", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels?limit=50", s.forgeURL, org, repo)
+	r := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !r.OK {
 		return nil
 	}
 
@@ -209,7 +193,7 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	json.NewDecoder(resp.Body).Decode(&existing)
+	core.JSONUnmarshalString(r.Value.(string), &existing)
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -245,29 +229,20 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 		colour = "#6b7280"
 	}
 
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"name":  name,
 		"color": colour,
 	})
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return 0
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 201 {
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
+	r := HTTPPost(ctx, url, payload, s.forgeToken, "token")
+	if !r.OK {
 		return 0
 	}
 
 	var result struct {
 		ID int64 `json:"id"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	core.JSONUnmarshalString(r.Value.(string), &result)
 	return result.ID
 }

@@ -4,17 +4,17 @@ package brain
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // --- Nil bridge tests (headless mode) ---
 
-func TestBrainRemember_Bad_NilBridge(t *testing.T) {
+func TestBrain_Remember_Bad(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainRemember(context.Background(), nil, RememberInput{
 		Content: "test memory",
@@ -23,7 +23,7 @@ func TestBrainRemember_Bad_NilBridge(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBrainRecall_Bad_NilBridge(t *testing.T) {
+func TestBrain_Recall_Bad(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainRecall(context.Background(), nil, RecallInput{
 		Query: "how does scoring work?",
@@ -31,7 +31,7 @@ func TestBrainRecall_Bad_NilBridge(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBrainForget_Bad_NilBridge(t *testing.T) {
+func TestBrain_Forget_Bad(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainForget(context.Background(), nil, ForgetInput{
 		ID: "550e8400-e29b-41d4-a716-446655440000",
@@ -39,7 +39,7 @@ func TestBrainForget_Bad_NilBridge(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBrainList_Bad_NilBridge(t *testing.T) {
+func TestBrain_List_Bad(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainList(context.Background(), nil, ListInput{
 		Project: "eaas",
@@ -49,12 +49,12 @@ func TestBrainList_Bad_NilBridge(t *testing.T) {
 
 // --- Subsystem interface tests ---
 
-func TestSubsystem_Good_Name(t *testing.T) {
+func TestBrain_Name_Good(t *testing.T) {
 	sub := New(nil)
 	assert.Equal(t, "brain", sub.Name())
 }
 
-func TestSubsystem_Good_ShutdownNoop(t *testing.T) {
+func TestBrain_Shutdown_Good(t *testing.T) {
 	sub := New(nil)
 	assert.NoError(t, sub.Shutdown(context.Background()))
 }
@@ -64,12 +64,11 @@ func TestSubsystem_Good_ShutdownNoop(t *testing.T) {
 // roundTrip marshals v to JSON and unmarshals into dst, failing on error.
 func roundTrip(t *testing.T, v any, dst any) {
 	t.Helper()
-	data, err := json.Marshal(v)
-	require.NoError(t, err)
-	require.NoError(t, json.Unmarshal(data, dst))
+	s := core.JSONMarshalString(v)
+	require.True(t, core.JSONUnmarshalString(s, dst).OK)
 }
 
-func TestRememberInput_Good_RoundTrip(t *testing.T) {
+func TestBrain_RememberInput_Good(t *testing.T) {
 	in := RememberInput{
 		Content:    "LEM scoring was blind to negative emotions",
 		Type:       "bug",
@@ -87,7 +86,7 @@ func TestRememberInput_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, 0.95, out.Confidence)
 }
 
-func TestRememberOutput_Good_RoundTrip(t *testing.T) {
+func TestBrain_RememberOutput_Good(t *testing.T) {
 	in := RememberOutput{
 		Success:   true,
 		MemoryID:  "550e8400-e29b-41d4-a716-446655440000",
@@ -99,7 +98,7 @@ func TestRememberOutput_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, in.MemoryID, out.MemoryID)
 }
 
-func TestRecallInput_Good_RoundTrip(t *testing.T) {
+func TestBrain_RecallInput_Good(t *testing.T) {
 	in := RecallInput{
 		Query: "how does verdict classification work?",
 		TopK:  5,
@@ -116,7 +115,7 @@ func TestRecallInput_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, 0.5, out.Filter.MinConfidence)
 }
 
-func TestMemory_Good_RoundTrip(t *testing.T) {
+func TestBrain_Memory_Good(t *testing.T) {
 	in := Memory{
 		ID:         "550e8400-e29b-41d4-a716-446655440000",
 		AgentID:    "virgil",
@@ -135,7 +134,7 @@ func TestMemory_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, "decision", out.Type)
 }
 
-func TestForgetInput_Good_RoundTrip(t *testing.T) {
+func TestBrain_ForgetInput_Good(t *testing.T) {
 	in := ForgetInput{
 		ID:     "550e8400-e29b-41d4-a716-446655440000",
 		Reason: "Superseded by new approach",
@@ -146,7 +145,7 @@ func TestForgetInput_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, in.Reason, out.Reason)
 }
 
-func TestListInput_Good_RoundTrip(t *testing.T) {
+func TestBrain_ListInput_Good(t *testing.T) {
 	in := ListInput{
 		Project: "eaas",
 		Type:    "decision",
@@ -158,7 +157,7 @@ func TestListInput_Good_RoundTrip(t *testing.T) {
 	assert.Equal(t, in, out)
 }
 
-func TestListOutput_Good_RoundTrip(t *testing.T) {
+func TestBrain_ListOutput_Good(t *testing.T) {
 	in := ListOutput{
 		Success: true,
 		Count:   2,

@@ -3,19 +3,10 @@
 package agentic
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 )
 
 // autoVerifyAndMerge runs inline tests (fast gate) and merges if they pass.
@@ -26,12 +17,12 @@ import (
 //
 //	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
 func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
-	st, err := readStatus(wsDir)
+	st, err := ReadStatus(wsDir)
 	if err != nil || st.PRURL == "" || st.Repo == "" {
 		return
 	}
 
-	srcDir := filepath.Join(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 	org := st.Org
 	if org == "" {
 		org = "core"
@@ -44,14 +35,14 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// markMerged is a helper to avoid repeating the status update.
 	markMerged := func() {
-		if st2, err := readStatus(wsDir); err == nil {
+		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Status = "merged"
 			writeStatus(wsDir, st2)
 		}
 	}
 
 	// Attempt 1: run tests and try to merge
-	result := s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum)
+	result := s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum)
 	if result == mergeSuccess {
 		markMerged()
 		return
@@ -59,8 +50,8 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// Attempt 2: rebase onto main and retry
 	if result == mergeConflict || result == testFailed {
-		if s.rebaseBranch(srcDir, st.Branch) {
-			if s.attemptVerifyAndMerge(srcDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
+		if s.rebaseBranch(repoDir, st.Branch) {
+			if s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
 				markMerged()
 				return
 			}
@@ -70,7 +61,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	// Both attempts failed — flag for human review
 	s.flagForReview(org, st.Repo, prNum, result)
 
-	if st2, err := readStatus(wsDir); err == nil {
+	if st2, err := ReadStatus(wsDir); err == nil {
 		st2.Question = "Flagged for review — auto-merge failed after retry"
 		writeStatus(wsDir, st2)
 	}
@@ -85,11 +76,11 @@ const (
 )
 
 // attemptVerifyAndMerge runs tests and tries to merge. Returns the outcome.
-func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, prNum int) mergeResult {
-	testResult := s.runVerification(srcDir)
+func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string, prNum int) mergeResult {
+	testResult := s.runVerification(repoDir)
 
 	if !testResult.passed {
-		comment := fmt.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
+		comment := core.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
 			testResult.testCmd, truncate(testResult.output, 2000), testResult.exitCode)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return testFailed
@@ -99,41 +90,32 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(srcDir, org, repo, branch string, 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.forgeMergePR(ctx, org, repo, prNum); err != nil {
-		comment := fmt.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed: %v", testResult.testCmd, err)
+	if r := s.forgeMergePR(ctx, org, repo, prNum); !r.OK {
+		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed", testResult.testCmd)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return mergeConflict
 	}
 
-	comment := fmt.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
+	comment := core.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
 	s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 	return mergeSuccess
 }
 
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
-func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
-	base := gitDefaultBranch(srcDir)
+func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
+	ctx := context.Background()
+	base := s.DefaultBranch(repoDir)
 
-	// Fetch latest default branch
-	fetch := exec.Command("git", "fetch", "origin", base)
-	fetch.Dir = srcDir
-	if err := fetch.Run(); err != nil {
+	if !s.gitCmdOK(ctx, repoDir, "fetch", "origin", base) {
 		return false
 	}
 
-	// Rebase onto default branch
-	rebase := exec.Command("git", "rebase", "origin/"+base)
-	rebase.Dir = srcDir
-	if err := rebase.Run(); err != nil {
-		// Rebase failed — abort and give up
-		abort := exec.Command("git", "rebase", "--abort")
-		abort.Dir = srcDir
-		abort.Run()
+	if !s.gitCmdOK(ctx, repoDir, "rebase", core.Concat("origin/", base)) {
+		s.gitCmdOK(ctx, repoDir, "rebase", "--abort")
 		return false
 	}
 
-	// Force-push the rebased branch to Forge (origin is local clone)
-	st, _ := readStatus(filepath.Dir(srcDir))
+	st, _ := ReadStatus(core.PathDir(repoDir))
 	org := "core"
 	repo := ""
 	if st != nil {
@@ -142,10 +124,8 @@ func (s *PrepSubsystem) rebaseBranch(srcDir, branch string) bool {
 		}
 		repo = st.Repo
 	}
-	forgeRemote := fmt.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
-	push := exec.Command("git", "push", "--force-with-lease", forgeRemote, branch)
-	push.Dir = srcDir
-	return push.Run() == nil
+	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
+	return s.gitCmdOK(ctx, repoDir, "push", "--force-with-lease", forgeRemote, branch)
 }
 
 // flagForReview adds the "needs-review" label to the PR via Forge API.
@@ -157,59 +137,44 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 	s.ensureLabel(ctx, org, repo, "needs-review", "e11d48")
 
 	// Add label to PR
-	payload, _ := json.Marshal(map[string]any{
+	payload := core.JSONMarshalString(map[string]any{
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
+	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 
 	// Comment explaining the situation
 	reason := "Tests failed after rebase"
 	if result == mergeConflict {
 		reason = "Merge conflict persists after rebase"
 	}
-	comment := fmt.Sprintf("## Needs Review\n\n%s. Auto-merge gave up after retry.\n\nLabelled `needs-review` for human attention.", reason)
+	comment := core.Sprintf("## Needs Review\n\n%s. Auto-merge gave up after retry.\n\nLabelled `needs-review` for human attention.", reason)
 	s.commentOnIssue(ctx, org, repo, prNum, comment)
 }
 
 // ensureLabel creates a label if it doesn't exist.
 func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour string) {
-	payload, _ := json.Marshal(map[string]string{
+	payload := core.JSONMarshalString(map[string]string{
 		"name":  name,
-		"color": "#" + colour,
+		"color": core.Concat("#", colour),
 	})
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
+	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-	resp, err := s.client.Do(req)
-	if err != nil {
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
+	r := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !r.OK {
 		return 0
 	}
-	defer resp.Body.Close()
 
 	var labels []struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	}
-	json.NewDecoder(resp.Body).Decode(&labels)
+	core.JSONUnmarshalString(r.Value.(string), &labels)
 	for _, l := range labels {
 		if l.Name == name {
 			return l.ID
@@ -227,130 +192,89 @@ type verifyResult struct {
 }
 
 // runVerification detects the project type and runs the appropriate test suite.
-func (s *PrepSubsystem) runVerification(srcDir string) verifyResult {
-	if fileExists(filepath.Join(srcDir, "go.mod")) {
-		return s.runGoTests(srcDir)
+func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
+	if fileExists(core.JoinPath(repoDir, "go.mod")) {
+		return s.runGoTests(repoDir)
 	}
-	if fileExists(filepath.Join(srcDir, "composer.json")) {
-		return s.runPHPTests(srcDir)
+	if fileExists(core.JoinPath(repoDir, "composer.json")) {
+		return s.runPHPTests(repoDir)
 	}
-	if fileExists(filepath.Join(srcDir, "package.json")) {
-		return s.runNodeTests(srcDir)
+	if fileExists(core.JoinPath(repoDir, "package.json")) {
+		return s.runNodeTests(repoDir)
 	}
 	return verifyResult{passed: true, testCmd: "none", output: "No test runner detected"}
 }
 
-func (s *PrepSubsystem) runGoTests(srcDir string) verifyResult {
-	cmd := exec.Command("go", "test", "./...", "-count=1", "-timeout", "120s")
-	cmd.Dir = srcDir
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	out, err := cmd.CombinedOutput()
-
+func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
+	ctx := context.Background()
+	r := s.runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
+	out := r.Value.(string)
 	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
+	if !r.OK {
+		exitCode = 1
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "go test ./..."}
+	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "go test ./..."}
 }
 
-func (s *PrepSubsystem) runPHPTests(srcDir string) verifyResult {
-	cmd := exec.Command("composer", "test", "--no-interaction")
-	cmd.Dir = srcDir
-	out, err := cmd.CombinedOutput()
-
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			cmd2 := exec.Command("./vendor/bin/pest", "--no-interaction")
-			cmd2.Dir = srcDir
-			out2, err2 := cmd2.CombinedOutput()
-			if err2 != nil {
-				return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
-			}
-			return verifyResult{passed: true, output: string(out2), exitCode: 0, testCmd: "vendor/bin/pest"}
+func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
+	ctx := context.Background()
+	r := s.runCmd(ctx, repoDir, "composer", "test", "--no-interaction")
+	if !r.OK {
+		// Try pest as fallback
+		r2 := s.runCmd(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
+		if !r2.OK {
+			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
+		return verifyResult{passed: true, output: r2.Value.(string), exitCode: 0, testCmd: "vendor/bin/pest"}
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "composer test"}
+	return verifyResult{passed: true, output: r.Value.(string), exitCode: 0, testCmd: "composer test"}
 }
 
-func (s *PrepSubsystem) runNodeTests(srcDir string) verifyResult {
-	data, err := coreio.Local.Read(filepath.Join(srcDir, "package.json"))
-	if err != nil {
+func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
+	r := fs.Read(core.JoinPath(repoDir, "package.json"))
+	if !r.OK {
 		return verifyResult{passed: true, testCmd: "none", output: "Could not read package.json"}
 	}
 
 	var pkg struct {
 		Scripts map[string]string `json:"scripts"`
 	}
-	if json.Unmarshal([]byte(data), &pkg) != nil || pkg.Scripts["test"] == "" {
+	if ur := core.JSONUnmarshalString(r.Value.(string), &pkg); !ur.OK || pkg.Scripts["test"] == "" {
 		return verifyResult{passed: true, testCmd: "none", output: "No test script in package.json"}
 	}
 
-	cmd := exec.Command("npm", "test")
-	cmd.Dir = srcDir
-	out, err := cmd.CombinedOutput()
-
+	ctx := context.Background()
+	r = s.runCmd(ctx, repoDir, "npm", "test")
+	out := r.Value.(string)
 	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
+	if !r.OK {
+		exitCode = 1
 	}
-
-	return verifyResult{passed: exitCode == 0, output: string(out), exitCode: exitCode, testCmd: "npm test"}
+	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "npm test"}
 }
 
 // forgeMergePR merges a PR via the Forge API.
-func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNum int) error {
-	payload, _ := json.Marshal(map[string]any{
+func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNum int) core.Result {
+	payload := core.JSONMarshalString(map[string]any{
 		"Do":                        "merge",
 		"merge_message_field":       "Auto-merged by core-agent after verification\n\nCo-Authored-By: Virgil <virgil@lethean.io>",
 		"delete_branch_after_merge": true,
 	})
 
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "token "+s.forgeToken)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return coreerr.E("forgeMergePR", "request failed", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 && resp.StatusCode != 204 {
-		var errBody map[string]any
-		json.NewDecoder(resp.Body).Decode(&errBody)
-		msg, _ := errBody["message"].(string)
-		return coreerr.E("forgeMergePR", fmt.Sprintf("HTTP %d: %s", resp.StatusCode, msg), nil)
-	}
-
-	return nil
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
+	return HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
 // extractPRNumber gets the PR number from a Forge PR URL.
 func extractPRNumber(prURL string) int {
-	parts := strings.Split(prURL, "/")
+	parts := core.Split(prURL, "/")
 	if len(parts) == 0 {
 		return 0
 	}
-	var num int
-	fmt.Sscanf(parts[len(parts)-1], "%d", &num)
-	return num
+	return parseInt(parts[len(parts)-1])
 }
 
 // fileExists checks if a file exists.
 func fileExists(path string) bool {
-	return coreio.Local.IsFile(path)
+	return fs.IsFile(path)
 }

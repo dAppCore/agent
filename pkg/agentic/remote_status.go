@@ -4,28 +4,27 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
-
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // --- agentic_status_remote tool ---
 
 // RemoteStatusInput queries a remote core-agent for workspace status.
+//
+//	input := agentic.RemoteStatusInput{Host: "charon"}
 type RemoteStatusInput struct {
 	Host string `json:"host"` // Remote agent host (e.g. "charon")
 }
 
 // RemoteStatusOutput is the response from a remote status check.
+//
+//	out := agentic.RemoteStatusOutput{Success: true, Host: "charon"}
 type RemoteStatusOutput struct {
-	Success    bool            `json:"success"`
-	Host       string          `json:"host"`
-	Workspaces []WorkspaceInfo `json:"workspaces"`
-	Count      int             `json:"count"`
-	Error      string          `json:"error,omitempty"`
+	Success bool         `json:"success"`
+	Host    string       `json:"host"`
+	Stats   StatusOutput `json:"stats"`
+	Error   string       `json:"error,omitempty"`
 }
 
 func (s *PrepSubsystem) registerRemoteStatusTool(server *mcp.Server) {
@@ -37,20 +36,18 @@ func (s *PrepSubsystem) registerRemoteStatusTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest, input RemoteStatusInput) (*mcp.CallToolResult, RemoteStatusOutput, error) {
 	if input.Host == "" {
-		return nil, RemoteStatusOutput{}, coreerr.E("statusRemote", "host is required", nil)
+		return nil, RemoteStatusOutput{}, core.E("statusRemote", "host is required", nil)
 	}
 
 	addr := resolveHost(input.Host)
 	token := remoteToken(input.Host)
-	url := "http://" + addr + "/mcp"
+	url := core.Concat("http://", addr, "/mcp")
 
-	client := &http.Client{Timeout: 15 * time.Second}
-
-	sessionID, err := mcpInitialize(ctx, client, url, token)
+	sessionID, err := mcpInitialize(ctx, url, token)
 	if err != nil {
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
-			Error: "unreachable: " + err.Error(),
+			Error: core.Concat("unreachable: ", err.Error()),
 		}, nil
 	}
 
@@ -63,13 +60,13 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			"arguments": map[string]any{},
 		},
 	}
-	body, _ := json.Marshal(rpcReq)
+	body := []byte(core.JSONMarshalString(rpcReq))
 
-	result, err := mcpCall(ctx, client, url, token, sessionID, body)
+	result, err := mcpCall(ctx, url, token, sessionID, body)
 	if err != nil {
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
-			Error: "call failed: " + err.Error(),
+			Error: core.Concat("call failed: ", err.Error()),
 		}, nil
 	}
 
@@ -89,7 +86,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(result, &rpcResp) != nil {
+	if r := core.JSONUnmarshal(result, &rpcResp); !r.OK {
 		output.Success = false
 		output.Error = "failed to parse response"
 		return nil, output, nil
@@ -101,9 +98,8 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	}
 	if len(rpcResp.Result.Content) > 0 {
 		var statusOut StatusOutput
-		if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &statusOut) == nil {
-			output.Workspaces = statusOut.Workspaces
-			output.Count = statusOut.Count
+		if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &statusOut); r.OK {
+			output.Stats = statusOut
 		}
 	}
 

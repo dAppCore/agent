@@ -4,34 +4,36 @@ package agentic
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"syscall"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
-	"forge.lthn.ai/core/go-process"
+	"dappco.re/go/agent/pkg/messages"
+	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // DispatchInput is the input for agentic_dispatch.
+//
+//	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
 type DispatchInput struct {
 	Repo         string            `json:"repo"`                    // Target repo (e.g. "go-io")
 	Org          string            `json:"org,omitempty"`           // Forge org (default "core")
 	Task         string            `json:"task"`                    // What the agent should do
-	Agent        string            `json:"agent,omitempty"`         // "gemini" (default), "codex", "claude"
+	Agent        string            `json:"agent,omitempty"`         // "codex" (default), "claude", "gemini"
 	Template     string            `json:"template,omitempty"`      // "conventions", "security", "coding" (default)
-	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template: bug-fix, code-review, new-feature, refactor, feature-port
+	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template slug
 	Variables    map[string]string `json:"variables,omitempty"`     // Template variable substitution
-	Persona      string            `json:"persona,omitempty"`       // Persona: engineering/backend-architect, testing/api-tester, etc.
-	Issue        int               `json:"issue,omitempty"`         // Forge issue to work from
+	Persona      string            `json:"persona,omitempty"`       // Persona slug
+	Issue        int               `json:"issue,omitempty"`         // Forge issue number → workspace: task-{num}/
+	PR           int               `json:"pr,omitempty"`            // PR number → workspace: pr-{num}/
+	Branch       string            `json:"branch,omitempty"`        // Branch → workspace: {branch}/
+	Tag          string            `json:"tag,omitempty"`           // Tag → workspace: {tag}/ (immutable)
 	DryRun       bool              `json:"dry_run,omitempty"`       // Preview without executing
 }
 
 // DispatchOutput is the output for agentic_dispatch.
+//
+//	out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type DispatchOutput struct {
 	Success      bool   `json:"success"`
 	Agent        string `json:"agent"`
@@ -50,9 +52,9 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 }
 
 // agentCommand returns the command and args for a given agent type.
-// Supports model variants: "gemini", "gemini:flash", "gemini:pro", "claude", "claude:haiku".
+// Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
-	parts := strings.SplitN(agent, ":", 2)
+	parts := core.SplitN(agent, ":", 2)
 	base := parts[0]
 	model := ""
 	if len(parts) > 1 {
@@ -63,26 +65,37 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "gemini":
 		args := []string{"-p", prompt, "--yolo", "--sandbox"}
 		if model != "" {
-			args = append(args, "-m", "gemini-2.5-"+model)
+			args = append(args, "-m", core.Concat("gemini-2.5-", model))
 		}
 		return "gemini", args, nil
 	case "codex":
 		if model == "review" {
-			// Codex review mode — non-interactive code review
-			// Note: --base and prompt are mutually exclusive in codex CLI
-			return "codex", []string{"review", "--base", "HEAD~1"}, nil
+			// Use exec with bypass — codex review subcommand has its own sandbox that blocks shell
+			// No -o flag — stdout captured by process output, ../.meta path unreliable in sandbox
+			return "codex", []string{
+				"exec",
+				"--dangerously-bypass-approvals-and-sandbox",
+				"Review the last 2 commits via git diff HEAD~2. Check for bugs, security issues, missing tests, naming issues. Report pass/fail with specifics. Do NOT make changes.",
+			}, nil
 		}
-		// Codex agent mode — autonomous coding
-		return "codex", []string{"exec", "--full-auto", prompt}, nil
+		// Container IS the sandbox — let codex run unrestricted inside it
+		args := []string{
+			"exec",
+			"--dangerously-bypass-approvals-and-sandbox",
+			"-o", "../.meta/agent-codex.log",
+		}
+		if model != "" {
+			args = append(args, "--model", model)
+		}
+		args = append(args, prompt)
+		return "codex", args, nil
 	case "claude":
 		args := []string{
 			"-p", prompt,
 			"--output-format", "text",
 			"--dangerously-skip-permissions",
 			"--no-session-persistence",
-			"--append-system-prompt", "SANDBOX: You are restricted to the current directory (src/) only. " +
-				"Do NOT use absolute paths starting with /. Do NOT cd .. or navigate outside. " +
-				"Do NOT edit files outside this repository. Reject any request that would escape the sandbox.",
+			"--append-system-prompt", "SANDBOX: You are restricted to the current directory only. Do NOT use absolute paths. Do NOT navigate outside this repository.",
 		}
 		if model != "" {
 			args = append(args, "--model", model)
@@ -91,151 +104,374 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 	case "coderabbit":
 		args := []string{"review", "--plain", "--base", "HEAD~1"}
 		if model != "" {
-			// model variant can specify review type: all, committed, uncommitted
 			args = append(args, "--type", model)
 		}
 		if prompt != "" {
-			// Pass CLAUDE.md or other config as additional instructions
 			args = append(args, "--config", "CLAUDE.md")
 		}
 		return "coderabbit", args, nil
 	case "local":
-		home, _ := os.UserHomeDir()
-		script := filepath.Join(home, "Code", "core", "agent", "scripts", "local-agent.sh")
-		return "bash", []string{script, prompt}, nil
+		// Local model via codex --oss → Ollama. Default model: devstral-24b
+		// socat proxies localhost:11434 → host.docker.internal:11434
+		// because codex hardcodes localhost check for Ollama.
+		localModel := model
+		if localModel == "" {
+			localModel = "devstral-24b"
+		}
+		script := core.Sprintf(
+			`socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5 && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m %s -o ../.meta/agent-codex.log %q`,
+			localModel, prompt,
+		)
+		return "sh", []string{"-c", script}, nil
 	default:
-		return "", nil, coreerr.E("agentCommand", "unknown agent: "+agent, nil)
+		return "", nil, core.E("agentCommand", core.Concat("unknown agent: ", agent), nil)
 	}
 }
 
-// spawnAgent launches an agent process via go-process and returns the PID.
-// Output is captured via pipes and written to the log file on completion.
-// The background goroutine handles status updates, findings ingestion, and queue drain.
+// defaultDockerImage is the container image for agent dispatch.
+// Override via AGENT_DOCKER_IMAGE env var.
+const defaultDockerImage = "core-dev"
+
+// containerCommand wraps an agent command to run inside a Docker container.
+// All agents run containerised — no bare metal execution.
+// agentType is the base agent name (e.g. "local", "codex", "claude").
 //
-// For CodeRabbit agents, no process is spawned — instead the code is pushed
-// to GitHub and a PR is created/marked ready for review.
-func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir, srcDir string) (int, string, error) {
+//	cmd, args := containerCommand("local", "codex", []string{"exec", "..."}, repoDir, metaDir)
+func containerCommand(agentType, command string, args []string, repoDir, metaDir string) (string, []string) {
+	image := core.Env("AGENT_DOCKER_IMAGE")
+	if image == "" {
+		image = defaultDockerImage
+	}
+
+	home := core.Env("DIR_HOME")
+
+	dockerArgs := []string{
+		"run", "--rm",
+		// Host access for Ollama (local models)
+		"--add-host=host.docker.internal:host-gateway",
+		// Workspace: repo + meta
+		"-v", core.Concat(repoDir, ":/workspace"),
+		"-v", core.Concat(metaDir, ":/workspace/.meta"),
+		"-w", "/workspace",
+		// Auth: agent configs only — NO SSH keys, git push runs on host
+		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/dev/.codex:ro"),
+		// API keys — passed by name, Docker resolves from host env
+		"-e", "OPENAI_API_KEY",
+		"-e", "ANTHROPIC_API_KEY",
+		"-e", "GEMINI_API_KEY",
+		"-e", "GOOGLE_API_KEY",
+		// Agent environment
+		"-e", "TERM=dumb",
+		"-e", "NO_COLOR=1",
+		"-e", "CI=true",
+		"-e", "GIT_USER_NAME=Virgil",
+		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
+		// Go workspace — local modules bypass checksum verification
+		"-e", "GONOSUMCHECK=dappco.re/*,forge.lthn.ai/*",
+		"-e", "GOFLAGS=-mod=mod",
+	}
+
+	// Mount Claude config if dispatching claude agent
+	if command == "claude" {
+		dockerArgs = append(dockerArgs,
+			"-v", core.Concat(core.JoinPath(home, ".claude"), ":/home/dev/.claude:ro"),
+		)
+	}
+
+	// Mount Gemini config if dispatching gemini agent
+	if command == "gemini" {
+		dockerArgs = append(dockerArgs,
+			"-v", core.Concat(core.JoinPath(home, ".gemini"), ":/home/dev/.gemini:ro"),
+		)
+	}
+
+	// Wrap agent command in sh -c to chmod workspace after exit.
+	// Docker runs as a different user — without this, host can't delete workspace files.
+	quoted := core.NewBuilder()
+	quoted.WriteString(command)
+	for _, a := range args {
+		quoted.WriteString(" '")
+		quoted.WriteString(core.Replace(a, "'", "'\\''"))
+		quoted.WriteString("'")
+	}
+	quoted.WriteString("; chmod -R a+w /workspace /workspace/.meta 2>/dev/null; true")
+
+	dockerArgs = append(dockerArgs, image, "sh", "-c", quoted.String())
+
+	return "docker", dockerArgs
+}
+
+// --- spawnAgent: decomposed into testable steps ---
+
+// agentOutputFile returns the log file path for an agent's output.
+func agentOutputFile(wsDir, agent string) string {
+	agentBase := core.SplitN(agent, ":", 2)[0]
+	return core.JoinPath(wsDir, ".meta", core.Sprintf("agent-%s.log", agentBase))
+}
+
+// detectFinalStatus reads workspace state after agent exit to determine outcome.
+// Returns (status, question) — "completed", "blocked", or "failed".
+func detectFinalStatus(repoDir string, exitCode int, procStatus string) (string, string) {
+	blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
+	if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
+		return "blocked", core.Trim(r.Value.(string))
+	}
+	if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
+		question := ""
+		if exitCode != 0 {
+			question = core.Sprintf("Agent exited with code %d", exitCode)
+		}
+		return "failed", question
+	}
+	return "completed", ""
+}
+
+// trackFailureRate detects fast consecutive failures and applies backoff.
+// Returns true if backoff was triggered.
+func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Time) bool {
+	pool := baseAgent(agent)
+	if status == "failed" {
+		elapsed := time.Since(startedAt)
+		if elapsed < 60*time.Second {
+			s.failCount[pool]++
+			if s.failCount[pool] >= 3 {
+				s.backoff[pool] = time.Now().Add(30 * time.Minute)
+				core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
+				return true
+			}
+		} else {
+			s.failCount[pool] = 0 // slow failure = real failure, reset count
+		}
+	} else {
+		s.failCount[pool] = 0 // success resets count
+	}
+	return false
+}
+
+// startIssueTracking starts a Forge stopwatch on the workspace's issue.
+func (s *PrepSubsystem) startIssueTracking(wsDir string) {
+	if s.forge == nil {
+		return
+	}
+	st, _ := ReadStatus(wsDir)
+	if st == nil || st.Issue == 0 {
+		return
+	}
+	org := st.Org
+	if org == "" {
+		org = "core"
+	}
+	s.forge.Issues.StartStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+}
+
+// stopIssueTracking stops a Forge stopwatch on the workspace's issue.
+func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
+	if s.forge == nil {
+		return
+	}
+	st, _ := ReadStatus(wsDir)
+	if st == nil || st.Issue == 0 {
+		return
+	}
+	org := st.Org
+	if org == "" {
+		org = "core"
+	}
+	s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+}
+
+// broadcastStart emits IPC + audit events for agent start.
+func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
+	st, _ := ReadStatus(wsDir)
+	repo := ""
+	if st != nil {
+		repo = st.Repo
+	}
+	if s.ServiceRuntime != nil {
+		s.Core().ACTION(messages.AgentStarted{
+			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
+		})
+	}
+	emitStartEvent(agent, core.PathBase(wsDir))
+}
+
+// broadcastComplete emits IPC + audit events for agent completion.
+func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
+	emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
+	if s.ServiceRuntime != nil {
+		st, _ := ReadStatus(wsDir)
+		repo := ""
+		if st != nil {
+			repo = st.Repo
+		}
+		s.Core().ACTION(messages.AgentCompleted{
+			Agent: agent, Repo: repo,
+			Workspace: core.PathBase(wsDir), Status: finalStatus,
+		})
+	}
+}
+
+// onAgentComplete handles all post-completion logic for a spawned agent.
+// Called from the monitoring goroutine after the process exits.
+func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCode int, procStatus, output string) {
+	// Save output
+	if output != "" {
+		fs.Write(outputFile, output)
+	}
+
+	repoDir := core.JoinPath(wsDir, "repo")
+	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
+
+	// Update workspace status (disk + registry)
+	if st, err := ReadStatus(wsDir); err == nil {
+		st.Status = finalStatus
+		st.PID = 0
+		st.Question = question
+		writeStatus(wsDir, st)
+		s.TrackWorkspace(core.PathBase(wsDir), st)
+	}
+
+	// Rate-limit tracking
+	if st, _ := ReadStatus(wsDir); st != nil {
+		s.trackFailureRate(agent, finalStatus, st.StartedAt)
+	}
+
+	// Forge time tracking
+	s.stopIssueTracking(wsDir)
+
+	// Broadcast completion
+	s.broadcastComplete(agent, wsDir, finalStatus)
+
+	// Run completion pipeline via PerformAsync for successful agents.
+	// Gets ActionTaskStarted/Completed broadcasts + WaitGroup integration for graceful shutdown.
+	//
+	//   c.PerformAsync("agentic.complete", opts) → runs agent.completion Task in background
+	if finalStatus == "completed" && s.ServiceRuntime != nil {
+		s.Core().PerformAsync("agentic.complete", core.NewOptions(
+			core.Option{Key: "workspace", Value: wsDir},
+		))
+	}
+}
+
+// spawnAgent launches an agent inside a Docker container.
+// The repo/ directory is mounted at /workspace, agent runs sandboxed.
+// Output is captured and written to .meta/agent-{agent}.log on completion.
+func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
 		return 0, "", err
 	}
 
-	outputFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", agent))
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	outputFile := agentOutputFile(wsDir, agent)
 
-	// Clean up stale BLOCKED.md from previous runs so it doesn't
-	// prevent this run from completing
-	os.Remove(filepath.Join(srcDir, "BLOCKED.md"))
+	// Clean up stale BLOCKED.md from previous runs
+	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
 
-	proc, err := process.StartWithOptions(context.Background(), process.RunOptions{
+	// All agents run containerised
+	agentBase := core.SplitN(agent, ":", 2)[0]
+	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
+
+	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
+	if !ok {
+		return 0, "", core.E("dispatch.spawnAgent", "process service not registered", nil)
+	}
+	sr := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
-		Dir:     srcDir,
-		Env:     []string{"TERM=dumb", "NO_COLOR=1", "CI=true", "GOWORK=off"},
+		Dir:     repoDir,
 		Detach:  true,
 	})
-	if err != nil {
-		return 0, "", coreerr.E("dispatch.spawnAgent", "failed to spawn "+agent, err)
+	if !sr.OK {
+		return 0, "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), nil)
 	}
+	proc := sr.Value.(*process.Process)
 
-	// Close stdin immediately — agents use -p mode, not interactive stdin.
-	// Without this, Claude CLI blocks waiting on the open pipe.
 	proc.CloseStdin()
-
 	pid := proc.Info().PID
 
-	go func() {
-		// Wait for process exit. go-process handles timeout and kill group.
-		// PID polling fallback in case pipes hang from inherited child processes.
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-proc.Done():
-				goto done
-			case <-ticker.C:
-				if err := syscall.Kill(pid, 0); err != nil {
-					goto done
-				}
-			}
-		}
-	done:
+	s.broadcastStart(agent, wsDir)
+	s.startIssueTracking(wsDir)
 
-		// Write captured output to log file
-		if output := proc.Output(); output != "" {
-			coreio.Local.Write(outputFile, output)
-		}
-
-		// Determine final status: check exit code, BLOCKED.md, and output
-		finalStatus := "completed"
-		exitCode := proc.Info().ExitCode
-		procStatus := proc.Info().Status
-		question := ""
-
-		blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
-		if blockedContent, err := coreio.Local.Read(blockedPath); err == nil && strings.TrimSpace(blockedContent) != "" {
-			finalStatus = "blocked"
-			question = strings.TrimSpace(blockedContent)
-		} else if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
-			finalStatus = "failed"
-			if exitCode != 0 {
-				question = fmt.Sprintf("Agent exited with code %d", exitCode)
-			}
-		}
-
-		if st, err := readStatus(wsDir); err == nil {
-			st.Status = finalStatus
-			st.PID = 0
-			st.Question = question
-			writeStatus(wsDir, st)
-		}
-
-		// Emit completion event with actual status
-		emitCompletionEvent(agent, filepath.Base(wsDir), finalStatus)
-
-		// Notify monitor immediately (push to connected clients)
-		if s.onComplete != nil {
-			s.onComplete.Poke()
-		}
-
-		// Auto-create PR if agent completed successfully, then verify and merge
-		if finalStatus == "completed" {
-			s.autoCreatePR(wsDir)
-			s.autoVerifyAndMerge(wsDir)
-		}
-
-		// Ingest scan findings as issues
-		s.ingestFindings(wsDir)
-
-		// Drain queue
-		s.drainQueue()
-	}()
+	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
+	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
+	monitorAction := core.Concat("agentic.monitor.", core.PathBase(wsDir))
+	s.Core().Action(monitorAction, func(_ context.Context, _ core.Options) core.Result {
+		<-proc.Done()
+		s.onAgentComplete(agent, wsDir, outputFile,
+			proc.Info().ExitCode, string(proc.Info().Status), proc.Output())
+		return core.Result{OK: true}
+	})
+	s.Core().PerformAsync(monitorAction, core.NewOptions())
 
 	return pid, outputFile, nil
 }
 
+// runQA runs build + test checks on the repo after agent completion.
+// Returns true if QA passes, false if build or tests fail.
+func (s *PrepSubsystem) runQA(wsDir string) bool {
+	ctx := context.Background()
+	repoDir := core.JoinPath(wsDir, "repo")
+
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
+		for _, args := range [][]string{
+			{"go", "build", "./..."},
+			{"go", "vet", "./..."},
+			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
+		} {
+			if !s.runCmdOK(ctx, repoDir, args[0], args[1:]...) {
+				core.Warn("QA failed", "cmd", core.Join(" ", args...))
+				return false
+			}
+		}
+		return true
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
+		if !s.runCmdOK(ctx, repoDir, "composer", "install", "--no-interaction") {
+			return false
+		}
+		return s.runCmdOK(ctx, repoDir, "composer", "test")
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
+		if !s.runCmdOK(ctx, repoDir, "npm", "install") {
+			return false
+		}
+		return s.runCmdOK(ctx, repoDir, "npm", "test")
+	}
+
+	return true
+}
+
 func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
 	if input.Repo == "" {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "repo is required", nil)
+		return nil, DispatchOutput{}, core.E("dispatch", "repo is required", nil)
 	}
 	if input.Task == "" {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "task is required", nil)
+		return nil, DispatchOutput{}, core.E("dispatch", "task is required", nil)
 	}
 	if input.Org == "" {
 		input.Org = "core"
 	}
 	if input.Agent == "" {
-		input.Agent = "gemini"
+		input.Agent = "codex"
 	}
 	if input.Template == "" {
 		input.Template = "coding"
 	}
 
-	// Step 1: Prep the sandboxed workspace
+	// Step 1: Prep workspace — clone + build prompt
 	prepInput := PrepInput{
 		Repo:         input.Repo,
 		Org:          input.Org,
 		Issue:        input.Issue,
+		PR:           input.PR,
+		Branch:       input.Branch,
+		Tag:          input.Tag,
 		Task:         input.Task,
+		Agent:        input.Agent,
 		Template:     input.Template,
 		PlanTemplate: input.PlanTemplate,
 		Variables:    input.Variables,
@@ -243,30 +479,24 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 	_, prepOut, err := s.prepWorkspace(ctx, req, prepInput)
 	if err != nil {
-		return nil, DispatchOutput{}, coreerr.E("dispatch", "prep workspace failed", err)
+		return nil, DispatchOutput{}, core.E("dispatch", "prep workspace failed", err)
 	}
 
 	wsDir := prepOut.WorkspaceDir
-	srcDir := filepath.Join(wsDir, "src")
-
-	// The prompt is just: read PROMPT.md and do the work
-	prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
+	prompt := prepOut.Prompt
 
 	if input.DryRun {
-		// Read PROMPT.md for the dry run output
-		promptContent, _ := coreio.Local.Read(filepath.Join(srcDir, "PROMPT.md"))
 		return nil, DispatchOutput{
 			Success:      true,
 			Agent:        input.Agent,
 			Repo:         input.Repo,
 			WorkspaceDir: wsDir,
-			Prompt:       promptContent,
+			Prompt:       prompt,
 		}, nil
 	}
 
 	// Step 2: Check per-agent concurrency limit
 	if !s.canDispatchAgent(input.Agent) {
-		// Queue the workspace — write status as "queued" and return
 		writeStatus(wsDir, &WorkspaceStatus{
 			Status:    "queued",
 			Agent:     input.Agent,
@@ -286,8 +516,8 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		}, nil
 	}
 
-	// Step 3: Spawn agent via go-process (pipes for output capture)
-	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir, srcDir)
+	// Step 3: Spawn agent in repo/ directory
+	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}

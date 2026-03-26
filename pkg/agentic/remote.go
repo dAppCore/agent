@@ -4,33 +4,29 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-	"strings"
-	"time"
-
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // --- agentic_dispatch_remote tool ---
 
 // RemoteDispatchInput dispatches a task to a remote core-agent over HTTP.
+//
+//	input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}
 type RemoteDispatchInput struct {
-	Host     string            `json:"host"`               // Remote agent host (e.g. "charon", "10.69.69.165:9101")
-	Repo     string            `json:"repo"`               // Target repo
-	Task     string            `json:"task"`               // What the agent should do
-	Agent    string            `json:"agent,omitempty"`     // Agent type (default: claude:opus)
-	Template string            `json:"template,omitempty"`  // Prompt template
-	Persona  string            `json:"persona,omitempty"`   // Persona slug
-	Org      string            `json:"org,omitempty"`       // Forge org (default: core)
+	Host      string            `json:"host"`                // Remote agent host (e.g. "charon", "10.69.69.165:9101")
+	Repo      string            `json:"repo"`                // Target repo
+	Task      string            `json:"task"`                // What the agent should do
+	Agent     string            `json:"agent,omitempty"`     // Agent type (default: claude:opus)
+	Template  string            `json:"template,omitempty"`  // Prompt template
+	Persona   string            `json:"persona,omitempty"`   // Persona slug
+	Org       string            `json:"org,omitempty"`       // Forge org (default: core)
 	Variables map[string]string `json:"variables,omitempty"` // Template variables
 }
 
 // RemoteDispatchOutput is the response from a remote dispatch.
+//
+//	out := agentic.RemoteDispatchOutput{Success: true, Host: "charon", Repo: "go-io", Agent: "claude:opus"}
 type RemoteDispatchOutput struct {
 	Success      bool   `json:"success"`
 	Host         string `json:"host"`
@@ -50,13 +46,13 @@ func (s *PrepSubsystem) registerRemoteDispatchTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolRequest, input RemoteDispatchInput) (*mcp.CallToolResult, RemoteDispatchOutput, error) {
 	if input.Host == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "host is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "host is required", nil)
 	}
 	if input.Repo == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "repo is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "repo is required", nil)
 	}
 	if input.Task == "" {
-		return nil, RemoteDispatchOutput{}, coreerr.E("dispatchRemote", "task is required", nil)
+		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "task is required", nil)
 	}
 
 	// Resolve host aliases
@@ -96,26 +92,25 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		},
 	}
 
-	url := fmt.Sprintf("http://%s/mcp", addr)
-	client := &http.Client{Timeout: 30 * time.Second}
+	url := core.Sprintf("http://%s/mcp", addr)
 
 	// Step 1: Initialize session
-	sessionID, err := mcpInitialize(ctx, client, url, token)
+	sessionID, err := mcpInitialize(ctx, url, token)
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
-			Error: fmt.Sprintf("init failed: %v", err),
-		}, coreerr.E("dispatchRemote", "MCP initialize failed", err)
+			Error: core.Sprintf("init failed: %v", err),
+		}, core.E("dispatchRemote", "MCP initialize failed", err)
 	}
 
 	// Step 2: Call the tool
-	body, _ := json.Marshal(rpcReq)
-	result, err := mcpCall(ctx, client, url, token, sessionID, body)
+	body := []byte(core.JSONMarshalString(rpcReq))
+	result, err := mcpCall(ctx, url, token, sessionID, body)
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
-			Error: fmt.Sprintf("call failed: %v", err),
-		}, coreerr.E("dispatchRemote", "tool call failed", err)
+			Error: core.Sprintf("call failed: %v", err),
+		}, core.E("dispatchRemote", "tool call failed", err)
 	}
 
 	// Parse result
@@ -136,13 +131,13 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(result, &rpcResp) == nil {
+	if r := core.JSONUnmarshal(result, &rpcResp); r.OK {
 		if rpcResp.Error != nil {
 			output.Success = false
 			output.Error = rpcResp.Error.Message
 		} else if len(rpcResp.Result.Content) > 0 {
 			var dispatchOut DispatchOutput
-			if json.Unmarshal([]byte(rpcResp.Result.Content[0].Text), &dispatchOut) == nil {
+			if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &dispatchOut); r.OK {
 				output.Success = dispatchOut.Success
 				output.WorkspaceDir = dispatchOut.WorkspaceDir
 				output.PID = dispatchOut.PID
@@ -163,13 +158,13 @@ func resolveHost(host string) string {
 		"local":   "127.0.0.1:9101",
 	}
 
-	if addr, ok := aliases[strings.ToLower(host)]; ok {
+	if addr, ok := aliases[core.Lower(host)]; ok {
 		return addr
 	}
 
 	// If no port specified, add default
-	if !strings.Contains(host, ":") {
-		return host + ":9101"
+	if !core.Contains(host, ":") {
+		return core.Concat(host, ":9101")
 	}
 
 	return host
@@ -178,25 +173,25 @@ func resolveHost(host string) string {
 // remoteToken gets the auth token for a remote agent.
 func remoteToken(host string) string {
 	// Check environment first
-	envKey := fmt.Sprintf("AGENT_TOKEN_%s", strings.ToUpper(host))
-	if token := os.Getenv(envKey); token != "" {
+	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
+	if token := core.Env(envKey); token != "" {
 		return token
 	}
 
 	// Fallback to shared agent token
-	if token := os.Getenv("MCP_AUTH_TOKEN"); token != "" {
+	if token := core.Env("MCP_AUTH_TOKEN"); token != "" {
 		return token
 	}
 
 	// Try reading from file
-	home, _ := os.UserHomeDir()
+	home := core.Env("DIR_HOME")
 	tokenFiles := []string{
-		fmt.Sprintf("%s/.core/tokens/%s.token", home, strings.ToLower(host)),
-		fmt.Sprintf("%s/.core/agent-token", home),
+		core.Sprintf("%s/.core/tokens/%s.token", home, core.Lower(host)),
+		core.Sprintf("%s/.core/agent-token", home),
 	}
 	for _, f := range tokenFiles {
-		if data, err := coreio.Local.Read(f); err == nil {
-			return strings.TrimSpace(data)
+		if r := fs.Read(f); r.OK {
+			return core.Trim(r.Value.(string))
 		}
 	}
 

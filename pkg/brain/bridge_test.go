@@ -4,15 +4,16 @@ package brain
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	ws "forge.lthn.ai/core/go-ws"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	core "dappco.re/go/core"
+	providerws "dappco.re/go/core/ws"
+	bridgews "forge.lthn.ai/core/go-ws"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +46,7 @@ func testBridge(t *testing.T) *ide.Bridge {
 	srv := testWSServer(t)
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
-	hub := ws.NewHub()
+	hub := bridgews.NewHub()
 	bridge := ide.NewBridge(hub, ide.Config{
 		LaravelWSURL:      wsURL,
 		ReconnectInterval: 100 * time.Millisecond,
@@ -62,13 +63,13 @@ func testBridge(t *testing.T) *ide.Bridge {
 
 // --- RegisterTools ---
 
-func TestSubsystem_Good_RegisterTools(t *testing.T) {
+func TestBrain_RegisterTools_Good(t *testing.T) {
 	sub := New(nil)
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
 	sub.RegisterTools(srv)
 }
 
-func TestDirectSubsystem_Good_RegisterTools(t *testing.T) {
+func TestDirect_RegisterTools_Good(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "http://localhost")
 	t.Setenv("CORE_BRAIN_KEY", "test-key")
 	sub := NewDirect()
@@ -78,7 +79,7 @@ func TestDirectSubsystem_Good_RegisterTools(t *testing.T) {
 
 // --- Subsystem with connected bridge ---
 
-func TestBrainRemember_Good_WithBridge(t *testing.T) {
+func TestBrain_RememberBridge_Good(t *testing.T) {
 	sub := New(testBridge(t))
 	_, out, err := sub.brainRemember(context.Background(), nil, RememberInput{
 		Content: "test memory",
@@ -91,7 +92,7 @@ func TestBrainRemember_Good_WithBridge(t *testing.T) {
 	assert.False(t, out.Timestamp.IsZero())
 }
 
-func TestBrainRecall_Good_WithBridge(t *testing.T) {
+func TestBrain_RecallBridge_Good(t *testing.T) {
 	sub := New(testBridge(t))
 	_, out, err := sub.brainRecall(context.Background(), nil, RecallInput{
 		Query: "architecture",
@@ -102,7 +103,7 @@ func TestBrainRecall_Good_WithBridge(t *testing.T) {
 	assert.Empty(t, out.Memories)
 }
 
-func TestBrainForget_Good_WithBridge(t *testing.T) {
+func TestBrain_ForgetBridge_Good(t *testing.T) {
 	sub := New(testBridge(t))
 	_, out, err := sub.brainForget(context.Background(), nil, ForgetInput{
 		ID:     "mem-123",
@@ -114,7 +115,7 @@ func TestBrainForget_Good_WithBridge(t *testing.T) {
 	assert.False(t, out.Timestamp.IsZero())
 }
 
-func TestBrainList_Good_WithBridge(t *testing.T) {
+func TestBrain_ListBridge_Good(t *testing.T) {
 	sub := New(testBridge(t))
 	_, out, err := sub.brainList(context.Background(), nil, ListInput{
 		Project: "core",
@@ -128,72 +129,72 @@ func TestBrainList_Good_WithBridge(t *testing.T) {
 
 // --- Provider handlers with connected bridge ---
 
-func TestRememberHandler_Good_WithBridge(t *testing.T) {
+func TestProvider_RememberBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
-	body, _ := json.Marshal(RememberInput{
+	body := []byte(core.JSONMarshalString(RememberInput{
 		Content:    "provider test memory",
 		Type:       "fact",
 		Tags:       []string{"test"},
 		Project:    "agent",
 		Confidence: 0.9,
-	})
+	}))
 	w := providerRequest(t, p, "POST", "/api/brain/remember", body)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestRememberHandler_Bad_InvalidBody(t *testing.T) {
+func TestProvider_RememberInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/remember", []byte("{"))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestRecallHandler_Good_WithBridge(t *testing.T) {
+func TestProvider_RecallBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
-	body, _ := json.Marshal(RecallInput{Query: "test", TopK: 5})
+	body := []byte(core.JSONMarshalString(RecallInput{Query: "test", TopK: 5}))
 	w := providerRequest(t, p, "POST", "/api/brain/recall", body)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestRecallHandler_Bad_InvalidBody(t *testing.T) {
+func TestProvider_RecallInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/recall", []byte("bad"))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestForgetHandler_Good_WithBridge(t *testing.T) {
+func TestProvider_ForgetBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
-	body, _ := json.Marshal(ForgetInput{ID: "mem-abc", Reason: "outdated"})
+	body := []byte(core.JSONMarshalString(ForgetInput{ID: "mem-abc", Reason: "outdated"}))
 	w := providerRequest(t, p, "POST", "/api/brain/forget", body)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestForgetHandler_Bad_InvalidBody(t *testing.T) {
+func TestProvider_ForgetInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/forget", []byte("{"))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestListHandler_Good_WithBridge(t *testing.T) {
+func TestProvider_ListBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "GET", "/api/brain/list?project=core&type=decision&limit=10", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestStatusHandler_Good_WithBridge(t *testing.T) {
+func TestProvider_StatusBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "GET", "/api/brain/status", nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.True(t, core.JSONUnmarshal(w.Body.Bytes(), &resp).OK)
 	data, _ := resp["data"].(map[string]any)
 	assert.Equal(t, true, data["connected"])
 }
 
 // --- emitEvent with hub ---
 
-func TestEmitEvent_Good_WithHub(t *testing.T) {
-	hub := ws.NewHub()
+func TestProvider_EmitEventHub_Good(t *testing.T) {
+	hub := providerws.NewHub()
 	p := NewProvider(nil, hub)
 	p.emitEvent("brain.test", map[string]any{"key": "value"})
 }

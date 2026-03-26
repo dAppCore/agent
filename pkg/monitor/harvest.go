@@ -11,16 +11,11 @@ package monitor
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
+	"strconv"
 
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	"dappco.re/go/agent/pkg/messages"
+	core "dappco.re/go/core"
 )
 
 // harvestResult tracks what happened during harvest.
@@ -35,15 +30,12 @@ type harvestResult struct {
 // branches back to the source repos. Returns a summary message.
 func (m *Subsystem) harvestCompleted() string {
 	wsRoot := agentic.WorkspaceRoot()
-	entries, err := filepath.Glob(filepath.Join(wsRoot, "*/status.json"))
-	if err != nil {
-		return ""
-	}
+	entries := workspaceStatusPaths(wsRoot)
 
 	var harvested []harvestResult
 
 	for _, entry := range entries {
-		wsDir := filepath.Dir(entry)
+		wsDir := core.PathDir(entry)
 		result := m.harvestWorkspace(wsDir)
 		if result != nil {
 			harvested = append(harvested, *result)
@@ -57,32 +49,28 @@ func (m *Subsystem) harvestCompleted() string {
 	var parts []string
 	for _, h := range harvested {
 		if h.rejected != "" {
-			parts = append(parts, fmt.Sprintf("%s: REJECTED (%s)", h.repo, h.rejected))
-			if m.notifier != nil {
-				m.notifier.ChannelSend(context.Background(), "harvest.rejected", map[string]any{
-					"repo":   h.repo,
-					"branch": h.branch,
-					"reason": h.rejected,
-				})
+			parts = append(parts, core.Sprintf("%s: REJECTED (%s)", h.repo, h.rejected))
+			if m.ServiceRuntime != nil {
+				m.Core().ACTION(messages.HarvestRejected{Repo: h.repo, Branch: h.branch, Reason: h.rejected})
 			}
 		} else {
-			parts = append(parts, fmt.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
-			if m.notifier != nil {
-				m.notifier.ChannelSend(context.Background(), "harvest.complete", map[string]any{
-					"repo":   h.repo,
-					"branch": h.branch,
-					"files":  h.files,
-				})
+			parts = append(parts, core.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
+			if m.ServiceRuntime != nil {
+				m.Core().ACTION(messages.HarvestComplete{Repo: h.repo, Branch: h.branch, Files: h.files})
 			}
 		}
 	}
-	return "Harvested: " + strings.Join(parts, ", ")
+	return core.Concat("Harvested: ", core.Join(", ", parts...))
 }
 
 // harvestWorkspace checks a single workspace and pushes if ready.
 func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
+	r := fs.Read(workspaceStatusPath(wsDir))
+	if !r.OK {
+		return nil
+	}
+	statusData, ok := resultString(r)
+	if !ok {
 		return nil
 	}
 
@@ -91,7 +79,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		Repo   string `json:"repo"`
 		Branch string `json:"branch"`
 	}
-	if json.Unmarshal([]byte(data), &st) != nil {
+	if r := core.JSONUnmarshalString(statusData, &st); !r.OK {
 		return nil
 	}
 
@@ -100,35 +88,35 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		return nil
 	}
 
-	srcDir := filepath.Join(wsDir, "src")
-	if _, err := os.Stat(srcDir); err != nil {
+	srcDir := core.Concat(wsDir, "/src")
+	if !fs.IsDir(srcDir) {
 		return nil
 	}
 
 	// Check if there are commits to push
 	branch := st.Branch
 	if branch == "" {
-		branch = detectBranch(srcDir)
+		branch = m.detectBranch(srcDir)
 	}
-	base := defaultBranch(srcDir)
+	base := m.defaultBranch(srcDir)
 	if branch == "" || branch == base {
 		return nil
 	}
 
 	// Check for unpushed commits
-	unpushed := countUnpushed(srcDir, branch)
+	unpushed := m.countUnpushed(srcDir, branch)
 	if unpushed == 0 {
 		return nil // already pushed or no commits
 	}
 
 	// Safety checks before pushing
-	if reason := checkSafety(srcDir); reason != "" {
+	if reason := m.checkSafety(srcDir); reason != "" {
 		updateStatus(wsDir, "rejected", reason)
 		return &harvestResult{repo: st.Repo, branch: branch, rejected: reason}
 	}
 
 	// Count changed files
-	files := countChangedFiles(srcDir)
+	files := m.countChangedFiles(srcDir)
 
 	// Mark ready for review — do NOT auto-push.
 	// Pushing is a high-impact mutation that should happen during
@@ -138,35 +126,35 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	return &harvestResult{repo: st.Repo, branch: branch, files: files}
 }
 
-// detectBranch returns the current branch name.
-func detectBranch(srcDir string) string {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	cmd.Dir = srcDir
-	out, err := cmd.Output()
-	if err != nil {
+// gitOutput runs a git command and returns trimmed stdout via Core Process.
+func (m *Subsystem) gitOutput(dir string, args ...string) string {
+	r := m.Core().Process().RunIn(context.Background(), dir, "git", args...)
+	if !r.OK {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	return core.Trim(r.Value.(string))
+}
+
+// gitOK runs a git command and returns true if it exits 0.
+func (m *Subsystem) gitOK(dir string, args ...string) bool {
+	return m.Core().Process().RunIn(context.Background(), dir, "git", args...).OK
+}
+
+// detectBranch returns the current branch name.
+func (m *Subsystem) detectBranch(srcDir string) string {
+	return m.gitOutput(srcDir, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
 // defaultBranch detects the default branch of the repo (main, master, etc.).
-func defaultBranch(srcDir string) string {
-	// Try origin/HEAD first
-	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
-	cmd.Dir = srcDir
-	if out, err := cmd.Output(); err == nil {
-		ref := strings.TrimSpace(string(out))
-		// returns "origin/main" — strip prefix
-		if strings.HasPrefix(ref, "origin/") {
-			return strings.TrimPrefix(ref, "origin/")
+func (m *Subsystem) defaultBranch(srcDir string) string {
+	if ref := m.gitOutput(srcDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
+		if core.HasPrefix(ref, "origin/") {
+			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
-	// Fallback: check if main exists, else master
 	for _, branch := range []string{"main", "master"} {
-		cmd := exec.Command("git", "rev-parse", "--verify", branch)
-		cmd.Dir = srcDir
-		if cmd.Run() == nil {
+		if m.gitOK(srcDir, "rev-parse", "--verify", branch) {
 			return branch
 		}
 	}
@@ -174,39 +162,33 @@ func defaultBranch(srcDir string) string {
 }
 
 // countUnpushed returns the number of commits ahead of origin's default branch.
-func countUnpushed(srcDir, branch string) int {
-	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "rev-list", "--count", "origin/"+base+".."+branch)
-	cmd.Dir = srcDir
-	out, err := cmd.Output()
-	if err != nil {
-		cmd2 := exec.Command("git", "log", "--oneline", base+".."+branch)
-		cmd2.Dir = srcDir
-		out2, err2 := cmd2.Output()
-		if err2 != nil {
+func (m *Subsystem) countUnpushed(srcDir, branch string) int {
+	base := m.defaultBranch(srcDir)
+	out := m.gitOutput(srcDir, "rev-list", "--count", core.Concat("origin/", base, "..", branch))
+	if out == "" {
+		// Fallback
+		out2 := m.gitOutput(srcDir, "log", "--oneline", core.Concat(base, "..", branch))
+		if out2 == "" {
 			return 0
 		}
-		lines := strings.Split(strings.TrimSpace(string(out2)), "\n")
+		lines := core.Split(out2, "\n")
 		if len(lines) == 1 && lines[0] == "" {
 			return 0
 		}
 		return len(lines)
 	}
-	var count int
-	fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &count)
+	count, err := strconv.Atoi(out)
+	if err != nil {
+		return 0
+	}
 	return count
 }
 
 // checkSafety rejects workspaces with binaries or oversized files.
-// Checks ALL changed files (added, modified, renamed), not just new.
-// Fails closed: if git diff fails, rejects the workspace.
-func checkSafety(srcDir string) string {
-	// Check all changed files — added, modified, renamed
-	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
-	cmd.Dir = srcDir
-	out, err := cmd.Output()
-	if err != nil {
+func (m *Subsystem) checkSafety(srcDir string) string {
+	base := m.defaultBranch(srcDir)
+	out := m.gitOutput(srcDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
+	if out == "" {
 		return "safety check failed: git diff error"
 	}
 
@@ -220,20 +202,20 @@ func checkSafety(srcDir string) string {
 		".db": true, ".sqlite": true, ".sqlite3": true,
 	}
 
-	for _, file := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for _, file := range core.Split(out, "\n") {
 		if file == "" {
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(file))
+		ext := core.Lower(core.PathExt(file))
 		if binaryExts[ext] {
-			return fmt.Sprintf("binary file added: %s", file)
+			return core.Sprintf("binary file added: %s", file)
 		}
 
-		// Check file size (reject > 1MB)
-		fullPath := filepath.Join(srcDir, file)
-		info, err := os.Stat(fullPath)
-		if err == nil && info.Size() > 1024*1024 {
-			return fmt.Sprintf("large file: %s (%d bytes)", file, info.Size())
+		fullPath := core.Concat(srcDir, "/", file)
+		if stat := fs.Stat(fullPath); stat.OK {
+			if info, ok := stat.Value.(interface{ Size() int64 }); ok && info.Size() > 1024*1024 {
+				return core.Sprintf("large file: %s (%d bytes)", file, info.Size())
+			}
 		}
 	}
 
@@ -241,15 +223,13 @@ func checkSafety(srcDir string) string {
 }
 
 // countChangedFiles returns the number of files changed vs the default branch.
-func countChangedFiles(srcDir string) int {
-	base := defaultBranch(srcDir)
-	cmd := exec.Command("git", "diff", "--name-only", base+"...HEAD")
-	cmd.Dir = srcDir
-	out, err := cmd.Output()
-	if err != nil {
+func (m *Subsystem) countChangedFiles(srcDir string) int {
+	base := m.defaultBranch(srcDir)
+	out := m.gitOutput(srcDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
+	if out == "" {
 		return 0
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	lines := core.Split(out, "\n")
 	if len(lines) == 1 && lines[0] == "" {
 		return 0
 	}
@@ -257,24 +237,29 @@ func countChangedFiles(srcDir string) int {
 }
 
 // pushBranch pushes the agent's branch to origin.
-func pushBranch(srcDir, branch string) error {
-	cmd := exec.Command("git", "push", "origin", branch)
-	cmd.Dir = srcDir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return coreerr.E("harvest.pushBranch", strings.TrimSpace(string(out)), err)
+func (m *Subsystem) pushBranch(srcDir, branch string) error {
+	r := m.Core().Process().RunIn(context.Background(), srcDir, "git", "push", "origin", branch)
+	if !r.OK {
+		if err, ok := r.Value.(error); ok {
+			return core.E("harvest.pushBranch", "push failed", err)
+		}
+		return core.E("harvest.pushBranch", "push failed", nil)
 	}
 	return nil
 }
 
 // updateStatus updates the workspace status.json.
 func updateStatus(wsDir, status, question string) {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
+	r := fs.Read(workspaceStatusPath(wsDir))
+	if !r.OK {
+		return
+	}
+	statusData, ok := resultString(r)
+	if !ok {
 		return
 	}
 	var st map[string]any
-	if json.Unmarshal([]byte(data), &st) != nil {
+	if r := core.JSONUnmarshalString(statusData, &st); !r.OK {
 		return
 	}
 	st["status"] = status
@@ -283,6 +268,5 @@ func updateStatus(wsDir, status, question string) {
 	} else {
 		delete(st, "question") // clear stale question from previous state
 	}
-	updated, _ := json.MarshalIndent(st, "", "  ")
-	coreio.Local.Write(filepath.Join(wsDir, "status.json"), string(updated))
+	fs.WriteAtomic(workspaceStatusPath(wsDir), core.JSONMarshalString(st))
 }

@@ -1,0 +1,489 @@
+# CODEX.md
+
+Instructions for Codex when working with code in this workspace.
+
+## Core Framework
+
+This project uses `dappco.re/go/core` as its foundation. Core provides primitives that REPLACE standard library and third-party packages. Implementation reference is in `.core/reference/*.go`.
+
+## Core Struct
+
+Create a Core instance and access its subsystems:
+
+```go
+c := core.New(core.Options{
+    {Key: "name", Value: "my-service"},
+})
+```
+
+### Subsystem Accessors
+
+| Accessor | Type | Purpose |
+|----------|------|---------|
+| `c.App()` | `*App` | Application identity (Name, Version, Path) |
+| `c.Fs()` | `*Fs` | Sandboxed filesystem I/O |
+| `c.Config()` | `*Config` | Settings + feature flags |
+| `c.Data()` | `*Data` | Embedded content registry (mount/read) |
+| `c.Drive()` | `*Drive` | Transport handle registry (API, SSH, MCP) |
+| `c.Log()` | `*ErrorLog` | Structured logging with error wrapping |
+| `c.Error()` | `*ErrorPanic` | Panic recovery + crash reports |
+| `c.Cli()` | `*Cli` | CLI surface (command tree → terminal) |
+| `c.IPC()` | `*Ipc` | Message bus (Action/Query/Task) |
+| `c.I18n()` | `*I18n` | Internationalisation + locale collection |
+| `c.Env("key")` | `string` | Read-only system/environment info |
+| `c.Options()` | `*Options` | Input configuration used to create Core |
+| `c.Context()` | `context.Context` | Application context (cancelled on shutdown) |
+
+### Service Lifecycle
+
+```go
+// Register a service with lifecycle hooks
+c.Service("cache", core.Service{
+    OnStart:  func() core.Result { return core.Result{OK: true} },
+    OnStop:   func() core.Result { return core.Result{OK: true} },
+    OnReload: func() core.Result { return core.Result{OK: true} },
+})
+
+// Start all services
+c.ServiceStartup(ctx, nil)
+
+// Stop all services
+c.ServiceShutdown(ctx)
+```
+
+### Startable / Stoppable Interfaces
+
+Services that need lifecycle hooks implement these:
+
+```go
+type Startable interface {
+    OnStartup(ctx context.Context) error
+}
+
+type Stoppable interface {
+    OnShutdown(ctx context.Context) error
+}
+```
+
+### Error Logging on Core
+
+```go
+c.LogError(err, "save", "failed to save")   // logs + returns Result
+c.LogWarn(err, "cache", "cache miss")        // logs warning + returns Result
+c.Must(err, "init", "critical failure")      // logs + panics if err != nil
+```
+
+### Async Tasks
+
+```go
+// Perform synchronously (blocks until handler responds)
+r := c.PERFORM(SendEmail{To: "user@example.com"})
+
+// Perform asynchronously (returns immediately, runs in background)
+r := c.PerformAsync(BuildProject{Repo: "core"})
+// r.Value is the task ID string
+
+// Report progress
+c.Progress(taskID, 0.5, "halfway done", task)
+
+// Register task handler
+c.RegisterTask(func(c *core.Core, t core.Task) core.Result {
+    switch task := t.(type) {
+    case BuildProject:
+        // do work
+        return core.Result{Value: "built", OK: true}
+    }
+    return core.Result{}
+})
+```
+
+### Environment — use `core.Env()`, never `os.Getenv` for standard dirs
+
+Env is environment (read-only system facts). Config is ours (mutable app settings).
+
+```go
+// System
+core.Env("OS")        // "darwin", "linux", "windows"
+core.Env("ARCH")      // "arm64", "amd64"
+core.Env("DS")        // "/" or "\" (directory separator)
+core.Env("HOSTNAME")  // machine name
+core.Env("USER")      // current user
+
+// Directories
+core.Env("DIR_HOME")      // home dir (overridable via CORE_HOME env var)
+core.Env("DIR_CONFIG")    // OS config dir
+core.Env("DIR_CACHE")     // OS cache dir
+core.Env("DIR_DATA")      // OS data dir (platform-specific)
+core.Env("DIR_TMP")       // temp dir
+core.Env("DIR_CWD")       // working directory at startup
+core.Env("DIR_CODE")      // ~/Code
+core.Env("DIR_DOWNLOADS") // ~/Downloads
+
+// Timestamps
+core.Env("CORE_START")    // RFC3339 UTC boot timestamp
+```
+
+### Paths — use `core.Path()`, never `filepath.Join` or raw concatenation
+
+Path() is the single point of responsibility for filesystem paths. Every path goes through it — security fixes happen in one place.
+
+```go
+// WRONG
+home, _ := os.UserHomeDir()
+configPath := filepath.Join(home, ".config", "app.yaml")
+base := filepath.Base(configPath)
+
+// CORRECT
+configPath := core.Path(".config", "app.yaml")  // anchored to DIR_HOME
+base := core.PathBase(configPath)
+```
+
+```go
+// Relative → anchored to DIR_HOME
+core.Path("Code", ".core")       // "/Users/snider/Code/.core"
+core.Path(".config", "app.yaml") // "/Users/snider/.config/app.yaml"
+
+// Absolute → pass through (cleaned)
+core.Path("/tmp", "workspace")   // "/tmp/workspace"
+
+// No args → DIR_HOME
+core.Path()                      // "/Users/snider"
+
+// Component helpers
+core.PathBase("/a/b/c")          // "c"
+core.PathDir("/a/b/c")           // "/a/b"
+core.PathExt("main.go")          // ".go"
+```
+
+## Mandatory Patterns
+
+### Errors — use `core.E()`, never `fmt.Errorf` or `errors.New`
+
+```go
+// WRONG
+return fmt.Errorf("failed to read: %w", err)
+return errors.New("not found")
+
+// CORRECT
+return core.E("readConfig", "failed to read config", err)
+return core.E("findUser", "user not found", nil)
+```
+
+### Logging — use `core.Error/Info/Warn/Debug`, never `log.*` or `fmt.Print*`
+
+```go
+// WRONG
+log.Printf("starting server on %s", addr)
+fmt.Fprintf(os.Stderr, "error: %v\n", err)
+
+// CORRECT
+core.Info("starting server", "addr", addr)
+core.Error("operation failed", "err", err)
+```
+
+### Filesystem — use `core.Fs{}` + `core.Path()`, never `os.*` or `filepath.*`
+
+```go
+var fs = &core.Fs{}
+
+// Build paths with Path() — never raw concatenation
+configPath := core.Path(".config", "app.yaml")
+
+// Read/write through Fs — never os.ReadFile/WriteFile
+r := fs.Read(configPath)
+if !r.OK { return r }
+content := r.Value.(string)
+
+fs.Write(configPath, content)
+fs.EnsureDir(core.Path(".config"))
+
+// File checks — never os.Stat
+fs.Exists(path)              // bool
+fs.IsFile(path)              // bool
+fs.IsDir(path)               // bool
+
+// Directory listing — never os.ReadDir
+r := fs.List(dir)            // Result{[]os.DirEntry, true}
+
+// Append — never os.OpenFile
+r := fs.Append(logPath)      // Result{*os.File, true}
+
+// Delete — never os.Remove
+fs.Delete(path)              // Result
+```
+
+### Returns — use `core.Result`, never `(value, error)`
+
+```go
+// WRONG
+func LoadConfig(path string) (string, error) {
+    data, err := os.ReadFile(path)
+    if err != nil { return "", err }
+    return string(data), nil
+}
+
+// CORRECT
+func LoadConfig(path string) core.Result {
+    return fs.Read(path)
+}
+```
+
+### Strings — use `core.*`, never `strings.*` or `fmt.Sprintf`
+
+| Do NOT use | Use instead |
+|------------|-------------|
+| `strings.Contains` | `core.Contains` |
+| `strings.HasPrefix` | `core.HasPrefix` |
+| `strings.HasSuffix` | `core.HasSuffix` |
+| `strings.TrimSpace` | `core.Trim` |
+| `strings.TrimPrefix` | `core.TrimPrefix` |
+| `strings.TrimSuffix` | `core.TrimSuffix` |
+| `strings.Split` | `core.Split` |
+| `strings.SplitN` | `core.SplitN` |
+| `strings.Join(parts, sep)` | `core.Join(sep, parts...)` |
+| `strings.ReplaceAll` | `core.Replace` |
+| `strings.ToLower` | `core.Lower` |
+| `strings.ToUpper` | `core.Upper` |
+| `strings.NewReader` | `core.NewReader` |
+| `strings.Builder{}` | `core.NewBuilder()` |
+| `fmt.Sprintf` | `core.Sprintf` |
+| `fmt.Sprint` | `core.Sprint` |
+
+### Imports — alias stdlib `io` as `goio`
+
+```go
+import goio "io"
+```
+
+### Comments — usage examples, not descriptions
+
+```go
+// WRONG
+// LoadConfig loads configuration from a file path.
+
+// CORRECT
+// LoadConfig reads and parses a YAML configuration file.
+//
+//  r := LoadConfig("/home/user/.core/agents.yaml")
+//  if r.OK { cfg := r.Value.(*AgentsConfig) }
+```
+
+### Names — predictable, never abbreviated
+
+```
+Config    not  Cfg
+Service   not  Srv
+Options   not  Opts
+Error     not  Err (as subsystem name)
+```
+
+### UK English in comments
+
+```
+initialise   not  initialize
+colour       not  color
+organisation not  organization
+serialise    not  serialize
+```
+
+### Compile-time interface assertions
+
+```go
+var _ mcp.Subsystem = (*MySubsystem)(nil)
+```
+
+### Keyed struct literals
+
+```go
+// WRONG
+core.Result{err, false}
+
+// CORRECT
+core.Result{Value: err, OK: false}
+```
+
+### Embedded content — use `core.Mount` + `core.Extract`, never raw `embed.FS`
+
+```go
+// WRONG
+//go:embed templates
+var templatesFS embed.FS
+data, _ := templatesFS.ReadFile("templates/config.yaml")
+
+// CORRECT
+//go:embed templates
+var templatesFS embed.FS
+var templates = mustMount(templatesFS, "templates")
+
+func mustMount(fsys embed.FS, basedir string) *core.Embed {
+    r := core.Mount(fsys, basedir)
+    if !r.OK { panic(r.Value) }
+    return r.Value.(*core.Embed)
+}
+
+r := templates.ReadString("config.yaml")
+if r.OK { content := r.Value.(string) }
+
+// Extract template directory with data substitution
+core.Extract(templates.FS(), targetDir, data)
+```
+
+### Error wrapping — use `core.Wrap`, never manual chaining
+
+```go
+// WRONG
+return fmt.Errorf("save failed: %w", err)
+
+// CORRECT
+return core.Wrap(err, "saveConfig", "failed to save config")
+```
+
+### Error codes — use `core.WrapCode` for machine-readable errors
+
+```go
+return core.WrapCode(err, "VALIDATION_ERROR", "user.Validate", "invalid email")
+var ErrNotFound = core.NewCode("NOT_FOUND", "resource not found")
+```
+
+### Error introspection
+
+```go
+core.Operation(err)        // extract operation name
+core.ErrorCode(err)        // extract error code
+core.ErrorMessage(err)     // extract message
+core.Root(err)             // root cause
+core.StackTrace(err)       // logical stack trace
+core.Is(err, target)       // errors.Is wrapper
+core.As(err, &target)      // errors.As wrapper
+```
+
+### Formatted output — use `core.Print`, never `fmt.Fprintf`
+
+```go
+// WRONG
+fmt.Fprintf(os.Stderr, "server on %s\n", addr)
+fmt.Println("done")
+
+// CORRECT
+core.Print(os.Stderr, "server on %s", addr)  // writer + format
+core.Print(nil, "done")                       // nil = stdout
+```
+
+### Arrays — use `core.Array[T]`, never manual slice management
+
+```go
+arr := core.NewArray[string]("a", "b", "c")
+arr.AddUnique("d")
+arr.Contains("a")           // true
+arr.Filter(func(s string) bool { return s != "b" })
+arr.Deduplicate()
+```
+
+### Config — use `core.Config`, never raw maps
+
+```go
+c.Config().Set("port", 8080)
+port := c.Config().Int("port")
+c.Config().Enable("debug")
+if c.Config().Enabled("debug") { ... }
+```
+
+### IPC — use `core.Action/Query/Perform` for inter-service communication
+
+```go
+// Fire-and-forget broadcast
+c.ACTION(MyEvent{Data: "hello"})
+
+// Query first responder
+r := c.QUERY(FindUser{ID: 123})
+if r.OK { user := r.Value.(*User) }
+
+// Perform task (side effects)
+r := c.PERFORM(SendEmail{To: "user@example.com"})
+
+// Register handler
+c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
+    switch m := msg.(type) {
+    case MyEvent:
+        core.Info("received event", "data", m.Data)
+    }
+    return core.Result{OK: true}
+})
+```
+
+### Services — use `c.Service()` DTO pattern
+
+```go
+c.Service("cache", core.Service{
+    OnStart: func() core.Result { return core.Result{OK: true} },
+    OnStop:  func() core.Result { return core.Result{OK: true} },
+})
+
+r := c.Service("cache")
+if r.OK { svc := r.Value.(*core.Service) }
+```
+
+### Commands — use `c.Command()` path-based registration
+
+```go
+c.Command("deploy", core.Command{
+    Description: "Deploy to production",
+    Action: func(opts core.Options) core.Result {
+        target := opts.String("target")
+        return core.Result{Value: "deployed to " + target, OK: true}
+    },
+})
+
+// Nested commands use path notation
+c.Command("deploy/to/homelab", core.Command{...})
+
+// Run CLI
+c.Cli().Run()
+```
+
+### Drive — use `c.Drive()` for transport handles
+
+```go
+c.Drive().New(core.Options{
+    {Key: "name", Value: "api"},
+    {Key: "transport", Value: "https://api.lthn.ai"},
+})
+
+r := c.Drive().Get("api")
+if r.OK { handle := r.Value.(*core.DriveHandle) }
+```
+
+### I18n — use `c.I18n()` for translations
+
+```go
+r := c.I18n().Translate("greeting", "name", "World")
+if r.OK { text := r.Value.(string) }
+
+c.I18n().SetLanguage("en-GB")
+```
+
+## What NOT to import
+
+| Do NOT import | Use instead |
+|---------------|-------------|
+| `fmt` | `core.Sprintf`, `core.Print` |
+| `log` | `core.Error`, `core.Info` |
+| `strings` | `core.Contains`, `core.Split` etc |
+| `errors` | `core.E`, `core.Wrap` |
+| `path/filepath` | `core.Path`, `core.PathBase`, `core.PathDir`, `core.PathExt` |
+| `io/ioutil` | `core.Fs{}` |
+| `os` (file ops) | `core.Fs{}` |
+| `os.UserHomeDir` | `core.Env("DIR_HOME")` |
+| `os.Getenv` (standard dirs) | `core.Env("DIR_CONFIG")` etc |
+| `runtime.GOOS` | `core.Env("OS")` |
+| `runtime.GOARCH` | `core.Env("ARCH")` |
+
+Acceptable stdlib: `os.Exit`, `os.Stderr`, `os.Getenv` (non-standard keys), `context`, `sync`, `time`, `net/http`, `encoding/json`.
+
+## Build & Test
+
+```bash
+go build ./...
+go test ./...
+go vet ./...
+```

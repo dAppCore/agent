@@ -3,14 +3,15 @@
 package agentic
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"time"
+
+	core "dappco.re/go/core"
 )
 
 // CompletionEvent is emitted when a dispatched agent finishes.
 // Written to ~/.core/workspace/events.jsonl as append-only log.
+//
+//	event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}
 type CompletionEvent struct {
 	Type      string `json:"type"`
 	Agent     string `json:"agent"`
@@ -19,30 +20,34 @@ type CompletionEvent struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// emitCompletionEvent appends a completion event to the events log.
-// The plugin's hook watches this file to notify the orchestrating agent.
-// Status should be the actual terminal state: completed, failed, or blocked.
-func emitCompletionEvent(agent, workspace, status string) {
-	eventsFile := filepath.Join(WorkspaceRoot(), "events.jsonl")
+// emitEvent appends an event to the events log.
+func emitEvent(eventType, agent, workspace, status string) {
+	eventsFile := core.JoinPath(WorkspaceRoot(), "events.jsonl")
 
 	event := CompletionEvent{
-		Type:      "agent_completed",
+		Type:      eventType,
 		Agent:     agent,
 		Workspace: workspace,
 		Status:    status,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	data, err := json.Marshal(event)
-	if err != nil {
-		return
-	}
+	line := core.Concat(core.JSONMarshalString(event), "\n")
 
 	// Append to events log
-	f, err := os.OpenFile(eventsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
+	r := fs.Append(eventsFile)
+	if !r.OK {
 		return
 	}
-	defer f.Close()
-	f.Write(append(data, '\n'))
+	core.WriteAll(r.Value, line)
+}
+
+// emitStartEvent logs that an agent has been spawned.
+func emitStartEvent(agent, workspace string) {
+	emitEvent("agent_started", agent, workspace, "running")
+}
+
+// emitCompletionEvent logs that an agent has finished.
+func emitCompletionEvent(agent, workspace, status string) {
+	emitEvent("agent_completed", agent, workspace, status)
 }

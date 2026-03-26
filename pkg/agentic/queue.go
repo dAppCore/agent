@@ -3,18 +3,17 @@
 package agentic
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+	"strconv"
 	"syscall"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
+	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
 
 // DispatchConfig controls agent dispatch behaviour.
+//
+//	cfg := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
@@ -22,37 +21,76 @@ type DispatchConfig struct {
 }
 
 // RateConfig controls pacing between task dispatches.
+//
+//	rate := agentic.RateConfig{ResetUTC: "06:00", SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
 type RateConfig struct {
 	ResetUTC       string `yaml:"reset_utc"`       // Daily quota reset time (UTC), e.g. "06:00"
-	DailyLimit     int    `yaml:"daily_limit"`      // Max requests per day (0 = unknown)
-	MinDelay       int    `yaml:"min_delay"`        // Minimum seconds between task starts
-	SustainedDelay int    `yaml:"sustained_delay"`  // Delay when pacing for full-day use
-	BurstWindow    int    `yaml:"burst_window"`     // Hours before reset where burst kicks in
-	BurstDelay     int    `yaml:"burst_delay"`      // Delay during burst window
+	DailyLimit     int    `yaml:"daily_limit"`     // Max requests per day (0 = unknown)
+	MinDelay       int    `yaml:"min_delay"`       // Minimum seconds between task starts
+	SustainedDelay int    `yaml:"sustained_delay"` // Delay when pacing for full-day use
+	BurstWindow    int    `yaml:"burst_window"`    // Hours before reset where burst kicks in
+	BurstDelay     int    `yaml:"burst_delay"`     // Delay during burst window
+}
+
+// ConcurrencyLimit supports both flat (int) and nested (map with total + per-model) formats.
+//
+//	claude: 1                       → Total=1, Models=nil
+//	codex:                          → Total=2, Models={"gpt-5.4": 1, "gpt-5.3-codex-spark": 1}
+//	  total: 2
+//	  gpt-5.4: 1
+//	  gpt-5.3-codex-spark: 1
+type ConcurrencyLimit struct {
+	Total  int
+	Models map[string]int
+}
+
+// UnmarshalYAML handles both int and map forms.
+func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
+	// Try int first
+	var n int
+	if err := value.Decode(&n); err == nil {
+		c.Total = n
+		return nil
+	}
+	// Try map
+	var m map[string]int
+	if err := value.Decode(&m); err != nil {
+		return err
+	}
+	c.Total = m["total"]
+	c.Models = make(map[string]int)
+	for k, v := range m {
+		if k != "total" {
+			c.Models[k] = v
+		}
+	}
+	return nil
 }
 
 // AgentsConfig is the root of config/agents.yaml.
+//
+//	cfg := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
-	Version     int                `yaml:"version"`
-	Dispatch    DispatchConfig     `yaml:"dispatch"`
-	Concurrency map[string]int    `yaml:"concurrency"`
-	Rates       map[string]RateConfig `yaml:"rates"`
+	Version     int                          `yaml:"version"`
+	Dispatch    DispatchConfig               `yaml:"dispatch"`
+	Concurrency map[string]ConcurrencyLimit  `yaml:"concurrency"`
+	Rates       map[string]RateConfig        `yaml:"rates"`
 }
 
 // loadAgentsConfig reads config/agents.yaml from the code path.
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
-		filepath.Join(CoreRoot(), "agents.yaml"),
-		filepath.Join(s.codePath, "core", "agent", "config", "agents.yaml"),
+		core.JoinPath(CoreRoot(), "agents.yaml"),
+		core.JoinPath(s.codePath, "core", "agent", "config", "agents.yaml"),
 	}
 
 	for _, path := range paths {
-		data, err := coreio.Local.Read(path)
-		if err != nil {
+		r := fs.Read(path)
+		if !r.OK {
 			continue
 		}
 		var cfg AgentsConfig
-		if err := yaml.Unmarshal([]byte(data), &cfg); err != nil {
+		if err := yaml.Unmarshal([]byte(r.Value.(string)), &cfg); err != nil {
 			continue
 		}
 		return &cfg
@@ -63,9 +101,9 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 			DefaultAgent:    "claude",
 			DefaultTemplate: "coding",
 		},
-		Concurrency: map[string]int{
-			"claude": 1,
-			"gemini": 3,
+		Concurrency: map[string]ConcurrencyLimit{
+			"claude": {Total: 1},
+			"gemini": {Total: 3},
 		},
 	}
 }
@@ -73,20 +111,32 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 // delayForAgent calculates how long to wait before spawning the next task
 // for a given agent type, based on rate config and time of day.
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
-	cfg := s.loadAgentsConfig()
-	// Strip variant suffix (claude:opus → claude) for config lookup
-	base := agent
-	if idx := strings.Index(agent, ":"); idx >= 0 {
-		base = agent[:idx]
+	// Read from Core Config (loaded once at registration)
+	var rates map[string]RateConfig
+	if s.ServiceRuntime != nil {
+		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
 	}
-	rate, ok := cfg.Rates[base]
+	if rates == nil {
+		cfg := s.loadAgentsConfig()
+		rates = cfg.Rates
+	}
+	base := baseAgent(agent)
+	rate, ok := rates[base]
 	if !ok || rate.SustainedDelay == 0 {
 		return 0
 	}
 
 	// Parse reset time
 	resetHour, resetMin := 6, 0
-	fmt.Sscanf(rate.ResetUTC, "%d:%d", &resetHour, &resetMin)
+	parts := core.Split(rate.ResetUTC, ":")
+	if len(parts) >= 2 {
+		if hour, err := strconv.Atoi(core.Trim(parts[0])); err == nil {
+			resetHour = hour
+		}
+		if min, err := strconv.Atoi(core.Trim(parts[1])); err == nil {
+			resetMin = min
+		}
+	}
 
 	now := time.Now().UTC()
 	resetToday := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMin, 0, 0, time.UTC)
@@ -107,21 +157,18 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 }
 
 // countRunningByAgent counts running workspaces for a specific agent type.
+// Scans both old (*/status.json) and new (*/*/*/status.json) workspace layouts.
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	wsRoot := WorkspaceRoot()
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
-		return 0
-	}
+	// Scan both old and new workspace layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	new := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	paths := append(old, new...)
 
 	count := 0
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		st, err := readStatus(filepath.Join(wsRoot, entry.Name()))
+	for _, statusPath := range paths {
+		st, err := ReadStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
 		}
@@ -137,48 +184,133 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	return count
 }
 
-// baseAgent strips the model variant (gemini:flash → gemini).
-func baseAgent(agent string) string {
-	return strings.SplitN(agent, ":", 2)[0]
-}
-
-// canDispatchAgent checks if we're under the concurrency limit for a specific agent type.
-func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
-	cfg := s.loadAgentsConfig()
-	base := baseAgent(agent)
-	limit, ok := cfg.Concurrency[base]
-	if !ok || limit <= 0 {
-		return true
-	}
-	return s.countRunningByAgent(base) < limit
-}
-
-// drainQueue finds the oldest queued workspace and spawns it if a slot is available.
-// Applies rate-based delay between spawns. Serialised via drainMu to prevent
-// concurrent drainers from exceeding concurrency limits.
-func (s *PrepSubsystem) drainQueue() {
-	s.drainMu.Lock()
-	defer s.drainMu.Unlock()
-
+// countRunningByModel counts running workspaces for a specific agent:model string.
+func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	wsRoot := WorkspaceRoot()
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
-		return
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	count := 0
+	for _, statusPath := range append(old, deep...) {
+		st, err := ReadStatus(core.PathDir(statusPath))
+		if err != nil || st.Status != "running" {
 			continue
 		}
+		if st.Agent != agent {
+			continue
+		}
+		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+			count++
+		}
+	}
+	return count
+}
 
-		wsDir := filepath.Join(wsRoot, entry.Name())
-		st, err := readStatus(wsDir)
+// baseAgent strips the model variant (gemini:flash → gemini).
+func baseAgent(agent string) string {
+	// codex:gpt-5.3-codex-spark → codex-spark (separate pool)
+	if core.Contains(agent, "codex-spark") {
+		return "codex-spark"
+	}
+	return core.SplitN(agent, ":", 2)[0]
+}
+
+// canDispatchAgent checks both pool-level and per-model concurrency limits.
+//
+//	codex: {total: 2, models: {gpt-5.4: 1}} → max 2 codex total, max 1 gpt-5.4
+func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
+	// Read concurrency from shared config (loaded once at startup)
+	var concurrency map[string]ConcurrencyLimit
+	if s.ServiceRuntime != nil {
+		concurrency = core.ConfigGet[map[string]ConcurrencyLimit](s.Core().Config(), "agents.concurrency")
+	}
+	if concurrency == nil {
+		cfg := s.loadAgentsConfig()
+		concurrency = cfg.Concurrency
+	}
+
+	base := baseAgent(agent)
+	limit, ok := concurrency[base]
+	if !ok || limit.Total <= 0 {
+		return true
+	}
+
+	// Check pool total
+	if s.countRunningByAgent(base) >= limit.Total {
+		return false
+	}
+
+	// Check per-model limit if configured
+	if limit.Models != nil {
+		model := modelVariant(agent)
+		if model != "" {
+			if modelLimit, has := limit.Models[model]; has && modelLimit > 0 {
+				if s.countRunningByModel(agent) >= modelLimit {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
+}
+
+// modelVariant extracts the model name from an agent string.
+//
+//	codex:gpt-5.4 → gpt-5.4
+//	codex:gpt-5.3-codex-spark → gpt-5.3-codex-spark
+//	claude → ""
+func modelVariant(agent string) string {
+	parts := core.SplitN(agent, ":", 2)
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
+}
+
+// drainQueue fills all available concurrency slots from queued workspaces.
+// Serialised via c.Lock("drain") when Core is available, falls back to local mutex.
+func (s *PrepSubsystem) drainQueue() {
+	if s.frozen {
+		return
+	}
+	if s.ServiceRuntime != nil {
+		s.Core().Lock("drain").Mutex.Lock()
+		defer s.Core().Lock("drain").Mutex.Unlock()
+	} else {
+		s.drainMu.Lock()
+		defer s.drainMu.Unlock()
+	}
+
+	for s.drainOne() {
+		// keep filling slots
+	}
+}
+
+// drainOne finds the oldest queued workspace and spawns it if a slot is available.
+// Returns true if a task was spawned, false if nothing to do.
+func (s *PrepSubsystem) drainOne() bool {
+	wsRoot := WorkspaceRoot()
+
+	// Scan both old and new workspace layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	statusFiles := append(old, deep...)
+
+	for _, statusPath := range statusFiles {
+		wsDir := core.PathDir(statusPath)
+		st, err := ReadStatus(wsDir)
 		if err != nil || st.Status != "queued" {
 			continue
 		}
 
 		if !s.canDispatchAgent(st.Agent) {
+			continue
+		}
+
+		// Skip if agent pool is in rate-limit backoff
+		pool := baseAgent(st.Agent)
+		if until, ok := s.backoff[pool]; ok && time.Now().Before(until) {
 			continue
 		}
 
@@ -193,10 +325,9 @@ func (s *PrepSubsystem) drainQueue() {
 			continue
 		}
 
-		srcDir := filepath.Join(wsDir, "src")
-		prompt := "Read PROMPT.md for instructions. All context files (CLAUDE.md, TODO.md, CONTEXT.md, CONSUMERS.md, RECENT.md) are in the current directory. Work in this directory."
+		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
-		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir, srcDir)
+		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
 		if err != nil {
 			continue
 		}
@@ -205,7 +336,10 @@ func (s *PrepSubsystem) drainQueue() {
 		st.PID = pid
 		st.Runs++
 		writeStatus(wsDir, st)
+		s.TrackWorkspace(core.PathBase(wsDir), st)
 
-		return
+		return true
 	}
+
+	return false
 }

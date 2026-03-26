@@ -3,11 +3,8 @@
 package setup
 
 import (
-	"os/exec"
-	"path/filepath"
-	"strings"
-
-	"dappco.re/go/agent/pkg/lib"
+	core "dappco.re/go/core"
+	"gopkg.in/yaml.v3"
 )
 
 // ConfigData holds the data passed to config templates.
@@ -35,135 +32,172 @@ type Command struct {
 	Run  string
 }
 
+type configSection struct {
+	Key    string
+	Values []configValue
+}
+
+type configValue struct {
+	Key   string
+	Value any
+}
+
 // GenerateBuildConfig renders a build.yaml for the detected project type.
+//
+//	content, err := setup.GenerateBuildConfig("/repo", setup.TypeGo)
 func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
-	name := filepath.Base(path)
-	data := map[string]any{
-		"Comment": name + " build configuration",
-		"Sections": []map[string]any{
-			{
-				"Key": "project",
-				"Values": []map[string]any{
-					{"Key": "name", "Value": name},
-					{"Key": "type", "Value": string(projType)},
-				},
+	name := core.PathBase(path)
+	sections := []configSection{
+		{
+			Key: "project",
+			Values: []configValue{
+				{Key: "name", Value: name},
+				{Key: "type", Value: string(projType)},
 			},
 		},
 	}
 
 	switch projType {
 	case TypeGo, TypeWails:
-		data["Sections"] = append(data["Sections"].([]map[string]any),
-			map[string]any{
-				"Key": "build",
-				"Values": []map[string]any{
-					{"Key": "main", "Value": "./cmd/" + name},
-					{"Key": "binary", "Value": name},
-					{"Key": "cgo", "Value": "false"},
-				},
+		sections = append(sections, configSection{
+			Key: "build",
+			Values: []configValue{
+				{Key: "main", Value: core.Concat("./cmd/", name)},
+				{Key: "binary", Value: name},
+				{Key: "cgo", Value: false},
 			},
-		)
+		})
 	case TypePHP:
-		data["Sections"] = append(data["Sections"].([]map[string]any),
-			map[string]any{
-				"Key": "build",
-				"Values": []map[string]any{
-					{"Key": "dockerfile", "Value": "Dockerfile"},
-					{"Key": "image", "Value": name},
-				},
+		sections = append(sections, configSection{
+			Key: "build",
+			Values: []configValue{
+				{Key: "dockerfile", Value: "Dockerfile"},
+				{Key: "image", Value: name},
 			},
-		)
+		})
 	case TypeNode:
-		data["Sections"] = append(data["Sections"].([]map[string]any),
-			map[string]any{
-				"Key": "build",
-				"Values": []map[string]any{
-					{"Key": "script", "Value": "npm run build"},
-					{"Key": "output", "Value": "dist"},
-				},
+		sections = append(sections, configSection{
+			Key: "build",
+			Values: []configValue{
+				{Key: "script", Value: "npm run build"},
+				{Key: "output", Value: "dist"},
 			},
-		)
+		})
 	}
 
-	return lib.RenderFile("yaml/config", data)
+	return renderConfig(core.Concat(name, " build configuration"), sections)
 }
 
 // GenerateTestConfig renders a test.yaml for the detected project type.
+//
+//	content, err := setup.GenerateTestConfig(setup.TypeGo)
 func GenerateTestConfig(projType ProjectType) (string, error) {
-	data := map[string]any{
-		"Comment": "Test configuration",
-	}
+	var sections []configSection
 
 	switch projType {
 	case TypeGo, TypeWails:
-		data["Sections"] = []map[string]any{
+		sections = []configSection{
 			{
-				"Key": "commands",
-				"Values": []map[string]any{
-					{"Key": "unit", "Value": "go test ./..."},
-					{"Key": "coverage", "Value": "go test -coverprofile=coverage.out ./..."},
-					{"Key": "race", "Value": "go test -race ./..."},
+				Key: "commands",
+				Values: []configValue{
+					{Key: "unit", Value: "go test ./..."},
+					{Key: "coverage", Value: "go test -coverprofile=coverage.out ./..."},
+					{Key: "race", Value: "go test -race ./..."},
 				},
 			},
 		}
 	case TypePHP:
-		data["Sections"] = []map[string]any{
+		sections = []configSection{
 			{
-				"Key": "commands",
-				"Values": []map[string]any{
-					{"Key": "unit", "Value": "vendor/bin/pest --parallel"},
-					{"Key": "lint", "Value": "vendor/bin/pint --test"},
+				Key: "commands",
+				Values: []configValue{
+					{Key: "unit", Value: "vendor/bin/pest --parallel"},
+					{Key: "lint", Value: "vendor/bin/pint --test"},
 				},
 			},
 		}
 	case TypeNode:
-		data["Sections"] = []map[string]any{
+		sections = []configSection{
 			{
-				"Key": "commands",
-				"Values": []map[string]any{
-					{"Key": "unit", "Value": "npm test"},
-					{"Key": "lint", "Value": "npm run lint"},
+				Key: "commands",
+				Values: []configValue{
+					{Key: "unit", Value: "npm test"},
+					{Key: "lint", Value: "npm run lint"},
 				},
 			},
 		}
 	}
 
-	return lib.RenderFile("yaml/config", data)
+	return renderConfig("Test configuration", sections)
 }
 
-// detectGitRemote extracts owner/repo from git remote origin.
-func detectGitRemote() string {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
-	output, err := cmd.Output()
-	if err != nil {
+func renderConfig(comment string, sections []configSection) (string, error) {
+	builder := core.NewBuilder()
+
+	if comment != "" {
+		builder.WriteString("# ")
+		builder.WriteString(comment)
+		builder.WriteString("\n\n")
+	}
+
+	for idx, section := range sections {
+		builder.WriteString(section.Key)
+		builder.WriteString(":\n")
+
+		for _, value := range section.Values {
+			scalar, err := yaml.Marshal(value.Value)
+			if err != nil {
+				return "", core.E("setup.renderConfig", core.Concat("marshal ", section.Key, ".", value.Key), err)
+			}
+
+			builder.WriteString("  ")
+			builder.WriteString(value.Key)
+			builder.WriteString(": ")
+			builder.WriteString(core.Trim(string(scalar)))
+			builder.WriteString("\n")
+		}
+
+		if idx < len(sections)-1 {
+			builder.WriteString("\n")
+		}
+	}
+
+	return builder.String(), nil
+}
+
+func parseGitRemote(remote string) string {
+	if remote == "" {
 		return ""
 	}
-	url := strings.TrimSpace(string(output))
 
-	// SSH: git@github.com:owner/repo.git or ssh://git@forge.lthn.ai:2223/core/agent.git
-	if strings.Contains(url, ":") {
-		parts := strings.SplitN(url, ":", 2)
+	// HTTPS/HTTP URL — extract path after host
+	if core.Contains(remote, "://") {
+		parts := core.SplitN(remote, "://", 2)
 		if len(parts) == 2 {
-			repo := parts[1]
-			repo = strings.TrimSuffix(repo, ".git")
-			// Handle port in SSH URL (ssh://git@host:port/path)
-			if strings.Contains(repo, "/") {
-				segments := strings.SplitN(repo, "/", 2)
-				if len(segments) == 2 && strings.ContainsAny(segments[0], "0123456789") {
-					repo = segments[1]
+			rest := parts[1]
+			if idx := core.Split(rest, "/"); len(idx) > 1 {
+				// Skip host, take path
+				pathStart := len(idx[0]) + 1
+				if pathStart < len(rest) {
+					return trimRemotePath(rest[pathStart:])
 				}
 			}
-			return repo
 		}
 	}
 
-	// HTTPS: https://github.com/owner/repo.git
-	for _, host := range []string{"github.com/", "forge.lthn.ai/"} {
-		if idx := strings.Index(url, host); idx >= 0 {
-			repo := url[idx+len(host):]
-			return strings.TrimSuffix(repo, ".git")
-		}
+	parts := core.SplitN(remote, ":", 2)
+	if len(parts) == 2 && core.Contains(parts[0], "@") {
+		return trimRemotePath(parts[1])
+	}
+
+	if core.Contains(remote, "/") {
+		return trimRemotePath(remote)
 	}
 
 	return ""
+}
+
+func trimRemotePath(remote string) string {
+	trimmed := core.TrimPrefix(remote, "/")
+	return core.TrimSuffix(trimmed, ".git")
 }

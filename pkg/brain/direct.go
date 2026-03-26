@@ -3,65 +3,68 @@
 package brain
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// agentName returns the identity of this agent.
-func agentName() string {
-	return agentic.AgentName()
-}
-
-// DirectSubsystem implements mcp.Subsystem for OpenBrain via direct HTTP calls.
-// Unlike Subsystem (which uses the IDE WebSocket bridge), this calls the
-// Laravel API directly — suitable for standalone core-mcp usage.
+// DirectSubsystem calls the OpenBrain HTTP API without the IDE bridge.
+//
+//	sub := brain.NewDirect()
+//	sub.RegisterTools(server)
 type DirectSubsystem struct {
 	apiURL string
 	apiKey string
-	client *http.Client
 }
 
-// NewDirect creates a brain subsystem that calls the OpenBrain API directly.
-// Reads CORE_BRAIN_URL and CORE_BRAIN_KEY from environment, or falls back
-// to ~/.claude/brain.key for the API key.
+var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
+
+// NewDirect creates a direct HTTP brain subsystem.
+//
+//	sub := brain.NewDirect()
+//	sub.RegisterTools(server)
 func NewDirect() *DirectSubsystem {
-	apiURL := os.Getenv("CORE_BRAIN_URL")
+	apiURL := core.Env("CORE_BRAIN_URL")
 	if apiURL == "" {
 		apiURL = "https://api.lthn.sh"
 	}
 
-	apiKey := os.Getenv("CORE_BRAIN_KEY")
+	apiKey := core.Env("CORE_BRAIN_KEY")
+	keyPath := ""
 	if apiKey == "" {
-		home, _ := os.UserHomeDir()
-		if data, err := coreio.Local.Read(filepath.Join(home, ".claude", "brain.key")); err == nil {
-			apiKey = strings.TrimSpace(data)
+		keyPath = brainKeyPath(brainHomeDir())
+		if keyPath != "" {
+			if r := fs.Read(keyPath); r.OK {
+				apiKey = core.Trim(r.Value.(string))
+				if apiKey != "" {
+					core.Info("brain direct subsystem loaded API key from file", "path", keyPath)
+				}
+			}
 		}
+	}
+	if apiKey == "" {
+		core.Warn("brain direct subsystem has no API key configured", "path", keyPath)
 	}
 
 	return &DirectSubsystem{
 		apiURL: apiURL,
 		apiKey: apiKey,
-		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-// Name implements mcp.Subsystem.
+// Name returns the MCP subsystem name.
+//
+//	name := sub.Name() // "brain"
 func (s *DirectSubsystem) Name() string { return "brain" }
 
-// RegisterTools implements mcp.Subsystem.
+// RegisterTools adds the direct OpenBrain tools to an MCP server.
+//
+//	sub := brain.NewDirect()
+//	sub.RegisterTools(server)
 func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "brain_remember",
@@ -82,49 +85,45 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 	s.RegisterMessagingTools(server)
 }
 
-// Shutdown implements mcp.SubsystemWithShutdown.
+// Shutdown closes the direct subsystem without additional cleanup.
+//
+//	_ = sub.Shutdown(context.Background())
 func (s *DirectSubsystem) Shutdown(_ context.Context) error { return nil }
+
+func brainKeyPath(home string) string {
+	if home == "" {
+		return ""
+	}
+	return core.JoinPath(core.TrimSuffix(home, "/"), ".claude", "brain.key")
+}
+
+func brainHomeDir() string {
+	if home := core.Env("CORE_HOME"); home != "" {
+		return home
+	}
+	return core.Env("DIR_HOME")
+}
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) (map[string]any, error) {
 	if s.apiKey == "" {
-		return nil, coreerr.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
+		return nil, core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
 	}
 
-	var reqBody io.Reader
+	requestURL := core.Concat(s.apiURL, path)
+	var bodyStr string
 	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return nil, coreerr.E("brain.apiCall", "marshal request", err)
-		}
-		reqBody = bytes.NewReader(data)
+		bodyStr = core.JSONMarshalString(body)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, method, s.apiURL+path, reqBody)
-	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "create request", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "API call failed", err)
-	}
-	defer resp.Body.Close()
-
-	respData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, coreerr.E("brain.apiCall", "read response", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, coreerr.E("brain.apiCall", fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(respData)), nil)
+	r := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
+	if !r.OK {
+		core.Error("brain API call failed", "method", method, "path", path)
+		return nil, core.E("brain.apiCall", "API call failed", nil)
 	}
 
 	var result map[string]any
-	if err := json.Unmarshal(respData, &result); err != nil {
-		return nil, coreerr.E("brain.apiCall", "parse response", err)
+	if ur := core.JSONUnmarshalString(r.Value.(string), &result); !ur.OK {
+		core.Error("brain API response parse failed", "method", method, "path", path)
+		return nil, core.E("brain.apiCall", "parse response", nil)
 	}
 
 	return result, nil
@@ -132,11 +131,14 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 
 func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
 	result, err := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
-		"content":  input.Content,
-		"type":     input.Type,
-		"tags":     input.Tags,
-		"project":  input.Project,
-		"agent_id": agentName(),
+		"content":    input.Content,
+		"type":       input.Type,
+		"tags":       input.Tags,
+		"project":    input.Project,
+		"confidence": input.Confidence,
+		"supersedes": input.Supersedes,
+		"expires_in": input.ExpiresIn,
+		"agent_id":   agentic.AgentName(),
 	})
 	if err != nil {
 		return nil, RememberOutput{}, err
@@ -165,6 +167,9 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	if input.Filter.Type != nil {
 		body["type"] = input.Filter.Type
 	}
+	if input.Filter.MinConfidence != 0 {
+		body["min_confidence"] = input.Filter.MinConfidence
+	}
 	if input.TopK == 0 {
 		body["top_k"] = 10
 	}
@@ -179,11 +184,11 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 		for _, m := range mems {
 			if mm, ok := m.(map[string]any); ok {
 				mem := Memory{
-					Content:   fmt.Sprintf("%v", mm["content"]),
-					Type:      fmt.Sprintf("%v", mm["type"]),
-					Project:   fmt.Sprintf("%v", mm["project"]),
-					AgentID:   fmt.Sprintf("%v", mm["agent_id"]),
-					CreatedAt: fmt.Sprintf("%v", mm["created_at"]),
+					Content:   fieldString(mm, "content"),
+					Type:      fieldString(mm, "type"),
+					Project:   fieldString(mm, "project"),
+					AgentID:   fieldString(mm, "agent_id"),
+					CreatedAt: fieldString(mm, "created_at"),
 				}
 				if id, ok := mm["id"].(string); ok {
 					mem.ID = id
@@ -191,8 +196,13 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 				if score, ok := mm["score"].(float64); ok {
 					mem.Confidence = score
 				}
+				if tags, ok := mm["tags"].([]any); ok {
+					for _, tag := range tags {
+						mem.Tags = append(mem.Tags, core.Sprint(tag))
+					}
+				}
 				if source, ok := mm["source"].(string); ok {
-					mem.Tags = append(mem.Tags, "source:"+source)
+					mem.Tags = append(mem.Tags, core.Concat("source:", source))
 				}
 				memories = append(memories, mem)
 			}
@@ -207,7 +217,7 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
-	_, err := s.apiCall(ctx, "DELETE", "/v1/brain/forget/"+input.ID, nil)
+	_, err := s.apiCall(ctx, "DELETE", core.Concat("/v1/brain/forget/", input.ID), nil)
 	if err != nil {
 		return nil, ForgetOutput{}, err
 	}

@@ -4,16 +4,10 @@ package agentic
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -31,63 +25,95 @@ import (
 //   running → failed        (agent crashed / non-zero exit)
 
 // WorkspaceStatus represents the current state of an agent workspace.
+//
+//	st, err := ReadStatus(wsDir)
+//	if err == nil && st.Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
-	Status    string    `json:"status"`              // running, completed, blocked, failed
-	Agent     string    `json:"agent"`               // gemini, claude, codex
-	Repo      string    `json:"repo"`                // target repo
-	Org       string    `json:"org,omitempty"`       // forge org (e.g. "core")
-	Task      string    `json:"task"`                // task description
-	Branch    string    `json:"branch,omitempty"`    // git branch name
-	Issue     int       `json:"issue,omitempty"`     // forge issue number
-	PID       int       `json:"pid,omitempty"`       // process ID (if running)
-	StartedAt time.Time `json:"started_at"`          // when dispatch started
-	UpdatedAt time.Time `json:"updated_at"`          // last status change
-	Question  string    `json:"question,omitempty"`  // from BLOCKED.md
-	Runs      int       `json:"runs"`                // how many times dispatched/resumed
-	PRURL     string    `json:"pr_url,omitempty"`    // pull request URL (after PR created)
+	Status    string    `json:"status"`             // running, completed, blocked, failed
+	Agent     string    `json:"agent"`              // gemini, claude, codex
+	Repo      string    `json:"repo"`               // target repo
+	Org       string    `json:"org,omitempty"`      // forge org (e.g. "core")
+	Task      string    `json:"task"`               // task description
+	Branch    string    `json:"branch,omitempty"`   // git branch name
+	Issue     int       `json:"issue,omitempty"`      // forge issue number
+	PID       int       `json:"pid,omitempty"`        // OS process ID (if running)
+	ProcessID string    `json:"process_id,omitempty"` // go-process ID for managed lookup
+	StartedAt time.Time `json:"started_at"`           // when dispatch started
+	UpdatedAt time.Time `json:"updated_at"`         // last status change
+	Question  string    `json:"question,omitempty"` // from BLOCKED.md
+	Runs      int       `json:"runs"`               // how many times dispatched/resumed
+	PRURL     string    `json:"pr_url,omitempty"`   // pull request URL (after PR created)
+}
+
+// WorkspaceQuery is the QUERY type for workspace state lookups.
+// Returns the workspace Registry via c.QUERY(agentic.WorkspaceQuery{}).
+//
+//	r := c.QUERY(agentic.WorkspaceQuery{})
+//	if r.OK { reg := r.Value.(*core.Registry[*WorkspaceStatus]) }
+//	r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-5"})
+type WorkspaceQuery struct {
+	Name   string // specific workspace (empty = all)
+	Status string // filter by status (empty = all)
 }
 
 func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	status.UpdatedAt = time.Now()
-	data, err := json.MarshalIndent(status, "", "  ")
-	if err != nil {
-		return err
+	statusPath := core.JoinPath(wsDir, "status.json")
+	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
+		err, _ := r.Value.(error)
+		return core.E("writeStatus", "failed to write status", err)
 	}
-	return coreio.Local.Write(filepath.Join(wsDir, "status.json"), string(data))
+	return nil
 }
 
-func readStatus(wsDir string) (*WorkspaceStatus, error) {
-	data, err := coreio.Local.Read(filepath.Join(wsDir, "status.json"))
-	if err != nil {
-		return nil, err
+// ReadStatus parses the status.json in a workspace directory.
+//
+//	st, err := agentic.ReadStatus("/path/to/workspace")
+func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
+	r := fs.Read(core.JoinPath(wsDir, "status.json"))
+	if !r.OK {
+		return nil, core.E("ReadStatus", "status not found", nil)
 	}
 	var s WorkspaceStatus
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
-		return nil, err
+	if ur := core.JSONUnmarshalString(r.Value.(string), &s); !ur.OK {
+		err, _ := ur.Value.(error)
+		return nil, core.E("ReadStatus", "invalid status json", err)
 	}
 	return &s, nil
 }
 
 // --- agentic_status tool ---
 
+// StatusInput is the input for agentic_status.
+//
+//	input := agentic.StatusInput{Workspace: "go-io-123", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all
+	Limit     int    `json:"limit,omitempty"`     // max results (default 100)
+	Status    string `json:"status,omitempty"`    // filter: running, completed, failed, blocked
 }
 
+// StatusOutput is the output for agentic_status.
+// Returns stats by default. Only blocked workspaces are listed (they need attention).
+//
+//	out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
 type StatusOutput struct {
-	Workspaces []WorkspaceInfo `json:"workspaces"`
-	Count      int             `json:"count"`
+	Total     int             `json:"total"`
+	Running   int             `json:"running"`
+	Queued    int             `json:"queued"`
+	Completed int             `json:"completed"`
+	Failed    int             `json:"failed"`
+	Blocked   []BlockedInfo   `json:"blocked,omitempty"`
 }
 
-type WorkspaceInfo struct {
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Agent     string `json:"agent"`
-	Repo      string `json:"repo"`
-	Task      string `json:"task"`
-	Age       string `json:"age"`
-	Question  string `json:"question,omitempty"`
-	Runs      int    `json:"runs"`
+// BlockedInfo shows a workspace that needs human input.
+//
+//	info := agentic.BlockedInfo{Name: "go-io/task-4", Repo: "go-io", Question: "Which API version?"}
+type BlockedInfo struct {
+	Name     string `json:"name"`
+	Repo     string `json:"repo"`
+	Agent    string `json:"agent"`
+	Question string `json:"question"`
 }
 
 func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
@@ -100,73 +126,37 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	wsRoot := WorkspaceRoot()
 
-	entries, err := os.ReadDir(wsRoot)
-	if err != nil {
-		return nil, StatusOutput{}, coreerr.E("status", "no workspaces found", err)
-	}
+	// Scan both old (*/status.json) and new (*/*/*/status.json) layouts
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	statusFiles := append(old, deep...)
 
-	var workspaces []WorkspaceInfo
+	var out StatusOutput
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
+	for _, statusPath := range statusFiles {
+		wsDir := core.PathDir(statusPath)
+		name := wsDir[len(wsRoot)+1:]
 
-		name := entry.Name()
-
-		// Filter by specific workspace if requested
-		if input.Workspace != "" && name != input.Workspace {
-			continue
-		}
-
-		wsDir := filepath.Join(wsRoot, name)
-		info := WorkspaceInfo{Name: name}
-
-		// Try reading status.json
-		st, err := readStatus(wsDir)
+		st, err := ReadStatus(wsDir)
 		if err != nil {
-			// Legacy workspace (no status.json) — check for log file
-			logFiles, _ := filepath.Glob(filepath.Join(wsDir, "agent-*.log"))
-			if len(logFiles) > 0 {
-				info.Status = "completed"
-			} else {
-				info.Status = "unknown"
-			}
-			fi, _ := entry.Info()
-			if fi != nil {
-				info.Age = time.Since(fi.ModTime()).Truncate(time.Minute).String()
-			}
-			workspaces = append(workspaces, info)
+			out.Total++
+			out.Failed++
 			continue
 		}
-
-		info.Status = st.Status
-		info.Agent = st.Agent
-		info.Repo = st.Repo
-		info.Task = st.Task
-		info.Runs = st.Runs
-		info.Age = time.Since(st.StartedAt).Truncate(time.Minute).String()
 
 		// If status is "running", check if PID is still alive
 		if st.Status == "running" && st.PID > 0 {
 			if err := syscall.Kill(st.PID, 0); err != nil {
-				// Process died — check for BLOCKED.md
-				blockedPath := filepath.Join(wsDir, "src", "BLOCKED.md")
-				if data, err := coreio.Local.Read(blockedPath); err == nil {
-					info.Status = "blocked"
-					info.Question = strings.TrimSpace(data)
+				blockedPath := core.JoinPath(wsDir, "repo", "BLOCKED.md")
+				if r := fs.Read(blockedPath); r.OK {
 					st.Status = "blocked"
-					st.Question = info.Question
+					st.Question = core.Trim(r.Value.(string))
 				} else {
-					// Dead PID without BLOCKED.md — check exit code from log
-					// If no evidence of success, mark as failed (not completed)
-					logFile := filepath.Join(wsDir, fmt.Sprintf("agent-%s.log", st.Agent))
-					if _, err := coreio.Local.Read(logFile); err != nil {
-						info.Status = "failed"
+					logFile := core.JoinPath(wsDir, core.Sprintf("agent-%s.log", st.Agent))
+					if r := fs.Read(logFile); !r.OK {
 						st.Status = "failed"
 						st.Question = "Agent process died (no output log)"
 					} else {
-						info.Status = "completed"
 						st.Status = "completed"
 					}
 				}
@@ -174,15 +164,25 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			}
 		}
 
-		if st.Status == "blocked" {
-			info.Question = st.Question
+		out.Total++
+		switch st.Status {
+		case "running":
+			out.Running++
+		case "queued":
+			out.Queued++
+		case "completed":
+			out.Completed++
+		case "failed":
+			out.Failed++
+		case "blocked":
+			out.Blocked = append(out.Blocked, BlockedInfo{
+				Name:     name,
+				Repo:     st.Repo,
+				Agent:    st.Agent,
+				Question: st.Question,
+			})
 		}
-
-		workspaces = append(workspaces, info)
 	}
 
-	return nil, StatusOutput{
-		Workspaces: workspaces,
-		Count:      len(workspaces),
-	}, nil
+	return nil, out, nil
 }

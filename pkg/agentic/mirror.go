@@ -4,26 +4,25 @@ package agentic
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // --- agentic_mirror tool ---
 
 // MirrorInput is the input for agentic_mirror.
+//
+//	input := agentic.MirrorInput{Repo: "go-io", DryRun: true, MaxFiles: 50}
 type MirrorInput struct {
-	Repo     string `json:"repo,omitempty"`     // Specific repo, or empty for all
-	DryRun   bool   `json:"dry_run,omitempty"`  // Preview without pushing
+	Repo     string `json:"repo,omitempty"`      // Specific repo, or empty for all
+	DryRun   bool   `json:"dry_run,omitempty"`   // Preview without pushing
 	MaxFiles int    `json:"max_files,omitempty"` // Max files per PR (default 50, CodeRabbit limit)
 }
 
 // MirrorOutput is the output for agentic_mirror.
+//
+//	out := agentic.MirrorOutput{Success: true, Count: 1, Synced: []agentic.MirrorSync{{Repo: "go-io"}}}
 type MirrorOutput struct {
 	Success bool         `json:"success"`
 	Synced  []MirrorSync `json:"synced"`
@@ -32,6 +31,8 @@ type MirrorOutput struct {
 }
 
 // MirrorSync records one repo sync.
+//
+//	sync := agentic.MirrorSync{Repo: "go-io", CommitsAhead: 3, FilesChanged: 12}
 type MirrorSync struct {
 	Repo         string `json:"repo"`
 	CommitsAhead int    `json:"commits_ahead"`
@@ -56,10 +57,9 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	basePath := s.codePath
 	if basePath == "" {
-		home, _ := os.UserHomeDir()
-		basePath = filepath.Join(home, "Code", "core")
+		basePath = core.JoinPath(core.Env("DIR_HOME"), "Code", "core")
 	} else {
-		basePath = filepath.Join(basePath, "core")
+		basePath = core.JoinPath(basePath, "core")
 	}
 
 	// Build list of repos to sync
@@ -74,28 +74,26 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	var skipped []string
 
 	for _, repo := range repos {
-		repoDir := filepath.Join(basePath, repo)
+		repoDir := core.JoinPath(basePath, repo)
 
 		// Check if github remote exists
-		if !hasRemote(repoDir, "github") {
-			skipped = append(skipped, repo+": no github remote")
+		if !s.hasRemote(repoDir, "github") {
+			skipped = append(skipped, core.Concat(repo, ": no github remote"))
 			continue
 		}
 
 		// Fetch github to get current state
-		fetchCmd := exec.CommandContext(ctx, "git", "fetch", "github")
-		fetchCmd.Dir = repoDir
-		fetchCmd.Run()
+		s.gitCmdOK(ctx, repoDir, "fetch", "github")
 
 		// Check how far ahead local default branch is vs github
-		localBase := gitDefaultBranch(repoDir)
-		ahead := commitsAhead(repoDir, "github/main", localBase)
+		localBase := s.DefaultBranch(repoDir)
+		ahead := s.commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
 			continue // Already in sync
 		}
 
 		// Count files changed
-		files := filesChanged(repoDir, "github/main", localBase)
+		files := s.filesChanged(repoDir, "github/main", localBase)
 
 		sync := MirrorSync{
 			Repo:         repo,
@@ -105,7 +103,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// Skip if too many files for one PR
 		if files > maxFiles {
-			sync.Skipped = fmt.Sprintf("%d files exceeds limit of %d", files, maxFiles)
+			sync.Skipped = core.Sprintf("%d files exceeds limit of %d", files, maxFiles)
 			synced = append(synced, sync)
 			continue
 		}
@@ -117,14 +115,12 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		// Ensure dev branch exists on GitHub
-		ensureDevBranch(repoDir)
+		s.ensureDevBranch(repoDir)
 
 		// Push local main to github dev (explicit main, not HEAD)
-		base := gitDefaultBranch(repoDir)
-		pushCmd := exec.CommandContext(ctx, "git", "push", "github", base+":refs/heads/dev", "--force")
-		pushCmd.Dir = repoDir
-		if err := pushCmd.Run(); err != nil {
-			sync.Skipped = fmt.Sprintf("push failed: %v", err)
+		base := s.DefaultBranch(repoDir)
+		if r := s.gitCmd(ctx, repoDir, "push", "github", core.Concat(base, ":refs/heads/dev"), "--force"); !r.OK {
+			sync.Skipped = core.Sprintf("push failed: %s", r.Value)
 			synced = append(synced, sync)
 			continue
 		}
@@ -133,7 +129,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		// Create PR: dev → main on GitHub
 		prURL, err := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
 		if err != nil {
-			sync.Skipped = fmt.Sprintf("PR creation failed: %v", err)
+			sync.Skipped = core.Sprintf("PR creation failed: %v", err)
 		} else {
 			sync.PRURL = prURL
 		}
@@ -151,111 +147,77 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 // createGitHubPR creates a PR from dev → main using the gh CLI.
 func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
+	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
+
 	// Check if there's already an open PR from dev
-	ghRepo := fmt.Sprintf("%s/%s", GitHubOrg(), repo)
-	checkCmd := exec.CommandContext(ctx, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
-	checkCmd.Dir = repoDir
-	out, err := checkCmd.Output()
-	if err == nil && strings.Contains(string(out), "url") {
-		// PR already exists — extract URL
-		// Format: [{"url":"https://..."}]
-		url := extractJSONField(string(out), "url")
-		if url != "" {
-			return url, nil
+	r := s.runCmd(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
+	if r.OK {
+		out := r.Value.(string)
+		if core.Contains(out, "url") {
+			if url := extractJSONField(out, "url"); url != "" {
+				return url, nil
+			}
 		}
 	}
 
-	// Build PR body
-	body := fmt.Sprintf("## Forge → GitHub Sync\n\n"+
-		"**Commits:** %d\n"+
-		"**Files changed:** %d\n\n"+
-		"Automated sync from Forge (forge.lthn.ai) to GitHub mirror.\n"+
-		"Review with CodeRabbit before merging.\n\n"+
-		"---\n"+
-		"Co-Authored-By: Virgil <virgil@lethean.io>",
+	body := core.Sprintf(
+		"## Forge → GitHub Sync\n\n**Commits:** %d\n**Files changed:** %d\n\nAutomated sync from Forge (forge.lthn.ai) to GitHub mirror.\nReview with CodeRabbit before merging.\n\n---\nCo-Authored-By: Virgil <virgil@lethean.io>",
 		commits, files)
 
-	title := fmt.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
+	title := core.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
 
-	prCmd := exec.CommandContext(ctx, "gh", "pr", "create",
-		"--repo", ghRepo,
-		"--head", "dev",
-		"--base", "main",
-		"--title", title,
-		"--body", body,
-	)
-	prCmd.Dir = repoDir
-	prOut, err := prCmd.CombinedOutput()
-	if err != nil {
-		return "", coreerr.E("createGitHubPR", string(prOut), err)
+	r = s.runCmd(ctx, repoDir, "gh", "pr", "create",
+		"--repo", ghRepo, "--head", "dev", "--base", "main",
+		"--title", title, "--body", body)
+	if !r.OK {
+		return "", core.E("createGitHubPR", r.Value.(string), nil)
 	}
 
-	// gh pr create outputs the PR URL on the last line
-	lines := strings.Split(strings.TrimSpace(string(prOut)), "\n")
+	prOut := r.Value.(string)
+	lines := core.Split(core.Trim(prOut), "\n")
 	if len(lines) > 0 {
 		return lines[len(lines)-1], nil
 	}
-
 	return "", nil
 }
 
 // ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
-func ensureDevBranch(repoDir string) {
-	// Try to push current main as dev — if dev exists this is a no-op (we force-push later)
-	cmd := exec.Command("git", "push", "github", "HEAD:refs/heads/dev")
-	cmd.Dir = repoDir
-	cmd.Run() // Ignore error — branch may already exist
+func (s *PrepSubsystem) ensureDevBranch(repoDir string) {
+	s.gitCmdOK(context.Background(), repoDir, "push", "github", "HEAD:refs/heads/dev")
 }
 
 // hasRemote checks if a git remote exists.
-func hasRemote(repoDir, name string) bool {
-	cmd := exec.Command("git", "remote", "get-url", name)
-	cmd.Dir = repoDir
-	return cmd.Run() == nil
+func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {
+	return s.gitCmdOK(context.Background(), repoDir, "remote", "get-url", name)
 }
 
 // commitsAhead returns how many commits HEAD is ahead of the ref.
-func commitsAhead(repoDir, base, head string) int {
-	cmd := exec.Command("git", "rev-list", base+".."+head, "--count")
-	cmd.Dir = repoDir
-	out, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-	var n int
-	fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &n)
-	return n
+func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
+	out := s.gitOutput(context.Background(), repoDir, "rev-list", core.Concat(base, "..", head), "--count")
+	return parseInt(out)
 }
 
 // filesChanged returns the number of files changed between two refs.
-func filesChanged(repoDir, base, head string) int {
-	cmd := exec.Command("git", "diff", "--name-only", base+".."+head)
-	cmd.Dir = repoDir
-	out, err := cmd.Output()
-	if err != nil {
+func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
+	out := s.gitOutput(context.Background(), repoDir, "diff", "--name-only", core.Concat(base, "..", head))
+	if out == "" {
 		return 0
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) == 1 && lines[0] == "" {
-		return 0
-	}
-	return len(lines)
+	return len(core.Split(out, "\n"))
 }
 
 // listLocalRepos returns repo names that exist as directories in basePath.
 func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
-		return nil
-	}
+	paths := core.PathGlob(core.JoinPath(basePath, "*"))
 	var repos []string
-	for _, e := range entries {
-		if !e.IsDir() {
+	for _, p := range paths {
+		name := core.PathBase(p)
+		if !fs.IsDir(p) {
 			continue
 		}
 		// Must have a .git directory
-		if _, err := os.Stat(filepath.Join(basePath, e.Name(), ".git")); err == nil {
-			repos = append(repos, e.Name())
+		if fs.IsDir(core.JoinPath(basePath, name, ".git")) {
+			repos = append(repos, name)
 		}
 	}
 	return repos
@@ -263,17 +225,24 @@ func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 
 // extractJSONField extracts a simple string field from JSON array output.
 func extractJSONField(jsonStr, field string) string {
-	// Quick and dirty — works for gh CLI output like [{"url":"https://..."}]
-	key := fmt.Sprintf(`"%s":"`, field)
-	idx := strings.Index(jsonStr, key)
-	if idx < 0 {
+	if jsonStr == "" || field == "" {
 		return ""
 	}
-	start := idx + len(key)
-	end := strings.Index(jsonStr[start:], `"`)
-	if end < 0 {
-		return ""
-	}
-	return jsonStr[start : start+end]
-}
 
+	var list []map[string]any
+	if r := core.JSONUnmarshalString(jsonStr, &list); r.OK {
+		for _, item := range list {
+			if value, ok := item[field].(string); ok {
+				return value
+			}
+		}
+	}
+
+	var item map[string]any
+	if r := core.JSONUnmarshalString(jsonStr, &item); !r.OK {
+		return ""
+	}
+
+	value, _ := item[field].(string)
+	return value
+}

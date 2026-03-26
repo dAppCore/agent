@@ -7,19 +7,19 @@
   },
   "plugins": [
     {
-      "name": "CoreAgent",
+      "name": "core",
       "source": "./claude/core",
       "description": "CoreAgent platform — dispatch, review, messaging, OpenBrain",
-      "version": "0.13.0"
+      "version": "0.14.0"
     },
     {
       "name": "core-research",
       "source": "./claude/research",
       "description": "Blockchain archaeology, whitepaper archival, community history, market data collection",
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     {
-      "name": "CorePHP",
+      "name": "core-php",
       "source": {
         "source": "url",
         "url": "https://forge.lthn.ai/core/php.git"
@@ -43,6 +43,12 @@
         "url": "https://forge.lthn.ai/core/go-devops.git"
       },
       "description": "CI/CD, deployment, issue tracking, and Coolify integration",
+      "version": "0.1.0"
+    },
+    {
+      "name": "devops",
+      "source": "./claude/devops",
+      "description": "Agent workflow utilities — install binaries, merge workspaces, update deps, clean queues",
       "version": "0.1.0"
     }
   ]

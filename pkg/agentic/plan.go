@@ -6,22 +6,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Plan represents an implementation plan for agent work.
+//
+//	plan := &Plan{ID: "migrate-core-abc", Title: "Migrate Core", Status: "draft", Objective: "..."}
+//	writePlan(PlansRoot(), plan)
 type Plan struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
-	Status    string    `json:"status"`            // draft, ready, in_progress, needs_verification, verified, approved
+	Status    string    `json:"status"` // draft, ready, in_progress, needs_verification, verified, approved
 	Repo      string    `json:"repo,omitempty"`
 	Org       string    `json:"org,omitempty"`
 	Objective string    `json:"objective"`
@@ -33,10 +31,12 @@ type Plan struct {
 }
 
 // Phase represents a phase within an implementation plan.
+//
+//	phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
 	Number   int      `json:"number"`
 	Name     string   `json:"name"`
-	Status   string   `json:"status"`             // pending, in_progress, done
+	Status   string   `json:"status"` // pending, in_progress, done
 	Criteria []string `json:"criteria,omitempty"`
 	Tests    int      `json:"tests,omitempty"`
 	Notes    string   `json:"notes,omitempty"`
@@ -45,6 +45,8 @@ type Phase struct {
 // --- Input/Output types ---
 
 // PlanCreateInput is the input for agentic_plan_create.
+//
+//	input := agentic.PlanCreateInput{Title: "Migrate pkg/agentic", Objective: "Use Core primitives everywhere"}
 type PlanCreateInput struct {
 	Title     string  `json:"title"`
 	Objective string  `json:"objective"`
@@ -55,6 +57,8 @@ type PlanCreateInput struct {
 }
 
 // PlanCreateOutput is the output for agentic_plan_create.
+//
+//	out := agentic.PlanCreateOutput{Success: true, ID: "migrate-pkg-agentic-abc123"}
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
@@ -62,17 +66,23 @@ type PlanCreateOutput struct {
 }
 
 // PlanReadInput is the input for agentic_plan_read.
+//
+//	input := agentic.PlanReadInput{ID: "migrate-pkg-agentic-abc123"}
 type PlanReadInput struct {
 	ID string `json:"id"`
 }
 
 // PlanReadOutput is the output for agentic_plan_read.
+//
+//	out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "migrate-pkg-agentic-abc123"}}
 type PlanReadOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
 // PlanUpdateInput is the input for agentic_plan_update.
+//
+//	input := agentic.PlanUpdateInput{ID: "migrate-pkg-agentic-abc123", Status: "verified"}
 type PlanUpdateInput struct {
 	ID        string  `json:"id"`
 	Status    string  `json:"status,omitempty"`
@@ -84,29 +94,39 @@ type PlanUpdateInput struct {
 }
 
 // PlanUpdateOutput is the output for agentic_plan_update.
+//
+//	out := agentic.PlanUpdateOutput{Success: true, Plan: agentic.Plan{Status: "verified"}}
 type PlanUpdateOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
 // PlanDeleteInput is the input for agentic_plan_delete.
+//
+//	input := agentic.PlanDeleteInput{ID: "migrate-pkg-agentic-abc123"}
 type PlanDeleteInput struct {
 	ID string `json:"id"`
 }
 
 // PlanDeleteOutput is the output for agentic_plan_delete.
+//
+//	out := agentic.PlanDeleteOutput{Success: true, Deleted: "migrate-pkg-agentic-abc123"}
 type PlanDeleteOutput struct {
 	Success bool   `json:"success"`
 	Deleted string `json:"deleted"`
 }
 
 // PlanListInput is the input for agentic_plan_list.
+//
+//	input := agentic.PlanListInput{Repo: "go-io", Status: "ready"}
 type PlanListInput struct {
 	Status string `json:"status,omitempty"`
 	Repo   string `json:"repo,omitempty"`
 }
 
 // PlanListOutput is the output for agentic_plan_list.
+//
+//	out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "migrate-pkg-agentic-abc123"}}}
 type PlanListOutput struct {
 	Success bool   `json:"success"`
 	Count   int    `json:"count"`
@@ -146,10 +166,10 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 
 func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
 	if input.Title == "" {
-		return nil, PlanCreateOutput{}, coreerr.E("planCreate", "title is required", nil)
+		return nil, PlanCreateOutput{}, core.E("planCreate", "title is required", nil)
 	}
 	if input.Objective == "" {
-		return nil, PlanCreateOutput{}, coreerr.E("planCreate", "objective is required", nil)
+		return nil, PlanCreateOutput{}, core.E("planCreate", "objective is required", nil)
 	}
 
 	id := generatePlanID(input.Title)
@@ -178,7 +198,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 
 	path, err := writePlan(PlansRoot(), &plan)
 	if err != nil {
-		return nil, PlanCreateOutput{}, coreerr.E("planCreate", "failed to write plan", err)
+		return nil, PlanCreateOutput{}, core.E("planCreate", "failed to write plan", err)
 	}
 
 	return nil, PlanCreateOutput{
@@ -190,7 +210,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 
 func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
 	if input.ID == "" {
-		return nil, PlanReadOutput{}, coreerr.E("planRead", "id is required", nil)
+		return nil, PlanReadOutput{}, core.E("planRead", "id is required", nil)
 	}
 
 	plan, err := readPlan(PlansRoot(), input.ID)
@@ -206,7 +226,7 @@ func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, inpu
 
 func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
 	if input.ID == "" {
-		return nil, PlanUpdateOutput{}, coreerr.E("planUpdate", "id is required", nil)
+		return nil, PlanUpdateOutput{}, core.E("planUpdate", "id is required", nil)
 	}
 
 	plan, err := readPlan(PlansRoot(), input.ID)
@@ -217,7 +237,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	// Apply partial updates
 	if input.Status != "" {
 		if !validPlanStatus(input.Status) {
-			return nil, PlanUpdateOutput{}, coreerr.E("planUpdate", "invalid status: "+input.Status+" (valid: draft, ready, in_progress, needs_verification, verified, approved)", nil)
+			return nil, PlanUpdateOutput{}, core.E("planUpdate", core.Concat("invalid status: ", input.Status, " (valid: draft, ready, in_progress, needs_verification, verified, approved)"), nil)
 		}
 		plan.Status = input.Status
 	}
@@ -240,7 +260,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	plan.UpdatedAt = time.Now()
 
 	if _, err := writePlan(PlansRoot(), plan); err != nil {
-		return nil, PlanUpdateOutput{}, coreerr.E("planUpdate", "failed to write plan", err)
+		return nil, PlanUpdateOutput{}, core.E("planUpdate", "failed to write plan", err)
 	}
 
 	return nil, PlanUpdateOutput{
@@ -251,16 +271,17 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 
 func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
 	if input.ID == "" {
-		return nil, PlanDeleteOutput{}, coreerr.E("planDelete", "id is required", nil)
+		return nil, PlanDeleteOutput{}, core.E("planDelete", "id is required", nil)
 	}
 
 	path := planPath(PlansRoot(), input.ID)
-	if _, err := os.Stat(path); err != nil {
-		return nil, PlanDeleteOutput{}, coreerr.E("planDelete", "plan not found: "+input.ID, nil)
+	if !fs.Exists(path) {
+		return nil, PlanDeleteOutput{}, core.E("planDelete", core.Concat("plan not found: ", input.ID), nil)
 	}
 
-	if err := coreio.Local.Delete(path); err != nil {
-		return nil, PlanDeleteOutput{}, coreerr.E("planDelete", "failed to delete plan", err)
+	if r := fs.Delete(path); !r.OK {
+		err, _ := r.Value.(error)
+		return nil, PlanDeleteOutput{}, core.E("planDelete", "failed to delete plan", err)
 	}
 
 	return nil, PlanDeleteOutput{
@@ -271,22 +292,16 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 
 func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
 	dir := PlansRoot()
-	if err := coreio.Local.EnsureDir(dir); err != nil {
-		return nil, PlanListOutput{}, coreerr.E("planList", "failed to access plans directory", err)
+	if r := fs.EnsureDir(dir); !r.OK {
+		err, _ := r.Value.(error)
+		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", err)
 	}
 
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, PlanListOutput{}, coreerr.E("planList", "failed to read plans directory", err)
-	}
+	jsonFiles := core.PathGlob(core.JoinPath(dir, "*.json"))
 
 	var plans []Plan
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-
-		id := strings.TrimSuffix(entry.Name(), ".json")
+	for _, f := range jsonFiles {
+		id := core.TrimSuffix(core.PathBase(f), ".json")
 		plan, err := readPlan(dir, id)
 		if err != nil {
 			continue
@@ -314,68 +329,48 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 
 func planPath(dir, id string) string {
 	// Sanitise ID to prevent path traversal
-	safe := filepath.Base(id)
+	safe := core.PathBase(id)
 	if safe == "." || safe == ".." || safe == "" {
 		safe = "invalid"
 	}
-	return filepath.Join(dir, safe+".json")
+	return core.JoinPath(dir, core.Concat(safe, ".json"))
 }
 
 func generatePlanID(title string) string {
-	slug := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
-			return r
-		}
-		if r >= 'A' && r <= 'Z' {
-			return r + 32
-		}
-		if r == ' ' {
-			return '-'
-		}
-		return -1
-	}, title)
-
-	// Trim consecutive dashes and cap length
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
-	}
-	slug = strings.Trim(slug, "-")
-	if len(slug) > 30 {
-		slug = slug[:30]
-	}
-	slug = strings.TrimRight(slug, "-")
+	slug := sanitisePlanSlug(title)
 
 	// Append short random suffix for uniqueness
 	b := make([]byte, 3)
 	rand.Read(b)
-	return slug + "-" + hex.EncodeToString(b)
+	return core.Concat(slug, "-", hex.EncodeToString(b))
 }
 
 func readPlan(dir, id string) (*Plan, error) {
-	data, err := coreio.Local.Read(planPath(dir, id))
-	if err != nil {
-		return nil, coreerr.E("readPlan", "plan not found: "+id, nil)
+	r := fs.Read(planPath(dir, id))
+	if !r.OK {
+		return nil, core.E("readPlan", core.Concat("plan not found: ", id), nil)
 	}
 
 	var plan Plan
-	if err := json.Unmarshal([]byte(data), &plan); err != nil {
-		return nil, coreerr.E("readPlan", "failed to parse plan "+id, err)
+	if ur := core.JSONUnmarshalString(r.Value.(string), &plan); !ur.OK {
+		return nil, core.E("readPlan", core.Concat("failed to parse plan ", id), nil)
 	}
 	return &plan, nil
 }
 
 func writePlan(dir string, plan *Plan) (string, error) {
-	if err := coreio.Local.EnsureDir(dir); err != nil {
-		return "", coreerr.E("writePlan", "failed to create plans directory", err)
+	if r := fs.EnsureDir(dir); !r.OK {
+		err, _ := r.Value.(error)
+		return "", core.E("writePlan", "failed to create plans directory", err)
 	}
 
 	path := planPath(dir, plan.ID)
-	data, err := json.MarshalIndent(plan, "", "  ")
-	if err != nil {
-		return "", err
-	}
 
-	return path, coreio.Local.Write(path, string(data))
+	if r := fs.Write(path, core.JSONMarshalString(plan)); !r.OK {
+		err, _ := r.Value.(error)
+		return "", core.E("writePlan", "failed to write plan", err)
+	}
+	return path, nil
 }
 
 func validPlanStatus(status string) bool {
