@@ -77,14 +77,19 @@ type coreDep struct {
 	dir    string // e.g. "core-go" (workspace subdir)
 }
 
-// parseCoreDeps extracts Core ecosystem dependencies from go.mod content.
-// Finds all require lines matching dappco.re/go/* or forge.lthn.ai/core/*.
+// parseCoreDeps extracts direct Core ecosystem dependencies from go.mod content.
+// Skips indirect deps — only clones what the repo directly imports.
 func parseCoreDeps(gomod string) []coreDep {
 	var deps []coreDep
 	seen := make(map[string]bool)
 
 	for _, line := range core.Split(gomod, "\n") {
 		line = core.Trim(line)
+
+		// Skip indirect dependencies
+		if core.Contains(line, "// indirect") {
+			continue
+		}
 
 		// Match dappco.re/go/* requires
 		if core.HasPrefix(line, "dappco.re/go/") {
