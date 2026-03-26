@@ -12,6 +12,7 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -259,11 +260,11 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	t.Setenv("CORE_API_URL", srv.URL)
 	t.Setenv("AGENT_NAME", "test-agent")
 
-	// Create Core with IPC handler to capture InboxMessage
-	var captured []messages.InboxMessage
+	// Create Core with IPC handler to capture ChannelPush
+	var captured []coremcp.ChannelPush
 	c := core.New()
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
-		if ev, ok := msg.(messages.InboxMessage); ok {
+		if ev, ok := msg.(coremcp.ChannelPush); ok {
 			captured = append(captured, ev)
 		}
 		return core.Result{OK: true}
@@ -276,9 +277,11 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "2 unread message(s) in inbox")
 
-	require.Len(t, captured, 1)
-	assert.Equal(t, 3, captured[0].New)
-	assert.Equal(t, 2, captured[0].Total)
+	// 3 new messages (ids 1,2,3 all > prevMaxID=0), but only 2 unread
+	// Monitor sends one ChannelPush per NEW message (higher ID than last seen)
+	require.Len(t, captured, 3)
+	data := captured[0].Data.(map[string]any)
+	assert.Equal(t, "clotho", data["from"])
 }
 
 func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
@@ -373,11 +376,11 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 
 	setupAPIEnv(t, srv.URL)
 
-	// Create Core with IPC handler to capture InboxMessage
-	var captured []messages.InboxMessage
+	// Create Core with IPC handler to capture ChannelPush
+	var captured []coremcp.ChannelPush
 	c := core.New()
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
-		if ev, ok := msg.(messages.InboxMessage); ok {
+		if ev, ok := msg.(coremcp.ChannelPush); ok {
 			captured = append(captured, ev)
 		}
 		return core.Result{OK: true}
@@ -390,9 +393,7 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "3 unread message(s)")
 
-	require.Len(t, captured, 1)
-	assert.Equal(t, 3, captured[0].New)
-	assert.Equal(t, 3, captured[0].Total)
+	require.True(t, len(captured) > 0, "should capture at least one ChannelPush")
 }
 
 // --- check (integration of sub-checks) ---

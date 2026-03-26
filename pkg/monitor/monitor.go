@@ -537,9 +537,18 @@ func (m *Subsystem) checkInbox() string {
 		return ""
 	}
 
-	// Push channel event with full message content
+	// Push each message as a channel event so it lands in the session
 	if m.ServiceRuntime != nil {
-		m.Core().ACTION(messages.InboxMessage{New: len(newMessages), Total: unread})
+		for _, msg := range newMessages {
+			m.Core().ACTION(coremcp.ChannelPush{
+				Channel: "inbox.message",
+				Data: map[string]any{
+					"from":    msg.From,
+					"subject": msg.Subject,
+					"content": msg.Content,
+				},
+			})
+		}
 	}
 
 	return core.Sprintf("%d unread message(s) in inbox", unread)

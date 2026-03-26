@@ -24,7 +24,7 @@ func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
 		RateLimitDetected{Pool: "codex", Duration: "30m"},
 		HarvestComplete{Repo: "go-io", Branch: "agent/fix", Files: 5},
 		HarvestRejected{Repo: "go-io", Branch: "agent/fix", Reason: "binary detected"},
-		InboxMessage{New: 2, Total: 15},
+		InboxMessage{From: "charon", Subject: "test", Content: "hello"},
 	}
 
 	assert.Len(t, msgs, 12, "expected 12 message types")

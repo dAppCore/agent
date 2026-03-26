@@ -121,10 +121,11 @@ type HarvestRejected struct {
 	Reason string
 }
 
-// InboxMessage is broadcast when new inter-agent messages arrive.
+// InboxMessage is broadcast when a new inter-agent message arrives.
 //
-//	c.ACTION(messages.InboxMessage{New: 2, Total: 15})
+//	c.ACTION(messages.InboxMessage{From: "charon", Subject: "status", Content: "all green"})
 type InboxMessage struct {
-	New   int
-	Total int
+	From    string
+	Subject string
+	Content string
 }
