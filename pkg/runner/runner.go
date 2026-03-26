@@ -122,8 +122,18 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 //	PokeQueue → drain queue
 func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
+	case messages.AgentStarted:
+		c.ACTION(coremcp.ChannelPush{
+			Channel: "agent.status",
+			Data: map[string]any{
+				"agent":     ev.Agent,
+				"repo":      ev.Repo,
+				"workspace": ev.Workspace,
+				"status":    "started",
+			},
+		})
+
 	case messages.AgentCompleted:
-		// Push channel event to Claude Code via MCP service
 		c.ACTION(coremcp.ChannelPush{
 			Channel: "agent.status",
 			Data: map[string]any{
@@ -133,7 +143,6 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 				"status":    ev.Status,
 			},
 		})
-		// Poke queue to fill freed slot
 		s.Poke()
 
 	case messages.PokeQueue:
