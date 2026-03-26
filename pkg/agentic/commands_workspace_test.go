@@ -3,8 +3,6 @@
 package agentic
 
 import (
-	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -89,21 +87,20 @@ func TestCommandsWorkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
-	os.MkdirAll(wsRoot, 0o755)
+	fs.EnsureDir(wsRoot)
 
 	// Non-directory entry in workspace root
-	os.WriteFile(core.JoinPath(wsRoot, "stray-file.txt"), []byte("not a workspace"), 0o644)
+	fs.Write(core.JoinPath(wsRoot, "stray-file.txt"), "not a workspace")
 
 	// Workspace with corrupt status.json
 	wsCorrupt := core.JoinPath(wsRoot, "ws-corrupt")
-	os.MkdirAll(wsCorrupt, 0o755)
-	os.WriteFile(core.JoinPath(wsCorrupt, "status.json"), []byte("{broken json!!!"), 0o644)
+	fs.EnsureDir(wsCorrupt)
+	fs.Write(core.JoinPath(wsCorrupt, "status.json"), "{broken json!!!")
 
 	// Valid workspace
 	wsGood := core.JoinPath(wsRoot, "ws-good")
-	os.MkdirAll(wsGood, 0o755)
-	data, _ := json.Marshal(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"})
-	os.WriteFile(core.JoinPath(wsGood, "status.json"), data, 0o644)
+	fs.EnsureDir(wsGood)
+	fs.Write(core.JoinPath(wsGood, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"}))
 
 	c := core.New()
 	s := &PrepSubsystem{
@@ -130,9 +127,8 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 		{"ws-run", "running"},
 	} {
 		d := core.JoinPath(wsRoot, ws.name)
-		os.MkdirAll(d, 0o755)
-		data, _ := json.Marshal(WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"})
-		os.WriteFile(core.JoinPath(d, "status.json"), data, 0o644)
+		fs.EnsureDir(d)
+		fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"}))
 	}
 
 	c := core.New()
@@ -148,8 +144,7 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 	// All workspaces should still exist
 	for _, name := range []string{"ws-done", "ws-fail", "ws-run"} {
-		_, err := os.Stat(core.JoinPath(wsRoot, name))
-		assert.NoError(t, err, "workspace %s should still exist", name)
+		assert.True(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
 	}
 }
 
@@ -167,9 +162,8 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 		{"ws-blocked", "blocked"},
 	} {
 		d := core.JoinPath(wsRoot, ws.name)
-		os.MkdirAll(d, 0o755)
-		data, _ := json.Marshal(WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"})
-		os.WriteFile(core.JoinPath(d, "status.json"), data, 0o644)
+		fs.EnsureDir(d)
+		fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: ws.status, Repo: "test", Agent: "codex"}))
 	}
 
 	c := core.New()
@@ -185,13 +179,11 @@ func TestCommandsWorkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 	// merged, ready-for-review, blocked should be removed
 	for _, name := range []string{"ws-merged", "ws-review", "ws-blocked"} {
-		_, err := os.Stat(core.JoinPath(wsRoot, name))
-		assert.True(t, os.IsNotExist(err), "workspace %s should be removed", name)
+		assert.False(t, fs.Exists(core.JoinPath(wsRoot, name)), "workspace %s should be removed", name)
 	}
 	// running and queued should remain
 	for _, name := range []string{"ws-running", "ws-queued"} {
-		_, err := os.Stat(core.JoinPath(wsRoot, name))
-		assert.NoError(t, err, "workspace %s should still exist", name)
+		assert.True(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
 	}
 }
 
