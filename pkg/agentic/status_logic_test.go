@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -33,9 +32,7 @@ func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 		Runs:      2,
 		PRURL:     "",
 	}
-	data, err := json.MarshalIndent(original, "", "  ")
-	require.NoError(t, err)
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), string(data)).OK)
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(original)).OK)
 
 	st, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -140,11 +137,10 @@ func TestWorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
 		PRURL:     "https://forge.lthn.ai/core/agent/pulls/10",
 	}
 
-	data, err := json.Marshal(original)
-	require.NoError(t, err)
+	jsonStr := core.JSONMarshalString(original)
 
 	var decoded WorkspaceStatus
-	require.NoError(t, json.Unmarshal(data, &decoded))
+	require.True(t, core.JSONUnmarshalString(jsonStr, &decoded).OK)
 
 	assert.Equal(t, original.Status, decoded.Status)
 	assert.Equal(t, original.Agent, decoded.Agent)
@@ -162,11 +158,8 @@ func TestWorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
 func TestWorkspaceStatus_Good_OmitemptyFields(t *testing.T) {
 	st := WorkspaceStatus{Status: "queued", Agent: "claude"}
 
-	data, err := json.Marshal(st)
-	require.NoError(t, err)
-
 	// Optional fields with omitempty must be absent when zero
-	jsonStr := string(data)
+	jsonStr := core.JSONMarshalString(st)
 	assert.NotContains(t, jsonStr, `"org"`)
 	assert.NotContains(t, jsonStr, `"branch"`)
 	assert.NotContains(t, jsonStr, `"question"`)
