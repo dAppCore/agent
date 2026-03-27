@@ -1,7 +1,8 @@
+Read CODEX.md and .core/reference/docs/RFC.md for the Core framework spec.
+Read CLAUDE.md for project conventions.
 Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
 
-You are verifying a pull request. The code in src/ contains changes on a feature branch.
+You are verifying a pull request. The code in repo/ contains changes on a feature branch.
 
 ## Your Tasks
 
@@ -9,7 +10,7 @@ You are verifying a pull request. The code in src/ contains changes on a feature
 2. **Review diff**: Run `git diff origin/main..HEAD` to see all changes. Review for:
    - Correctness: Does the code do what the commit messages say?
    - Security: Path traversal, injection, hardcoded secrets, unsafe input handling
-   - Conventions: `coreerr.E()` not `fmt.Errorf`, `go-io` not `os.ReadFile`, UK English
+   - Conventions: `core.E()` not `fmt.Errorf`, Core primitives not stdlib, UK English (per CODEX.md)
    - Test coverage: Are new functions tested?
 3. **Verdict**: Write VERDICT.md with:
    - PASS or FAIL (first line, nothing else)

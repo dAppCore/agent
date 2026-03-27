@@ -1,12 +1,15 @@
-Read PERSONA.md if it exists — adopt that identity and approach.
-Read CLAUDE.md for project conventions and context.
-Read TODO.md for your task.
-Read PLAN.md if it exists — work through each phase in order.
-Read CONTEXT.md for relevant knowledge from previous sessions.
-Read CONSUMERS.md to understand breaking change risk.
-Read RECENT.md for recent changes.
+Read these files in order — they are your spec:
+1. CODEX.md — mandatory patterns, banned imports, Core primitives (READ FIRST)
+2. .core/reference/docs/RFC.md — full Core API contract (the authoritative spec)
+3. CLAUDE.md — project-specific conventions and context
+4. TODO.md — your task
+5. PLAN.md if it exists — work through each phase in order
+6. PERSONA.md if it exists — adopt that identity and approach
+7. CONTEXT.md — relevant knowledge from previous sessions
+8. CONSUMERS.md — breaking change risk
+9. RECENT.md — recent changes
 
-Work in the src/ directory. Follow the conventions in CLAUDE.md.
+Work in the repo/ directory. Follow CODEX.md and the RFC spec.
 
 ## SANDBOX BOUNDARY (HARD LIMIT)
 
