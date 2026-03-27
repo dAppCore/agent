@@ -238,6 +238,20 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 	return nil
 }
 
+// WorkspaceFile reads a single file from a workspace template.
+// Returns the file content as a string.
+//
+//	r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl")
+//	if r.OK { content := r.Value.(string) }
+func WorkspaceFile(tmplName, filename string) core.Result {
+	r := workspaceFS.Sub(tmplName)
+	if !r.OK {
+		return r
+	}
+	embed := r.Value.(*core.Embed)
+	return embed.ReadString(filename)
+}
+
 // --- List Functions ---
 
 // ListPrompts returns available system prompt slugs.

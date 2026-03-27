@@ -466,6 +466,16 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		out.Branch = s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	}
 
+	// Overwrite CODEX.md with language-specific version if needed.
+	// The default template is Go-focused. PHP repos get CODEX-PHP.md instead.
+	lang := detectLanguage(repoPath)
+	if lang == "php" {
+		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
+			codexPath := core.JoinPath(wsDir, "CODEX.md")
+			fs.Write(codexPath, r.Value.(string))
+		}
+	}
+
 	// Clone workspace dependencies — Core modules needed to build the repo.
 	// Reads go.mod, finds dappco.re/go/core/* imports, clones from Forge,
 	// and updates go.work so the agent can build inside the workspace.
