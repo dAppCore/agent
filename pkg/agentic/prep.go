@@ -471,6 +471,16 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// and updates go.work so the agent can build inside the workspace.
 	s.cloneWorkspaceDeps(ctx, wsDir, repoDir, input.Org)
 
+	// Clone ecosystem docs into .core/reference/ so agents have full documentation.
+	// The docs site (core.help) has architecture guides, specs, and API references.
+	docsDir := core.JoinPath(wsDir, ".core", "reference", "docs")
+	if !fs.IsDir(docsDir) {
+		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
+		if fs.IsDir(core.JoinPath(docsRepo, ".git")) {
+			s.gitCmd(ctx, ".", "clone", "--depth", "1", docsRepo, docsDir)
+		}
+	}
+
 	// Build the rich prompt with all context
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 
