@@ -5,5 +5,3 @@
 node_modules/
 bin/
 dist/
-core-agent
-core-agent-*
