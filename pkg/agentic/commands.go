@@ -13,21 +13,32 @@ import (
 
 // registerCommands adds agentic CLI commands to Core's command tree.
 func (s *PrepSubsystem) registerCommands(ctx context.Context) {
+	s.commandCtx = ctx
 	c := s.Core()
-	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTaskFactory(ctx)})
-	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestratorFactory(ctx)})
+	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
+	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 }
 
-// cmdRunTaskFactory returns the run/task action closure (needs ctx for DispatchSync).
-func (s *PrepSubsystem) cmdRunTaskFactory(ctx context.Context) func(core.Options) core.Result {
-	return func(opts core.Options) core.Result { return s.cmdRunTask(ctx, opts) }
+// commandContext returns the startup context captured during command registration.
+//
+//	ctx := s.commandContext()
+//	_ = ctx.Err()
+func (s *PrepSubsystem) commandContext() context.Context {
+	if s.commandCtx != nil {
+		return s.commandCtx
+	}
+	return context.Background()
 }
 
-func (s *PrepSubsystem) cmdRunTask(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) cmdRunTask(opts core.Options) core.Result {
+	return s.runTask(s.commandContext(), opts)
+}
+
+func (s *PrepSubsystem) runTask(ctx context.Context, opts core.Options) core.Result {
 	repo := opts.String("repo")
 	agent := opts.String("agent")
 	task := opts.String("task")
@@ -72,12 +83,8 @@ func (s *PrepSubsystem) cmdRunTask(ctx context.Context, opts core.Options) core.
 	return core.Result{OK: true}
 }
 
-// cmdOrchestratorFactory returns the orchestrator action closure (needs ctx for blocking).
-func (s *PrepSubsystem) cmdOrchestratorFactory(ctx context.Context) func(core.Options) core.Result {
-	return func(opts core.Options) core.Result { return s.cmdOrchestrator(ctx, opts) }
-}
-
-func (s *PrepSubsystem) cmdOrchestrator(ctx context.Context, _ core.Options) core.Result {
+func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
+	ctx := s.commandContext()
 	core.Print(nil, "core-agent orchestrator running (pid %s)", core.Env("PID"))
 	core.Print(nil, "  workspace: %s", WorkspaceRoot())
 	core.Print(nil, "  watching queue, draining on 30s tick + completion poke")

@@ -640,7 +640,8 @@ func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := s.cmdRunTask(ctx, core.NewOptions())
+	s.commandCtx = ctx
+	r := s.cmdRunTask(core.NewOptions())
 	assert.False(t, r.OK)
 }
 
@@ -648,7 +649,8 @@ func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := s.cmdRunTask(ctx, core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
+	s.commandCtx = ctx
+	r := s.cmdRunTask(core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
 	assert.False(t, r.OK)
 }
 
@@ -656,7 +658,8 @@ func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	s.commandCtx = ctx
+	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK)
 }
 
@@ -719,7 +722,8 @@ func TestCommands_CmdOrchestrator_Bad_DoneContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-1*time.Second))
 	defer cancel()
-	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	s.commandCtx = ctx
+	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK) // returns OK after ctx.Done()
 }
 
@@ -727,7 +731,8 @@ func TestCommands_CmdOrchestrator_Ugly_CancelledImmediately(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	r := s.cmdOrchestrator(ctx, core.NewOptions())
+	s.commandCtx = ctx
+	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK) // exits immediately when context is already cancelled
 }
 
@@ -770,8 +775,9 @@ func TestCommands_CmdRunTask_Good_DefaultsApplied(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	s.commandCtx = ctx
 	// Provide repo + task but omit agent + org — tests that defaults (codex, core) are applied
-	r := s.cmdRunTask(ctx, core.NewOptions(
+	r := s.cmdRunTask(core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 		core.Option{Key: "task", Value: "run all tests"},
 	))
@@ -783,7 +789,8 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	r := s.cmdRunTask(ctx, core.NewOptions(
+	s.commandCtx = ctx
+	r := s.cmdRunTask(core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 		core.Option{Key: "task", Value: "fix it"},
 		core.Option{Key: "issue", Value: "issue-42abc"},
@@ -792,65 +799,28 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-// --- CmdRunTaskFactory Good/Bad/Ugly ---
+// --- CommandContext Good/Bad/Ugly ---
 
-func TestCommands_CmdRunTaskFactory_Good(t *testing.T) {
+func TestCommands_CommandContext_Good_StoredStartupContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	fn := s.cmdRunTaskFactory(ctx)
-	assert.NotNil(t, fn, "factory should return a non-nil func")
+	s.registerCommands(ctx)
+	assert.Same(t, ctx, s.commandContext())
 }
 
-func TestCommands_CmdRunTaskFactory_Bad(t *testing.T) {
+func TestCommands_CommandContext_Bad_FallsBackToBackground(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // cancelled ctx
-
-	fn := s.cmdRunTaskFactory(ctx)
-	assert.NotNil(t, fn, "factory should return a func even with cancelled ctx")
+	assert.NotNil(t, s.commandContext())
+	assert.NoError(t, s.commandContext().Err())
 }
 
-func TestCommands_CmdRunTaskFactory_Ugly(t *testing.T) {
-	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	fn := s.cmdRunTaskFactory(ctx)
-	// Call with empty options — should fail gracefully (missing repo+task)
-	r := fn(core.NewOptions())
-	assert.False(t, r.OK)
-}
-
-// --- CmdOrchestratorFactory Good/Bad/Ugly ---
-
-func TestCommands_CmdOrchestratorFactory_Good(t *testing.T) {
-	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	fn := s.cmdOrchestratorFactory(ctx)
-	assert.NotNil(t, fn, "factory should return a non-nil func")
-}
-
-func TestCommands_CmdOrchestratorFactory_Bad(t *testing.T) {
-	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // cancelled ctx
-
-	fn := s.cmdOrchestratorFactory(ctx)
-	assert.NotNil(t, fn, "factory should return a func even with cancelled ctx")
-}
-
-func TestCommands_CmdOrchestratorFactory_Ugly(t *testing.T) {
+func TestCommands_CommandContext_Ugly_CancelledStartupContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // pre-cancelled
-
-	fn := s.cmdOrchestratorFactory(ctx)
-	// Calling the factory result with a cancelled ctx should return OK (exits immediately)
-	r := fn(core.NewOptions())
+	s.commandCtx = ctx
+	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK)
 }
 
