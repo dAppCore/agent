@@ -19,6 +19,8 @@ import (
 )
 
 // Options configures the runner service.
+//
+//	opts := runner.Options{}
 type Options struct{}
 
 // Service is the agent dispatch runner.
@@ -106,15 +108,22 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 }
 
 // OnShutdown freezes the queue.
+//
+//	r := svc.OnShutdown(context.Background())
+//	if r.OK {
+//		core.Println(svc.IsFrozen())
+//	}
 func (s *Service) OnShutdown(_ context.Context) core.Result {
 	s.frozen = true
 	return core.Result{OK: true}
 }
 
-// HandleIPCEvents catches agent lifecycle events from other services.
+// HandleIPCEvents applies runner side-effects for IPC messages.
 //
-//	AgentCompleted → push channel notification + poke queue
-//	PokeQueue → drain queue
+//	svc.HandleIPCEvents(c, messages.PokeQueue{})
+//	svc.HandleIPCEvents(c, messages.AgentCompleted{
+//		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed",
+//	})
 func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentStarted:
@@ -396,9 +405,14 @@ func (s *Service) hydrateWorkspaces() {
 
 // --- Types ---
 
-// AgentNotification is the channel push payload for agent status updates.
-// Field order is guaranteed by json tags — status and repo appear first
-// so truncated notifications are still readable.
+// AgentNotification is the channel payload sent on `agent.status`.
+//
+//	n := runner.AgentNotification{
+//		Status: "started", Repo: "go-io", Agent: "codex", Workspace: "core/go-io/task-5", Running: 1, Limit: 2,
+//	}
+//
+// Field order is guaranteed by json tags so truncated notifications still show
+// status and repo first.
 type AgentNotification struct {
 	Status    string `json:"status"`
 	Repo      string `json:"repo"`

@@ -79,6 +79,8 @@ func resultString(r core.Result) (string, bool) {
 }
 
 // MonitorOptions configures the monitor service.
+//
+//	opts := monitor.MonitorOptions{}
 type MonitorOptions struct{}
 
 // Subsystem implements mcp.Subsystem for background monitoring.
@@ -134,7 +136,8 @@ func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
 
 // Options configures the monitor interval.
 //
-//	monitor.New(monitor.Options{Interval: 30 * time.Second})
+//	opts := monitor.Options{Interval: 30 * time.Second}
+//	mon := monitor.New(opts)
 type Options struct {
 	// Interval between checks (default: 2 minutes)
 	Interval time.Duration
@@ -203,13 +206,19 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
-// OnStartup implements core.Startable — starts the monitoring loop.
+// OnStartup starts the monitoring loop for a registered service.
+//
+//	r := mon.OnStartup(context.Background())
+//	core.Println(r.OK)
 func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 	m.Start(ctx)
 	return core.Result{OK: true}
 }
 
-// OnShutdown implements core.Stoppable — stops the monitoring loop.
+// OnShutdown stops the monitoring loop through the Core lifecycle hook.
+//
+//	r := mon.OnShutdown(context.Background())
+//	core.Println(r.OK)
 func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
 	_ = m.Shutdown(ctx)
 	return core.Result{OK: true}
@@ -226,7 +235,9 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// Poke triggers an immediate check cycle (legacy — prefer AgentStarted/AgentCompleted).
+// Poke triggers an immediate check cycle.
+//
+//	mon.Poke()
 func (m *Subsystem) Poke() {
 	select {
 	case m.poke <- struct{}{}:

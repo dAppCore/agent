@@ -556,7 +556,7 @@ func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 
 // --- shutdownNow (Ugly — deep layout with queued status) ---
 
-func TestPrep_Shutdown_ShutdownNow_Ugly(t *testing.T) {
+func TestShutdown_ShutdownNow_Ugly_DeepLayout(t *testing.T) {
 	// shutdownNow delegates to runner.kill Action — queue clearing is now
 	// handled by the runner service. Verify delegation with deep-layout workspaces.
 	root := t.TempDir()
