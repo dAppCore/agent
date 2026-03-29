@@ -9,7 +9,8 @@ import (
 
 // Options controls one setup run.
 //
-//	err := svc.Run(setup.Options{Path: ".", Template: "auto", Force: true})
+//	r := svc.Run(setup.Options{Path: ".", Template: "auto", Force: true})
+//	if !r.OK { core.Print(nil, "%v", r.Value) }
 type Options struct {
 	Path     string // Target directory (default: cwd)
 	DryRun   bool   // Preview only, don't write
@@ -19,8 +20,9 @@ type Options struct {
 
 // Run generates `.core/` files and optional workspace scaffolding for a repo.
 //
-//	err := svc.Run(setup.Options{Path: ".", Template: "auto"})
-func (s *Service) Run(opts Options) error {
+//	r := svc.Run(setup.Options{Path: ".", Template: "auto"})
+//	core.Println(r.OK)
+func (s *Service) Run(opts Options) core.Result {
 	if opts.Path == "" {
 		opts.Path = core.Env("DIR_CWD")
 	}
@@ -37,19 +39,22 @@ func (s *Service) Run(opts Options) error {
 
 	var tmplName string
 	if opts.Template != "" {
-		var err error
-		tmplName, err = resolveTemplateName(opts.Template, projType)
-		if err != nil {
-			return err
+		templateResult := resolveTemplateName(opts.Template, projType)
+		if !templateResult.OK {
+			return templateResult
 		}
+		tmplName = templateResult.Value.(string)
 		if !templateExists(tmplName) {
-			return core.E("setup.Run", core.Concat("template not found: ", tmplName), nil)
+			return core.Result{
+				Value: core.E("setup.Run", core.Concat("template not found: ", tmplName), nil),
+				OK:    false,
+			}
 		}
 	}
 
 	// Generate .core/ config files
-	if err := setupCoreDir(opts, projType); err != nil {
-		return err
+	if result := setupCoreDir(opts, projType); !result.OK {
+		return result
 	}
 
 	// Scaffold from dir template if requested
@@ -57,11 +62,11 @@ func (s *Service) Run(opts Options) error {
 		return s.scaffoldTemplate(opts, projType, tmplName)
 	}
 
-	return nil
+	return core.Result{Value: opts.Path, OK: true}
 }
 
 // setupCoreDir creates .core/ with build.yaml and test.yaml.
-func setupCoreDir(opts Options, projType ProjectType) error {
+func setupCoreDir(opts Options, projType ProjectType) core.Result {
 	coreDir := core.JoinPath(opts.Path, ".core")
 
 	if opts.DryRun {
@@ -70,33 +75,44 @@ func setupCoreDir(opts Options, projType ProjectType) error {
 	} else {
 		if r := fs.EnsureDir(coreDir); !r.OK {
 			err, _ := r.Value.(error)
-			return core.E("setup.setupCoreDir", "create .core directory", err)
+			return core.Result{
+				Value: core.E("setup.setupCoreDir", "create .core directory", err),
+				OK:    false,
+			}
 		}
 	}
 
 	// build.yaml
-	buildConfig, err := GenerateBuildConfig(opts.Path, projType)
-	if err != nil {
-		return core.E("setup.setupCoreDir", "generate build config", err)
+	buildConfig := GenerateBuildConfig(opts.Path, projType)
+	if !buildConfig.OK {
+		err, _ := buildConfig.Value.(error)
+		return core.Result{
+			Value: core.E("setup.setupCoreDir", "generate build config", err),
+			OK:    false,
+		}
 	}
-	if err := writeConfig(core.JoinPath(coreDir, "build.yaml"), buildConfig, opts); err != nil {
-		return err
+	if result := writeConfig(core.JoinPath(coreDir, "build.yaml"), buildConfig.Value.(string), opts); !result.OK {
+		return result
 	}
 
 	// test.yaml
-	testConfig, err := GenerateTestConfig(projType)
-	if err != nil {
-		return core.E("setup.setupCoreDir", "generate test config", err)
+	testConfig := GenerateTestConfig(projType)
+	if !testConfig.OK {
+		err, _ := testConfig.Value.(error)
+		return core.Result{
+			Value: core.E("setup.setupCoreDir", "generate test config", err),
+			OK:    false,
+		}
 	}
-	if err := writeConfig(core.JoinPath(coreDir, "test.yaml"), testConfig, opts); err != nil {
-		return err
+	if result := writeConfig(core.JoinPath(coreDir, "test.yaml"), testConfig.Value.(string), opts); !result.OK {
+		return result
 	}
 
-	return nil
+	return core.Result{Value: coreDir, OK: true}
 }
 
 // scaffoldTemplate extracts a dir template into the target path.
-func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName string) error {
+func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName string) core.Result {
 	core.Print(nil, "Template: %s", tmplName)
 
 	data := &lib.WorkspaceData{
@@ -115,53 +131,62 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName 
 	if opts.DryRun {
 		core.Print(nil, "Would extract workspace/%s to %s", tmplName, opts.Path)
 		core.Print(nil, "  Template found: %s", tmplName)
-		return nil
+		return core.Result{Value: opts.Path, OK: true}
 	}
 
 	if err := lib.ExtractWorkspace(tmplName, opts.Path, data); err != nil {
-		return core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err)
+		return core.Result{
+			Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err),
+			OK:    false,
+		}
 	}
-	return nil
+	return core.Result{Value: opts.Path, OK: true}
 }
 
-func writeConfig(path, content string, opts Options) error {
+func writeConfig(path, content string, opts Options) core.Result {
 	if opts.DryRun {
 		core.Print(nil, "  %s", path)
-		return nil
+		return core.Result{Value: path, OK: true}
 	}
 
 	if !opts.Force && fs.Exists(path) {
 		core.Print(nil, "  skip %s (exists, use --force to overwrite)", core.PathBase(path))
-		return nil
+		return core.Result{Value: path, OK: true}
 	}
 
 	if r := fs.WriteMode(path, content, 0644); !r.OK {
 		err, _ := r.Value.(error)
-		return core.E("setup.writeConfig", core.Concat("write ", core.PathBase(path)), err)
+		return core.Result{
+			Value: core.E("setup.writeConfig", core.Concat("write ", core.PathBase(path)), err),
+			OK:    false,
+		}
 	}
 	core.Print(nil, "  created %s", path)
-	return nil
+	return core.Result{Value: path, OK: true}
 }
 
-func resolveTemplateName(name string, projType ProjectType) (string, error) {
+func resolveTemplateName(name string, projType ProjectType) core.Result {
 	if name == "" {
-		return "", core.E("setup.resolveTemplateName", "template is required", nil)
+		return core.Result{
+			Value: core.E("setup.resolveTemplateName", "template is required", nil),
+			OK:    false,
+		}
 	}
 
 	if name == "auto" {
 		switch projType {
 		case TypeGo, TypeWails, TypePHP, TypeNode, TypeUnknown:
-			return "default", nil
+			return core.Result{Value: "default", OK: true}
 		}
 	}
 
 	switch name {
 	case "agent", "go", "php", "gui":
-		return "default", nil
+		return core.Result{Value: "default", OK: true}
 	case "verify", "conventions":
-		return "review", nil
+		return core.Result{Value: "review", OK: true}
 	default:
-		return name, nil
+		return core.Result{Value: name, OK: true}
 	}
 }
 

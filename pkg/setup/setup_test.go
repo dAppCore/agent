@@ -19,8 +19,8 @@ func TestSetup_Run_Good_WritesCoreConfigs(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := newSetupService().Run(Options{Path: dir})
-	require.NoError(t, err)
+	result := newSetupService().Run(Options{Path: dir})
+	require.True(t, result.OK)
 
 	build := fs.Read(core.JoinPath(dir, ".core", "build.yaml"))
 	require.True(t, build.OK)
@@ -35,8 +35,8 @@ func TestSetup_Run_Good_TemplateAlias(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := newSetupService().Run(Options{Path: dir, Template: "agent"})
-	require.NoError(t, err)
+	result := newSetupService().Run(Options{Path: dir, Template: "agent"})
+	require.True(t, result.OK)
 
 	prompt := fs.Read(core.JoinPath(dir, "PROMPT.md"))
 	require.True(t, prompt.OK)
@@ -47,8 +47,9 @@ func TestSetup_Run_Bad_MissingTemplateDoesNotWrite(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := newSetupService().Run(Options{Path: dir, Template: "missing-template"})
-	require.Error(t, err)
+	result := newSetupService().Run(Options{Path: dir, Template: "missing-template"})
+	require.False(t, result.OK)
+	require.Error(t, result.Value.(error))
 	assert.False(t, fs.Exists(core.JoinPath(dir, ".core")))
 }
 
@@ -56,27 +57,28 @@ func TestSetup_Run_Ugly_DryRunDoesNotWrite(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
-	err := newSetupService().Run(Options{Path: dir, Template: "agent", DryRun: true})
-	require.NoError(t, err)
+	result := newSetupService().Run(Options{Path: dir, Template: "agent", DryRun: true})
+	require.True(t, result.OK)
 	assert.False(t, fs.Exists(core.JoinPath(dir, ".core")))
 	assert.False(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
 }
 
 func TestSetup_ResolveTemplateName_Good_Auto(t *testing.T) {
-	name, err := resolveTemplateName("auto", TypeGo)
-	require.NoError(t, err)
-	assert.Equal(t, "default", name)
+	name := resolveTemplateName("auto", TypeGo)
+	require.True(t, name.OK)
+	assert.Equal(t, "default", name.Value.(string))
 }
 
 func TestSetup_ResolveTemplateName_Bad_Empty(t *testing.T) {
-	_, err := resolveTemplateName("", TypeGo)
-	require.Error(t, err)
+	result := resolveTemplateName("", TypeGo)
+	require.False(t, result.OK)
+	require.Error(t, result.Value.(error))
 }
 
 func TestSetup_ResolveTemplateName_Ugly_ConventionsAlias(t *testing.T) {
-	name, err := resolveTemplateName("conventions", TypeGo)
-	require.NoError(t, err)
-	assert.Equal(t, "review", name)
+	name := resolveTemplateName("conventions", TypeGo)
+	require.True(t, name.OK)
+	assert.Equal(t, "review", name.Value.(string))
 }
 
 func TestSetup_TemplateExists_Good_Default(t *testing.T) {

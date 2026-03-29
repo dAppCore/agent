@@ -10,18 +10,18 @@ func ExampleGenerateBuildConfig() {
 	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
-	config, err := GenerateBuildConfig(dir, TypeGo)
-	core.Println(err == nil)
-	core.Println(core.Contains(config, "type: go"))
+	config := GenerateBuildConfig(dir, TypeGo)
+	core.Println(config.OK)
+	core.Println(core.Contains(config.Value.(string), "type: go"))
 	// Output:
 	// true
 	// true
 }
 
 func ExampleGenerateTestConfig() {
-	config, err := GenerateTestConfig(TypeGo)
-	core.Println(err == nil)
-	core.Println(core.Contains(config, "go test"))
+	config := GenerateTestConfig(TypeGo)
+	core.Println(config.OK)
+	core.Println(core.Contains(config.Value.(string), "go test"))
 	// Output:
 	// true
 	// true

@@ -50,8 +50,9 @@ type configValue struct {
 
 // GenerateBuildConfig renders `build.yaml` content for a detected repo type.
 //
-//	content, err := setup.GenerateBuildConfig("/srv/repos/agent", setup.TypeGo)
-func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
+//	r := setup.GenerateBuildConfig("/srv/repos/agent", setup.TypeGo)
+//	if r.OK { content := r.Value.(string) }
+func GenerateBuildConfig(path string, projType ProjectType) core.Result {
 	name := core.PathBase(path)
 	sections := []configSection{
 		{
@@ -96,8 +97,9 @@ func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
 
 // GenerateTestConfig renders `test.yaml` content for a detected repo type.
 //
-//	content, err := setup.GenerateTestConfig(setup.TypeGo)
-func GenerateTestConfig(projType ProjectType) (string, error) {
+//	r := setup.GenerateTestConfig(setup.TypeGo)
+//	if r.OK { content := r.Value.(string) }
+func GenerateTestConfig(projType ProjectType) core.Result {
 	var sections []configSection
 
 	switch projType {
@@ -137,7 +139,7 @@ func GenerateTestConfig(projType ProjectType) (string, error) {
 	return renderConfig("Test configuration", sections)
 }
 
-func renderConfig(comment string, sections []configSection) (string, error) {
+func renderConfig(comment string, sections []configSection) core.Result {
 	builder := core.NewBuilder()
 
 	if comment != "" {
@@ -151,15 +153,19 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 		builder.WriteString(":\n")
 
 		for _, value := range section.Values {
-			scalar, err := marshalConfigValue(value.Value)
-			if err != nil {
-				return "", core.E("setup.renderConfig", core.Concat("marshal ", section.Key, ".", value.Key), err)
+			scalar := marshalConfigValue(value.Value)
+			if !scalar.OK {
+				err, _ := scalar.Value.(error)
+				return core.Result{
+					Value: core.E("setup.renderConfig", core.Concat("marshal ", section.Key, ".", value.Key), err),
+					OK:    false,
+				}
 			}
 
 			builder.WriteString("  ")
 			builder.WriteString(value.Key)
 			builder.WriteString(": ")
-			builder.WriteString(scalar)
+			builder.WriteString(scalar.Value.(string))
 			builder.WriteString("\n")
 		}
 
@@ -168,21 +174,27 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 		}
 	}
 
-	return builder.String(), nil
+	return core.Result{Value: builder.String(), OK: true}
 }
 
-func marshalConfigValue(value any) (scalar string, err error) {
+func marshalConfigValue(value any) (result core.Result) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			err = core.E("setup.marshalConfigValue", core.Sprint(recovered), nil)
+			result = core.Result{
+				Value: core.E("setup.marshalConfigValue", core.Sprint(recovered), nil),
+				OK:    false,
+			}
 		}
 	}()
 
 	data, err := yaml.Marshal(value)
 	if err != nil {
-		return "", err
+		return core.Result{
+			Value: core.E("setup.marshalConfigValue", "yaml marshal value", err),
+			OK:    false,
+		}
 	}
-	return core.Trim(string(data)), nil
+	return core.Result{Value: core.Trim(string(data)), OK: true}
 }
 
 func parseGitRemote(remote string) string {

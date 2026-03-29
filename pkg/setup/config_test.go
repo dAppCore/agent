@@ -10,47 +10,51 @@ import (
 )
 
 func TestConfig_GenerateBuildConfig_Good_Go(t *testing.T) {
-	config, err := GenerateBuildConfig("/tmp/myapp", TypeGo)
-	require.NoError(t, err)
-	assert.Contains(t, config, "# myapp build configuration")
-	assert.Contains(t, config, "type: go")
-	assert.Contains(t, config, "name: myapp")
-	assert.Contains(t, config, "main: ./cmd/myapp")
-	assert.Contains(t, config, "cgo: false")
+	config := GenerateBuildConfig("/tmp/myapp", TypeGo)
+	require.True(t, config.OK)
+	text := config.Value.(string)
+	assert.Contains(t, text, "# myapp build configuration")
+	assert.Contains(t, text, "type: go")
+	assert.Contains(t, text, "name: myapp")
+	assert.Contains(t, text, "main: ./cmd/myapp")
+	assert.Contains(t, text, "cgo: false")
 }
 
 func TestConfig_GenerateBuildConfig_Bad_Unknown(t *testing.T) {
-	config, err := GenerateBuildConfig("/tmp/myapp", TypeUnknown)
-	require.NoError(t, err)
-	assert.NotEmpty(t, config)
+	config := GenerateBuildConfig("/tmp/myapp", TypeUnknown)
+	require.True(t, config.OK)
+	assert.NotEmpty(t, config.Value.(string))
 }
 
 func TestConfig_GenerateBuildConfig_Ugly_WailsNestedPath(t *testing.T) {
-	config, err := GenerateBuildConfig("/tmp/workspaces/team-console", TypeWails)
-	require.NoError(t, err)
-	assert.Contains(t, config, "name: team-console")
-	assert.Contains(t, config, "type: wails")
-	assert.Contains(t, config, "main: ./cmd/team-console")
+	config := GenerateBuildConfig("/tmp/workspaces/team-console", TypeWails)
+	require.True(t, config.OK)
+	text := config.Value.(string)
+	assert.Contains(t, text, "name: team-console")
+	assert.Contains(t, text, "type: wails")
+	assert.Contains(t, text, "main: ./cmd/team-console")
 }
 
 func TestConfig_GenerateTestConfig_Good_Go(t *testing.T) {
-	config, err := GenerateTestConfig(TypeGo)
-	require.NoError(t, err)
-	assert.Contains(t, config, "go test")
+	config := GenerateTestConfig(TypeGo)
+	require.True(t, config.OK)
+	assert.Contains(t, config.Value.(string), "go test")
 }
 
 func TestConfig_GenerateTestConfig_Bad_Unknown(t *testing.T) {
-	config, err := GenerateTestConfig(TypeUnknown)
-	require.NoError(t, err)
-	assert.Contains(t, config, "# Test configuration")
-	assert.NotContains(t, config, "commands:")
+	config := GenerateTestConfig(TypeUnknown)
+	require.True(t, config.OK)
+	text := config.Value.(string)
+	assert.Contains(t, text, "# Test configuration")
+	assert.NotContains(t, text, "commands:")
 }
 
 func TestConfig_GenerateTestConfig_Ugly_WailsUsesGoSuite(t *testing.T) {
-	config, err := GenerateTestConfig(TypeWails)
-	require.NoError(t, err)
-	assert.Contains(t, config, "go test ./...")
-	assert.Contains(t, config, "go test -race ./...")
+	config := GenerateTestConfig(TypeWails)
+	require.True(t, config.OK)
+	text := config.Value.(string)
+	assert.Contains(t, text, "go test ./...")
+	assert.Contains(t, text, "go test -race ./...")
 }
 
 func TestConfig_ParseGitRemote_Good_CommonFormats(t *testing.T) {
@@ -94,22 +98,22 @@ func TestConfig_RenderConfig_Good_SingleSection(t *testing.T) {
 	sections := []configSection{
 		{Key: "project", Values: []configValue{{Key: "name", Value: "test"}}},
 	}
-	result, err := renderConfig("Test", sections)
-	assert.NoError(t, err)
-	assert.Contains(t, result, "name: test")
+	result := renderConfig("Test", sections)
+	require.True(t, result.OK)
+	assert.Contains(t, result.Value.(string), "name: test")
 }
 
 func TestConfig_RenderConfig_Bad_UnsupportedValue(t *testing.T) {
 	sections := []configSection{
 		{Key: "project", Values: []configValue{{Key: "name", Value: func() {}}}},
 	}
-	result, err := renderConfig("Test", sections)
-	assert.Error(t, err)
-	assert.Empty(t, result)
+	result := renderConfig("Test", sections)
+	assert.False(t, result.OK)
+	assert.Error(t, result.Value.(error))
 }
 
 func TestConfig_RenderConfig_Ugly_EmptySections(t *testing.T) {
-	result, err := renderConfig("", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "", result)
+	result := renderConfig("", nil)
+	require.True(t, result.OK)
+	assert.Equal(t, "", result.Value.(string))
 }
