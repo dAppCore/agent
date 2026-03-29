@@ -4,6 +4,7 @@ package monitor
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -225,6 +226,112 @@ func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 	assert.Equal(t, "test-repo", captured[0].Repo)
 	assert.Equal(t, "agent/test-task", captured[0].Branch)
 	assert.Equal(t, 1, captured[0].Files)
+}
+
+func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+
+	for i := 0; i < 2; i++ {
+		name := fmt.Sprintf("ws-%d", i)
+		wsDir := core.JoinPath(wsRoot, "workspace", name)
+
+		sourceDir := core.JoinPath(wsRoot, fmt.Sprintf("source-%d", i))
+		fs.EnsureDir(sourceDir)
+		run(t, sourceDir, "git", "init")
+		run(t, sourceDir, "git", "checkout", "-b", "main")
+		fs.Write(core.JoinPath(sourceDir, "README.md"), "# test")
+		run(t, sourceDir, "git", "add", ".")
+		run(t, sourceDir, "git", "commit", "-m", "init")
+
+		fs.EnsureDir(wsDir)
+		run(t, wsDir, "git", "clone", sourceDir, "repo")
+		repoDir := core.JoinPath(wsDir, "repo")
+		run(t, repoDir, "git", "checkout", "-b", "agent/test-task")
+		fs.Write(core.JoinPath(repoDir, "new.go"), "package main\n")
+		run(t, repoDir, "git", "add", ".")
+		run(t, repoDir, "git", "commit", "-m", "agent work")
+
+		writeStatus(t, wsDir, "completed", fmt.Sprintf("repo-%d", i), "agent/test-task")
+	}
+
+	var harvests []messages.HarvestComplete
+	c := core.New(core.WithService(agentic.ProcessRegister))
+	c.ServiceStartup(context.Background(), nil)
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.HarvestComplete); ok {
+			harvests = append(harvests, ev)
+		}
+		return core.Result{OK: true}
+	})
+
+	mon := New()
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+
+	msg := mon.harvestCompleted()
+	assert.Contains(t, msg, "Harvested:")
+	assert.Contains(t, msg, "repo-0")
+	assert.Contains(t, msg, "repo-1")
+
+	assert.GreaterOrEqual(t, len(harvests), 2)
+}
+
+func TestHarvest_HarvestCompleted_Good_Empty(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+	msg := mon.harvestCompleted()
+	assert.Equal(t, "", msg)
+}
+
+func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+
+	sourceDir := core.JoinPath(wsRoot, "source-rej")
+	fs.EnsureDir(sourceDir)
+	run(t, sourceDir, "git", "init")
+	run(t, sourceDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(sourceDir, "README.md"), "# test")
+	run(t, sourceDir, "git", "add", ".")
+	run(t, sourceDir, "git", "commit", "-m", "init")
+
+	wsDir := core.JoinPath(wsRoot, "workspace", "ws-rej")
+	fs.EnsureDir(wsDir)
+	run(t, wsDir, "git", "clone", sourceDir, "repo")
+	repoDir := core.JoinPath(wsDir, "repo")
+	run(t, repoDir, "git", "checkout", "-b", "agent/test-task")
+	fs.Write(core.JoinPath(repoDir, "new.go"), "package main\n")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "agent work")
+
+	fs.Write(core.JoinPath(repoDir, "app.exe"), "binary")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "add binary")
+
+	writeStatus(t, wsDir, "completed", "rej-repo", "agent/test-task")
+
+	var rejections []messages.HarvestRejected
+	c := core.New(core.WithService(agentic.ProcessRegister))
+	c.ServiceStartup(context.Background(), nil)
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.HarvestRejected); ok {
+			rejections = append(rejections, ev)
+		}
+		return core.Result{OK: true}
+	})
+
+	mon := New()
+	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+
+	msg := mon.harvestCompleted()
+	assert.Contains(t, msg, "REJECTED")
+
+	require.Len(t, rejections, 1)
+	assert.Contains(t, rejections[0].Reason, "binary file added")
 }
 
 func TestHarvest_UpdateStatus_Good(t *testing.T) {

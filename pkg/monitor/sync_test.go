@@ -3,8 +3,12 @@
 package monitor
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,4 +31,204 @@ func TestSync_SyncRepos_Ugly_NoBrainKey(t *testing.T) {
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.syncRepos()
 	assert.Equal(t, "", result)
+}
+
+func TestSync_SyncRepos_Good_NoChanges(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
+		resp := CheckinResponse{Timestamp: time.Now().Unix()}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+
+	mon := New()
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
+func TestSync_SyncRepos_Bad_APIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+
+	mon := New()
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
+func TestSync_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
+	newTS := time.Now().Unix() + 1000
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{Timestamp: newTS}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+
+	mon := New()
+	mon.syncRepos()
+
+	mon.mu.Lock()
+	assert.Equal(t, newTS, mon.lastSyncTimestamp)
+	mon.mu.Unlock()
+}
+
+func TestSync_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote")
+	fs.EnsureDir(remoteDir)
+	run(t, remoteDir, "git", "init", "--bare")
+
+	codeDir := t.TempDir()
+	repoDir := core.JoinPath(codeDir, "test-repo")
+	run(t, codeDir, "git", "clone", remoteDir, "test-repo")
+	run(t, repoDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "init")
+	run(t, repoDir, "git", "push", "-u", "origin", "main")
+
+	clone2Parent := t.TempDir()
+	tmpClone := core.JoinPath(clone2Parent, "clone2")
+	run(t, clone2Parent, "git", "clone", remoteDir, "clone2")
+	run(t, tmpClone, "git", "checkout", "main")
+	fs.Write(core.JoinPath(tmpClone, "new.go"), "package main\n")
+	run(t, tmpClone, "git", "add", ".")
+	run(t, tmpClone, "git", "commit", "-m", "agent work")
+	run(t, tmpClone, "git", "push", "origin", "main")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{
+			Changed:   []ChangedRepo{{Repo: "test-repo", Branch: "main", SHA: "abc"}},
+			Timestamp: time.Now().Unix() + 100,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("CODE_PATH", codeDir)
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+	msg := mon.syncRepos()
+	assert.Contains(t, msg, "Synced 1 repo(s)")
+	assert.Contains(t, msg, "test-repo")
+}
+
+func TestSync_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote")
+	fs.EnsureDir(remoteDir)
+	run(t, remoteDir, "git", "init", "--bare")
+
+	codeDir := t.TempDir()
+	repoDir := core.JoinPath(codeDir, "dirty-repo")
+	run(t, codeDir, "git", "clone", remoteDir, "dirty-repo")
+	run(t, repoDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "init")
+	run(t, repoDir, "git", "push", "-u", "origin", "main")
+
+	fs.Write(core.JoinPath(repoDir, "dirty.txt"), "uncommitted")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{
+			Changed:   []ChangedRepo{{Repo: "dirty-repo", Branch: "main", SHA: "abc"}},
+			Timestamp: time.Now().Unix() + 100,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("CODE_PATH", codeDir)
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
+func TestSync_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote")
+	fs.EnsureDir(remoteDir)
+	run(t, remoteDir, "git", "init", "--bare")
+
+	codeDir := t.TempDir()
+	repoDir := core.JoinPath(codeDir, "feature-repo")
+	run(t, codeDir, "git", "clone", remoteDir, "feature-repo")
+	run(t, repoDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "init")
+	run(t, repoDir, "git", "push", "-u", "origin", "main")
+	run(t, repoDir, "git", "checkout", "-b", "feature/wip")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{
+			Changed:   []ChangedRepo{{Repo: "feature-repo", Branch: "main", SHA: "abc"}},
+			Timestamp: time.Now().Unix() + 100,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("CODE_PATH", codeDir)
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
+func TestSync_SyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{
+			Changed:   []ChangedRepo{{Repo: "nonexistent", Branch: "main", SHA: "abc"}},
+			Timestamp: time.Now().Unix() + 100,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("CODE_PATH", t.TempDir())
+
+	mon := New()
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
+func TestSync_SyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
+	var authHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		resp := CheckinResponse{Timestamp: time.Now().Unix()}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CORE_BRAIN_KEY", "env-key-value")
+	t.Setenv("CORE_API_URL", srv.URL)
+	t.Setenv("AGENT_NAME", "test-agent")
+
+	mon := New()
+	mon.syncRepos()
+	assert.Equal(t, "Bearer env-key-value", authHeader)
 }
