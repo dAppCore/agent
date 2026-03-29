@@ -7,9 +7,9 @@ import (
 	core "dappco.re/go/core"
 )
 
-// Options controls setup behaviour.
+// Options controls one setup run.
 //
-//	err := svc.Run(setup.Options{Path: ".", Force: true})
+//	err := svc.Run(setup.Options{Path: ".", Template: "auto", Force: true})
 type Options struct {
 	Path     string // Target directory (default: cwd)
 	DryRun   bool   // Preview only, don't write
@@ -17,11 +17,9 @@ type Options struct {
 	Template string // Workspace template or compatibility alias (default, review, security, agent, go, php, gui, auto)
 }
 
-// Run performs the workspace setup at the given path.
-// It detects the project type, generates .core/ configs,
-// and optionally scaffolds a workspace from a dir template.
+// Run generates `.core/` files and optional workspace scaffolding for a repo.
 //
-//	svc.Run(setup.Options{Path: ".", Template: "auto"})
+//	err := svc.Run(setup.Options{Path: ".", Template: "auto"})
 func (s *Service) Run(opts Options) error {
 	if opts.Path == "" {
 		opts.Path = core.Env("DIR_CWD")

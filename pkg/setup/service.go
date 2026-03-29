@@ -8,20 +8,23 @@ import (
 	core "dappco.re/go/core"
 )
 
-// SetupOptions configures the setup service.
+// SetupOptions carries service-level setup configuration.
+//
+//	opts := setup.SetupOptions{}
 type SetupOptions struct{}
 
-// Service provides workspace setup and scaffolding as a Core service.
-// Registers as "setup" — use s.Core().Process() for git operations.
+// Service exposes workspace setup through Core service registration.
 //
-//	core.New(core.WithService(setup.Register))
+//	c := core.New(core.WithService(setup.Register))
+//	svc, _ := core.ServiceFor[*setup.Service](c, "setup")
 type Service struct {
 	*core.ServiceRuntime[SetupOptions]
 }
 
-// Register is the WithService factory for setup.
+// Register wires the setup service into Core.
 //
-//	core.New(core.WithService(setup.Register))
+//	c := core.New(core.WithService(setup.Register))
+//	svc, _ := core.ServiceFor[*setup.Service](c, "setup")
 func Register(c *core.Core) core.Result {
 	svc := &Service{
 		ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{}),
@@ -29,14 +32,16 @@ func Register(c *core.Core) core.Result {
 	return core.Result{Value: svc, OK: true}
 }
 
-// OnStartup implements core.Startable.
+// OnStartup keeps the setup service ready for Core startup hooks.
+//
+//	result := svc.OnStartup(context.Background())
 func (s *Service) OnStartup(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// DetectGitRemote extracts owner/repo from git remote origin via Core Process.
+// DetectGitRemote reads `origin` and returns `owner/repo` when available.
 //
-//	remote := svc.DetectGitRemote("/repo")
+//	remote := svc.DetectGitRemote("/srv/repos/agent")
 func (s *Service) DetectGitRemote(path string) string {
 	r := s.Core().Process().RunIn(context.Background(), path, "git", "remote", "get-url", "origin")
 	if !r.OK {

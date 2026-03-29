@@ -7,7 +7,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ConfigData holds the data passed to config templates.
+// ConfigData supplies values when setup renders workspace templates.
+//
+//	data := setup.ConfigData{Name: "agent", Type: "go", Repository: "core/agent"}
 type ConfigData struct {
 	Name        string
 	Description string
@@ -20,13 +22,17 @@ type ConfigData struct {
 	Env         map[string]string
 }
 
-// Target is a build target (os/arch pair).
+// Target describes one build target.
+//
+//	target := setup.Target{OS: "linux", Arch: "amd64"}
 type Target struct {
 	OS   string
 	Arch string
 }
 
-// Command is a named runnable command.
+// Command defines one named command in generated config.
+//
+//	command := setup.Command{Name: "unit", Run: "go test ./..."}
 type Command struct {
 	Name string
 	Run  string
@@ -42,9 +48,9 @@ type configValue struct {
 	Value any
 }
 
-// GenerateBuildConfig renders a build.yaml for the detected project type.
+// GenerateBuildConfig renders `build.yaml` content for a detected repo type.
 //
-//	content, err := setup.GenerateBuildConfig("/repo", setup.TypeGo)
+//	content, err := setup.GenerateBuildConfig("/srv/repos/agent", setup.TypeGo)
 func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
 	name := core.PathBase(path)
 	sections := []configSection{
@@ -88,7 +94,7 @@ func GenerateBuildConfig(path string, projType ProjectType) (string, error) {
 	return renderConfig(core.Concat(name, " build configuration"), sections)
 }
 
-// GenerateTestConfig renders a test.yaml for the detected project type.
+// GenerateTestConfig renders `test.yaml` content for a detected repo type.
 //
 //	content, err := setup.GenerateTestConfig(setup.TypeGo)
 func GenerateTestConfig(projType ProjectType) (string, error) {

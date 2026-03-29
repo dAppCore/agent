@@ -3,6 +3,7 @@
 package setup
 
 import (
+	"context"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -16,7 +17,15 @@ func TestService_Register_Good(t *testing.T) {
 	assert.NotNil(t, svc)
 }
 
-func TestService_DetectGitRemote_Good(t *testing.T) {
+func TestService_OnStartup_Good(t *testing.T) {
+	c := core.New()
+	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+
+	result := svc.OnStartup(context.Background())
+	assert.True(t, result.OK)
+}
+
+func TestService_DetectGitRemote_Good_NonGitDir(t *testing.T) {
 	c := core.New()
 	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
 	// Non-git dir returns empty
