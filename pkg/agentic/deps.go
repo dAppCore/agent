@@ -79,6 +79,9 @@ type coreDep struct {
 
 // parseCoreDeps extracts direct Core ecosystem dependencies from go.mod content.
 // Skips indirect deps — only clones what the repo directly imports.
+//
+//	deps := parseCoreDeps(goMod)
+//	if len(deps) > 0 { core.Println(deps[0].repo) }
 func parseCoreDeps(gomod string) []coreDep {
 	var deps []coreDep
 	seen := make(map[string]bool)

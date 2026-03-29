@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	core "dappco.re/go/core"
+	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -132,9 +133,25 @@ func TestProvider_ListHandler_Bad(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
+func TestProvider_RememberHandler_Bad_InvalidInput(t *testing.T) {
+	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/remember", []byte("not json"))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestProvider_ListHandler_Bad_InvalidLimit(t *testing.T) {
+	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "GET", "/api/brain/list?limit=abc", nil)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 // --- emitEvent ---
 
 func TestProvider_EmitEvent_Good(t *testing.T) {
 	p := NewProvider(nil, nil)
 	p.emitEvent("brain.test", map[string]any{"foo": "bar"})
+}
+
+func TestProvider_EmitEvent_Ugly_NilHub(t *testing.T) {
+	assert.NotPanics(t, func() {
+		NewProvider(nil, nil).emitEvent("brain.test", map[string]any{"foo": "bar"})
+	})
 }

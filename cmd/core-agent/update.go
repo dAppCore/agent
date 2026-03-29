@@ -7,7 +7,10 @@ package main
 //	go build -ldflags "-X 'dappco.re/go/agent.version=0.15.0'" ./cmd/core-agent/
 var version string
 
-// updateChannel returns the channel based on the version string.
+// updateChannel maps the build version to the release channel.
+//
+//	version = "0.15.0"
+//	updateChannel() // "stable"
 func updateChannel() string {
 	switch {
 	case version == "" || version == "dev":

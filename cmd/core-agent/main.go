@@ -32,7 +32,10 @@ func main() {
 	c.Run()
 }
 
-// appVersion returns the build version or "dev".
+// appVersion resolves the build version injected at link time.
+//
+//	version = "0.15.0"
+//	appVersion() // "0.15.0"
 func appVersion() string {
 	if version != "" {
 		return version
