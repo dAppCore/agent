@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
@@ -192,11 +193,7 @@ func (s *Service) drainQueue() {
 }
 
 func (s *Service) drainOne() bool {
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-
-	for _, statusPath := range append(old, deep...) {
+	for _, statusPath := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
 		st, err := ReadStatus(wsDir)
 		if err != nil || st.Status != "queued" {
@@ -224,11 +221,7 @@ func (s *Service) drainOne() bool {
 		// Ask agentic to spawn — runner doesn't own the spawn logic,
 		// just the gate. Send IPC to trigger the actual spawn.
 		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
-		wsRoot := WorkspaceRoot()
-		wsName := wsDir
-		if len(wsDir) > len(wsRoot)+1 {
-			wsName = wsDir[len(wsRoot)+1:]
-		}
+		wsName := agentic.WorkspaceName(wsDir)
 		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", st.Agent)
 
 		// Spawn directly — agentic is a Core service, use ServiceFor to get it

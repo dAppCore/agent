@@ -71,10 +71,10 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 //
 //	cfg := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
-	Version     int                          `yaml:"version"`
-	Dispatch    DispatchConfig               `yaml:"dispatch"`
-	Concurrency map[string]ConcurrencyLimit  `yaml:"concurrency"`
-	Rates       map[string]RateConfig        `yaml:"rates"`
+	Version     int                         `yaml:"version"`
+	Dispatch    DispatchConfig              `yaml:"dispatch"`
+	Concurrency map[string]ConcurrencyLimit `yaml:"concurrency"`
+	Rates       map[string]RateConfig       `yaml:"rates"`
 }
 
 // loadAgentsConfig reads config/agents.yaml from the code path.
@@ -180,12 +180,8 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 // countRunningByAgentDisk scans workspace status.json files on disk.
 // Used only as fallback before Registry hydration completes.
 func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-
 	count := 0
-	for _, statusPath := range append(old, deep...) {
+	for _, statusPath := range WorkspaceStatusPaths() {
 		st, err := ReadStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
@@ -218,12 +214,8 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	}
 
 	// Fallback: scan disk
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-
 	count := 0
-	for _, statusPath := range append(old, deep...) {
+	for _, statusPath := range WorkspaceStatusPaths() {
 		st, err := ReadStatus(core.PathDir(statusPath))
 		if err != nil || st.Status != "running" {
 			continue
@@ -320,14 +312,7 @@ func (s *PrepSubsystem) drainQueue() {
 // drainOne finds the oldest queued workspace and spawns it if a slot is available.
 // Returns true if a task was spawned, false if nothing to do.
 func (s *PrepSubsystem) drainOne() bool {
-	wsRoot := WorkspaceRoot()
-
-	// Scan both old and new workspace layouts
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	statusFiles := append(old, deep...)
-
-	for _, statusPath := range statusFiles {
+	for _, statusPath := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
 		st, err := ReadStatus(wsDir)
 		if err != nil || st.Status != "queued" {

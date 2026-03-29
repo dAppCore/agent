@@ -125,15 +125,13 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 }
 
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
-	wsRoot := WorkspaceRoot()
-
 	statusFiles := WorkspaceStatusPaths()
 
 	var out StatusOutput
 
 	for _, statusPath := range statusFiles {
 		wsDir := core.PathDir(statusPath)
-		name := wsDir[len(wsRoot)+1:]
+		name := WorkspaceName(wsDir)
 
 		st, err := ReadStatus(wsDir)
 		if err != nil {

@@ -149,14 +149,14 @@ func (s *PrepSubsystem) cmdStatus(opts core.Options) core.Result {
 		return core.Result{OK: true}
 	}
 
-	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	statusFiles := WorkspaceStatusPaths()
 	if len(statusFiles) == 0 {
 		core.Print(nil, "no workspaces")
 		return core.Result{OK: true}
 	}
 
 	for _, sf := range statusFiles {
-		core.Print(nil, "  %s", core.PathBase(core.PathDir(sf)))
+		core.Print(nil, "  %s", WorkspaceName(core.PathDir(sf)))
 	}
 	return core.Result{OK: true}
 }

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 )
@@ -370,25 +371,17 @@ func (s *Service) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
-	wsRoot := WorkspaceRoot()
-	for _, pattern := range []string{
-		core.JoinPath(wsRoot, "*", "status.json"),
-		core.JoinPath(wsRoot, "*", "*", "*", "status.json"),
-	} {
-		for _, path := range core.PathGlob(pattern) {
-			wsDir := core.PathDir(path)
-			st, err := ReadStatus(wsDir)
-			if err != nil || st == nil {
-				continue
-			}
-			// Re-queue running agents on restart — process is dead, re-dispatch
-			if st.Status == "running" {
-				st.Status = "queued"
-			}
-			name := core.TrimPrefix(wsDir, wsRoot)
-			name = core.TrimPrefix(name, "/")
-			s.workspaces.Set(name, st)
+	for _, path := range agentic.WorkspaceStatusPaths() {
+		wsDir := core.PathDir(path)
+		st, err := ReadStatus(wsDir)
+		if err != nil || st == nil {
+			continue
 		}
+		// Re-queue running agents on restart — process is dead, re-dispatch
+		if st.Status == "running" {
+			st.Status = "queued"
+		}
+		s.workspaces.Set(agentic.WorkspaceName(wsDir), st)
 	}
 }
 

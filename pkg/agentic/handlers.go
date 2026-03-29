@@ -33,12 +33,12 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 		// Runner asks agentic to spawn a queued workspace
 		wsDir := resolveWorkspace(ev.Workspace)
 		if wsDir == "" {
-				break
+			break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 		pid, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
 		if err != nil {
-				break
+			break
 		}
 		// Update status with real PID
 		if st, serr := ReadStatus(wsDir); serr == nil {
@@ -78,10 +78,7 @@ func resolveWorkspace(name string) string {
 // findWorkspaceByPR finds a workspace directory by repo name and branch.
 // Scans running/completed workspaces for a matching repo+branch combination.
 func findWorkspaceByPR(repo, branch string) string {
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	for _, path := range append(old, deep...) {
+	for _, path := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
 		st, err := ReadStatus(wsDir)
 		if err != nil {

@@ -329,6 +329,29 @@ func TestRunner_HandleIPCEvents_Good_UpdatesMatchingWorkspaceOnly(t *testing.T) 
 	assert.Equal(t, 222, second.PID)
 }
 
+func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	fs.EnsureDir(wsDir)
+	WriteStatus(wsDir, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex",
+		Repo:   "go-io",
+		PID:    99999999,
+	})
+
+	svc := New()
+	svc.hydrateWorkspaces()
+
+	r := svc.workspaces.Get("core/go-io/task-5")
+	assert.True(t, r.OK)
+	st := r.Value.(*WorkspaceStatus)
+	assert.Equal(t, "queued", st.Status)
+	assert.Equal(t, "go-io", st.Repo)
+}
+
 // --- WriteStatus / ReadStatus ---
 
 func TestRunner_WriteReadStatus_Good(t *testing.T) {

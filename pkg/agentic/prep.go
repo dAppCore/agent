@@ -258,23 +258,13 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
-	wsRoot := WorkspaceRoot()
-	// Scan shallow (ws-name/) and deep (org/repo/task/) layouts
-	for _, pattern := range []string{
-		core.JoinPath(wsRoot, "*", "status.json"),
-		core.JoinPath(wsRoot, "*", "*", "*", "status.json"),
-	} {
-		for _, path := range core.PathGlob(pattern) {
-			wsDir := core.PathDir(path)
-			st, err := ReadStatus(wsDir)
-			if err != nil || st == nil {
-				continue
-			}
-			// Key is the relative path from workspace root
-			name := core.TrimPrefix(wsDir, wsRoot)
-			name = core.TrimPrefix(name, "/")
-			s.workspaces.Set(name, st)
+	for _, path := range WorkspaceStatusPaths() {
+		wsDir := core.PathDir(path)
+		st, err := ReadStatus(wsDir)
+		if err != nil || st == nil {
+			continue
 		}
+		s.workspaces.Set(WorkspaceName(wsDir), st)
 	}
 }
 

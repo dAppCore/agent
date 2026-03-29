@@ -252,10 +252,7 @@ func (m *Subsystem) checkIdleAfterDelay() {
 // countLiveWorkspaces counts workspaces that are genuinely active.
 // For "running" status, verifies the PID is still alive.
 func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
-	wsRoot := agentic.WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	for _, path := range append(old, deep...) {
+	for _, path := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
 		st, err := agentic.ReadStatus(wsDir)
 		if err != nil {

@@ -4,8 +4,10 @@ package agentic
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -29,19 +31,48 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		forge:      f,
-		forgeURL:   "",
-		forgeToken: "test-token",
-		codePath:   t.TempDir(),
-		pokeCh:     make(chan struct{}, 1),
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          f,
+		forgeURL:       "",
+		forgeToken:     "test-token",
+		codePath:       t.TempDir(),
+		pokeCh:         make(chan struct{}, 1),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	if srv != nil {
 		s.forgeURL = srv.URL
 	}
 
 	return s, c
+}
+
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+
+	old := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe stdout: %v", err)
+	}
+	os.Stdout = writer
+	defer func() {
+		os.Stdout = old
+	}()
+
+	run()
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("close reader: %v", err)
+	}
+
+	return string(data)
 }
 
 // --- Forge command methods (extracted from closures) ---
@@ -564,6 +595,25 @@ func TestCommands_CmdStatus_Good_WithWorkspaces(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdStatus_Good_DeepWorkspace(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	ws := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
+	fs.EnsureDir(ws)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Agent:  "codex",
+	}))
+
+	output := captureStdout(t, func() {
+		r := s.cmdStatus(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "core/go-io/task-5")
+}
+
 func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions())
@@ -814,8 +864,8 @@ func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.cmdStatus(core.NewOptions())
@@ -843,15 +893,15 @@ func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
 
 func TestCommands_ParseIntStr_Bad_NegativeAndOverflow(t *testing.T) {
 	// parseIntStr extracts digits only, ignoring minus signs
-	assert.Equal(t, 5, parseIntStr("-5"))     // extracts "5", ignores "-"
-	assert.Equal(t, 0, parseIntStr("-"))       // no digits
-	assert.Equal(t, 0, parseIntStr("---"))     // no digits
+	assert.Equal(t, 5, parseIntStr("-5"))  // extracts "5", ignores "-"
+	assert.Equal(t, 0, parseIntStr("-"))   // no digits
+	assert.Equal(t, 0, parseIntStr("---")) // no digits
 }
 
 func TestCommands_ParseIntStr_Ugly_UnicodeAndMixed(t *testing.T) {
 	// Unicode digits (e.g. Arabic-Indic) are NOT ASCII 0-9 so ignored
 	assert.Equal(t, 0, parseIntStr("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
-	assert.Equal(t, 42, parseIntStr("abc42xyz"))            // mixed chars
-	assert.Equal(t, 123, parseIntStr("1a2b3c"))             // interleaved
-	assert.Equal(t, 0, parseIntStr("  \t\n"))               // whitespace only
+	assert.Equal(t, 42, parseIntStr("abc42xyz"))          // mixed chars
+	assert.Equal(t, 123, parseIntStr("1a2b3c"))           // interleaved
+	assert.Equal(t, 0, parseIntStr("  \t\n"))             // whitespace only
 }
