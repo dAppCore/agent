@@ -257,3 +257,42 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 		t.Error("TODO.md is empty")
 	}
 }
+
+func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
+	dir := t.TempDir()
+	data := &WorkspaceData{Repo: "test-repo", Task: "align AX docs"}
+
+	err := ExtractWorkspace("default", dir, data)
+	if err != nil {
+		t.Fatalf("ExtractWorkspace failed: %v", err)
+	}
+
+	r := testFs.Read(core.JoinPath(dir, "CODEX.md"))
+	if !r.OK {
+		t.Fatalf("failed to read CODEX.md")
+	}
+
+	text := r.Value.(string)
+	for _, banned := range []string{
+		"c.PERFORM(",
+		"c.RegisterTask(",
+		"OnStartup(ctx context.Context) error",
+		"OnShutdown(ctx context.Context) error",
+	} {
+		if core.Contains(text, banned) {
+			t.Errorf("CODEX.md still contains deprecated AX guidance: %s", banned)
+		}
+	}
+
+	for _, required := range []string{
+		"core.WithService(",
+		"c.Action(\"workspace.create\"",
+		"c.Task(\"deploy\"",
+		"c.Process().RunIn(",
+		"TestFile_Function_Good",
+	} {
+		if !core.Contains(text, required) {
+			t.Errorf("CODEX.md missing AX guidance: %s", required)
+		}
+	}
+}

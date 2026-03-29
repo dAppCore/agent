@@ -1,489 +1,167 @@
 # CODEX.md
 
-Instructions for Codex when working with code in this workspace.
+Instructions for Codex when working in this workspace.
 
-## Core Framework
+Read these files in order:
+1. `CODEX.md`
+2. `.core/reference/RFC-025-AGENT-EXPERIENCE.md`
+3. `.core/reference/docs/RFC.md`
+4. `AGENTS.md` if present
 
-This project uses `dappco.re/go/core` as its foundation. Core provides primitives that REPLACE standard library and third-party packages. Implementation reference is in `.core/reference/*.go`.
+## Overview
 
-## Core Struct
+This workspace follows RFC-025 Agent Experience (AX) design. Prefer predictable names, named Actions, Core primitives, usage-example comments, and behavioural tests over terse APIs. Use `.core/reference/*.go` as the local implementation reference.
 
-Create a Core instance and access its subsystems:
+## Core Registration Pattern
+
+Register services through `core.New` and `WithService`, not ad hoc globals.
 
 ```go
-c := core.New(core.Options{
-    {Key: "name", Value: "my-service"},
-})
+c := core.New(
+    core.WithOption("name", "my-service"),
+    core.WithService(myservice.Register),
+)
+c.Run()
 ```
 
-### Subsystem Accessors
+## Service Pattern
 
-| Accessor | Type | Purpose |
-|----------|------|---------|
-| `c.App()` | `*App` | Application identity (Name, Version, Path) |
-| `c.Fs()` | `*Fs` | Sandboxed filesystem I/O |
-| `c.Config()` | `*Config` | Settings + feature flags |
-| `c.Data()` | `*Data` | Embedded content registry (mount/read) |
-| `c.Drive()` | `*Drive` | Transport handle registry (API, SSH, MCP) |
-| `c.Log()` | `*ErrorLog` | Structured logging with error wrapping |
-| `c.Error()` | `*ErrorPanic` | Panic recovery + crash reports |
-| `c.Cli()` | `*Cli` | CLI surface (command tree → terminal) |
-| `c.IPC()` | `*Ipc` | Message bus (Action/Query/Task) |
-| `c.I18n()` | `*I18n` | Internationalisation + locale collection |
-| `c.Env("key")` | `string` | Read-only system/environment info |
-| `c.Options()` | `*Options` | Input configuration used to create Core |
-| `c.Context()` | `context.Context` | Application context (cancelled on shutdown) |
-
-### Service Lifecycle
+Services should be Result-native and register capabilities by name.
 
 ```go
-// Register a service with lifecycle hooks
-c.Service("cache", core.Service{
-    OnStart:  func() core.Result { return core.Result{OK: true} },
-    OnStop:   func() core.Result { return core.Result{OK: true} },
-    OnReload: func() core.Result { return core.Result{OK: true} },
-})
-
-// Start all services
-c.ServiceStartup(ctx, nil)
-
-// Stop all services
-c.ServiceShutdown(ctx)
-```
-
-### Startable / Stoppable Interfaces
-
-Services that need lifecycle hooks implement these:
-
-```go
-type Startable interface {
-    OnStartup(ctx context.Context) error
-}
-
-type Stoppable interface {
-    OnShutdown(ctx context.Context) error
-}
-```
-
-### Error Logging on Core
-
-```go
-c.LogError(err, "save", "failed to save")   // logs + returns Result
-c.LogWarn(err, "cache", "cache miss")        // logs warning + returns Result
-c.Must(err, "init", "critical failure")      // logs + panics if err != nil
-```
-
-### Async Tasks
-
-```go
-// Perform synchronously (blocks until handler responds)
-r := c.PERFORM(SendEmail{To: "user@example.com"})
-
-// Perform asynchronously (returns immediately, runs in background)
-r := c.PerformAsync(BuildProject{Repo: "core"})
-// r.Value is the task ID string
-
-// Report progress
-c.Progress(taskID, 0.5, "halfway done", task)
-
-// Register task handler
-c.RegisterTask(func(c *core.Core, t core.Task) core.Result {
-    switch task := t.(type) {
-    case BuildProject:
-        // do work
-        return core.Result{Value: "built", OK: true}
+func Register(c *core.Core) core.Result {
+    svc := &Service{
+        ServiceRuntime: core.NewServiceRuntime(c, Options{}),
     }
-    return core.Result{}
-})
-```
-
-### Environment — use `core.Env()`, never `os.Getenv` for standard dirs
-
-Env is environment (read-only system facts). Config is ours (mutable app settings).
-
-```go
-// System
-core.Env("OS")        // "darwin", "linux", "windows"
-core.Env("ARCH")      // "arm64", "amd64"
-core.Env("DS")        // "/" or "\" (directory separator)
-core.Env("HOSTNAME")  // machine name
-core.Env("USER")      // current user
-
-// Directories
-core.Env("DIR_HOME")      // home dir (overridable via CORE_HOME env var)
-core.Env("DIR_CONFIG")    // OS config dir
-core.Env("DIR_CACHE")     // OS cache dir
-core.Env("DIR_DATA")      // OS data dir (platform-specific)
-core.Env("DIR_TMP")       // temp dir
-core.Env("DIR_CWD")       // working directory at startup
-core.Env("DIR_CODE")      // ~/Code
-core.Env("DIR_DOWNLOADS") // ~/Downloads
-
-// Timestamps
-core.Env("CORE_START")    // RFC3339 UTC boot timestamp
-```
-
-### Paths — use `core.Path()`, never `filepath.Join` or raw concatenation
-
-Path() is the single point of responsibility for filesystem paths. Every path goes through it — security fixes happen in one place.
-
-```go
-// WRONG
-home, _ := os.UserHomeDir()
-configPath := filepath.Join(home, ".config", "app.yaml")
-base := filepath.Base(configPath)
-
-// CORRECT
-configPath := core.Path(".config", "app.yaml")  // anchored to DIR_HOME
-base := core.PathBase(configPath)
-```
-
-```go
-// Relative → anchored to DIR_HOME
-core.Path("Code", ".core")       // "/Users/snider/Code/.core"
-core.Path(".config", "app.yaml") // "/Users/snider/.config/app.yaml"
-
-// Absolute → pass through (cleaned)
-core.Path("/tmp", "workspace")   // "/tmp/workspace"
-
-// No args → DIR_HOME
-core.Path()                      // "/Users/snider"
-
-// Component helpers
-core.PathBase("/a/b/c")          // "c"
-core.PathDir("/a/b/c")           // "/a/b"
-core.PathExt("main.go")          // ".go"
-```
-
-## Mandatory Patterns
-
-### Errors — use `core.E()`, never `fmt.Errorf` or `errors.New`
-
-```go
-// WRONG
-return fmt.Errorf("failed to read: %w", err)
-return errors.New("not found")
-
-// CORRECT
-return core.E("readConfig", "failed to read config", err)
-return core.E("findUser", "user not found", nil)
-```
-
-### Logging — use `core.Error/Info/Warn/Debug`, never `log.*` or `fmt.Print*`
-
-```go
-// WRONG
-log.Printf("starting server on %s", addr)
-fmt.Fprintf(os.Stderr, "error: %v\n", err)
-
-// CORRECT
-core.Info("starting server", "addr", addr)
-core.Error("operation failed", "err", err)
-```
-
-### Filesystem — use `core.Fs{}` + `core.Path()`, never `os.*` or `filepath.*`
-
-```go
-var fs = &core.Fs{}
-
-// Build paths with Path() — never raw concatenation
-configPath := core.Path(".config", "app.yaml")
-
-// Read/write through Fs — never os.ReadFile/WriteFile
-r := fs.Read(configPath)
-if !r.OK { return r }
-content := r.Value.(string)
-
-fs.Write(configPath, content)
-fs.EnsureDir(core.Path(".config"))
-
-// File checks — never os.Stat
-fs.Exists(path)              // bool
-fs.IsFile(path)              // bool
-fs.IsDir(path)               // bool
-
-// Directory listing — never os.ReadDir
-r := fs.List(dir)            // Result{[]os.DirEntry, true}
-
-// Append — never os.OpenFile
-r := fs.Append(logPath)      // Result{*os.File, true}
-
-// Delete — never os.Remove
-fs.Delete(path)              // Result
-```
-
-### Returns — use `core.Result`, never `(value, error)`
-
-```go
-// WRONG
-func LoadConfig(path string) (string, error) {
-    data, err := os.ReadFile(path)
-    if err != nil { return "", err }
-    return string(data), nil
+    return core.Result{Value: svc, OK: true}
 }
 
-// CORRECT
-func LoadConfig(path string) core.Result {
-    return fs.Read(path)
-}
-```
+func (s *Service) OnStartup(ctx context.Context) core.Result {
+    c := s.Core()
 
-### Strings — use `core.*`, never `strings.*` or `fmt.Sprintf`
+    c.Action("workspace.create", s.handleWorkspaceCreate)
+    c.Task("workspace.bootstrap", core.Task{
+        Steps: []core.Step{
+            {Action: "workspace.create"},
+        },
+    })
 
-| Do NOT use | Use instead |
-|------------|-------------|
-| `strings.Contains` | `core.Contains` |
-| `strings.HasPrefix` | `core.HasPrefix` |
-| `strings.HasSuffix` | `core.HasSuffix` |
-| `strings.TrimSpace` | `core.Trim` |
-| `strings.TrimPrefix` | `core.TrimPrefix` |
-| `strings.TrimSuffix` | `core.TrimSuffix` |
-| `strings.Split` | `core.Split` |
-| `strings.SplitN` | `core.SplitN` |
-| `strings.Join(parts, sep)` | `core.Join(sep, parts...)` |
-| `strings.ReplaceAll` | `core.Replace` |
-| `strings.ToLower` | `core.Lower` |
-| `strings.ToUpper` | `core.Upper` |
-| `strings.NewReader` | `core.NewReader` |
-| `strings.Builder{}` | `core.NewBuilder()` |
-| `fmt.Sprintf` | `core.Sprintf` |
-| `fmt.Sprint` | `core.Sprint` |
-
-### Imports — alias stdlib `io` as `goio`
-
-```go
-import goio "io"
-```
-
-### Comments — usage examples, not descriptions
-
-```go
-// WRONG
-// LoadConfig loads configuration from a file path.
-
-// CORRECT
-// LoadConfig reads and parses a YAML configuration file.
-//
-//  r := LoadConfig("/home/user/.core/agents.yaml")
-//  if r.OK { cfg := r.Value.(*AgentsConfig) }
-```
-
-### Names — predictable, never abbreviated
-
-```
-Config    not  Cfg
-Service   not  Srv
-Options   not  Opts
-Error     not  Err (as subsystem name)
-```
-
-### UK English in comments
-
-```
-initialise   not  initialize
-colour       not  color
-organisation not  organization
-serialise    not  serialize
-```
-
-### Compile-time interface assertions
-
-```go
-var _ mcp.Subsystem = (*MySubsystem)(nil)
-```
-
-### Keyed struct literals
-
-```go
-// WRONG
-core.Result{err, false}
-
-// CORRECT
-core.Result{Value: err, OK: false}
-```
-
-### Embedded content — use `core.Mount` + `core.Extract`, never raw `embed.FS`
-
-```go
-// WRONG
-//go:embed templates
-var templatesFS embed.FS
-data, _ := templatesFS.ReadFile("templates/config.yaml")
-
-// CORRECT
-//go:embed templates
-var templatesFS embed.FS
-var templates = mustMount(templatesFS, "templates")
-
-func mustMount(fsys embed.FS, basedir string) *core.Embed {
-    r := core.Mount(fsys, basedir)
-    if !r.OK { panic(r.Value) }
-    return r.Value.(*core.Embed)
-}
-
-r := templates.ReadString("config.yaml")
-if r.OK { content := r.Value.(string) }
-
-// Extract template directory with data substitution
-core.Extract(templates.FS(), targetDir, data)
-```
-
-### Error wrapping — use `core.Wrap`, never manual chaining
-
-```go
-// WRONG
-return fmt.Errorf("save failed: %w", err)
-
-// CORRECT
-return core.Wrap(err, "saveConfig", "failed to save config")
-```
-
-### Error codes — use `core.WrapCode` for machine-readable errors
-
-```go
-return core.WrapCode(err, "VALIDATION_ERROR", "user.Validate", "invalid email")
-var ErrNotFound = core.NewCode("NOT_FOUND", "resource not found")
-```
-
-### Error introspection
-
-```go
-core.Operation(err)        // extract operation name
-core.ErrorCode(err)        // extract error code
-core.ErrorMessage(err)     // extract message
-core.Root(err)             // root cause
-core.StackTrace(err)       // logical stack trace
-core.Is(err, target)       // errors.Is wrapper
-core.As(err, &target)      // errors.As wrapper
-```
-
-### Formatted output — use `core.Print`, never `fmt.Fprintf`
-
-```go
-// WRONG
-fmt.Fprintf(os.Stderr, "server on %s\n", addr)
-fmt.Println("done")
-
-// CORRECT
-core.Print(os.Stderr, "server on %s", addr)  // writer + format
-core.Print(nil, "done")                       // nil = stdout
-```
-
-### Arrays — use `core.Array[T]`, never manual slice management
-
-```go
-arr := core.NewArray[string]("a", "b", "c")
-arr.AddUnique("d")
-arr.Contains("a")           // true
-arr.Filter(func(s string) bool { return s != "b" })
-arr.Deduplicate()
-```
-
-### Config — use `core.Config`, never raw maps
-
-```go
-c.Config().Set("port", 8080)
-port := c.Config().Int("port")
-c.Config().Enable("debug")
-if c.Config().Enabled("debug") { ... }
-```
-
-### IPC — use `core.Action/Query/Perform` for inter-service communication
-
-```go
-// Fire-and-forget broadcast
-c.ACTION(MyEvent{Data: "hello"})
-
-// Query first responder
-r := c.QUERY(FindUser{ID: 123})
-if r.OK { user := r.Value.(*User) }
-
-// Perform task (side effects)
-r := c.PERFORM(SendEmail{To: "user@example.com"})
-
-// Register handler
-c.RegisterAction(func(c *core.Core, msg core.Message) core.Result {
-    switch m := msg.(type) {
-    case MyEvent:
-        core.Info("received event", "data", m.Data)
-    }
     return core.Result{OK: true}
-})
+}
+
+func (s *Service) OnShutdown(ctx context.Context) core.Result {
+    return core.Result{OK: true}
+}
 ```
 
-### Services — use `c.Service()` DTO pattern
+## Core Accessors
+
+| Accessor | Purpose |
+|----------|---------|
+| `c.Options()` | Input configuration |
+| `c.Config()` | Runtime settings and feature flags |
+| `c.Data()` | Embedded assets |
+| `c.Fs()` | Filesystem I/O |
+| `c.Process()` | Managed process execution |
+| `c.API()` | Remote streams and protocol handles |
+| `c.Action(name)` | Named callable registration and invocation |
+| `c.Task(name)` | Composed Action sequence |
+| `c.Entitled(name)` | Permission check |
+| `c.RegistryOf(name)` | Cross-cutting registry lookup |
+| `c.Cli()` | CLI command framework |
+| `c.IPC()` | Message bus |
+| `c.Log()` | Structured logging |
+| `c.Error()` | Panic recovery |
+| `c.I18n()` | Internationalisation |
+
+## Named Actions And Tasks
+
+Actions are the primary communication pattern. Register by name, invoke by name.
 
 ```go
-c.Service("cache", core.Service{
-    OnStart: func() core.Result { return core.Result{OK: true} },
-    OnStop:  func() core.Result { return core.Result{OK: true} },
+c.Action("workspace.create", func(ctx context.Context, opts core.Options) core.Result {
+    name := opts.String("name")
+    path := core.JoinPath("/srv/workspaces", name)
+    return core.Result{Value: path, OK: true}
 })
 
-r := c.Service("cache")
-if r.OK { svc := r.Value.(*core.Service) }
+r := c.Action("workspace.create").Run(ctx, core.NewOptions(
+    core.Option{Key: "name", Value: "alpha"},
+))
 ```
 
-### Commands — use `c.Command()` path-based registration
+Use Tasks to compose orchestration declaratively.
 
 ```go
-c.Command("deploy", core.Command{
-    Description: "Deploy to production",
-    Action: func(opts core.Options) core.Result {
-        target := opts.String("target")
-        return core.Result{Value: "deployed to " + target, OK: true}
+c.Task("deploy", core.Task{
+    Steps: []core.Step{
+        {Action: "docker.build"},
+        {Action: "docker.push"},
+        {Action: "deploy.ansible", Async: true},
     },
 })
-
-// Nested commands use path notation
-c.Command("deploy/to/homelab", core.Command{...})
-
-// Run CLI
-c.Cli().Run()
 ```
 
-### Drive — use `c.Drive()` for transport handles
+## Core Primitives
+
+Route recurring concerns through Core primitives instead of the raw standard library.
 
 ```go
-c.Drive().New(core.Options{
-    {Key: "name", Value: "api"},
-    {Key: "transport", Value: "https://api.lthn.ai"},
-})
+var fs = (&core.Fs{}).NewUnrestricted()
 
-r := c.Drive().Get("api")
-if r.OK { handle := r.Value.(*core.DriveHandle) }
+statusPath := core.JoinPath("/srv/workspaces", "alpha", "status.json")
+read := fs.Read(statusPath)
+
+run := c.Process().RunIn(ctx, repoDir, "git", "log", "--oneline", "-20")
+if run.OK {
+    output := core.Trim(run.Value.(string))
+    core.Print(nil, output)
+}
 ```
 
-### I18n — use `c.I18n()` for translations
+## Mandatory Conventions
 
-```go
-r := c.I18n().Translate("greeting", "name", "World")
-if r.OK { text := r.Value.(string) }
+- Use UK English in comments and docs.
+- Use `core.E("pkg.Method", "message", err)` for errors. Never use `fmt.Errorf` or `errors.New`.
+- Use `c.Fs()` or a package-level `fs` helper for file I/O. Never use raw `os.ReadFile`, `os.WriteFile`, or `filepath.*`.
+- Route external commands through `c.Process()` or the repo's process helper layer. Never import `os/exec`.
+- Use Core string and path helpers such as `core.Contains`, `core.Trim`, `core.Split`, `core.Concat`, and `core.JoinPath` instead of raw `strings.*` or path concatenation.
+- Prefer `core.Result{Value: x, OK: true}` over `(value, error)` pairs in Core-facing code.
+- Comments should show HOW with real values, not restate the signature.
+- Use predictable names such as `Config`, `Service`, and `Options`; avoid abbreviations.
+- Keep paths self-describing. Directory names should tell an agent what they contain.
+- Prefer templates for recurring generated files and config shapes.
 
-c.I18n().SetLanguage("en-GB")
+## AX Quality Gates
+
+Treat these imports as review failures in production Go code:
+
+- `os`
+- `os/exec`
+- `fmt`
+- `log`
+- `errors`
+- `encoding/json`
+- `path/filepath`
+- `strings`
+- `unsafe`
+
+## Testing
+
+Use AX test naming and keep example coverage close to the source.
+
+```text
+TestFile_Function_Good
+TestFile_Function_Bad
+TestFile_Function_Ugly
 ```
 
-## What NOT to import
-
-| Do NOT import | Use instead |
-|---------------|-------------|
-| `fmt` | `core.Sprintf`, `core.Print` |
-| `log` | `core.Error`, `core.Info` |
-| `strings` | `core.Contains`, `core.Split` etc |
-| `errors` | `core.E`, `core.Wrap` |
-| `path/filepath` | `core.Path`, `core.PathBase`, `core.PathDir`, `core.PathExt` |
-| `io/ioutil` | `core.Fs{}` |
-| `os` (file ops) | `core.Fs{}` |
-| `os.UserHomeDir` | `core.Env("DIR_HOME")` |
-| `os.Getenv` (standard dirs) | `core.Env("DIR_CONFIG")` etc |
-| `runtime.GOOS` | `core.Env("OS")` |
-| `runtime.GOARCH` | `core.Env("ARCH")` |
-
-Acceptable stdlib: `os.Exit`, `os.Stderr`, `os.Getenv` (non-standard keys), `context`, `sync`, `time`, `net/http`, `encoding/json`.
+Where practical, keep one focused `_example_test.go` alongside each source file so the tests double as usage documentation.
 
 ## Build & Test
 
 ```bash
 go build ./...
-go test ./...
+go test ./... -count=1 -timeout 60s
 go vet ./...
 ```
