@@ -434,6 +434,7 @@ func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) 
 
 ## Changelog
 
-- 2026-03-26: WIP — net/http consolidated to transport.go (ONE file). net/url + io/fs eliminated. RFC-025 updated with 3 new quality gates (net/http, net/url, io/fs). 1:1 test + example test coverage. Array[T].Deduplicate replaces custom helpers. Remaining: remove dead `client` field from test literals, brain/provider.go Gin handler.
+- 2026-03-29: brain/provider.go no longer imports net/http for Gin handlers. Handler responses now use named status constants and shared response helpers. HTTP remains intentionally centralised in pkg/agentic/transport.go.
+- 2026-03-26: WIP — net/http consolidated to transport.go (ONE file). net/url + io/fs eliminated. RFC-025 updated with 3 new quality gates (net/http, net/url, io/fs). 1:1 test + example test coverage. Array[T].Deduplicate replaces custom helpers.
 - 2026-03-25: Quality gates pass. Zero disallowed imports (all 10). encoding/json→Core JSON. path/filepath→Core Path. os→Core Env/Fs. io→Core ReadAll/WriteAll. go-process fully Result-native. ServiceRuntime on all subsystems. 22 named Actions + Task pipeline. ChannelNotifier→IPC. Reference docs synced.
 - 2026-03-25: Initial spec — written with full core/go v0.8.0 domain context.
