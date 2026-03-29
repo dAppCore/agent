@@ -12,18 +12,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
+func TestPaths_CoreRoot_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/tmp/core-root")
 	assert.Equal(t, "/tmp/core-root", CoreRoot())
 }
 
-func TestPaths_CoreRoot_Bad_Fallback(t *testing.T) {
+func TestPaths_CoreRoot_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
 	home := core.Env("DIR_HOME")
 	assert.Equal(t, home+"/Code/.core", CoreRoot())
 }
 
-func TestPaths_CoreRoot_Ugly_UnicodePath(t *testing.T) {
+func TestPaths_CoreRoot_Ugly(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/tmp/core-røot")
 	assert.Equal(t, "/tmp/core-røot", CoreRoot())
 }
@@ -33,18 +33,18 @@ func TestPaths_WorkspaceRoot_Good(t *testing.T) {
 	assert.Equal(t, "/tmp/core-root/workspace", WorkspaceRoot())
 }
 
-func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
+func TestPaths_WorkspaceRoot_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
 	home := core.Env("DIR_HOME")
 	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
 
-func TestPaths_WorkspaceRoot_Ugly_NestedCoreRoot(t *testing.T) {
+func TestPaths_WorkspaceRoot_Ugly(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/srv/core/tenant-a")
 	assert.Equal(t, "/srv/core/tenant-a/workspace", WorkspaceRoot())
 }
 
-func TestPaths_ReadStatus_Good_AgenticShape(t *testing.T) {
+func TestPaths_ReadStatus_Good(t *testing.T) {
 	wsDir := t.TempDir()
 	status := &agentic.WorkspaceStatus{
 		Status:    "completed",
@@ -71,7 +71,7 @@ func TestPaths_ReadStatus_Good_AgenticShape(t *testing.T) {
 	assert.Equal(t, 2, st.Runs)
 }
 
-func TestPaths_ReadStatus_Bad_InvalidJSON(t *testing.T) {
+func TestPaths_ReadStatus_Bad(t *testing.T) {
 	wsDir := t.TempDir()
 	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
 
@@ -79,7 +79,45 @@ func TestPaths_ReadStatus_Bad_InvalidJSON(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestPaths_WriteStatus_Ugly_AtomicOverwrite(t *testing.T) {
+func TestPaths_ReadStatus_Ugly(t *testing.T) {
+	_, err := ReadStatus(t.TempDir())
+	assert.Error(t, err)
+}
+
+func TestPaths_WriteStatus_Good(t *testing.T) {
+	wsDir := t.TempDir()
+
+	WriteStatus(wsDir, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Task:   "Track workspace",
+		Branch: "agent/ax-cleanup",
+		Runs:   1,
+	})
+
+	st, err := ReadStatus(wsDir)
+	require.NoError(t, err)
+	assert.Equal(t, "running", st.Status)
+	assert.Equal(t, "codex", st.Agent)
+	assert.Equal(t, "go-io", st.Repo)
+	assert.Equal(t, "agent/ax-cleanup", st.Branch)
+	assert.Equal(t, 1, st.Runs)
+
+	agenticStatus, err := agentic.ReadStatus(wsDir)
+	require.NoError(t, err)
+	assert.False(t, agenticStatus.UpdatedAt.IsZero())
+}
+
+func TestPaths_WriteStatus_Bad(t *testing.T) {
+	wsDir := t.TempDir()
+
+	WriteStatus(wsDir, nil)
+
+	assert.False(t, agentic.LocalFs().Read(agentic.WorkspaceStatusPath(wsDir)).OK)
+}
+
+func TestPaths_WriteStatus_Ugly(t *testing.T) {
 	wsDir := t.TempDir()
 
 	WriteStatus(wsDir, &WorkspaceStatus{
