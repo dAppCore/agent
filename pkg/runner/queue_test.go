@@ -97,12 +97,14 @@ func TestQueue_ModelVariant_Ugly_Empty(t *testing.T) {
 
 func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	svc := New()
-	assert.True(t, svc.canDispatchAgent("codex"), "no config → unlimited")
+	can, _ := svc.canDispatchAgent("codex")
+	assert.True(t, can, "no config → unlimited")
 }
 
 func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	svc := New()
-	assert.True(t, svc.canDispatchAgent("unknown-agent"))
+	can, _ := svc.canDispatchAgent("unknown-agent")
+	assert.True(t, can)
 }
 
 func TestQueue_CanDispatchAgent_Bad_AtLimit(t *testing.T) {
@@ -114,13 +116,15 @@ func TestQueue_CanDispatchAgent_Bad_AtLimit(t *testing.T) {
 		})
 	}
 	// Since PIDs aren't alive, count should be 0
-	assert.True(t, svc.canDispatchAgent("codex"), "dead PIDs don't count")
+	can, _ := svc.canDispatchAgent("codex")
+	assert.True(t, can, "dead PIDs don't count")
 }
 
 func TestQueue_CanDispatchAgent_Ugly_ZeroLimit(t *testing.T) {
 	svc := New()
 	// Zero total means unlimited
-	assert.True(t, svc.canDispatchAgent("codex"))
+	can, _ := svc.canDispatchAgent("codex")
+	assert.True(t, can)
 }
 
 // --- countRunningByAgent ---

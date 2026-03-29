@@ -6,7 +6,6 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
 	forge_types "dappco.re/go/core/forge/types"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -157,16 +156,17 @@ func (s *PrepSubsystem) buildPRBody(st *WorkspaceStatus) string {
 }
 
 func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
-	pr, err := s.forge.Pulls.Create(ctx, forge.Params{"owner": org, "repo": repo}, &forge_types.CreatePullRequestOption{
+	var pr pullRequestView
+	err := s.forge.Client().Post(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &forge_types.CreatePullRequestOption{
 		Title: title,
 		Body:  body,
 		Head:  head,
 		Base:  base,
-	})
+	}, &pr)
 	if err != nil {
 		return "", 0, core.E("forgeCreatePR", "create PR failed", err)
 	}
-	return pr.HTMLURL, int(pr.Index), nil
+	return pr.HTMLURL, int(pullRequestNumber(pr)), nil
 }
 
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
@@ -269,30 +269,31 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 }
 
 func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
-	prs, err := s.forge.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+	var prs []pullRequestView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
 	if err != nil {
 		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), err)
 	}
 
 	var result []PRInfo
 	for _, pr := range prs {
-		if state != "" && state != "all" && string(pr.State) != state {
+		prState := pr.State
+		if prState == "" {
+			prState = "open"
+		}
+		if state != "" && state != "all" && prState != state {
 			continue
 		}
 		var labels []string
 		for _, l := range pr.Labels {
 			labels = append(labels, l.Name)
 		}
-		author := ""
-		if pr.User != nil {
-			author = pr.User.UserName
-		}
 		result = append(result, PRInfo{
 			Repo:      repo,
-			Number:    int(pr.Index),
+			Number:    int(pullRequestNumber(pr)),
 			Title:     pr.Title,
-			State:     string(pr.State),
-			Author:    author,
+			State:     prState,
+			Author:    pullRequestAuthor(pr),
 			Branch:    pr.Head.Ref,
 			Base:      pr.Base.Ref,
 			Labels:    labels,

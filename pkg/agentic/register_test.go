@@ -63,7 +63,7 @@ func TestRegister_ProcessRegister_Good(t *testing.T) {
 	c := core.New()
 	result := ProcessRegister(c)
 	assert.True(t, result.OK, "ProcessRegister should succeed with a real Core instance")
-	assert.NotNil(t, result.Value)
+	assert.True(t, c.Process().Exists(), "ProcessRegister should register the process service")
 }
 
 func TestRegister_ProcessRegister_Bad(t *testing.T) {

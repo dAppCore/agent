@@ -10,14 +10,26 @@ import (
 	"testing"
 	"time"
 
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type capturedChannelEvent struct {
+	Channel string
+	Data    any
+}
+
+type captureNotifier struct {
+	events []capturedChannelEvent
+}
+
+func (n *captureNotifier) ChannelSend(_ context.Context, channel string, data any) {
+	n.events = append(n.events, capturedChannelEvent{Channel: channel, Data: data})
+}
 
 // setupBrainKey creates a ~/.claude/brain.key file for API auth tests.
 func setupBrainKey(t *testing.T, key string) {
@@ -260,15 +272,10 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	t.Setenv("CORE_API_URL", srv.URL)
 	t.Setenv("AGENT_NAME", "test-agent")
 
-	// Create Core with IPC handler to capture ChannelPush
-	var captured []coremcp.ChannelPush
+	// Create Core with an MCP notifier to capture channel events.
 	c := core.New()
-	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
-		if ev, ok := msg.(coremcp.ChannelPush); ok {
-			captured = append(captured, ev)
-		}
-		return core.Result{OK: true}
-	})
+	notifier := &captureNotifier{}
+	require.True(t, c.RegisterService("mcp", notifier).OK)
 
 	mon := New()
 	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
@@ -277,10 +284,10 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "2 unread message(s) in inbox")
 
-	// 3 new messages (ids 1,2,3 all > prevMaxID=0), but only 2 unread
-	// Monitor sends one ChannelPush per NEW message (higher ID than last seen)
-	require.Len(t, captured, 3)
-	data := captured[0].Data.(map[string]any)
+	// 3 new messages (ids 1,2,3 all > prevMaxID=0), but only 2 unread.
+	// Monitor sends one channel notification per new message.
+	require.Len(t, notifier.events, 3)
+	data := notifier.events[0].Data.(map[string]any)
 	assert.Equal(t, "clotho", data["from"])
 }
 
@@ -376,15 +383,10 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 
 	setupAPIEnv(t, srv.URL)
 
-	// Create Core with IPC handler to capture ChannelPush
-	var captured []coremcp.ChannelPush
+	// Create Core with an MCP notifier to capture channel events.
 	c := core.New()
-	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
-		if ev, ok := msg.(coremcp.ChannelPush); ok {
-			captured = append(captured, ev)
-		}
-		return core.Result{OK: true}
-	})
+	notifier := &captureNotifier{}
+	require.True(t, c.RegisterService("mcp", notifier).OK)
 
 	mon := New()
 	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
@@ -393,7 +395,7 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "3 unread message(s)")
 
-	require.True(t, len(captured) > 0, "should capture at least one ChannelPush")
+	require.True(t, len(notifier.events) > 0, "should capture at least one channel event")
 }
 
 // --- check (integration of sub-checks) ---
@@ -808,19 +810,19 @@ func TestMonitor_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 		run(t, sourceDir, "git", "commit", "-m", "init")
 
 		fs.EnsureDir(wsDir)
-		run(t, wsDir, "git", "clone", sourceDir, "src")
-		srcDir := core.JoinPath(wsDir, "src")
-		run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-		fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
-		run(t, srcDir, "git", "add", ".")
-		run(t, srcDir, "git", "commit", "-m", "agent work")
+		run(t, wsDir, "git", "clone", sourceDir, "repo")
+		repoDir := core.JoinPath(wsDir, "repo")
+		run(t, repoDir, "git", "checkout", "-b", "agent/test-task")
+		fs.Write(core.JoinPath(repoDir, "new.go"), "package main\n")
+		run(t, repoDir, "git", "add", ".")
+		run(t, repoDir, "git", "commit", "-m", "agent work")
 
 		writeStatus(t, wsDir, "completed", fmt.Sprintf("repo-%d", i), "agent/test-task")
 	}
 
 	// Create Core with IPC handler to capture HarvestComplete messages
 	var harvests []messages.HarvestComplete
-	c := core.New(core.WithService(process.Register))
+	c := core.New(core.WithService(agentic.ProcessRegister))
 	c.ServiceStartup(context.Background(), nil)
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
 		if ev, ok := msg.(messages.HarvestComplete); ok {
@@ -865,23 +867,23 @@ func TestMonitor_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 
 	wsDir := core.JoinPath(wsRoot, "workspace", "ws-rej")
 	fs.EnsureDir(wsDir)
-	run(t, wsDir, "git", "clone", sourceDir, "src")
-	srcDir := core.JoinPath(wsDir, "src")
-	run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-	fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "agent work")
+	run(t, wsDir, "git", "clone", sourceDir, "repo")
+	repoDir := core.JoinPath(wsDir, "repo")
+	run(t, repoDir, "git", "checkout", "-b", "agent/test-task")
+	fs.Write(core.JoinPath(repoDir, "new.go"), "package main\n")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "agent work")
 
 	// Add binary to trigger rejection
-	fs.Write(core.JoinPath(srcDir, "app.exe"), "binary")
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "add binary")
+	fs.Write(core.JoinPath(repoDir, "app.exe"), "binary")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	writeStatus(t, wsDir, "completed", "rej-repo", "agent/test-task")
 
 	// Create Core with IPC handler to capture HarvestRejected messages
 	var rejections []messages.HarvestRejected
-	c := core.New(core.WithService(process.Register))
+	c := core.New(core.WithService(agentic.ProcessRegister))
 	c.ServiceStartup(context.Background(), nil)
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
 		if ev, ok := msg.(messages.HarvestRejected); ok {

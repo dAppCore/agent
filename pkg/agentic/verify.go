@@ -191,6 +191,16 @@ type verifyResult struct {
 	testCmd  string
 }
 
+func resultText(r core.Result) string {
+	if text, ok := r.Value.(string); ok {
+		return text
+	}
+	if r.Value != nil {
+		return core.Sprint(r.Value)
+	}
+	return ""
+}
+
 // runVerification detects the project type and runs the appropriate test suite.
 func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 	if fileExists(core.JoinPath(repoDir, "go.mod")) {
@@ -208,7 +218,7 @@ func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 	ctx := context.Background()
 	r := s.runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
-	out := r.Value.(string)
+	out := resultText(r)
 	exitCode := 0
 	if !r.OK {
 		exitCode = 1
@@ -225,9 +235,9 @@ func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 		if !r2.OK {
 			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
-		return verifyResult{passed: true, output: r2.Value.(string), exitCode: 0, testCmd: "vendor/bin/pest"}
+		return verifyResult{passed: true, output: resultText(r2), exitCode: 0, testCmd: "vendor/bin/pest"}
 	}
-	return verifyResult{passed: true, output: r.Value.(string), exitCode: 0, testCmd: "composer test"}
+	return verifyResult{passed: true, output: resultText(r), exitCode: 0, testCmd: "composer test"}
 }
 
 func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
@@ -245,7 +255,7 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 
 	ctx := context.Background()
 	r = s.runCmd(ctx, repoDir, "npm", "test")
-	out := r.Value.(string)
+	out := resultText(r)
 	exitCode := 0
 	if !r.OK {
 		exitCode = 1

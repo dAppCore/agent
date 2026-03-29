@@ -288,6 +288,7 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 
 // broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
+	wsName := WorkspaceName(wsDir)
 	st, _ := ReadStatus(wsDir)
 	repo := ""
 	if st != nil {
@@ -295,15 +296,16 @@ func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
 	}
 	if s.ServiceRuntime != nil {
 		s.Core().ACTION(messages.AgentStarted{
-			Agent: agent, Repo: repo, Workspace: core.PathBase(wsDir),
+			Agent: agent, Repo: repo, Workspace: wsName,
 		})
 	}
-	emitStartEvent(agent, core.PathBase(wsDir))
+	emitStartEvent(agent, wsName)
 }
 
 // broadcastComplete emits IPC + audit events for agent completion.
 func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
-	emitCompletionEvent(agent, core.PathBase(wsDir), finalStatus)
+	wsName := WorkspaceName(wsDir)
+	emitCompletionEvent(agent, wsName, finalStatus)
 	if s.ServiceRuntime != nil {
 		st, _ := ReadStatus(wsDir)
 		repo := ""
@@ -312,7 +314,7 @@ func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
 		}
 		s.Core().ACTION(messages.AgentCompleted{
 			Agent: agent, Repo: repo,
-			Workspace: core.PathBase(wsDir), Status: finalStatus,
+			Workspace: wsName, Status: finalStatus,
 		})
 	}
 }
@@ -383,16 +385,15 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	if !ok {
 		return 0, "", core.E("dispatch.spawnAgent", "process service not registered", nil)
 	}
-	sr := procSvc.StartWithOptions(context.Background(), process.RunOptions{
+	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
 		Dir:     repoDir,
 		Detach:  true,
 	})
-	if !sr.OK {
-		return 0, "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), nil)
+	if err != nil {
+		return 0, "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
 	}
-	proc := sr.Value.(*process.Process)
 
 	proc.CloseStdin()
 	pid := proc.Info().PID
@@ -402,7 +403,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
 	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
-	monitorAction := core.Concat("agentic.monitor.", core.PathBase(wsDir))
+	monitorAction := core.Concat("agentic.monitor.", core.Replace(WorkspaceName(wsDir), "/", "."))
 	s.Core().Action(monitorAction, func(_ context.Context, _ core.Options) core.Result {
 		<-proc.Done()
 		s.onAgentComplete(agent, wsDir, outputFile,
@@ -466,21 +467,6 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 	if input.Template == "" {
 		input.Template = "coding"
-	}
-
-	// Concurrency check — ask the runner
-	r := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
-		core.Option{Key: "agent", Value: input.Agent},
-		core.Option{Key: "repo", Value: input.Repo},
-	))
-	if !r.OK {
-		reason, _ := r.Value.(string)
-		out := DispatchOutput{
-			Repo:       input.Repo,
-			Success:    true,
-			OutputFile: core.Concat("queued — ", reason),
-		}
-		return nil, out, nil
 	}
 
 	// Step 1: Prep workspace — clone + build prompt

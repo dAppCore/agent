@@ -88,35 +88,35 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		return nil
 	}
 
-	srcDir := core.Concat(wsDir, "/src")
-	if !fs.IsDir(srcDir) {
+	repoDir := core.JoinPath(wsDir, "repo")
+	if !fs.IsDir(repoDir) {
 		return nil
 	}
 
 	// Check if there are commits to push
 	branch := st.Branch
 	if branch == "" {
-		branch = m.detectBranch(srcDir)
+		branch = m.detectBranch(repoDir)
 	}
-	base := m.defaultBranch(srcDir)
+	base := m.defaultBranch(repoDir)
 	if branch == "" || branch == base {
 		return nil
 	}
 
 	// Check for unpushed commits
-	unpushed := m.countUnpushed(srcDir, branch)
+	unpushed := m.countUnpushed(repoDir, branch)
 	if unpushed == 0 {
 		return nil // already pushed or no commits
 	}
 
 	// Safety checks before pushing
-	if reason := m.checkSafety(srcDir); reason != "" {
+	if reason := m.checkSafety(repoDir); reason != "" {
 		updateStatus(wsDir, "rejected", reason)
 		return &harvestResult{repo: st.Repo, branch: branch, rejected: reason}
 	}
 
 	// Count changed files
-	files := m.countChangedFiles(srcDir)
+	files := m.countChangedFiles(repoDir)
 
 	// Mark ready for review — do NOT auto-push.
 	// Pushing is a high-impact mutation that should happen during

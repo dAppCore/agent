@@ -111,7 +111,13 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, opts core.Options) core.
 //	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 //	))
 func (s *PrepSubsystem) handleWatch(ctx context.Context, opts core.Options) core.Result {
-	input := WatchInput{}
+	input := WatchInput{
+		PollInterval: opts.Int("poll_interval"),
+		Timeout:      opts.Int("timeout"),
+	}
+	if workspace := opts.String("workspace"); workspace != "" {
+		input.Workspaces = []string{workspace}
+	}
 	_, out, err := s.watch(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -151,7 +157,7 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Re
 			repo = st.Repo
 		}
 		s.Core().ACTION(messages.QAResult{
-			Workspace: core.PathBase(wsDir),
+			Workspace: WorkspaceName(wsDir),
 			Repo:      repo,
 			Passed:    passed,
 		})

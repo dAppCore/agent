@@ -14,8 +14,9 @@ import (
 // Workspace status file convention:
 //
 //   {workspace}/status.json  — current state of the workspace
-//   {workspace}/BLOCKED.md   — question the agent needs answered (written by agent)
-//   {workspace}/ANSWER.md    — response from human (written by reviewer)
+//   {workspace}/repo/BLOCKED.md   — question the agent needs answered (written by agent)
+//   {workspace}/repo/ANSWER.md    — response from human (written by reviewer)
+//   {workspace}/.meta/agent-*.log — captured agent output
 //
 // Status lifecycle:
 //   running → completed     (normal finish)
@@ -29,20 +30,20 @@ import (
 //	st, err := ReadStatus(wsDir)
 //	if err == nil && st.Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
-	Status    string    `json:"status"`             // running, completed, blocked, failed
-	Agent     string    `json:"agent"`              // gemini, claude, codex
-	Repo      string    `json:"repo"`               // target repo
-	Org       string    `json:"org,omitempty"`      // forge org (e.g. "core")
-	Task      string    `json:"task"`               // task description
-	Branch    string    `json:"branch,omitempty"`   // git branch name
+	Status    string    `json:"status"`               // running, completed, blocked, failed
+	Agent     string    `json:"agent"`                // gemini, claude, codex
+	Repo      string    `json:"repo"`                 // target repo
+	Org       string    `json:"org,omitempty"`        // forge org (e.g. "core")
+	Task      string    `json:"task"`                 // task description
+	Branch    string    `json:"branch,omitempty"`     // git branch name
 	Issue     int       `json:"issue,omitempty"`      // forge issue number
 	PID       int       `json:"pid,omitempty"`        // OS process ID (if running)
 	ProcessID string    `json:"process_id,omitempty"` // go-process ID for managed lookup
 	StartedAt time.Time `json:"started_at"`           // when dispatch started
-	UpdatedAt time.Time `json:"updated_at"`         // last status change
-	Question  string    `json:"question,omitempty"` // from BLOCKED.md
-	Runs      int       `json:"runs"`               // how many times dispatched/resumed
-	PRURL     string    `json:"pr_url,omitempty"`   // pull request URL (after PR created)
+	UpdatedAt time.Time `json:"updated_at"`           // last status change
+	Question  string    `json:"question,omitempty"`   // from BLOCKED.md
+	Runs      int       `json:"runs"`                 // how many times dispatched/resumed
+	PRURL     string    `json:"pr_url,omitempty"`     // pull request URL (after PR created)
 }
 
 // WorkspaceQuery is the QUERY type for workspace state lookups.
@@ -98,12 +99,12 @@ type StatusInput struct {
 //
 //	out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
 type StatusOutput struct {
-	Total     int             `json:"total"`
-	Running   int             `json:"running"`
-	Queued    int             `json:"queued"`
-	Completed int             `json:"completed"`
-	Failed    int             `json:"failed"`
-	Blocked   []BlockedInfo   `json:"blocked,omitempty"`
+	Total     int           `json:"total"`
+	Running   int           `json:"running"`
+	Queued    int           `json:"queued"`
+	Completed int           `json:"completed"`
+	Failed    int           `json:"failed"`
+	Blocked   []BlockedInfo `json:"blocked,omitempty"`
 }
 
 // BlockedInfo shows a workspace that needs human input.
@@ -126,10 +127,7 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	wsRoot := WorkspaceRoot()
 
-	// Scan both old (*/status.json) and new (*/*/*/status.json) layouts
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	statusFiles := append(old, deep...)
+	statusFiles := WorkspaceStatusPaths()
 
 	var out StatusOutput
 
@@ -147,13 +145,12 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		// If status is "running", check if PID is still alive
 		if st.Status == "running" && st.PID > 0 {
 			if err := syscall.Kill(st.PID, 0); err != nil {
-				blockedPath := core.JoinPath(wsDir, "repo", "BLOCKED.md")
+				blockedPath := workspaceBlockedPath(wsDir)
 				if r := fs.Read(blockedPath); r.OK {
 					st.Status = "blocked"
 					st.Question = core.Trim(r.Value.(string))
 				} else {
-					logFile := core.JoinPath(wsDir, core.Sprintf("agent-%s.log", st.Agent))
-					if r := fs.Read(logFile); !r.OK {
+					if len(workspaceLogFiles(wsDir)) == 0 {
 						st.Status = "failed"
 						st.Question = "Agent process died (no output log)"
 					} else {

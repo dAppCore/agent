@@ -18,7 +18,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -27,6 +27,10 @@ import (
 //	r := fs.Read(core.Concat(wsRoot, "/", name, "/status.json"))
 //	if text, ok := resultString(r); ok { json.Unmarshal([]byte(text), &st) }
 var fs = agentic.LocalFs()
+
+type channelSender interface {
+	ChannelSend(ctx context.Context, channel string, data any)
+}
 
 // workspaceStatusPaths returns all status.json files across both old and new workspace layouts.
 // Old: workspace/{name}/status.json (1 level)
@@ -52,6 +56,9 @@ func monitorPath(path string) string {
 
 func monitorHomeDir() string {
 	if d := core.Env("CORE_HOME"); d != "" {
+		return d
+	}
+	if d := core.Env("HOME"); d != "" {
 		return d
 	}
 	return core.Env("DIR_HOME")
@@ -200,7 +207,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	monCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 
-	core.Info( "monitor: started (interval=%s)", m.interval)
+	core.Info("monitor: started (interval=%s)", m.interval)
 
 	m.wg.Add(1)
 	go func() {
@@ -239,7 +246,6 @@ func (m *Subsystem) Poke() {
 	default:
 	}
 }
-
 
 // checkIdleAfterDelay waits briefly then checks if the fleet is genuinely idle.
 // Only emits queue.drained when there are truly zero running or queued agents,
@@ -447,26 +453,13 @@ func (m *Subsystem) checkCompletions() string {
 
 // checkInbox checks for unread messages.
 func (m *Subsystem) checkInbox() string {
-	apiKeyStr := core.Env("CORE_BRAIN_KEY")
+	apiKeyStr := monitorBrainKey()
 	if apiKeyStr == "" {
-		home := core.Env("DIR_HOME")
-		keyFile := brainKeyPath(home)
-		r := fs.Read(keyFile)
-		if !r.OK {
-			return ""
-		}
-		value, ok := resultString(r)
-		if !ok {
-			return ""
-		}
-		apiKeyStr = value
+		return ""
 	}
 
 	// Call the API to check inbox
-	apiURL := core.Env("CORE_API_URL")
-	if apiURL == "" {
-		apiURL = "https://api.lthn.sh"
-	}
+	apiURL := monitorAPIURL()
 	inboxURL := core.Concat(apiURL, "/v1/messages/inbox?agent=", core.Replace(agentic.AgentName(), " ", "%20"))
 	hr := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(apiKeyStr), "Bearer")
 	if !hr.OK {
@@ -539,15 +532,14 @@ func (m *Subsystem) checkInbox() string {
 
 	// Push each message as a channel event so it lands in the session
 	if m.ServiceRuntime != nil {
-		for _, msg := range newMessages {
-			m.Core().ACTION(coremcp.ChannelPush{
-				Channel: "inbox.message",
-				Data: map[string]any{
+		if notifier, ok := core.ServiceFor[channelSender](m.Core(), "mcp"); ok {
+			for _, msg := range newMessages {
+				notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
 					"from":    msg.From,
 					"subject": msg.Subject,
 					"content": msg.Content,
-				},
-			})
+				})
+			}
 		}
 	}
 

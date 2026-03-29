@@ -13,7 +13,7 @@ import (
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
@@ -37,8 +37,8 @@ type PrepSubsystem struct {
 	drainMu    sync.Mutex
 	pokeCh     chan struct{}
 	frozen     bool
-	backoff    map[string]time.Time            // pool → paused until
-	failCount  map[string]int                  // pool → consecutive fast failures
+	backoff    map[string]time.Time             // pool → paused until
+	failCount  map[string]int                   // pool → consecutive fast failures
 	workspaces *core.Registry[*WorkspaceStatus] // in-memory workspace state
 }
 
@@ -410,8 +410,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		return nil, PrepOutput{}, err
 	}
 
-	repoDir := core.JoinPath(wsDir, "repo")
-	metaDir := core.JoinPath(wsDir, ".meta")
+	repoDir := workspaceRepoDir(wsDir)
+	metaDir := workspaceMetaDir(wsDir)
 	out := PrepOutput{WorkspaceDir: wsDir, RepoDir: repoDir}
 
 	// Source repo path — sanitise to prevent path traversal
@@ -431,9 +431,22 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	out.Resumed = resumed
 
 	if resumed {
-		// Pull latest from origin so the workspace has current code
-		s.gitCmd(ctx, repoDir, "checkout", "main")
-		s.gitCmd(ctx, repoDir, "pull", "origin", "main")
+		// Preserve the current branch on resume. Pull it only if it exists on
+		// origin; otherwise refresh the default branch refs without abandoning the
+		// workspace branch.
+		currentBranch := s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		defaultBranch := s.DefaultBranch(repoDir)
+		if currentBranch == "" || currentBranch == "HEAD" {
+			currentBranch = defaultBranch
+		}
+		if currentBranch != "" {
+			s.gitCmd(ctx, repoDir, "checkout", currentBranch)
+			if s.gitCmdOK(ctx, repoDir, "ls-remote", "--exit-code", "--heads", "origin", currentBranch) {
+				s.gitCmd(ctx, repoDir, "pull", "--ff-only", "origin", currentBranch)
+			} else if defaultBranch != "" {
+				s.gitCmd(ctx, repoDir, "fetch", "origin", defaultBranch)
+			}
+		}
 	}
 
 	// Extract default workspace template (go.work etc.)

@@ -11,6 +11,66 @@ import (
 	forge_types "dappco.re/go/core/forge/types"
 )
 
+type issueView struct {
+	Index   int64  `json:"index"`
+	Number  int64  `json:"number"`
+	Title   string `json:"title"`
+	State   string `json:"state"`
+	HTMLURL string `json:"html_url"`
+	Body    string `json:"body"`
+}
+
+type prBranchView struct {
+	Ref string `json:"ref"`
+}
+
+type prUserView struct {
+	Login    string `json:"login"`
+	UserName string `json:"username"`
+}
+
+type prLabelView struct {
+	Name string `json:"name"`
+}
+
+type pullRequestView struct {
+	Index     int64         `json:"index"`
+	Number    int64         `json:"number"`
+	Title     string        `json:"title"`
+	State     string        `json:"state"`
+	Mergeable bool          `json:"mergeable"`
+	HTMLURL   string        `json:"html_url"`
+	Body      string        `json:"body"`
+	Head      prBranchView  `json:"head"`
+	Base      prBranchView  `json:"base"`
+	User      *prUserView   `json:"user"`
+	Labels    []prLabelView `json:"labels"`
+}
+
+func issueNumber(issue issueView) int64 {
+	if issue.Index != 0 {
+		return issue.Index
+	}
+	return issue.Number
+}
+
+func pullRequestNumber(pr pullRequestView) int64 {
+	if pr.Index != 0 {
+		return pr.Index
+	}
+	return pr.Number
+}
+
+func pullRequestAuthor(pr pullRequestView) string {
+	if pr.User == nil {
+		return ""
+	}
+	if pr.User.UserName != "" {
+		return pr.User.UserName
+	}
+	return pr.User.Login
+}
+
 // parseForgeArgs extracts org and repo from opts.
 func parseForgeArgs(opts core.Options) (org, repo string, num int64) {
 	org = opts.String("org")
@@ -47,12 +107,13 @@ func (s *PrepSubsystem) cmdIssueGet(opts core.Options) core.Result {
 		core.Print(nil, "usage: core-agent issue get <repo> --number=N [--org=core]")
 		return core.Result{OK: false}
 	}
-	issue, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
+	var issue issueView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
-	core.Print(nil, "#%d %s", issue.Index, issue.Title)
+	core.Print(nil, "#%d %s", issueNumber(issue), issue.Title)
 	core.Print(nil, "  state:  %s", issue.State)
 	core.Print(nil, "  url:    %s", issue.HTMLURL)
 	if issue.Body != "" {
@@ -69,13 +130,14 @@ func (s *PrepSubsystem) cmdIssueList(opts core.Options) core.Result {
 		core.Print(nil, "usage: core-agent issue list <repo> [--org=core]")
 		return core.Result{OK: false}
 	}
-	issues, err := s.forge.Issues.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+	var issues []issueView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 	for _, issue := range issues {
-		core.Print(nil, "  #%-4d %-6s %s", issue.Index, issue.State, issue.Title)
+		core.Print(nil, "  #%-4d %-6s %s", issueNumber(issue), issue.State, issue.Title)
 	}
 	if len(issues) == 0 {
 		core.Print(nil, "  no issues")
@@ -117,7 +179,8 @@ func (s *PrepSubsystem) cmdIssueCreate(opts core.Options) core.Result {
 	createOpts := &forge_types.CreateIssueOption{Title: title, Body: body, Ref: ref}
 
 	if milestone != "" {
-		milestones, err := s.forge.Milestones.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+		var milestones []forge_types.Milestone
+		err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/milestones", org, repo), &milestones)
 		if err == nil {
 			for _, m := range milestones {
 				if m.Title == milestone {
@@ -163,12 +226,13 @@ func (s *PrepSubsystem) cmdPRGet(opts core.Options) core.Result {
 		core.Print(nil, "usage: core-agent pr get <repo> --number=N [--org=core]")
 		return core.Result{OK: false}
 	}
-	pr, err := s.forge.Pulls.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": fmtIndex(num)})
+	var pr pullRequestView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
-	core.Print(nil, "#%d %s", pr.Index, pr.Title)
+	core.Print(nil, "#%d %s", pullRequestNumber(pr), pr.Title)
 	core.Print(nil, "  state:     %s", pr.State)
 	core.Print(nil, "  head:      %s", pr.Head.Ref)
 	core.Print(nil, "  base:      %s", pr.Base.Ref)
@@ -188,13 +252,14 @@ func (s *PrepSubsystem) cmdPRList(opts core.Options) core.Result {
 		core.Print(nil, "usage: core-agent pr list <repo> [--org=core]")
 		return core.Result{OK: false}
 	}
-	prs, err := s.forge.Pulls.ListAll(ctx, forge.Params{"owner": org, "repo": repo})
+	var prs []pullRequestView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 	for _, pr := range prs {
-		core.Print(nil, "  #%-4d %-6s %s → %s  %s", pr.Index, pr.State, pr.Head.Ref, pr.Base.Ref, pr.Title)
+		core.Print(nil, "  #%-4d %-6s %s → %s  %s", pullRequestNumber(pr), pr.State, pr.Head.Ref, pr.Base.Ref, pr.Title)
 	}
 	if len(prs) == 0 {
 		core.Print(nil, "  no PRs")

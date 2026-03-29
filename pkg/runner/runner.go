@@ -15,7 +15,6 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
 )
 
 // Options configures the runner service.
@@ -36,6 +35,10 @@ type Service struct {
 	backoff    map[string]time.Time
 	failCount  map[string]int
 	workspaces *core.Registry[*WorkspaceStatus]
+}
+
+type channelSender interface {
+	ChannelSend(ctx context.Context, channel string, data any)
 }
 
 // New creates a runner service.
@@ -140,26 +143,35 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 				}
 			}
 		}
-		c.ACTION(coremcp.ChannelPush{
-			Channel: "agent.status",
-			Data: &AgentNotification{
-				Status:    "started",
-				Repo:      ev.Repo,
-				Agent:     ev.Agent,
-				Workspace: ev.Workspace,
-				Running:   running,
-				Limit:     limit,
-			},
-		})
+		notification := &AgentNotification{
+			Status:    "started",
+			Repo:      ev.Repo,
+			Agent:     ev.Agent,
+			Workspace: ev.Workspace,
+			Running:   running,
+			Limit:     limit,
+		}
+		if notifier, ok := core.ServiceFor[channelSender](c, "mcp"); ok {
+			notifier.ChannelSend(context.Background(), "agent.status", notification)
+		}
 
 	case messages.AgentCompleted:
 		// Update workspace status in Registry so concurrency count drops
-		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
-			if st.Repo == ev.Repo && st.Status == "running" {
-				st.Status = ev.Status
-				st.PID = 0
+		if ev.Workspace != "" {
+			if r := s.workspaces.Get(ev.Workspace); r.OK {
+				if st, ok := r.Value.(*WorkspaceStatus); ok && st.Status == "running" {
+					st.Status = ev.Status
+					st.PID = 0
+				}
 			}
-		})
+		} else {
+			s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
+				if st.Repo == ev.Repo && st.Status == "running" {
+					st.Status = ev.Status
+					st.PID = 0
+				}
+			})
+		}
 		cBase := baseAgent(ev.Agent)
 		cRunning := s.countRunningByAgent(cBase)
 		var cLimit int
@@ -171,17 +183,17 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 				}
 			}
 		}
-		c.ACTION(coremcp.ChannelPush{
-			Channel: "agent.status",
-			Data: &AgentNotification{
-				Status:    ev.Status,
-				Repo:      ev.Repo,
-				Agent:     ev.Agent,
-				Workspace: ev.Workspace,
-				Running:   cRunning,
-				Limit:     cLimit,
-			},
-		})
+		notification := &AgentNotification{
+			Status:    ev.Status,
+			Repo:      ev.Repo,
+			Agent:     ev.Agent,
+			Workspace: ev.Workspace,
+			Running:   cRunning,
+			Limit:     cLimit,
+		}
+		if notifier, ok := core.ServiceFor[channelSender](c, "mcp"); ok {
+			notifier.ChannelSend(context.Background(), "agent.status", notification)
+		}
 		s.Poke()
 
 	case messages.PokeQueue:

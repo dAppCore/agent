@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -302,6 +303,30 @@ func TestRunner_HandleIPCEvents_Good_UnknownMessage(t *testing.T) {
 	// Unknown message type — should not panic
 	r := svc.HandleIPCEvents(c, "unknown")
 	assert.True(t, r.OK)
+}
+
+func TestRunner_HandleIPCEvents_Good_UpdatesMatchingWorkspaceOnly(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+	svc.TrackWorkspace("core/go-io/task-1", &WorkspaceStatus{
+		Status: "running", Agent: "codex", Repo: "go-io", PID: 111,
+	})
+	svc.TrackWorkspace("core/go-io/task-2", &WorkspaceStatus{
+		Status: "running", Agent: "codex", Repo: "go-io", PID: 222,
+	})
+
+	r := svc.HandleIPCEvents(c, messages.AgentCompleted{
+		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-1", Status: "completed",
+	})
+	assert.True(t, r.OK)
+
+	first := svc.workspaces.Get("core/go-io/task-1").Value.(*WorkspaceStatus)
+	second := svc.workspaces.Get("core/go-io/task-2").Value.(*WorkspaceStatus)
+	assert.Equal(t, "completed", first.Status)
+	assert.Equal(t, 0, first.PID)
+	assert.Equal(t, "running", second.Status)
+	assert.Equal(t, 222, second.PID)
 }
 
 // --- WriteStatus / ReadStatus ---

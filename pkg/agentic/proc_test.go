@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +23,7 @@ var testCore *core.Core
 // TestMain sets up a PrepSubsystem with go-process registered for all tests in the package.
 func TestMain(m *testing.M) {
 	testCore = core.New(
-		core.WithService(process.Register),
+		core.WithService(ProcessRegister),
 	)
 	testCore.ServiceStartup(context.Background(), nil)
 

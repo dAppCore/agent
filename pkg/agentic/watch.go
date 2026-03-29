@@ -190,18 +190,15 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 // findActiveWorkspaces returns workspace names that are running or queued.
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
-	wsRoot := WorkspaceRoot()
-	entries := core.PathGlob(core.JoinPath(wsRoot, "*/status.json"))
-
 	var active []string
-	for _, entry := range entries {
+	for _, entry := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(entry)
 		st, err := ReadStatus(wsDir)
 		if err != nil {
 			continue
 		}
 		if st.Status == "running" || st.Status == "queued" {
-			active = append(active, core.PathBase(wsDir))
+			active = append(active, WorkspaceName(wsDir))
 		}
 	}
 	return active

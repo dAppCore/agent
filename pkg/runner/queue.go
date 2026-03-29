@@ -4,6 +4,7 @@ package runner
 
 import (
 	"strconv"
+	"syscall"
 	"time"
 
 	core "dappco.re/go/core"
@@ -65,10 +66,10 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 
 // AgentsConfig is the root of agents.yaml.
 type AgentsConfig struct {
-	Version     int                          `yaml:"version"`
-	Dispatch    DispatchConfig               `yaml:"dispatch"`
-	Concurrency map[string]ConcurrencyLimit  `yaml:"concurrency"`
-	Rates       map[string]RateConfig        `yaml:"rates"`
+	Version     int                         `yaml:"version"`
+	Dispatch    DispatchConfig              `yaml:"dispatch"`
+	Concurrency map[string]ConcurrencyLimit `yaml:"concurrency"`
+	Rates       map[string]RateConfig       `yaml:"rates"`
 }
 
 // loadAgentsConfig reads agents.yaml from known paths.
@@ -147,7 +148,13 @@ func (s *Service) canDispatchAgent(agent string) (bool, string) {
 func (s *Service) countRunningByAgent(agent string) int {
 	count := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		if st.Status == "running" && baseAgent(st.Agent) == agent {
+		if st.Status != "running" || baseAgent(st.Agent) != agent {
+			return
+		}
+		switch {
+		case st.PID < 0:
+			count++
+		case st.PID > 0 && syscall.Kill(st.PID, 0) == nil:
 			count++
 		}
 	})
@@ -158,7 +165,13 @@ func (s *Service) countRunningByAgent(agent string) int {
 func (s *Service) countRunningByModel(agent string) int {
 	count := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		if st.Status == "running" && st.Agent == agent {
+		if st.Status != "running" || st.Agent != agent {
+			return
+		}
+		switch {
+		case st.PID < 0:
+			count++
+		case st.PID > 0 && syscall.Kill(st.PID, 0) == nil:
 			count++
 		}
 	})

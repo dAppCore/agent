@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,17 +26,17 @@ func initTestRepo(t *testing.T) (sourceDir, wsDir string) {
 	run(t, sourceDir, "git", "add", ".")
 	run(t, sourceDir, "git", "commit", "-m", "init")
 
-	// Create workspace dir with src/ clone
+	// Create workspace dir with repo/ clone
 	wsDir = core.JoinPath(t.TempDir(), "workspace")
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 	fs.EnsureDir(wsDir)
-	run(t, wsDir, "git", "clone", sourceDir, "src")
+	run(t, wsDir, "git", "clone", sourceDir, "repo")
 
 	// Create agent branch with a commit
-	run(t, srcDir, "git", "checkout", "-b", "agent/test-task")
-	fs.Write(core.JoinPath(srcDir, "new.go"), "package main\n")
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "agent work")
+	run(t, repoDir, "git", "checkout", "-b", "agent/test-task")
+	fs.Write(core.JoinPath(repoDir, "new.go"), "package main\n")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "agent work")
 
 	return sourceDir, wsDir
 }
@@ -62,9 +62,9 @@ func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
 
 func TestHarvest_DetectBranch_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
-	branch := testMon.detectBranch(srcDir)
+	branch := testMon.detectBranch(repoDir)
 	assert.Equal(t, "agent/test-task", branch)
 }
 
@@ -75,53 +75,53 @@ func TestHarvest_DetectBranch_Bad_NoRepo(t *testing.T) {
 
 func TestHarvest_CountUnpushed_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
-	count := testMon.countUnpushed(srcDir, "agent/test-task")
+	count := testMon.countUnpushed(repoDir, "agent/test-task")
 	assert.Equal(t, 1, count)
 }
 
 func TestHarvest_CountChangedFiles_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
-	count := testMon.countChangedFiles(srcDir)
+	count := testMon.countChangedFiles(repoDir)
 	assert.Equal(t, 1, count)
 }
 
 func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
-	reason := testMon.checkSafety(srcDir)
+	reason := testMon.checkSafety(repoDir)
 	assert.Equal(t, "", reason)
 }
 
 func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
 	// Add a binary file
-	fs.Write(core.JoinPath(srcDir, "app.exe"), "binary")
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "add binary")
+	fs.Write(core.JoinPath(repoDir, "app.exe"), "binary")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "add binary")
 
-	reason := testMon.checkSafety(srcDir)
+	reason := testMon.checkSafety(repoDir)
 	assert.Contains(t, reason, "binary file added")
 	assert.Contains(t, reason, "app.exe")
 }
 
 func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
 	// Add a file > 1MB
 	bigData := make([]byte, 1024*1024+1)
-	fs.Write(core.JoinPath(srcDir, "huge.txt"), string(bigData))
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "add large file")
+	fs.Write(core.JoinPath(repoDir, "huge.txt"), string(bigData))
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "add large file")
 
-	reason := testMon.checkSafety(srcDir)
+	reason := testMon.checkSafety(repoDir)
 	assert.Contains(t, reason, "large file")
 	assert.Contains(t, reason, "huge.txt")
 }
@@ -160,8 +160,8 @@ func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 
 	// Switch back to main
-	srcDir := core.JoinPath(wsDir, "src")
-	run(t, srcDir, "git", "checkout", "main")
+	repoDir := core.JoinPath(wsDir, "repo")
+	run(t, repoDir, "git", "checkout", "main")
 
 	writeStatus(t, wsDir, "completed", "test-repo", "main")
 
@@ -173,12 +173,12 @@ func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 
 func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	_, wsDir := initTestRepo(t)
-	srcDir := core.JoinPath(wsDir, "src")
+	repoDir := core.JoinPath(wsDir, "repo")
 
 	// Add binary
-	fs.Write(core.JoinPath(srcDir, "build.so"), "elf")
-	run(t, srcDir, "git", "add", ".")
-	run(t, srcDir, "git", "commit", "-m", "add binary")
+	fs.Write(core.JoinPath(repoDir, "build.so"), "elf")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
 
@@ -201,7 +201,7 @@ func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 
 	// Create a Core with process + IPC handler to capture HarvestComplete messages
 	var captured []messages.HarvestComplete
-	c := core.New(core.WithService(process.Register))
+	c := core.New(core.WithService(agentic.ProcessRegister))
 	c.ServiceStartup(context.Background(), nil)
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
 		if ev, ok := msg.(messages.HarvestComplete); ok {
@@ -251,4 +251,3 @@ func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
 	assert.Equal(t, "rejected", st["status"])
 	assert.Equal(t, "binary file: app.exe", st["question"])
 }
-

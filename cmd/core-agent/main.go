@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EUPL-1.2
+
 package main
 
 import (
@@ -7,7 +9,6 @@ import (
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/agent/pkg/runner"
-	"dappco.re/go/mcp/pkg/mcp"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 		core.WithService(runner.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
-		core.WithService(mcp.Register),
+		core.WithName("mcp", registerMCPService),
 	)
 	c.App().Version = appVersion()
 

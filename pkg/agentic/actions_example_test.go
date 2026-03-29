@@ -6,14 +6,13 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
 
 	"dappco.re/go/agent/pkg/agentic"
 )
 
 func ExampleRegister() {
 	c := core.New(
-		core.WithService(process.Register),
+		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 	)
 	c.ServiceStartup(context.Background(), nil)
@@ -30,7 +29,7 @@ func ExampleRegister() {
 
 func ExampleRegister_actions() {
 	c := core.New(
-		core.WithService(process.Register),
+		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 	)
 	c.ServiceStartup(context.Background(), nil)
@@ -42,7 +41,7 @@ func ExampleRegister_actions() {
 
 func ExampleRegister_task() {
 	c := core.New(
-		core.WithService(process.Register),
+		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 	)
 	c.ServiceStartup(context.Background(), nil)

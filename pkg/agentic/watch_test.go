@@ -15,8 +15,8 @@ import (
 func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	dir := s.resolveWorkspaceDir("go-io-abc123")
 	assert.Contains(t, dir, "go-io-abc123")
@@ -26,8 +26,8 @@ func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	abs := "/some/absolute/path"
 	assert.Equal(t, abs, s.resolveWorkspaceDir(abs))
@@ -58,13 +58,32 @@ func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	active := s.findActiveWorkspaces()
 	assert.Contains(t, active, "ws-running")
 	assert.Contains(t, active, "ws-queued")
 	assert.NotContains(t, active, "ws-done")
+}
+
+func TestWatch_FindActiveWorkspaces_Good_DeepLayout(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-15")
+	fs.EnsureDir(ws)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "running", Repo: "go-io", Agent: "codex",
+	}))
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	active := s.findActiveWorkspaces()
+	assert.Contains(t, active, "core/go-io/task-15")
 }
 
 func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
@@ -76,8 +95,8 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	active := s.findActiveWorkspaces()
 	assert.Empty(t, active)
@@ -92,8 +111,8 @@ func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
 		active := s.findActiveWorkspaces()
@@ -119,8 +138,8 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	active := s.findActiveWorkspaces()
@@ -135,8 +154,8 @@ func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 	// Empty name
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	dir := s.resolveWorkspaceDir("")
 	assert.NotEmpty(t, dir, "empty name should still resolve to workspace root")
@@ -147,8 +166,8 @@ func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
 	// Name with path traversal "../.."
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
 		dir := s.resolveWorkspaceDir("../..")

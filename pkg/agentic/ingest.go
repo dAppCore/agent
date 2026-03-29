@@ -8,6 +8,13 @@ import (
 	core "dappco.re/go/core"
 )
 
+func agentHomeDir() string {
+	if home := core.Env("HOME"); home != "" {
+		return home
+	}
+	return core.Env("DIR_HOME")
+}
+
 // ingestFindings reads the agent output log and creates issues via the API
 // for scan/audit results. Only runs for conventions and security templates.
 func (s *PrepSubsystem) ingestFindings(wsDir string) {
@@ -17,7 +24,7 @@ func (s *PrepSubsystem) ingestFindings(wsDir string) {
 	}
 
 	// Read the log file
-	logFiles := core.PathGlob(core.JoinPath(wsDir, "agent-*.log"))
+	logFiles := workspaceLogFiles(wsDir)
 	if len(logFiles) == 0 {
 		return
 	}
@@ -88,7 +95,7 @@ func (s *PrepSubsystem) createIssueViaAPI(repo, title, description, issueType, p
 	}
 
 	// Read the agent API key from file
-	r := fs.Read(core.JoinPath(core.Env("DIR_HOME"), ".claude", "agent-api.key"))
+	r := fs.Read(core.JoinPath(agentHomeDir(), ".claude", "agent-api.key"))
 	if !r.OK {
 		return
 	}

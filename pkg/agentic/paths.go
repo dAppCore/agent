@@ -29,6 +29,13 @@ func WorkspaceRoot() string {
 	return core.JoinPath(CoreRoot(), "workspace")
 }
 
+// WorkspaceStatusPaths returns all workspace status files across supported layouts.
+//
+//	paths := agentic.WorkspaceStatusPaths()
+func WorkspaceStatusPaths() []string {
+	return workspaceStatusPaths(WorkspaceRoot())
+}
+
 // WorkspaceName extracts the unique workspace name from a full path.
 // Given /Users/snider/Code/.core/workspace/core/go-io/dev → core/go-io/dev
 //
@@ -52,6 +59,32 @@ func CoreRoot() string {
 		return root
 	}
 	return core.JoinPath(core.Env("DIR_HOME"), "Code", ".core")
+}
+
+func workspaceStatusPaths(wsRoot string) []string {
+	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
+	return append(old, deep...)
+}
+
+func workspaceRepoDir(wsDir string) string {
+	return core.JoinPath(wsDir, "repo")
+}
+
+func workspaceMetaDir(wsDir string) string {
+	return core.JoinPath(wsDir, ".meta")
+}
+
+func workspaceBlockedPath(wsDir string) string {
+	return core.JoinPath(workspaceRepoDir(wsDir), "BLOCKED.md")
+}
+
+func workspaceAnswerPath(wsDir string) string {
+	return core.JoinPath(workspaceRepoDir(wsDir), "ANSWER.md")
+}
+
+func workspaceLogFiles(wsDir string) []string {
+	return core.PathGlob(core.JoinPath(workspaceMetaDir(wsDir), "agent-*.log"))
 }
 
 // PlansRoot returns the root directory for agent plans.

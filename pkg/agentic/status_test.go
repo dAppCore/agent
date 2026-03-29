@@ -199,13 +199,14 @@ func TestStatus_Status_Ugly(t *testing.T) {
 	// Case 2: running + dead PID + agent log → completed
 	ws2 := core.JoinPath(wsRoot, "dead-completed")
 	require.True(t, fs.EnsureDir(core.JoinPath(ws2, "repo")).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(ws2, ".meta")).OK)
 	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status: "running",
 		Repo:   "go-log",
 		Agent:  "claude",
 		PID:    999999,
 	}))
-	require.True(t, fs.Write(core.JoinPath(ws2, "agent-claude.log"), "agent finished ok").OK)
+	require.True(t, fs.Write(core.JoinPath(ws2, ".meta", "agent-claude.log"), "agent finished ok").OK)
 
 	// Case 3: running + dead PID + no log + no BLOCKED.md → failed
 	ws3 := core.JoinPath(wsRoot, "dead-failed")
@@ -219,8 +220,8 @@ func TestStatus_Status_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.status(nil, nil, StatusInput{})
@@ -336,8 +337,8 @@ func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
@@ -356,8 +357,8 @@ func TestStatus_Status_Bad_EmptyWorkspaceRoot(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})

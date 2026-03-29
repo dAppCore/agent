@@ -7,14 +7,14 @@ import (
 	"os"
 	"testing"
 
+	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
 )
 
 var testMon *Subsystem
 
 func TestMain(m *testing.M) {
-	c := core.New(core.WithService(process.Register))
+	c := core.New(core.WithService(agentic.ProcessRegister))
 	c.ServiceStartup(context.Background(), nil)
 	testMon = New()
 	testMon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})

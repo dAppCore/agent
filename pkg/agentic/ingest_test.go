@@ -45,20 +45,21 @@ func TestIngest_IngestFindings_Good_WithFindings(t *testing.T) {
 		"- `pkg/core/service.go:100` has a missing error check\n" +
 		"- `pkg/core/config.go:25` needs documentation\n" +
 		"This is padding to get past the 100 char minimum length requirement for the log file content parsing."
-	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(wsDir, ".meta")).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, ".meta", "agent-codex.log"), logContent).OK)
 
 	// Set up HOME for the agent-api.key read
 	home := t.TempDir()
-	t.Setenv("DIR_HOME", home)
+	t.Setenv("HOME", home)
 	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
 	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-api-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:   srv.URL,
-		brainKey:   "test-brain-key",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		brainURL:       srv.URL,
+		brainKey:       "test-brain-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.ingestFindings(wsDir)
@@ -74,8 +75,8 @@ func TestIngest_IngestFindings_Bad_NotCompleted(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early — status is not "completed"
@@ -93,8 +94,8 @@ func TestIngest_IngestFindings_Bad_NoLogFile(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early — no log files
@@ -112,12 +113,13 @@ func TestIngest_IngestFindings_Bad_TooFewFindings(t *testing.T) {
 
 	// Only 1 finding (need >= 2 to ingest)
 	logContent := "Found: `main.go:1` has an issue. This padding makes the content long enough to pass the 100 char minimum check."
-	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(wsDir, ".meta")).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, ".meta", "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	assert.NotPanics(t, func() {
@@ -134,12 +136,13 @@ func TestIngest_IngestFindings_Bad_QuotaExhausted(t *testing.T) {
 
 	// Log contains quota error — should skip
 	logContent := "QUOTA_EXHAUSTED: Rate limit exceeded. `main.go:1` `other.go:2` padding to ensure we pass length check and get past the threshold."
-	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), logContent).OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(wsDir, ".meta")).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, ".meta", "agent-codex.log"), logContent).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	assert.NotPanics(t, func() {
@@ -152,8 +155,8 @@ func TestIngest_IngestFindings_Bad_NoStatusFile(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	assert.NotPanics(t, func() {
@@ -169,12 +172,13 @@ func TestIngest_IngestFindings_Bad_ShortLogFile(t *testing.T) {
 	}))
 
 	// Log content is less than 100 bytes — should skip
-	require.True(t, fs.Write(core.JoinPath(wsDir, "agent-codex.log"), "short").OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(wsDir, ".meta")).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, ".meta", "agent-codex.log"), "short").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	assert.NotPanics(t, func() {
@@ -203,12 +207,17 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
+	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-key").OK)
+
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:   srv.URL,
-		brainKey:   "test-brain-key",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		brainURL:       srv.URL,
+		brainKey:       "test-brain-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.createIssueViaAPI("go-io", "Test Issue", "Description", "bug", "high", "scan")
@@ -218,9 +227,9 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 func TestIngest_CreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainKey:  "",
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		brainKey:       "",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early without panic
@@ -231,15 +240,15 @@ func TestIngest_CreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 
 func TestIngest_CreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("DIR_HOME", home)
+	t.Setenv("HOME", home)
 	// No agent-api.key file
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:   "https://example.com",
-		brainKey:   "test-brain-key",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		brainURL:       "https://example.com",
+		brainKey:       "test-brain-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early — no API key file
@@ -255,16 +264,16 @@ func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	home := t.TempDir()
-	t.Setenv("DIR_HOME", home)
+	t.Setenv("HOME", home)
 	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
 	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:   srv.URL,
-		brainKey:   "test-brain-key",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		brainURL:       srv.URL,
+		brainKey:       "test-brain-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic even on server error
@@ -296,8 +305,8 @@ func TestIngest_IngestFindings_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early without panic — no log files
@@ -323,16 +332,16 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	home := t.TempDir()
-	t.Setenv("DIR_HOME", home)
+	t.Setenv("HOME", home)
 	require.True(t, fs.EnsureDir(core.JoinPath(home, ".claude")).OK)
 	require.True(t, fs.Write(core.JoinPath(home, ".claude", "agent-api.key"), "test-key").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:  srv.URL,
-		brainKey:  "test-brain-key",
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		brainURL:       srv.URL,
+		brainKey:       "test-brain-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.createIssueViaAPI("go-io", "XSS Test", "<script>alert('xss')</script><b>bold</b>&amp;", "bug", "high", "scan")

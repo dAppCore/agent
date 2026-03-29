@@ -11,9 +11,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	providerws "dappco.re/go/core/ws"
-	bridgews "forge.lthn.ai/core/go-ws"
-	"dappco.re/go/mcp/pkg/mcp/ide"
+	providerws "forge.lthn.ai/core/go-ws"
+	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +45,7 @@ func testBridge(t *testing.T) *ide.Bridge {
 	srv := testWSServer(t)
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
-	hub := bridgews.NewHub()
+	hub := providerws.NewHub()
 	bridge := ide.NewBridge(hub, ide.Config{
 		LaravelWSURL:      wsURL,
 		ReconnectInterval: 100 * time.Millisecond,

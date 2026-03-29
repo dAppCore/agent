@@ -69,7 +69,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Write ANSWER.md if answer provided
 	if input.Answer != "" {
-		answerPath := core.JoinPath(repoDir, "ANSWER.md")
+		answerPath := workspaceAnswerPath(wsDir)
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if r := fs.Write(answerPath, content); !r.OK {
 			err, _ := r.Value.(error)
@@ -111,6 +111,6 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		Workspace:  input.Workspace,
 		Agent:      agent,
 		PID:        pid,
-		OutputFile: core.JoinPath(wsDir, core.Sprintf("agent-%s.log", agent)),
+		OutputFile: agentOutputFile(wsDir, agent),
 	}, nil
 }

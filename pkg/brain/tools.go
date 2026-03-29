@@ -7,7 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/mcp/pkg/mcp/ide"
+	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

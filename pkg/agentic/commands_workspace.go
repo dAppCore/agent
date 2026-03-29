@@ -19,13 +19,12 @@ func (s *PrepSubsystem) registerWorkspaceCommands() {
 }
 
 func (s *PrepSubsystem) cmdWorkspaceList(opts core.Options) core.Result {
-	wsRoot := WorkspaceRoot()
 	fsys := s.Core().Fs()
 
-	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	statusFiles := WorkspaceStatusPaths()
 	count := 0
 	for _, sf := range statusFiles {
-		wsName := core.PathBase(core.PathDir(sf))
+		wsName := WorkspaceName(core.PathDir(sf))
 		if sr := fsys.Read(sf); sr.OK {
 			content := sr.Value.(string)
 			status := extractField(content, "status")
@@ -49,11 +48,11 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 		filter = "all"
 	}
 
-	statusFiles := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
+	statusFiles := WorkspaceStatusPaths()
 	var toRemove []string
 
 	for _, sf := range statusFiles {
-		wsName := core.PathBase(core.PathDir(sf))
+		wsName := WorkspaceName(core.PathDir(sf))
 		sr := fsys.Read(sf)
 		if !sr.OK {
 			continue
