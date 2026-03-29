@@ -33,7 +33,7 @@ func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
 
 // Input/Output types
 
-// SendInput sends a direct message to another agent.
+// SendInput is the payload for `agent_send`.
 //
 //	brain.SendInput{To: "charon", Subject: "status update", Content: "deploy complete"}
 type SendInput struct {
@@ -42,7 +42,7 @@ type SendInput struct {
 	Subject string `json:"subject,omitempty"`
 }
 
-// SendOutput reports the created direct message.
+// SendOutput reports the stored direct message.
 //
 //	brain.SendOutput{Success: true, ID: 42, To: "charon"}
 type SendOutput struct {
@@ -51,14 +51,14 @@ type SendOutput struct {
 	To      string `json:"to"`
 }
 
-// InboxInput selects which agent inbox to read.
+// InboxInput selects which inbox `agent_inbox` should read.
 //
 //	brain.InboxInput{Agent: "cladius"}
 type InboxInput struct {
 	Agent string `json:"agent,omitempty"`
 }
 
-// MessageItem is one inbox or conversation message.
+// MessageItem is one inbox or conversation entry.
 //
 //	brain.MessageItem{ID: 7, From: "cladius", To: "charon", Content: "all green"}
 type MessageItem struct {
@@ -71,7 +71,7 @@ type MessageItem struct {
 	CreatedAt string `json:"created_at"`
 }
 
-// InboxOutput returns the latest direct messages for an agent.
+// InboxOutput returns the latest direct messages for one agent.
 //
 //	brain.InboxOutput{Success: true, Messages: []brain.MessageItem{{ID: 1, From: "charon", To: "cladius"}}}
 type InboxOutput struct {
@@ -79,7 +79,7 @@ type InboxOutput struct {
 	Messages []MessageItem `json:"messages"`
 }
 
-// ConversationInput selects the agent thread to load.
+// ConversationInput selects the thread `agent_conversation` should load.
 //
 //	brain.ConversationInput{Agent: "charon"}
 type ConversationInput struct {
@@ -101,17 +101,19 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
 	}
 
-	result, err := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
+	result := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
 		"to":      input.To,
 		"from":    agentic.AgentName(),
 		"content": input.Content,
 		"subject": input.Subject,
 	})
-	if err != nil {
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, SendOutput{}, err
 	}
 
-	data, _ := result["data"].(map[string]any)
+	payload, _ := result.Value.(map[string]any)
+	data, _ := payload["data"].(map[string]any)
 	id, _ := data["id"].(float64)
 
 	return nil, SendOutput{
@@ -127,14 +129,15 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 		agent = agentic.AgentName()
 	}
 	// Agent names are validated identifiers — no URL escaping needed.
-	result, err := s.apiCall(ctx, "GET", core.Concat("/v1/messages/inbox?agent=", agent), nil)
-	if err != nil {
+	result := s.apiCall(ctx, "GET", core.Concat("/v1/messages/inbox?agent=", agent), nil)
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, InboxOutput{}, err
 	}
 
 	return nil, InboxOutput{
 		Success:  true,
-		Messages: parseMessages(result),
+		Messages: parseMessages(result.Value.(map[string]any)),
 	}, nil
 }
 
@@ -143,14 +146,15 @@ func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolReque
 		return nil, ConversationOutput{}, core.E("brain.conversation", "agent is required", nil)
 	}
 
-	result, err := s.apiCall(ctx, "GET", core.Concat("/v1/messages/conversation/", input.Agent, "?me=", agentic.AgentName()), nil)
-	if err != nil {
+	result := s.apiCall(ctx, "GET", core.Concat("/v1/messages/conversation/", input.Agent, "?me=", agentic.AgentName()), nil)
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, ConversationOutput{}, err
 	}
 
 	return nil, ConversationOutput{
 		Success:  true,
-		Messages: parseMessages(result),
+		Messages: parseMessages(result.Value.(map[string]any)),
 	}, nil
 }
 

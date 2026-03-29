@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package brain gives MCP and HTTP services a shared OpenBrain surface.
+// Package brain gives MCP and HTTP services the same OpenBrain capability map.
 //
-//	sub := brain.New(bridge)
-//	sub.RegisterTools(server)
+//	sub := brain.New(nil)
+//	core.Println(sub.Name())
 package brain
 
 import (
@@ -31,18 +31,18 @@ func fieldString(values map[string]any, key string) string {
 // but it has not been initialised (headless mode).
 var errBridgeNotAvailable = core.E("brain", "bridge not available", nil)
 
-// Subsystem routes brain_* MCP tools through the shared IDE bridge.
+// Subsystem routes `brain_*` MCP tools through the shared IDE bridge.
 //
-//	sub := brain.New(bridge)
-//	sub.RegisterTools(server)
+//	sub := brain.New(nil)
+//	core.Println(sub.Name()) // "brain"
 type Subsystem struct {
 	bridge *ide.Bridge
 }
 
-// New builds the bridge-backed OpenBrain subsystem.
+// New builds the bridge-backed OpenBrain subsystem used by MCP.
 //
-//	sub := brain.New(bridge)
-//	_ = sub.Shutdown(context.Background())
+//	sub := brain.New(nil)
+//	core.Println(sub.Name())
 func New(bridge *ide.Bridge) *Subsystem {
 	return &Subsystem{bridge: bridge}
 }
@@ -54,7 +54,7 @@ func (s *Subsystem) Name() string { return "brain" }
 
 // RegisterTools publishes the bridge-backed brain tools on an MCP server.
 //
-//	sub := brain.New(bridge)
+//	sub := brain.New(nil)
 //	sub.RegisterTools(server)
 func (s *Subsystem) RegisterTools(server *mcp.Server) {
 	s.registerBrainTools(server)

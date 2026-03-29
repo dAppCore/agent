@@ -15,7 +15,7 @@ import (
 // BrainProvider exposes the same OpenBrain bridge over HTTP routes and WS events.
 //
 //	provider := brain.NewProvider(bridge, hub)
-//	provider.RegisterRoutes(router.Group("/api/brain"))
+//	core.Println(provider.BasePath()) // "/api/brain"
 type BrainProvider struct {
 	bridge *ide.Bridge
 	hub    *ws.Hub
@@ -39,7 +39,7 @@ const (
 // NewProvider builds the HTTP provider around the IDE bridge and WS hub.
 //
 //	p := brain.NewProvider(bridge, hub)
-//	p.RegisterRoutes(router.Group("/api/brain"))
+//	core.Println(p.BasePath())
 func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 	return &BrainProvider{
 		bridge: bridge,
@@ -60,6 +60,7 @@ func (p *BrainProvider) BasePath() string { return "/api/brain" }
 // Channels lists the WS events emitted after brain actions complete.
 //
 //	channels := p.Channels()
+//	core.Println(channels[0]) // "brain.remember.complete"
 func (p *BrainProvider) Channels() []string {
 	return []string{
 		"brain.remember.complete",
@@ -71,6 +72,7 @@ func (p *BrainProvider) Channels() []string {
 // Element describes the browser component that renders the brain panel.
 //
 //	spec := p.Element()
+//	core.Println(spec.Tag) // "core-brain-panel"
 func (p *BrainProvider) Element() provider.ElementSpec {
 	return provider.ElementSpec{
 		Tag:    "core-brain-panel",
@@ -92,6 +94,7 @@ func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
 // Describe returns the route contract used by API discovery and docs.
 //
 //	routes := p.Describe()
+//	core.Println(routes[0].Path) // "/remember"
 func (p *BrainProvider) Describe() []api.RouteDescription {
 	return []api.RouteDescription{
 		{

@@ -26,9 +26,9 @@ func CoreRoot() string {
 	return agentic.CoreRoot()
 }
 
-// ReadStatus reads a workspace status.json.
+// ReadStatus reads `status.json` from one workspace directory.
 //
-//	st, err := runner.ReadStatus("/path/to/workspace")
+//	st, err := runner.ReadStatus("/srv/core/workspace/core/go-io/task-5")
 func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 	status, err := agentic.ReadStatus(wsDir)
 	if err != nil {
@@ -44,9 +44,9 @@ func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 	return &st, nil
 }
 
-// WriteStatus writes a workspace status.json.
+// WriteStatus writes `status.json` for one workspace directory.
 //
-//	runner.WriteStatus(wsDir, &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+//	runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 func WriteStatus(wsDir string, st *WorkspaceStatus) {
 	if st == nil {
 		return

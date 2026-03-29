@@ -12,18 +12,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DispatchConfig controls agent dispatch behaviour.
+// DispatchConfig mirrors the `dispatch:` block in `agents.yaml`.
 //
-//	cfg := runner.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
+//	cfg := runner.DispatchConfig{
+//		DefaultAgent: "codex", DefaultTemplate: "coding", WorkspaceRoot: "/srv/core/workspace",
+//	}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
 }
 
-// RateConfig controls pacing between task dispatches.
+// RateConfig mirrors one agent pool under `rates:` in `agents.yaml`.
 //
-//	rate := runner.RateConfig{ResetUTC: "06:00", SustainedDelay: 120}
+//	rate := runner.RateConfig{
+//		ResetUTC: "06:00", DailyLimit: 200, SustainedDelay: 120, BurstWindow: 2, BurstDelay: 300,
+//	}
 type RateConfig struct {
 	ResetUTC       string `yaml:"reset_utc"`
 	DailyLimit     int    `yaml:"daily_limit"`
@@ -68,7 +72,12 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// AgentsConfig is the root of agents.yaml.
+// AgentsConfig mirrors the full `agents.yaml` file.
+//
+//	cfg := runner.AgentsConfig{
+//		Version: 1,
+//		Dispatch: runner.DispatchConfig{DefaultAgent: "codex", DefaultTemplate: "coding"},
+//	}
 type AgentsConfig struct {
 	Version     int                         `yaml:"version"`
 	Dispatch    DispatchConfig              `yaml:"dispatch"`
@@ -76,7 +85,10 @@ type AgentsConfig struct {
 	Rates       map[string]RateConfig       `yaml:"rates"`
 }
 
-// loadAgentsConfig reads agents.yaml from known paths.
+// loadAgentsConfig reads `agents.yaml` from the Core root.
+//
+//	cfg := s.loadAgentsConfig()
+//	core.Println(cfg.Dispatch.DefaultAgent)
 func (s *Service) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
 		core.JoinPath(CoreRoot(), "agents.yaml"),
@@ -165,7 +177,9 @@ func (s *Service) countRunningByAgent(agent string) int {
 	return count
 }
 
-// countRunningByModel counts running workspaces for a specific agent:model.
+// countRunningByModel counts running workspaces for a specific `agent:model`.
+//
+//	n := s.countRunningByModel("codex:gpt-5.4")
 func (s *Service) countRunningByModel(agent string) int {
 	count := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
@@ -182,7 +196,9 @@ func (s *Service) countRunningByModel(agent string) int {
 	return count
 }
 
-// drainQueue fills available concurrency slots from queued workspaces.
+// drainQueue fills any free concurrency slots from queued workspaces.
+//
+//	s.drainQueue()
 func (s *Service) drainQueue() {
 	if s.frozen {
 		return
@@ -221,8 +237,8 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 
-		// Ask agentic to spawn — runner doesn't own the spawn logic,
-		// just the gate. Send IPC to trigger the actual spawn.
+		// Ask agentic to spawn — runner owns the gate,
+		// agentic owns the actual process launch.
 		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
 		wsName := agentic.WorkspaceName(wsDir)
 		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", st.Agent)
@@ -232,7 +248,7 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 		type spawner interface {
-			SpawnFromQueue(agent, prompt, wsDir string) (int, error)
+			SpawnFromQueue(agent, prompt, wsDir string) core.Result
 		}
 		prep, ok := core.ServiceFor[spawner](s.Core(), "agentic")
 		if !ok {
@@ -240,9 +256,14 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		pid, err := prep.SpawnFromQueue(st.Agent, prompt, wsDir)
-		if err != nil {
-			core.Error("drainOne: spawn failed", "err", err)
+		spawnResult := prep.SpawnFromQueue(st.Agent, prompt, wsDir)
+		if !spawnResult.OK {
+			core.Error("drainOne: spawn failed", "workspace", wsName, "reason", core.Sprint(spawnResult.Value))
+			continue
+		}
+		pid, ok := spawnResult.Value.(int)
+		if !ok {
+			core.Error("drainOne: spawn returned non-int pid", "workspace", wsName)
 			continue
 		}
 

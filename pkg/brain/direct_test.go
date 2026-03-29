@@ -82,7 +82,9 @@ func TestDirect_Subsystem_Good_Shutdown(t *testing.T) {
 
 func TestDirect_ApiCall_Bad_NoAPIKey(t *testing.T) {
 	sub := &DirectSubsystem{apiURL: "http://localhost", apiKey: ""}
-	_, err := sub.apiCall(context.Background(), "GET", "/test", nil)
+	result := sub.apiCall(context.Background(), "GET", "/test", nil)
+	require.False(t, result.OK)
+	err, _ := result.Value.(error)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no API key")
 }
@@ -99,9 +101,10 @@ func TestDirect_ApiCall_Good_GET(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.NoError(t, err)
-	assert.Equal(t, "ok", result["status"])
+	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	require.True(t, result.OK)
+	payload, _ := result.Value.(map[string]any)
+	assert.Equal(t, "ok", payload["status"])
 }
 
 func TestDirect_ApiCall_Good_POSTWithBody(t *testing.T) {
@@ -118,16 +121,19 @@ func TestDirect_ApiCall_Good_POSTWithBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := newTestDirect(srv).apiCall(context.Background(), "POST", "/v1/brain/remember", map[string]any{"content": "hello"})
-	require.NoError(t, err)
-	assert.Equal(t, "mem-123", result["id"])
+	result := newTestDirect(srv).apiCall(context.Background(), "POST", "/v1/brain/remember", map[string]any{"content": "hello"})
+	require.True(t, result.OK)
+	payload, _ := result.Value.(map[string]any)
+	assert.Equal(t, "mem-123", payload["id"])
 }
 
 func TestDirect_ApiCall_Bad_ServerError(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusInternalServerError, `{"error":"internal"}`))
 	defer srv.Close()
 
-	_, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	require.False(t, result.OK)
+	err, _ := result.Value.(error)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API call failed")
 }
@@ -139,14 +145,18 @@ func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	require.False(t, result.OK)
+	err, _ := result.Value.(error)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse response")
 }
 
 func TestDirect_ApiCall_Bad_ConnectionRefused(t *testing.T) {
 	sub := &DirectSubsystem{apiURL: "http://127.0.0.1:1", apiKey: "test-key"}
-	_, err := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
+	result := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
+	require.False(t, result.OK)
+	err, _ := result.Value.(error)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API call failed")
 }
@@ -155,7 +165,9 @@ func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
 	srv := httptest.NewServer(errorHandler(http.StatusBadRequest, `{"error":"bad input"}`))
 	defer srv.Close()
 
-	_, err := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
+	require.False(t, result.OK)
+	err, _ := result.Value.(error)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API call failed")
 }

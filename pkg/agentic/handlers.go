@@ -14,10 +14,8 @@ import (
 // HandleIPCEvents implements Core's IPC handler interface.
 // Auto-registered by WithService — no manual wiring needed.
 //
-// Handles:
-//
-//	AgentCompleted → ingest findings (runner handles channel push + queue poke)
-//	SpawnQueued → runner asks agentic to spawn a queued workspace
+//	_ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5"})
+//	_ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentCompleted:
@@ -29,7 +27,6 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 		}
 
 	case messages.SpawnQueued:
-		// Runner asks agentic to spawn a queued workspace
 		// Runner asks agentic to spawn a queued workspace
 		wsDir := resolveWorkspace(ev.Workspace)
 		if wsDir == "" {
@@ -57,10 +54,16 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 // SpawnFromQueue spawns an agent in a pre-prepped workspace.
 // Called by runner.Service via ServiceFor interface matching.
 //
-//	pid, err := prep.SpawnFromQueue("codex", prompt, wsDir)
-func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) (int, error) {
+//	r := prep.SpawnFromQueue("codex", prompt, wsDir)
+//	pid := r.Value.(int)
+func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) core.Result {
 	pid, _, err := s.spawnAgent(agent, prompt, wsDir)
-	return pid, err
+	if err != nil {
+		return core.Result{
+			Value: core.E("agentic.SpawnFromQueue", "failed to spawn queued agent", err),
+		}
+	}
+	return core.Result{Value: pid, OK: true}
 }
 
 // resolveWorkspace converts a workspace name back to the full path.

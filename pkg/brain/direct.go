@@ -15,7 +15,7 @@ import (
 // DirectSubsystem talks to OpenBrain over HTTP without the IDE bridge.
 //
 //	sub := brain.NewDirect()
-//	sub.RegisterTools(server)
+//	core.Println(sub.Name()) // "brain"
 type DirectSubsystem struct {
 	apiURL string
 	apiKey string
@@ -26,7 +26,7 @@ var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
 // NewDirect builds the HTTP-backed OpenBrain subsystem.
 //
 //	sub := brain.NewDirect()
-//	sub.RegisterTools(server)
+//	core.Println(sub.Name())
 func NewDirect() *DirectSubsystem {
 	apiURL := core.Env("CORE_BRAIN_URL")
 	if apiURL == "" {
@@ -61,7 +61,7 @@ func NewDirect() *DirectSubsystem {
 //	name := sub.Name() // "brain"
 func (s *DirectSubsystem) Name() string { return "brain" }
 
-// RegisterTools publishes the direct brain_* and agent_* tools on an MCP server.
+// RegisterTools publishes the direct `brain_*` and `agent_*` tools on an MCP server.
 //
 //	sub := brain.NewDirect()
 //	sub.RegisterTools(server)
@@ -104,9 +104,11 @@ func brainHomeDir() string {
 	return core.Env("DIR_HOME")
 }
 
-func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) (map[string]any, error) {
+func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) core.Result {
 	if s.apiKey == "" {
-		return nil, core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil)
+		return core.Result{
+			Value: core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil),
+		}
 	}
 
 	requestURL := core.Concat(s.apiURL, path)
@@ -117,20 +119,20 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 	r := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
 	if !r.OK {
 		core.Error("brain API call failed", "method", method, "path", path)
-		return nil, core.E("brain.apiCall", "API call failed", nil)
+		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil)}
 	}
 
 	var result map[string]any
 	if ur := core.JSONUnmarshalString(r.Value.(string), &result); !ur.OK {
 		core.Error("brain API response parse failed", "method", method, "path", path)
-		return nil, core.E("brain.apiCall", "parse response", nil)
+		return core.Result{Value: core.E("brain.apiCall", "parse response", nil)}
 	}
 
-	return result, nil
+	return core.Result{Value: result, OK: true}
 }
 
 func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
-	result, err := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
+	result := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
 		"content":    input.Content,
 		"type":       input.Type,
 		"tags":       input.Tags,
@@ -140,11 +142,13 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 		"expires_in": input.ExpiresIn,
 		"agent_id":   agentic.AgentName(),
 	})
-	if err != nil {
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, RememberOutput{}, err
 	}
 
-	id, _ := result["id"].(string)
+	payload, _ := result.Value.(map[string]any)
+	id, _ := payload["id"].(string)
 	return nil, RememberOutput{
 		Success:   true,
 		MemoryID:  id,
@@ -174,13 +178,15 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 		body["top_k"] = 10
 	}
 
-	result, err := s.apiCall(ctx, "POST", "/v1/brain/recall", body)
-	if err != nil {
+	result := s.apiCall(ctx, "POST", "/v1/brain/recall", body)
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, RecallOutput{}, err
 	}
 
 	var memories []Memory
-	if mems, ok := result["memories"].([]any); ok {
+	payload, _ := result.Value.(map[string]any)
+	if mems, ok := payload["memories"].([]any); ok {
 		for _, m := range mems {
 			if mm, ok := m.(map[string]any); ok {
 				mem := Memory{
@@ -217,8 +223,9 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
-	_, err := s.apiCall(ctx, "DELETE", core.Concat("/v1/brain/forget/", input.ID), nil)
-	if err != nil {
+	result := s.apiCall(ctx, "DELETE", core.Concat("/v1/brain/forget/", input.ID), nil)
+	if !result.OK {
+		err, _ := result.Value.(error)
 		return nil, ForgetOutput{}, err
 	}
 
