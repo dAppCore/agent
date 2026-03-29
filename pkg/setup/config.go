@@ -151,7 +151,7 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 		builder.WriteString(":\n")
 
 		for _, value := range section.Values {
-			scalar, err := yaml.Marshal(value.Value)
+			scalar, err := marshalConfigValue(value.Value)
 			if err != nil {
 				return "", core.E("setup.renderConfig", core.Concat("marshal ", section.Key, ".", value.Key), err)
 			}
@@ -159,7 +159,7 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 			builder.WriteString("  ")
 			builder.WriteString(value.Key)
 			builder.WriteString(": ")
-			builder.WriteString(core.Trim(string(scalar)))
+			builder.WriteString(scalar)
 			builder.WriteString("\n")
 		}
 
@@ -171,7 +171,22 @@ func renderConfig(comment string, sections []configSection) (string, error) {
 	return builder.String(), nil
 }
 
+func marshalConfigValue(value any) (scalar string, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = core.E("setup.marshalConfigValue", core.Sprint(recovered), nil)
+		}
+	}()
+
+	data, err := yaml.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return core.Trim(string(data)), nil
+}
+
 func parseGitRemote(remote string) string {
+	remote = core.Trim(remote)
 	if remote == "" {
 		return ""
 	}
@@ -204,6 +219,12 @@ func parseGitRemote(remote string) string {
 }
 
 func trimRemotePath(remote string) string {
-	trimmed := core.TrimPrefix(remote, "/")
+	trimmed := core.Trim(remote)
+	for core.HasPrefix(trimmed, "/") {
+		trimmed = core.TrimPrefix(trimmed, "/")
+	}
+	for core.HasSuffix(trimmed, "/") {
+		trimmed = core.TrimSuffix(trimmed, "/")
+	}
 	return core.TrimSuffix(trimmed, ".git")
 }

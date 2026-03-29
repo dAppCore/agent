@@ -35,14 +35,26 @@ func (s *Service) Run(opts Options) error {
 		core.Print(nil, "Also:    %v (polyglot)", allTypes)
 	}
 
+	var tmplName string
+	if opts.Template != "" {
+		var err error
+		tmplName, err = resolveTemplateName(opts.Template, projType)
+		if err != nil {
+			return err
+		}
+		if !templateExists(tmplName) {
+			return core.E("setup.Run", core.Concat("template not found: ", tmplName), nil)
+		}
+	}
+
 	// Generate .core/ config files
 	if err := setupCoreDir(opts, projType); err != nil {
 		return err
 	}
 
 	// Scaffold from dir template if requested
-	if opts.Template != "" {
-		return s.scaffoldTemplate(opts, projType)
+	if tmplName != "" {
+		return s.scaffoldTemplate(opts, projType, tmplName)
 	}
 
 	return nil
@@ -84,12 +96,7 @@ func setupCoreDir(opts Options, projType ProjectType) error {
 }
 
 // scaffoldTemplate extracts a dir template into the target path.
-func (s *Service) scaffoldTemplate(opts Options, projType ProjectType) error {
-	tmplName, err := resolveTemplateName(opts.Template, projType)
-	if err != nil {
-		return err
-	}
-
+func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName string) error {
 	core.Print(nil, "Template: %s", tmplName)
 
 	data := &lib.WorkspaceData{
@@ -103,10 +110,6 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType) error {
 		RepoDescription: s.DetectGitRemote(opts.Path),
 		BuildCmd:        defaultBuildCommand(projType),
 		TestCmd:         defaultTestCommand(projType),
-	}
-
-	if !templateExists(tmplName) {
-		return core.E("setup.scaffoldTemplate", core.Concat("template not found: ", tmplName), nil)
 	}
 
 	if opts.DryRun {
