@@ -212,7 +212,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 // registerCommands is in commands.go
 
-// OnShutdown implements core.Stoppable — freezes the queue.
+// OnShutdown implements core.Stoppable and freezes the queue.
+//
+//	prep := agentic.NewPrep()
+//	_ = prep.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	return core.Result{OK: true}
@@ -262,10 +265,17 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// Name implements mcp.Subsystem.
+// Name identifies the MCP subsystem.
+//
+//	prep := agentic.NewPrep()
+//	name := prep.Name()
+//	_ = name // "agentic"
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
-// RegisterTools implements mcp.Subsystem.
+// RegisterTools publishes the agentic MCP tools on the server.
+//
+//	prep := agentic.NewPrep()
+//	prep.RegisterTools(server)
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prep_workspace",
@@ -293,7 +303,10 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerWatchTool(server)
 }
 
-// Shutdown implements mcp.SubsystemWithShutdown.
+// Shutdown satisfies mcp.SubsystemWithShutdown for clean server teardown.
+//
+//	prep := agentic.NewPrep()
+//	_ = prep.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // --- Input/Output types ---

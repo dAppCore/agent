@@ -44,7 +44,10 @@ type ConcurrencyLimit struct {
 	Models map[string]int
 }
 
-// UnmarshalYAML handles both int and map forms.
+// UnmarshalYAML handles both int and map forms for concurrency limits.
+//
+//	var limit ConcurrencyLimit
+//	_ = yaml.Unmarshal([]byte("total: 2\ngpt-5.4: 1\n"), &limit)
 func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	// Try int first
 	var n int

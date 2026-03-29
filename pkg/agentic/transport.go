@@ -26,6 +26,10 @@ type httpStream struct {
 	response []byte
 }
 
+// Send issues the configured HTTP request and caches the response body for Receive.
+//
+//	stream := &httpStream{client: defaultClient, url: "https://forge.lthn.ai/api/v1/version", method: "GET"}
+//	_ = stream.Send(nil)
 func (s *httpStream) Send(data []byte) error {
 	req, err := http.NewRequestWithContext(context.Background(), s.method, s.url, core.NewReader(string(data)))
 	if err != nil {
@@ -50,10 +54,19 @@ func (s *httpStream) Send(data []byte) error {
 	return nil
 }
 
+// Receive returns the cached response body from the last Send call.
+//
+//	stream := &httpStream{response: []byte(`{"ok":true}`)}
+//	data, _ := stream.Receive()
+//	_ = data
 func (s *httpStream) Receive() ([]byte, error) {
 	return s.response, nil
 }
 
+// Close satisfies core.Stream for one-shot HTTP requests.
+//
+//	stream := &httpStream{}
+//	_ = stream.Close()
 func (s *httpStream) Close() error {
 	return nil
 }

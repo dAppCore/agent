@@ -2,13 +2,19 @@
 
 package agentic
 
-// StartRunner is a no-op — queue drain is now owned by pkg/runner.Service.
-// Kept for backward compatibility with OnStartup call.
+// StartRunner preserves the legacy PrepSubsystem call after queue ownership moved to pkg/runner.Service.
+//
+//	prep := agentic.NewPrep()
+//	prep.StartRunner()
 //
 // The runner service registers as core.WithService(runner.Register) and
 // manages its own background loop, frozen state, and concurrency checks.
 func (s *PrepSubsystem) StartRunner() {}
 
-// Poke is a no-op — queue poke is now owned by pkg/runner.Service.
+// Poke preserves the legacy queue signal after queue ownership moved to pkg/runner.Service.
+//
+//	prep := agentic.NewPrep()
+//	prep.Poke()
+//
 // Runner catches AgentCompleted via HandleIPCEvents and pokes itself.
 func (s *PrepSubsystem) Poke() {}
