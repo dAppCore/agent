@@ -12,6 +12,15 @@ import (
 )
 
 func main() {
+	newCoreAgent().Run()
+}
+
+// newCoreAgent builds the Core app with services and CLI commands wired for startup.
+//
+//	c := newCoreAgent()
+//	core.Println(c.App().Name)    // "core-agent"
+//	core.Println(c.App().Version) // "dev" or linked version
+func newCoreAgent() *core.Core {
 	c := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
@@ -29,7 +38,7 @@ func main() {
 
 	registerAppCommands(c)
 
-	c.Run()
+	return c
 }
 
 // appVersion resolves the build version injected at link time.
