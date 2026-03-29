@@ -173,18 +173,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
 
 	// Content — accessible via IPC, no lib import needed
-	c.Action("agentic.prompt", func(_ context.Context, opts core.Options) core.Result {
-		return lib.Prompt(opts.String("slug"))
-	}).Description = "Read a system prompt by slug"
-	c.Action("agentic.task", func(_ context.Context, opts core.Options) core.Result {
-		return lib.Task(opts.String("slug"))
-	}).Description = "Read a task plan by slug"
-	c.Action("agentic.flow", func(_ context.Context, opts core.Options) core.Result {
-		return lib.Flow(opts.String("slug"))
-	}).Description = "Read a build/release flow by slug"
-	c.Action("agentic.persona", func(_ context.Context, opts core.Options) core.Result {
-		return lib.Persona(opts.String("path"))
-	}).Description = "Read a persona by path"
+	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
+	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
+	c.Action("agentic.flow", s.handleFlow).Description = "Read a build/release flow by slug"
+	c.Action("agentic.persona", s.handlePersona).Description = "Read a persona by path"
 
 	// Completion pipeline — Task composition
 	c.Task("agent.completion", core.Task{
@@ -200,9 +192,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 	// PerformAsync wrapper — runs the completion Task in background with progress tracking.
 	// c.PerformAsync("agentic.complete", opts) broadcasts ActionTaskStarted/Completed.
-	c.Action("agentic.complete", func(ctx context.Context, opts core.Options) core.Result {
-		return c.Task("agent.completion").Run(ctx, c, opts)
-	}).Description = "Run completion pipeline (QA → PR → Verify) in background"
+	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify) in background"
 
 	// Hydrate workspace registry from disk
 	s.hydrateWorkspaces()
@@ -211,28 +201,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	//
 	//   r := c.QUERY(agentic.WorkspaceQuery{})
 	//   if r.OK { workspaces := r.Value.(*core.Registry[*WorkspaceStatus]) }
-	c.RegisterQuery(func(_ *core.Core, q core.Query) core.Result {
-		wq, ok := q.(WorkspaceQuery)
-		if !ok {
-			return core.Result{}
-		}
-		// Specific workspace lookup
-		if wq.Name != "" {
-			return s.workspaces.Get(wq.Name)
-		}
-		// Status filter — return matching names
-		if wq.Status != "" {
-			var names []string
-			s.workspaces.Each(func(name string, st *WorkspaceStatus) {
-				if st.Status == wq.Status {
-					names = append(names, name)
-				}
-			})
-			return core.Result{Value: names, OK: true}
-		}
-		// No filter — return full registry
-		return core.Result{Value: s.workspaces, OK: true}
-	})
+	c.RegisterQuery(s.handleWorkspaceQuery)
 
 	s.StartRunner()
 	s.registerCommands(ctx)

@@ -14,9 +14,9 @@ import (
 
 // CreatePRInput is the input for agentic_create_pr.
 //
-//	input := agentic.CreatePRInput{Workspace: "go-io-1773581873", Title: "Fix watcher panic"}
+//	input := agentic.CreatePRInput{Workspace: "core/go-io/task-42", Title: "Fix watcher panic"}
 type CreatePRInput struct {
-	Workspace string `json:"workspace"`         // workspace name (e.g. "mcp-1773581873")
+	Workspace string `json:"workspace"`         // workspace name (e.g. "core/go-io/task-42")
 	Title     string `json:"title,omitempty"`   // PR title (default: task description)
 	Body      string `json:"body,omitempty"`    // PR body (default: auto-generated)
 	Base      string `json:"base,omitempty"`    // base branch (default: "main")

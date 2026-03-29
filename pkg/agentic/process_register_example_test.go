@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-package agentic_test
+package agentic
 
 import (
 	"context"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/agent/pkg/agentic"
 )
 
-func ExampleProcessRegister_exists() {
-	c := core.New(core.WithService(agentic.ProcessRegister))
-	c.ServiceStartup(context.Background(), nil)
+func ExampleProcessRegister() {
+	c := core.New()
+	ProcessRegister(c)
 
-	core.Println(c.Process().Exists())
-	core.Println(c.Action("process.run").Exists())
-	// Output:
-	// true
-	// true
+	r := c.Action("process.run").Run(context.Background(), core.NewOptions(
+		core.Option{Key: "command", Value: "echo"},
+		core.Option{Key: "args", Value: []string{"ok"}},
+	))
+	if r.OK {
+		core.Println(core.Trim(r.Value.(string)))
+	}
+
+	// Output: ok
 }

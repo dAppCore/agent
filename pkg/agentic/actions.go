@@ -12,6 +12,7 @@ package agentic
 import (
 	"context"
 
+	"dappco.re/go/agent/pkg/lib"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 )
@@ -125,7 +126,52 @@ func (s *PrepSubsystem) handleWatch(ctx context.Context, opts core.Options) core
 	return core.Result{Value: out, OK: true}
 }
 
+// handlePrompt reads an embedded prompt by slug.
+//
+//	r := c.Action("agentic.prompt").Run(ctx, core.NewOptions(
+//	    core.Option{Key: "slug", Value: "coding"},
+//	))
+func (s *PrepSubsystem) handlePrompt(_ context.Context, opts core.Options) core.Result {
+	return lib.Prompt(opts.String("slug"))
+}
+
+// handleTask reads an embedded task plan by slug.
+//
+//	r := c.Action("agentic.task").Run(ctx, core.NewOptions(
+//	    core.Option{Key: "slug", Value: "bug-fix"},
+//	))
+func (s *PrepSubsystem) handleTask(_ context.Context, opts core.Options) core.Result {
+	return lib.Task(opts.String("slug"))
+}
+
+// handleFlow reads an embedded flow by slug.
+//
+//	r := c.Action("agentic.flow").Run(ctx, core.NewOptions(
+//	    core.Option{Key: "slug", Value: "go"},
+//	))
+func (s *PrepSubsystem) handleFlow(_ context.Context, opts core.Options) core.Result {
+	return lib.Flow(opts.String("slug"))
+}
+
+// handlePersona reads an embedded persona by path.
+//
+//	r := c.Action("agentic.persona").Run(ctx, core.NewOptions(
+//	    core.Option{Key: "path", Value: "code/backend-architect"},
+//	))
+func (s *PrepSubsystem) handlePersona(_ context.Context, opts core.Options) core.Result {
+	return lib.Persona(opts.String("path"))
+}
+
 // --- Pipeline ---
+
+// handleComplete runs the named completion task.
+//
+//	r := c.Action("agentic.complete").Run(ctx, core.NewOptions(
+//	    core.Option{Key: "workspace", Value: "/srv/.core/workspace/core/go-io/task-42"},
+//	))
+func (s *PrepSubsystem) handleComplete(ctx context.Context, opts core.Options) core.Result {
+	return s.Core().Task("agent.completion").Run(ctx, s.Core(), opts)
+}
 
 // handleQA runs build+test on a completed workspace.
 //
@@ -368,4 +414,28 @@ func (s *PrepSubsystem) handleEpic(ctx context.Context, opts core.Options) core.
 		return core.Result{Value: err, OK: false}
 	}
 	return core.Result{Value: out, OK: true}
+}
+
+// handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
+//
+//	r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
+//	r := c.QUERY(agentic.WorkspaceQuery{Status: "blocked"})
+func (s *PrepSubsystem) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
+	wq, ok := q.(WorkspaceQuery)
+	if !ok {
+		return core.Result{}
+	}
+	if wq.Name != "" {
+		return s.workspaces.Get(wq.Name)
+	}
+	if wq.Status != "" {
+		var names []string
+		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
+			if st.Status == wq.Status {
+				names = append(names, name)
+			}
+		})
+		return core.Result{Value: names, OK: true}
+	}
+	return core.Result{Value: s.workspaces, OK: true}
 }

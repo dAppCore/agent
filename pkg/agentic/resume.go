@@ -11,9 +11,9 @@ import (
 
 // ResumeInput is the input for agentic_resume.
 //
-//	input := agentic.ResumeInput{Workspace: "go-scm-1773581173", Answer: "Use the existing queue config"}
+//	input := agentic.ResumeInput{Workspace: "core/go-scm/task-42", Answer: "Use the existing queue config"}
 type ResumeInput struct {
-	Workspace string `json:"workspace"`         // workspace name (e.g. "go-scm-1773581173")
+	Workspace string `json:"workspace"`         // workspace name (e.g. "core/go-scm/task-42")
 	Answer    string `json:"answer,omitempty"`  // answer to the blocked question (written to ANSWER.md)
 	Agent     string `json:"agent,omitempty"`   // override agent type (default: same as original)
 	DryRun    bool   `json:"dry_run,omitempty"` // preview without executing
@@ -21,7 +21,7 @@ type ResumeInput struct {
 
 // ResumeOutput is the output for agentic_resume.
 //
-//	out := agentic.ResumeOutput{Success: true, Workspace: "go-scm-1773581173", Agent: "codex"}
+//	out := agentic.ResumeOutput{Success: true, Workspace: "core/go-scm/task-42", Agent: "codex"}
 type ResumeOutput struct {
 	Success    bool   `json:"success"`
 	Workspace  string `json:"workspace"`

@@ -97,25 +97,7 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 	s.hydrateWorkspaces()
 
 	// QUERY handler — workspace state queries
-	c.RegisterQuery(func(_ *core.Core, q core.Query) core.Result {
-		wq, ok := q.(WorkspaceQuery)
-		if !ok {
-			return core.Result{}
-		}
-		if wq.Name != "" {
-			return s.workspaces.Get(wq.Name)
-		}
-		if wq.Status != "" {
-			var names []string
-			s.workspaces.Each(func(name string, st *WorkspaceStatus) {
-				if st.Status == wq.Status {
-					names = append(names, name)
-				}
-			})
-			return core.Result{Value: names, OK: true}
-		}
-		return core.Result{Value: s.workspaces, OK: true}
-	})
+	c.RegisterQuery(s.handleWorkspaceQuery)
 
 	// Start the background queue runner
 	s.startRunner()
@@ -251,6 +233,30 @@ func (s *Service) TrackWorkspace(name string, st any) {
 //	s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
 func (s *Service) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
+}
+
+// handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
+//
+//	r := c.QUERY(runner.WorkspaceQuery{Name: "core/go-io/task-42"})
+//	r := c.QUERY(runner.WorkspaceQuery{Status: "running"})
+func (s *Service) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
+	wq, ok := q.(WorkspaceQuery)
+	if !ok {
+		return core.Result{}
+	}
+	if wq.Name != "" {
+		return s.workspaces.Get(wq.Name)
+	}
+	if wq.Status != "" {
+		var names []string
+		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
+			if st.Status == wq.Status {
+				names = append(names, name)
+			}
+		})
+		return core.Result{Value: names, OK: true}
+	}
+	return core.Result{Value: s.workspaces, OK: true}
 }
 
 // --- Actions ---

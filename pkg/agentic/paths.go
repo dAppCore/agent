@@ -24,7 +24,7 @@ func LocalFs() *core.Fs { return fs }
 // WorkspaceRoot returns the root directory for agent workspaces.
 // Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core/workspace.
 //
-//	wsDir := core.JoinPath(agentic.WorkspaceRoot(), "go-io-1774149757")
+//	wsDir := core.JoinPath(agentic.WorkspaceRoot(), "core", "go-io", "task-42")
 func WorkspaceRoot() string {
 	return core.JoinPath(CoreRoot(), "workspace")
 }

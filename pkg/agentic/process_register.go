@@ -9,6 +9,10 @@ import (
 	"dappco.re/go/core/process"
 )
 
+type processActionHandlers struct {
+	service *process.Service
+}
+
 // ProcessRegister is the service factory for go-process.
 // Registers the process service under the canonical "process" name and exposes
 // the Core `process.*` Actions expected by `c.Process()`.
@@ -37,44 +41,49 @@ func ProcessRegister(c *core.Core) core.Result {
 		return r
 	}
 
-	c.Action("process.run", func(ctx context.Context, opts core.Options) core.Result {
-		output, err := svc.RunWithOptions(ctx, process.RunOptions{
-			Command: opts.String("command"),
-			Args:    optionStrings(opts, "args"),
-			Dir:     opts.String("dir"),
-			Env:     optionStrings(opts, "env"),
-		})
-		if err != nil {
-			return core.Result{Value: err, OK: false}
-		}
-		return core.Result{Value: output, OK: true}
-	})
+	handlers := &processActionHandlers{service: svc}
+	c.Action("process.run", handlers.handleRun)
+	c.Action("process.start", handlers.handleStart)
+	c.Action("process.kill", handlers.handleKill)
 
-	c.Action("process.start", func(ctx context.Context, opts core.Options) core.Result {
-		proc, err := svc.StartWithOptions(ctx, process.RunOptions{
-			Command: opts.String("command"),
-			Args:    optionStrings(opts, "args"),
-			Dir:     opts.String("dir"),
-			Env:     optionStrings(opts, "env"),
-			Detach:  opts.Bool("detach"),
-		})
-		if err != nil {
-			return core.Result{Value: err, OK: false}
-		}
-		return core.Result{Value: proc, OK: true}
-	})
+	return core.Result{OK: true}
+}
 
-	c.Action("process.kill", func(_ context.Context, opts core.Options) core.Result {
-		id := opts.String("id")
-		if id == "" {
-			return core.Result{Value: core.E("agentic.ProcessRegister", "process id is required", nil), OK: false}
-		}
-		if err := svc.Kill(id); err != nil {
-			return core.Result{Value: err, OK: false}
-		}
-		return core.Result{OK: true}
+func (h *processActionHandlers) handleRun(ctx context.Context, opts core.Options) core.Result {
+	output, err := h.service.RunWithOptions(ctx, process.RunOptions{
+		Command: opts.String("command"),
+		Args:    optionStrings(opts, "args"),
+		Dir:     opts.String("dir"),
+		Env:     optionStrings(opts, "env"),
 	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
 
+func (h *processActionHandlers) handleStart(ctx context.Context, opts core.Options) core.Result {
+	proc, err := h.service.StartWithOptions(ctx, process.RunOptions{
+		Command: opts.String("command"),
+		Args:    optionStrings(opts, "args"),
+		Dir:     opts.String("dir"),
+		Env:     optionStrings(opts, "env"),
+		Detach:  opts.Bool("detach"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: proc, OK: true}
+}
+
+func (h *processActionHandlers) handleKill(_ context.Context, opts core.Options) core.Result {
+	id := opts.String("id")
+	if id == "" {
+		return core.Result{Value: core.E("agentic.ProcessRegister", "process id is required", nil), OK: false}
+	}
+	if err := h.service.Kill(id); err != nil {
+		return core.Result{Value: err, OK: false}
+	}
 	return core.Result{OK: true}
 }
 

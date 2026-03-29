@@ -87,7 +87,7 @@ func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 
 // StatusInput is the input for agentic_status.
 //
-//	input := agentic.StatusInput{Workspace: "go-io-123", Limit: 50}
+//	input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all
 	Limit     int    `json:"limit,omitempty"`     // max results (default 100)
@@ -109,7 +109,7 @@ type StatusOutput struct {
 
 // BlockedInfo shows a workspace that needs human input.
 //
-//	info := agentic.BlockedInfo{Name: "go-io/task-4", Repo: "go-io", Question: "Which API version?"}
+//	info := agentic.BlockedInfo{Name: "core/go-io/task-4", Repo: "go-io", Question: "Which API version?"}
 type BlockedInfo struct {
 	Name     string `json:"name"`
 	Repo     string `json:"repo"`

@@ -12,7 +12,7 @@ import (
 
 // WatchInput is the input for agentic_watch.
 //
-//	input := agentic.WatchInput{Workspaces: []string{"go-io-123"}, PollInterval: 5, Timeout: 600}
+//	input := agentic.WatchInput{Workspaces: []string{"core/go-io/task-42"}, PollInterval: 5, Timeout: 600}
 type WatchInput struct {
 	// Workspaces to watch. If empty, watches all running/queued workspaces.
 	Workspaces []string `json:"workspaces,omitempty"`
@@ -24,7 +24,7 @@ type WatchInput struct {
 
 // WatchOutput is the result when all watched workspaces complete.
 //
-//	out := agentic.WatchOutput{Success: true, Completed: []agentic.WatchResult{{Workspace: "go-io-123", Status: "completed"}}}
+//	out := agentic.WatchOutput{Success: true, Completed: []agentic.WatchResult{{Workspace: "core/go-io/task-42", Status: "completed"}}}
 type WatchOutput struct {
 	Success   bool          `json:"success"`
 	Completed []WatchResult `json:"completed"`
@@ -34,7 +34,7 @@ type WatchOutput struct {
 
 // WatchResult describes one completed workspace.
 //
-//	result := agentic.WatchResult{Workspace: "go-io-123", Agent: "codex", Repo: "go-io", Status: "completed"}
+//	result := agentic.WatchResult{Workspace: "core/go-io/task-42", Agent: "codex", Repo: "go-io", Status: "completed"}
 type WatchResult struct {
 	Workspace string `json:"workspace"`
 	Agent     string `json:"agent"`
