@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os"
 	"testing"
 
 	"dappco.re/go/core"
@@ -17,44 +16,6 @@ func newTestCore(t *testing.T) *core.Core {
 	c.App().Version = "test"
 	registerAppCommands(c)
 	return c
-}
-
-// --- applyLogLevel ---
-
-func TestCommands_ApplyLogLevel_Good(t *testing.T) {
-	original := os.Args
-	defer func() { os.Args = original }()
-
-	os.Args = []string{"core-agent", "--quiet", "version"}
-	applyLogLevel()
-	assert.Equal(t, []string{"core-agent", "version"}, os.Args)
-}
-
-func TestCommands_ApplyLogLevel_Good_Debug(t *testing.T) {
-	original := os.Args
-	defer func() { os.Args = original }()
-
-	os.Args = []string{"core-agent", "-d", "check"}
-	applyLogLevel()
-	assert.Equal(t, []string{"core-agent", "check"}, os.Args)
-}
-
-func TestCommands_ApplyLogLevel_Bad_NoFlag(t *testing.T) {
-	original := os.Args
-	defer func() { os.Args = original }()
-
-	os.Args = []string{"core-agent", "status"}
-	applyLogLevel()
-	assert.Equal(t, []string{"core-agent", "status"}, os.Args)
-}
-
-func TestCommands_ApplyLogLevel_Ugly_FlagAfterCommand(t *testing.T) {
-	original := os.Args
-	defer func() { os.Args = original }()
-
-	os.Args = []string{"core-agent", "version", "-q"}
-	applyLogLevel()
-	assert.Equal(t, []string{"core-agent", "version"}, os.Args)
 }
 
 // --- registerAppCommands ---

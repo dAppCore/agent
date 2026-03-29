@@ -12,10 +12,6 @@ import (
 )
 
 func main() {
-	// Set log level early — before ServiceStartup to suppress startup noise.
-	// --quiet/-q reduces to errors only, --debug shows everything.
-	applyLogLevel()
-
 	c := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
