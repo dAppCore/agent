@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package brain provides an MCP subsystem that proxies OpenBrain knowledge
-// store operations to the Laravel php-agentic backend via the IDE bridge.
+// Package brain gives MCP and HTTP services a shared OpenBrain surface.
+//
+//	sub := brain.New(bridge)
+//	sub.RegisterTools(server)
 package brain
 
 import (
@@ -29,7 +31,7 @@ func fieldString(values map[string]any, key string) string {
 // but it has not been initialised (headless mode).
 var errBridgeNotAvailable = core.E("brain", "bridge not available", nil)
 
-// Subsystem proxies brain_* MCP tools through the shared IDE bridge.
+// Subsystem routes brain_* MCP tools through the shared IDE bridge.
 //
 //	sub := brain.New(bridge)
 //	sub.RegisterTools(server)
@@ -37,7 +39,7 @@ type Subsystem struct {
 	bridge *ide.Bridge
 }
 
-// New creates a bridge-backed brain subsystem.
+// New builds the bridge-backed OpenBrain subsystem.
 //
 //	sub := brain.New(bridge)
 //	_ = sub.Shutdown(context.Background())
@@ -45,12 +47,12 @@ func New(bridge *ide.Bridge) *Subsystem {
 	return &Subsystem{bridge: bridge}
 }
 
-// Name returns the MCP subsystem name.
+// Name keeps the subsystem address stable for core.WithService and MCP.
 //
 //	name := sub.Name() // "brain"
 func (s *Subsystem) Name() string { return "brain" }
 
-// RegisterTools adds the bridge-backed brain tools to an MCP server.
+// RegisterTools publishes the bridge-backed brain tools on an MCP server.
 //
 //	sub := brain.New(bridge)
 //	sub.RegisterTools(server)
@@ -58,7 +60,7 @@ func (s *Subsystem) RegisterTools(server *mcp.Server) {
 	s.registerBrainTools(server)
 }
 
-// Shutdown closes the subsystem without additional cleanup.
+// Shutdown satisfies the MCP subsystem lifecycle without extra cleanup.
 //
 //	_ = sub.Shutdown(context.Background())
 func (s *Subsystem) Shutdown(_ context.Context) error {

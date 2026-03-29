@@ -12,7 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// DirectSubsystem calls the OpenBrain HTTP API without the IDE bridge.
+// DirectSubsystem talks to OpenBrain over HTTP without the IDE bridge.
 //
 //	sub := brain.NewDirect()
 //	sub.RegisterTools(server)
@@ -23,7 +23,7 @@ type DirectSubsystem struct {
 
 var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
 
-// NewDirect creates a direct HTTP brain subsystem.
+// NewDirect builds the HTTP-backed OpenBrain subsystem.
 //
 //	sub := brain.NewDirect()
 //	sub.RegisterTools(server)
@@ -56,12 +56,12 @@ func NewDirect() *DirectSubsystem {
 	}
 }
 
-// Name returns the MCP subsystem name.
+// Name keeps the direct subsystem address stable for core.WithService and MCP.
 //
 //	name := sub.Name() // "brain"
 func (s *DirectSubsystem) Name() string { return "brain" }
 
-// RegisterTools adds the direct OpenBrain tools to an MCP server.
+// RegisterTools publishes the direct brain_* and agent_* tools on an MCP server.
 //
 //	sub := brain.NewDirect()
 //	sub.RegisterTools(server)
@@ -85,7 +85,7 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 	s.RegisterMessagingTools(server)
 }
 
-// Shutdown closes the direct subsystem without additional cleanup.
+// Shutdown satisfies the MCP subsystem lifecycle without extra cleanup.
 //
 //	_ = sub.Shutdown(context.Background())
 func (s *DirectSubsystem) Shutdown(_ context.Context) error { return nil }

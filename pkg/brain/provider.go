@@ -12,10 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// BrainProvider wraps the brain Subsystem as a service provider with REST
-// endpoints. It delegates to the same IDE bridge that the MCP tools use.
-//
-// Usage example:
+// BrainProvider exposes the same OpenBrain bridge over HTTP routes and WS events.
 //
 //	provider := brain.NewProvider(bridge, hub)
 //	provider.RegisterRoutes(router.Group("/api/brain"))
@@ -39,7 +36,7 @@ const (
 	statusServiceUnavailable  = 503
 )
 
-// NewProvider creates a provider backed by the IDE bridge.
+// NewProvider builds the HTTP provider around the IDE bridge and WS hub.
 //
 //	p := brain.NewProvider(bridge, hub)
 //	p.RegisterRoutes(router.Group("/api/brain"))
@@ -50,17 +47,17 @@ func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 	}
 }
 
-// Name returns the provider name used during API registration.
+// Name keeps the provider address stable during API registration.
 //
-//	name := p.Name()
+//	name := p.Name() // "brain"
 func (p *BrainProvider) Name() string { return "brain" }
 
-// BasePath returns the HTTP base path for the provider routes.
+// BasePath shows where the provider mounts its routes.
 //
-//	base := p.BasePath()
+//	base := p.BasePath() // "/api/brain"
 func (p *BrainProvider) BasePath() string { return "/api/brain" }
 
-// Channels returns the WS channels emitted by brain actions.
+// Channels lists the WS events emitted after brain actions complete.
 //
 //	channels := p.Channels()
 func (p *BrainProvider) Channels() []string {
@@ -71,7 +68,7 @@ func (p *BrainProvider) Channels() []string {
 	}
 }
 
-// Element returns the UI element metadata for the provider panel.
+// Element describes the browser component that renders the brain panel.
 //
 //	spec := p.Element()
 func (p *BrainProvider) Element() provider.ElementSpec {
@@ -81,7 +78,7 @@ func (p *BrainProvider) Element() provider.ElementSpec {
 	}
 }
 
-// RegisterRoutes binds the provider handlers onto a router group.
+// RegisterRoutes mounts the provider handlers onto a router group.
 //
 //	p.RegisterRoutes(router.Group("/api/brain"))
 func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
@@ -92,7 +89,7 @@ func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/status", p.status)
 }
 
-// Describe returns the OpenAPI route descriptions for the provider.
+// Describe returns the route contract used by API discovery and docs.
 //
 //	routes := p.Describe()
 func (p *BrainProvider) Describe() []api.RouteDescription {

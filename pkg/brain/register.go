@@ -6,12 +6,10 @@ import (
 	core "dappco.re/go/core"
 )
 
-// Register is the service factory for core.WithService.
-// Returns the DirectSubsystem — WithService auto-registers it.
+// Register exposes the direct OpenBrain subsystem through core.WithService.
 //
-//	core.New(
-//	    core.WithService(brain.Register),
-//	)
+//	c := core.New(core.WithService(brain.Register))
+//	sub, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
 func Register(c *core.Core) core.Result {
 	brn := NewDirect()
 	return core.Result{Value: brn, OK: true}

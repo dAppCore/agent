@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package monitor provides a background subsystem that watches the ecosystem
-// and pushes notifications to connected MCP clients.
+// Package monitor polls workspace state, repo drift, and agent inboxes, then
+// pushes the current view to connected MCP clients.
 //
-// Checks performed on each tick:
-//   - Agent completions: scans workspace for newly completed agents
-//   - Repo drift: checks forge for repos with unpushed/unpulled changes
-//   - Inbox: checks for unread agent messages
+//	mon := monitor.New(monitor.Options{Interval: 30 * time.Second})
+//	mon.RegisterTools(server)
 package monitor
 
 import (
@@ -78,14 +76,16 @@ func resultString(r core.Result) (string, bool) {
 	return value, true
 }
 
-// MonitorOptions configures the monitor service.
+// MonitorOptions is the service-runtime payload used by core.WithService.
 //
-//	opts := monitor.MonitorOptions{}
+//	c := core.New(core.WithService(monitor.Register))
+//	_, _ = core.ServiceFor[*monitor.Subsystem](c, "monitor")
 type MonitorOptions struct{}
 
-// Subsystem implements mcp.Subsystem for background monitoring.
+// Subsystem owns the long-running monitor loop and MCP resource surface.
 //
-//	core.New(core.WithService(monitor.Register))
+//	mon := monitor.New()
+//	mon.Start(context.Background())
 type Subsystem struct {
 	*core.ServiceRuntime[MonitorOptions]
 	server   *mcp.Server
@@ -109,8 +109,8 @@ type Subsystem struct {
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
-// SetCore wires the Core framework instance via ServiceRuntime.
-// Deprecated: Use Register with core.WithService(monitor.Register) instead.
+// SetCore preserves direct test setup without going through core.WithService.
+// Deprecated: prefer Register with core.WithService(monitor.Register).
 //
 //	mon.SetCore(c)
 func (m *Subsystem) SetCore(c *core.Core) {
@@ -134,7 +134,21 @@ func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
 	go m.checkIdleAfterDelay()
 }
 
-// Options configures the monitor interval.
+// HandleIPCEvents lets Core auto-wire monitor side-effects for IPC messages.
+//
+//	c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"})
+//	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed"})
+func (m *Subsystem) HandleIPCEvents(_ *core.Core, msg core.Message) core.Result {
+	switch ev := msg.(type) {
+	case messages.AgentCompleted:
+		m.handleAgentCompleted(ev)
+	case messages.AgentStarted:
+		m.handleAgentStarted(ev)
+	}
+	return core.Result{OK: true}
+}
+
+// Options configures the monitor polling interval.
 //
 //	opts := monitor.Options{Interval: 30 * time.Second}
 //	mon := monitor.New(opts)
@@ -143,7 +157,7 @@ type Options struct {
 	Interval time.Duration
 }
 
-// New creates a monitor subsystem.
+// New builds the monitor with a polling interval and poke channel.
 //
 //	mon := monitor.New(monitor.Options{Interval: 30 * time.Second})
 func New(opts ...Options) *Subsystem {
@@ -170,12 +184,12 @@ func (m *Subsystem) debugChannel(msg string) {
 	core.Debug(msg)
 }
 
-// Name returns the subsystem identifier used by MCP registration.
+// Name keeps the monitor address stable for MCP and core.WithService lookups.
 //
-//	mon.Name() // "monitor"
+//	name := mon.Name() // "monitor"
 func (m *Subsystem) Name() string { return "monitor" }
 
-// RegisterTools binds the monitor resource to an MCP server.
+// RegisterTools publishes the monitor status resource on an MCP server.
 //
 //	mon.RegisterTools(server)
 func (m *Subsystem) RegisterTools(server *mcp.Server) {
@@ -190,7 +204,7 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 	}, m.agentStatusResource)
 }
 
-// Start begins the background monitoring loop after MCP startup.
+// Start launches the background polling loop.
 //
 //	mon.Start(ctx)
 func (m *Subsystem) Start(ctx context.Context) {
@@ -206,7 +220,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
-// OnStartup starts the monitoring loop for a registered service.
+// OnStartup starts the monitor when Core starts the service lifecycle.
 //
 //	r := mon.OnStartup(context.Background())
 //	core.Println(r.OK)
@@ -215,7 +229,7 @@ func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// OnShutdown stops the monitoring loop through the Core lifecycle hook.
+// OnShutdown stops the monitor through the Core lifecycle hook.
 //
 //	r := mon.OnShutdown(context.Background())
 //	core.Println(r.OK)
@@ -224,7 +238,7 @@ func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// Shutdown stops the monitoring loop and waits for it to exit.
+// Shutdown cancels the monitor loop and waits for the goroutine to exit.
 //
 //	_ = mon.Shutdown(ctx)
 func (m *Subsystem) Shutdown(_ context.Context) error {
@@ -235,7 +249,7 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// Poke triggers an immediate check cycle.
+// Poke asks the loop to run a check immediately instead of waiting for the ticker.
 //
 //	mon.Poke()
 func (m *Subsystem) Poke() {
