@@ -25,8 +25,8 @@ type Options struct{}
 // Manages concurrency limits, queue drain, workspace lifecycle, and frozen state.
 // All dispatch requests — MCP tool, CLI, or IPC — go through this service.
 //
-//	r := runner.New()
-//	r.Dispatch(ctx, input) // checks frozen + concurrency, spawns or queues
+//	svc := runner.New()
+//	svc.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 type Service struct {
 	*core.ServiceRuntime[Options]
 	dispatchMu sync.Mutex
@@ -77,8 +77,11 @@ func Register(c *core.Core) core.Result {
 
 // OnStartup registers Actions and starts the queue runner.
 //
-//	c.Perform("runner.dispatch", opts) // dispatch an agent
-//	c.Perform("runner.status", opts)   // query workspace status
+//	c.Action("runner.dispatch").Run(ctx, core.NewOptions(
+//		core.Option{Key: "repo", Value: "go-io"},
+//		core.Option{Key: "agent", Value: "codex"},
+//	))
+//	c.Action("runner.status").Run(ctx, core.NewOptions())
 func (s *Service) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
