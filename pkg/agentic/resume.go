@@ -44,7 +44,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 
 	// Verify workspace exists
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {

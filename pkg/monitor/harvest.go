@@ -29,12 +29,9 @@ type harvestResult struct {
 // harvestCompleted scans for completed workspaces and pushes their
 // branches back to the source repos. Returns a summary message.
 func (m *Subsystem) harvestCompleted() string {
-	wsRoot := agentic.WorkspaceRoot()
-	entries := workspaceStatusPaths(wsRoot)
-
 	var harvested []harvestResult
 
-	for _, entry := range entries {
+	for _, entry := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(entry)
 		result := m.harvestWorkspace(wsDir)
 		if result != nil {
@@ -65,7 +62,7 @@ func (m *Subsystem) harvestCompleted() string {
 
 // harvestWorkspace checks a single workspace and pushes if ready.
 func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	r := fs.Read(workspaceStatusPath(wsDir))
+	r := fs.Read(agentic.WorkspaceStatusPath(wsDir))
 	if !r.OK {
 		return nil
 	}
@@ -88,7 +85,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		return nil
 	}
 
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := agentic.WorkspaceRepoDir(wsDir)
 	if !fs.IsDir(repoDir) {
 		return nil
 	}
@@ -250,7 +247,7 @@ func (m *Subsystem) pushBranch(srcDir, branch string) error {
 
 // updateStatus updates the workspace status.json.
 func updateStatus(wsDir, status, question string) {
-	r := fs.Read(workspaceStatusPath(wsDir))
+	r := fs.Read(agentic.WorkspaceStatusPath(wsDir))
 	if !r.OK {
 		return
 	}
@@ -268,5 +265,5 @@ func updateStatus(wsDir, status, question string) {
 	} else {
 		delete(st, "question") // clear stale question from previous state
 	}
-	fs.WriteAtomic(workspaceStatusPath(wsDir), core.JSONMarshalString(st))
+	fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(st))
 }

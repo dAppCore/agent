@@ -22,7 +22,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 		return
 	}
 
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 	org := st.Org
 	if org == "" {
 		org = "core"

@@ -249,6 +249,19 @@ func TestMonitor_CheckCompletions_Good_NilRuntime(t *testing.T) {
 	assert.Contains(t, msg, "1 agent(s) completed")
 }
 
+func TestMonitor_CheckCompletions_Good_DeepWorkspaceName(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+
+	writeWorkspaceStatus(t, wsRoot, "core/go-io/task-7", map[string]any{
+		"status": "completed", "repo": "go-io", "agent": "codex",
+	})
+
+	mon := New()
+	assert.Equal(t, "", mon.checkCompletions())
+	assert.True(t, mon.seenCompleted["core/go-io/task-7"])
+}
+
 // --- checkInbox ---
 
 func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
@@ -633,6 +646,24 @@ func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "null", result.Contents[0].Text)
+}
+
+func TestMonitor_AgentStatusResource_Good_DeepWorkspaceName(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+
+	writeWorkspaceStatus(t, wsRoot, "core/go-io/task-9", map[string]any{
+		"status": "completed", "repo": "go-io", "agent": "claude:sonnet",
+	})
+
+	mon := New()
+	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
+	require.NoError(t, err)
+
+	var workspaces []map[string]any
+	require.True(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
+	require.Len(t, workspaces, 1)
+	assert.Equal(t, "core/go-io/task-9", workspaces[0]["name"])
 }
 
 // --- syncRepos (git pull path) ---

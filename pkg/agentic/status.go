@@ -59,7 +59,7 @@ type WorkspaceQuery struct {
 
 func writeStatus(wsDir string, status *WorkspaceStatus) error {
 	status.UpdatedAt = time.Now()
-	statusPath := core.JoinPath(wsDir, "status.json")
+	statusPath := WorkspaceStatusPath(wsDir)
 	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
 		return core.E("writeStatus", "failed to write status", err)
@@ -71,7 +71,7 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 //
 //	st, err := agentic.ReadStatus("/path/to/workspace")
 func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
-	r := fs.Read(core.JoinPath(wsDir, "status.json"))
+	r := fs.Read(WorkspaceStatusPath(wsDir))
 	if !r.OK {
 		return nil, core.E("ReadStatus", "status not found", nil)
 	}

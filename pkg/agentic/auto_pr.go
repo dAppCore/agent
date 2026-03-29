@@ -18,7 +18,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	}
 
 	ctx := context.Background()
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 
 	// PRs target dev — agents never merge directly to main
 	base := "dev"

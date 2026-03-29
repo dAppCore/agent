@@ -28,6 +28,23 @@ func TestPaths_WorkspaceRoot_Good(t *testing.T) {
 	assert.Equal(t, "/tmp/test-core/workspace", WorkspaceRoot())
 }
 
+func TestPaths_WorkspaceHelpers_Good(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
+	metaDir := WorkspaceMetaDir(wsDir)
+
+	assert.Equal(t, core.JoinPath(wsDir, "status.json"), WorkspaceStatusPath(wsDir))
+	assert.Equal(t, core.JoinPath(wsDir, "repo"), WorkspaceRepoDir(wsDir))
+	assert.Equal(t, core.JoinPath(wsDir, ".meta"), metaDir)
+	assert.Equal(t, core.JoinPath(wsDir, "repo", "BLOCKED.md"), WorkspaceBlockedPath(wsDir))
+	assert.Equal(t, core.JoinPath(wsDir, "repo", "ANSWER.md"), WorkspaceAnswerPath(wsDir))
+	assert.Equal(t, "core/go-io/task-5", WorkspaceName(wsDir))
+
+	assert.True(t, fs.EnsureDir(metaDir).OK)
+	assert.True(t, fs.Write(core.JoinPath(metaDir, "agent-codex.log"), "done").OK)
+	assert.Contains(t, WorkspaceLogFiles(wsDir), core.JoinPath(metaDir, "agent-codex.log"))
+}
+
 func TestPaths_PlansRoot_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
 	assert.Equal(t, "/tmp/test-core/plans", PlansRoot())
@@ -210,12 +227,43 @@ func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
 	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
 
+func TestPaths_WorkspaceHelpers_Bad(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	assert.Equal(t, "/status.json", WorkspaceStatusPath(""))
+	assert.Equal(t, "/repo", WorkspaceRepoDir(""))
+	assert.Equal(t, "/.meta", WorkspaceMetaDir(""))
+	assert.Equal(t, "workspace", WorkspaceName(WorkspaceRoot()))
+	assert.Empty(t, WorkspaceLogFiles("/tmp/missing-workspace"))
+}
+
 func TestPaths_WorkspaceRoot_Ugly_TrailingSlash(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/tmp/test-core/")
 	// Verify it still constructs a valid path (JoinPath handles trailing slash)
 	ws := WorkspaceRoot()
 	assert.NotEmpty(t, ws)
 	assert.Contains(t, ws, "workspace")
+}
+
+func TestPaths_WorkspaceHelpers_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := WorkspaceRoot()
+
+	shallow := core.JoinPath(wsRoot, "ws-flat")
+	deep := core.JoinPath(wsRoot, "core", "go-io", "task-12")
+	ignored := core.JoinPath(wsRoot, "core", "go-io", "task-12", "extra")
+
+	assert.True(t, fs.EnsureDir(shallow).OK)
+	assert.True(t, fs.EnsureDir(deep).OK)
+	assert.True(t, fs.EnsureDir(ignored).OK)
+	assert.True(t, fs.Write(core.JoinPath(shallow, "status.json"), "{}").OK)
+	assert.True(t, fs.Write(core.JoinPath(deep, "status.json"), "{}").OK)
+	assert.True(t, fs.Write(core.JoinPath(ignored, "status.json"), "{}").OK)
+
+	paths := WorkspaceStatusPaths()
+	assert.Contains(t, paths, core.JoinPath(shallow, "status.json"))
+	assert.Contains(t, paths, core.JoinPath(deep, "status.json"))
+	assert.NotContains(t, paths, core.JoinPath(ignored, "status.json"))
 }
 
 // --- CoreRoot Bad/Ugly ---

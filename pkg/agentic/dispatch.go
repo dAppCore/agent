@@ -212,7 +212,7 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 // agentOutputFile returns the log file path for an agent's output.
 func agentOutputFile(wsDir, agent string) string {
 	agentBase := core.SplitN(agent, ":", 2)[0]
-	return core.JoinPath(wsDir, ".meta", core.Sprintf("agent-%s.log", agentBase))
+	return core.JoinPath(WorkspaceMetaDir(wsDir), core.Sprintf("agent-%s.log", agentBase))
 }
 
 // detectFinalStatus reads workspace state after agent exit to determine outcome.
@@ -327,7 +327,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 		fs.Write(outputFile, output)
 	}
 
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
 
 	// Update workspace status (disk + registry)
@@ -370,12 +370,12 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		return 0, "", err
 	}
 
-	repoDir := core.JoinPath(wsDir, "repo")
-	metaDir := core.JoinPath(wsDir, ".meta")
+	repoDir := WorkspaceRepoDir(wsDir)
+	metaDir := WorkspaceMetaDir(wsDir)
 	outputFile := agentOutputFile(wsDir, agent)
 
 	// Clean up stale BLOCKED.md from previous runs
-	fs.Delete(core.JoinPath(repoDir, "BLOCKED.md"))
+	fs.Delete(WorkspaceBlockedPath(wsDir))
 
 	// All agents run containerised
 	agentBase := core.SplitN(agent, ":", 2)[0]
@@ -419,7 +419,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 // Returns true if QA passes, false if build or tests fail.
 func (s *PrepSubsystem) runQA(wsDir string) bool {
 	ctx := context.Background()
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
 		for _, args := range [][]string{

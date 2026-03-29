@@ -32,19 +32,6 @@ type channelSender interface {
 	ChannelSend(ctx context.Context, channel string, data any)
 }
 
-// workspaceStatusPaths returns all status.json files across both old and new workspace layouts.
-// Old: workspace/{name}/status.json (1 level)
-// New: workspace/{org}/{repo}/{identifier}/status.json (3 levels)
-func workspaceStatusPaths(wsRoot string) []string {
-	old := core.PathGlob(core.Concat(wsRoot, "/*/status.json"))
-	new := core.PathGlob(core.Concat(wsRoot, "/*/*/*/status.json"))
-	return append(old, new...)
-}
-
-func workspaceStatusPath(wsDir string) string {
-	return core.Concat(wsDir, "/status.json")
-}
-
 func brainKeyPath(home string) string {
 	return core.JoinPath(home, ".claude", "brain.key")
 }
@@ -366,8 +353,7 @@ func (m *Subsystem) check(ctx context.Context) {
 // Tracks by workspace name (not count) so harvest status rewrites
 // don't suppress future notifications.
 func (m *Subsystem) checkCompletions() string {
-	wsRoot := agentic.WorkspaceRoot()
-	entries := workspaceStatusPaths(wsRoot)
+	entries := agentic.WorkspaceStatusPaths()
 
 	running := 0
 	queued := 0
@@ -394,12 +380,7 @@ func (m *Subsystem) checkCompletions() string {
 			continue
 		}
 
-		// Use full relative path as dedup key — "core/go/main" not just "main"
-		wsDir := core.PathDir(entry)
-		wsName := wsDir
-		if len(wsDir) > len(wsRoot)+1 {
-			wsName = wsDir[len(wsRoot)+1:]
-		}
+		wsName := agentic.WorkspaceName(core.PathDir(entry))
 
 		switch st.Status {
 		case "completed":
@@ -564,8 +545,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 
 // agentStatusResource returns current workspace status as a JSON resource.
 func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	wsRoot := agentic.WorkspaceRoot()
-	entries := workspaceStatusPaths(wsRoot)
+	entries := agentic.WorkspaceStatusPaths()
 
 	type wsInfo struct {
 		Name   string `json:"name"`
@@ -594,13 +574,8 @@ func (m *Subsystem) agentStatusResource(ctx context.Context, req *mcp.ReadResour
 		if r := core.JSONUnmarshalString(entryData, &st); !r.OK {
 			continue
 		}
-		entryDir := core.PathDir(entry)
-		entryName := entryDir
-		if len(entryDir) > len(wsRoot)+1 {
-			entryName = entryDir[len(wsRoot)+1:]
-		}
 		workspaces = append(workspaces, wsInfo{
-			Name:   entryName,
+			Name:   agentic.WorkspaceName(core.PathDir(entry)),
 			Status: st.Status,
 			Repo:   st.Repo,
 			Agent:  st.Agent,

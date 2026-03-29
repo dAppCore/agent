@@ -36,6 +36,13 @@ func WorkspaceStatusPaths() []string {
 	return workspaceStatusPaths(WorkspaceRoot())
 }
 
+// WorkspaceStatusPath returns the status file for a workspace directory.
+//
+//	path := agentic.WorkspaceStatusPath("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceStatusPath(wsDir string) string {
+	return core.JoinPath(wsDir, "status.json")
+}
+
 // WorkspaceName extracts the unique workspace name from a full path.
 // Given /Users/snider/Code/.core/workspace/core/go-io/dev → core/go-io/dev
 //
@@ -67,24 +74,59 @@ func workspaceStatusPaths(wsRoot string) []string {
 	return append(old, deep...)
 }
 
-func workspaceRepoDir(wsDir string) string {
+// WorkspaceRepoDir returns the checked-out repo directory for a workspace.
+//
+//	repoDir := agentic.WorkspaceRepoDir("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceRepoDir(wsDir string) string {
 	return core.JoinPath(wsDir, "repo")
 }
 
-func workspaceMetaDir(wsDir string) string {
+func workspaceRepoDir(wsDir string) string {
+	return WorkspaceRepoDir(wsDir)
+}
+
+// WorkspaceMetaDir returns the metadata directory for a workspace.
+//
+//	metaDir := agentic.WorkspaceMetaDir("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceMetaDir(wsDir string) string {
 	return core.JoinPath(wsDir, ".meta")
 }
 
+func workspaceMetaDir(wsDir string) string {
+	return WorkspaceMetaDir(wsDir)
+}
+
+// WorkspaceBlockedPath returns the BLOCKED.md path for a workspace.
+//
+//	blocked := agentic.WorkspaceBlockedPath("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceBlockedPath(wsDir string) string {
+	return core.JoinPath(WorkspaceRepoDir(wsDir), "BLOCKED.md")
+}
+
 func workspaceBlockedPath(wsDir string) string {
-	return core.JoinPath(workspaceRepoDir(wsDir), "BLOCKED.md")
+	return WorkspaceBlockedPath(wsDir)
+}
+
+// WorkspaceAnswerPath returns the ANSWER.md path for a workspace.
+//
+//	answer := agentic.WorkspaceAnswerPath("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceAnswerPath(wsDir string) string {
+	return core.JoinPath(WorkspaceRepoDir(wsDir), "ANSWER.md")
 }
 
 func workspaceAnswerPath(wsDir string) string {
-	return core.JoinPath(workspaceRepoDir(wsDir), "ANSWER.md")
+	return WorkspaceAnswerPath(wsDir)
+}
+
+// WorkspaceLogFiles returns captured agent log files for a workspace.
+//
+//	logs := agentic.WorkspaceLogFiles("/srv/.core/workspace/core/go-io/task-5")
+func WorkspaceLogFiles(wsDir string) []string {
+	return core.PathGlob(core.JoinPath(WorkspaceMetaDir(wsDir), "agent-*.log"))
 }
 
 func workspaceLogFiles(wsDir string) []string {
-	return core.PathGlob(core.JoinPath(workspaceMetaDir(wsDir), "agent-*.log"))
+	return WorkspaceLogFiles(wsDir)
 }
 
 // PlansRoot returns the root directory for agent plans.

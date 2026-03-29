@@ -52,7 +52,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	repoDir := core.JoinPath(wsDir, "repo")
+	repoDir := WorkspaceRepoDir(wsDir)
 
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("workspace not found: ", input.Workspace), nil)
