@@ -426,9 +426,15 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		return nil, PrepOutput{}, core.E("prep", "failed to create meta dir", nil)
 	}
 
-	// Check for resume: if repo/ already has .git, skip clone
+	// Check for resume: if repo/ already has .git, pull latest instead of re-cloning
 	resumed := fs.IsDir(core.JoinPath(repoDir, ".git"))
 	out.Resumed = resumed
+
+	if resumed {
+		// Pull latest from origin so the workspace has current code
+		s.gitCmd(ctx, repoDir, "checkout", "main")
+		s.gitCmd(ctx, repoDir, "pull", "origin", "main")
+	}
 
 	// Extract default workspace template (go.work etc.)
 	lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
@@ -491,11 +497,78 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
+	// Copy RFC specs from plans repo into workspace specs/ folder.
+	// Maps repo name to plans directory: go-io → core/go/io/, go-process → core/go/process/, etc.
+	s.copyRepoSpecs(wsDir, input.Repo)
+
 	// Build the rich prompt with all context
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 
 	out.Success = true
 	return nil, out, nil
+}
+
+// --- Spec Injection ---
+
+// copyRepoSpecs copies RFC spec files from the plans repo into the workspace specs/ folder.
+// Maps repo name to plans directory: go-io → core/go/io, agent → core/agent, core-bio → core/php/bio.
+// Preserves subdirectory structure so sub-package specs land in specs/{pkg}/RFC.md.
+//
+//	s.copyRepoSpecs("/tmp/ws", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/ws/specs/
+//	s.copyRepoSpecs("/tmp/ws", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/ws/specs/
+func (s *PrepSubsystem) copyRepoSpecs(wsDir, repo string) {
+	fs := (&core.Fs{}).NewUnrestricted()
+
+	// Plans repo base — look for it relative to codePath
+	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
+	if !fs.IsDir(plansBase) {
+		return
+	}
+
+	// Map repo name to plans directory
+	var specDir string
+	switch {
+	case core.HasPrefix(repo, "go-"):
+		// go-io → core/go/io, go-process → core/go/process
+		pkg := core.TrimPrefix(repo, "go-")
+		specDir = core.JoinPath(plansBase, "core", "go", pkg)
+	case core.HasPrefix(repo, "core-"):
+		// core-bio → core/php/bio, core-social → core/php/social
+		mod := core.TrimPrefix(repo, "core-")
+		specDir = core.JoinPath(plansBase, "core", "php", mod)
+	case repo == "go":
+		specDir = core.JoinPath(plansBase, "core", "go")
+	default:
+		// agent → core/agent, mcp → core/mcp, cli → core/go/cli, ide → core/ide
+		specDir = core.JoinPath(plansBase, "core", repo)
+	}
+
+	if !fs.IsDir(specDir) {
+		return
+	}
+
+	// Glob RFC*.md at each depth level (root, 1 deep, 2 deep, 3 deep).
+	// Preserves subdirectory structure: specDir/pkg/sub/RFC.md → specs/pkg/sub/RFC.md
+	specsDir := core.JoinPath(wsDir, "specs")
+	fs.EnsureDir(specsDir)
+
+	patterns := []string{
+		core.JoinPath(specDir, "RFC*.md"),
+		core.JoinPath(specDir, "*", "RFC*.md"),
+		core.JoinPath(specDir, "*", "*", "RFC*.md"),
+		core.JoinPath(specDir, "*", "*", "*", "RFC*.md"),
+	}
+	for _, pattern := range patterns {
+		for _, entry := range core.PathGlob(pattern) {
+			rel := entry[len(specDir)+1:]
+			dst := core.JoinPath(specsDir, rel)
+			fs.EnsureDir(core.PathDir(dst))
+			r := fs.Read(entry)
+			if r.OK {
+				fs.Write(dst, r.Value.(string))
+			}
+		}
+	}
 }
 
 // --- Public API for CLI testing ---
