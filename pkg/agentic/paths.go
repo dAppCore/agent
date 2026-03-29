@@ -29,6 +29,20 @@ func WorkspaceRoot() string {
 	return core.JoinPath(CoreRoot(), "workspace")
 }
 
+// WorkspaceName extracts the unique workspace name from a full path.
+// Given /Users/snider/Code/.core/workspace/core/go-io/dev → core/go-io/dev
+//
+//	name := agentic.WorkspaceName("/Users/snider/Code/.core/workspace/core/go-io/dev")
+func WorkspaceName(wsDir string) string {
+	root := WorkspaceRoot()
+	name := core.TrimPrefix(wsDir, root)
+	name = core.TrimPrefix(name, "/")
+	if name == "" {
+		return core.PathBase(wsDir)
+	}
+	return name
+}
+
 // CoreRoot returns the root directory for core ecosystem files.
 // Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core.
 //

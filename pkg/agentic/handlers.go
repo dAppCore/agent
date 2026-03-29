@@ -45,7 +45,7 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			st.PID = pid
 			writeStatus(wsDir, st)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](c, "runner"); ok {
-				runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
 			}
 		}
 		_ = outputFile

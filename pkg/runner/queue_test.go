@@ -65,8 +65,8 @@ func TestQueue_BaseAgent_Good_WithModel(t *testing.T) {
 	assert.Equal(t, "claude", baseAgent("claude:haiku"))
 }
 
-func TestQueue_BaseAgent_Bad_CodexSpark(t *testing.T) {
-	assert.Equal(t, "codex-spark", baseAgent("codex:gpt-5.3-codex-spark"))
+func TestQueue_BaseAgent_Good_CodexSpark(t *testing.T) {
+	assert.Equal(t, "codex", baseAgent("codex:gpt-5.3-codex-spark"))
 }
 
 func TestQueue_BaseAgent_Ugly_Empty(t *testing.T) {

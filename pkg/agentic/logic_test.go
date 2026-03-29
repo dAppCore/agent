@@ -568,10 +568,9 @@ func TestQueue_BaseAgent_Good_NoVariant(t *testing.T) {
 	assert.Equal(t, "gemini", baseAgent("gemini"))
 }
 
-func TestQueue_BaseAgent_Good_CodexSparkSpecialCase(t *testing.T) {
-	// codex-spark variants map to their own pool name
-	assert.Equal(t, "codex-spark", baseAgent("codex:gpt-5.3-codex-spark"))
-	assert.Equal(t, "codex-spark", baseAgent("codex-spark"))
+func TestQueue_BaseAgent_Good_CodexSpark(t *testing.T) {
+	// spark is codex, not a separate pool
+	assert.Equal(t, "codex", baseAgent("codex:gpt-5.3-codex-spark"))
 }
 
 func TestQueue_BaseAgent_Bad_EmptyString(t *testing.T) {

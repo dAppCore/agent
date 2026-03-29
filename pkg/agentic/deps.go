@@ -118,19 +118,19 @@ func parseCoreDeps(gomod string) []coreDep {
 		}
 
 		// Match forge.lthn.ai/core/* requires (legacy paths)
-		if core.HasPrefix(line, "forge.lthn.ai/core/") {
-			parts := core.Split(line, " ")
-			mod := parts[0]
-			if seen[mod] {
-				continue
-			}
-			seen[mod] = true
-
-			suffix := core.TrimPrefix(mod, "forge.lthn.ai/core/")
-			repo := suffix
-			dir := core.Concat("core-", core.Replace(repo, "/", "-"))
-			deps = append(deps, coreDep{module: mod, repo: repo, dir: dir})
-		}
+		//if core.HasPrefix(line, "forge.lthn.ai/core/") {
+		//	parts := core.Split(line, " ")
+		//	mod := parts[0]
+		//	if seen[mod] {
+		//		continue
+		//	}
+		//	seen[mod] = true
+		//
+		//	suffix := core.TrimPrefix(mod, "forge.lthn.ai/core/")
+		//	repo := suffix
+		//	dir := core.Concat("core-", core.Replace(repo, "/", "-"))
+		//	deps = append(deps, coreDep{module: mod, repo: repo, dir: dir})
+		//}
 	}
 
 	return deps

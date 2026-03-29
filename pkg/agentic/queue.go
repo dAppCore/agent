@@ -240,10 +240,6 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 
 // baseAgent strips the model variant (gemini:flash → gemini).
 func baseAgent(agent string) string {
-	// codex:gpt-5.3-codex-spark → codex-spark (separate pool)
-	if core.Contains(agent, "codex-spark") {
-		return "codex-spark"
-	}
 	return core.SplitN(agent, ":", 2)[0]
 }
 
@@ -370,7 +366,7 @@ func (s *PrepSubsystem) drainOne() bool {
 		st.PID = pid
 		st.Runs++
 		writeStatus(wsDir, st)
-		s.TrackWorkspace(core.PathBase(wsDir), st)
+		s.TrackWorkspace(WorkspaceName(wsDir), st)
 
 		return true
 	}

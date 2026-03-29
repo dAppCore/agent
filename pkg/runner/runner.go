@@ -61,6 +61,12 @@ func Register(c *core.Core) core.Result {
 	c.Config().Set("agents.concurrency", cfg.Concurrency)
 	c.Config().Set("agents.rates", cfg.Rates)
 	c.Config().Set("agents.dispatch", cfg.Dispatch)
+	c.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
+	codexTotal := 0
+	if cl, ok := cfg.Concurrency["codex"]; ok {
+		codexTotal = cl.Total
+	}
+	c.Config().Set("agents.codex_limit_debug", codexTotal)
 
 	return core.Result{Value: svc, OK: true}
 }
@@ -123,13 +129,26 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentStarted:
+		base := baseAgent(ev.Agent)
+		running := s.countRunningByAgent(base)
+		var limit int
+		r := c.Config().Get("agents.concurrency")
+		if r.OK {
+			if concurrency, ok := r.Value.(map[string]ConcurrencyLimit); ok {
+				if cl, has := concurrency[base]; has {
+					limit = cl.Total
+				}
+			}
+		}
 		c.ACTION(coremcp.ChannelPush{
 			Channel: "agent.status",
-			Data: map[string]any{
-				"agent":     ev.Agent,
-				"repo":      ev.Repo,
-				"workspace": ev.Workspace,
-				"status":    "started",
+			Data: &AgentNotification{
+				Status:    "started",
+				Repo:      ev.Repo,
+				Agent:     ev.Agent,
+				Workspace: ev.Workspace,
+				Running:   running,
+				Limit:     limit,
 			},
 		})
 
@@ -141,13 +160,26 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 				st.PID = 0
 			}
 		})
+		cBase := baseAgent(ev.Agent)
+		cRunning := s.countRunningByAgent(cBase)
+		var cLimit int
+		cr := c.Config().Get("agents.concurrency")
+		if cr.OK {
+			if concurrency, ok := cr.Value.(map[string]ConcurrencyLimit); ok {
+				if cl, has := concurrency[cBase]; has {
+					cLimit = cl.Total
+				}
+			}
+		}
 		c.ACTION(coremcp.ChannelPush{
 			Channel: "agent.status",
-			Data: map[string]any{
-				"agent":     ev.Agent,
-				"repo":      ev.Repo,
-				"workspace": ev.Workspace,
-				"status":    ev.Status,
+			Data: &AgentNotification{
+				Status:    ev.Status,
+				Repo:      ev.Repo,
+				Agent:     ev.Agent,
+				Workspace: ev.Workspace,
+				Running:   cRunning,
+				Limit:     cLimit,
 			},
 		})
 		s.Poke()
@@ -193,6 +225,8 @@ func (s *Service) TrackWorkspace(name string, st any) {
 	var ws WorkspaceStatus
 	if r := core.JSONUnmarshalString(json, &ws); r.OK {
 		s.workspaces.Set(name, &ws)
+		// Remove pending reservation now that the real workspace is tracked
+		s.workspaces.Delete(core.Concat("pending/", ws.Repo))
 	}
 }
 
@@ -219,18 +253,18 @@ func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Resu
 	s.dispatchMu.Lock()
 	defer s.dispatchMu.Unlock()
 
-	if !s.canDispatchAgent(agent) {
-		return core.Result{Value: "queued — at concurrency limit", OK: false}
+	can, reason := s.canDispatchAgent(agent)
+	if !can {
+		return core.Result{Value: core.Concat("queued — ", reason), OK: false}
 	}
 
 	// Reserve the slot immediately — before returning to agentic.
-	// Without this, parallel dispatches all see count < limit.
 	name := core.Concat("pending/", repo)
 	s.workspaces.Set(name, &WorkspaceStatus{
 		Status: "running",
 		Agent:  agent,
 		Repo:   repo,
-		PID:    -1, // placeholder — agentic will update with real PID via TrackWorkspace
+		PID:    -1,
 	})
 
 	return core.Result{OK: true}
@@ -335,6 +369,10 @@ func (s *Service) hydrateWorkspaces() {
 			if err != nil || st == nil {
 				continue
 			}
+			// Re-queue running agents on restart — process is dead, re-dispatch
+			if st.Status == "running" {
+				st.Status = "queued"
+			}
 			name := core.TrimPrefix(wsDir, wsRoot)
 			name = core.TrimPrefix(name, "/")
 			s.workspaces.Set(name, st)
@@ -343,6 +381,18 @@ func (s *Service) hydrateWorkspaces() {
 }
 
 // --- Types ---
+
+// AgentNotification is the channel push payload for agent status updates.
+// Field order is guaranteed by json tags — status and repo appear first
+// so truncated notifications are still readable.
+type AgentNotification struct {
+	Status    string `json:"status"`
+	Repo      string `json:"repo"`
+	Agent     string `json:"agent"`
+	Workspace string `json:"workspace"`
+	Running   int    `json:"running"`
+	Limit     int    `json:"limit"`
+}
 
 // WorkspaceQuery is the QUERY type for workspace lookups.
 //

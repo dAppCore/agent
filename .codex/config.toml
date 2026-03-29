@@ -2,7 +2,7 @@
 # Shared between CLI and IDE extension
 
 model = "gpt-5.4"
-model_reasoning_effort = "high"
+model_reasoning_effort = "extra-high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 personality = "pragmatic"

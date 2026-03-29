@@ -334,7 +334,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 		st.PID = 0
 		st.Question = question
 		writeStatus(wsDir, st)
-		s.TrackWorkspace(core.PathBase(wsDir), st)
+		s.TrackWorkspace(WorkspaceName(wsDir), st)
 	}
 
 	// Rate-limit tracking
@@ -468,6 +468,21 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		input.Template = "coding"
 	}
 
+	// Concurrency check — ask the runner
+	r := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
+		core.Option{Key: "agent", Value: input.Agent},
+		core.Option{Key: "repo", Value: input.Repo},
+	))
+	if !r.OK {
+		reason, _ := r.Value.(string)
+		out := DispatchOutput{
+			Repo:       input.Repo,
+			Success:    true,
+			OutputFile: core.Concat("queued — ", reason),
+		}
+		return nil, out, nil
+	}
+
 	// Step 1: Prep workspace — clone + build prompt
 	prepInput := PrepInput{
 		Repo:         input.Repo,
@@ -522,7 +537,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 			}
 			writeStatus(wsDir, st)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-				runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
 			}
 			return nil, DispatchOutput{
 				Success:      true,
@@ -555,7 +570,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	// Track in runner's registry (runner owns workspace state)
 	if s.ServiceRuntime != nil {
 		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-			runnerSvc.TrackWorkspace(core.PathBase(wsDir), st)
+			runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
 		}
 	}
 

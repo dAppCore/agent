@@ -4,7 +4,6 @@ package runner
 
 import (
 	"strconv"
-	"syscall"
 	"time"
 
 	core "dappco.re/go/core"
@@ -103,7 +102,7 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 // canDispatchAgent checks both pool-level and per-model concurrency limits.
 //
 //	if !s.canDispatchAgent("codex") { /* queue it */ }
-func (s *Service) canDispatchAgent(agent string) bool {
+func (s *Service) canDispatchAgent(agent string) (bool, string) {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
 		r := s.Core().Config().Get("agents.concurrency")
@@ -119,99 +118,50 @@ func (s *Service) canDispatchAgent(agent string) bool {
 	base := baseAgent(agent)
 	limit, ok := concurrency[base]
 	if !ok || limit.Total <= 0 {
-		return true
+		return true, ""
 	}
 
-	if s.countRunningByAgent(base) >= limit.Total {
-		return false
+	running := s.countRunningByAgent(base)
+	if running >= limit.Total {
+		return false, core.Sprintf("total %d/%d", running, limit.Total)
 	}
 
 	if limit.Models != nil {
 		model := modelVariant(agent)
 		if model != "" {
+			modelRunning := s.countRunningByModel(agent)
 			if modelLimit, has := limit.Models[model]; has && modelLimit > 0 {
-				if s.countRunningByModel(agent) >= modelLimit {
-					return false
+				if modelRunning >= modelLimit {
+					return false, core.Sprintf("model %s %d/%d", model, modelRunning, modelLimit)
 				}
 			}
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 // countRunningByAgent counts running workspaces using the in-memory Registry.
 //
 //	n := s.countRunningByAgent("codex")
 func (s *Service) countRunningByAgent(agent string) int {
-	if s.workspaces != nil && s.workspaces.Len() > 0 {
-		count := 0
-		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && baseAgent(st.Agent) == agent {
-				// PID < 0 = reservation (pending spawn), always count
-				// PID > 0 = verify process is alive
-				if st.PID < 0 || (st.PID > 0 && syscall.Kill(st.PID, 0) == nil) {
-					count++
-				}
-			}
-		})
-		return count
-	}
-	return s.countRunningByAgentDisk(agent)
-}
-
-func (s *Service) countRunningByAgentDisk(agent string) int {
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-
 	count := 0
-	for _, statusPath := range append(old, deep...) {
-		st, err := ReadStatus(core.PathDir(statusPath))
-		if err != nil || st.Status != "running" {
-			continue
-		}
-		if baseAgent(st.Agent) != agent {
-			continue
-		}
-		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
+		if st.Status == "running" && baseAgent(st.Agent) == agent {
 			count++
 		}
-	}
+	})
 	return count
 }
 
 // countRunningByModel counts running workspaces for a specific agent:model.
 func (s *Service) countRunningByModel(agent string) int {
-	if s.workspaces != nil && s.workspaces.Len() > 0 {
-		count := 0
-		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && st.Agent == agent {
-				if st.PID < 0 || (st.PID > 0 && syscall.Kill(st.PID, 0) == nil) {
-					count++
-				}
-			}
-		})
-		return count
-	}
-
-	wsRoot := WorkspaceRoot()
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-
 	count := 0
-	for _, statusPath := range append(old, deep...) {
-		st, err := ReadStatus(core.PathDir(statusPath))
-		if err != nil || st.Status != "running" {
-			continue
-		}
-		if st.Agent != agent {
-			continue
-		}
-		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
+		if st.Status == "running" && st.Agent == agent {
 			count++
 		}
-	}
+	})
 	return count
 }
 
@@ -240,7 +190,7 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 
-		if !s.canDispatchAgent(st.Agent) {
+		if can, _ := s.canDispatchAgent(st.Agent); !can {
 			continue
 		}
 
@@ -254,7 +204,7 @@ func (s *Service) drainOne() bool {
 			time.Sleep(delay)
 		}
 
-		if !s.canDispatchAgent(st.Agent) {
+		if can, _ := s.canDispatchAgent(st.Agent); !can {
 			continue
 		}
 
@@ -345,9 +295,6 @@ func (s *Service) delayForAgent(agent string) time.Duration {
 // --- Helpers ---
 
 func baseAgent(agent string) string {
-	if core.Contains(agent, "codex-spark") {
-		return "codex-spark"
-	}
 	return core.SplitN(agent, ":", 2)[0]
 }
 
