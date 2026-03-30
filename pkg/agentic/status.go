@@ -10,19 +10,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Workspace status file convention:
-//
-//   {workspace}/status.json  — current state of the workspace
-//   {workspace}/repo/BLOCKED.md   — question the agent needs answered (written by agent)
-//   {workspace}/repo/ANSWER.md    — response from human (written by reviewer)
-//   {workspace}/.meta/agent-*.log — captured agent output
-//
-// Status lifecycle:
-//   running → completed     (normal finish)
-//   running → blocked       (agent wrote BLOCKED.md and exited)
-//   blocked → running       (resume after ANSWER.md provided)
-//   completed → merged      (PR verified and auto-merged)
-//   running → failed        (agent crashed / non-zero exit)
+// statusPath := agentic.WorkspaceStatusPath("/srv/.core/workspace/core/go-io/task-5")
+// blockedPath := agentic.WorkspaceBlockedPath("/srv/.core/workspace/core/go-io/task-5")
+// logs := agentic.WorkspaceLogFiles("/srv/.core/workspace/core/go-io/task-5")
 
 // WorkspaceStatus represents the current state of an agent workspace.
 //

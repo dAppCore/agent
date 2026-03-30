@@ -22,11 +22,9 @@ func main() {
 	}
 }
 
-// newCoreAgent builds the Core app with services and CLI commands wired for startup.
-//
-//	c := newCoreAgent()
-//	core.Println(c.App().Name)    // "core-agent"
-//	core.Println(c.App().Version) // "dev" or linked version
+// app := newCoreAgent()
+// core.Println(app.App().Name)    // "core-agent"
+// core.Println(app.App().Version) // "dev" or linked version
 func newCoreAgent() *core.Core {
 	coreApp := core.New(
 		core.WithOption("name", "core-agent"),
@@ -48,10 +46,8 @@ func newCoreAgent() *core.Core {
 	return coreApp
 }
 
-// applicationVersion resolves the build version injected at link time.
-//
-//	agentpkg.Version = "0.15.0"
-//	applicationVersion() // "0.15.0"
+// agentpkg.Version = "0.15.0"
+// applicationVersion() // "0.15.0"
 func applicationVersion() string {
 	if agentpkg.Version != "" {
 		return agentpkg.Version
@@ -59,16 +55,15 @@ func applicationVersion() string {
 	return "dev"
 }
 
-// runCoreAgent builds the runtime and executes the CLI with startup flags applied.
-//
-//	err := runCoreAgent()
+//	if err := runCoreAgent(); err != nil {
+//		core.Error("core-agent failed", "err", err)
+//	}
 func runCoreAgent() error {
 	return runApp(newCoreAgent(), startupArgs())
 }
 
-// runApp starts services, runs the CLI with explicit args, then shuts down.
-//
-//	err := runApp(c, []string{"version"})
+// app := newCoreAgent()
+// _ = runApp(app, []string{"version"})
 func runApp(coreApp *core.Core, cliArgs []string) error {
 	if coreApp == nil {
 		return core.E("main.runApp", "core is required", nil)
@@ -91,9 +86,8 @@ func runApp(coreApp *core.Core, cliArgs []string) error {
 	return nil
 }
 
-// resultError extracts the error from a Result or wraps the failure in core.E().
-//
-//	err := resultError("main.runApp", "startup failed", result)
+// result := core.Result{OK: false, Value: core.E("main.runApp", "startup failed", nil)}
+// err := resultError("main.runApp", "startup failed", result)
 func resultError(op, msg string, result core.Result) error {
 	if result.OK {
 		return nil

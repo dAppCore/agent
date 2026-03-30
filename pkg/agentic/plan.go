@@ -388,9 +388,7 @@ func readPlanResult(dir, id string) core.Result {
 	return core.Result{Value: &plan, OK: true}
 }
 
-// readPlan reads a plan file. Kept as compatibility wrapper.
-//
-//	plan, err := readPlan(PlansRoot(), "plan-id")
+// plan, err := readPlan(PlansRoot(), "plan-id")
 func readPlan(dir, id string) (*Plan, error) {
 	r := readPlanResult(dir, id)
 	if !r.OK {
@@ -435,9 +433,7 @@ func writePlanResult(dir string, plan *Plan) core.Result {
 	return core.Result{Value: path, OK: true}
 }
 
-// writePlan writes a plan file. Kept as compatibility wrapper.
-//
-//	_, err := writePlan(PlansRoot(), plan)
+// path, err := writePlan(PlansRoot(), plan)
 func writePlan(dir string, plan *Plan) (string, error) {
 	r := writePlanResult(dir, plan)
 	if !r.OK {

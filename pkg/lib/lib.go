@@ -56,12 +56,9 @@ var (
 	mountResult core.Result
 )
 
-// MountData registers all embedded content (prompts, tasks, flows, personas, workspaces)
-// into Core's Data registry. Other services can then access content without importing lib:
-//
-//	lib.MountData(c)
-//	r := c.Data().ReadString("prompts/coding.md")
-//	r := c.Data().ListNames("flows")
+// lib.MountData(c)
+// r := c.Data().ReadString("prompts/coding.md")
+// r := c.Data().ListNames("flows")
 func MountData(c *core.Core) {
 	if result := ensureMounted(); !result.OK {
 		return

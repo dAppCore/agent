@@ -65,7 +65,7 @@ func (s *Service) Run(options Options) core.Result {
 	return core.Result{Value: options.Path, OK: true}
 }
 
-// setupCoreDir creates .core/ with build.yaml and test.yaml.
+// result := setupCoreDir(Options{Path: ".", Force: true}, TypeGo)
 func setupCoreDir(options Options, projectType ProjectType) core.Result {
 	coreDir := core.JoinPath(options.Path, ".core")
 
@@ -111,7 +111,7 @@ func setupCoreDir(options Options, projectType ProjectType) core.Result {
 	return core.Result{Value: coreDir, OK: true}
 }
 
-// scaffoldTemplate extracts a dir template into the target path.
+// result := s.scaffoldTemplate(Options{Path: ".", Template: "default"}, TypeGo, "default")
 func (s *Service) scaffoldTemplate(options Options, projectType ProjectType, templateName string) core.Result {
 	core.Print(nil, "Template: %s", templateName)
 

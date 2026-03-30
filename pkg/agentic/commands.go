@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// CLI commands registered by the agentic service during OnStartup.
+// c := core.New(core.WithOption("name", "core-agent"))
+// registerApplicationCommands(c)
 
 package agentic
 
@@ -24,10 +25,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 }
 
-// commandContext returns the startup context captured during command registration.
-//
-//	ctx := s.commandContext()
-//	_ = ctx.Err()
+// ctx := s.commandContext()
+// _ = ctx.Err()
 func (s *PrepSubsystem) commandContext() context.Context {
 	if s.startupContext != nil {
 		return s.startupContext
@@ -247,7 +246,7 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-// parseIntStr extracts digits from a string and returns the integer value.
+// parseIntStr("issue-42") // 42
 func parseIntStr(s string) int {
 	n := 0
 	for _, ch := range s {

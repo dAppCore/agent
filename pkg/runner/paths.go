@@ -50,24 +50,20 @@ func agenticWorkspaceStatusFromRunner(status *WorkspaceStatus) *agentic.Workspac
 	}
 }
 
-// WorkspaceRoot returns the root directory for agent workspaces.
-//
-//	root := runner.WorkspaceRoot() // ~/Code/.core/workspace
+// root := runner.WorkspaceRoot()
+// core.Println(root) // "~/Code/.core/workspace"
 func WorkspaceRoot() string {
 	return agentic.WorkspaceRoot()
 }
 
-// CoreRoot returns the root directory for core ecosystem files.
-//
-//	root := runner.CoreRoot() // ~/Code/.core
+// root := runner.CoreRoot()
+// core.Println(root) // "~/Code/.core"
 func CoreRoot() string {
 	return agentic.CoreRoot()
 }
 
-// ReadStatusResult reads status.json as core.Result.
-//
-//	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
-//	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
+// result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
+// if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
 func ReadStatusResult(workspaceDir string) core.Result {
 	statusResult := agentic.ReadStatusResult(workspaceDir)
 	if !statusResult.OK {
@@ -89,10 +85,8 @@ func ReadStatusResult(workspaceDir string) core.Result {
 	return core.Result{Value: workspaceStatus, OK: true}
 }
 
-// WriteStatus writes `status.json` for one workspace directory.
-//
-//	result := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
-//	core.Println(result.OK)
+// result := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+// core.Println(result.OK)
 func WriteStatus(workspaceDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("runner.WriteStatus", "status is required", nil), OK: false}
