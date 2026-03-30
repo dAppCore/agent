@@ -23,6 +23,7 @@ package lib
 
 import (
 	"embed"
+	"sync"
 
 	core "dappco.re/go/core"
 )
@@ -43,25 +44,16 @@ var personaFiles embed.FS
 var workspaceFiles embed.FS
 
 var (
-	promptFS    = mustMount(promptFiles, "prompt")
-	taskFS      = mustMount(taskFiles, "task")
-	flowFS      = mustMount(flowFiles, "flow")
-	personaFS   = mustMount(personaFiles, "persona")
-	workspaceFS = mustMount(workspaceFiles, "workspace")
+	promptFS    *core.Embed
+	taskFS      *core.Embed
+	flowFS      *core.Embed
+	personaFS   *core.Embed
+	workspaceFS *core.Embed
+	data        *core.Data
 
-	// data wraps all embeds for ListNames access (avoids io/fs DirEntry import)
-	data = newData()
+	mountOnce   sync.Once
+	mountResult core.Result
 )
-
-func newData() *core.Data {
-	d := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
-	d.Set("prompt", promptFS)
-	d.Set("task", taskFS)
-	d.Set("flow", flowFS)
-	d.Set("persona", personaFS)
-	d.Set("workspace", workspaceFS)
-	return d
-}
 
 // MountData registers all embedded content (prompts, tasks, flows, personas, workspaces)
 // into Core's Data registry. Other services can then access content without importing lib:
@@ -70,40 +62,69 @@ func newData() *core.Data {
 //	r := c.Data().ReadString("prompts/coding.md")
 //	r := c.Data().ListNames("flows")
 func MountData(c *core.Core) {
+	if result := ensureMounted(); !result.OK {
+		return
+	}
+
 	d := c.Data()
-	d.New(core.NewOptions(
-		core.Option{Key: "name", Value: "prompts"},
-		core.Option{Key: "source", Value: promptFiles},
-		core.Option{Key: "path", Value: "prompt"},
-	))
-	d.New(core.NewOptions(
-		core.Option{Key: "name", Value: "tasks"},
-		core.Option{Key: "source", Value: taskFiles},
-		core.Option{Key: "path", Value: "task"},
-	))
-	d.New(core.NewOptions(
-		core.Option{Key: "name", Value: "flows"},
-		core.Option{Key: "source", Value: flowFiles},
-		core.Option{Key: "path", Value: "flow"},
-	))
-	d.New(core.NewOptions(
-		core.Option{Key: "name", Value: "personas"},
-		core.Option{Key: "source", Value: personaFiles},
-		core.Option{Key: "path", Value: "persona"},
-	))
-	d.New(core.NewOptions(
-		core.Option{Key: "name", Value: "workspaces"},
-		core.Option{Key: "source", Value: workspaceFiles},
-		core.Option{Key: "path", Value: "workspace"},
-	))
+	d.Set("prompts", promptFS)
+	d.Set("tasks", taskFS)
+	d.Set("flows", flowFS)
+	d.Set("personas", personaFS)
+	d.Set("workspaces", workspaceFS)
 }
 
-func mustMount(fsys embed.FS, basedir string) *core.Embed {
-	r := core.Mount(fsys, basedir)
-	if !r.OK {
-		panic(r.Value)
+func ensureMounted() core.Result {
+	mountOnce.Do(func() {
+		mountedData := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
+
+		for _, item := range []struct {
+			name    string
+			fsys    embed.FS
+			basedir string
+			assign  func(*core.Embed)
+		}{
+			{name: "prompt", fsys: promptFiles, basedir: "prompt", assign: func(emb *core.Embed) { promptFS = emb }},
+			{name: "task", fsys: taskFiles, basedir: "task", assign: func(emb *core.Embed) { taskFS = emb }},
+			{name: "flow", fsys: flowFiles, basedir: "flow", assign: func(emb *core.Embed) { flowFS = emb }},
+			{name: "persona", fsys: personaFiles, basedir: "persona", assign: func(emb *core.Embed) { personaFS = emb }},
+			{name: "workspace", fsys: workspaceFiles, basedir: "workspace", assign: func(emb *core.Embed) { workspaceFS = emb }},
+		} {
+			mounted := mountEmbed(item.fsys, item.basedir)
+			if !mounted.OK {
+				mountResult = mounted
+				return
+			}
+
+			emb := mounted.Value.(*core.Embed)
+			item.assign(emb)
+			mountedData.Set(item.name, emb)
+		}
+
+		data = mountedData
+		mountResult = core.Result{Value: mountedData, OK: true}
+	})
+
+	return mountResult
+}
+
+func mountEmbed(fsys embed.FS, basedir string) core.Result {
+	result := core.Mount(fsys, basedir)
+	if result.OK {
+		return result
 	}
-	return r.Value.(*core.Embed)
+
+	if err, ok := result.Value.(error); ok {
+		return core.Result{
+			Value: core.E("lib.mountEmbed", core.Concat("mount ", basedir), err),
+			OK:    false,
+		}
+	}
+
+	return core.Result{
+		Value: core.E("lib.mountEmbed", core.Concat("mount ", basedir), nil),
+		OK:    false,
+	}
 }
 
 // --- Prompts ---
@@ -113,6 +134,9 @@ func mustMount(fsys embed.FS, basedir string) *core.Embed {
 //	r := lib.Template("coding")
 //	if r.OK { content := r.Value.(string) }
 func Template(slug string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	if r := Prompt(slug); r.OK {
 		return r
 	}
@@ -124,6 +148,9 @@ func Template(slug string) core.Result {
 //	r := lib.Prompt("coding")
 //	if r.OK { content := r.Value.(string) }
 func Prompt(slug string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	return promptFS.ReadString(core.Concat(slug, ".md"))
 }
 
@@ -132,6 +159,9 @@ func Prompt(slug string) core.Result {
 //	r := lib.Task("code/review")
 //	if r.OK { content := r.Value.(string) }
 func Task(slug string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	for _, ext := range []string{".md", ".yaml", ".yml"} {
 		if r := taskFS.ReadString(core.Concat(slug, ext)); r.OK {
 			return r
@@ -154,6 +184,9 @@ type Bundle struct {
 //	r := lib.TaskBundle("code/review")
 //	if r.OK { b := r.Value.(lib.Bundle) }
 func TaskBundle(slug string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	main := Task(slug)
 	if !main.OK {
 		return main
@@ -183,6 +216,9 @@ func TaskBundle(slug string) core.Result {
 //	r := lib.Flow("go")
 //	if r.OK { content := r.Value.(string) }
 func Flow(slug string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	return flowFS.ReadString(core.Concat(slug, ".md"))
 }
 
@@ -191,6 +227,9 @@ func Flow(slug string) core.Result {
 //	r := lib.Persona("secops/developer")
 //	if r.OK { content := r.Value.(string) }
 func Persona(path string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	return personaFS.ReadString(core.Concat(path, ".md"))
 }
 
@@ -226,6 +265,13 @@ type WorkspaceData struct {
 //	    Repo: "go-io", Task: "fix tests", Agent: "codex",
 //	})
 func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
+	if result := ensureMounted(); !result.OK {
+		if err, ok := result.Value.(error); ok {
+			return err
+		}
+		return core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), nil)
+	}
+
 	r := workspaceFS.Sub(tmplName)
 	if !r.OK {
 		if err, ok := r.Value.(error); ok {
@@ -238,6 +284,7 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 		if err, ok := result.Value.(error); ok {
 			return err
 		}
+		return core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), nil)
 	}
 	return nil
 }
@@ -248,6 +295,9 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
 //	r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl")
 //	if r.OK { content := r.Value.(string) }
 func WorkspaceFile(tmplName, filename string) core.Result {
+	if result := ensureMounted(); !result.OK {
+		return result
+	}
 	r := workspaceFS.Sub(tmplName)
 	if !r.OK {
 		return r
@@ -277,7 +327,11 @@ func ListWorkspaces() []string { return listNames("workspace") }
 //
 //	tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
 func ListTasks() []string {
-	result := listNamesRecursive("task", taskFS, ".")
+	if result := ensureMounted(); !result.OK {
+		return nil
+	}
+
+	result := listNamesRecursive("task", ".")
 	a := core.NewArray(result...)
 	a.Deduplicate()
 	return a.AsSlice()
@@ -287,7 +341,11 @@ func ListTasks() []string {
 //
 //	personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
 func ListPersonas() []string {
-	a := core.NewArray(listNamesRecursive("persona", personaFS, ".")...)
+	if result := ensureMounted(); !result.OK {
+		return nil
+	}
+
+	a := core.NewArray(listNamesRecursive("persona", ".")...)
 	a.Deduplicate()
 	return a.AsSlice()
 }
@@ -295,7 +353,11 @@ func ListPersonas() []string {
 // listNamesRecursive walks an embed tree via Data.ListNames.
 // Directories are recursed into. Files are added as slugs (extension stripped by ListNames).
 // A name can be both a file AND a directory (e.g. code/review.md + code/review/).
-func listNamesRecursive(mount string, emb *core.Embed, dir string) []string {
+func listNamesRecursive(mount, dir string) []string {
+	if result := ensureMounted(); !result.OK {
+		return nil
+	}
+
 	path := core.Concat(mount, "/", dir)
 	nr := data.ListNames(path)
 	if !nr.OK {
@@ -313,7 +375,7 @@ func listNamesRecursive(mount string, emb *core.Embed, dir string) []string {
 
 		// Try as directory — recurse if it has contents
 		if sub := data.ListNames(subPath); sub.OK {
-			slugs = append(slugs, listNamesRecursive(mount, emb, relPath)...)
+			slugs = append(slugs, listNamesRecursive(mount, relPath)...)
 		}
 
 		// Always add the slug — ListNames includes both files and dirs
@@ -323,6 +385,10 @@ func listNamesRecursive(mount string, emb *core.Embed, dir string) []string {
 }
 
 func listNames(mount string) []string {
+	if result := ensureMounted(); !result.OK {
+		return nil
+	}
+
 	r := data.ListNames(core.Concat(mount, "/."))
 	if !r.OK {
 		return nil

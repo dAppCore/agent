@@ -259,6 +259,13 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 	}
 }
 
+func TestLib_ExtractWorkspace_Bad(t *testing.T) {
+	err := ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"})
+	if err == nil {
+		t.Fatal("ExtractWorkspace should fail for an unknown template")
+	}
+}
+
 func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "align AX docs"}
@@ -332,6 +339,16 @@ func TestLib_ExtractWorkspace_Good_ReferenceHeaders(t *testing.T) {
 
 	for _, path := range goFiles {
 		assertSPDXHeader(t, path)
+	}
+}
+
+func TestLib_MountEmbed_Bad(t *testing.T) {
+	result := mountEmbed(promptFiles, "missing-dir")
+	if result.OK {
+		t.Fatal("mountEmbed should fail for a missing embedded directory")
+	}
+	if _, ok := result.Value.(error); !ok {
+		t.Fatal("mountEmbed should return an error value")
 	}
 }
 
