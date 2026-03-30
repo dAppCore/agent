@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EUPL-1.2
+
 // Structured logging for the Core framework.
 //
 //	core.SetLevel(core.LevelDebug)

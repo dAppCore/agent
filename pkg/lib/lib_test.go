@@ -3,6 +3,7 @@
 package lib
 
 import (
+	"runtime"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -294,5 +295,54 @@ func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
 		if !core.Contains(text, required) {
 			t.Errorf("CODEX.md missing AX guidance: %s", required)
 		}
+	}
+}
+
+func TestLib_ReferenceFiles_Good_SPDXHeaders(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+
+	repoRoot := core.PathDir(core.PathDir(core.PathDir(file)))
+	refDir := core.JoinPath(repoRoot, ".core", "reference")
+	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
+	if len(goFiles) == 0 {
+		t.Fatalf("no .go files found in %s", refDir)
+	}
+
+	for _, path := range goFiles {
+		assertSPDXHeader(t, path)
+	}
+}
+
+func TestLib_ExtractWorkspace_Good_ReferenceHeaders(t *testing.T) {
+	dir := t.TempDir()
+	data := &WorkspaceData{Repo: "test-repo", Task: "carry SPDX headers into workspace references"}
+
+	if err := ExtractWorkspace("default", dir, data); err != nil {
+		t.Fatalf("ExtractWorkspace failed: %v", err)
+	}
+
+	refDir := core.JoinPath(dir, ".core", "reference")
+	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
+	if len(goFiles) == 0 {
+		t.Fatalf("no extracted .go files found in %s", refDir)
+	}
+
+	for _, path := range goFiles {
+		assertSPDXHeader(t, path)
+	}
+}
+
+func assertSPDXHeader(t *testing.T, path string) {
+	t.Helper()
+
+	r := testFs.Read(path)
+	if !r.OK {
+		t.Fatalf("failed to read %s", path)
+	}
+	if !core.HasPrefix(r.Value.(string), "// SPDX-License-Identifier: EUPL-1.2") {
+		t.Fatalf("%s missing SPDX header", path)
 	}
 }

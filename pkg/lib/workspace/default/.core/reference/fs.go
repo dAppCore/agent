@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EUPL-1.2
+
 // Sandboxed local filesystem I/O for the Core framework.
 package core
 
