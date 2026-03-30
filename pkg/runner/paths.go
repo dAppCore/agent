@@ -12,6 +12,44 @@ import (
 // fs reuses the shared unrestricted filesystem used by agentic.
 var fs = agentic.LocalFs()
 
+func runnerWorkspaceStatusFromAgentic(status *agentic.WorkspaceStatus) *WorkspaceStatus {
+	if status == nil {
+		return nil
+	}
+	return &WorkspaceStatus{
+		Status:    status.Status,
+		Agent:     status.Agent,
+		Repo:      status.Repo,
+		Org:       status.Org,
+		Task:      status.Task,
+		Branch:    status.Branch,
+		PID:       status.PID,
+		Question:  status.Question,
+		PRURL:     status.PRURL,
+		StartedAt: status.StartedAt,
+		Runs:      status.Runs,
+	}
+}
+
+func agenticWorkspaceStatusFromRunner(status *WorkspaceStatus) *agentic.WorkspaceStatus {
+	if status == nil {
+		return nil
+	}
+	return &agentic.WorkspaceStatus{
+		Status:    status.Status,
+		Agent:     status.Agent,
+		Repo:      status.Repo,
+		Org:       status.Org,
+		Task:      status.Task,
+		Branch:    status.Branch,
+		PID:       status.PID,
+		Question:  status.Question,
+		PRURL:     status.PRURL,
+		StartedAt: status.StartedAt,
+		Runs:      status.Runs,
+	}
+}
+
 // WorkspaceRoot returns the root directory for agent workspaces.
 //
 //	root := runner.WorkspaceRoot() // ~/Code/.core/workspace
@@ -52,19 +90,14 @@ func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 func ReadStatusResult(wsDir string) core.Result {
 	status, err := agentic.ReadStatus(wsDir)
 	if err != nil {
-		return core.Result{Value: core.E("runner.ReadStatus", "failed to read status", err), OK: false}
+		return core.Result{Value: core.E("runner.ReadStatusResult", "failed to read status", err), OK: false}
 	}
 
-	json := core.JSONMarshalString(status)
-	var st WorkspaceStatus
-	if result := core.JSONUnmarshalString(json, &st); !result.OK {
-		parseErr, _ := result.Value.(error)
-		if parseErr == nil {
-			parseErr = core.E("runner.ReadStatus", "failed to parse status", nil)
-		}
-		return core.Result{Value: parseErr, OK: false}
+	st := runnerWorkspaceStatusFromAgentic(status)
+	if st == nil {
+		return core.Result{Value: core.E("runner.ReadStatusResult", "invalid status payload", nil), OK: false}
 	}
-	return core.Result{Value: &st, OK: true}
+	return core.Result{Value: st, OK: true}
 }
 
 // WriteStatus writes `status.json` for one workspace directory.
@@ -75,11 +108,10 @@ func WriteStatus(wsDir string, st *WorkspaceStatus) {
 		return
 	}
 
-	json := core.JSONMarshalString(st)
-	var status agentic.WorkspaceStatus
-	if result := core.JSONUnmarshalString(json, &status); !result.OK {
+	status := agenticWorkspaceStatusFromRunner(st)
+	if status == nil {
 		return
 	}
 	status.UpdatedAt = time.Now()
-	fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(&status))
+	fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(status))
 }

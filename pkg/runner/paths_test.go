@@ -71,6 +71,59 @@ func TestPaths_ReadStatus_Good(t *testing.T) {
 	assert.Equal(t, 2, st.Runs)
 }
 
+func TestPaths_ReadStatusResult_Good(t *testing.T) {
+	wsDir := t.TempDir()
+	status := &agentic.WorkspaceStatus{
+		Status:    "completed",
+		Agent:     "claude",
+		Repo:      "go-log",
+		Org:       "core",
+		Task:      "finish AX cleanup",
+		Branch:    "agent/ax-cleanup",
+		PID:       21,
+		Question:  "Ready?",
+		PRURL:     "https://forge.test/core/go-log/pulls/12",
+		StartedAt: time.Now(),
+		Runs:      4,
+	}
+	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(status)).OK)
+
+	result := ReadStatusResult(wsDir)
+	require.True(t, result.OK)
+
+	st, ok := result.Value.(*WorkspaceStatus)
+	require.True(t, ok)
+	assert.Equal(t, "completed", st.Status)
+	assert.Equal(t, "claude", st.Agent)
+	assert.Equal(t, "go-log", st.Repo)
+	assert.Equal(t, "core", st.Org)
+	assert.Equal(t, "finish AX cleanup", st.Task)
+	assert.Equal(t, "agent/ax-cleanup", st.Branch)
+	assert.Equal(t, 21, st.PID)
+	assert.Equal(t, "Ready?", st.Question)
+	assert.Equal(t, "https://forge.test/core/go-log/pulls/12", st.PRURL)
+	assert.Equal(t, 4, st.Runs)
+}
+
+func TestPaths_ReadStatusResult_Bad_NoFile(t *testing.T) {
+	result := ReadStatusResult(t.TempDir())
+	assert.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestPaths_ReadStatusResult_Ugly_InvalidJSON(t *testing.T) {
+	wsDir := t.TempDir()
+	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
+
+	result := ReadStatusResult(wsDir)
+	assert.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Error(t, err)
+}
+
 func TestPaths_ReadStatus_Bad(t *testing.T) {
 	wsDir := t.TempDir()
 	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)

@@ -43,3 +43,24 @@ func ExampleReadStatus() {
 	// completed
 	// claude
 }
+
+func ExampleReadStatusResult() {
+	fsys := (&core.Fs{}).NewUnrestricted()
+	dir := fsys.TempDir("agentic-status-result")
+	defer fsys.DeleteAll(dir)
+
+	status := &WorkspaceStatus{
+		Status: "completed",
+		Agent:  "codex",
+		Repo:   "go-io",
+	}
+	core.Println(fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
+
+	result := ReadStatusResult(dir)
+	core.Println(result.OK)
+	core.Println(result.Value.(*WorkspaceStatus).Repo)
+	// Output:
+	// true
+	// true
+	// go-io
+}

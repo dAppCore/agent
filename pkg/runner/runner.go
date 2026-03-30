@@ -218,22 +218,33 @@ func (s *Service) Poke() {
 }
 
 // TrackWorkspace registers or updates a workspace in the in-memory Registry.
-// Accepts any status type — agentic passes *agentic.WorkspaceStatus,
-// runner stores its own *WorkspaceStatus copy.
+// Accepts the runner projection directly and the agentic projection from IPC.
 //
-//	s.TrackWorkspace("core/go-io/task-5", st)
+//	s.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex"})
+//	s.TrackWorkspace("core/go-io/task-5", &agentic.WorkspaceStatus{Status: "running", Agent: "codex"})
 func (s *Service) TrackWorkspace(name string, st any) {
 	if s.workspaces == nil {
 		return
 	}
-	// Convert from agentic's type to runner's via JSON round-trip
-	json := core.JSONMarshalString(st)
-	var ws WorkspaceStatus
-	if r := core.JSONUnmarshalString(json, &ws); r.OK {
-		s.workspaces.Set(name, &ws)
-		// Remove pending reservation now that the real workspace is tracked
-		s.workspaces.Delete(core.Concat("pending/", ws.Repo))
+	var ws *WorkspaceStatus
+	switch value := st.(type) {
+	case *WorkspaceStatus:
+		ws = value
+	case *agentic.WorkspaceStatus:
+		ws = runnerWorkspaceStatusFromAgentic(value)
+	default:
+		json := core.JSONMarshalString(st)
+		var workspace WorkspaceStatus
+		if r := core.JSONUnmarshalString(json, &workspace); r.OK {
+			ws = &workspace
+		}
 	}
+	if ws == nil {
+		return
+	}
+	s.workspaces.Set(name, ws)
+	// Remove pending reservation now that the real workspace is tracked
+	s.workspaces.Delete(core.Concat("pending/", ws.Repo))
 }
 
 // Workspaces returns the workspace Registry.

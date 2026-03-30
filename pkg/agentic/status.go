@@ -117,17 +117,17 @@ func ReadStatusResult(wsDir string) core.Result {
 	if !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
-			return core.Result{Value: core.E("ReadStatus", "status not found", nil), OK: false}
+			return core.Result{Value: core.E("ReadStatusResult", "status not found", nil), OK: false}
 		}
-		return core.Result{Value: core.E("ReadStatus", core.Concat("status not found for ", wsDir), err), OK: false}
+		return core.Result{Value: core.E("ReadStatusResult", core.Concat("status not found for ", wsDir), err), OK: false}
 	}
 	var s WorkspaceStatus
 	if ur := core.JSONUnmarshalString(r.Value.(string), &s); !ur.OK {
 		err, _ := ur.Value.(error)
 		if err == nil {
-			return core.Result{Value: core.E("ReadStatus", "invalid status json", nil), OK: false}
+			return core.Result{Value: core.E("ReadStatusResult", "invalid status json", nil), OK: false}
 		}
-		return core.Result{Value: core.E("ReadStatus", "invalid status json", err), OK: false}
+		return core.Result{Value: core.E("ReadStatusResult", "invalid status json", err), OK: false}
 	}
 	return core.Result{Value: &s, OK: true}
 }

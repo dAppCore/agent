@@ -37,6 +37,25 @@ func ExampleReadStatus() {
 	// go-io
 }
 
+func ExampleReadStatusResult() {
+	fsys := (&core.Fs{}).NewUnrestricted()
+	dir := fsys.TempDir("runner-paths-result")
+	defer fsys.DeleteAll(dir)
+
+	WriteStatus(dir, &WorkspaceStatus{
+		Status: "completed",
+		Agent:  "codex",
+		Repo:   "go-io",
+	})
+
+	result := ReadStatusResult(dir)
+	core.Println(result.OK)
+	core.Println(result.Value.(*WorkspaceStatus).Repo)
+	// Output:
+	// true
+	// go-io
+}
+
 func ExampleWriteStatus() {
 	fsys := (&core.Fs{}).NewUnrestricted()
 	dir := fsys.TempDir("runner-paths")

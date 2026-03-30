@@ -88,6 +88,56 @@ func TestStatus_ReadStatus_Good(t *testing.T) {
 	assert.Equal(t, "https://forge.lthn.ai/core/go-log/pulls/5", read.PRURL)
 }
 
+func TestStatus_ReadStatusResult_Good(t *testing.T) {
+	dir := t.TempDir()
+
+	status := &WorkspaceStatus{
+		Status:    "completed",
+		Agent:     "codex",
+		Repo:      "go-log",
+		Task:      "add logging",
+		Branch:    "agent/add-logging",
+		StartedAt: time.Now().Truncate(time.Second),
+		UpdatedAt: time.Now().Truncate(time.Second),
+		Runs:      2,
+		PRURL:     "https://forge.lthn.ai/core/go-log/pulls/5",
+	}
+
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
+
+	result := ReadStatusResult(dir)
+	require.True(t, result.OK)
+
+	read, ok := result.Value.(*WorkspaceStatus)
+	require.True(t, ok)
+	assert.Equal(t, "completed", read.Status)
+	assert.Equal(t, "codex", read.Agent)
+	assert.Equal(t, "go-log", read.Repo)
+	assert.Equal(t, "add logging", read.Task)
+	assert.Equal(t, "agent/add-logging", read.Branch)
+	assert.Equal(t, 2, read.Runs)
+	assert.Equal(t, "https://forge.lthn.ai/core/go-log/pulls/5", read.PRURL)
+}
+
+func TestStatus_ReadStatusResult_Bad_NoFile(t *testing.T) {
+	result := ReadStatusResult(t.TempDir())
+	assert.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Error(t, err)
+}
+
+func TestStatus_ReadStatusResult_Ugly_InvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "{not-json").OK)
+
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Error(t, err)
+}
+
 func TestStatus_ReadStatus_Bad_NoFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := ReadStatus(dir)

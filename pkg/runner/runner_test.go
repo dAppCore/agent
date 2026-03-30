@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
@@ -87,6 +88,15 @@ func TestRunner_IsFrozen_Ugly_ToggleRapidly(t *testing.T) {
 func TestRunner_TrackWorkspace_Good(t *testing.T) {
 	svc := New()
 	svc.TrackWorkspace("core/go-io/dev", &WorkspaceStatus{
+		Status: "running", Agent: "codex", Repo: "go-io", PID: 12345,
+	})
+	r := svc.workspaces.Get("core/go-io/dev")
+	assert.True(t, r.OK)
+}
+
+func TestRunner_TrackWorkspace_Good_AgenticStatus(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("core/go-io/dev", &agentic.WorkspaceStatus{
 		Status: "running", Agent: "codex", Repo: "go-io", PID: 12345,
 	})
 	r := svc.workspaces.Get("core/go-io/dev")
