@@ -208,7 +208,7 @@ func (m *Subsystem) checkSafety(srcDir string) string {
 			return core.Sprintf("binary file added: %s", file)
 		}
 
-		fullPath := core.Concat(srcDir, "/", file)
+		fullPath := core.JoinPath(srcDir, file)
 		if stat := fs.Stat(fullPath); stat.OK {
 			if info, ok := stat.Value.(interface{ Size() int64 }); ok && info.Size() > 1024*1024 {
 				return core.Sprintf("large file: %s (%d bytes)", file, info.Size())

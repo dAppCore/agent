@@ -67,7 +67,7 @@ func (m *Subsystem) syncRepos() string {
 		if repoName == "." || repoName == ".." || repoName == "" {
 			continue
 		}
-		repoDir := core.Concat(basePath, "/", repoName)
+		repoDir := core.JoinPath(basePath, repoName)
 		if !fs.Exists(repoDir) || fs.IsFile(repoDir) {
 			continue
 		}

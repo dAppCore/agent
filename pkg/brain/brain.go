@@ -17,7 +17,7 @@ import (
 
 // fs provides unrestricted filesystem access for shared brain credentials.
 //
-//	keyPath := core.Concat(home, "/.claude/brain.key")
+//	keyPath := core.JoinPath(home, ".claude", "brain.key")
 //	if r := fs.Read(keyPath); r.OK {
 //		apiKey = core.Trim(r.Value.(string))
 //	}

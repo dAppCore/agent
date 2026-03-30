@@ -21,7 +21,7 @@ import (
 
 // fs provides unrestricted filesystem access (root "/" = no sandbox).
 //
-//	r := fs.Read(core.Concat(wsRoot, "/", name, "/status.json"))
+//	r := fs.Read(core.JoinPath(wsRoot, name, "status.json"))
 //	if text, ok := resultString(r); ok { _ = core.JSONUnmarshalString(text, &st) }
 var fs = agentic.LocalFs()
 
