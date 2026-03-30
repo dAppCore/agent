@@ -12,7 +12,7 @@ func updateChannel() string {
 	switch {
 	case agentpkg.Version == "" || agentpkg.Version == "dev":
 		return "dev"
-	case len(agentpkg.Version) > 0 && (agentpkg.Version[len(agentpkg.Version)-1] >= 'a'):
+	case agentpkg.Version != "" && (agentpkg.Version[len(agentpkg.Version)-1] >= 'a'):
 		return "prerelease"
 	default:
 		return "stable"
