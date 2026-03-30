@@ -425,7 +425,7 @@ func writePlanResult(dir string, plan *Plan) core.Result {
 
 	path := planPath(dir, plan.ID)
 
-	if r := fs.Write(path, core.JSONMarshalString(plan)); !r.OK {
+	if r := fs.WriteAtomic(path, core.JSONMarshalString(plan)); !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("writePlan", "failed to write plan", nil), OK: false}

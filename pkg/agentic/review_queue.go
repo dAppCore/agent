@@ -368,7 +368,7 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
-	fs.Write(path, core.JSONMarshalString(info))
+	fs.WriteAtomic(path, core.JSONMarshalString(info))
 }
 
 // loadRateLimitState reads persisted rate limit info.

@@ -423,9 +423,10 @@ Every exported function MUST have a usage-example comment:
 
 ## Changelog
 
-- 2026-03-29: cmd/core-agent no longer rewrites `os.Args` before startup. The binary-owned commands now use named handlers, keeping the entrypoint on Core CLI primitives instead of repo-local argument mutation.
+- 2026-03-30: plan files and review queue rate-limit state now use `WriteAtomic`, keeping JSON state writes aligned with the AX safe-write convention.
 - 2026-03-30: transport helpers preserve request and read causes, brain direct API calls surface upstream bodies, and review queue retry parsing no longer uses `MustCompile`.
 - 2026-03-30: direct Core process calls replaced the `proc.go` wrapper layer; PID helpers now live in `pid.go` and the workspace template documents `c.Process()` directly.
+- 2026-03-29: cmd/core-agent no longer rewrites `os.Args` before startup. The binary-owned commands now use named handlers, keeping the entrypoint on Core CLI primitives instead of repo-local argument mutation.
 - 2026-03-26: net/http consolidated to transport.go (ONE file). net/url + io/fs eliminated. RFC-025 updated with 3 new quality gates (net/http, net/url, io/fs). 1:1 test + example test coverage. Array[T].Deduplicate replaces custom helpers.
 - 2026-03-25: Quality gates pass. Zero disallowed imports (all 10). encoding/json→Core JSON. path/filepath→Core Path. os→Core Env/Fs. io→Core ReadAll/WriteAll. go-process fully Result-native. ServiceRuntime on all subsystems. 22 named Actions + Task pipeline. ChannelNotifier→IPC. Reference docs synced.
 - 2026-03-25: Initial spec — written with full core/go v0.8.0 domain context.
