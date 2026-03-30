@@ -245,7 +245,9 @@ func (m *Subsystem) pushBranch(srcDir, branch string) error {
 	return nil
 }
 
-// updateStatus updates the workspace status.json.
+// updateStatus rewrites status.json after a harvest decision.
+//
+//	updateStatus(wsDir, "ready-for-review", "")
 func updateStatus(wsDir, status, question string) {
 	r := fs.Read(agentic.WorkspaceStatusPath(wsDir))
 	if !r.OK {
@@ -265,5 +267,12 @@ func updateStatus(wsDir, status, question string) {
 	} else {
 		delete(st, "question") // clear stale question from previous state
 	}
-	fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(st))
+	statusPath := agentic.WorkspaceStatusPath(wsDir)
+	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(st)); !r.OK {
+		if err, ok := r.Value.(error); ok {
+			core.Warn("monitor.updateStatus: failed to write status", "path", statusPath, "reason", err)
+			return
+		}
+		core.Warn("monitor.updateStatus: failed to write status", "path", statusPath)
+	}
 }

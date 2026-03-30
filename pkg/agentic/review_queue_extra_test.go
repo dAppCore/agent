@@ -53,8 +53,8 @@ func TestReviewqueue_SaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 	// but save/load use DIR_HOME. Skip if not writable.
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	info := &RateLimitInfo{
@@ -79,8 +79,8 @@ func TestReviewqueue_StoreReviewOutput_Good(t *testing.T) {
 	// but we can verify it doesn't panic
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
 		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", "No findings — LGTM")
@@ -99,9 +99,9 @@ func TestReviewqueue_NoCandidates_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  root,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       root,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.reviewQueue(context.Background(), nil, ReviewQueueInput{DryRun: true})
@@ -135,8 +135,8 @@ func TestReviewqueue_StatusFiltered_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
@@ -229,8 +229,8 @@ func TestReviewqueue_LoadRateLimitState_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.loadRateLimitState()
@@ -243,8 +243,8 @@ func TestReviewqueue_BuildReviewCommand_Bad(t *testing.T) {
 	// Empty reviewer string — defaults to coderabbit
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "")
 	assert.Equal(t, "coderabbit", cmd)
@@ -289,8 +289,8 @@ func TestReviewqueue_StoreReviewOutput_Bad(t *testing.T) {
 	// Empty output
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
 		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", "")
@@ -301,8 +301,8 @@ func TestReviewqueue_StoreReviewOutput_Ugly(t *testing.T) {
 	// Very large output
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	largeOutput := strings.Repeat("Finding: something is wrong on this line\n", 10000)
 	assert.NotPanics(t, func() {
@@ -315,8 +315,8 @@ func TestReviewqueue_StoreReviewOutput_Ugly(t *testing.T) {
 func TestReviewqueue_SaveRateLimitState_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	info := &RateLimitInfo{
@@ -333,11 +333,29 @@ func TestReviewqueue_SaveRateLimitState_Bad(t *testing.T) {
 	// Save nil info
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() {
 		s.saveRateLimitState(nil)
+	})
+}
+
+func TestReviewqueue_SaveRateLimitState_Bad_WriteFailure(t *testing.T) {
+	t.Setenv("CORE_HOME", "/dev/null")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	info := &RateLimitInfo{
+		Limited: true,
+		RetryAt: time.Now().Add(5 * time.Minute).Truncate(time.Second),
+		Message: "write failure",
+	}
+	assert.NotPanics(t, func() {
+		s.saveRateLimitState(info)
 	})
 }
 
@@ -345,8 +363,8 @@ func TestReviewqueue_SaveRateLimitState_Ugly(t *testing.T) {
 	// Save with far-future RetryAt
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	info := &RateLimitInfo{
 		Limited: true,
@@ -364,8 +382,8 @@ func TestReviewqueue_LoadRateLimitState_Good(t *testing.T) {
 	// Write then load valid state
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	info := &RateLimitInfo{
@@ -389,8 +407,8 @@ func TestReviewqueue_LoadRateLimitState_Bad(t *testing.T) {
 	// File doesn't exist — should return nil
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// loadRateLimitState reads from DIR_HOME/.core/coderabbit-ratelimit.json.

@@ -369,10 +369,18 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	core.WriteAll(r.Value, core.Concat(jsonLine, "\n"))
 }
 
-// saveRateLimitState persists rate limit info for cross-run awareness.
+// saveRateLimitState writes the current rate-limit snapshot.
+//
+//	s.saveRateLimitState(&RateLimitInfo{Limited: true, RetryAt: time.Now().Add(30 * time.Minute)})
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
-	fs.WriteAtomic(path, core.JSONMarshalString(info))
+	if r := fs.WriteAtomic(path, core.JSONMarshalString(info)); !r.OK {
+		if err, ok := r.Value.(error); ok {
+			core.Warn("reviewQueue: failed to persist rate limit state", "path", path, "reason", err)
+			return
+		}
+		core.Warn("reviewQueue: failed to persist rate limit state", "path", path)
+	}
 }
 
 // loadRateLimitState reads persisted rate limit info.

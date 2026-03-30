@@ -127,6 +127,12 @@ func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 	assert.Contains(t, reason, "huge.txt")
 }
 
+func TestHarvest_UpdateStatus_Bad_WriteFailure(t *testing.T) {
+	assert.NotPanics(t, func() {
+		updateStatus("/dev/null/impossible", "ready-for-review", "")
+	})
+}
+
 func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
