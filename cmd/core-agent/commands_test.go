@@ -4,10 +4,12 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"testing"
 
 	agentpkg "dappco.re/go/agent"
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,6 +31,35 @@ func withArgs(t *testing.T, args ...string) {
 	t.Cleanup(func() {
 		os.Args = previous
 	})
+}
+
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+
+	old := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe stdout: %v", err)
+	}
+	os.Stdout = writer
+	defer func() {
+		os.Stdout = old
+	}()
+
+	run()
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("close reader: %v", err)
+	}
+
+	return string(data)
 }
 
 func TestCommands_ApplyLogLevel_Good(t *testing.T) {
@@ -109,6 +140,26 @@ func TestCommands_Check_Good(t *testing.T) {
 
 	r := c.Cli().Run("check")
 	assert.True(t, r.OK)
+}
+
+func TestCommands_Check_Good_BranchWorkspaceCount(t *testing.T) {
+	c := newTestCore(t)
+
+	ws := core.JoinPath(agentic.WorkspaceRoot(), "core", "go-io", "feature", "new-ui")
+	assert.True(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceRepoDir(ws)).OK)
+	assert.True(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceMetaDir(ws)).OK)
+	assert.True(t, agentic.LocalFs().Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(agentic.WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})).OK)
+
+	output := captureStdout(t, func() {
+		r := c.Cli().Run("check")
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "1 workspaces")
 }
 
 func TestCommands_Env_Good(t *testing.T) {

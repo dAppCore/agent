@@ -19,23 +19,23 @@ func registerMCPService(c *core.Core) core.Result {
 		return core.Result{Value: core.E("main.registerMCPService", "core is required", nil), OK: false}
 	}
 
-	var subsystems []mcp.Subsystem
+	var registeredSubsystems []mcp.Subsystem
 
-	if prep, ok := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic"); ok {
-		subsystems = append(subsystems, prep)
+	if agenticSubsystem, ok := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic"); ok {
+		registeredSubsystems = append(registeredSubsystems, agenticSubsystem)
 	}
-	if mon, ok := core.ServiceFor[*monitor.Subsystem](c, "monitor"); ok {
-		subsystems = append(subsystems, mon)
+	if monitorSubsystem, ok := core.ServiceFor[*monitor.Subsystem](c, "monitor"); ok {
+		registeredSubsystems = append(registeredSubsystems, monitorSubsystem)
 	}
-	if brn, ok := core.ServiceFor[*brain.DirectSubsystem](c, "brain"); ok {
-		subsystems = append(subsystems, brn)
+	if brainSubsystem, ok := core.ServiceFor[*brain.DirectSubsystem](c, "brain"); ok {
+		registeredSubsystems = append(registeredSubsystems, brainSubsystem)
 	}
 
-	svc, err := mcp.New(mcp.Options{
-		Subsystems: subsystems,
+	service, err := mcp.New(mcp.Options{
+		Subsystems: registeredSubsystems,
 	})
 	if err != nil {
 		return core.Result{Value: core.E("main.registerMCPService", "create mcp service", err), OK: false}
 	}
-	return core.Result{Value: svc, OK: true}
+	return core.Result{Value: service, OK: true}
 }

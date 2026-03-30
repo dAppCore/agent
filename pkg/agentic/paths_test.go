@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	core "dappco.re/go/core"
 )
@@ -63,6 +64,18 @@ func TestPaths_WorkspaceHelpers_Good(t *testing.T) {
 	assert.True(t, fs.EnsureDir(metaDir).OK)
 	assert.True(t, fs.Write(core.JoinPath(metaDir, "agent-codex.log"), "done").OK)
 	assert.Contains(t, WorkspaceLogFiles(wsDir), core.JoinPath(metaDir, "agent-codex.log"))
+}
+
+func TestPaths_WorkspaceHelpers_Good_BranchNameWithSlash(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "feature", "new-ui")
+
+	require.True(t, fs.EnsureDir(WorkspaceRepoDir(wsDir)).OK)
+	require.True(t, fs.EnsureDir(WorkspaceMetaDir(wsDir)).OK)
+	require.True(t, fs.Write(WorkspaceStatusPath(wsDir), "{}").OK)
+
+	assert.Equal(t, "core/go-io/feature/new-ui", WorkspaceName(wsDir))
+	assert.Contains(t, WorkspaceStatusPaths(), WorkspaceStatusPath(wsDir))
 }
 
 func TestPaths_PlansRoot_Good(t *testing.T) {

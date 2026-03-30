@@ -4,6 +4,8 @@ package agentic
 
 import (
 	"context"
+	iofs "io/fs"
+	"sort"
 	"strconv"
 
 	core "dappco.re/go/core"
@@ -82,9 +84,47 @@ func HomeDir() string {
 }
 
 func workspaceStatusPaths(wsRoot string) []string {
-	old := core.PathGlob(core.JoinPath(wsRoot, "*", "status.json"))
-	deep := core.PathGlob(core.JoinPath(wsRoot, "*", "*", "*", "status.json"))
-	return append(old, deep...)
+	if wsRoot == "" {
+		return nil
+	}
+
+	var paths []string
+	seen := make(map[string]bool)
+
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
+		r := fs.List(dir)
+		if !r.OK {
+			return
+		}
+
+		entries, ok := r.Value.([]iofs.DirEntry)
+		if !ok {
+			return
+		}
+
+		statusPath := core.JoinPath(dir, "status.json")
+		if fs.IsFile(statusPath) {
+			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")) && fs.IsDir(core.JoinPath(dir, ".meta"))) {
+				if !seen[statusPath] {
+					seen[statusPath] = true
+					paths = append(paths, statusPath)
+				}
+				return
+			}
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			walk(core.JoinPath(dir, entry.Name()), depth+1)
+		}
+	}
+
+	walk(wsRoot, 0)
+	sort.Strings(paths)
+	return paths
 }
 
 // WorkspaceRepoDir returns the checked-out repo directory for a workspace.

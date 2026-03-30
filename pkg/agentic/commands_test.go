@@ -614,6 +614,26 @@ func TestCommands_CmdStatus_Good_DeepWorkspace(t *testing.T) {
 	assert.Contains(t, output, "core/go-io/task-5")
 }
 
+func TestCommands_CmdStatus_Good_BranchWorkspace(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	ws := core.JoinPath(WorkspaceRoot(), "core", "go-io", "feature", "new-ui")
+	fs.EnsureDir(WorkspaceRepoDir(ws))
+	fs.EnsureDir(WorkspaceMetaDir(ws))
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Agent:  "codex",
+	}))
+
+	output := captureStdout(t, func() {
+		r := s.cmdStatus(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "core/go-io/feature/new-ui")
+}
+
 func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions())

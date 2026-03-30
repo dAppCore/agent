@@ -118,8 +118,8 @@ func (commands appCommandSet) check(_ core.Options) core.Result {
 
 	wsRoot := agentic.WorkspaceRoot()
 	if fs.IsDir(wsRoot) {
-		entries := core.PathGlob(core.JoinPath(wsRoot, "*"))
-		core.Print(nil, "  workspace: %s (%d entries)", wsRoot, len(entries))
+		statusFiles := agentic.WorkspaceStatusPaths()
+		core.Print(nil, "  workspace: %s (%d workspaces)", wsRoot, len(statusFiles))
 	} else {
 		core.Print(nil, "  workspace: %s (MISSING)", wsRoot)
 	}
