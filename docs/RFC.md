@@ -423,6 +423,7 @@ Every exported function MUST have a usage-example comment:
 
 ## Changelog
 
+- 2026-03-30: dispatch completion monitoring now uses a named helper instead of an inline Action closure, keeping the spawned-process finaliser AX-native.
 - 2026-03-30: lib task bundle and recursive embed traversal now use `JoinPath` for filesystem paths, removing the last string-concatenated path joins in `pkg/lib`.
 - 2026-03-30: runner workspace status projections now use explicit typed copies, and `ReadStatusResult` gained direct AX-7 coverage in both runner and agentic packages.
 - 2026-03-30: transport helpers preserve request and read causes, brain direct API calls surface upstream bodies, and review queue retry parsing no longer uses `MustCompile`.

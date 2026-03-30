@@ -11,9 +11,20 @@ import (
 
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
+	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type fakeCompletionProcess struct {
+	done   chan struct{}
+	info   process.Info
+	output string
+}
+
+func (p *fakeCompletionProcess) Done() <-chan struct{} { return p.done }
+func (p *fakeCompletionProcess) Info() process.Info    { return p.info }
+func (p *fakeCompletionProcess) Output() string        { return p.output }
 
 // --- agentCommand ---
 
@@ -241,6 +252,104 @@ func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", t.TempDir(), "completed")
+}
+
+// --- agentCompletionMonitor ---
+
+func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := core.JoinPath(root, "ws-monitor")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	fs.EnsureDir(repoDir)
+	fs.EnsureDir(metaDir)
+
+	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
+
+	proc := &fakeCompletionProcess{
+		done:   make(chan struct{}),
+		info:   process.Info{ExitCode: 0, Status: process.Status("completed")},
+		output: "monitor output",
+	}
+	close(proc.done)
+
+	s := newPrepWithProcess()
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        "codex",
+		workspaceDir: wsDir,
+		outputFile:   core.JoinPath(metaDir, "agent-codex.log"),
+		process:      proc,
+	}
+
+	r := monitor.run(context.Background(), core.NewOptions())
+	assert.True(t, r.OK)
+
+	updated, err := ReadStatus(wsDir)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", updated.Status)
+	assert.Equal(t, 0, updated.PID)
+
+	output := fs.Read(core.JoinPath(metaDir, "agent-codex.log"))
+	require.True(t, output.OK)
+	assert.Equal(t, "monitor output", output.Value.(string))
+}
+
+func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
+	s := newPrepWithProcess()
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        "codex",
+		workspaceDir: t.TempDir(),
+	}
+
+	r := monitor.run(context.Background(), core.NewOptions())
+	assert.False(t, r.OK)
+	require.Error(t, r.Value.(error))
+	assert.Contains(t, r.Value.(error).Error(), "process is required")
+}
+
+func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	wsDir := core.JoinPath(root, "ws-blocked")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	fs.EnsureDir(repoDir)
+	fs.EnsureDir(metaDir)
+
+	fs.Write(core.JoinPath(repoDir, "BLOCKED.md"), "Need credentials")
+	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
+
+	proc := &fakeCompletionProcess{
+		done:   make(chan struct{}),
+		info:   process.Info{ExitCode: 1, Status: process.Status("failed")},
+		output: "",
+	}
+	close(proc.done)
+
+	s := newPrepWithProcess()
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        "codex",
+		workspaceDir: wsDir,
+		outputFile:   core.JoinPath(metaDir, "agent-codex.log"),
+		process:      proc,
+	}
+
+	r := monitor.run(context.Background(), core.NewOptions())
+	assert.True(t, r.OK)
+
+	updated, err := ReadStatus(wsDir)
+	require.NoError(t, err)
+	assert.Equal(t, "blocked", updated.Status)
+	assert.Equal(t, "Need credentials", updated.Question)
+	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
 }
 
 // --- onAgentComplete ---

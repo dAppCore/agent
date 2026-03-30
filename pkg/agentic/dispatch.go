@@ -428,15 +428,49 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, st
 	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
 	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
 	monitorAction := core.Concat("agentic.monitor.", core.Replace(WorkspaceName(wsDir), "/", "."))
-	s.Core().Action(monitorAction, func(_ context.Context, _ core.Options) core.Result {
-		<-proc.Done()
-		s.onAgentComplete(agent, wsDir, outputFile,
-			proc.Info().ExitCode, string(proc.Info().Status), proc.Output())
-		return core.Result{OK: true}
-	})
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        agent,
+		workspaceDir: wsDir,
+		outputFile:   outputFile,
+		process:      proc,
+	}
+	s.Core().Action(monitorAction, monitor.run)
 	s.Core().PerformAsync(monitorAction, core.NewOptions())
 
 	return pid, processID, outputFile, nil
+}
+
+type completionProcess interface {
+	Done() <-chan struct{}
+	Info() process.Info
+	Output() string
+}
+
+// agentCompletionMonitor waits for a spawned process to finish, then finalises the workspace.
+//
+//	monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: wsDir, outputFile: outputFile, process: proc}
+//	s.Core().Action("agentic.monitor.core.go-io.task-5", monitor.run)
+type agentCompletionMonitor struct {
+	service      *PrepSubsystem
+	agent        string
+	workspaceDir string
+	outputFile   string
+	process      completionProcess
+}
+
+func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Result {
+	if m == nil || m.service == nil {
+		return core.Result{Value: core.E("agentic.monitor", "service is required", nil), OK: false}
+	}
+	if m.process == nil {
+		return core.Result{Value: core.E("agentic.monitor", "process is required", nil), OK: false}
+	}
+
+	<-m.process.Done()
+	info := m.process.Info()
+	m.service.onAgentComplete(m.agent, m.workspaceDir, m.outputFile, info.ExitCode, string(info.Status), m.process.Output())
+	return core.Result{OK: true}
 }
 
 // runQA runs build + test checks on the repo after agent completion.
