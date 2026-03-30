@@ -387,10 +387,10 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 // spawnAgent launches an agent inside a Docker container.
 // The repo/ directory is mounted at /workspace, agent runs sandboxed.
 // Output is captured and written to .meta/agent-{agent}.log on completion.
-func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, error) {
+func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
-		return 0, "", err
+		return 0, "", "", err
 	}
 
 	repoDir := WorkspaceRepoDir(wsDir)
@@ -406,7 +406,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 
 	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
 	if !ok {
-		return 0, "", core.E("dispatch.spawnAgent", "process service not registered", nil)
+		return 0, "", "", core.E("dispatch.spawnAgent", "process service not registered", nil)
 	}
 	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
@@ -415,11 +415,12 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 		Detach:  true,
 	})
 	if err != nil {
-		return 0, "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
+		return 0, "", "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
 	}
 
 	proc.CloseStdin()
 	pid := proc.Info().PID
+	processID := proc.ID
 
 	s.broadcastStart(agent, wsDir)
 	s.startIssueTracking(wsDir)
@@ -435,7 +436,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 	})
 	s.Core().PerformAsync(monitorAction, core.NewOptions())
 
-	return pid, outputFile, nil
+	return pid, processID, outputFile, nil
 }
 
 // runQA runs build + test checks on the repo after agent completion.
@@ -560,7 +561,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 
 	// Step 3: Spawn agent in repo/ directory
-	pid, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir)
+	pid, processID, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}
@@ -573,6 +574,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		Task:      input.Task,
 		Branch:    prepOut.Branch,
 		PID:       pid,
+		ProcessID: processID,
 		StartedAt: time.Now(),
 		Runs:      1,
 	}

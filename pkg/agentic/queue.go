@@ -163,10 +163,14 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 //
 //	n := s.countRunningByAgent("codex") // counts all codex:* variants
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && baseAgent(st.Agent) == agent && PIDAlive(st.PID) {
+			if st.Status == "running" && baseAgent(st.Agent) == agent && ProcessAlive(runtime, st.ProcessID, st.PID) {
 				count++
 			}
 		})
@@ -174,12 +178,12 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	}
 
 	// Fallback: scan disk (cold start before hydration)
-	return s.countRunningByAgentDisk(agent)
+	return s.countRunningByAgentDisk(runtime, agent)
 }
 
 // countRunningByAgentDisk scans workspace status.json files on disk.
 // Used only as fallback before Registry hydration completes.
-func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
+func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
 		st, err := ReadStatus(core.PathDir(statusPath))
@@ -189,7 +193,7 @@ func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
 		if baseAgent(st.Agent) != agent {
 			continue
 		}
-		if PIDAlive(st.PID) {
+		if ProcessAlive(runtime, st.ProcessID, st.PID) {
 			count++
 		}
 	}
@@ -201,10 +205,14 @@ func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
 //
 //	n := s.countRunningByModel("codex:gpt-5.4") // counts only that model
 func (s *PrepSubsystem) countRunningByModel(agent string) int {
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && st.Agent == agent && PIDAlive(st.PID) {
+			if st.Status == "running" && st.Agent == agent && ProcessAlive(runtime, st.ProcessID, st.PID) {
 				count++
 			}
 		})
@@ -212,6 +220,12 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	}
 
 	// Fallback: scan disk
+	return s.countRunningByModelDisk(runtime, agent)
+}
+
+// countRunningByModelDisk scans workspace status.json files on disk.
+// Used only as fallback before Registry hydration completes.
+func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
 		st, err := ReadStatus(core.PathDir(statusPath))
@@ -221,7 +235,7 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 		if st.Agent != agent {
 			continue
 		}
-		if PIDAlive(st.PID) {
+		if ProcessAlive(runtime, st.ProcessID, st.PID) {
 			count++
 		}
 	}
@@ -340,13 +354,14 @@ func (s *PrepSubsystem) drainOne() bool {
 
 		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
-		pid, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
+		pid, processID, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
 		if err != nil {
 			continue
 		}
 
 		st.Status = "running"
 		st.PID = pid
+		st.ProcessID = processID
 		st.Runs++
 		writeStatus(wsDir, st)
 		s.TrackWorkspace(WorkspaceName(wsDir), st)

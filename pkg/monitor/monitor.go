@@ -260,7 +260,7 @@ func (m *Subsystem) Poke() {
 
 // checkIdleAfterDelay waits briefly then checks if the fleet is genuinely idle.
 // Only emits queue.drained when there are truly zero running or queued agents,
-// verified by checking PIDs are alive, not just trusting status files.
+// verified by checking managed processes are alive, not just trusting status files.
 func (m *Subsystem) checkIdleAfterDelay() {
 	time.Sleep(5 * time.Second) // wait for queue drain to fill slots
 	if m.ServiceRuntime == nil {
@@ -274,8 +274,12 @@ func (m *Subsystem) checkIdleAfterDelay() {
 }
 
 // countLiveWorkspaces counts workspaces that are genuinely active.
-// For "running" status, verifies the PID is still alive.
+// For "running" status, verifies the managed process is still alive.
 func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
+	var runtime *core.Core
+	if m.ServiceRuntime != nil {
+		runtime = m.Core()
+	}
 	for _, path := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
 		r := agentic.ReadStatusResult(wsDir)
@@ -288,7 +292,7 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 		}
 		switch st.Status {
 		case "running":
-			if st.PID > 0 && pidAlive(st.PID) {
+			if st.PID > 0 && processAlive(runtime, st.ProcessID, st.PID) {
 				running++
 			}
 		case "queued":
@@ -298,9 +302,9 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 	return
 }
 
-// pidAlive checks whether a process is still running.
-func pidAlive(pid int) bool {
-	return agentic.PIDAlive(pid)
+// processAlive checks whether a managed process is still running.
+func processAlive(c *core.Core, processID string, pid int) bool {
+	return agentic.ProcessAlive(c, processID, pid)
 }
 
 func (m *Subsystem) loop(ctx context.Context) {
@@ -438,7 +442,7 @@ func (m *Subsystem) checkCompletions() string {
 		return ""
 	}
 
-	// Only emit queue.drained when genuinely empty — verified by live PID check
+	// Only emit queue.drained when genuinely empty — verified by live process checks
 	liveRunning, liveQueued := m.countLiveWorkspaces()
 	if m.ServiceRuntime != nil && liveRunning == 0 && liveQueued == 0 {
 		m.Core().ACTION(messages.QueueDrained{Completed: len(newlyCompleted)})

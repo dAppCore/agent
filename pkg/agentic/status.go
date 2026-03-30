@@ -175,6 +175,10 @@ func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 
 func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	statusFiles := WorkspaceStatusPaths()
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 
 	var out StatusOutput
 
@@ -189,9 +193,9 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			continue
 		}
 
-		// If status is "running", check if PID is still alive
-		if st.Status == "running" && st.PID > 0 {
-			if !PIDAlive(st.PID) {
+		// If status is "running", check whether the managed process is still alive.
+		if st.Status == "running" && (st.ProcessID != "" || st.PID > 0) {
+			if !ProcessAlive(runtime, st.ProcessID, st.PID) {
 				blockedPath := workspaceBlockedPath(wsDir)
 				if r := fs.Read(blockedPath); r.OK {
 					st.Status = "blocked"

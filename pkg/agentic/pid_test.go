@@ -5,14 +5,11 @@ package agentic
 import (
 	"context"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // testPrep is the package-level PrepSubsystem for tests that need process execution.
@@ -52,56 +49,45 @@ func newPrepWithProcess() *PrepSubsystem {
 	}
 }
 
-// --- PIDAlive ---
+// --- ProcessAlive ---
 
-func TestPid_PIDAlive_Good(t *testing.T) {
-	pid, _ := strconv.Atoi(core.Env("PID"))
-	assert.True(t, PIDAlive(pid))
-}
-
-func TestPid_PIDAlive_Bad(t *testing.T) {
-	assert.False(t, PIDAlive(999999))
-}
-
-func TestPid_PIDAlive_Ugly(t *testing.T) {
-	assert.False(t, PIDAlive(0))
-}
-
-// --- PIDTerminate ---
-
-func TestPid_PIDTerminate_Good(t *testing.T) {
-	r := testCore.Process().Start(context.Background(), core.NewOptions(
-		core.Option{Key: "command", Value: "sleep"},
-		core.Option{Key: "args", Value: []string{"30"}},
-		core.Option{Key: "detach", Value: true},
-	))
-	require.True(t, r.OK)
-
-	proc, ok := r.Value.(*process.Process)
-	require.True(t, ok)
-
+func TestPid_ProcessAlive_Good(t *testing.T) {
+	proc := startManagedProcess(t, testCore)
 	pid := proc.Info().PID
-	require.NotZero(t, pid)
 
-	defer func() {
-		_ = proc.Kill()
-	}()
+	assert.True(t, ProcessAlive(testCore, proc.ID, pid))
+	assert.True(t, ProcessAlive(testCore, "", pid))
+}
 
-	assert.True(t, PIDTerminate(pid))
+func TestPid_ProcessAlive_Bad(t *testing.T) {
+	assert.False(t, ProcessAlive(testCore, "", 999999))
+}
+
+func TestPid_ProcessAlive_Ugly(t *testing.T) {
+	assert.False(t, ProcessAlive(nil, "", 0))
+}
+
+// --- ProcessTerminate ---
+
+func TestPid_ProcessTerminate_Good(t *testing.T) {
+	proc := startManagedProcess(t, testCore)
+	pid := proc.Info().PID
+
+	assert.True(t, ProcessTerminate(testCore, proc.ID, pid))
 
 	select {
 	case <-proc.Done():
 	case <-time.After(5 * time.Second):
-		t.Fatal("PIDTerminate did not stop the process")
+		t.Fatal("ProcessTerminate did not stop the process")
 	}
 
-	assert.False(t, PIDAlive(pid))
+	assert.False(t, ProcessAlive(testCore, proc.ID, pid))
 }
 
-func TestPid_PIDTerminate_Bad(t *testing.T) {
-	assert.False(t, PIDTerminate(999999))
+func TestPid_ProcessTerminate_Bad(t *testing.T) {
+	assert.False(t, ProcessTerminate(testCore, "", 999999))
 }
 
-func TestPid_PIDTerminate_Ugly(t *testing.T) {
-	assert.False(t, PIDTerminate(0))
+func TestPid_ProcessTerminate_Ugly(t *testing.T) {
+	assert.False(t, ProcessTerminate(nil, "", 0))
 }

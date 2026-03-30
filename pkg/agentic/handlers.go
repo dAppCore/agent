@@ -33,13 +33,14 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		pid, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
+		pid, processID, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
 		if err != nil {
 			break
 		}
 		// Update status with real PID
 		if st, serr := ReadStatus(wsDir); serr == nil {
 			st.PID = pid
+			st.ProcessID = processID
 			writeStatus(wsDir, st)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](c, "runner"); ok {
 				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
@@ -57,7 +58,7 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 //	r := prep.SpawnFromQueue("codex", prompt, wsDir)
 //	pid := r.Value.(int)
 func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) core.Result {
-	pid, _, err := s.spawnAgent(agent, prompt, wsDir)
+	pid, _, _, err := s.spawnAgent(agent, prompt, wsDir)
 	if err != nil {
 		return core.Result{
 			Value: core.E("agentic.SpawnFromQueue", "failed to spawn queued agent", err),

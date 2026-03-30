@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,6 +69,24 @@ func writeWorkspaceStatus(t *testing.T, wsRoot, name string, fields map[string]a
 	fs.EnsureDir(dir)
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(fields))
 	return dir
+}
+
+func startManagedProcess(t *testing.T, c *core.Core) *process.Process {
+	t.Helper()
+
+	r := c.Process().Start(context.Background(), core.NewOptions(
+		core.Option{Key: "command", Value: "sleep"},
+		core.Option{Key: "args", Value: []string{"30"}},
+		core.Option{Key: "detach", Value: true},
+	))
+	require.True(t, r.OK)
+
+	proc, ok := r.Value.(*process.Process)
+	require.True(t, ok)
+	t.Cleanup(func() {
+		_ = proc.Kill()
+	})
+	return proc
 }
 
 // --- New ---
@@ -328,37 +346,40 @@ func TestMonitor_CountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
-	pid, _ := strconv.Atoi(core.Env("PID"))
+	proc := startManagedProcess(t, testMon.Core())
+	pid := proc.Info().PID
 	writeWorkspaceStatus(t, wsRoot, "ws-live", map[string]any{
-		"status": "running",
-		"repo":   "go-io",
-		"agent":  "codex",
-		"pid":    pid,
+		"status":     "running",
+		"repo":       "go-io",
+		"agent":      "codex",
+		"pid":        pid,
+		"process_id": proc.ID,
 	})
 
 	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
 	running, queued := mon.countLiveWorkspaces()
 	assert.Equal(t, 1, running)
 	assert.Equal(t, 0, queued)
 }
 
-// --- pidAlive ---
+// --- processAlive ---
 
-func TestMonitor_PidAlive_Good_CurrentProcess(t *testing.T) {
-	pid, _ := strconv.Atoi(core.Env("PID"))
-	assert.True(t, pidAlive(pid), "current process must be alive")
+func TestMonitor_ProcessAlive_Good_ManagedProcess(t *testing.T) {
+	proc := startManagedProcess(t, testMon.Core())
+	assert.True(t, processAlive(testMon.Core(), proc.ID, proc.Info().PID), "managed process must be alive")
 }
 
-func TestMonitor_PidAlive_Bad_DeadPID(t *testing.T) {
-	assert.False(t, pidAlive(99999999))
+func TestMonitor_ProcessAlive_Bad_DeadPID(t *testing.T) {
+	assert.False(t, processAlive(testMon.Core(), "", 99999999))
 }
 
-func TestMonitor_PidAlive_Ugly_ZeroPID(t *testing.T) {
-	assert.NotPanics(t, func() { pidAlive(0) })
+func TestMonitor_ProcessAlive_Ugly_ZeroPID(t *testing.T) {
+	assert.NotPanics(t, func() { processAlive(testMon.Core(), "", 0) })
 }
 
-func TestMonitor_PidAlive_Ugly_NegativePID(t *testing.T) {
-	assert.NotPanics(t, func() { pidAlive(-1) })
+func TestMonitor_ProcessAlive_Ugly_NegativePID(t *testing.T) {
+	assert.NotPanics(t, func() { processAlive(testMon.Core(), "", -1) })
 }
 
 // --- OnStartup / OnShutdown ---

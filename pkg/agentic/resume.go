@@ -94,7 +94,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Spawn agent via go-process
-	pid, _, err := s.spawnAgent(agent, prompt, wsDir)
+	pid, processID, _, err := s.spawnAgent(agent, prompt, wsDir)
 	if err != nil {
 		return nil, ResumeOutput{}, err
 	}
@@ -102,6 +102,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	// Update status
 	st.Status = "running"
 	st.PID = pid
+	st.ProcessID = processID
 	st.Runs++
 	st.Question = ""
 	writeStatus(wsDir, st)

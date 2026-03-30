@@ -3,20 +3,33 @@
 package agentic
 
 import (
-	"strconv"
+	"context"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
-// mustPID returns the current process PID as int via Core's cached Env.
-func mustPID() int {
-	pid, _ := strconv.Atoi(core.Env("PID"))
-	return pid
+func startManagedProcess(t *testing.T, c *core.Core) *process.Process {
+	t.Helper()
+
+	r := c.Process().Start(context.Background(), core.NewOptions(
+		core.Option{Key: "command", Value: "sleep"},
+		core.Option{Key: "args", Value: []string{"30"}},
+		core.Option{Key: "detach", Value: true},
+	))
+	require.True(t, r.OK)
+
+	proc, ok := r.Value.(*process.Process)
+	require.True(t, ok)
+	t.Cleanup(func() {
+		_ = proc.Kill()
+	})
+	return proc
 }
 
 // --- UnmarshalYAML for ConcurrencyLimit ---
@@ -99,9 +112,9 @@ rates:
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	d := s.delayForAgent("codex:gpt-5.4")
@@ -118,8 +131,8 @@ func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
@@ -133,9 +146,9 @@ func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: nil,
-		frozen:    false,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		frozen:         false,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.NotPanics(t, func() { s.drainQueue() })
 }
@@ -147,9 +160,9 @@ func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.False(t, s.drainOne())
 }
@@ -166,9 +179,9 @@ func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	assert.False(t, s.drainOne())
 }
@@ -185,7 +198,7 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath: t.TempDir(),
+		codePath:       t.TempDir(),
 		backoff: map[string]time.Time{
 			"codex": time.Now().Add(1 * time.Hour),
 		},
@@ -210,8 +223,8 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// No running workspaces → should be able to dispatch
@@ -231,9 +244,9 @@ func TestQueue_DrainQueue_Ugly(t *testing.T) {
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		frozen:    false,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		frozen:         false,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Not frozen, Core is present, empty workspace → drainQueue runs the Core lock path without panic
@@ -247,26 +260,30 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
 
-	// Create a running workspace with a valid-looking PID (use our own PID)
+	c := core.New(core.WithService(ProcessRegister))
+	c.ServiceStartup(context.Background(), nil)
+
+	// Create a running workspace backed by a managed process.
 	ws := core.JoinPath(wsRoot, "ws-running")
 	fs.EnsureDir(ws)
+	proc := startManagedProcess(t, c)
 	st := &WorkspaceStatus{
-		Status: "running",
-		Agent:  "claude",
-		Repo:   "go-io",
-		PID:    mustPID(), // Our own PID so Kill(pid, 0) succeeds
+		Status:    "running",
+		Agent:     "claude",
+		Repo:      "go-io",
+		PID:       proc.Info().PID,
+		ProcessID: proc.ID,
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
-	c := core.New()
 	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
 		"claude": {Total: 1},
 	})
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Agent at limit (1 running, limit is 1) — cannot dispatch
@@ -283,18 +300,20 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 	// Create a running workspace for a different agent type
 	ws := core.JoinPath(wsRoot, "ws-gemini")
 	fs.EnsureDir(ws)
+	proc := startManagedProcess(t, testCore)
 	st := &WorkspaceStatus{
-		Status: "running",
-		Agent:  "gemini",
-		Repo:   "go-io",
-		PID:    mustPID(),
+		Status:    "running",
+		Agent:     "gemini",
+		Repo:      "go-io",
+		PID:       proc.Info().PID,
+		ProcessID: proc.ID,
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Counting for "claude" when only "gemini" is running → 0
@@ -313,8 +332,8 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Corrupt status.json → ReadStatus fails → skipped → count is 0
@@ -330,18 +349,20 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 
 	ws := core.JoinPath(wsRoot, "ws-1")
 	fs.EnsureDir(ws)
+	proc := startManagedProcess(t, testCore)
 	st := &WorkspaceStatus{
-		Status: "running",
-		Agent:  "codex:gpt-5.4",
-		Repo:   "go-io",
-		PID:    mustPID(),
+		Status:    "running",
+		Agent:     "codex:gpt-5.4",
+		Repo:      "go-io",
+		PID:       proc.Info().PID,
+		ProcessID: proc.ID,
 	}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Looking for a model that doesn't match any running workspace
@@ -362,14 +383,15 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 	} {
 		d := core.JoinPath(wsRoot, ws.name)
 		fs.EnsureDir(d)
-		st := &WorkspaceStatus{Status: "running", Agent: ws.agent, Repo: "test", PID: mustPID()}
+		proc := startManagedProcess(t, testCore)
+		st := &WorkspaceStatus{Status: "running", Agent: ws.agent, Repo: "test", PID: proc.Info().PID, ProcessID: proc.ID}
 		fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(st))
 	}
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// countRunningByModel does exact match on agent string
@@ -395,9 +417,9 @@ rates:
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// sustained_delay is 0 → delayForAgent returns 0
@@ -420,9 +442,9 @@ rates:
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Malformed reset_utc — strconv.Atoi fails → defaults to hour=6, min=0
@@ -439,14 +461,16 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 	wsRoot := core.JoinPath(root, "workspace")
 
-	// Create a running workspace that uses our PID
+	// Create a running workspace backed by a managed process.
 	wsRunning := core.JoinPath(wsRoot, "ws-running")
 	fs.EnsureDir(wsRunning)
+	proc := startManagedProcess(t, testCore)
 	stRunning := &WorkspaceStatus{
-		Status: "running",
-		Agent:  "claude",
-		Repo:   "go-io",
-		PID:    mustPID(),
+		Status:    "running",
+		Agent:     "claude",
+		Repo:      "go-io",
+		PID:       proc.Info().PID,
+		ProcessID: proc.ID,
 	}
 	fs.Write(core.JoinPath(wsRunning, "status.json"), core.JSONMarshalString(stRunning))
 
@@ -463,9 +487,9 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		codePath: t.TempDir(),
-		backoff:  make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Queued workspace exists but agent is at concurrency limit → drainOne returns false
@@ -485,7 +509,7 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath: t.TempDir(),
+		codePath:       t.TempDir(),
 		backoff: map[string]time.Time{
 			"codex": time.Now().Add(1 * time.Hour), // pool is backed off
 		},
@@ -547,9 +571,9 @@ rates:
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	loaded := s.loadAgentsConfig()
@@ -569,9 +593,9 @@ func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return defaults when YAML is corrupt
@@ -587,9 +611,9 @@ func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	loaded := s.loadAgentsConfig()
@@ -614,10 +638,10 @@ func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		frozen:    true, // queue is frozen
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		frozen:         true, // queue is frozen
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Frozen queue returns immediately without draining

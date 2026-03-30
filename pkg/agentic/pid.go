@@ -2,24 +2,72 @@
 
 package agentic
 
-import "syscall"
+import (
+	core "dappco.re/go/core"
+	"dappco.re/go/core/process"
+)
 
-// PIDAlive checks if an OS process is still alive via PID signal check.
+// ProcessAlive checks whether a managed process is still running.
 //
-//	if agentic.PIDAlive(pid) { ... }
-func PIDAlive(pid int) bool {
-	if pid > 0 {
-		return syscall.Kill(pid, 0) == nil
+//	alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)
+//	alive := agentic.ProcessAlive(c, "", 12345) // legacy PID fallback
+func ProcessAlive(c *core.Core, processID string, pid int) bool {
+	if c == nil {
+		return false
 	}
+
+	svc, ok := core.ServiceFor[*process.Service](c, "process")
+	if !ok {
+		return false
+	}
+
+	if processID != "" {
+		if proc, err := svc.Get(processID); err == nil {
+			return proc.IsRunning()
+		}
+	}
+
+	if pid <= 0 {
+		return false
+	}
+
+	for _, proc := range svc.Running() {
+		if proc.Info().PID == pid {
+			return true
+		}
+	}
+
 	return false
 }
 
-// PIDTerminate terminates a process via SIGTERM.
+// ProcessTerminate stops a managed process.
 //
-//	if agentic.PIDTerminate(pid) { ... }
-func PIDTerminate(pid int) bool {
-	if pid > 0 {
-		return syscall.Kill(pid, syscall.SIGTERM) == nil
+//	_ = agentic.ProcessTerminate(c, proc.ID, proc.Info().PID)
+func ProcessTerminate(c *core.Core, processID string, pid int) bool {
+	if c == nil {
+		return false
 	}
+
+	svc, ok := core.ServiceFor[*process.Service](c, "process")
+	if !ok {
+		return false
+	}
+
+	if processID != "" {
+		if err := svc.Kill(processID); err == nil {
+			return true
+		}
+	}
+
+	if pid <= 0 {
+		return false
+	}
+
+	for _, proc := range svc.Running() {
+		if proc.Info().PID == pid {
+			return svc.Kill(proc.ID) == nil
+		}
+	}
+
 	return false
 }

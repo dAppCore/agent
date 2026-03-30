@@ -161,6 +161,10 @@ func (s *Service) canDispatchAgent(agent string) (bool, string) {
 //
 //	n := s.countRunningByAgent("codex")
 func (s *Service) countRunningByAgent(agent string) int {
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 	count := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 		if st.Status != "running" || baseAgent(st.Agent) != agent {
@@ -169,7 +173,7 @@ func (s *Service) countRunningByAgent(agent string) int {
 		switch {
 		case st.PID < 0:
 			count++
-		case st.PID > 0 && agentic.PIDAlive(st.PID):
+		case st.PID > 0 && agentic.ProcessAlive(runtime, "", st.PID):
 			count++
 		}
 	})
@@ -180,6 +184,10 @@ func (s *Service) countRunningByAgent(agent string) int {
 //
 //	n := s.countRunningByModel("codex:gpt-5.4")
 func (s *Service) countRunningByModel(agent string) int {
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 	count := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 		if st.Status != "running" || st.Agent != agent {
@@ -188,7 +196,7 @@ func (s *Service) countRunningByModel(agent string) int {
 		switch {
 		case st.PID < 0:
 			count++
-		case st.PID > 0 && agentic.PIDAlive(st.PID):
+		case st.PID > 0 && agentic.ProcessAlive(runtime, "", st.PID):
 			count++
 		}
 	})

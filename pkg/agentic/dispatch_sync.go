@@ -62,13 +62,18 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	core.Print(nil, "  branch:    %s", prepOut.Branch)
 
 	// Spawn agent directly — no queue, no concurrency check
-	pid, _, err := s.spawnAgent(input.Agent, prompt, wsDir)
+	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, wsDir)
 	if err != nil {
 		return DispatchSyncResult{Error: err.Error()}
 	}
 
 	core.Print(nil, "  pid:       %d", pid)
 	core.Print(nil, "  waiting for completion...")
+
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 
 	// Poll for process exit
 	ticker := time.NewTicker(3 * time.Second)
@@ -79,7 +84,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		case <-ctx.Done():
 			return DispatchSyncResult{Error: "cancelled"}
 		case <-ticker.C:
-			if pid > 0 && !PIDAlive(pid) {
+			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
 				// Process exited — read final status
 				st, err := ReadStatus(wsDir)
 				if err != nil {

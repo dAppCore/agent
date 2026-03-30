@@ -334,10 +334,14 @@ func (s *Service) actionStop(_ context.Context, _ core.Options) core.Result {
 
 func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 	s.frozen = true
+	var runtime *core.Core
+	if s.ServiceRuntime != nil {
+		runtime = s.Core()
+	}
 	killed := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 		if st.Status == "running" && st.PID > 0 {
-			if agentic.PIDTerminate(st.PID) {
+			if agentic.ProcessTerminate(runtime, "", st.PID) {
 				killed++
 			}
 			st.Status = "failed"
