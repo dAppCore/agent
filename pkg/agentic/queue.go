@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"strconv"
-	"syscall"
 	"time"
 
 	core "dappco.re/go/core"
@@ -167,10 +166,8 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && baseAgent(st.Agent) == agent {
-				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
-					count++
-				}
+			if st.Status == "running" && baseAgent(st.Agent) == agent && PIDAlive(st.PID) {
+				count++
 			}
 		})
 		return count
@@ -192,7 +189,7 @@ func (s *PrepSubsystem) countRunningByAgentDisk(agent string) int {
 		if baseAgent(st.Agent) != agent {
 			continue
 		}
-		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+		if PIDAlive(st.PID) {
 			count++
 		}
 	}
@@ -207,10 +204,8 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && st.Agent == agent {
-				if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
-					count++
-				}
+			if st.Status == "running" && st.Agent == agent && PIDAlive(st.PID) {
+				count++
 			}
 		})
 		return count
@@ -226,7 +221,7 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 		if st.Agent != agent {
 			continue
 		}
-		if st.PID > 0 && syscall.Kill(st.PID, 0) == nil {
+		if PIDAlive(st.PID) {
 			count++
 		}
 	}

@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"syscall"
 	"time"
 
 	core "dappco.re/go/core"
@@ -142,7 +141,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// If status is "running", check if PID is still alive
 		if st.Status == "running" && st.PID > 0 {
-			if err := syscall.Kill(st.PID, 0); err != nil {
+			if !PIDAlive(st.PID) {
 				blockedPath := workspaceBlockedPath(wsDir)
 				if r := fs.Read(blockedPath); r.OK {
 					st.Status = "blocked"

@@ -10,7 +10,6 @@ package runner
 import (
 	"context"
 	"sync"
-	"syscall"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -338,7 +337,7 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 	killed := 0
 	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
 		if st.Status == "running" && st.PID > 0 {
-			if syscall.Kill(st.PID, syscall.SIGTERM) == nil {
+			if agentic.PIDTerminate(st.PID) {
 				killed++
 			}
 			st.Status = "failed"

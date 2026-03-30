@@ -179,38 +179,38 @@ func TestProc_GitOutput_Ugly(t *testing.T) {
 	assert.Equal(t, "", out)
 }
 
-// --- processIsRunning ---
+// --- PIDAlive ---
 
-func TestProc_ProcessIsRunning_Good(t *testing.T) {
+func TestProc_PIDAlive_Good(t *testing.T) {
 	// Own PID should be running
 	pid, _ := strconv.Atoi(core.Env("PID"))
-	assert.True(t, processIsRunning("", pid))
+	assert.True(t, PIDAlive(pid))
 }
 
-func TestProc_ProcessIsRunning_Bad(t *testing.T) {
+func TestProc_PIDAlive_Bad(t *testing.T) {
 	// PID 999999 should not be running (extremely unlikely to exist)
-	assert.False(t, processIsRunning("", 999999))
+	assert.False(t, PIDAlive(999999))
 }
 
-func TestProc_ProcessIsRunning_Ugly(t *testing.T) {
+func TestProc_PIDAlive_Ugly(t *testing.T) {
 	// PID 0 — should return false (invalid PID guard: pid > 0 is false for 0)
-	assert.False(t, processIsRunning("", 0))
+	assert.False(t, PIDAlive(0))
 }
 
-// --- processKill ---
+// --- PIDTerminate ---
 
-func TestProc_ProcessKill_Good(t *testing.T) {
+func TestProc_PIDTerminate_Good(t *testing.T) {
 	t.Skip("would need real process to kill")
 }
 
-func TestProc_ProcessKill_Bad(t *testing.T) {
+func TestProc_PIDTerminate_Bad(t *testing.T) {
 	// PID 999999 should fail to kill
-	assert.False(t, processKill("", 999999))
+	assert.False(t, PIDTerminate(999999))
 }
 
-func TestProc_ProcessKill_Ugly(t *testing.T) {
+func TestProc_PIDTerminate_Ugly(t *testing.T) {
 	// PID 0 — pid > 0 guard returns false
-	assert.False(t, processKill("", 0))
+	assert.False(t, PIDTerminate(0))
 }
 
 // --- initTestRepo creates a git repo with commits for proc tests ---

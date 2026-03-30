@@ -4,7 +4,6 @@ package runner
 
 import (
 	"strconv"
-	"syscall"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -170,7 +169,7 @@ func (s *Service) countRunningByAgent(agent string) int {
 		switch {
 		case st.PID < 0:
 			count++
-		case st.PID > 0 && syscall.Kill(st.PID, 0) == nil:
+		case st.PID > 0 && agentic.PIDAlive(st.PID):
 			count++
 		}
 	})
@@ -189,7 +188,7 @@ func (s *Service) countRunningByModel(agent string) int {
 		switch {
 		case st.PID < 0:
 			count++
-		case st.PID > 0 && syscall.Kill(st.PID, 0) == nil:
+		case st.PID > 0 && agentic.PIDAlive(st.PID):
 			count++
 		}
 	})

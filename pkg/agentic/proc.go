@@ -65,20 +65,20 @@ func (s *PrepSubsystem) gitOutput(ctx context.Context, dir string, args ...strin
 
 // --- Process lifecycle helpers ---
 
-// processIsRunning checks if a process is still alive via PID signal check.
+// PIDAlive checks if an OS process is still alive via PID signal check.
 //
-//	if processIsRunning(st.ProcessID, st.PID) { ... }
-func processIsRunning(processID string, pid int) bool {
+//	if agentic.PIDAlive(st.PID) { ... }
+func PIDAlive(pid int) bool {
 	if pid > 0 {
 		return syscall.Kill(pid, 0) == nil
 	}
 	return false
 }
 
-// processKill terminates a process via SIGTERM.
+// PIDTerminate terminates a process via SIGTERM.
 //
-//	processKill(st.ProcessID, st.PID)
-func processKill(processID string, pid int) bool {
+//	if agentic.PIDTerminate(st.PID) { ... }
+func PIDTerminate(pid int) bool {
 	if pid > 0 {
 		return syscall.Kill(pid, syscall.SIGTERM) == nil
 	}

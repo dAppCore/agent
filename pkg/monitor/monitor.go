@@ -10,7 +10,6 @@ package monitor
 import (
 	"context"
 	"sync"
-	"syscall"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -297,10 +296,7 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 
 // pidAlive checks whether a process is still running.
 func pidAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	return syscall.Kill(pid, 0) == nil
+	return agentic.PIDAlive(pid)
 }
 
 func (m *Subsystem) loop(ctx context.Context) {

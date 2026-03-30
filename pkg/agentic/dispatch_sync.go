@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"syscall"
 	"time"
 
 	core "dappco.re/go/core"
@@ -80,7 +79,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		case <-ctx.Done():
 			return DispatchSyncResult{Error: "cancelled"}
 		case <-ticker.C:
-			if pid > 0 && syscall.Kill(pid, 0) != nil {
+			if pid > 0 && !PIDAlive(pid) {
 				// Process exited — read final status
 				st, err := ReadStatus(wsDir)
 				if err != nil {
