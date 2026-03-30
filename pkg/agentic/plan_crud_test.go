@@ -505,18 +505,6 @@ func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
 	assert.False(t, validPlanStatus("draft "))      // trailing space
 }
 
-// --- generatePlanID Bad/Ugly ---
-
-func TestPlan_GeneratePlanID_Bad(t *testing.T) {
-	id := generatePlanID("")
-	assertCoreIDFormat(t, id)
-}
-
-func TestPlan_GeneratePlanID_Ugly(t *testing.T) {
-	id := generatePlanID("!@#$%^&*()")
-	assertCoreIDFormat(t, id)
-}
-
 // --- planList Bad/Ugly ---
 
 func TestPlan_PlanList_Bad(t *testing.T) {

@@ -170,7 +170,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanCreateOutput{}, core.E("planCreate", "objective is required", nil)
 	}
 
-	id := generatePlanID(input.Title)
+	id := core.ID()
 	plan := Plan{
 		ID:        id,
 		Title:     input.Title,
@@ -361,13 +361,6 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 func planPath(dir, id string) string {
 	safe := core.SanitisePath(id)
 	return core.JoinPath(dir, core.Concat(safe, ".json"))
-}
-
-// generatePlanID returns a Core ID for a plan file.
-//
-//	id := generatePlanID("Migrate Core") // "id-1-a3f2b1"
-func generatePlanID(_ string) string {
-	return core.ID()
 }
 
 // readPlanResult reads and decodes a plan file as core.Result.

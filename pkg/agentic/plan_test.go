@@ -144,27 +144,6 @@ func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 	assert.Equal(t, "Working on it", read.Phases[1].Notes)
 }
 
-func TestPlan_GeneratePlanID_Good_CoreFormat(t *testing.T) {
-	id := generatePlanID("Add Unit Tests for Agentic")
-	assertCoreIDFormat(t, id)
-}
-
-func TestPlan_GeneratePlanID_Good_IgnoresTitleLength(t *testing.T) {
-	id := generatePlanID("This is a very long title that should be truncated to a reasonable length for file naming purposes")
-	assertCoreIDFormat(t, id)
-}
-
-func TestPlan_GeneratePlanID_Good_IgnoresSpecialChars(t *testing.T) {
-	id := generatePlanID("Fix bug #123: auth & session!")
-	assertCoreIDFormat(t, id)
-}
-
-func TestPlan_GeneratePlanID_Good_Unique(t *testing.T) {
-	id1 := generatePlanID("Same Title")
-	id2 := generatePlanID("Same Title")
-	assert.NotEqual(t, id1, id2, "IDs should differ due to random suffix")
-}
-
 func TestPlan_ValidPlanStatus_Good_AllValid(t *testing.T) {
 	validStatuses := []string{"draft", "ready", "in_progress", "needs_verification", "verified", "approved"}
 	for _, s := range validStatuses {
