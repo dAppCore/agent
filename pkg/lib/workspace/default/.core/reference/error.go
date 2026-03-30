@@ -120,18 +120,25 @@ func NewCode(code, msg string) error {
 
 // Is reports whether any error in err's tree matches target.
 // Wrapper around errors.Is for convenience.
+//
+//	if core.Is(err, context.Canceled) { return }
 func Is(err, target error) bool {
 	return errors.Is(err, target)
 }
 
 // As finds the first error in err's tree that matches target.
 // Wrapper around errors.As for convenience.
+//
+//	var typed *core.Err
+//	if core.As(err, &typed) { core.Println(typed.Operation) }
 func As(err error, target any) bool {
 	return errors.As(err, target)
 }
 
 // NewError creates a simple error with the given text.
 // Wrapper around errors.New for convenience.
+//
+//	err := core.NewError("workspace not found")
 func NewError(text string) error {
 	return errors.New(text)
 }
@@ -147,6 +154,8 @@ func ErrorJoin(errs ...error) error {
 
 // Operation extracts the operation name from an error.
 // Returns empty string if the error is not an *Err.
+//
+//	op := core.Operation(err)
 func Operation(err error) string {
 	var e *Err
 	if As(err, &e) {
@@ -157,6 +166,8 @@ func Operation(err error) string {
 
 // ErrorCode extracts the error code from an error.
 // Returns empty string if the error is not an *Err or has no code.
+//
+//	code := core.ErrorCode(err)
 func ErrorCode(err error) string {
 	var e *Err
 	if As(err, &e) {
@@ -180,6 +191,8 @@ func ErrorMessage(err error) string {
 
 // Root returns the root cause of an error chain.
 // Unwraps until no more wrapped errors are found.
+//
+//	cause := core.Root(err)
 func Root(err error) error {
 	if err == nil {
 		return nil
@@ -212,6 +225,8 @@ func AllOperations(err error) iter.Seq[string] {
 
 // StackTrace returns the logical stack trace (chain of operations) from an error.
 // It returns an empty slice if no operational context is found.
+//
+//	trace := core.StackTrace(err)
 func StackTrace(err error) []string {
 	var stack []string
 	for op := range AllOperations(err) {
@@ -221,6 +236,8 @@ func StackTrace(err error) []string {
 }
 
 // FormatStackTrace returns a pretty-printed logical stack trace.
+//
+//	stack := core.FormatStackTrace(err)
 func FormatStackTrace(err error) string {
 	var ops []string
 	for op := range AllOperations(err) {
@@ -338,6 +355,8 @@ func (h *ErrorPanic) Recover() {
 }
 
 // SafeGo runs a function in a goroutine with panic recovery.
+//
+//	c.Error().SafeGo(func() { runWorker() })
 func (h *ErrorPanic) SafeGo(fn func()) {
 	go func() {
 		defer h.Recover()
@@ -346,6 +365,8 @@ func (h *ErrorPanic) SafeGo(fn func()) {
 }
 
 // Reports returns the last n crash reports from the file.
+//
+//	r := c.Error().Reports(10)
 func (h *ErrorPanic) Reports(n int) Result {
 	if h.filePath == "" {
 		return Result{}

@@ -21,6 +21,8 @@ type ServiceRuntime[T any] struct {
 }
 
 // NewServiceRuntime creates a ServiceRuntime for a service constructor.
+//
+//	svc.ServiceRuntime = core.NewServiceRuntime(c, ServiceOptions{Queue: "default"})
 func NewServiceRuntime[T any](c *Core, opts T) *ServiceRuntime[T] {
 	return &ServiceRuntime[T]{core: c, opts: opts}
 }
@@ -43,6 +45,8 @@ func (r *ServiceRuntime[T]) Config() *Config { return r.core.Config() }
 // --- Lifecycle ---
 
 // ServiceStartup runs OnStart for all registered services that have one.
+//
+//	r := c.ServiceStartup(context.Background(), nil)
 func (c *Core) ServiceStartup(ctx context.Context, options any) Result {
 	c.shutdown.Store(false)
 	c.context, c.cancel = context.WithCancel(ctx)
@@ -63,6 +67,8 @@ func (c *Core) ServiceStartup(ctx context.Context, options any) Result {
 }
 
 // ServiceShutdown drains background tasks, then stops all registered services.
+//
+//	r := c.ServiceShutdown(context.Background())
 func (c *Core) ServiceShutdown(ctx context.Context) Result {
 	c.shutdown.Store(true)
 	c.cancel() // signal all context-aware tasks to stop
@@ -116,6 +122,8 @@ type Runtime struct {
 type ServiceFactory func() Result
 
 // NewWithFactories creates a Runtime with the provided service factories.
+//
+//	r := core.NewWithFactories(app, map[string]core.ServiceFactory{"brain": newBrainService})
 func NewWithFactories(app any, factories map[string]ServiceFactory) Result {
 	c := New(WithOptions(NewOptions(Option{Key: "name", Value: "core"})))
 	c.app.Runtime = app
@@ -144,18 +152,27 @@ func NewWithFactories(app any, factories map[string]ServiceFactory) Result {
 }
 
 // NewRuntime creates a Runtime with no custom services.
+//
+//	r := core.NewRuntime(app)
 func NewRuntime(app any) Result {
 	return NewWithFactories(app, map[string]ServiceFactory{})
 }
 
 // ServiceName returns "Core" — the Runtime's service identity.
+//
+//	name := runtime.ServiceName()
 func (r *Runtime) ServiceName() string { return "Core" }
 
 // ServiceStartup starts all services via the embedded Core.
+//
+//	runtime.ServiceStartup(context.Background(), nil)
 func (r *Runtime) ServiceStartup(ctx context.Context, options any) Result {
 	return r.Core.ServiceStartup(ctx, options)
 }
+
 // ServiceShutdown stops all services via the embedded Core.
+//
+//	runtime.ServiceShutdown(context.Background())
 func (r *Runtime) ServiceShutdown(ctx context.Context) Result {
 	if r.Core != nil {
 		return r.Core.ServiceShutdown(ctx)

@@ -342,6 +342,58 @@ func TestLib_ExtractWorkspace_Good_ReferenceHeaders(t *testing.T) {
 	}
 }
 
+func TestLib_ExtractWorkspace_Good_ReferenceUsageExamples(t *testing.T) {
+	dir := t.TempDir()
+	data := &WorkspaceData{Repo: "test-repo", Task: "carry AX usage examples into workspace references"}
+
+	if err := ExtractWorkspace("default", dir, data); err != nil {
+		t.Fatalf("ExtractWorkspace failed: %v", err)
+	}
+
+	cases := map[string][]string{
+		core.JoinPath(dir, ".core", "reference", "array.go"): {
+			`arr := core.NewArray("prep", "dispatch")`,
+			`arr.Add("verify", "merge")`,
+			`arr.AddUnique("verify", "verify", "merge")`,
+		},
+		core.JoinPath(dir, ".core", "reference", "config.go"): {
+			`timeout := core.ConfigGet[int](c.Config(), "agent.timeout")`,
+		},
+		core.JoinPath(dir, ".core", "reference", "embed.go"): {
+			`core.AddAsset("docs", "RFC.md", packed)`,
+			`r := core.GeneratePack(pkg)`,
+		},
+		core.JoinPath(dir, ".core", "reference", "error.go"): {
+			`if core.Is(err, context.Canceled) { return }`,
+			`stack := core.FormatStackTrace(err)`,
+			`r := c.Error().Reports(10)`,
+		},
+		core.JoinPath(dir, ".core", "reference", "log.go"): {
+			`log := core.NewLog(core.LogOptions{Level: core.LevelDebug, Output: os.Stdout})`,
+			`core.SetRedactKeys("token", "password")`,
+			`core.Security("entitlement.denied", "action", "process.run")`,
+		},
+		core.JoinPath(dir, ".core", "reference", "runtime.go"): {
+			`r := c.ServiceStartup(context.Background(), nil)`,
+			`r := core.NewRuntime(app)`,
+			`name := runtime.ServiceName()`,
+		},
+	}
+
+	for path, snippets := range cases {
+		r := testFs.Read(path)
+		if !r.OK {
+			t.Fatalf("failed to read %s", path)
+		}
+		text := r.Value.(string)
+		for _, snippet := range snippets {
+			if !core.Contains(text, snippet) {
+				t.Errorf("%s missing usage example snippet %q", path, snippet)
+			}
+		}
+	}
+}
+
 func TestLib_MountEmbed_Bad(t *testing.T) {
 	result := mountEmbed(promptFiles, "missing-dir")
 	if result.OK {

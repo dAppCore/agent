@@ -10,17 +10,23 @@ type Array[T comparable] struct {
 	items []T
 }
 
-// NewArray creates an empty Array.
+// NewArray creates an Array with the provided items.
+//
+//	arr := core.NewArray("prep", "dispatch")
 func NewArray[T comparable](items ...T) *Array[T] {
 	return &Array[T]{items: items}
 }
 
 // Add appends values.
+//
+//	arr.Add("verify", "merge")
 func (s *Array[T]) Add(values ...T) {
 	s.items = append(s.items, values...)
 }
 
 // AddUnique appends values only if not already present.
+//
+//	arr.AddUnique("verify", "verify", "merge")
 func (s *Array[T]) AddUnique(values ...T) {
 	for _, v := range values {
 		if !s.Contains(v) {
@@ -40,6 +46,8 @@ func (s *Array[T]) Contains(val T) bool {
 }
 
 // Filter returns a new Array with elements matching the predicate.
+//
+//	r := arr.Filter(func(step string) bool { return core.Contains(step, "prep") })
 func (s *Array[T]) Filter(fn func(T) bool) Result {
 	filtered := &Array[T]{}
 	for _, v := range s.items {
@@ -68,6 +76,8 @@ func (s *Array[T]) Remove(val T) {
 }
 
 // Deduplicate removes duplicate values, preserving order.
+//
+//	arr.Deduplicate()
 func (s *Array[T]) Deduplicate() {
 	seen := make(map[T]struct{})
 	result := make([]T, 0, len(s.items))
@@ -91,6 +101,8 @@ func (s *Array[T]) Clear() {
 }
 
 // AsSlice returns a copy of the underlying slice.
+//
+//	items := arr.AsSlice()
 func (s *Array[T]) AsSlice() []T {
 	if s.items == nil {
 		return nil

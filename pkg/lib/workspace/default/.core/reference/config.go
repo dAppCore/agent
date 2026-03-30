@@ -117,6 +117,8 @@ func (e *Config) Int(key string) int { return ConfigGet[int](e, key) }
 func (e *Config) Bool(key string) bool { return ConfigGet[bool](e, key) }
 
 // ConfigGet retrieves a typed configuration value.
+//
+//	timeout := core.ConfigGet[int](c.Config(), "agent.timeout")
 func ConfigGet[T any](e *Config, key string) T {
 	r := e.Get(key)
 	if !r.OK {

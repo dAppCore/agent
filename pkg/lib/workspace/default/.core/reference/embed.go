@@ -51,6 +51,8 @@ var (
 )
 
 // AddAsset registers a packed asset at runtime (called from generated init()).
+//
+//	core.AddAsset("docs", "RFC.md", packed)
 func AddAsset(group, name, data string) {
 	assetGroupsMu.Lock()
 	defer assetGroupsMu.Unlock()
@@ -214,6 +216,8 @@ func ScanAssets(filenames []string) Result {
 }
 
 // GeneratePack creates Go source code that embeds the scanned assets.
+//
+//	r := core.GeneratePack(pkg)
 func GeneratePack(pkg ScannedPackage) Result {
 	b := NewBuilder()
 
