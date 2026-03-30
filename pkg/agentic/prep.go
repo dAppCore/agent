@@ -373,7 +373,19 @@ func workspaceDir(org, repo string, input PrepInput) (string, error) {
 //	r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
 //	if r.OK { wsDir := r.Value.(string) }
 func workspaceDirResult(org, repo string, input PrepInput) core.Result {
-	base := core.JoinPath(WorkspaceRoot(), org, repo)
+	orgName := core.ValidateName(org)
+	if !orgName.OK {
+		err, _ := orgName.Value.(error)
+		return core.Result{Value: core.E("workspaceDir", "invalid org name", err), OK: false}
+	}
+
+	repoName := core.ValidateName(repo)
+	if !repoName.OK {
+		err, _ := repoName.Value.(error)
+		return core.Result{Value: core.E("workspaceDir", "invalid repo name", err), OK: false}
+	}
+
+	base := core.JoinPath(WorkspaceRoot(), orgName.Value.(string), repoName.Value.(string))
 	switch {
 	case input.PR > 0:
 		return core.Result{Value: core.JoinPath(base, core.Sprintf("pr-%d", input.PR)), OK: true}
@@ -417,12 +429,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	metaDir := workspaceMetaDir(wsDir)
 	out := PrepOutput{WorkspaceDir: wsDir, RepoDir: repoDir}
 
-	// Source repo path — sanitise to prevent path traversal
-	repoName := core.PathBase(input.Repo)
-	if repoName == "." || repoName == ".." || repoName == "" {
-		return nil, PrepOutput{}, core.E("prep", core.Concat("invalid repo name: ", input.Repo), nil)
-	}
-	repoPath := core.JoinPath(s.codePath, input.Org, repoName)
+	// Source repo path — org and repo were validated by workspaceDirResult.
+	repoPath := core.JoinPath(s.codePath, input.Org, input.Repo)
 
 	// Ensure meta directory exists
 	if r := fs.EnsureDir(metaDir); !r.OK {

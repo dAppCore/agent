@@ -22,7 +22,7 @@ type DispatchSyncInput struct {
 
 // DispatchSyncResult is the output of a synchronous task run.
 //
-//	if result.OK { fmt.Println("done:", result.Status) }
+//	if result.OK { core.Print(nil, "done: %s", result.Status) }
 type DispatchSyncResult struct {
 	OK     bool
 	Status string

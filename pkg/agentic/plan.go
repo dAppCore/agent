@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"time"
 
 	core "dappco.re/go/core"
@@ -14,7 +12,7 @@ import (
 
 // Plan represents an implementation plan for agent work.
 //
-//	plan := &Plan{ID: "migrate-core-abc", Title: "Migrate Core", Status: "draft", Objective: "..."}
+//	plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "..."}
 //	writePlan(PlansRoot(), plan)
 type Plan struct {
 	ID        string    `json:"id"`
@@ -58,7 +56,7 @@ type PlanCreateInput struct {
 
 // PlanCreateOutput is the output for agentic_plan_create.
 //
-//	out := agentic.PlanCreateOutput{Success: true, ID: "migrate-pkg-agentic-abc123"}
+//	out := agentic.PlanCreateOutput{Success: true, ID: "id-1-a3f2b1"}
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
@@ -67,14 +65,14 @@ type PlanCreateOutput struct {
 
 // PlanReadInput is the input for agentic_plan_read.
 //
-//	input := agentic.PlanReadInput{ID: "migrate-pkg-agentic-abc123"}
+//	input := agentic.PlanReadInput{ID: "id-1-a3f2b1"}
 type PlanReadInput struct {
 	ID string `json:"id"`
 }
 
 // PlanReadOutput is the output for agentic_plan_read.
 //
-//	out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "migrate-pkg-agentic-abc123"}}
+//	out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "id-1-a3f2b1"}}
 type PlanReadOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
@@ -82,7 +80,7 @@ type PlanReadOutput struct {
 
 // PlanUpdateInput is the input for agentic_plan_update.
 //
-//	input := agentic.PlanUpdateInput{ID: "migrate-pkg-agentic-abc123", Status: "verified"}
+//	input := agentic.PlanUpdateInput{ID: "id-1-a3f2b1", Status: "verified"}
 type PlanUpdateInput struct {
 	ID        string  `json:"id"`
 	Status    string  `json:"status,omitempty"`
@@ -103,14 +101,14 @@ type PlanUpdateOutput struct {
 
 // PlanDeleteInput is the input for agentic_plan_delete.
 //
-//	input := agentic.PlanDeleteInput{ID: "migrate-pkg-agentic-abc123"}
+//	input := agentic.PlanDeleteInput{ID: "id-1-a3f2b1"}
 type PlanDeleteInput struct {
 	ID string `json:"id"`
 }
 
 // PlanDeleteOutput is the output for agentic_plan_delete.
 //
-//	out := agentic.PlanDeleteOutput{Success: true, Deleted: "migrate-pkg-agentic-abc123"}
+//	out := agentic.PlanDeleteOutput{Success: true, Deleted: "id-1-a3f2b1"}
 type PlanDeleteOutput struct {
 	Success bool   `json:"success"`
 	Deleted string `json:"deleted"`
@@ -126,7 +124,7 @@ type PlanListInput struct {
 
 // PlanListOutput is the output for agentic_plan_list.
 //
-//	out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "migrate-pkg-agentic-abc123"}}}
+//	out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "id-1-a3f2b1"}}}
 type PlanListOutput struct {
 	Success bool   `json:"success"`
 	Count   int    `json:"count"`
@@ -361,21 +359,15 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 // --- Helpers ---
 
 func planPath(dir, id string) string {
-	// Sanitise ID to prevent path traversal
-	safe := core.PathBase(id)
-	if safe == "." || safe == ".." || safe == "" {
-		safe = "invalid"
-	}
+	safe := core.SanitisePath(id)
 	return core.JoinPath(dir, core.Concat(safe, ".json"))
 }
 
-func generatePlanID(title string) string {
-	slug := sanitisePlanSlug(title)
-
-	// Append short random suffix for uniqueness
-	b := make([]byte, 3)
-	rand.Read(b)
-	return core.Concat(slug, "-", hex.EncodeToString(b))
+// generatePlanID returns a Core ID for a plan file.
+//
+//	id := generatePlanID("Migrate Core") // "id-1-a3f2b1"
+func generatePlanID(_ string) string {
+	return core.ID()
 }
 
 // readPlanResult reads and decodes a plan file as core.Result.

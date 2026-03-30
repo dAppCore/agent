@@ -19,7 +19,7 @@ func TestPlan_PlanPath_Good_BasicFormat(t *testing.T) {
 }
 
 func TestPlan_PlanPath_Good_NestedIDStripped(t *testing.T) {
-	// PathBase strips directory component — prevents path traversal
+	// SanitisePath strips directory components — prevents path traversal
 	result := planPath("/plans", "../../../etc/passwd")
 	assert.Equal(t, "/plans/passwd.json", result)
 }

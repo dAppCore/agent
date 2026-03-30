@@ -43,7 +43,7 @@ func TestPlan_PlanCreate_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.ID)
-	assert.Contains(t, out.ID, "migrate-core")
+	assertCoreIDFormat(t, out.ID)
 	assert.NotEmpty(t, out.Path)
 
 	assert.True(t, fs.Exists(out.Path))
@@ -367,8 +367,7 @@ func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.ID)
-	// The slug portion should be truncated
-	assert.LessOrEqual(t, len(out.ID), 50, "ID should be reasonably short")
+	assertCoreIDFormat(t, out.ID)
 }
 
 func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
@@ -383,6 +382,7 @@ func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.ID)
+	assertCoreIDFormat(t, out.ID)
 	// Should be readable from disk
 	assert.True(t, fs.Exists(out.Path))
 }
@@ -498,8 +498,8 @@ func TestPlan_ValidPlanStatus_Ugly_UnicodeStatus(t *testing.T) {
 }
 
 func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
-	assert.False(t, validPlanStatus("Draft"))     // capital D
-	assert.False(t, validPlanStatus("DRAFT"))      // all caps
+	assert.False(t, validPlanStatus("Draft"))       // capital D
+	assert.False(t, validPlanStatus("DRAFT"))       // all caps
 	assert.False(t, validPlanStatus("in-progress")) // hyphen instead of underscore
 	assert.False(t, validPlanStatus(" draft"))      // leading space
 	assert.False(t, validPlanStatus("draft "))      // trailing space
@@ -508,16 +508,13 @@ func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
 // --- generatePlanID Bad/Ugly ---
 
 func TestPlan_GeneratePlanID_Bad(t *testing.T) {
-	// Empty title — slug will be empty, but random suffix is still appended
 	id := generatePlanID("")
-	assert.NotEmpty(t, id, "should still generate an ID with random suffix")
-	assert.Contains(t, id, "-", "should have random suffix separated by dash")
+	assertCoreIDFormat(t, id)
 }
 
 func TestPlan_GeneratePlanID_Ugly(t *testing.T) {
-	// Title with only special chars — slug will be empty
 	id := generatePlanID("!@#$%^&*()")
-	assert.NotEmpty(t, id, "should still generate an ID with random suffix")
+	assertCoreIDFormat(t, id)
 }
 
 // --- planList Bad/Ugly ---

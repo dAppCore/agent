@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func assertCoreIDFormat(t *testing.T, id string) {
+	t.Helper()
+	parts := strings.Split(id, "-")
+	if assert.Len(t, parts, 3) {
+		assert.Equal(t, "id", parts[0])
+		assert.NotEmpty(t, parts[1])
+		assert.NotEmpty(t, parts[2])
+	}
+}
+
 func TestPlan_PlanPath_Good(t *testing.T) {
 	assert.Equal(t, "/tmp/plans/my-plan-abc123.json", planPath("/tmp/plans", "my-plan-abc123"))
 	assert.Equal(t, "/data/test.json", planPath("/data", "test"))
@@ -134,28 +144,19 @@ func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 	assert.Equal(t, "Working on it", read.Phases[1].Notes)
 }
 
-func TestPlan_GeneratePlanID_Good_Slugifies(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_CoreFormat(t *testing.T) {
 	id := generatePlanID("Add Unit Tests for Agentic")
-	assert.True(t, strings.HasPrefix(id, "add-unit-tests-for-agentic"), "got: %s", id)
-	// Should have random suffix
-	parts := strings.Split(id, "-")
-	assert.True(t, len(parts) >= 5, "expected slug with random suffix, got: %s", id)
+	assertCoreIDFormat(t, id)
 }
 
-func TestPlan_GeneratePlanID_Good_TruncatesLong(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_IgnoresTitleLength(t *testing.T) {
 	id := generatePlanID("This is a very long title that should be truncated to a reasonable length for file naming purposes")
-	// Slug part (before random suffix) should be <= 30 chars
-	lastDash := strings.LastIndex(id, "-")
-	slug := id[:lastDash]
-	assert.True(t, len(slug) <= 36, "slug too long: %s (%d chars)", slug, len(slug))
+	assertCoreIDFormat(t, id)
 }
 
-func TestPlan_GeneratePlanID_Good_HandlesSpecialChars(t *testing.T) {
+func TestPlan_GeneratePlanID_Good_IgnoresSpecialChars(t *testing.T) {
 	id := generatePlanID("Fix bug #123: auth & session!")
-	assert.True(t, strings.Contains(id, "fix-bug"), "got: %s", id)
-	assert.NotContains(t, id, "#")
-	assert.NotContains(t, id, "!")
-	assert.NotContains(t, id, "&")
+	assertCoreIDFormat(t, id)
 }
 
 func TestPlan_GeneratePlanID_Good_Unique(t *testing.T) {

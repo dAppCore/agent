@@ -158,8 +158,7 @@ func TestPlan_ValidPlanStatus_Bad(t *testing.T) {
 
 func TestPlan_GeneratePlanID_Good(t *testing.T) {
 	id := generatePlanID("Fix the login bug in auth service")
-	assert.True(t, len(id) > 0)
-	assert.True(t, strings.Contains(id, "fix-the-login-bug"))
+	assertCoreIDFormat(t, id)
 }
 
 // --- DefaultBranch ---
