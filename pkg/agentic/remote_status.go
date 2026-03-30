@@ -63,7 +63,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 		}, nil
 	}
 
-	rpcReq := map[string]any{
+	rpcRequest := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      2,
 		"method":  "tools/call",
@@ -72,7 +72,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			"arguments": map[string]any{},
 		},
 	}
-	body := []byte(core.JSONMarshalString(rpcReq))
+	body := []byte(core.JSONMarshalString(rpcRequest))
 
 	callResult := mcpCallResult(ctx, url, token, sessionID, body)
 	if !callResult.OK {
@@ -99,7 +99,7 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 		Host:    input.Host,
 	}
 
-	var rpcResp struct {
+	var rpcResponse struct {
 		Result struct {
 			Content []struct {
 				Text string `json:"text"`
@@ -110,19 +110,19 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if r := core.JSONUnmarshal(result, &rpcResp); !r.OK {
+	if r := core.JSONUnmarshal(result, &rpcResponse); !r.OK {
 		output.Success = false
 		output.Error = "failed to parse response"
 		return nil, output, nil
 	}
-	if rpcResp.Error != nil {
+	if rpcResponse.Error != nil {
 		output.Success = false
-		output.Error = rpcResp.Error.Message
+		output.Error = rpcResponse.Error.Message
 		return nil, output, nil
 	}
-	if len(rpcResp.Result.Content) > 0 {
+	if len(rpcResponse.Result.Content) > 0 {
 		var statusOut StatusOutput
-		if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &statusOut); r.OK {
+		if r := core.JSONUnmarshalString(rpcResponse.Result.Content[0].Text, &statusOut); r.OK {
 			output.Stats = statusOut
 		}
 	}

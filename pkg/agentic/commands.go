@@ -13,7 +13,7 @@ import (
 
 // registerCommands adds agentic CLI commands to Core's command tree.
 func (s *PrepSubsystem) registerCommands(ctx context.Context) {
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	c := s.Core()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
@@ -28,8 +28,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 //	ctx := s.commandContext()
 //	_ = ctx.Err()
 func (s *PrepSubsystem) commandContext() context.Context {
-	if s.commandCtx != nil {
-		return s.commandCtx
+	if s.startupContext != nil {
+		return s.startupContext
 	}
 	return context.Background()
 }

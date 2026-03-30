@@ -231,7 +231,7 @@ func mcpInitialize(ctx context.Context, url, token string) (string, error) {
 }
 
 func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
-	initReq := map[string]any{
+	initializeRequest := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "initialize",
@@ -245,7 +245,7 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 		},
 	}
 
-	body := core.JSONMarshalString(initReq)
+	body := core.JSONMarshalString(initializeRequest)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(body))
 	if err != nil {
 		return core.Result{Value: core.E("mcpInitialize", "create request", err), OK: false}
@@ -268,18 +268,18 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	drainSSE(resp)
 
 	// Send initialised notification
-	notif := core.JSONMarshalString(map[string]any{
+	notification := core.JSONMarshalString(map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",
 	})
-	notifReq, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(notif))
+	notificationRequest, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(notification))
 	if err != nil {
 		return core.Result{Value: core.E("mcpInitialize", "create notification request", err), OK: false}
 	}
-	mcpHeaders(notifReq, token, sessionID)
-	notifResp, err := defaultClient.Do(notifReq)
+	mcpHeaders(notificationRequest, token, sessionID)
+	notificationResponse, err := defaultClient.Do(notificationRequest)
 	if err == nil {
-		notifResp.Body.Close()
+		notificationResponse.Body.Close()
 	}
 
 	return core.Result{Value: sessionID, OK: true}

@@ -660,7 +660,7 @@ func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions())
 	assert.False(t, r.OK)
 }
@@ -669,7 +669,7 @@ func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
 	assert.False(t, r.OK)
 }
@@ -678,7 +678,7 @@ func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK)
 }
@@ -742,7 +742,7 @@ func TestCommands_CmdOrchestrator_Bad_DoneContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-1*time.Second))
 	defer cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK) // returns OK after ctx.Done()
 }
@@ -751,7 +751,7 @@ func TestCommands_CmdOrchestrator_Ugly_CancelledImmediately(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK) // exits immediately when context is already cancelled
 }
@@ -795,7 +795,7 @@ func TestCommands_CmdRunTask_Good_DefaultsApplied(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	// Provide repo + task but omit agent + org — tests that defaults (codex, core) are applied
 	r := s.cmdRunTask(core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
@@ -809,7 +809,7 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 		core.Option{Key: "task", Value: "fix it"},
@@ -839,7 +839,7 @@ func TestCommands_CommandContext_Ugly_CancelledStartupContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // pre-cancelled
-	s.commandCtx = ctx
+	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
 	assert.True(t, r.OK)
 }

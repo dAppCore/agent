@@ -45,10 +45,10 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		Issue: input.Issue,
 	}
 
-	prepCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	prepContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	_, prepOut, err := s.prepWorkspace(prepCtx, nil, prepInput)
+	_, prepOut, err := s.prepWorkspace(prepContext, nil, prepInput)
 	if err != nil {
 		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep workspace failed", err)}
 	}

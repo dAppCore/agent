@@ -176,7 +176,7 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueCreate", "repo and title are required", nil), OK: false}
 	}
 
-	createOpts := &forge_types.CreateIssueOption{Title: title, Body: body, Ref: ref}
+	createOptions := &forge_types.CreateIssueOption{Title: title, Body: body, Ref: ref}
 
 	if milestone != "" {
 		var milestones []forge_types.Milestone
@@ -184,14 +184,14 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 		if err == nil {
 			for _, m := range milestones {
 				if m.Title == milestone {
-					createOpts.Milestone = m.ID
+					createOptions.Milestone = m.ID
 					break
 				}
 			}
 		}
 	}
 	if assignee != "" {
-		createOpts.Assignees = []string{assignee}
+		createOptions.Assignees = []string{assignee}
 	}
 	if labels != "" {
 		labelNames := core.Split(labels, ",")
@@ -201,7 +201,7 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 				name = core.Trim(name)
 				for _, l := range allLabels {
 					if l.Name == name {
-						createOpts.Labels = append(createOpts.Labels, l.ID)
+						createOptions.Labels = append(createOptions.Labels, l.ID)
 						break
 					}
 				}
@@ -209,7 +209,7 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 		}
 	}
 
-	issue, err := s.forge.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOpts)
+	issue, err := s.forge.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOptions)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}

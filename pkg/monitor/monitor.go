@@ -160,7 +160,7 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 
 // service.Start(ctx)
 func (m *Subsystem) Start(ctx context.Context) {
-	loopCtx, cancel := context.WithCancel(ctx)
+	loopContext, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 
 	core.Info("monitor: started (interval=%s)", m.interval)
@@ -168,7 +168,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.loop(loopCtx)
+		m.loop(loopContext)
 	}()
 }
 

@@ -82,7 +82,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		callParams["variables"] = input.Variables
 	}
 
-	rpcReq := map[string]any{
+	rpcRequest := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "tools/call",
@@ -91,7 +91,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			"arguments": callParams,
 		},
 	}
-	body := []byte(core.JSONMarshalString(rpcReq))
+	body := []byte(core.JSONMarshalString(rpcRequest))
 
 	url := core.Sprintf("http://%s/mcp", addr)
 
@@ -144,7 +144,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		Agent:   input.Agent,
 	}
 
-	var rpcResp struct {
+	var rpcResponse struct {
 		Result struct {
 			Content []struct {
 				Text string `json:"text"`
@@ -154,13 +154,13 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if r := core.JSONUnmarshal(result, &rpcResp); r.OK {
-		if rpcResp.Error != nil {
+	if r := core.JSONUnmarshal(result, &rpcResponse); r.OK {
+		if rpcResponse.Error != nil {
 			output.Success = false
-			output.Error = rpcResp.Error.Message
-		} else if len(rpcResp.Result.Content) > 0 {
+			output.Error = rpcResponse.Error.Message
+		} else if len(rpcResponse.Result.Content) > 0 {
 			var dispatchOut DispatchOutput
-			if r := core.JSONUnmarshalString(rpcResp.Result.Content[0].Text, &dispatchOut); r.OK {
+			if r := core.JSONUnmarshalString(rpcResponse.Result.Content[0].Text, &dispatchOut); r.OK {
 				output.Success = dispatchOut.Success
 				output.WorkspaceDir = dispatchOut.WorkspaceDir
 				output.PID = dispatchOut.PID

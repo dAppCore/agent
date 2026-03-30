@@ -29,20 +29,20 @@ type AgentOptions struct{}
 //	core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge      *forge.Forge
-	forgeURL   string
-	forgeToken string
-	brainURL   string
-	brainKey   string
-	codePath   string
-	commandCtx context.Context
-	dispatchMu sync.Mutex // serialises concurrency check + spawn
-	drainMu    sync.Mutex
-	pokeCh     chan struct{}
-	frozen     bool
-	backoff    map[string]time.Time             // pool → paused until
-	failCount  map[string]int                   // pool → consecutive fast failures
-	workspaces *core.Registry[*WorkspaceStatus] // in-memory workspace state
+	forge          *forge.Forge
+	forgeURL       string
+	forgeToken     string
+	brainURL       string
+	brainKey       string
+	codePath       string
+	startupContext context.Context
+	dispatchMu     sync.Mutex // serialises concurrency check + spawn
+	drainMu        sync.Mutex
+	pokeCh         chan struct{}
+	frozen         bool
+	backoff        map[string]time.Time             // pool → paused until
+	failCount      map[string]int                   // pool → consecutive fast failures
+	workspaces     *core.Registry[*WorkspaceStatus] // in-memory workspace state
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -822,8 +822,8 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 		if name == "" {
 			name = meta.Title
 		}
-		page, pErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
-		if pErr != nil || page.ContentBase64 == "" {
+		page, pageErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
+		if pageErr != nil || page.ContentBase64 == "" {
 			continue
 		}
 		content, _ := base64.StdEncoding.DecodeString(page.ContentBase64)
