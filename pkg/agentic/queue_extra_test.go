@@ -336,7 +336,7 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	// Corrupt status.json → ReadStatus fails → skipped → count is 0
+	// Corrupt status.json → ReadStatusResult fails → skipped → count is 0
 	assert.Equal(t, 0, s.countRunningByAgent("codex"))
 }
 
@@ -648,7 +648,6 @@ func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 	assert.NotPanics(t, func() { s.drainQueue() })
 
 	// Workspace should still be queued
-	updated, err := ReadStatus(ws)
-	require.NoError(t, err)
+	updated := mustReadStatus(t, ws)
 	assert.Equal(t, "queued", updated.Status)
 }

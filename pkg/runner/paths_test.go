@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mustReadStatus(t *testing.T, dir string) *WorkspaceStatus {
+	t.Helper()
+
+	result := ReadStatusResult(dir)
+	require.True(t, result.OK)
+
+	status, ok := result.Value.(*WorkspaceStatus)
+	require.True(t, ok)
+	return status
+}
+
 func TestPaths_CoreRoot_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "/tmp/core-root")
 	assert.Equal(t, "/tmp/core-root", CoreRoot())
@@ -62,8 +73,7 @@ func TestPaths_ReadStatus_Good(t *testing.T) {
 	}
 	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(status)).OK)
 
-	st, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, wsDir)
 	assert.Equal(t, "completed", st.Status)
 	assert.Equal(t, "codex", st.Agent)
 	assert.Equal(t, "go-io", st.Repo)
@@ -128,13 +138,17 @@ func TestPaths_ReadStatus_Bad(t *testing.T) {
 	wsDir := t.TempDir()
 	require.True(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
 
-	_, err := ReadStatus(wsDir)
-	assert.Error(t, err)
+	result := ReadStatusResult(wsDir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 func TestPaths_ReadStatus_Ugly(t *testing.T) {
-	_, err := ReadStatus(t.TempDir())
-	assert.Error(t, err)
+	result := ReadStatusResult(t.TempDir())
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 func TestPaths_WriteStatus_Good(t *testing.T) {
@@ -150,16 +164,17 @@ func TestPaths_WriteStatus_Good(t *testing.T) {
 	})
 	assert.True(t, result.OK)
 
-	st, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, wsDir)
 	assert.Equal(t, "running", st.Status)
 	assert.Equal(t, "codex", st.Agent)
 	assert.Equal(t, "go-io", st.Repo)
 	assert.Equal(t, "agent/ax-cleanup", st.Branch)
 	assert.Equal(t, 1, st.Runs)
 
-	agenticStatus, err := agentic.ReadStatus(wsDir)
-	require.NoError(t, err)
+	agenticResult := agentic.ReadStatusResult(wsDir)
+	require.True(t, agenticResult.OK)
+	agenticStatus, ok := agenticResult.Value.(*agentic.WorkspaceStatus)
+	require.True(t, ok)
 	assert.False(t, agenticStatus.UpdatedAt.IsZero())
 }
 
@@ -191,8 +206,7 @@ func TestPaths_WriteStatus_Ugly(t *testing.T) {
 		Runs:      3,
 	}).OK)
 
-	st, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, wsDir)
 	assert.Equal(t, "completed", st.Status)
 	assert.Equal(t, "claude", st.Agent)
 	assert.Equal(t, "agent/ax-cleanup", st.Branch)

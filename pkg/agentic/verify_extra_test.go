@@ -12,7 +12,6 @@ import (
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // --- commentOnIssue ---
@@ -33,11 +32,11 @@ func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.commentOnIssue(context.Background(), "core", "repo", 7, "Test comment")
@@ -80,11 +79,11 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.autoVerifyAndMerge(wsDir)
@@ -92,8 +91,7 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	assert.True(t, commented, "should have posted comment")
 
 	// Status should be marked as merged
-	updated, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "merged", updated.Status)
 }
 
@@ -113,11 +111,11 @@ func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) 
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test", "agent/fix", 1)
@@ -139,11 +137,11 @@ func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test", "agent/fix", 1)

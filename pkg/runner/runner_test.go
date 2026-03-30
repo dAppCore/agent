@@ -362,23 +362,24 @@ func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
 	assert.Equal(t, "go-io", st.Repo)
 }
 
-// --- WriteStatus / ReadStatus ---
+// --- WriteStatus / ReadStatusResult ---
 
 func TestRunner_WriteReadStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 999}
 	require.True(t, WriteStatus(dir, st).OK)
 
-	got, err := ReadStatus(dir)
-	require.NoError(t, err)
+	got := mustReadStatus(t, dir)
 	assert.Equal(t, "running", got.Status)
 	assert.Equal(t, "codex", got.Agent)
 	assert.Equal(t, 999, got.PID)
 }
 
 func TestRunner_ReadStatus_Bad_NoFile(t *testing.T) {
-	_, err := ReadStatus(t.TempDir())
-	assert.Error(t, err)
+	result := ReadStatusResult(t.TempDir())
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 func TestRunner_WriteReadStatus_Ugly_OverwriteExisting(t *testing.T) {
@@ -386,7 +387,6 @@ func TestRunner_WriteReadStatus_Ugly_OverwriteExisting(t *testing.T) {
 	require.True(t, WriteStatus(dir, &WorkspaceStatus{Status: "running"}).OK)
 	require.True(t, WriteStatus(dir, &WorkspaceStatus{Status: "completed"}).OK)
 
-	got, err := ReadStatus(dir)
-	require.NoError(t, err)
+	got := mustReadStatus(t, dir)
 	assert.Equal(t, "completed", got.Status)
 }

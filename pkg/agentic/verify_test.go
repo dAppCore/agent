@@ -34,10 +34,10 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-forge-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-forge-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
@@ -52,10 +52,10 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
@@ -73,10 +73,10 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
@@ -95,10 +95,10 @@ func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
@@ -112,10 +112,10 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
@@ -161,10 +161,10 @@ func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.ensureLabel(context.Background(), "core", "test-repo", "needs-review", "e11d48")
@@ -177,10 +177,10 @@ func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic
@@ -202,10 +202,10 @@ func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "needs-review")
@@ -222,10 +222,10 @@ func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "missing-label")
@@ -238,10 +238,10 @@ func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "any")
@@ -255,8 +255,8 @@ func TestVerify_RunVerification_Good_NoProjectFile(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -270,8 +270,8 @@ func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -285,8 +285,8 @@ func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -300,8 +300,8 @@ func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -314,8 +314,8 @@ func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -348,8 +348,8 @@ func TestVerify_AutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
 	dir := t.TempDir()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	// Should not panic when status.json is missing
 	assert.NotPanics(t, func() {
@@ -367,8 +367,8 @@ func TestVerify_AutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should return early — no PR URL
@@ -386,8 +386,8 @@ func TestVerify_AutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	assert.NotPanics(t, func() {
@@ -406,8 +406,8 @@ func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// extractPRNumber returns 0 for invalid URL, so autoVerifyAndMerge returns early
@@ -449,11 +449,11 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.flagForReview("core", "test-repo", 42, testFailed)
@@ -482,11 +482,11 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.flagForReview("core", "test-repo", 1, mergeConflict)
@@ -530,8 +530,8 @@ func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// PR number is 0 → should return early without panicking
@@ -540,8 +540,7 @@ func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 	})
 
 	// Status should remain unchanged (not "merged")
-	st, err := ReadStatus(dir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, dir)
 	assert.Equal(t, "completed", st.Status)
 }
 
@@ -569,11 +568,11 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test-repo", "agent/fix", 42)
@@ -606,10 +605,10 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic on 409 — ensureLabel is fire-and-forget
@@ -628,10 +627,10 @@ func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "needs-review")
@@ -649,10 +648,10 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
@@ -681,11 +680,11 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic when all API calls (ensureLabel, getLabelID, add label, comment) fail
@@ -708,11 +707,11 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// label ID 0 is passed to "add labels" payload — should not panic
@@ -730,8 +729,8 @@ func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -748,8 +747,8 @@ func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -766,8 +765,8 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runVerification(dir)
@@ -794,8 +793,8 @@ func TestVerify_Add_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runGoTests(dir)
@@ -812,8 +811,8 @@ func TestVerify_RunGoTests_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runGoTests(dir)
@@ -830,8 +829,8 @@ func TestVerify_RunGoTests_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	result := s.runGoTests(dir)

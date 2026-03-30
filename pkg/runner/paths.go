@@ -64,27 +64,6 @@ func CoreRoot() string {
 	return agentic.CoreRoot()
 }
 
-// ReadStatus reads `status.json` from one workspace directory.
-//
-// Deprecated: use ReadStatusResult.
-//
-//	st, err := runner.ReadStatus("/srv/core/workspace/core/go-io/task-5")
-func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
-	r := ReadStatusResult(wsDir)
-	if !r.OK {
-		err, _ := r.Value.(error)
-		if err == nil {
-			return nil, core.E("runner.ReadStatus", "failed to read status", nil)
-		}
-		return nil, err
-	}
-	st, ok := r.Value.(*WorkspaceStatus)
-	if !ok || st == nil {
-		return nil, core.E("runner.ReadStatus", "invalid status payload", nil)
-	}
-	return st, nil
-}
-
 // ReadStatusResult reads status.json as core.Result.
 //
 //	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")

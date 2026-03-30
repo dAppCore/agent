@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- ReadStatus ---
+// --- ReadStatusResult ---
 
 func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 	dir := t.TempDir()
@@ -34,8 +34,7 @@ func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 	}
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(original)).OK)
 
-	st, err := ReadStatus(dir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, dir)
 
 	assert.Equal(t, original.Status, st.Status)
 	assert.Equal(t, original.Agent, st.Agent)
@@ -50,25 +49,28 @@ func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 
 func TestStatus_ReadStatus_Bad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
-	_, err := ReadStatus(dir)
-	assert.Error(t, err, "missing status.json must return an error")
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	require.True(t, ok)
 }
 
 func TestStatus_ReadStatus_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), `{"status": "running", broken`).OK)
 
-	_, err := ReadStatus(dir)
-	assert.Error(t, err, "corrupt JSON must return an error")
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	require.True(t, ok)
 }
 
 func TestStatus_ReadStatus_Bad_NullJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "null").OK)
 
-	// null is valid JSON — ReadStatus returns a zero-value struct, not an error
-	st, err := ReadStatus(dir)
-	require.NoError(t, err)
+	// null is valid JSON — ReadStatusResult returns a zero-value struct, not an error
+	st := mustReadStatus(t, dir)
 	assert.Equal(t, "", st.Status)
 }
 
@@ -87,8 +89,7 @@ func TestStatus_WriteStatus_Good_WritesAndReadsBack(t *testing.T) {
 	err := writeStatus(dir, st)
 	require.NoError(t, err)
 
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 	assert.Equal(t, "queued", read.Status)
 	assert.Equal(t, "gemini:pro", read.Agent)
 	assert.Equal(t, "go-log", read.Repo)
@@ -112,8 +113,7 @@ func TestStatus_WriteStatus_Good_Overwrites(t *testing.T) {
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{Status: "running", Agent: "gemini"}))
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{Status: "completed", Agent: "gemini"}))
 
-	st, err := ReadStatus(dir)
-	require.NoError(t, err)
+	st := mustReadStatus(t, dir)
 	assert.Equal(t, "completed", st.Status)
 }
 

@@ -90,28 +90,6 @@ func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
 	return core.Result{OK: true}
 }
 
-// ReadStatus parses the status.json in a workspace directory.
-//
-// Deprecated: use ReadStatusResult.
-//
-//	st, err := agentic.ReadStatus("/path/to/workspace")
-func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
-	r := ReadStatusResult(wsDir)
-	if !r.OK {
-		err, _ := r.Value.(error)
-		if err == nil {
-			return nil, core.E("ReadStatus", "failed to read status", nil)
-		}
-		return nil, err
-	}
-
-	st, ok := r.Value.(*WorkspaceStatus)
-	if !ok || st == nil {
-		return nil, core.E("ReadStatus", "invalid status payload", nil)
-	}
-	return st, nil
-}
-
 // ReadStatusResult parses status.json and returns a WorkspaceStatus pointer.
 //
 //	r := ReadStatusResult("/path/to/workspace")

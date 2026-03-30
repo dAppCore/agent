@@ -49,9 +49,9 @@ func ExampleWriteStatus() {
 	})
 	core.Println(result.OK)
 
-	st, err := ReadStatus(dir)
-	core.Println(err == nil)
-	core.Println(st.Status)
+	statusResult := ReadStatusResult(dir)
+	core.Println(statusResult.OK)
+	core.Println(statusResult.Value.(*WorkspaceStatus).Status)
 	// Output:
 	// true
 	// true

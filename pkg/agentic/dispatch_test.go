@@ -288,8 +288,7 @@ func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
 	r := monitor.run(context.Background(), core.NewOptions())
 	assert.True(t, r.OK)
 
-	updated, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "completed", updated.Status)
 	assert.Equal(t, 0, updated.PID)
 
@@ -345,8 +344,7 @@ func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 	r := monitor.run(context.Background(), core.NewOptions())
 	assert.True(t, r.OK)
 
-	updated, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "blocked", updated.Status)
 	assert.Equal(t, "Need credentials", updated.Question)
 	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
@@ -371,8 +369,7 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	outputFile := core.JoinPath(metaDir, "agent-codex.log")
 	s.onAgentComplete("codex", wsDir, outputFile, 0, "completed", "test output")
 
-	updated, err := ReadStatus(wsDir)
-	require.NoError(t, err)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "completed", updated.Status)
 	assert.Equal(t, 0, updated.PID)
 
@@ -397,7 +394,7 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 1, "failed", "error")
 
-	updated, _ := ReadStatus(wsDir)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "failed", updated.Status)
 	assert.Contains(t, updated.Question, "code 1")
 }
@@ -419,7 +416,7 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	s := newPrepWithProcess()
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 0, "completed", "")
 
-	updated, _ := ReadStatus(wsDir)
+	updated := mustReadStatus(t, wsDir)
 	assert.Equal(t, "blocked", updated.Status)
 	assert.Equal(t, "Need credentials", updated.Question)
 

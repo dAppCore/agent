@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mustReadStatus(t *testing.T, dir string) *WorkspaceStatus {
+	t.Helper()
+
+	result := ReadStatusResult(dir)
+	require.True(t, result.OK)
+
+	status, ok := workspaceStatusValue(result)
+	require.True(t, ok)
+	return status
+}
+
 func TestStatus_WriteStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	status := &WorkspaceStatus{
@@ -76,8 +87,7 @@ func TestStatus_ReadStatus_Good(t *testing.T) {
 
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
 
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 
 	assert.Equal(t, "completed", read.Status)
 	assert.Equal(t, "codex", read.Agent)
@@ -140,16 +150,20 @@ func TestStatus_ReadStatusResult_Ugly_InvalidJSON(t *testing.T) {
 
 func TestStatus_ReadStatus_Bad_NoFile(t *testing.T) {
 	dir := t.TempDir()
-	_, err := ReadStatus(dir)
-	assert.Error(t, err)
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 func TestStatus_ReadStatus_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "not json{").OK)
 
-	_, err := ReadStatus(dir)
-	assert.Error(t, err)
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
@@ -164,8 +178,7 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
 
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 
 	assert.Equal(t, "blocked", read.Status)
 	assert.Equal(t, "Which interface should I implement?", read.Question)
@@ -190,8 +203,7 @@ func TestStatus_WriteRead_Good_Roundtrip(t *testing.T) {
 	err := writeStatus(dir, original)
 	require.NoError(t, err)
 
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 
 	assert.Equal(t, original.Status, read.Status)
 	assert.Equal(t, original.Agent, read.Agent)
@@ -215,8 +227,7 @@ func TestStatus_WriteStatus_Good_OverwriteExisting(t *testing.T) {
 	err = writeStatus(dir, second)
 	require.NoError(t, err)
 
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 	assert.Equal(t, "completed", read.Status)
 }
 
@@ -224,8 +235,10 @@ func TestStatus_ReadStatus_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "").OK)
 
-	_, err := ReadStatus(dir)
-	assert.Error(t, err)
+	result := ReadStatusResult(dir)
+	assert.False(t, result.OK)
+	_, ok := result.Value.(error)
+	assert.True(t, ok)
 }
 
 // --- status() dead PID detection ---
@@ -290,16 +303,13 @@ func TestStatus_Status_Ugly(t *testing.T) {
 	assert.Equal(t, 1, out.Failed)
 
 	// Verify statuses were persisted to disk
-	st1, err := ReadStatus(ws1)
-	require.NoError(t, err)
+	st1 := mustReadStatus(t, ws1)
 	assert.Equal(t, "blocked", st1.Status)
 
-	st2, err := ReadStatus(ws2)
-	require.NoError(t, err)
+	st2 := mustReadStatus(t, ws2)
 	assert.Equal(t, "completed", st2.Status)
 
-	st3, err := ReadStatus(ws3)
-	require.NoError(t, err)
+	st3 := mustReadStatus(t, ws3)
 	assert.Equal(t, "failed", st3.Status)
 	assert.Equal(t, "Agent process died (no output log)", st3.Question)
 }
@@ -332,8 +342,7 @@ func TestStatus_WriteStatus_Ugly(t *testing.T) {
 	assert.False(t, original.UpdatedAt.IsZero(), "writeStatus must set UpdatedAt")
 
 	// Read back and verify every field
-	read, err := ReadStatus(dir)
-	require.NoError(t, err)
+	read := mustReadStatus(t, dir)
 
 	assert.Equal(t, "blocked", read.Status)
 	assert.Equal(t, "gemini:flash", read.Agent)
