@@ -13,7 +13,7 @@ import (
 
 // DispatchConfig mirrors the `dispatch:` block in `agents.yaml`.
 //
-//	cfg := runner.DispatchConfig{
+//	config := runner.DispatchConfig{
 //		DefaultAgent: "codex", DefaultTemplate: "coding", WorkspaceRoot: "/srv/core/workspace",
 //	}
 type DispatchConfig struct {
@@ -73,7 +73,7 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 
 // AgentsConfig mirrors the full `agents.yaml` file.
 //
-//	cfg := runner.AgentsConfig{
+//	config := runner.AgentsConfig{
 //		Version: 1,
 //		Dispatch: runner.DispatchConfig{DefaultAgent: "codex", DefaultTemplate: "coding"},
 //	}
@@ -86,8 +86,8 @@ type AgentsConfig struct {
 
 // loadAgentsConfig reads `agents.yaml` from the Core root.
 //
-//	cfg := s.loadAgentsConfig()
-//	core.Println(cfg.Dispatch.DefaultAgent)
+//	config := s.loadAgentsConfig()
+//	core.Println(config.Dispatch.DefaultAgent)
 func (s *Service) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
 		core.JoinPath(CoreRoot(), "agents.yaml"),
@@ -127,8 +127,8 @@ func (s *Service) canDispatchAgent(agent string) (bool, string) {
 		}
 	}
 	if concurrency == nil {
-		cfg := s.loadAgentsConfig()
-		concurrency = cfg.Concurrency
+		config := s.loadAgentsConfig()
+		concurrency = config.Concurrency
 	}
 
 	base := baseAgent(agent)
@@ -301,8 +301,8 @@ func (s *Service) delayForAgent(agent string) time.Duration {
 		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
 	}
 	if rates == nil {
-		cfg := s.loadAgentsConfig()
-		rates = cfg.Rates
+		config := s.loadAgentsConfig()
+		rates = config.Rates
 	}
 	base := baseAgent(agent)
 	rate, ok := rates[base]

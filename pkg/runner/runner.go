@@ -19,15 +19,15 @@ import (
 
 // Options configures the runner service.
 //
-//	opts := runner.Options{}
+//	options := runner.Options{}
 type Options struct{}
 
 // Service is the agent dispatch runner.
 // Manages concurrency limits, queue drain, workspace lifecycle, and frozen state.
 // All dispatch requests — MCP tool, CLI, or IPC — go through this service.
 //
-//	svc := runner.New()
-//	svc.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+//	service := runner.New()
+//	service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 type Service struct {
 	*core.ServiceRuntime[Options]
 	dispatchMu sync.Mutex
@@ -45,7 +45,7 @@ type channelSender interface {
 
 // New creates a runner service.
 //
-//	svc := runner.New()
+//	service := runner.New()
 func New() *Service {
 	return &Service{
 		backoff:    make(map[string]time.Time),
@@ -58,22 +58,22 @@ func New() *Service {
 //
 //	core.New(core.WithService(runner.Register))
 func Register(c *core.Core) core.Result {
-	svc := New()
-	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+	service := New()
+	service.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	// Load agents config
-	cfg := svc.loadAgentsConfig()
-	c.Config().Set("agents.concurrency", cfg.Concurrency)
-	c.Config().Set("agents.rates", cfg.Rates)
-	c.Config().Set("agents.dispatch", cfg.Dispatch)
+	config := service.loadAgentsConfig()
+	c.Config().Set("agents.concurrency", config.Concurrency)
+	c.Config().Set("agents.rates", config.Rates)
+	c.Config().Set("agents.dispatch", config.Dispatch)
 	c.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
 	codexTotal := 0
-	if cl, ok := cfg.Concurrency["codex"]; ok {
+	if cl, ok := config.Concurrency["codex"]; ok {
 		codexTotal = cl.Total
 	}
 	c.Config().Set("agents.codex_limit_debug", codexTotal)
 
-	return core.Result{Value: svc, OK: true}
+	return core.Result{Value: service, OK: true}
 }
 
 // OnStartup registers Actions and starts the queue runner.
@@ -108,9 +108,9 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 
 // OnShutdown freezes the queue.
 //
-//	r := svc.OnShutdown(context.Background())
+//	r := service.OnShutdown(context.Background())
 //	if r.OK {
-//		core.Println(svc.IsFrozen())
+//		core.Println(service.IsFrozen())
 //	}
 func (s *Service) OnShutdown(_ context.Context) core.Result {
 	s.frozen = true

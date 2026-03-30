@@ -2,7 +2,7 @@
 
 // Package setup provisions `.core/` files and workspace scaffolds for a repo.
 //
-//	svc := core.ServiceFor[*setup.Service](core.New(core.WithService(setup.Register)), "setup")
+//	service := core.ServiceFor[*setup.Service](core.New(core.WithService(setup.Register)), "setup")
 package setup
 
 import (

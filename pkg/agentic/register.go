@@ -15,14 +15,14 @@ import (
 //	    core.WithService(agentic.Register),
 //	)
 func Register(c *core.Core) core.Result {
-	prep := NewPrep()
-	prep.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+	subsystem := NewPrep()
+	subsystem.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	// Load agents config once into Core shared config
-	cfg := prep.loadAgentsConfig()
-	c.Config().Set("agents.concurrency", cfg.Concurrency)
-	c.Config().Set("agents.rates", cfg.Rates)
-	c.Config().Set("agents.dispatch", cfg.Dispatch)
+	config := subsystem.loadAgentsConfig()
+	c.Config().Set("agents.concurrency", config.Concurrency)
+	c.Config().Set("agents.rates", config.Rates)
+	c.Config().Set("agents.dispatch", config.Dispatch)
 
 	// Pipeline feature flags — all enabled by default.
 	// Disable with c.Config().Disable("auto-qa") etc.
@@ -39,5 +39,5 @@ func Register(c *core.Core) core.Result {
 	// IPC handlers auto-discovered via HandleIPCEvents interface on PrepSubsystem.
 	// No manual RegisterHandlers call needed — WithService wires it.
 
-	return core.Result{Value: prep, OK: true}
+	return core.Result{Value: subsystem, OK: true}
 }

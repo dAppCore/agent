@@ -20,7 +20,7 @@ import (
 
 // AgentOptions configures the agentic service.
 //
-//	opts := agentic.AgentOptions{}
+//	options := agentic.AgentOptions{}
 type AgentOptions struct{}
 
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.
@@ -49,8 +49,8 @@ var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 
 // NewPrep creates an agentic subsystem.
 //
-//	sub := agentic.NewPrep()
-//	sub.SetCompletionNotifier(monitor)
+//	subsystem := agentic.NewPrep()
+//	subsystem.SetCompletionNotifier(monitor)
 func NewPrep() *PrepSubsystem {
 	home := HomeDir()
 
@@ -217,8 +217,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 // OnShutdown implements core.Stoppable and freezes the queue.
 //
-//	prep := agentic.NewPrep()
-//	_ = prep.OnShutdown(context.Background())
+//	subsystem := agentic.NewPrep()
+//	_ = subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	return core.Result{OK: true}
@@ -271,15 +271,15 @@ func envOr(key, fallback string) string {
 
 // Name identifies the MCP subsystem.
 //
-//	prep := agentic.NewPrep()
-//	name := prep.Name()
+//	subsystem := agentic.NewPrep()
+//	name := subsystem.Name()
 //	_ = name // "agentic"
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
 // RegisterTools publishes the agentic MCP tools on the server.
 //
-//	prep := agentic.NewPrep()
-//	prep.RegisterTools(server)
+//	subsystem := agentic.NewPrep()
+//	subsystem.RegisterTools(server)
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prep_workspace",
@@ -309,8 +309,8 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 
 // Shutdown satisfies mcp.SubsystemWithShutdown for clean server teardown.
 //
-//	prep := agentic.NewPrep()
-//	_ = prep.Shutdown(context.Background())
+//	subsystem := agentic.NewPrep()
+//	_ = subsystem.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // --- Input/Output types ---

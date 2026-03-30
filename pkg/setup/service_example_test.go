@@ -8,9 +8,9 @@ import (
 
 func ExampleRegister_serviceFor() {
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Service](c, "setup")
+	service, ok := core.ServiceFor[*Service](c, "setup")
 	core.Println(ok)
-	core.Println(svc != nil)
+	core.Println(service != nil)
 	// Output:
 	// true
 	// true
@@ -18,10 +18,10 @@ func ExampleRegister_serviceFor() {
 
 func ExampleService_DetectGitRemote() {
 	c := core.New()
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
 	// Non-git dir returns empty
-	remote := svc.DetectGitRemote((&core.Fs{}).NewUnrestricted().TempDir("example"))
+	remote := service.DetectGitRemote((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	core.Println(remote == "")
 	// Output: true
 }

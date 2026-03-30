@@ -9,9 +9,9 @@ import (
 // Register exposes the direct OpenBrain subsystem through `core.WithService`.
 //
 //	c := core.New(core.WithService(brain.Register))
-//	sub, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
-//	core.Println(sub.Name()) // "brain"
+//	subsystem, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
+//	core.Println(subsystem.Name()) // "brain"
 func Register(c *core.Core) core.Result {
-	brn := NewDirect()
-	return core.Result{Value: brn, OK: true}
+	subsystem := NewDirect()
+	return core.Result{Value: subsystem, OK: true}
 }

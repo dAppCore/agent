@@ -2,8 +2,8 @@
 
 // Package monitor keeps workspace state and inbox status visible to MCP clients.
 //
-//	mon := monitor.New(monitor.Options{Interval: 30 * time.Second})
-//	mon.RegisterTools(server)
+//	service := monitor.New(monitor.Options{Interval: 30 * time.Second})
+//	service.RegisterTools(server)
 package monitor
 
 import (
@@ -58,8 +58,8 @@ func resultString(r core.Result) (string, bool) {
 	return value, true
 }
 
-// mon := monitor.New()
-// mon.Start(context.Background())
+// service := monitor.New(Options{})
+// service.Start(context.Background())
 type Subsystem struct {
 	*core.ServiceRuntime[Options]
 	server   *mcp.Server
@@ -114,17 +114,17 @@ func (m *Subsystem) HandleIPCEvents(_ *core.Core, msg core.Message) core.Result 
 	return core.Result{OK: true}
 }
 
-// opts := monitor.Options{Interval: 30 * time.Second}
-// mon := monitor.New(opts)
+// options := monitor.Options{Interval: 30 * time.Second}
+// service := monitor.New(options)
 type Options struct {
 	Interval time.Duration
 }
 
-// mon := monitor.New(monitor.Options{Interval: 30 * time.Second})
-func New(opts ...Options) *Subsystem {
+// service := monitor.New(monitor.Options{Interval: 30 * time.Second})
+func New(options ...Options) *Subsystem {
 	interval := 2 * time.Minute
-	if len(opts) > 0 && opts[0].Interval > 0 {
-		interval = opts[0].Interval
+	if len(options) > 0 && options[0].Interval > 0 {
+		interval = options[0].Interval
 	}
 	if envInterval := core.Env("MONITOR_INTERVAL"); envInterval != "" {
 		if d, err := time.ParseDuration(envInterval); err == nil {
@@ -143,10 +143,10 @@ func (m *Subsystem) debug(msg string) {
 	core.Debug(msg)
 }
 
-// name := mon.Name() // "monitor"
+// name := service.Name() // "monitor"
 func (m *Subsystem) Name() string { return "monitor" }
 
-// mon.RegisterTools(server)
+// service.RegisterTools(server)
 func (m *Subsystem) RegisterTools(server *mcp.Server) {
 	m.server = server
 
@@ -158,7 +158,7 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 	}, m.agentStatusResource)
 }
 
-// mon.Start(ctx)
+// service.Start(ctx)
 func (m *Subsystem) Start(ctx context.Context) {
 	monitorCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
@@ -172,21 +172,21 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
-// r := mon.OnStartup(context.Background())
+// r := service.OnStartup(context.Background())
 // core.Println(r.OK)
 func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 	m.Start(ctx)
 	return core.Result{OK: true}
 }
 
-// r := mon.OnShutdown(context.Background())
+// r := service.OnShutdown(context.Background())
 // core.Println(r.OK)
 func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
 	_ = m.Shutdown(ctx)
 	return core.Result{OK: true}
 }
 
-// _ = mon.Shutdown(ctx)
+// _ = service.Shutdown(ctx)
 func (m *Subsystem) Shutdown(_ context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
@@ -195,7 +195,7 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// mon.Poke()
+// service.Poke()
 func (m *Subsystem) Poke() {
 	select {
 	case m.poke <- struct{}{}:

@@ -12,7 +12,7 @@ import (
 
 // DispatchConfig controls agent dispatch behaviour.
 //
-//	cfg := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
+//	config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
@@ -71,7 +71,7 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 
 // AgentsConfig is the root of config/agents.yaml.
 //
-//	cfg := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
+//	config := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
 	Version     int                         `yaml:"version"`
 	Dispatch    DispatchConfig              `yaml:"dispatch"`
@@ -91,11 +91,11 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 		if !r.OK {
 			continue
 		}
-		var cfg AgentsConfig
-		if err := yaml.Unmarshal([]byte(r.Value.(string)), &cfg); err != nil {
+		var config AgentsConfig
+		if err := yaml.Unmarshal([]byte(r.Value.(string)), &config); err != nil {
 			continue
 		}
-		return &cfg
+		return &config
 	}
 
 	return &AgentsConfig{
@@ -119,8 +119,8 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
 	}
 	if rates == nil {
-		cfg := s.loadAgentsConfig()
-		rates = cfg.Rates
+		config := s.loadAgentsConfig()
+		rates = config.Rates
 	}
 	base := baseAgent(agent)
 	rate, ok := rates[base]
@@ -261,8 +261,8 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 		}
 	}
 	if concurrency == nil {
-		cfg := s.loadAgentsConfig()
-		concurrency = cfg.Concurrency
+		config := s.loadAgentsConfig()
+		concurrency = config.Concurrency
 	}
 
 	base := baseAgent(agent)

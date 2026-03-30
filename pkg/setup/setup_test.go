@@ -12,7 +12,7 @@ import (
 
 func newSetupService() *Service {
 	c := core.New()
-	return &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	return &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 }
 
 func TestSetup_Run_Good_WritesCoreConfigs(t *testing.T) {

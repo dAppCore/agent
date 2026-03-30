@@ -21,19 +21,19 @@ func TestService_Register_Good(t *testing.T) {
 
 func TestService_OnStartup_Good(t *testing.T) {
 	c := core.New()
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
-	result := svc.OnStartup(context.Background())
+	result := service.OnStartup(context.Background())
 	assert.True(t, result.OK)
 }
 
 func TestService_OnStartup_Bad_CancelledContext(t *testing.T) {
 	c := core.New()
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result := svc.OnStartup(ctx)
+	result := service.OnStartup(ctx)
 	assert.True(t, result.OK)
 }
 
@@ -46,25 +46,25 @@ func TestService_DetectGitRemote_Good_GitOrigin(t *testing.T) {
 	dir := t.TempDir()
 	c := core.New()
 	require.True(t, agentic.ProcessRegister(c).OK)
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
 	require.True(t, c.Process().RunIn(context.Background(), dir, "git", "init").OK)
 	require.True(t, c.Process().RunIn(context.Background(), dir, "git", "remote", "add", "origin", "git@forge.lthn.ai:core/agent.git").OK)
 
-	assert.Equal(t, "core/agent", svc.DetectGitRemote(dir))
+	assert.Equal(t, "core/agent", service.DetectGitRemote(dir))
 }
 
 func TestService_DetectGitRemote_Bad_NonGitDir(t *testing.T) {
 	c := core.New()
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
-	remote := svc.DetectGitRemote(t.TempDir())
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
+	remote := service.DetectGitRemote(t.TempDir())
 	assert.Equal(t, "", remote)
 }
 
 func TestService_DetectGitRemote_Ugly_EmptyPath(t *testing.T) {
 	c := core.New()
-	svc := &Service{ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{})}
+	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 	assert.NotPanics(t, func() {
-		svc.DetectGitRemote("")
+		service.DetectGitRemote("")
 	})
 }
