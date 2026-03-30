@@ -140,7 +140,7 @@ func TestPaths_ReadStatus_Ugly(t *testing.T) {
 func TestPaths_WriteStatus_Good(t *testing.T) {
 	wsDir := t.TempDir()
 
-	WriteStatus(wsDir, &WorkspaceStatus{
+	result := WriteStatus(wsDir, &WorkspaceStatus{
 		Status: "running",
 		Agent:  "codex",
 		Repo:   "go-io",
@@ -148,6 +148,7 @@ func TestPaths_WriteStatus_Good(t *testing.T) {
 		Branch: "agent/ax-cleanup",
 		Runs:   1,
 	})
+	assert.True(t, result.OK)
 
 	st, err := ReadStatus(wsDir)
 	require.NoError(t, err)
@@ -165,7 +166,8 @@ func TestPaths_WriteStatus_Good(t *testing.T) {
 func TestPaths_WriteStatus_Bad(t *testing.T) {
 	wsDir := t.TempDir()
 
-	WriteStatus(wsDir, nil)
+	result := WriteStatus(wsDir, nil)
+	assert.False(t, result.OK)
 
 	assert.False(t, agentic.LocalFs().Read(agentic.WorkspaceStatusPath(wsDir)).OK)
 }
@@ -173,13 +175,13 @@ func TestPaths_WriteStatus_Bad(t *testing.T) {
 func TestPaths_WriteStatus_Ugly(t *testing.T) {
 	wsDir := t.TempDir()
 
-	WriteStatus(wsDir, &WorkspaceStatus{
+	assert.True(t, WriteStatus(wsDir, &WorkspaceStatus{
 		Status: "running",
 		Agent:  "codex",
 		Repo:   "go-io",
 		Task:   "First run",
-	})
-	WriteStatus(wsDir, &WorkspaceStatus{
+	}).OK)
+	assert.True(t, WriteStatus(wsDir, &WorkspaceStatus{
 		Status:    "completed",
 		Agent:     "claude",
 		Repo:      "go-io",
@@ -187,7 +189,7 @@ func TestPaths_WriteStatus_Ugly(t *testing.T) {
 		Branch:    "agent/ax-cleanup",
 		StartedAt: time.Now(),
 		Runs:      3,
-	})
+	}).OK)
 
 	st, err := ReadStatus(wsDir)
 	require.NoError(t, err)

@@ -61,16 +61,18 @@ func ExampleWriteStatus() {
 	dir := fsys.TempDir("runner-paths")
 	defer fsys.DeleteAll(dir)
 
-	WriteStatus(dir, &WorkspaceStatus{
+	result := WriteStatus(dir, &WorkspaceStatus{
 		Status: "running",
 		Agent:  "codex",
 		Repo:   "go-io",
 	})
+	core.Println(result.OK)
 
 	st, err := ReadStatus(dir)
 	core.Println(err == nil)
 	core.Println(st.Status)
 	// Output:
+	// true
 	// true
 	// running
 }

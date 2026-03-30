@@ -278,7 +278,10 @@ func (s *Service) drainOne() bool {
 		st.Status = "running"
 		st.PID = pid
 		st.Runs++
-		WriteStatus(wsDir, st)
+		if r := WriteStatus(wsDir, st); !r.OK {
+			core.Error("drainOne: failed to write workspace status", "workspace", wsName, "reason", core.Sprint(r.Value))
+			continue
+		}
 		s.TrackWorkspace(wsName, st)
 		core.Info("drainOne: spawned", "pid", pid, "workspace", wsName)
 

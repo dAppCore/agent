@@ -345,12 +345,12 @@ func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
 
 	wsDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
 	fs.EnsureDir(wsDir)
-	WriteStatus(wsDir, &WorkspaceStatus{
+	require.True(t, WriteStatus(wsDir, &WorkspaceStatus{
 		Status: "running",
 		Agent:  "codex",
 		Repo:   "go-io",
 		PID:    99999999,
-	})
+	}).OK)
 
 	svc := New()
 	svc.hydrateWorkspaces()
@@ -367,7 +367,7 @@ func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
 func TestRunner_WriteReadStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 999}
-	WriteStatus(dir, st)
+	require.True(t, WriteStatus(dir, st).OK)
 
 	got, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -383,8 +383,8 @@ func TestRunner_ReadStatus_Bad_NoFile(t *testing.T) {
 
 func TestRunner_WriteReadStatus_Ugly_OverwriteExisting(t *testing.T) {
 	dir := t.TempDir()
-	WriteStatus(dir, &WorkspaceStatus{Status: "running"})
-	WriteStatus(dir, &WorkspaceStatus{Status: "completed"})
+	require.True(t, WriteStatus(dir, &WorkspaceStatus{Status: "running"}).OK)
+	require.True(t, WriteStatus(dir, &WorkspaceStatus{Status: "completed"}).OK)
 
 	got, err := ReadStatus(dir)
 	require.NoError(t, err)

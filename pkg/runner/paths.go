@@ -102,16 +102,24 @@ func ReadStatusResult(wsDir string) core.Result {
 
 // WriteStatus writes `status.json` for one workspace directory.
 //
-//	runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
-func WriteStatus(wsDir string, st *WorkspaceStatus) {
-	if st == nil {
-		return
+//	r := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+//	core.Println(r.OK)
+func WriteStatus(wsDir string, status *WorkspaceStatus) core.Result {
+	if status == nil {
+		return core.Result{Value: core.E("runner.WriteStatus", "status is required", nil), OK: false}
 	}
 
-	status := agenticWorkspaceStatusFromRunner(st)
-	if status == nil {
-		return
+	agenticStatus := agenticWorkspaceStatusFromRunner(status)
+	if agenticStatus == nil {
+		return core.Result{Value: core.E("runner.WriteStatus", "status conversion failed", nil), OK: false}
 	}
-	status.UpdatedAt = time.Now()
-	fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(status))
+	agenticStatus.UpdatedAt = time.Now()
+	if r := fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(agenticStatus)); !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			return core.Result{Value: core.E("runner.WriteStatus", "failed to write status", nil), OK: false}
+		}
+		return core.Result{Value: core.E("runner.WriteStatus", "failed to write status", err), OK: false}
+	}
+	return core.Result{OK: true}
 }
