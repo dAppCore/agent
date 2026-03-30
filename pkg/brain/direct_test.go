@@ -68,6 +68,22 @@ func TestDirect_NewDirect_Good_KeyFromFile(t *testing.T) {
 	assert.Equal(t, "file-key-456", sub.apiKey)
 }
 
+func TestDirect_NewDirect_Good_HomeFallback(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("CORE_HOME", "")
+	t.Setenv("DIR_HOME", "")
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	keyDir := core.JoinPath(tmpHome, ".claude")
+	require.True(t, fs.EnsureDir(keyDir).OK)
+	require.True(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  home-key-789  \n").OK)
+
+	sub := NewDirect()
+	assert.Equal(t, "home-key-789", sub.apiKey)
+}
+
 func TestDirect_Subsystem_Good_Name(t *testing.T) {
 	sub := &DirectSubsystem{}
 	assert.Equal(t, "brain", sub.Name())

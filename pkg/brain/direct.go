@@ -36,7 +36,7 @@ func NewDirect() *DirectSubsystem {
 	apiKey := core.Env("CORE_BRAIN_KEY")
 	keyPath := ""
 	if apiKey == "" {
-		keyPath = brainKeyPath(brainHomeDir())
+		keyPath = brainKeyPath(agentic.HomeDir())
 		if keyPath != "" {
 			if r := fs.Read(keyPath); r.OK {
 				apiKey = core.Trim(r.Value.(string))
@@ -95,13 +95,6 @@ func brainKeyPath(home string) string {
 		return ""
 	}
 	return core.JoinPath(core.TrimSuffix(home, "/"), ".claude", "brain.key")
-}
-
-func brainHomeDir() string {
-	if home := core.Env("CORE_HOME"); home != "" {
-		return home
-	}
-	return core.Env("DIR_HOME")
 }
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) core.Result {

@@ -57,7 +57,7 @@ func (m *Subsystem) syncRepos() string {
 	// Pull changed repos
 	basePath := core.Env("CODE_PATH")
 	if basePath == "" {
-		basePath = core.JoinPath(monitorHomeDir(), "Code", "core")
+		basePath = core.JoinPath(agentic.HomeDir(), "Code", "core")
 	}
 
 	var pulled []string

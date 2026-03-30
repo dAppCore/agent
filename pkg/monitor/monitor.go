@@ -33,16 +33,6 @@ func brainKeyPath(home string) string {
 	return core.JoinPath(home, ".claude", "brain.key")
 }
 
-func monitorHomeDir() string {
-	if d := core.Env("CORE_HOME"); d != "" {
-		return d
-	}
-	if d := core.Env("HOME"); d != "" {
-		return d
-	}
-	return core.Env("DIR_HOME")
-}
-
 func monitorAPIURL() string {
 	if u := core.Env("CORE_API_URL"); u != "" {
 		return u
@@ -54,7 +44,7 @@ func monitorBrainKey() string {
 	if k := core.Env("CORE_BRAIN_KEY"); k != "" {
 		return k
 	}
-	if r := fs.Read(brainKeyPath(monitorHomeDir())); r.OK {
+	if r := fs.Read(brainKeyPath(agentic.HomeDir())); r.OK {
 		if value, ok := resultString(r); ok {
 			return core.Trim(value)
 		}
