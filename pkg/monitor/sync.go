@@ -4,6 +4,7 @@ package monitor
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -33,7 +34,7 @@ type ChangedRepo struct {
 // Returns a human-readable message if repos were updated, empty string otherwise.
 func (m *Subsystem) syncRepos() string {
 	agentName := agentic.AgentName()
-	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), core.Replace(agentName, " ", "%20"), m.lastSyncTimestamp)
+	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), url.QueryEscape(agentName), m.lastSyncTimestamp)
 
 	brainKey := monitorBrainKey()
 	hr := agentic.HTTPGet(context.Background(), checkinURL, brainKey, "Bearer")

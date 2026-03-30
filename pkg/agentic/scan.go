@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"net/url"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -118,7 +119,7 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	u := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {
-		u = core.Concat(u, "&labels=", core.Replace(core.Replace(label, " ", "%20"), "&", "%26"))
+		u = core.Concat(u, "&labels=", url.QueryEscape(label))
 	}
 	r := HTTPGet(ctx, u, s.forgeToken, "token")
 	if !r.OK {
@@ -136,7 +137,10 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 		} `json:"assignee"`
 		HTMLURL string `json:"html_url"`
 	}
-	core.JSONUnmarshalString(r.Value.(string), &issues)
+	if ur := core.JSONUnmarshalString(r.Value.(string), &issues); !ur.OK {
+		err, _ := ur.Value.(error)
+		return nil, core.E("scan.listRepoIssues", "parse issues response", err)
+	}
 
 	var result []ScanIssue
 	for _, issue := range issues {

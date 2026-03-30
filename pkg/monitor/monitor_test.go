@@ -618,6 +618,30 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	assert.Equal(t, "clotho", data["from"])
 }
 
+func TestMonitor_CheckInbox_Good_EncodesAgentQuery(t *testing.T) {
+	expectedAgent := "test agent+1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/messages/inbox", r.URL.Path)
+		assert.Equal(t, expectedAgent, r.URL.Query().Get("agent"))
+		resp := map[string]any{
+			"data": []map[string]any{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupBrainKey(t, "test-key")
+	t.Setenv("CORE_API_URL", srv.URL)
+	t.Setenv("AGENT_NAME", expectedAgent)
+
+	mon := New()
+	mon.inboxSeeded = true
+
+	msg := mon.checkInbox()
+	assert.Equal(t, "", msg)
+}
+
 func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{

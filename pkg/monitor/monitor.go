@@ -9,6 +9,7 @@ package monitor
 
 import (
 	"context"
+	"net/url"
 	"sync"
 	"time"
 
@@ -446,7 +447,7 @@ func (m *Subsystem) checkInbox() string {
 
 	// Call the API to check inbox
 	apiURL := monitorAPIURL()
-	inboxURL := core.Concat(apiURL, "/v1/messages/inbox?agent=", core.Replace(agentic.AgentName(), " ", "%20"))
+	inboxURL := core.Concat(apiURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName()))
 	hr := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(apiKeyStr), "Bearer")
 	if !hr.OK {
 		return ""

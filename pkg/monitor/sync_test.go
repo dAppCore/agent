@@ -49,6 +49,25 @@ func TestSync_SyncRepos_Good_NoChanges(t *testing.T) {
 	assert.Equal(t, "", msg)
 }
 
+func TestSync_SyncRepos_Good_EncodesAgentQuery(t *testing.T) {
+	expectedAgent := "test agent+1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
+		assert.Equal(t, expectedAgent, r.URL.Query().Get("agent"))
+		resp := CheckinResponse{Timestamp: time.Now().Unix()}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("AGENT_NAME", expectedAgent)
+
+	mon := New()
+	msg := mon.syncRepos()
+	assert.Equal(t, "", msg)
+}
+
 func TestSync_SyncRepos_Bad_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
