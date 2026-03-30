@@ -22,9 +22,9 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 	statusFiles := WorkspaceStatusPaths()
 	count := 0
 	for _, sf := range statusFiles {
-		wsDir := core.PathDir(sf)
-		wsName := WorkspaceName(wsDir)
-		result := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(sf)
+		wsName := WorkspaceName(workspaceDir)
+		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
@@ -39,7 +39,7 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
-	wsRoot := WorkspaceRoot()
+	workspaceRoot := WorkspaceRoot()
 	fsys := s.Core().Fs()
 	filter := options.String("_arg")
 	if filter == "" {
@@ -50,9 +50,9 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	var toRemove []string
 
 	for _, sf := range statusFiles {
-		wsDir := core.PathDir(sf)
-		wsName := WorkspaceName(wsDir)
-		result := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(sf)
+		wsName := WorkspaceName(workspaceDir)
+		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
@@ -85,7 +85,7 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	}
 
 	for _, name := range toRemove {
-		path := core.JoinPath(wsRoot, name)
+		path := core.JoinPath(workspaceRoot, name)
 		fsys.DeleteAll(path)
 		core.Print(nil, "  removed %s", name)
 	}

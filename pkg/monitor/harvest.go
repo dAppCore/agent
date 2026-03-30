@@ -32,8 +32,8 @@ func (m *Subsystem) harvestCompleted() string {
 	var harvested []harvestResult
 
 	for _, entry := range agentic.WorkspaceStatusPaths() {
-		wsDir := core.PathDir(entry)
-		result := m.harvestWorkspace(wsDir)
+		workspaceDir := core.PathDir(entry)
+		result := m.harvestWorkspace(workspaceDir)
 		if result != nil {
 			harvested = append(harvested, *result)
 		}
@@ -61,8 +61,8 @@ func (m *Subsystem) harvestCompleted() string {
 }
 
 // harvestWorkspace checks a single workspace and pushes if ready.
-func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	statusResult := fs.Read(agentic.WorkspaceStatusPath(wsDir))
+func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
+	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))
 	if !statusResult.OK {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 		return nil
 	}
 
-	repoDir := agentic.WorkspaceRepoDir(wsDir)
+	repoDir := agentic.WorkspaceRepoDir(workspaceDir)
 	if !fs.IsDir(repoDir) {
 		return nil
 	}
@@ -108,7 +108,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 
 	// Safety checks before pushing
 	if reason := m.checkSafety(repoDir); reason != "" {
-		updateStatus(wsDir, "rejected", reason)
+		updateStatus(workspaceDir, "rejected", reason)
 		return &harvestResult{repo: workspaceStatus.Repo, branch: branch, rejected: reason}
 	}
 
@@ -118,7 +118,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	// Mark ready for review — do NOT auto-push.
 	// Pushing is a high-impact mutation that should happen during
 	// explicit review (/review command), not silently in the background.
-	updateStatus(wsDir, "ready-for-review", "")
+	updateStatus(workspaceDir, "ready-for-review", "")
 
 	return &harvestResult{repo: workspaceStatus.Repo, branch: branch, files: files}
 }
@@ -247,9 +247,9 @@ func (m *Subsystem) pushBranch(srcDir, branch string) error {
 
 // updateStatus rewrites status.json after a harvest decision.
 //
-//	updateStatus(wsDir, "ready-for-review", "")
-func updateStatus(wsDir, status, question string) {
-	statusResult := fs.Read(agentic.WorkspaceStatusPath(wsDir))
+//	updateStatus(workspaceDir, "ready-for-review", "")
+func updateStatus(workspaceDir, status, question string) {
+	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))
 	if !statusResult.OK {
 		return
 	}
@@ -267,7 +267,7 @@ func updateStatus(wsDir, status, question string) {
 	} else {
 		delete(workspaceStatus, "question") // clear stale question from previous state
 	}
-	statusPath := agentic.WorkspaceStatusPath(wsDir)
+	statusPath := agentic.WorkspaceStatusPath(workspaceDir)
 	if writeResult := fs.WriteAtomic(statusPath, core.JSONMarshalString(workspaceStatus)); !writeResult.OK {
 		if err, ok := writeResult.Value.(error); ok {
 			core.Warn("monitor.updateStatus: failed to write status", "path", statusPath, "reason", err)

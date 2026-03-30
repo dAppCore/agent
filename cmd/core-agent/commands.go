@@ -116,12 +116,12 @@ func (commands appCommandSet) check(_ core.Options) core.Result {
 		core.Print(nil, "  agents:    %s (MISSING)", agentsPath)
 	}
 
-	wsRoot := agentic.WorkspaceRoot()
-	if fs.IsDir(wsRoot) {
+	workspaceRoot := agentic.WorkspaceRoot()
+	if fs.IsDir(workspaceRoot) {
 		statusFiles := agentic.WorkspaceStatusPaths()
-		core.Print(nil, "  workspace: %s (%d workspaces)", wsRoot, len(statusFiles))
+		core.Print(nil, "  workspace: %s (%d workspaces)", workspaceRoot, len(statusFiles))
 	} else {
-		core.Print(nil, "  workspace: %s (MISSING)", wsRoot)
+		core.Print(nil, "  workspace: %s (MISSING)", workspaceRoot)
 	}
 
 	core.Print(nil, "  services:  %d registered", len(commands.core.Services()))

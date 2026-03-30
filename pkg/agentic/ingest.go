@@ -8,14 +8,14 @@ import (
 	core "dappco.re/go/core"
 )
 
-func (s *PrepSubsystem) ingestFindings(wsDir string) {
-	statusResult := ReadStatusResult(wsDir)
+func (s *PrepSubsystem) ingestFindings(workspaceDir string) {
+	statusResult := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(statusResult)
 	if !ok || workspaceStatus.Status != "completed" {
 		return
 	}
 
-	logFiles := workspaceLogFiles(wsDir)
+	logFiles := workspaceLogFiles(workspaceDir)
 	if len(logFiles) == 0 {
 		return
 	}

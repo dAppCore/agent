@@ -19,7 +19,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// readResult := fs.Read(core.JoinPath(wsRoot, name, "status.json"))
+// readResult := fs.Read(core.JoinPath(workspaceRoot, name, "status.json"))
 // if text, ok := resultString(readResult); ok { _ = core.JSONUnmarshalString(text, &workspaceStatus) }
 var fs = agentic.LocalFs()
 

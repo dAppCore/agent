@@ -17,8 +17,8 @@ import (
 // After this, the workspace go.work includes ./repo and all ./dep-* dirs,
 // giving the agent everything needed to build and test.
 //
-//	s.cloneWorkspaceDeps(ctx, wsDir, repoDir, "core")
-func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, wsDir, repoDir, org string) {
+//	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
+func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, repoDir, org string) {
 	goModPath := core.JoinPath(repoDir, "go.mod")
 	r := fs.Read(goModPath)
 	if !r.OK {
@@ -48,14 +48,14 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, wsDir, repoDir, 
 	// Clone each dependency
 	var cloned []string
 	for _, dep := range deps {
-		depDir := core.JoinPath(wsDir, dep.dir)
+		depDir := core.JoinPath(workspaceDir, dep.dir)
 		if fs.IsDir(core.JoinPath(depDir, ".git")) {
 			cloned = append(cloned, dep.dir) // already cloned (resume)
 			continue
 		}
 
 		repoURL := forgeSSHURL(org, dep.repo)
-		if result := process.RunIn(ctx, wsDir, "git", "clone", "--depth=1", repoURL, dep.dir); result.OK {
+		if result := process.RunIn(ctx, workspaceDir, "git", "clone", "--depth=1", repoURL, dep.dir); result.OK {
 			cloned = append(cloned, dep.dir)
 		}
 	}
@@ -69,7 +69,7 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, wsDir, repoDir, 
 			b.WriteString(core.Concat("\t./", dir, "\n"))
 		}
 		b.WriteString(")\n")
-		fs.Write(core.JoinPath(wsDir, "go.work"), b.String())
+		fs.Write(core.JoinPath(workspaceDir, "go.work"), b.String())
 	}
 }
 

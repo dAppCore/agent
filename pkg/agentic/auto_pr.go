@@ -11,15 +11,15 @@ import (
 
 // autoCreatePR pushes the agent's branch and creates a PR on Forge
 // if the agent made any commits beyond the initial clone.
-func (s *PrepSubsystem) autoCreatePR(wsDir string) {
-	result := ReadStatusResult(wsDir)
+func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok || workspaceStatus.Branch == "" || workspaceStatus.Repo == "" {
 		return
 	}
 
 	ctx := context.Background()
-	repoDir := WorkspaceRepoDir(wsDir)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 	process := s.Core().Process()
 
 	// PRs target dev — agents never merge directly to main
@@ -44,13 +44,13 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, workspaceStatus.Repo)
 	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, workspaceStatus.Branch).OK {
-		if result := ReadStatusResult(wsDir); result.OK {
+		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatusUpdate, ok := workspaceStatusValue(result)
 			if !ok {
 				return
 			}
 			workspaceStatusUpdate.Question = "PR push failed"
-			writeStatusResult(wsDir, workspaceStatusUpdate)
+			writeStatusResult(workspaceDir, workspaceStatusUpdate)
 		}
 		return
 	}
@@ -64,25 +64,25 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	prURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
-		if result := ReadStatusResult(wsDir); result.OK {
+		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatusUpdate, ok := workspaceStatusValue(result)
 			if !ok {
 				return
 			}
 			workspaceStatusUpdate.Question = core.Sprintf("PR creation failed: %v", err)
-			writeStatusResult(wsDir, workspaceStatusUpdate)
+			writeStatusResult(workspaceDir, workspaceStatusUpdate)
 		}
 		return
 	}
 
 	// Update status with PR URL
-	if result := ReadStatusResult(wsDir); result.OK {
+	if result := ReadStatusResult(workspaceDir); result.OK {
 		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {
 			return
 		}
 		workspaceStatusUpdate.PRURL = prURL
-		writeStatusResult(wsDir, workspaceStatusUpdate)
+		writeStatusResult(workspaceDir, workspaceStatusUpdate)
 	}
 }
 

@@ -16,14 +16,14 @@ import (
 // For deeper review (security, conventions), dispatch a separate task:
 //
 //	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
-func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
-	result := ReadStatusResult(wsDir)
+func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok || workspaceStatus.PRURL == "" || workspaceStatus.Repo == "" {
 		return
 	}
 
-	repoDir := WorkspaceRepoDir(wsDir)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
@@ -36,13 +36,13 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// markMerged is a helper to avoid repeating the status update.
 	markMerged := func() {
-		if result := ReadStatusResult(wsDir); result.OK {
+		if result := ReadStatusResult(workspaceDir); result.OK {
 			st2, ok := workspaceStatusValue(result)
 			if !ok {
 				return
 			}
 			st2.Status = "merged"
-			writeStatusResult(wsDir, st2)
+			writeStatusResult(workspaceDir, st2)
 		}
 	}
 
@@ -66,13 +66,13 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	// Both attempts failed — flag for human review
 	s.flagForReview(org, workspaceStatus.Repo, prNum, mergeOutcome)
 
-	if result := ReadStatusResult(wsDir); result.OK {
+	if result := ReadStatusResult(workspaceDir); result.OK {
 		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {
 			return
 		}
 		workspaceStatusUpdate.Question = "Flagged for review — auto-merge failed after retry"
-		writeStatusResult(wsDir, workspaceStatusUpdate)
+		writeStatusResult(workspaceDir, workspaceStatusUpdate)
 	}
 }
 

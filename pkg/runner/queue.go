@@ -220,8 +220,8 @@ func (s *Service) drainQueue() {
 
 func (s *Service) drainOne() bool {
 	for _, statusPath := range agentic.WorkspaceStatusPaths() {
-		wsDir := core.PathDir(statusPath)
-		statusResult := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(statusPath)
+		statusResult := ReadStatusResult(workspaceDir)
 		if !statusResult.OK {
 			continue
 		}
@@ -251,7 +251,7 @@ func (s *Service) drainOne() bool {
 		// Ask agentic to spawn — runner owns the gate,
 		// agentic owns the actual process launch.
 		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
-		wsName := agentic.WorkspaceName(wsDir)
+		wsName := agentic.WorkspaceName(workspaceDir)
 		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", workspaceStatus.Agent)
 
 		// Spawn directly — agentic is a Core service, use ServiceFor to get it
@@ -259,7 +259,7 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 		type spawner interface {
-			SpawnFromQueue(agent, prompt, wsDir string) core.Result
+			SpawnFromQueue(agent, prompt, workspaceDir string) core.Result
 		}
 		agenticService, ok := core.ServiceFor[spawner](s.Core(), "agentic")
 		if !ok {
@@ -267,7 +267,7 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		spawnResult := agenticService.SpawnFromQueue(workspaceStatus.Agent, prompt, wsDir)
+		spawnResult := agenticService.SpawnFromQueue(workspaceStatus.Agent, prompt, workspaceDir)
 		if !spawnResult.OK {
 			core.Error("drainOne: spawn failed", "workspace", wsName, "reason", core.Sprint(spawnResult.Value))
 			continue
@@ -282,7 +282,7 @@ func (s *Service) drainOne() bool {
 		workspaceStatus.Status = "running"
 		workspaceStatus.PID = pid
 		workspaceStatus.Runs++
-		if writeResult := WriteStatus(wsDir, workspaceStatus); !writeResult.OK {
+		if writeResult := WriteStatus(workspaceDir, workspaceStatus); !writeResult.OK {
 			core.Error("drainOne: failed to write workspace status", "workspace", wsName, "reason", core.Sprint(writeResult.Value))
 			continue
 		}

@@ -233,9 +233,9 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 // --- spawnAgent: decomposed into testable steps ---
 
 // agentOutputFile returns the log file path for an agent's output.
-func agentOutputFile(wsDir, agent string) string {
+func agentOutputFile(workspaceDir, agent string) string {
 	agentBase := core.SplitN(agent, ":", 2)[0]
-	return core.JoinPath(WorkspaceMetaDir(wsDir), core.Sprintf("agent-%s.log", agentBase))
+	return core.JoinPath(WorkspaceMetaDir(workspaceDir), core.Sprintf("agent-%s.log", agentBase))
 }
 
 // detectFinalStatus reads workspace state after agent exit to determine outcome.
@@ -278,11 +278,11 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 }
 
 // startIssueTracking starts a Forge stopwatch on the workspace's issue.
-func (s *PrepSubsystem) startIssueTracking(wsDir string) {
+func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
 	}
-	result := ReadStatusResult(wsDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok || workspaceStatus.Issue == 0 {
 		return
@@ -295,11 +295,11 @@ func (s *PrepSubsystem) startIssueTracking(wsDir string) {
 }
 
 // stopIssueTracking stops a Forge stopwatch on the workspace's issue.
-func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
+func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
 	}
-	result := ReadStatusResult(wsDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok || workspaceStatus.Issue == 0 {
 		return
@@ -312,9 +312,9 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 }
 
 // broadcastStart emits IPC + audit events for agent start.
-func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
-	wsName := WorkspaceName(wsDir)
-	result := ReadStatusResult(wsDir)
+func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
+	wsName := WorkspaceName(workspaceDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	repo := ""
 	if ok {
@@ -329,11 +329,11 @@ func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
 }
 
 // broadcastComplete emits IPC + audit events for agent completion.
-func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
-	wsName := WorkspaceName(wsDir)
+func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus string) {
+	wsName := WorkspaceName(workspaceDir)
 	emitCompletionEvent(agent, wsName, finalStatus)
 	if s.ServiceRuntime != nil {
-		result := ReadStatusResult(wsDir)
+		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		repo := ""
 		if ok {
@@ -348,34 +348,34 @@ func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
 
 // onAgentComplete handles all post-completion logic for a spawned agent.
 // Called from the monitoring goroutine after the process exits.
-func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCode int, procStatus, output string) {
+func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, procStatus, output string) {
 	// Save output
 	if output != "" {
 		fs.Write(outputFile, output)
 	}
 
-	repoDir := WorkspaceRepoDir(wsDir)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
 
 	// Update workspace status (disk + registry)
-	result := ReadStatusResult(wsDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if ok {
 		workspaceStatus.Status = finalStatus
 		workspaceStatus.PID = 0
 		workspaceStatus.Question = question
-		writeStatusResult(wsDir, workspaceStatus)
-		s.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
+		writeStatusResult(workspaceDir, workspaceStatus)
+		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
 		// Rate-limit tracking
 		s.trackFailureRate(agent, finalStatus, workspaceStatus.StartedAt)
 	}
 
 	// Forge time tracking
-	s.stopIssueTracking(wsDir)
+	s.stopIssueTracking(workspaceDir)
 
 	// Broadcast completion
-	s.broadcastComplete(agent, wsDir, finalStatus)
+	s.broadcastComplete(agent, workspaceDir, finalStatus)
 
 	// Run completion pipeline via PerformAsync for successful agents.
 	// Gets ActionTaskStarted/Completed broadcasts + WaitGroup integration for graceful shutdown.
@@ -383,7 +383,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 	//   c.PerformAsync("agentic.complete", options) → runs agent.completion Task in background
 	if finalStatus == "completed" && s.ServiceRuntime != nil {
 		s.Core().PerformAsync("agentic.complete", core.NewOptions(
-			core.Option{Key: "workspace", Value: wsDir},
+			core.Option{Key: "workspace", Value: workspaceDir},
 		))
 	}
 }
@@ -391,18 +391,18 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 // spawnAgent launches an agent inside a Docker container.
 // The repo/ directory is mounted at /workspace, agent runs sandboxed.
 // Output is captured and written to .meta/agent-{agent}.log on completion.
-func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, string, error) {
+func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, string, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
 		return 0, "", "", err
 	}
 
-	repoDir := WorkspaceRepoDir(wsDir)
-	metaDir := WorkspaceMetaDir(wsDir)
-	outputFile := agentOutputFile(wsDir, agent)
+	repoDir := WorkspaceRepoDir(workspaceDir)
+	metaDir := WorkspaceMetaDir(workspaceDir)
+	outputFile := agentOutputFile(workspaceDir, agent)
 
 	// Clean up stale BLOCKED.md from previous runs
-	fs.Delete(WorkspaceBlockedPath(wsDir))
+	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
 	// All agents run containerised
 	agentBase := core.SplitN(agent, ":", 2)[0]
@@ -426,16 +426,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, st
 	pid := proc.Info().PID
 	processID := proc.ID
 
-	s.broadcastStart(agent, wsDir)
-	s.startIssueTracking(wsDir)
+	s.broadcastStart(agent, workspaceDir)
+	s.startIssueTracking(workspaceDir)
 
 	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
 	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
-	monitorAction := core.Concat("agentic.monitor.", core.Replace(WorkspaceName(wsDir), "/", "."))
+	monitorAction := core.Concat("agentic.monitor.", core.Replace(WorkspaceName(workspaceDir), "/", "."))
 	monitor := &agentCompletionMonitor{
 		service:      s,
 		agent:        agent,
-		workspaceDir: wsDir,
+		workspaceDir: workspaceDir,
 		outputFile:   outputFile,
 		process:      proc,
 	}
@@ -453,7 +453,7 @@ type completionProcess interface {
 
 // agentCompletionMonitor waits for a spawned process to finish, then finalises the workspace.
 //
-//	monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: wsDir, outputFile: outputFile, process: proc}
+//	monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: workspaceDir, outputFile: outputFile, process: proc}
 //	s.Core().Action("agentic.monitor.core.go-io.task-5", monitor.run)
 type agentCompletionMonitor struct {
 	service      *PrepSubsystem
@@ -479,9 +479,9 @@ func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Res
 
 // runQA runs build + test checks on the repo after agent completion.
 // Returns true if QA passes, false if build or tests fail.
-func (s *PrepSubsystem) runQA(wsDir string) bool {
+func (s *PrepSubsystem) runQA(workspaceDir string) bool {
 	ctx := context.Background()
-	repoDir := WorkspaceRepoDir(wsDir)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 	process := s.Core().Process()
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
@@ -552,7 +552,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		return nil, DispatchOutput{}, core.E("dispatch", "prep workspace failed", err)
 	}
 
-	wsDir := prepOut.WorkspaceDir
+	workspaceDir := prepOut.WorkspaceDir
 	prompt := prepOut.Prompt
 
 	if input.DryRun {
@@ -560,7 +560,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 			Success:      true,
 			Agent:        input.Agent,
 			Repo:         input.Repo,
-			WorkspaceDir: wsDir,
+			WorkspaceDir: workspaceDir,
 			Prompt:       prompt,
 		}, nil
 	}
@@ -584,22 +584,22 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 				StartedAt: time.Now(),
 				Runs:      0,
 			}
-			writeStatusResult(wsDir, workspaceStatus)
+			writeStatusResult(workspaceDir, workspaceStatus)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
+				runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 			}
 			return nil, DispatchOutput{
 				Success:      true,
 				Agent:        input.Agent,
 				Repo:         input.Repo,
-				WorkspaceDir: wsDir,
+				WorkspaceDir: workspaceDir,
 				OutputFile:   "queued — at concurrency limit or frozen",
 			}, nil
 		}
 	}
 
 	// Step 3: Spawn agent in repo/ directory
-	pid, processID, outputFile, err := s.spawnAgent(input.Agent, prompt, wsDir)
+	pid, processID, outputFile, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}
@@ -616,11 +616,11 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		StartedAt: time.Now(),
 		Runs:      1,
 	}
-	writeStatusResult(wsDir, workspaceStatus)
+	writeStatusResult(workspaceDir, workspaceStatus)
 	// Track in runner's registry (runner owns workspace state)
 	if s.ServiceRuntime != nil {
 		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-			runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
+			runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 		}
 	}
 
@@ -628,7 +628,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		Success:      true,
 		Agent:        input.Agent,
 		Repo:         input.Repo,
-		WorkspaceDir: wsDir,
+		WorkspaceDir: workspaceDir,
 		PID:          pid,
 		OutputFile:   outputFile,
 	}, nil

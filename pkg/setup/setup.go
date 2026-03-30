@@ -28,45 +28,45 @@ func (s *Service) Run(options Options) core.Result {
 	}
 	options.Path = absolutePath(options.Path)
 
-	projType := Detect(options.Path)
+	projectType := Detect(options.Path)
 	allTypes := DetectAll(options.Path)
 
 	core.Print(nil, "Project: %s", core.PathBase(options.Path))
-	core.Print(nil, "Type:    %s", projType)
+	core.Print(nil, "Type:    %s", projectType)
 	if len(allTypes) > 1 {
 		core.Print(nil, "Also:    %v (polyglot)", allTypes)
 	}
 
-	var tmplName string
+	var templateName string
 	if options.Template != "" {
-		templateResult := resolveTemplateName(options.Template, projType)
+		templateResult := resolveTemplateName(options.Template, projectType)
 		if !templateResult.OK {
 			return templateResult
 		}
-		tmplName = templateResult.Value.(string)
-		if !templateExists(tmplName) {
+		templateName = templateResult.Value.(string)
+		if !templateExists(templateName) {
 			return core.Result{
-				Value: core.E("setup.Run", core.Concat("template not found: ", tmplName), nil),
+				Value: core.E("setup.Run", core.Concat("template not found: ", templateName), nil),
 				OK:    false,
 			}
 		}
 	}
 
 	// Generate .core/ config files
-	if result := setupCoreDir(options, projType); !result.OK {
+	if result := setupCoreDir(options, projectType); !result.OK {
 		return result
 	}
 
 	// Scaffold from dir template if requested
-	if tmplName != "" {
-		return s.scaffoldTemplate(options, projType, tmplName)
+	if templateName != "" {
+		return s.scaffoldTemplate(options, projectType, templateName)
 	}
 
 	return core.Result{Value: options.Path, OK: true}
 }
 
 // setupCoreDir creates .core/ with build.yaml and test.yaml.
-func setupCoreDir(options Options, projType ProjectType) core.Result {
+func setupCoreDir(options Options, projectType ProjectType) core.Result {
 	coreDir := core.JoinPath(options.Path, ".core")
 
 	if options.DryRun {
@@ -83,7 +83,7 @@ func setupCoreDir(options Options, projType ProjectType) core.Result {
 	}
 
 	// build.yaml
-	buildConfig := GenerateBuildConfig(options.Path, projType)
+	buildConfig := GenerateBuildConfig(options.Path, projectType)
 	if !buildConfig.OK {
 		err, _ := buildConfig.Value.(error)
 		return core.Result{
@@ -96,7 +96,7 @@ func setupCoreDir(options Options, projType ProjectType) core.Result {
 	}
 
 	// test.yaml
-	testConfig := GenerateTestConfig(projType)
+	testConfig := GenerateTestConfig(projectType)
 	if !testConfig.OK {
 		err, _ := testConfig.Value.(error)
 		return core.Result{
@@ -112,37 +112,37 @@ func setupCoreDir(options Options, projType ProjectType) core.Result {
 }
 
 // scaffoldTemplate extracts a dir template into the target path.
-func (s *Service) scaffoldTemplate(options Options, projType ProjectType, tmplName string) core.Result {
-	core.Print(nil, "Template: %s", tmplName)
+func (s *Service) scaffoldTemplate(options Options, projectType ProjectType, templateName string) core.Result {
+	core.Print(nil, "Template: %s", templateName)
 
 	data := &lib.WorkspaceData{
 		Repo:            core.PathBase(options.Path),
 		Branch:          "main",
-		Task:            core.Sprintf("Initialise %s project tooling.", projType),
+		Task:            core.Sprintf("Initialise %s project tooling.", projectType),
 		Agent:           "setup",
-		Language:        string(projType),
+		Language:        string(projectType),
 		Prompt:          "This workspace was scaffolded by pkg/setup. Review the repository and continue from the generated context files.",
-		Flow:            formatFlow(projType),
+		Flow:            formatFlow(projectType),
 		RepoDescription: s.DetectGitRemote(options.Path),
-		BuildCmd:        defaultBuildCommand(projType),
-		TestCmd:         defaultTestCommand(projType),
+		BuildCmd:        defaultBuildCommand(projectType),
+		TestCmd:         defaultTestCommand(projectType),
 	}
 
 	if options.DryRun {
-		core.Print(nil, "Would extract workspace/%s to %s", tmplName, options.Path)
-		core.Print(nil, "  Template found: %s", tmplName)
+		core.Print(nil, "Would extract workspace/%s to %s", templateName, options.Path)
+		core.Print(nil, "  Template found: %s", templateName)
 		return core.Result{Value: options.Path, OK: true}
 	}
 
-	if result := lib.ExtractWorkspace(tmplName, options.Path, data); !result.OK {
+	if result := lib.ExtractWorkspace(templateName, options.Path, data); !result.OK {
 		if err, ok := result.Value.(error); ok {
 			return core.Result{
-				Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err),
+				Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", templateName), err),
 				OK:    false,
 			}
 		}
 		return core.Result{
-			Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), nil),
+			Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", templateName), nil),
 			OK:    false,
 		}
 	}
@@ -171,7 +171,7 @@ func writeConfig(path, content string, options Options) core.Result {
 	return core.Result{Value: path, OK: true}
 }
 
-func resolveTemplateName(name string, projType ProjectType) core.Result {
+func resolveTemplateName(name string, projectType ProjectType) core.Result {
 	if name == "" {
 		return core.Result{
 			Value: core.E("setup.resolveTemplateName", "template is required", nil),
@@ -180,7 +180,7 @@ func resolveTemplateName(name string, projType ProjectType) core.Result {
 	}
 
 	if name == "auto" {
-		switch projType {
+		switch projectType {
 		case TypeGo, TypeWails, TypePHP, TypeNode, TypeUnknown:
 			return core.Result{Value: "default", OK: true}
 		}
@@ -205,8 +205,8 @@ func templateExists(name string) bool {
 	return false
 }
 
-func defaultBuildCommand(projType ProjectType) string {
-	switch projType {
+func defaultBuildCommand(projectType ProjectType) string {
+	switch projectType {
 	case TypeGo, TypeWails:
 		return "go build ./..."
 	case TypePHP:
@@ -218,8 +218,8 @@ func defaultBuildCommand(projType ProjectType) string {
 	}
 }
 
-func defaultTestCommand(projType ProjectType) string {
-	switch projType {
+func defaultTestCommand(projectType ProjectType) string {
+	switch projectType {
 	case TypeGo, TypeWails:
 		return "go test ./..."
 	case TypePHP:
@@ -231,13 +231,13 @@ func defaultTestCommand(projType ProjectType) string {
 	}
 }
 
-func formatFlow(projType ProjectType) string {
+func formatFlow(projectType ProjectType) string {
 	builder := core.NewBuilder()
 	builder.WriteString("- Build: `")
-	builder.WriteString(defaultBuildCommand(projType))
+	builder.WriteString(defaultBuildCommand(projectType))
 	builder.WriteString("`\n")
 	builder.WriteString("- Test: `")
-	builder.WriteString(defaultTestCommand(projType))
+	builder.WriteString(defaultTestCommand(projectType))
 	builder.WriteString("`")
 	return builder.String()
 }

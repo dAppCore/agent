@@ -51,15 +51,15 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, CreatePROutput{}, core.E("createPR", "no Forge token configured", nil)
 	}
 
-	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	repoDir := WorkspaceRepoDir(wsDir)
+	workspaceDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
 	// Read workspace status for repo, branch, issue context
-	result := ReadStatusResult(wsDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
 		err, _ := result.Value.(error)
@@ -126,7 +126,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	// Update status with PR URL
 	workspaceStatus.PRURL = prURL
-	writeStatusResult(wsDir, workspaceStatus)
+	writeStatusResult(workspaceDir, workspaceStatus)
 
 	// Comment on issue if tracked
 	if workspaceStatus.Issue > 0 {

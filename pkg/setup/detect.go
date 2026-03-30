@@ -11,8 +11,8 @@ import (
 
 // ProjectType records what setup detected in a repository path.
 //
-//	projType := setup.Detect("/srv/repos/agent")
-//	if projType == setup.TypeGo { /* generate Go defaults */ }
+//	projectType := setup.Detect("/srv/repos/agent")
+//	if projectType == setup.TypeGo { /* generate Go defaults */ }
 type ProjectType string
 
 const (
@@ -28,12 +28,12 @@ var fs = (&core.Fs{}).NewUnrestricted()
 
 // Detect inspects a repository path and returns the primary project type.
 //
-//	projType := setup.Detect("./repo")
+//	projectType := setup.Detect("./repo")
 func Detect(path string) ProjectType {
 	base := absolutePath(path)
 	checks := []struct {
-		file     string
-		projType ProjectType
+		file        string
+		projectType ProjectType
 	}{
 		{"wails.json", TypeWails},
 		{"go.mod", TypeGo},
@@ -42,7 +42,7 @@ func Detect(path string) ProjectType {
 	}
 	for _, candidate := range checks {
 		if fs.IsFile(core.JoinPath(base, candidate.file)) {
-			return candidate.projType
+			return candidate.projectType
 		}
 	}
 	return TypeUnknown
@@ -55,8 +55,8 @@ func DetectAll(path string) []ProjectType {
 	base := absolutePath(path)
 	var projectTypes []ProjectType
 	checks := []struct {
-		file     string
-		projType ProjectType
+		file        string
+		projectType ProjectType
 	}{
 		{"go.mod", TypeGo},
 		{"composer.json", TypePHP},
@@ -65,7 +65,7 @@ func DetectAll(path string) []ProjectType {
 	}
 	for _, candidate := range checks {
 		if fs.IsFile(core.JoinPath(base, candidate.file)) {
-			projectTypes = append(projectTypes, candidate.projType)
+			projectTypes = append(projectTypes, candidate.projectType)
 		}
 	}
 	return projectTypes

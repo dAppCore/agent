@@ -234,13 +234,13 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
 	for _, path := range WorkspaceStatusPaths() {
-		wsDir := core.PathDir(path)
-		result := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(path)
+		result := ReadStatusResult(workspaceDir)
 		st, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
 		}
-		s.workspaces.Set(WorkspaceName(wsDir), st)
+		s.workspaces.Set(WorkspaceName(workspaceDir), st)
 	}
 }
 
@@ -362,17 +362,17 @@ func workspaceDir(org, repo string, input PrepInput) (string, error) {
 		}
 		return "", err
 	}
-	wsDir, ok := r.Value.(string)
-	if !ok || wsDir == "" {
+	workspaceDir, ok := r.Value.(string)
+	if !ok || workspaceDir == "" {
 		return "", core.E("workspaceDir", "invalid workspace directory result", nil)
 	}
-	return wsDir, nil
+	return workspaceDir, nil
 }
 
 // workspaceDirResult resolves the workspace path and returns core.Result.
 //
 //	r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
-//	if r.OK { wsDir := r.Value.(string) }
+//	if r.OK { workspaceDir := r.Value.(string) }
 func workspaceDirResult(org, repo string, input PrepInput) core.Result {
 	orgName := core.ValidateName(org)
 	if !orgName.OK {
@@ -421,14 +421,14 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		return nil, PrepOutput{}, err
 	}
-	wsDir, ok := wsDirResult.Value.(string)
-	if !ok || wsDir == "" {
+	workspaceDir, ok := wsDirResult.Value.(string)
+	if !ok || workspaceDir == "" {
 		return nil, PrepOutput{}, core.E("prepWorkspace", "invalid workspace path", nil)
 	}
 
-	repoDir := workspaceRepoDir(wsDir)
-	metaDir := workspaceMetaDir(wsDir)
-	out := PrepOutput{WorkspaceDir: wsDir, RepoDir: repoDir}
+	repoDir := workspaceRepoDir(workspaceDir)
+	metaDir := workspaceMetaDir(workspaceDir)
+	out := PrepOutput{WorkspaceDir: workspaceDir, RepoDir: repoDir}
 
 	// Source repo path — org and repo were validated by workspaceDirResult.
 	repoPath := core.JoinPath(s.codePath, input.Org, input.Repo)
@@ -467,7 +467,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Extract default workspace template (go.work etc.)
-	if result := lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
+	if result := lib.ExtractWorkspace("default", workspaceDir, &lib.WorkspaceData{
 		Repo:   input.Repo,
 		Branch: "",
 		Task:   input.Task,
@@ -515,7 +515,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	lang := detectLanguage(repoPath)
 	if lang == "php" {
 		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
-			codexPath := core.JoinPath(wsDir, "CODEX.md")
+			codexPath := core.JoinPath(workspaceDir, "CODEX.md")
 			fs.Write(codexPath, r.Value.(string))
 		}
 	}
@@ -523,11 +523,11 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	// Clone workspace dependencies — Core modules needed to build the repo.
 	// Reads go.mod, finds dappco.re/go/core/* imports, clones from Forge,
 	// and updates go.work so the agent can build inside the workspace.
-	s.cloneWorkspaceDeps(ctx, wsDir, repoDir, input.Org)
+	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
 
 	// Clone ecosystem docs into .core/reference/ so agents have full documentation.
 	// The docs site (core.help) has architecture guides, specs, and API references.
-	docsDir := core.JoinPath(wsDir, ".core", "reference", "docs")
+	docsDir := core.JoinPath(workspaceDir, ".core", "reference", "docs")
 	if !fs.IsDir(docsDir) {
 		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
 		if fs.IsDir(core.JoinPath(docsRepo, ".git")) {
@@ -537,7 +537,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	// Copy RFC specs from plans repo into workspace specs/ folder.
 	// Maps repo name to plans directory: go-io → core/go/io/, go-process → core/go/process/, etc.
-	s.copyRepoSpecs(wsDir, input.Repo)
+	s.copyRepoSpecs(workspaceDir, input.Repo)
 
 	// Build the rich prompt with all context
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
@@ -554,7 +554,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 //
 //	s.copyRepoSpecs("/tmp/ws", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/ws/specs/
 //	s.copyRepoSpecs("/tmp/ws", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/ws/specs/
-func (s *PrepSubsystem) copyRepoSpecs(wsDir, repo string) {
+func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	// Plans repo base — look for it relative to codePath
@@ -587,7 +587,7 @@ func (s *PrepSubsystem) copyRepoSpecs(wsDir, repo string) {
 
 	// Glob RFC*.md at each depth level (root, 1 deep, 2 deep, 3 deep).
 	// Preserves subdirectory structure: specDir/pkg/sub/RFC.md → specs/pkg/sub/RFC.md
-	specsDir := core.JoinPath(wsDir, "specs")
+	specsDir := core.JoinPath(workspaceDir, "specs")
 	fs.EnsureDir(specsDir)
 
 	patterns := []string{

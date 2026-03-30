@@ -26,8 +26,8 @@ import (
 
 // WorkspaceStatus represents the current state of an agent workspace.
 //
-//	result := ReadStatusResult(wsDir)
-//	if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(wsDir) }
+//	result := ReadStatusResult(workspaceDir)
+//	if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(workspaceDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`               // running, completed, blocked, failed
 	Agent     string    `json:"agent"`                // gemini, claude, codex
@@ -56,8 +56,8 @@ type WorkspaceQuery struct {
 	Status string // filter by status (empty = all)
 }
 
-func writeStatus(wsDir string, status *WorkspaceStatus) error {
-	r := writeStatusResult(wsDir, status)
+func writeStatus(workspaceDir string, status *WorkspaceStatus) error {
+	r := writeStatusResult(workspaceDir, status)
 	if !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
@@ -72,12 +72,12 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 //
 //	result := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
 //	if result.OK { return }
-func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
+func writeStatusResult(workspaceDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("writeStatus", "status is required", nil), OK: false}
 	}
 	status.UpdatedAt = time.Now()
-	statusPath := WorkspaceStatusPath(wsDir)
+	statusPath := WorkspaceStatusPath(workspaceDir)
 	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
@@ -94,14 +94,14 @@ func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
 //
 //	result := ReadStatusResult("/path/to/workspace")
 //	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
-func ReadStatusResult(wsDir string) core.Result {
-	r := fs.Read(WorkspaceStatusPath(wsDir))
+func ReadStatusResult(workspaceDir string) core.Result {
+	r := fs.Read(WorkspaceStatusPath(workspaceDir))
 	if !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("ReadStatusResult", "status not found", nil), OK: false}
 		}
-		return core.Result{Value: core.E("ReadStatusResult", core.Concat("status not found for ", wsDir), err), OK: false}
+		return core.Result{Value: core.E("ReadStatusResult", core.Concat("status not found for ", workspaceDir), err), OK: false}
 	}
 	var s WorkspaceStatus
 	if parseResult := core.JSONUnmarshalString(r.Value.(string), &s); !parseResult.OK {
@@ -177,10 +177,10 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	var out StatusOutput
 
 	for _, statusPath := range statusFiles {
-		wsDir := core.PathDir(statusPath)
-		name := WorkspaceName(wsDir)
+		workspaceDir := core.PathDir(statusPath)
+		name := WorkspaceName(workspaceDir)
 
-		result := ReadStatusResult(wsDir)
+		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			out.Total++
@@ -191,19 +191,19 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		// If status is "running", check whether the managed process is still alive.
 		if workspaceStatus.Status == "running" && (workspaceStatus.ProcessID != "" || workspaceStatus.PID > 0) {
 			if !ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
-				blockedPath := workspaceBlockedPath(wsDir)
+				blockedPath := workspaceBlockedPath(workspaceDir)
 				if r := fs.Read(blockedPath); r.OK {
 					workspaceStatus.Status = "blocked"
 					workspaceStatus.Question = core.Trim(r.Value.(string))
 				} else {
-					if len(workspaceLogFiles(wsDir)) == 0 {
+					if len(workspaceLogFiles(workspaceDir)) == 0 {
 						workspaceStatus.Status = "failed"
 						workspaceStatus.Question = "Agent process died (no output log)"
 					} else {
 						workspaceStatus.Status = "completed"
 					}
 				}
-				writeStatusResult(wsDir, workspaceStatus)
+				writeStatusResult(workspaceDir, workspaceStatus)
 			}
 		}
 

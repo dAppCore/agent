@@ -21,33 +21,33 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 	case messages.AgentCompleted:
 		// Ingest findings (feature-flag gated)
 		if c.Config().Enabled("auto-ingest") {
-			if wsDir := resolveWorkspace(ev.Workspace); wsDir != "" {
-				s.ingestFindings(wsDir)
+			if workspaceDir := resolveWorkspace(ev.Workspace); workspaceDir != "" {
+				s.ingestFindings(workspaceDir)
 			}
 		}
 
 	case messages.SpawnQueued:
 		// Runner asks agentic to spawn a queued workspace
-		wsDir := resolveWorkspace(ev.Workspace)
-		if wsDir == "" {
+		workspaceDir := resolveWorkspace(ev.Workspace)
+		if workspaceDir == "" {
 			break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		pid, processID, outputFile, err := s.spawnAgent(ev.Agent, prompt, wsDir)
+		pid, processID, outputFile, err := s.spawnAgent(ev.Agent, prompt, workspaceDir)
 		if err != nil {
 			break
 		}
 		// Update status with real PID
-		if result := ReadStatusResult(wsDir); result.OK {
+		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatus, ok := workspaceStatusValue(result)
 			if !ok {
 				break
 			}
 			workspaceStatus.PID = pid
 			workspaceStatus.ProcessID = processID
-			writeStatusResult(wsDir, workspaceStatus)
+			writeStatusResult(workspaceDir, workspaceStatus)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](c, "runner"); ok {
-				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
+				runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 			}
 		}
 		_ = outputFile
@@ -59,10 +59,10 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 // SpawnFromQueue spawns an agent in a pre-prepped workspace.
 // Called by runner.Service via ServiceFor interface matching.
 //
-//	spawnResult := prep.SpawnFromQueue("codex", prompt, wsDir)
+//	spawnResult := prep.SpawnFromQueue("codex", prompt, workspaceDir)
 //	pid := spawnResult.Value.(int)
-func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) core.Result {
-	pid, _, _, err := s.spawnAgent(agent, prompt, wsDir)
+func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.Result {
+	pid, _, _, err := s.spawnAgent(agent, prompt, workspaceDir)
 	if err != nil {
 		return core.Result{
 			Value: core.E("agentic.SpawnFromQueue", "failed to spawn queued agent", err),
@@ -75,8 +75,8 @@ func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) core.Result 
 //
 //	resolveWorkspace("core/go-io/task-5") → "/Users/snider/Code/.core/workspace/core/go-io/task-5"
 func resolveWorkspace(name string) string {
-	wsRoot := WorkspaceRoot()
-	path := core.JoinPath(wsRoot, name)
+	workspaceRoot := WorkspaceRoot()
+	path := core.JoinPath(workspaceRoot, name)
 	if fs.IsDir(path) {
 		return path
 	}
@@ -87,14 +87,14 @@ func resolveWorkspace(name string) string {
 // Scans running/completed workspaces for a matching repo+branch combination.
 func findWorkspaceByPR(repo, branch string) string {
 	for _, path := range WorkspaceStatusPaths() {
-		wsDir := core.PathDir(path)
-		statusResult := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(path)
+		statusResult := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(statusResult)
 		if !ok {
 			continue
 		}
 		if workspaceStatus.Repo == repo && workspaceStatus.Branch == branch {
-			return wsDir
+			return workspaceDir
 		}
 	}
 	return ""

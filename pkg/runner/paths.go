@@ -68,8 +68,8 @@ func CoreRoot() string {
 //
 //	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
 //	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
-func ReadStatusResult(wsDir string) core.Result {
-	statusResult := agentic.ReadStatusResult(wsDir)
+func ReadStatusResult(workspaceDir string) core.Result {
+	statusResult := agentic.ReadStatusResult(workspaceDir)
 	if !statusResult.OK {
 		err, _ := statusResult.Value.(error)
 		if err == nil {
@@ -93,7 +93,7 @@ func ReadStatusResult(wsDir string) core.Result {
 //
 //	result := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 //	core.Println(result.OK)
-func WriteStatus(wsDir string, status *WorkspaceStatus) core.Result {
+func WriteStatus(workspaceDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("runner.WriteStatus", "status is required", nil), OK: false}
 	}
@@ -103,7 +103,7 @@ func WriteStatus(wsDir string, status *WorkspaceStatus) core.Result {
 		return core.Result{Value: core.E("runner.WriteStatus", "status conversion failed", nil), OK: false}
 	}
 	agenticStatus.UpdatedAt = time.Now()
-	if writeResult := fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(agenticStatus)); !writeResult.OK {
+	if writeResult := fs.WriteAtomic(agentic.WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(agenticStatus)); !writeResult.OK {
 		err, _ := writeResult.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("runner.WriteStatus", "failed to write status", nil), OK: false}

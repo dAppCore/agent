@@ -43,8 +43,8 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, ResumeOutput{}, core.E("resume", "workspace is required", nil)
 	}
 
-	wsDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
-	repoDir := WorkspaceRepoDir(wsDir)
+	workspaceDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
+	repoDir := WorkspaceRepoDir(workspaceDir)
 
 	// Verify workspace exists
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
@@ -52,7 +52,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Read current status
-	result := ReadStatusResult(wsDir)
+	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
 		err, _ := result.Value.(error)
@@ -71,7 +71,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Write ANSWER.md if answer provided
 	if input.Answer != "" {
-		answerPath := workspaceAnswerPath(wsDir)
+		answerPath := workspaceAnswerPath(workspaceDir)
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if writeResult := fs.Write(answerPath, content); !writeResult.OK {
 			err, _ := writeResult.Value.(error)
@@ -96,7 +96,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Spawn agent via go-process
-	pid, processID, _, err := s.spawnAgent(agent, prompt, wsDir)
+	pid, processID, _, err := s.spawnAgent(agent, prompt, workspaceDir)
 	if err != nil {
 		return nil, ResumeOutput{}, err
 	}
@@ -107,13 +107,13 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	workspaceStatus.ProcessID = processID
 	workspaceStatus.Runs++
 	workspaceStatus.Question = ""
-	writeStatusResult(wsDir, workspaceStatus)
+	writeStatusResult(workspaceDir, workspaceStatus)
 
 	return nil, ResumeOutput{
 		Success:    true,
 		Workspace:  input.Workspace,
 		Agent:      agent,
 		PID:        pid,
-		OutputFile: agentOutputFile(wsDir, agent),
+		OutputFile: agentOutputFile(workspaceDir, agent),
 	}, nil
 }

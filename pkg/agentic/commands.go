@@ -152,11 +152,11 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
-	wsRoot := WorkspaceRoot()
+	workspaceRoot := WorkspaceRoot()
 	fsys := s.Core().Fs()
-	listResult := fsys.List(wsRoot)
+	listResult := fsys.List(workspaceRoot)
 	if !listResult.OK {
-		core.Print(nil, "no workspaces found at %s", wsRoot)
+		core.Print(nil, "no workspaces found at %s", workspaceRoot)
 		return core.Result{OK: true}
 	}
 

@@ -56,14 +56,14 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep failed", nil)}
 	}
 
-	wsDir := prepOut.WorkspaceDir
+	workspaceDir := prepOut.WorkspaceDir
 	prompt := prepOut.Prompt
 
-	core.Print(nil, "  workspace: %s", wsDir)
+	core.Print(nil, "  workspace: %s", workspaceDir)
 	core.Print(nil, "  branch:    %s", prepOut.Branch)
 
 	// Spawn agent directly — no queue, no concurrency check
-	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, wsDir)
+	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}
@@ -87,7 +87,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		case <-ticker.C:
 			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
 				// Process exited — read final status
-				result := ReadStatusResult(wsDir)
+				result := ReadStatusResult(workspaceDir)
 				st, ok := workspaceStatusValue(result)
 				if !ok {
 					err, _ := result.Value.(error)

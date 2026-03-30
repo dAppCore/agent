@@ -269,30 +269,30 @@ type WorkspaceData struct {
 //	    Repo: "go-io", Task: "fix tests", Agent: "codex",
 //	})
 //	core.Println(r.OK)
-func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) core.Result {
+func ExtractWorkspace(templateName, targetDir string, data *WorkspaceData) core.Result {
 	if result := ensureMounted(); !result.OK {
 		if err, ok := result.Value.(error); ok {
 			return core.Result{
-				Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), err),
+				Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", templateName), err),
 				OK:    false,
 			}
 		}
 		return core.Result{
-			Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), nil),
+			Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", templateName), nil),
 			OK:    false,
 		}
 	}
 
-	r := workspaceFS.Sub(tmplName)
+	r := workspaceFS.Sub(templateName)
 	if !r.OK {
 		if err, ok := r.Value.(error); ok {
 			return core.Result{
-				Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", tmplName), err),
+				Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", templateName), err),
 				OK:    false,
 			}
 		}
 		return core.Result{
-			Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", tmplName), nil),
+			Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", templateName), nil),
 			OK:    false,
 		}
 	}
@@ -300,12 +300,12 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) core.Resu
 	if !result.OK {
 		if err, ok := result.Value.(error); ok {
 			return core.Result{
-				Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), err),
+				Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", templateName), err),
 				OK:    false,
 			}
 		}
 		return core.Result{
-			Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), nil),
+			Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", templateName), nil),
 			OK:    false,
 		}
 	}
@@ -317,11 +317,11 @@ func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) core.Resu
 //
 //	r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl")
 //	if r.OK { content := r.Value.(string) }
-func WorkspaceFile(tmplName, filename string) core.Result {
+func WorkspaceFile(templateName, filename string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
 	}
-	r := workspaceFS.Sub(tmplName)
+	r := workspaceFS.Sub(templateName)
 	if !r.OK {
 		return r
 	}

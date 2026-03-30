@@ -327,8 +327,8 @@ func (s *PrepSubsystem) drainQueue() {
 // Returns true if a task was spawned, false if nothing to do.
 func (s *PrepSubsystem) drainOne() bool {
 	for _, statusPath := range WorkspaceStatusPaths() {
-		wsDir := core.PathDir(statusPath)
-		result := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(statusPath)
+		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok || workspaceStatus.Status != "queued" {
 			continue
@@ -357,7 +357,7 @@ func (s *PrepSubsystem) drainOne() bool {
 
 		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
-		pid, processID, _, err := s.spawnAgent(workspaceStatus.Agent, prompt, wsDir)
+		pid, processID, _, err := s.spawnAgent(workspaceStatus.Agent, prompt, workspaceDir)
 		if err != nil {
 			continue
 		}
@@ -366,8 +366,8 @@ func (s *PrepSubsystem) drainOne() bool {
 		workspaceStatus.PID = pid
 		workspaceStatus.ProcessID = processID
 		workspaceStatus.Runs++
-		writeStatusResult(wsDir, workspaceStatus)
-		s.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
+		writeStatusResult(workspaceDir, workspaceStatus)
+		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
 		return true
 	}

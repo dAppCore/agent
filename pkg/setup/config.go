@@ -52,19 +52,19 @@ type configValue struct {
 //
 //	r := setup.GenerateBuildConfig("/srv/repos/agent", setup.TypeGo)
 //	if r.OK { content := r.Value.(string) }
-func GenerateBuildConfig(path string, projType ProjectType) core.Result {
+func GenerateBuildConfig(path string, projectType ProjectType) core.Result {
 	name := core.PathBase(path)
 	sections := []configSection{
 		{
 			Key: "project",
 			Values: []configValue{
 				{Key: "name", Value: name},
-				{Key: "type", Value: string(projType)},
+				{Key: "type", Value: string(projectType)},
 			},
 		},
 	}
 
-	switch projType {
+	switch projectType {
 	case TypeGo, TypeWails:
 		sections = append(sections, configSection{
 			Key: "build",
@@ -99,10 +99,10 @@ func GenerateBuildConfig(path string, projType ProjectType) core.Result {
 //
 //	r := setup.GenerateTestConfig(setup.TypeGo)
 //	if r.OK { content := r.Value.(string) }
-func GenerateTestConfig(projType ProjectType) core.Result {
+func GenerateTestConfig(projectType ProjectType) core.Result {
 	var sections []configSection
 
-	switch projType {
+	switch projectType {
 	case TypeGo, TypeWails:
 		sections = []configSection{
 			{
