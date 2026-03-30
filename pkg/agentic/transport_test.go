@@ -36,6 +36,15 @@ func TestTransport_HTTPGet_Good(t *testing.T) {
 	assert.Equal(t, `{"status":"ok"}`, result.Value.(string))
 }
 
+func TestTransport_HTTPGet_Bad_InvalidURL(t *testing.T) {
+	result := HTTPGet(context.Background(), "://bad", "", "")
+
+	assert.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "create request")
+}
+
 func TestTransport_DriveGet_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/repos/core/go-io", r.URL.Path)

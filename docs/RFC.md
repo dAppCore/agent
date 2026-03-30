@@ -434,6 +434,7 @@ func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) 
 
 ## Changelog
 
+- 2026-03-30: transport helpers preserve request and read causes, brain direct API calls surface upstream bodies, and review queue retry parsing no longer uses `MustCompile`.
 - 2026-03-30: main now logs startup failures with structured context, and the workspace contract reference restored usage-example comments for the Action lifecycle messages.
 - 2026-03-30: plan IDs now come from core.ID(), workspace prep validates org/repo names with core.ValidateName, and plan paths use core.SanitisePath.
 - 2026-03-29: cmd/core-agent no longer rewrites `os.Args` before startup. The binary-owned commands now use named handlers, keeping the entrypoint on Core CLI primitives instead of repo-local argument mutation.

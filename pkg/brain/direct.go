@@ -108,6 +108,7 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 	if s.apiKey == "" {
 		return core.Result{
 			Value: core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil),
+			OK:    false,
 		}
 	}
 
@@ -119,13 +120,20 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 	r := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
 	if !r.OK {
 		core.Error("brain API call failed", "method", method, "path", path)
-		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil)}
+		if err, ok := r.Value.(error); ok {
+			return core.Result{Value: core.E("brain.apiCall", "API call failed", err), OK: false}
+		}
+		if responseBody, ok := r.Value.(string); ok && responseBody != "" {
+			return core.Result{Value: core.E("brain.apiCall", core.Concat("API call failed: ", core.Trim(responseBody)), nil), OK: false}
+		}
+		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil), OK: false}
 	}
 
 	var result map[string]any
 	if ur := core.JSONUnmarshalString(r.Value.(string), &result); !ur.OK {
 		core.Error("brain API response parse failed", "method", method, "path", path)
-		return core.Result{Value: core.E("brain.apiCall", "parse response", nil)}
+		err, _ := ur.Value.(error)
+		return core.Result{Value: core.E("brain.apiCall", "parse response", err), OK: false}
 	}
 
 	return core.Result{Value: result, OK: true}

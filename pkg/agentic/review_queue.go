@@ -53,6 +53,16 @@ type RateLimitInfo struct {
 	Message string    `json:"message,omitempty"`
 }
 
+var retryAfterPattern = compileRetryAfterPattern()
+
+func compileRetryAfterPattern() *regexp.Regexp {
+	pattern, err := regexp.Compile(`(\d+)\s*minutes?\s*(?:and\s*)?(\d+)?\s*seconds?`)
+	if err != nil {
+		return nil
+	}
+	return pattern
+}
+
 func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_review_queue",
@@ -293,8 +303,10 @@ func countFindings(output string) int {
 // parseRetryAfter extracts the retry duration from a rate limit message.
 // Example: "please try after 4 minutes and 56 seconds"
 func parseRetryAfter(message string) time.Duration {
-	re := regexp.MustCompile(`(\d+)\s*minutes?\s*(?:and\s*)?(\d+)?\s*seconds?`)
-	matches := re.FindStringSubmatch(message)
+	if retryAfterPattern == nil {
+		return 5 * time.Minute
+	}
+	matches := retryAfterPattern.FindStringSubmatch(message)
 	if len(matches) >= 2 {
 		mins := parseInt(matches[1])
 		secs := 0

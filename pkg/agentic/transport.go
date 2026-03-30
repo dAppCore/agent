@@ -48,7 +48,8 @@ func (s *httpStream) Send(data []byte) error {
 
 	r := core.ReadAll(resp.Body)
 	if !r.OK {
-		return core.E("httpStream.Send", "failed to read response", nil)
+		err, _ := r.Value.(error)
+		return core.E("httpStream.Send", "failed to read response", err)
 	}
 	s.response = []byte(r.Value.(string))
 	return nil
@@ -183,7 +184,7 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 		req, err = http.NewRequestWithContext(ctx, method, url, nil)
 	}
 	if err != nil {
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("httpDo", "create request", err), OK: false}
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -197,12 +198,13 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 
 	resp, err := defaultClient.Do(req)
 	if err != nil {
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("httpDo", "request failed", err), OK: false}
 	}
 
 	r := core.ReadAll(resp.Body)
 	if !r.OK {
-		return core.Result{OK: false}
+		err, _ := r.Value.(error)
+		return core.Result{Value: core.E("httpDo", "failed to read response", err), OK: false}
 	}
 
 	return core.Result{Value: r.Value.(string), OK: resp.StatusCode < 400}
@@ -246,13 +248,13 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	body := core.JSONMarshalString(initReq)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(body))
 	if err != nil {
-		return core.Result{Value: core.E("mcpInitialize", "create request", nil), OK: false}
+		return core.Result{Value: core.E("mcpInitialize", "create request", err), OK: false}
 	}
 	mcpHeaders(req, token, "")
 
 	resp, err := defaultClient.Do(req)
 	if err != nil {
-		return core.Result{Value: core.E("mcpInitialize", "request failed", nil), OK: false}
+		return core.Result{Value: core.E("mcpInitialize", "request failed", err), OK: false}
 	}
 	defer resp.Body.Close()
 
@@ -270,7 +272,10 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",
 	})
-	notifReq, _ := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(notif))
+	notifReq, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(notif))
+	if err != nil {
+		return core.Result{Value: core.E("mcpInitialize", "create notification request", err), OK: false}
+	}
 	mcpHeaders(notifReq, token, sessionID)
 	notifResp, err := defaultClient.Do(notifReq)
 	if err == nil {
@@ -300,13 +305,13 @@ func mcpCall(ctx context.Context, url, token, sessionID string, body []byte) ([]
 func mcpCallResult(ctx context.Context, url, token, sessionID string, body []byte) core.Result {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, core.NewReader(string(body)))
 	if err != nil {
-		return core.Result{Value: core.E("mcpCall", "create request", nil), OK: false}
+		return core.Result{Value: core.E("mcpCall", "create request", err), OK: false}
 	}
 	mcpHeaders(req, token, sessionID)
 
 	resp, err := defaultClient.Do(req)
 	if err != nil {
-		return core.Result{Value: core.E("mcpCall", "request failed", nil), OK: false}
+		return core.Result{Value: core.E("mcpCall", "request failed", err), OK: false}
 	}
 	defer resp.Body.Close()
 
@@ -339,9 +344,6 @@ func readSSEDataResult(resp *http.Response) core.Result {
 	r := core.ReadAll(resp.Body)
 	if !r.OK {
 		err, _ := r.Value.(error)
-		if err == nil {
-			return core.Result{Value: core.E("readSSEData", "failed to read response", nil), OK: false}
-		}
 		return core.Result{Value: core.E("readSSEData", "failed to read response", err), OK: false}
 	}
 	for _, line := range core.Split(r.Value.(string), "\n") {
