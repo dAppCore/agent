@@ -56,8 +56,6 @@ func NewDirect() *DirectSubsystem {
 	}
 }
 
-// Name keeps the direct subsystem address stable for core.WithService and MCP.
-//
 //	name := subsystem.Name() // "brain"
 func (s *DirectSubsystem) Name() string { return "brain" }
 

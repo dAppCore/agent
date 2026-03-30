@@ -13,13 +13,8 @@ type processActionHandlers struct {
 	service *process.Service
 }
 
-// ProcessRegister is the service factory for go-process.
-// Registers the process service under the canonical "process" name and exposes
-// the Core `process.*` Actions expected by `c.Process()`.
-//
-//	core.New(
-//	    core.WithService(agentic.ProcessRegister),
-//	)
+//	c := core.New(core.WithService(agentic.ProcessRegister))
+//	processService, _ := core.ServiceFor[*process.Service](c, "process")
 func ProcessRegister(c *core.Core) core.Result {
 	if c == nil {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "core is required", nil), OK: false}

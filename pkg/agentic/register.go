@@ -6,14 +6,11 @@ import (
 	core "dappco.re/go/core"
 )
 
-// Register is the service factory for core.WithService.
-// Returns the PrepSubsystem instance — WithService auto-discovers the name
-// from the package path and registers it.
-//
-//	core.New(
+//	c := core.New(
 //	    core.WithService(agentic.ProcessRegister),
 //	    core.WithService(agentic.Register),
 //	)
+//	prep, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
 func Register(c *core.Core) core.Result {
 	subsystem := NewPrep()
 	subsystem.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
@@ -35,9 +32,6 @@ func Register(c *core.Core) core.Result {
 	c.Config().Enable("auto-pr")
 	c.Config().Enable("auto-merge")
 	c.Config().Enable("auto-ingest")
-
-	// IPC handlers auto-discovered via HandleIPCEvents interface on PrepSubsystem.
-	// No manual RegisterHandlers call needed — WithService wires it.
 
 	return core.Result{Value: subsystem, OK: true}
 }

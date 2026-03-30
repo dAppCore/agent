@@ -80,7 +80,7 @@ type Subsystem struct {
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
-// Deprecated: prefer Register with core.WithService(monitor.Register).
+// Use core.New(core.WithService(monitor.Register)) for new code.
 //
 //	monitorService.SetCore(c)
 func (m *Subsystem) SetCore(coreApp *core.Core) {

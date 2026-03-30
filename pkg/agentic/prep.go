@@ -81,8 +81,7 @@ func NewPrep() *PrepSubsystem {
 	}
 }
 
-// SetCore wires the Core framework instance via ServiceRuntime.
-// Deprecated: Use Register with core.WithService(agentic.Register) instead.
+// Use core.New(core.WithService(agentic.Register)) for new code.
 //
 //	prep.SetCore(c)
 func (s *PrepSubsystem) SetCore(c *core.Core) {

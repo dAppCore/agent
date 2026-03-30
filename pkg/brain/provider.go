@@ -47,8 +47,6 @@ func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 	}
 }
 
-// Name keeps the provider address stable during API registration.
-//
 //	name := p.Name() // "brain"
 func (p *BrainProvider) Name() string { return "brain" }
 

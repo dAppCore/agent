@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// IPC handler for agent lifecycle events.
-// Auto-discovered by Core's WithService via the HandleIPCEvents interface.
-// No manual RegisterHandlers call needed — Core wires it during service registration.
-
 package agentic
 
 import (
@@ -11,10 +7,9 @@ import (
 	core "dappco.re/go/core"
 )
 
-// HandleIPCEvents implements Core's IPC handler interface.
-// Auto-registered by WithService — no manual wiring needed.
+// HandleIPCEvents applies agent lifecycle messages to the prep subsystem.
 //
-//	_ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5"})
+//	_ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
 //	_ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {

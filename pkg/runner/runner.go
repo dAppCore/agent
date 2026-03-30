@@ -54,9 +54,8 @@ func New() *Service {
 	}
 }
 
-// Register is the service factory for core.WithService.
-//
-//	core.New(core.WithService(runner.Register))
+//	c := core.New(core.WithService(runner.Register))
+//	service, _ := core.ServiceFor[*runner.Service](c, "runner")
 func Register(coreApp *core.Core) core.Result {
 	service := New()
 	service.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})

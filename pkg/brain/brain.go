@@ -47,8 +47,6 @@ func New(bridge *ide.Bridge) *Subsystem {
 	return &Subsystem{bridge: bridge}
 }
 
-// Name keeps the subsystem address stable for core.WithService and MCP.
-//
 //	name := subsystem.Name() // "brain"
 func (s *Subsystem) Name() string { return "brain" }
 
