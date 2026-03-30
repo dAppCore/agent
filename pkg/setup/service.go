@@ -26,16 +26,12 @@ func Register(c *core.Core) core.Result {
 	return core.Result{Value: service, OK: true}
 }
 
-// OnStartup keeps the setup service ready for Core startup hooks.
-//
-//	result := service.OnStartup(context.Background())
+// result := service.OnStartup(context.Background())
 func (s *Service) OnStartup(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// DetectGitRemote reads `origin` and returns `owner/repo` when available.
-//
-//	remote := service.DetectGitRemote("/srv/repos/agent")
+// remote := service.DetectGitRemote("/srv/repos/agent")
 func (s *Service) DetectGitRemote(path string) string {
 	result := s.Core().Process().RunIn(context.Background(), path, "git", "remote", "get-url", "origin")
 	if !result.OK {

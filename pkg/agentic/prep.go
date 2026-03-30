@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package agentic provides MCP tools for agent orchestration.
-// Prepares workspaces and dispatches subagents.
+// core.New(core.WithService(agentic.Register))
 package agentic
 
 import (
@@ -18,15 +17,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// AgentOptions configures the agentic service.
-//
-//	options := agentic.AgentOptions{}
+// options := agentic.AgentOptions{}
 type AgentOptions struct{}
 
-// PrepSubsystem provides agentic MCP tools for workspace orchestration.
-// Agent lifecycle events are broadcast via s.Core().ACTION(messages.AgentCompleted{}).
-//
-//	core.New(core.WithService(agentic.Register))
+// core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
 	forge          *forge.Forge
@@ -47,10 +41,8 @@ type PrepSubsystem struct {
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 
-// NewPrep creates an agentic subsystem.
-//
-//	subsystem := agentic.NewPrep()
-//	subsystem.SetCompletionNotifier(monitor)
+// subsystem := agentic.NewPrep()
+// subsystem.SetCompletionNotifier(monitor)
 func NewPrep() *PrepSubsystem {
 	home := HomeDir()
 
@@ -81,18 +73,13 @@ func NewPrep() *PrepSubsystem {
 	}
 }
 
-// Use core.New(core.WithService(agentic.Register)) for new code.
-//
-//	prep.SetCore(c)
+// prep.SetCore(c)
 func (s *PrepSubsystem) SetCore(c *core.Core) {
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 }
 
-// OnStartup implements core.Startable — registers named Actions, starts the queue runner,
-// and registers CLI commands. The Action registry IS the capability map.
-//
-//	c.Action("agentic.dispatch").Run(ctx, options)
-//	c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
+// c.Action("agentic.dispatch").Run(ctx, options)
+// c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
@@ -214,10 +201,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 // registerCommands is in commands.go
 
-// OnShutdown implements core.Stoppable and freezes the queue.
-//
-//	subsystem := agentic.NewPrep()
-//	_ = subsystem.OnShutdown(context.Background())
+// subsystem := agentic.NewPrep()
+// _ = subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	return core.Result{OK: true}
@@ -243,20 +228,16 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 	}
 }
 
-// TrackWorkspace registers or updates a workspace in the in-memory Registry.
-//
-//	s.TrackWorkspace("core/go-io/task-5", st)
+// s.TrackWorkspace("core/go-io/task-5", st)
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
 		s.workspaces.Set(name, st)
 	}
 }
 
-// Workspaces returns the workspace Registry for cross-cutting queries.
-//
-//	s.Workspaces().Names()                        // all workspace names
-//	s.Workspaces().List("core/*")                 // org-scoped workspaces
-//	s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
+// s.Workspaces().Names()                        // all workspace names
+// s.Workspaces().List("core/*")                 // org-scoped workspaces
+// s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
 func (s *PrepSubsystem) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
 }
@@ -268,17 +249,13 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// Name identifies the MCP subsystem.
-//
-//	subsystem := agentic.NewPrep()
-//	name := subsystem.Name()
-//	_ = name // "agentic"
+// subsystem := agentic.NewPrep()
+// name := subsystem.Name()
+// _ = name // "agentic"
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
-// RegisterTools publishes the agentic MCP tools on the server.
-//
-//	subsystem := agentic.NewPrep()
-//	subsystem.RegisterTools(server)
+// subsystem := agentic.NewPrep()
+// subsystem.RegisterTools(server)
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prep_workspace",
@@ -306,18 +283,13 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerWatchTool(server)
 }
 
-// Shutdown satisfies mcp.SubsystemWithShutdown for clean server teardown.
-//
-//	subsystem := agentic.NewPrep()
-//	_ = subsystem.Shutdown(context.Background())
+// subsystem := agentic.NewPrep()
+// _ = subsystem.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // --- Input/Output types ---
 
-// PrepInput is the input for agentic_prep_workspace.
-// One of Issue, PR, Branch, or Tag is required.
-//
-//	input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
+// input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
 type PrepInput struct {
 	Repo         string            `json:"repo"`                    // required: e.g. "go-io"
 	Org          string            `json:"org,omitempty"`           // default "core"
@@ -334,9 +306,7 @@ type PrepInput struct {
 	DryRun       bool              `json:"dry_run,omitempty"`       // preview without executing
 }
 
-// PrepOutput is the output for agentic_prep_workspace.
-//
-//	out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/core/go-io/task-15"}
+// out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type PrepOutput struct {
 	Success      bool   `json:"success"`
 	WorkspaceDir string `json:"workspace_dir"`
@@ -348,10 +318,8 @@ type PrepOutput struct {
 	Resumed      bool   `json:"resumed"`
 }
 
-// workspaceDir resolves the workspace path from the input identifier.
-//
-//	dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
-//	// → ".core/workspace/core/go-io/task-15"
+// dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
+// dir == ".core/workspace/core/go-io/task-15"
 func workspaceDir(org, repo string, input PrepInput) (string, error) {
 	r := workspaceDirResult(org, repo, input)
 	if !r.OK {
@@ -368,10 +336,8 @@ func workspaceDir(org, repo string, input PrepInput) (string, error) {
 	return workspaceDir, nil
 }
 
-// workspaceDirResult resolves the workspace path and returns core.Result.
-//
-//	r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
-//	if r.OK { workspaceDir := r.Value.(string) }
+// r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
+// if r.OK { workspaceDir := r.Value.(string) }
 func workspaceDirResult(org, repo string, input PrepInput) core.Result {
 	orgName := core.ValidateName(org)
 	if !orgName.OK {

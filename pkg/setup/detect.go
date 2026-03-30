@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package setup provisions `.core/` files and workspace scaffolds for a repo.
-//
-//	service := core.ServiceFor[*setup.Service](core.New(core.WithService(setup.Register)), "setup")
+// service := core.ServiceFor[*setup.Service](core.New(core.WithService(setup.Register)), "setup")
 package setup
 
 import (
 	core "dappco.re/go/core"
 )
 
-// ProjectType records what setup detected in a repository path.
-//
-//	projectType := setup.Detect("/srv/repos/agent")
-//	if projectType == setup.TypeGo { /* generate Go defaults */ }
+// projectType := setup.Detect("/srv/repos/agent")
+// if projectType == setup.TypeGo { /* generate Go defaults */ }
 type ProjectType string
 
 const (
@@ -23,12 +19,10 @@ const (
 	TypeUnknown ProjectType = "unknown"
 )
 
-// fs provides unrestricted filesystem access for setup operations.
+// fs := (&core.Fs{}).NewUnrestricted()
 var fs = (&core.Fs{}).NewUnrestricted()
 
-// Detect inspects a repository path and returns the primary project type.
-//
-//	projectType := setup.Detect("./repo")
+// projectType := setup.Detect("./repo")
 func Detect(path string) ProjectType {
 	base := absolutePath(path)
 	checks := []struct {
@@ -48,9 +42,7 @@ func Detect(path string) ProjectType {
 	return TypeUnknown
 }
 
-// DetectAll returns every detected project type for a polyglot repository.
-//
-//	types := setup.DetectAll("./repo")
+// types := setup.DetectAll("./repo")
 func DetectAll(path string) []ProjectType {
 	base := absolutePath(path)
 	var projectTypes []ProjectType

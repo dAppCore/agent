@@ -10,14 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// statusPath := agentic.WorkspaceStatusPath("/srv/.core/workspace/core/go-io/task-5")
-// blockedPath := agentic.WorkspaceBlockedPath("/srv/.core/workspace/core/go-io/task-5")
-// logs := agentic.WorkspaceLogFiles("/srv/.core/workspace/core/go-io/task-5")
-
-// WorkspaceStatus represents the current state of an agent workspace.
-//
-//	result := ReadStatusResult(workspaceDir)
-//	if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(workspaceDir) }
+// result := ReadStatusResult(workspaceDir)
+// if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(workspaceDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`               // running, completed, blocked, failed
 	Agent     string    `json:"agent"`                // gemini, claude, codex
@@ -35,12 +29,9 @@ type WorkspaceStatus struct {
 	PRURL     string    `json:"pr_url,omitempty"`     // pull request URL (after PR created)
 }
 
-// WorkspaceQuery is the QUERY type for workspace state lookups.
-// Returns the workspace Registry via c.QUERY(agentic.WorkspaceQuery{}).
-//
-//	r := c.QUERY(agentic.WorkspaceQuery{})
-//	if r.OK { reg := r.Value.(*core.Registry[*WorkspaceStatus]) }
-//	r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-5"})
+// r := c.QUERY(agentic.WorkspaceQuery{})
+// if r.OK { reg := r.Value.(*core.Registry[*WorkspaceStatus]) }
+// r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-5"})
 type WorkspaceQuery struct {
 	Name   string // specific workspace (empty = all)
 	Status string // filter by status (empty = all)
@@ -58,10 +49,8 @@ func writeStatus(workspaceDir string, status *WorkspaceStatus) error {
 	return nil
 }
 
-// writeStatusResult writes status.json and returns core.Result.
-//
-//	result := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
-//	if result.OK { return }
+// result := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
+// if result.OK { return }
 func writeStatusResult(workspaceDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("writeStatus", "status is required", nil), OK: false}
@@ -80,10 +69,8 @@ func writeStatusResult(workspaceDir string, status *WorkspaceStatus) core.Result
 	return core.Result{OK: true}
 }
 
-// ReadStatusResult parses status.json and returns a WorkspaceStatus pointer.
-//
-//	result := ReadStatusResult("/path/to/workspace")
-//	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
+// result := ReadStatusResult("/path/to/workspace")
+// if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
 func ReadStatusResult(workspaceDir string) core.Result {
 	r := fs.Read(WorkspaceStatusPath(workspaceDir))
 	if !r.OK {
@@ -104,10 +91,8 @@ func ReadStatusResult(workspaceDir string) core.Result {
 	return core.Result{Value: &s, OK: true}
 }
 
-// workspaceStatusValue extracts a WorkspaceStatus from a Result.
-//
-//	result := ReadStatusResult("/path/to/workspace")
-//	workspaceStatus, ok := workspaceStatusValue(result)
+// result := ReadStatusResult("/path/to/workspace")
+// workspaceStatus, ok := workspaceStatusValue(result)
 func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
 	workspaceStatus, ok := result.Value.(*WorkspaceStatus)
 	if !ok || workspaceStatus == nil {
@@ -118,19 +103,14 @@ func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
 
 // --- agentic_status tool ---
 
-// StatusInput is the input for agentic_status.
-//
-//	input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
+// input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all
 	Limit     int    `json:"limit,omitempty"`     // max results (default 100)
 	Status    string `json:"status,omitempty"`    // filter: running, completed, failed, blocked
 }
 
-// StatusOutput is the output for agentic_status.
-// Returns stats by default. Only blocked workspaces are listed (they need attention).
-//
-//	out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
+// out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
 type StatusOutput struct {
 	Total     int           `json:"total"`
 	Running   int           `json:"running"`
@@ -140,9 +120,7 @@ type StatusOutput struct {
 	Blocked   []BlockedInfo `json:"blocked,omitempty"`
 }
 
-// BlockedInfo shows a workspace that needs human input.
-//
-//	info := agentic.BlockedInfo{Name: "core/go-io/task-4", Repo: "go-io", Question: "Which API version?"}
+// info := agentic.BlockedInfo{Name: "core/go-io/task-4", Repo: "go-io", Question: "Which API version?"}
 type BlockedInfo struct {
 	Name     string `json:"name"`
 	Repo     string `json:"repo"`

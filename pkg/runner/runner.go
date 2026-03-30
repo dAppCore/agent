@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package runner owns agent dispatch and workspace lifecycle.
-//
-//	service := runner.New()
-//	service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+// service := runner.New()
+// service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 package runner
 
 import (
@@ -16,17 +14,11 @@ import (
 	core "dappco.re/go/core"
 )
 
-// Options configures the runner service.
-//
-//	options := runner.Options{}
+// options := runner.Options{}
 type Options struct{}
 
-// Service is the agent dispatch runner.
-// Manages concurrency limits, queue drain, workspace lifecycle, and frozen state.
-// All dispatch requests — MCP tool, CLI, or IPC — go through this service.
-//
-//	service := runner.New()
-//	service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+// service := runner.New()
+// service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 type Service struct {
 	*core.ServiceRuntime[Options]
 	dispatchMu sync.Mutex
@@ -73,13 +65,13 @@ func Register(coreApp *core.Core) core.Result {
 	return core.Result{Value: service, OK: true}
 }
 
-// OnStartup registers Actions and starts the queue runner.
+// c.Action("runner.dispatch").Run(ctx, core.NewOptions(
 //
-//	c.Action("runner.dispatch").Run(ctx, core.NewOptions(
-//		core.Option{Key: "repo", Value: "go-io"},
-//		core.Option{Key: "agent", Value: "codex"},
-//	))
-//	c.Action("runner.status").Run(ctx, core.NewOptions())
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "agent", Value: "codex"},
+//
+// ))
+// c.Action("runner.status").Run(ctx, core.NewOptions())
 func (s *Service) OnStartup(ctx context.Context) core.Result {
 	coreApp := s.Core()
 
@@ -99,9 +91,8 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// OnShutdown freezes the queue.
+// result := service.OnShutdown(context.Background())
 //
-//	result := service.OnShutdown(context.Background())
 //	if result.OK {
 //		core.Println(service.IsFrozen())
 //	}
@@ -110,9 +101,8 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// HandleIPCEvents applies runner side-effects for IPC messages.
+// service.HandleIPCEvents(c, messages.PokeQueue{})
 //
-//	service.HandleIPCEvents(c, messages.PokeQueue{})
 //	service.HandleIPCEvents(c, messages.AgentCompleted{
 //		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed",
 //	})
@@ -190,16 +180,12 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 	return core.Result{OK: true}
 }
 
-// IsFrozen returns whether dispatch is currently frozen.
-//
-//	if s.IsFrozen() { return "queue is frozen" }
+// if s.IsFrozen() { return "queue is frozen" }
 func (s *Service) IsFrozen() bool {
 	return s.frozen
 }
 
-// Poke signals the runner to check the queue immediately.
-//
-//	s.Poke()
+// s.Poke()
 func (s *Service) Poke() {
 	if s.pokeCh == nil {
 		return
@@ -210,11 +196,8 @@ func (s *Service) Poke() {
 	}
 }
 
-// TrackWorkspace registers or updates a workspace in the in-memory Registry.
-// Accepts the runner projection directly and the agentic projection from IPC.
-//
-//	s.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex"})
-//	s.TrackWorkspace("core/go-io/task-5", &agentic.WorkspaceStatus{Status: "running", Agent: "codex"})
+// s.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex"})
+// s.TrackWorkspace("core/go-io/task-5", &agentic.WorkspaceStatus{Status: "running", Agent: "codex"})
 func (s *Service) TrackWorkspace(name string, status any) {
 	if s.workspaces == nil {
 		return
@@ -240,17 +223,13 @@ func (s *Service) TrackWorkspace(name string, status any) {
 	s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo))
 }
 
-// Workspaces returns the workspace Registry.
-//
-//	s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { ... })
+// s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { ... })
 func (s *Service) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
 }
 
-// handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
-//
-//	result := c.QUERY(runner.WorkspaceQuery{Name: "core/go-io/task-42"})
-//	result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
+// result := c.QUERY(runner.WorkspaceQuery{Name: "core/go-io/task-42"})
+// result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
 func (s *Service) handleWorkspaceQuery(_ *core.Core, query core.Query) core.Result {
 	workspaceQuery, ok := query.(WorkspaceQuery)
 	if !ok {

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package brain gives MCP and HTTP services the same OpenBrain capability map.
-//
-//	subsystem := brain.New(nil)
-//	core.Println(subsystem.Name())
+// subsystem := brain.New(nil)
+// core.Println(subsystem.Name()) // "brain"
 package brain
 
 import (
@@ -15,9 +13,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// fs provides unrestricted filesystem access for shared brain credentials.
+// keyPath := core.JoinPath(home, ".claude", "brain.key")
 //
-//	keyPath := core.JoinPath(home, ".claude", "brain.key")
 //	if readResult := fs.Read(keyPath); readResult.OK {
 //		apiKey = core.Trim(readResult.Value.(string))
 //	}
@@ -27,40 +24,31 @@ func stringField(values map[string]any, key string) string {
 	return core.Sprint(values[key])
 }
 
-// errBridgeNotAvailable is returned when a tool requires the Laravel bridge
-// but it has not been initialised (headless mode).
+// core.E("brain", "bridge not available", nil)
 var errBridgeNotAvailable = core.E("brain", "bridge not available", nil)
 
-// Subsystem routes `brain_*` MCP tools through the shared IDE bridge.
-//
-//	subsystem := brain.New(nil)
-//	core.Println(subsystem.Name()) // "brain"
+// subsystem := brain.New(nil)
+// core.Println(subsystem.Name()) // "brain"
 type Subsystem struct {
 	bridge *ide.Bridge
 }
 
-// New builds the bridge-backed OpenBrain subsystem used by MCP.
-//
-//	subsystem := brain.New(nil)
-//	core.Println(subsystem.Name())
+// subsystem := brain.New(nil)
+// core.Println(subsystem.Name())
 func New(bridge *ide.Bridge) *Subsystem {
 	return &Subsystem{bridge: bridge}
 }
 
-//	name := subsystem.Name() // "brain"
+// name := subsystem.Name() // "brain"
 func (s *Subsystem) Name() string { return "brain" }
 
-// RegisterTools publishes the bridge-backed brain tools on an MCP server.
-//
-//	subsystem := brain.New(nil)
-//	subsystem.RegisterTools(server)
+// subsystem := brain.New(nil)
+// subsystem.RegisterTools(server)
 func (s *Subsystem) RegisterTools(server *mcp.Server) {
 	s.registerBrainTools(server)
 }
 
-// Shutdown satisfies the MCP subsystem lifecycle without extra cleanup.
-//
-//	_ = subsystem.Shutdown(context.Background())
+// _ = subsystem.Shutdown(context.Background())
 func (s *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }

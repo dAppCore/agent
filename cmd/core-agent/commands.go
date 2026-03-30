@@ -14,10 +14,8 @@ type applicationCommandSet struct {
 	core *core.Core
 }
 
-// startupArgs applies early log flags, then returns args for c.Cli().Run().
-//
-//	args := startupArgs()
-//	_ = c.Cli().Run(args...)
+// args := startupArgs()
+// _ = c.Cli().Run(args...)
 func startupArgs() []string {
 	previous := flag.CommandLine
 	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)
@@ -48,10 +46,8 @@ func startupArgs() []string {
 	return applyLogLevel(commandLine.Args())
 }
 
-// applyLogLevel strips log-level flags from args and applies the level in-order.
-//
-//	args := applyLogLevel([]string{"version", "-q"})
-//	args := applyLogLevel([]string{"--debug", "mcp"})
+// args := applyLogLevel([]string{"version", "-q"})
+// args := applyLogLevel([]string{"--debug", "mcp"})
 func applyLogLevel(args []string) []string {
 	var cleaned []string
 	for _, arg := range args {

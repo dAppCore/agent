@@ -33,10 +33,8 @@ const (
 	statusServiceUnavailable  = 503
 )
 
-// NewProvider builds the HTTP provider around the IDE bridge and WS hub.
-//
-//	p := brain.NewProvider(bridge, hub)
-//	core.Println(p.BasePath())
+// p := brain.NewProvider(bridge, hub)
+// core.Println(p.BasePath())
 func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 	return &BrainProvider{
 		bridge: bridge,
@@ -47,15 +45,11 @@ func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 // name := p.Name() // "brain"
 func (p *BrainProvider) Name() string { return "brain" }
 
-// BasePath shows where the provider mounts its routes.
-//
-//	base := p.BasePath() // "/api/brain"
+// base := p.BasePath() // "/api/brain"
 func (p *BrainProvider) BasePath() string { return "/api/brain" }
 
-// Channels lists the WS events emitted after brain actions complete.
-//
-//	channels := p.Channels()
-//	core.Println(channels[0]) // "brain.remember.complete"
+// channels := p.Channels()
+// core.Println(channels[0]) // "brain.remember.complete"
 func (p *BrainProvider) Channels() []string {
 	return []string{
 		"brain.remember.complete",
@@ -64,10 +58,8 @@ func (p *BrainProvider) Channels() []string {
 	}
 }
 
-// Element describes the browser component that renders the brain panel.
-//
-//	spec := p.Element()
-//	core.Println(spec.Tag) // "core-brain-panel"
+// spec := p.Element()
+// core.Println(spec.Tag) // "core-brain-panel"
 func (p *BrainProvider) Element() provider.ElementSpec {
 	return provider.ElementSpec{
 		Tag:    "core-brain-panel",
@@ -75,9 +67,7 @@ func (p *BrainProvider) Element() provider.ElementSpec {
 	}
 }
 
-// RegisterRoutes mounts the provider handlers onto a router group.
-//
-//	p.RegisterRoutes(router.Group("/api/brain"))
+// p.RegisterRoutes(router.Group("/api/brain"))
 func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/remember", p.remember)
 	rg.POST("/recall", p.recall)
@@ -86,10 +76,8 @@ func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/status", p.status)
 }
 
-// Describe returns the route contract used by API discovery and docs.
-//
-//	routes := p.Describe()
-//	core.Println(routes[0].Path) // "/remember"
+// routes := p.Describe()
+// core.Println(routes[0].Path) // "/remember"
 func (p *BrainProvider) Describe() []api.RouteDescription {
 	return []api.RouteDescription{
 		{

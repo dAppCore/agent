@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package monitor keeps workspace state and inbox status visible to MCP clients.
-//
-//	service := monitor.New(monitor.Options{Interval: 30 * time.Second})
-//	service.RegisterTools(server)
+// service := monitor.New(monitor.Options{Interval: 30 * time.Second})
+// service.RegisterTools(server)
 package monitor
 
 import (

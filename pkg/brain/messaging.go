@@ -10,10 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// RegisterMessagingTools adds direct agent messaging tools to an MCP server.
-//
-//	subsystem := brain.NewDirect()
-//	subsystem.RegisterMessagingTools(server)
+// subsystem := brain.NewDirect()
+// subsystem.RegisterMessagingTools(server)
 func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agent_send",
@@ -33,34 +31,26 @@ func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
 
 // Input/Output types
 
-// SendInput is the payload for `agent_send`.
-//
-//	brain.SendInput{To: "charon", Subject: "status update", Content: "deploy complete"}
+// brain.SendInput{To: "charon", Subject: "status update", Content: "deploy complete"}
 type SendInput struct {
 	To      string `json:"to"`
 	Content string `json:"content"`
 	Subject string `json:"subject,omitempty"`
 }
 
-// SendOutput reports the stored direct message.
-//
-//	brain.SendOutput{Success: true, ID: 42, To: "charon"}
+// brain.SendOutput{Success: true, ID: 42, To: "charon"}
 type SendOutput struct {
 	Success bool   `json:"success"`
 	ID      int    `json:"id"`
 	To      string `json:"to"`
 }
 
-// InboxInput selects which inbox `agent_inbox` should read.
-//
-//	brain.InboxInput{Agent: "cladius"}
+// brain.InboxInput{Agent: "cladius"}
 type InboxInput struct {
 	Agent string `json:"agent,omitempty"`
 }
 
-// MessageItem is one inbox or conversation entry.
-//
-//	brain.MessageItem{ID: 7, From: "cladius", To: "charon", Content: "all green"}
+// brain.MessageItem{ID: 7, From: "cladius", To: "charon", Content: "all green"}
 type MessageItem struct {
 	ID        int    `json:"id"`
 	From      string `json:"from"`
@@ -71,24 +61,18 @@ type MessageItem struct {
 	CreatedAt string `json:"created_at"`
 }
 
-// InboxOutput returns the latest direct messages for one agent.
-//
-//	brain.InboxOutput{Success: true, Messages: []brain.MessageItem{{ID: 1, From: "charon", To: "cladius"}}}
+// brain.InboxOutput{Success: true, Messages: []brain.MessageItem{{ID: 1, From: "charon", To: "cladius"}}}
 type InboxOutput struct {
 	Success  bool          `json:"success"`
 	Messages []MessageItem `json:"messages"`
 }
 
-// ConversationInput selects the thread `agent_conversation` should load.
-//
-//	brain.ConversationInput{Agent: "charon"}
+// brain.ConversationInput{Agent: "charon"}
 type ConversationInput struct {
 	Agent string `json:"agent"`
 }
 
-// ConversationOutput returns a direct message thread with another agent.
-//
-//	brain.ConversationOutput{Success: true, Messages: []brain.MessageItem{{ID: 10, From: "cladius", To: "charon"}}}
+// brain.ConversationOutput{Success: true, Messages: []brain.MessageItem{{ID: 10, From: "cladius", To: "charon"}}}
 type ConversationOutput struct {
 	Success  bool          `json:"success"`
 	Messages []MessageItem `json:"messages"`

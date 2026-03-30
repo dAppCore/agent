@@ -4,10 +4,8 @@ package main
 
 import agentpkg "dappco.re/go/agent"
 
-// updateChannel maps the build version to the release channel.
-//
-//	agentpkg.Version = "0.15.0"
-//	updateChannel() // "stable"
+// agentpkg.Version = "0.15.0"
+// updateChannel() // "stable"
 func updateChannel() string {
 	switch {
 	case agentpkg.Version == "" || agentpkg.Version == "dev":

@@ -10,18 +10,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DispatchConfig controls agent dispatch behaviour.
-//
-//	config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
+// config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
 }
 
-// RateConfig controls pacing between task dispatches.
-//
-//	rate := agentic.RateConfig{ResetUTC: "06:00", SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
+// rate := agentic.RateConfig{ResetUTC: "06:00", SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
 type RateConfig struct {
 	ResetUTC       string `yaml:"reset_utc"`       // Daily quota reset time (UTC), e.g. "06:00"
 	DailyLimit     int    `yaml:"daily_limit"`     // Max requests per day (0 = unknown)
@@ -31,13 +27,12 @@ type RateConfig struct {
 	BurstDelay     int    `yaml:"burst_delay"`     // Delay during burst window
 }
 
-// ConcurrencyLimit supports both flat (int) and nested (map with total + per-model) formats.
+// claude: 1                       → Total=1, Models=nil
+// codex:                          → Total=2, Models={"gpt-5.4": 1, "gpt-5.3-codex-spark": 1}
 //
-//	claude: 1                       → Total=1, Models=nil
-//	codex:                          → Total=2, Models={"gpt-5.4": 1, "gpt-5.3-codex-spark": 1}
-//	  total: 2
-//	  gpt-5.4: 1
-//	  gpt-5.3-codex-spark: 1
+//	total: 2
+//	gpt-5.4: 1
+//	gpt-5.3-codex-spark: 1
 type ConcurrencyLimit struct {
 	Total  int
 	Models map[string]int
@@ -65,9 +60,7 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// AgentsConfig is the root of config/agents.yaml.
-//
-//	config := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
+// config := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
 	Version     int                         `yaml:"version"`
 	Dispatch    DispatchConfig              `yaml:"dispatch"`
@@ -235,9 +228,7 @@ func baseAgent(agent string) string {
 	return core.SplitN(agent, ":", 2)[0]
 }
 
-// canDispatchAgent checks both pool-level and per-model concurrency limits.
-//
-//	codex: {total: 2, models: {gpt-5.4: 1}} → max 2 codex total, max 1 gpt-5.4
+// codex: {total: 2, models: {gpt-5.4: 1}} → max 2 codex total, max 1 gpt-5.4
 func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {

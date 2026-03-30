@@ -13,10 +13,6 @@ import (
 
 // -- Input/Output types -------------------------------------------------------
 
-// RememberInput is the input for brain_remember.
-//
-// Usage example:
-//
 //	input := brain.RememberInput{
 //		Content: "Use core.Env for system paths.",
 //		Type:    "convention",
@@ -31,10 +27,6 @@ type RememberInput struct {
 	ExpiresIn  int      `json:"expires_in,omitempty"`
 }
 
-// RememberOutput is the output for brain_remember.
-//
-// Usage example:
-//
 //	output := brain.RememberOutput{
 //		Success:  true,
 //		MemoryID: "mem_123",
@@ -45,10 +37,6 @@ type RememberOutput struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// RecallInput is the input for brain_recall.
-//
-// Usage example:
-//
 //	input := brain.RecallInput{
 //		Query: "core.Env conventions",
 //		TopK:  5,
@@ -59,10 +47,6 @@ type RecallInput struct {
 	Filter RecallFilter `json:"filter,omitempty"`
 }
 
-// RecallFilter holds optional filter criteria for brain_recall.
-//
-// Usage example:
-//
 //	filter := brain.RecallFilter{
 //		Project: "agent",
 //		Type:    "convention",
@@ -74,10 +58,6 @@ type RecallFilter struct {
 	MinConfidence float64 `json:"min_confidence,omitempty"`
 }
 
-// RecallOutput is the output for brain_recall.
-//
-// Usage example:
-//
 //	output := brain.RecallOutput{
 //		Success: true,
 //		Count:   1,
@@ -88,10 +68,6 @@ type RecallOutput struct {
 	Memories []Memory `json:"memories"`
 }
 
-// Memory is a single memory entry returned by recall or list.
-//
-// Usage example:
-//
 //	memory := brain.Memory{
 //		ID:      "mem_123",
 //		Type:    "convention",
@@ -111,10 +87,6 @@ type Memory struct {
 	UpdatedAt    string   `json:"updated_at"`
 }
 
-// ForgetInput is the input for brain_forget.
-//
-// Usage example:
-//
 //	input := brain.ForgetInput{
 //		ID:     "mem_123",
 //		Reason: "superseded",
@@ -124,10 +96,6 @@ type ForgetInput struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// ForgetOutput is the output for brain_forget.
-//
-// Usage example:
-//
 //	output := brain.ForgetOutput{
 //		Success:   true,
 //		Forgotten: "mem_123",
@@ -138,10 +106,6 @@ type ForgetOutput struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// ListInput is the input for brain_list.
-//
-// Usage example:
-//
 //	input := brain.ListInput{
 //		Project: "agent",
 //		Limit:   20,
@@ -153,10 +117,6 @@ type ListInput struct {
 	Limit   int    `json:"limit,omitempty"`
 }
 
-// ListOutput is the output for brain_list.
-//
-// Usage example:
-//
 //	output := brain.ListOutput{
 //		Success: true,
 //		Count:   2,
