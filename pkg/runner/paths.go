@@ -67,7 +67,7 @@ func CoreRoot() string {
 // ReadStatusResult reads status.json as core.Result.
 //
 //	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
-//	if result.OK { st := result.Value.(*WorkspaceStatus) }
+//	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
 func ReadStatusResult(wsDir string) core.Result {
 	result := agentic.ReadStatusResult(wsDir)
 	if !result.OK {
@@ -78,15 +78,15 @@ func ReadStatusResult(wsDir string) core.Result {
 		return core.Result{Value: core.E("runner.ReadStatusResult", "failed to read status", err), OK: false}
 	}
 
-	status, ok := result.Value.(*agentic.WorkspaceStatus)
-	if !ok || status == nil {
+	agenticStatus, ok := result.Value.(*agentic.WorkspaceStatus)
+	if !ok || agenticStatus == nil {
 		return core.Result{Value: core.E("runner.ReadStatusResult", "invalid status payload", nil), OK: false}
 	}
-	st := runnerWorkspaceStatusFromAgentic(status)
-	if st == nil {
+	workspaceStatus := runnerWorkspaceStatusFromAgentic(agenticStatus)
+	if workspaceStatus == nil {
 		return core.Result{Value: core.E("runner.ReadStatusResult", "invalid status payload", nil), OK: false}
 	}
-	return core.Result{Value: st, OK: true}
+	return core.Result{Value: workspaceStatus, OK: true}
 }
 
 // WriteStatus writes `status.json` for one workspace directory.

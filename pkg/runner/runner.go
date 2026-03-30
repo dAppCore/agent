@@ -68,8 +68,8 @@ func Register(c *core.Core) core.Result {
 	c.Config().Set("agents.dispatch", config.Dispatch)
 	c.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
 	codexTotal := 0
-	if cl, ok := config.Concurrency["codex"]; ok {
-		codexTotal = cl.Total
+	if limit, ok := config.Concurrency["codex"]; ok {
+		codexTotal = limit.Total
 	}
 	c.Config().Set("agents.codex_limit_debug", codexTotal)
 
@@ -119,8 +119,8 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 
 // HandleIPCEvents applies runner side-effects for IPC messages.
 //
-//	svc.HandleIPCEvents(c, messages.PokeQueue{})
-//	svc.HandleIPCEvents(c, messages.AgentCompleted{
+//	service.HandleIPCEvents(c, messages.PokeQueue{})
+//	service.HandleIPCEvents(c, messages.AgentCompleted{
 //		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed",
 //	})
 func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {

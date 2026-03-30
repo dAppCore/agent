@@ -9,8 +9,8 @@ import (
 
 // Options controls one setup run.
 //
-//	r := svc.Run(setup.Options{Path: ".", Template: "auto", Force: true})
-//	if !r.OK { core.Print(nil, "%v", r.Value) }
+//	result := service.Run(setup.Options{Path: ".", Template: "auto", Force: true})
+//	if !result.OK { core.Print(nil, "%v", result.Value) }
 type Options struct {
 	Path     string // Target directory (default: cwd)
 	DryRun   bool   // Preview only, don't write
@@ -20,8 +20,8 @@ type Options struct {
 
 // Run generates `.core/` files and optional workspace scaffolding for a repo.
 //
-//	r := svc.Run(setup.Options{Path: ".", Template: "auto"})
-//	core.Println(r.OK)
+//	result := service.Run(setup.Options{Path: ".", Template: "auto"})
+//	core.Println(result.OK)
 func (s *Service) Run(opts Options) core.Result {
 	if opts.Path == "" {
 		opts.Path = core.Env("DIR_CWD")

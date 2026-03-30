@@ -26,8 +26,8 @@ import (
 
 // WorkspaceStatus represents the current state of an agent workspace.
 //
-//	r := ReadStatusResult(wsDir)
-//	if r.OK && r.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(wsDir) }
+//	result := ReadStatusResult(wsDir)
+//	if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`               // running, completed, blocked, failed
 	Agent     string    `json:"agent"`                // gemini, claude, codex
@@ -70,8 +70,8 @@ func writeStatus(wsDir string, status *WorkspaceStatus) error {
 
 // writeStatusResult writes status.json and returns core.Result.
 //
-//	r := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
-//	if r.OK { return }
+//	result := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
+//	if result.OK { return }
 func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("writeStatus", "status is required", nil), OK: false}
@@ -92,8 +92,8 @@ func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
 
 // ReadStatusResult parses status.json and returns a WorkspaceStatus pointer.
 //
-//	r := ReadStatusResult("/path/to/workspace")
-//	if r.OK { st := r.Value.(*WorkspaceStatus) }
+//	result := ReadStatusResult("/path/to/workspace")
+//	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
 func ReadStatusResult(wsDir string) core.Result {
 	r := fs.Read(WorkspaceStatusPath(wsDir))
 	if !r.OK {
@@ -104,8 +104,8 @@ func ReadStatusResult(wsDir string) core.Result {
 		return core.Result{Value: core.E("ReadStatusResult", core.Concat("status not found for ", wsDir), err), OK: false}
 	}
 	var s WorkspaceStatus
-	if ur := core.JSONUnmarshalString(r.Value.(string), &s); !ur.OK {
-		err, _ := ur.Value.(error)
+	if parseResult := core.JSONUnmarshalString(r.Value.(string), &s); !parseResult.OK {
+		err, _ := parseResult.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("ReadStatusResult", "invalid status json", nil), OK: false}
 		}
@@ -116,14 +116,14 @@ func ReadStatusResult(wsDir string) core.Result {
 
 // workspaceStatusValue extracts a WorkspaceStatus from a Result.
 //
-//	r := ReadStatusResult("/path/to/workspace")
-//	st, ok := workspaceStatusValue(r)
+//	result := ReadStatusResult("/path/to/workspace")
+//	workspaceStatus, ok := workspaceStatusValue(result)
 func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
-	st, ok := result.Value.(*WorkspaceStatus)
-	if !ok || st == nil {
+	workspaceStatus, ok := result.Value.(*WorkspaceStatus)
+	if !ok || workspaceStatus == nil {
 		return nil, false
 	}
-	return st, true
+	return workspaceStatus, true
 }
 
 // --- agentic_status tool ---
@@ -181,7 +181,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		name := WorkspaceName(wsDir)
 
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			out.Total++
 			out.Failed++
@@ -189,26 +189,26 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		// If status is "running", check whether the managed process is still alive.
-		if st.Status == "running" && (st.ProcessID != "" || st.PID > 0) {
-			if !ProcessAlive(runtime, st.ProcessID, st.PID) {
+		if workspaceStatus.Status == "running" && (workspaceStatus.ProcessID != "" || workspaceStatus.PID > 0) {
+			if !ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 				blockedPath := workspaceBlockedPath(wsDir)
 				if r := fs.Read(blockedPath); r.OK {
-					st.Status = "blocked"
-					st.Question = core.Trim(r.Value.(string))
+					workspaceStatus.Status = "blocked"
+					workspaceStatus.Question = core.Trim(r.Value.(string))
 				} else {
 					if len(workspaceLogFiles(wsDir)) == 0 {
-						st.Status = "failed"
-						st.Question = "Agent process died (no output log)"
+						workspaceStatus.Status = "failed"
+						workspaceStatus.Question = "Agent process died (no output log)"
 					} else {
-						st.Status = "completed"
+						workspaceStatus.Status = "completed"
 					}
 				}
-				writeStatusResult(wsDir, st)
+				writeStatusResult(wsDir, workspaceStatus)
 			}
 		}
 
 		out.Total++
-		switch st.Status {
+		switch workspaceStatus.Status {
 		case "running":
 			out.Running++
 		case "queued":
@@ -220,9 +220,9 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		case "blocked":
 			out.Blocked = append(out.Blocked, BlockedInfo{
 				Name:     name,
-				Repo:     st.Repo,
-				Agent:    st.Agent,
-				Question: st.Question,
+				Repo:     workspaceStatus.Repo,
+				Agent:    workspaceStatus.Agent,
+				Question: workspaceStatus.Question,
 			})
 		}
 	}

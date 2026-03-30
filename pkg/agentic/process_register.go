@@ -33,15 +33,15 @@ func ProcessRegister(c *core.Core) core.Result {
 	if err != nil {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", err), OK: false}
 	}
-	svc, ok := instance.(*process.Service)
+	service, ok := instance.(*process.Service)
 	if !ok {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
 	}
-	if r := c.RegisterService("process", svc); !r.OK {
+	if r := c.RegisterService("process", service); !r.OK {
 		return r
 	}
 
-	handlers := &processActionHandlers{service: svc}
+	handlers := &processActionHandlers{service: service}
 	c.Action("process.run", handlers.handleRun)
 	c.Action("process.start", handlers.handleStart)
 	c.Action("process.kill", handlers.handleKill)

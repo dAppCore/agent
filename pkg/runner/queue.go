@@ -97,11 +97,11 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 		if !r.OK {
 			continue
 		}
-		var cfg AgentsConfig
-		if err := yaml.Unmarshal([]byte(r.Value.(string)), &cfg); err != nil {
+		var config AgentsConfig
+		if err := yaml.Unmarshal([]byte(r.Value.(string)), &config); err != nil {
 			continue
 		}
-		return &cfg
+		return &config
 	}
 	return &AgentsConfig{
 		Dispatch: DispatchConfig{
