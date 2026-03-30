@@ -103,9 +103,9 @@ func ExampleExtractWorkspace() {
 	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
-	err := ExtractWorkspace("default", dir, &WorkspaceData{
+	r := ExtractWorkspace("default", dir, &WorkspaceData{
 		Repo: "go-io", Task: "fix tests",
 	})
-	core.Println(err == nil)
+	core.Println(r.OK)
 	// Output: true
 }

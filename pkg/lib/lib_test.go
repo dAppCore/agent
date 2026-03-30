@@ -53,6 +53,30 @@ func corruptLibMountForTest(t *testing.T) {
 	})
 }
 
+func requireExtractWorkspaceOK(t *testing.T, result core.Result) string {
+	t.Helper()
+	if !result.OK {
+		t.Fatalf("ExtractWorkspace failed: %v", result.Value)
+	}
+	path, ok := result.Value.(string)
+	if !ok {
+		t.Fatalf("ExtractWorkspace returned %T, want string", result.Value)
+	}
+	return path
+}
+
+func requireExtractWorkspaceError(t *testing.T, result core.Result) error {
+	t.Helper()
+	if result.OK {
+		t.Fatalf("ExtractWorkspace unexpectedly succeeded: %#v", result.Value)
+	}
+	err, ok := result.Value.(error)
+	if !ok {
+		t.Fatalf("ExtractWorkspace returned %T, want error", result.Value)
+	}
+	return err
+}
+
 // --- Prompt ---
 
 func TestLib_Prompt_Good(t *testing.T) {
@@ -489,10 +513,7 @@ func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
 
-	err := ExtractWorkspace("default", dir, data)
-	if err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	for _, name := range []string{"CODEX.md", "CLAUDE.md", "PROMPT.md", "TODO.md", "CONTEXT.md", "go.work"} {
 		if !testFs.Exists(core.JoinPath(dir, name)) {
@@ -505,10 +526,7 @@ func TestLib_ExtractWorkspaceSubdirs_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
 
-	err := ExtractWorkspace("default", dir, data)
-	if err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	refDir := core.JoinPath(dir, ".core", "reference")
 	if !testFs.IsDir(refDir) {
@@ -535,10 +553,7 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "my-repo", Task: "fix the bug"}
 
-	err := ExtractWorkspace("default", dir, data)
-	if err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	r := testFs.Read(core.JoinPath(dir, "TODO.md"))
 	if !r.OK {
@@ -550,27 +565,18 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 }
 
 func TestLib_ExtractWorkspace_Bad(t *testing.T) {
-	err := ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"})
-	if err == nil {
-		t.Fatal("ExtractWorkspace should fail for an unknown template")
-	}
+	requireExtractWorkspaceError(t, ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"}))
 }
 
 func TestLib_ExtractWorkspace_Ugly(t *testing.T) {
-	err := ExtractWorkspace("default", t.TempDir(), nil)
-	if err == nil {
-		t.Fatal("ExtractWorkspace should fail when template data is nil")
-	}
+	requireExtractWorkspaceError(t, ExtractWorkspace("default", t.TempDir(), nil))
 }
 
 func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "align AX docs"}
 
-	err := ExtractWorkspace("default", dir, data)
-	if err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	r := testFs.Read(core.JoinPath(dir, "CODEX.md"))
 	if !r.OK {
@@ -624,9 +630,7 @@ func TestLib_ExtractWorkspace_Good_ReferenceHeaders(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "carry SPDX headers into workspace references"}
 
-	if err := ExtractWorkspace("default", dir, data); err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	refDir := core.JoinPath(dir, ".core", "reference")
 	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
@@ -643,9 +647,7 @@ func TestLib_ExtractWorkspace_Good_ReferenceUsageExamples(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "carry AX usage examples into workspace references"}
 
-	if err := ExtractWorkspace("default", dir, data); err != nil {
-		t.Fatalf("ExtractWorkspace failed: %v", err)
-	}
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	cases := map[string][]string{
 		core.JoinPath(dir, ".core", "reference", "array.go"): {

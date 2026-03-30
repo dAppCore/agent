@@ -18,7 +18,8 @@
 //	r := lib.Task("code/review")     // r.Value.(string)
 //	r := lib.Persona("secops/dev")   // r.Value.(string)
 //	r := lib.Flow("go")              // r.Value.(string)
-//	lib.ExtractWorkspace("default", "/tmp/ws", data)
+//	r := lib.ExtractWorkspace("default", "/tmp/ws", data)
+//	core.Println(r.OK)
 package lib
 
 import (
@@ -264,32 +265,51 @@ type WorkspaceData struct {
 // ExtractWorkspace creates an agent workspace from a template.
 // Template names: "default", "security", "review".
 //
-//	lib.ExtractWorkspace("default", "/tmp/ws", &lib.WorkspaceData{
+//	r := lib.ExtractWorkspace("default", "/tmp/ws", &lib.WorkspaceData{
 //	    Repo: "go-io", Task: "fix tests", Agent: "codex",
 //	})
-func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) error {
+//	core.Println(r.OK)
+func ExtractWorkspace(tmplName, targetDir string, data *WorkspaceData) core.Result {
 	if result := ensureMounted(); !result.OK {
 		if err, ok := result.Value.(error); ok {
-			return err
+			return core.Result{
+				Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), err),
+				OK:    false,
+			}
 		}
-		return core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), nil)
+		return core.Result{
+			Value: core.E("lib.ExtractWorkspace", core.Concat("mount workspace template ", tmplName), nil),
+			OK:    false,
+		}
 	}
 
 	r := workspaceFS.Sub(tmplName)
 	if !r.OK {
 		if err, ok := r.Value.(error); ok {
-			return err
+			return core.Result{
+				Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", tmplName), err),
+				OK:    false,
+			}
 		}
-		return core.E("ExtractWorkspace", core.Concat("template not found: ", tmplName), nil)
+		return core.Result{
+			Value: core.E("lib.ExtractWorkspace", core.Concat("template not found: ", tmplName), nil),
+			OK:    false,
+		}
 	}
 	result := core.Extract(r.Value.(*core.Embed).FS(), targetDir, data)
 	if !result.OK {
 		if err, ok := result.Value.(error); ok {
-			return err
+			return core.Result{
+				Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), err),
+				OK:    false,
+			}
 		}
-		return core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), nil)
+		return core.Result{
+			Value: core.E("lib.ExtractWorkspace", core.Concat("extract workspace template ", tmplName), nil),
+			OK:    false,
+		}
 	}
-	return nil
+	return core.Result{Value: targetDir, OK: true}
 }
 
 // WorkspaceFile reads a single file from a workspace template.

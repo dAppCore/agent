@@ -134,9 +134,15 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName 
 		return core.Result{Value: opts.Path, OK: true}
 	}
 
-	if err := lib.ExtractWorkspace(tmplName, opts.Path, data); err != nil {
+	if result := lib.ExtractWorkspace(tmplName, opts.Path, data); !result.OK {
+		if err, ok := result.Value.(error); ok {
+			return core.Result{
+				Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err),
+				OK:    false,
+			}
+		}
 		return core.Result{
-			Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err),
+			Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), nil),
 			OK:    false,
 		}
 	}

@@ -466,12 +466,17 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Extract default workspace template (go.work etc.)
-	lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
+	if result := lib.ExtractWorkspace("default", wsDir, &lib.WorkspaceData{
 		Repo:   input.Repo,
 		Branch: "",
 		Task:   input.Task,
 		Agent:  input.Agent,
-	})
+	}); !result.OK {
+		if err, ok := result.Value.(error); ok {
+			return nil, PrepOutput{}, core.E("prepWorkspace", "extract default workspace template", err)
+		}
+		return nil, PrepOutput{}, core.E("prepWorkspace", "extract default workspace template", nil)
+	}
 
 	if !resumed {
 		// Clone repo into repo/

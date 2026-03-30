@@ -224,8 +224,11 @@ func (s *PrepSubsystem) cmdExtract(opts core.Options) core.Result {
 	}
 
 	core.Print(nil, "extracting template %q to %s", tmpl, target)
-	if err := lib.ExtractWorkspace(tmpl, target, data); err != nil {
-		return core.Result{Value: err, OK: false}
+	if result := lib.ExtractWorkspace(tmpl, target, data); !result.OK {
+		if err, ok := result.Value.(error); ok {
+			return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", tmpl), err), OK: false}
+		}
+		return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", tmpl), nil), OK: false}
 	}
 
 	fsys := s.Core().Fs()
