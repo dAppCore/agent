@@ -16,7 +16,7 @@ import (
 
 func main() {
 	if err := runCoreAgent(); err != nil {
-		core.Error(err.Error())
+		core.Error("core-agent failed", "err", err)
 		syscall.Exit(1)
 	}
 }
