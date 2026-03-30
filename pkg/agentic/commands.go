@@ -47,7 +47,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, opts core.Options) core.Res
 
 	if repo == "" || task == "" {
 		core.Print(nil, "usage: core-agent run task --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.runTask", "repo and task are required", nil), OK: false}
 	}
 	if agent == "" {
 		agent = "codex"
@@ -72,8 +72,12 @@ func (s *PrepSubsystem) runTask(ctx context.Context, opts core.Options) core.Res
 	})
 
 	if !result.OK {
-		core.Print(nil, "FAILED: %v", result.Error)
-		return core.Result{Value: result.Error, OK: false}
+		failureErr := result.Err
+		if failureErr == nil {
+			failureErr = core.E("agentic.runTask", "dispatch failed", nil)
+		}
+		core.Print(nil, "FAILED: %v", failureErr)
+		return core.Result{Value: failureErr, OK: false}
 	}
 
 	core.Print(nil, "DONE: %s", result.Status)
@@ -98,7 +102,7 @@ func (s *PrepSubsystem) cmdPrep(opts core.Options) core.Result {
 	repo := opts.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent prep <repo> --issue=N|--pr=N|--branch=X --task=\"...\"")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdPrep", "repo is required", nil), OK: false}
 	}
 
 	input := PrepInput{
@@ -172,7 +176,7 @@ func (s *PrepSubsystem) cmdPrompt(opts core.Options) core.Result {
 	repo := opts.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent prompt <repo> --task=\"...\"")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdPrompt", "repo is required", nil), OK: false}
 	}
 
 	org := opts.String("org")

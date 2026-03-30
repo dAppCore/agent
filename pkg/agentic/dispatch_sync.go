@@ -23,10 +23,11 @@ type DispatchSyncInput struct {
 // DispatchSyncResult is the output of a synchronous task run.
 //
 //	if result.OK { core.Print(nil, "done: %s", result.Status) }
+//	if !result.OK { core.Print(nil, "%v", result.Err) }
 type DispatchSyncResult struct {
 	OK     bool
 	Status string
-	Error  string
+	Err    error
 	PRURL  string
 }
 
@@ -49,10 +50,10 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 
 	_, prepOut, err := s.prepWorkspace(prepCtx, nil, prepInput)
 	if err != nil {
-		return DispatchSyncResult{Error: err.Error()}
+		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep workspace failed", err)}
 	}
 	if !prepOut.Success {
-		return DispatchSyncResult{Error: "prep failed"}
+		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep failed", nil)}
 	}
 
 	wsDir := prepOut.WorkspaceDir
@@ -64,7 +65,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	// Spawn agent directly — no queue, no concurrency check
 	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, wsDir)
 	if err != nil {
-		return DispatchSyncResult{Error: err.Error()}
+		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}
 
 	core.Print(nil, "  pid:       %d", pid)
@@ -82,13 +83,13 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	for {
 		select {
 		case <-ctx.Done():
-			return DispatchSyncResult{Error: "cancelled"}
+			return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "cancelled", ctx.Err())}
 		case <-ticker.C:
 			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
 				// Process exited — read final status
 				st, err := ReadStatus(wsDir)
 				if err != nil {
-					return DispatchSyncResult{Error: "can't read final status"}
+					return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "can't read final status", err)}
 				}
 				return DispatchSyncResult{
 					OK:     st.Status == "completed",

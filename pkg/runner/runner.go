@@ -282,7 +282,7 @@ func (s *Service) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
 
 func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Result {
 	if s.frozen {
-		return core.Result{Value: "queue is frozen", OK: false}
+		return core.Result{Value: core.E("runner.actionDispatch", "queue is frozen", nil), OK: false}
 	}
 
 	agent := opts.String("agent")
@@ -296,7 +296,7 @@ func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Resu
 
 	can, reason := s.canDispatchAgent(agent)
 	if !can {
-		return core.Result{Value: core.Concat("queued — ", reason), OK: false}
+		return core.Result{Value: core.E("runner.actionDispatch", core.Concat("queue at capacity: ", reason), nil), OK: false}
 	}
 
 	// Reserve the slot immediately — before returning to agentic.

@@ -95,7 +95,7 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(opts core.Options) core.Result {
 	repo := opts.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdWorkspaceDispatch", "repo is required", nil), OK: false}
 	}
 
 	// Call dispatch directly — CLI is an explicit user action,

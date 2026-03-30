@@ -105,7 +105,7 @@ func (s *PrepSubsystem) cmdIssueGet(opts core.Options) core.Result {
 	org, repo, num := parseForgeArgs(opts)
 	if repo == "" || num == 0 {
 		core.Print(nil, "usage: core-agent issue get <repo> --number=N [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdIssueGet", "repo and number are required", nil), OK: false}
 	}
 	var issue issueView
 	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
@@ -128,7 +128,7 @@ func (s *PrepSubsystem) cmdIssueList(opts core.Options) core.Result {
 	org, repo, _ := parseForgeArgs(opts)
 	if repo == "" {
 		core.Print(nil, "usage: core-agent issue list <repo> [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdIssueList", "repo is required", nil), OK: false}
 	}
 	var issues []issueView
 	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
@@ -151,7 +151,7 @@ func (s *PrepSubsystem) cmdIssueComment(opts core.Options) core.Result {
 	body := opts.String("body")
 	if repo == "" || num == 0 || body == "" {
 		core.Print(nil, "usage: core-agent issue comment <repo> --number=N --body=\"text\" [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdIssueComment", "repo, number, and body are required", nil), OK: false}
 	}
 	comment, err := s.forge.Issues.CreateComment(ctx, org, repo, num, body)
 	if err != nil {
@@ -173,7 +173,7 @@ func (s *PrepSubsystem) cmdIssueCreate(opts core.Options) core.Result {
 	ref := opts.String("ref")
 	if repo == "" || title == "" {
 		core.Print(nil, "usage: core-agent issue create <repo> --title=\"...\" [--body=\"...\"] [--labels=\"agentic,bug\"] [--milestone=\"v0.2.0\"] [--assignee=virgil] [--ref=dev] [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdIssueCreate", "repo and title are required", nil), OK: false}
 	}
 
 	createOpts := &forge_types.CreateIssueOption{Title: title, Body: body, Ref: ref}
@@ -224,7 +224,7 @@ func (s *PrepSubsystem) cmdPRGet(opts core.Options) core.Result {
 	org, repo, num := parseForgeArgs(opts)
 	if repo == "" || num == 0 {
 		core.Print(nil, "usage: core-agent pr get <repo> --number=N [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdPRGet", "repo and number are required", nil), OK: false}
 	}
 	var pr pullRequestView
 	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
@@ -250,7 +250,7 @@ func (s *PrepSubsystem) cmdPRList(opts core.Options) core.Result {
 	org, repo, _ := parseForgeArgs(opts)
 	if repo == "" {
 		core.Print(nil, "usage: core-agent pr list <repo> [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdPRList", "repo is required", nil), OK: false}
 	}
 	var prs []pullRequestView
 	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
@@ -276,7 +276,7 @@ func (s *PrepSubsystem) cmdPRMerge(opts core.Options) core.Result {
 	}
 	if repo == "" || num == 0 {
 		core.Print(nil, "usage: core-agent pr merge <repo> --number=N [--method=merge|rebase|squash] [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdPRMerge", "repo and number are required", nil), OK: false}
 	}
 	if err := s.forge.Pulls.Merge(ctx, org, repo, num, method); err != nil {
 		core.Print(nil, "error: %v", err)
@@ -291,7 +291,7 @@ func (s *PrepSubsystem) cmdRepoGet(opts core.Options) core.Result {
 	org, repo, _ := parseForgeArgs(opts)
 	if repo == "" {
 		core.Print(nil, "usage: core-agent repo get <repo> [--org=core]")
-		return core.Result{OK: false}
+		return core.Result{Value: core.E("agentic.cmdRepoGet", "repo is required", nil), OK: false}
 	}
 	r, err := s.forge.Repos.Get(ctx, forge.Params{"owner": org, "repo": repo})
 	if err != nil {

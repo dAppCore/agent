@@ -167,7 +167,10 @@ func Task(slug string) core.Result {
 			return r
 		}
 	}
-	return core.Result{OK: false}
+	return core.Result{
+		Value: core.E("lib.Task", core.Concat("task not found: ", slug), nil),
+		OK:    false,
+	}
 }
 
 // Bundle holds a task's main content plus companion files.
