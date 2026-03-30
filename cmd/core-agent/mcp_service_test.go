@@ -15,7 +15,7 @@ import (
 )
 
 func TestMCP_RegisterMCPService_Good(t *testing.T) {
-	result := registerMCPService(core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"}))))
+	result := registerMCPService(core.New(core.WithOption("name", "core-agent")))
 
 	require.True(t, result.OK)
 	_, ok := result.Value.(*mcp.Service)
@@ -31,7 +31,7 @@ func TestMCP_RegisterMCPService_Bad(t *testing.T) {
 
 func TestMCP_RegisterMCPService_Ugly(t *testing.T) {
 	c := core.New(
-		core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})),
+		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(monitor.Register),

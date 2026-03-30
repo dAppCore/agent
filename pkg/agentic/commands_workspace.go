@@ -23,13 +23,13 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 	count := 0
 	for _, sf := range statusFiles {
 		workspaceDir := core.PathDir(sf)
-		wsName := WorkspaceName(workspaceDir)
+		workspaceName := WorkspaceName(workspaceDir)
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
 		}
-		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, wsName)
+		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, workspaceName)
 		count++
 	}
 	if count == 0 {
@@ -51,7 +51,7 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 
 	for _, sf := range statusFiles {
 		workspaceDir := core.PathDir(sf)
-		wsName := WorkspaceName(workspaceDir)
+		workspaceName := WorkspaceName(workspaceDir)
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
@@ -62,19 +62,19 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 		switch filter {
 		case "all":
 			if status == "completed" || status == "failed" || status == "blocked" || status == "merged" || status == "ready-for-review" {
-				toRemove = append(toRemove, wsName)
+				toRemove = append(toRemove, workspaceName)
 			}
 		case "completed":
 			if status == "completed" || status == "merged" || status == "ready-for-review" {
-				toRemove = append(toRemove, wsName)
+				toRemove = append(toRemove, workspaceName)
 			}
 		case "failed":
 			if status == "failed" {
-				toRemove = append(toRemove, wsName)
+				toRemove = append(toRemove, workspaceName)
 			}
 		case "blocked":
 			if status == "blocked" {
-				toRemove = append(toRemove, wsName)
+				toRemove = append(toRemove, workspaceName)
 			}
 		}
 	}

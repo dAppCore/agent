@@ -22,11 +22,11 @@ func Example_newCoreAgent() {
 	// true
 }
 
-func Example_appVersion() {
+func Example_applicationVersion() {
 	oldVersion := agentpkg.Version
 	agentpkg.Version = "0.15.0"
 	defer func() { agentpkg.Version = oldVersion }()
 
-	core.Println(appVersion())
+	core.Println(applicationVersion())
 	// Output: 0.15.0
 }

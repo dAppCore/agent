@@ -313,7 +313,7 @@ func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 
 // broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
-	wsName := WorkspaceName(workspaceDir)
+	workspaceName := WorkspaceName(workspaceDir)
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	repo := ""
@@ -322,16 +322,16 @@ func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 	}
 	if s.ServiceRuntime != nil {
 		s.Core().ACTION(messages.AgentStarted{
-			Agent: agent, Repo: repo, Workspace: wsName,
+			Agent: agent, Repo: repo, Workspace: workspaceName,
 		})
 	}
-	emitStartEvent(agent, wsName)
+	emitStartEvent(agent, workspaceName)
 }
 
 // broadcastComplete emits IPC + audit events for agent completion.
 func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus string) {
-	wsName := WorkspaceName(workspaceDir)
-	emitCompletionEvent(agent, wsName, finalStatus)
+	workspaceName := WorkspaceName(workspaceDir)
+	emitCompletionEvent(agent, workspaceName, finalStatus)
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
@@ -341,7 +341,7 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 		}
 		s.Core().ACTION(messages.AgentCompleted{
 			Agent: agent, Repo: repo,
-			Workspace: wsName, Status: finalStatus,
+			Workspace: workspaceName, Status: finalStatus,
 		})
 	}
 }

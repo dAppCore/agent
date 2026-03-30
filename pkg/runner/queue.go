@@ -251,8 +251,8 @@ func (s *Service) drainOne() bool {
 		// Ask agentic to spawn — runner owns the gate,
 		// agentic owns the actual process launch.
 		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
-		wsName := agentic.WorkspaceName(workspaceDir)
-		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", workspaceStatus.Agent)
+		workspaceName := agentic.WorkspaceName(workspaceDir)
+		core.Info("drainOne: found queued workspace", "workspace", workspaceName, "agent", workspaceStatus.Agent)
 
 		// Spawn directly — agentic is a Core service, use ServiceFor to get it
 		if s.ServiceRuntime == nil {
@@ -269,12 +269,12 @@ func (s *Service) drainOne() bool {
 		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 		spawnResult := agenticService.SpawnFromQueue(workspaceStatus.Agent, prompt, workspaceDir)
 		if !spawnResult.OK {
-			core.Error("drainOne: spawn failed", "workspace", wsName, "reason", core.Sprint(spawnResult.Value))
+			core.Error("drainOne: spawn failed", "workspace", workspaceName, "reason", core.Sprint(spawnResult.Value))
 			continue
 		}
 		pid, ok := spawnResult.Value.(int)
 		if !ok {
-			core.Error("drainOne: spawn returned non-int pid", "workspace", wsName)
+			core.Error("drainOne: spawn returned non-int pid", "workspace", workspaceName)
 			continue
 		}
 
@@ -283,11 +283,11 @@ func (s *Service) drainOne() bool {
 		workspaceStatus.PID = pid
 		workspaceStatus.Runs++
 		if writeResult := WriteStatus(workspaceDir, workspaceStatus); !writeResult.OK {
-			core.Error("drainOne: failed to write workspace status", "workspace", wsName, "reason", core.Sprint(writeResult.Value))
+			core.Error("drainOne: failed to write workspace status", "workspace", workspaceName, "reason", core.Sprint(writeResult.Value))
 			continue
 		}
-		s.TrackWorkspace(wsName, workspaceStatus)
-		core.Info("drainOne: spawned", "pid", pid, "workspace", wsName)
+		s.TrackWorkspace(workspaceName, workspaceStatus)
+		core.Info("drainOne: spawned", "pid", pid, "workspace", workspaceName)
 
 		return true
 	}

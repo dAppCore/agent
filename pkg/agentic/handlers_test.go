@@ -71,9 +71,9 @@ func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	root := WorkspaceRoot()
-	wsName := "core/test/task-2"
-	wsDir := core.JoinPath(root, wsName)
-	repoDir := core.JoinPath(wsDir, "repo")
+	workspaceName := "core/test/task-2"
+	workspaceDir := core.JoinPath(root, workspaceName)
+	repoDir := core.JoinPath(workspaceDir, "repo")
 	fs.EnsureDir(repoDir)
 
 	st := &WorkspaceStatus{
@@ -82,11 +82,11 @@ func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
 		Agent:  "codex",
 		Task:   "Review code",
 	}
-	writeStatus(wsDir, st)
+	writeStatus(workspaceDir, st)
 
 	// Should not panic — ingest handler runs but no findings file
 	c.ACTION(messages.AgentCompleted{
-		Workspace: wsName,
+		Workspace: workspaceName,
 		Repo:      "test",
 		Status:    "completed",
 	})

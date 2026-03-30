@@ -590,24 +590,24 @@ func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", root)
 
 	// Create the workspace directory structure
-	wsName := "core/go-io/task-5"
-	wsDir := core.JoinPath(root, "workspace", wsName)
-	require.True(t, fs.EnsureDir(wsDir).OK)
+	workspaceName := "core/go-io/task-5"
+	workspaceDir := core.JoinPath(root, "workspace", workspaceName)
+	require.True(t, fs.EnsureDir(workspaceDir).OK)
 
-	result := resolveWorkspace(wsName)
-	assert.Equal(t, wsDir, result)
+	result := resolveWorkspace(workspaceName)
+	assert.Equal(t, workspaceDir, result)
 }
 
 func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
-	wsName := "core/agent/pr-42"
-	wsDir := core.JoinPath(root, "workspace", wsName)
-	require.True(t, fs.EnsureDir(wsDir).OK)
+	workspaceName := "core/agent/pr-42"
+	workspaceDir := core.JoinPath(root, "workspace", workspaceName)
+	require.True(t, fs.EnsureDir(workspaceDir).OK)
 
-	result := resolveWorkspace(wsName)
-	assert.Equal(t, wsDir, result)
+	result := resolveWorkspace(workspaceName)
+	assert.Equal(t, workspaceDir, result)
 }
 
 func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {

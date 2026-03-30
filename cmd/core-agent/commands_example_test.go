@@ -6,9 +6,9 @@ import (
 	"dappco.re/go/core"
 )
 
-func Example_registerAppCommands() {
-	c := core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})))
-	registerAppCommands(c)
+func Example_registerApplicationCommands() {
+	c := core.New(core.WithOption("name", "core-agent"))
+	registerApplicationCommands(c)
 
 	core.Println(len(c.Commands()))
 	// Output: 3

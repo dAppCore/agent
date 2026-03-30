@@ -7,7 +7,7 @@ import (
 )
 
 func Example_registerMCPService() {
-	result := registerMCPService(core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"}))))
+	result := registerMCPService(core.New(core.WithOption("name", "core-agent")))
 
 	core.Println(result.OK)
 	// Output: true

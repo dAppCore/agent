@@ -333,27 +333,27 @@ func (m *Subsystem) checkCompletions() string {
 			continue
 		}
 
-		wsName := agentic.WorkspaceName(core.PathDir(entry))
+		workspaceName := agentic.WorkspaceName(core.PathDir(entry))
 
 		switch workspaceStatus.Status {
 		case "completed":
 			completed++
-			if !m.seenCompleted[wsName] {
-				m.seenCompleted[wsName] = true
+			if !m.seenCompleted[workspaceName] {
+				m.seenCompleted[workspaceName] = true
 				if seeded {
 					newlyCompleted = append(newlyCompleted, core.Sprintf("%s (%s)", workspaceStatus.Repo, workspaceStatus.Agent))
 				}
 			}
 		case "running":
 			running++
-			if !m.seenRunning[wsName] && seeded {
-				m.seenRunning[wsName] = true
+			if !m.seenRunning[workspaceName] && seeded {
+				m.seenRunning[workspaceName] = true
 			}
 		case "queued":
 			queued++
 		case "blocked", "failed":
-			if !m.seenCompleted[wsName] {
-				m.seenCompleted[wsName] = true
+			if !m.seenCompleted[workspaceName] {
+				m.seenCompleted[workspaceName] = true
 				if seeded {
 					newlyCompleted = append(newlyCompleted, core.Sprintf("%s (%s) [%s]", workspaceStatus.Repo, workspaceStatus.Agent, workspaceStatus.Status))
 				}

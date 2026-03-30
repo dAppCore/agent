@@ -413,15 +413,15 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Resolve workspace directory from identifier
-	wsDirResult := workspaceDirResult(input.Org, input.Repo, input)
-	if !wsDirResult.OK {
-		err, _ := wsDirResult.Value.(error)
+	workspaceResult := workspaceDirResult(input.Org, input.Repo, input)
+	if !workspaceResult.OK {
+		err, _ := workspaceResult.Value.(error)
 		if err == nil {
 			err = core.E("prepWorkspace", "workspace path not resolved", nil)
 		}
 		return nil, PrepOutput{}, err
 	}
-	workspaceDir, ok := wsDirResult.Value.(string)
+	workspaceDir, ok := workspaceResult.Value.(string)
 	if !ok || workspaceDir == "" {
 		return nil, PrepOutput{}, core.E("prepWorkspace", "invalid workspace path", nil)
 	}

@@ -47,15 +47,15 @@ func TestUpdate_UpdateChannelNumericSuffix_Ugly(t *testing.T) {
 	assert.Equal(t, "stable", updateChannel())
 }
 
-func TestUpdate_AppVersion_Good(t *testing.T) {
+func TestUpdate_ApplicationVersion_Good(t *testing.T) {
 	agentpkg.Version = "1.2.3"
 	t.Cleanup(func() {
 		agentpkg.Version = ""
 	})
-	assert.Equal(t, "1.2.3", appVersion())
+	assert.Equal(t, "1.2.3", applicationVersion())
 }
 
-func TestUpdate_AppVersion_Bad(t *testing.T) {
+func TestUpdate_ApplicationVersion_Bad(t *testing.T) {
 	agentpkg.Version = ""
-	assert.Equal(t, "dev", appVersion())
+	assert.Equal(t, "dev", applicationVersion())
 }

@@ -29,7 +29,7 @@ func main() {
 //	core.Println(c.App().Version) // "dev" or linked version
 func newCoreAgent() *core.Core {
 	coreApp := core.New(
-		core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})),
+		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(runner.Register),
@@ -37,22 +37,22 @@ func newCoreAgent() *core.Core {
 		core.WithService(brain.Register),
 		core.WithService(registerMCPService),
 	)
-	coreApp.App().Version = appVersion()
+	coreApp.App().Version = applicationVersion()
 
 	coreApp.Cli().SetBanner(func(_ *core.Cli) string {
 		return core.Concat("core-agent ", coreApp.App().Version, " — agentic orchestration for the Core ecosystem")
 	})
 
-	registerAppCommands(coreApp)
+	registerApplicationCommands(coreApp)
 
 	return coreApp
 }
 
-// appVersion resolves the build version injected at link time.
+// applicationVersion resolves the build version injected at link time.
 //
 //	agentpkg.Version = "0.15.0"
-//	appVersion() // "0.15.0"
-func appVersion() string {
+//	applicationVersion() // "0.15.0"
+func applicationVersion() string {
 	if agentpkg.Version != "" {
 		return agentpkg.Version
 	}

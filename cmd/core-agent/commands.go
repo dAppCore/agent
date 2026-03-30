@@ -10,7 +10,7 @@ import (
 	"dappco.re/go/core"
 )
 
-type appCommandSet struct {
+type applicationCommandSet struct {
 	core *core.Core
 }
 
@@ -67,14 +67,14 @@ func applyLogLevel(args []string) []string {
 	return cleaned
 }
 
-// registerAppCommands adds app-level CLI commands (version, check, env).
+// registerApplicationCommands adds application-level CLI commands (version, check, env).
 // These are not owned by any service — they're the binary's own commands.
 //
 //	core-agent version   — build info
 //	core-agent check     — health check
 //	core-agent env       — environment variables
-func registerAppCommands(c *core.Core) {
-	commands := appCommandSet{core: c}
+func registerApplicationCommands(c *core.Core) {
+	commands := applicationCommandSet{core: c}
 
 	c.Command("version", core.Command{
 		Description: "Print version and build info",
@@ -92,7 +92,7 @@ func registerAppCommands(c *core.Core) {
 	})
 }
 
-func (commands appCommandSet) version(_ core.Options) core.Result {
+func (commands applicationCommandSet) version(_ core.Options) core.Result {
 	core.Print(nil, "core-agent %s", commands.core.App().Version)
 	core.Print(nil, "  go:       %s", core.Env("GO"))
 	core.Print(nil, "  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
@@ -103,7 +103,7 @@ func (commands appCommandSet) version(_ core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (commands appCommandSet) check(_ core.Options) core.Result {
+func (commands applicationCommandSet) check(_ core.Options) core.Result {
 	fs := commands.core.Fs()
 	core.Print(nil, "core-agent %s health check", commands.core.App().Version)
 	core.Print(nil, "")
@@ -133,7 +133,7 @@ func (commands appCommandSet) check(_ core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (commands appCommandSet) env(_ core.Options) core.Result {
+func (commands applicationCommandSet) env(_ core.Options) core.Result {
 	keys := core.EnvKeys()
 	for _, key := range keys {
 		core.Print(nil, "  %-15s %s", key, core.Env(key))

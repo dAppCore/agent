@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// newTestCore creates a minimal Core with app commands registered.
+// newTestCore creates a minimal Core with application commands registered.
 func newTestCore(t *testing.T) *core.Core {
 	t.Helper()
-	c := core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})))
+	c := core.New(core.WithOption("name", "core-agent"))
 	c.App().Version = "test"
-	registerAppCommands(c)
+	registerApplicationCommands(c)
 	c.Cli().SetOutput(&bytes.Buffer{})
 	return c
 }
@@ -107,7 +107,7 @@ func TestCommands_StartupArgs_Ugly(t *testing.T) {
 	assert.Equal(t, []string{"version"}, args)
 }
 
-func TestCommands_RegisterAppCommands_Good(t *testing.T) {
+func TestCommands_RegisterApplicationCommands_Good(t *testing.T) {
 	c := newTestCore(t)
 	cmds := c.Commands()
 	assert.Contains(t, cmds, "version")
