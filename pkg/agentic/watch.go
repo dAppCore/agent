@@ -190,7 +190,8 @@ func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest,
 	}, nil
 }
 
-// findActiveWorkspaces returns workspace names that are running or queued.
+// active := s.findActiveWorkspaces()
+// if len(active) == 0 { return nil }
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	var active []string
 	for _, entry := range WorkspaceStatusPaths() {

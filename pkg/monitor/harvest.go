@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Harvest completed agent workspaces — push changes back to source repos.
+// result := m.harvestWorkspace("/srv/.core/workspace/core/go-io/task-5")
+// if result != nil && result.rejected == "" { /* ready-for-review */ }
 //
-// After an agent completes, its commits live in the workspace clone.
-// This code pushes the agent's branch to the source repo so the
-// changes are available for review. It checks for binaries and
-// large files before pushing.
+// Completed workspaces are scanned, validated, and marked ready for review.
+// The code does not auto-push; review remains an explicit action.
 
 package monitor
 
@@ -26,8 +25,8 @@ type harvestResult struct {
 	rejected string // non-empty if rejected (binary, too large, etc.)
 }
 
-// harvestCompleted scans for completed workspaces and pushes their
-// branches back to the source repos. Returns a summary message.
+// summary := m.harvestCompleted()
+// if summary != "" { core.Print(nil, summary) }
 func (m *Subsystem) harvestCompleted() string {
 	var harvested []harvestResult
 
@@ -60,7 +59,8 @@ func (m *Subsystem) harvestCompleted() string {
 	return core.Concat("Harvested: ", core.Join(", ", parts...))
 }
 
-// harvestWorkspace checks a single workspace and pushes if ready.
+// result := m.harvestWorkspace("/srv/.core/workspace/core/go-io/task-5")
+// if result != nil && result.rejected == "" { /* ready-for-review */ }
 func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))
 	if !statusResult.OK {
@@ -90,7 +90,7 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 		return nil
 	}
 
-	// Check if there are commits to push
+	// Check if there are commits ahead of the default branch
 	branch := workspaceStatus.Branch
 	if branch == "" {
 		branch = m.detectBranch(repoDir)
@@ -103,10 +103,10 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	// Check for unpushed commits
 	unpushed := m.countUnpushed(repoDir, branch)
 	if unpushed == 0 {
-		return nil // already pushed or no commits
+		return nil // already on origin or no commits
 	}
 
-	// Safety checks before pushing
+	// Safety checks before marking ready-for-review
 	if reason := m.checkSafety(repoDir); reason != "" {
 		updateStatus(workspaceDir, "rejected", reason)
 		return &harvestResult{repo: workspaceStatus.Repo, branch: branch, rejected: reason}
@@ -123,48 +123,48 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	return &harvestResult{repo: workspaceStatus.Repo, branch: branch, files: files}
 }
 
-// gitOutput runs a git command and returns trimmed stdout via Core Process.
-func (m *Subsystem) gitOutput(dir string, args ...string) string {
-	processResult := m.Core().Process().RunIn(context.Background(), dir, "git", args...)
+// output := m.gitOutput("/srv/.core/workspace/core/go-io/task-5/repo", "log", "--oneline")
+func (m *Subsystem) gitOutput(repoDir string, args ...string) string {
+	processResult := m.Core().Process().RunIn(context.Background(), repoDir, "git", args...)
 	if !processResult.OK {
 		return ""
 	}
 	return core.Trim(processResult.Value.(string))
 }
 
-// gitOK runs a git command and returns true if it exits 0.
-func (m *Subsystem) gitOK(dir string, args ...string) bool {
-	return m.Core().Process().RunIn(context.Background(), dir, "git", args...).OK
+// ok := m.gitOK("/srv/.core/workspace/core/go-io/task-5/repo", "rev-parse", "--verify", "main")
+func (m *Subsystem) gitOK(repoDir string, args ...string) bool {
+	return m.Core().Process().RunIn(context.Background(), repoDir, "git", args...).OK
 }
 
-// detectBranch returns the current branch name.
-func (m *Subsystem) detectBranch(srcDir string) string {
-	return m.gitOutput(srcDir, "rev-parse", "--abbrev-ref", "HEAD")
+// branch := m.detectBranch("/srv/.core/workspace/core/go-io/task-5/repo")
+func (m *Subsystem) detectBranch(repoDir string) string {
+	return m.gitOutput(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
-// defaultBranch detects the default branch of the repo (main, master, etc.).
-func (m *Subsystem) defaultBranch(srcDir string) string {
-	if ref := m.gitOutput(srcDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
+// base := m.defaultBranch("/srv/.core/workspace/core/go-io/task-5/repo")
+func (m *Subsystem) defaultBranch(repoDir string) string {
+	if ref := m.gitOutput(repoDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
 		if core.HasPrefix(ref, "origin/") {
 			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
 	for _, branch := range []string{"main", "master"} {
-		if m.gitOK(srcDir, "rev-parse", "--verify", branch) {
+		if m.gitOK(repoDir, "rev-parse", "--verify", branch) {
 			return branch
 		}
 	}
 	return "main"
 }
 
-// countUnpushed returns the number of commits ahead of origin's default branch.
-func (m *Subsystem) countUnpushed(srcDir, branch string) int {
-	base := m.defaultBranch(srcDir)
-	out := m.gitOutput(srcDir, "rev-list", "--count", core.Concat("origin/", base, "..", branch))
+// ahead := m.countUnpushed("/srv/.core/workspace/core/go-io/task-5/repo", "feature/ax-cleanup")
+func (m *Subsystem) countUnpushed(repoDir, branch string) int {
+	base := m.defaultBranch(repoDir)
+	out := m.gitOutput(repoDir, "rev-list", "--count", core.Concat("origin/", base, "..", branch))
 	if out == "" {
 		// Fallback
-		out2 := m.gitOutput(srcDir, "log", "--oneline", core.Concat(base, "..", branch))
+		out2 := m.gitOutput(repoDir, "log", "--oneline", core.Concat(base, "..", branch))
 		if out2 == "" {
 			return 0
 		}
@@ -181,10 +181,10 @@ func (m *Subsystem) countUnpushed(srcDir, branch string) int {
 	return count
 }
 
-// checkSafety rejects workspaces with binaries or oversized files.
-func (m *Subsystem) checkSafety(srcDir string) string {
-	base := m.defaultBranch(srcDir)
-	out := m.gitOutput(srcDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
+// reason := m.checkSafety("/srv/.core/workspace/core/go-io/task-5/repo")
+func (m *Subsystem) checkSafety(repoDir string) string {
+	base := m.defaultBranch(repoDir)
+	out := m.gitOutput(repoDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
 	if out == "" {
 		return "safety check failed: git diff error"
 	}
@@ -208,7 +208,7 @@ func (m *Subsystem) checkSafety(srcDir string) string {
 			return core.Sprintf("binary file added: %s", file)
 		}
 
-		fullPath := core.JoinPath(srcDir, file)
+		fullPath := core.JoinPath(repoDir, file)
 		if stat := fs.Stat(fullPath); stat.OK {
 			if info, ok := stat.Value.(interface{ Size() int64 }); ok && info.Size() > 1024*1024 {
 				return core.Sprintf("large file: %s (%d bytes)", file, info.Size())
@@ -219,10 +219,10 @@ func (m *Subsystem) checkSafety(srcDir string) string {
 	return ""
 }
 
-// countChangedFiles returns the number of files changed vs the default branch.
-func (m *Subsystem) countChangedFiles(srcDir string) int {
-	base := m.defaultBranch(srcDir)
-	out := m.gitOutput(srcDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
+// files := m.countChangedFiles("/srv/.core/workspace/core/go-io/task-5/repo")
+func (m *Subsystem) countChangedFiles(repoDir string) int {
+	base := m.defaultBranch(repoDir)
+	out := m.gitOutput(repoDir, "diff", "--name-only", core.Concat(base, "...HEAD"))
 	if out == "" {
 		return 0
 	}
@@ -233,9 +233,9 @@ func (m *Subsystem) countChangedFiles(srcDir string) int {
 	return len(lines)
 }
 
-// pushBranch pushes the agent's branch to origin.
-func (m *Subsystem) pushBranch(srcDir, branch string) error {
-	processResult := m.Core().Process().RunIn(context.Background(), srcDir, "git", "push", "origin", branch)
+// _ = m.pushBranch("/srv/.core/workspace/core/go-io/task-5/repo", "feature/ax-cleanup")
+func (m *Subsystem) pushBranch(repoDir, branch string) error {
+	processResult := m.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "origin", branch)
 	if !processResult.OK {
 		if err, ok := processResult.Value.(error); ok {
 			return core.E("harvest.pushBranch", "push failed", err)

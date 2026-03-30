@@ -57,7 +57,7 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 	}, s.dispatch)
 }
 
-// agentCommand returns the command and args for a given agent type.
+// command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
 // Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
 	commandResult := agentCommandResult(agent, prompt)
@@ -161,12 +161,8 @@ func agentCommandResult(agent, prompt string) core.Result {
 // Override via AGENT_DOCKER_IMAGE env var.
 const defaultDockerImage = "core-dev"
 
-// containerCommand wraps an agent command to run inside a Docker container.
-// All agents run containerised — no bare metal execution.
-// agentType is the base agent name (e.g. "local", "codex", "claude").
-//
-//	cmd, args := containerCommand("local", "codex", []string{"exec", "..."}, repoDir, metaDir)
-func containerCommand(agentType, command string, args []string, repoDir, metaDir string) (string, []string) {
+// command, args := containerCommand("local", "codex", []string{"exec", "--oss"}, "/srv/.core/workspace/core/go-io/task-5/repo", "/srv/.core/workspace/core/go-io/task-5/.meta")
+func containerCommand(command string, args []string, repoDir, metaDir string) (string, []string) {
 	image := core.Env("AGENT_DOCKER_IMAGE")
 	if image == "" {
 		image = defaultDockerImage
@@ -405,8 +401,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
 	// All agents run containerised
-	agentBase := core.SplitN(agent, ":", 2)[0]
-	command, args = containerCommand(agentBase, command, args, repoDir, metaDir)
+	command, args = containerCommand(command, args, repoDir, metaDir)
 
 	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
 	if !ok {
