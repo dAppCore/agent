@@ -405,8 +405,12 @@ func (s *Service) hydrateWorkspaces() {
 	}
 	for _, path := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		st, err := ReadStatus(wsDir)
-		if err != nil || st == nil {
+		result := ReadStatusResult(wsDir)
+		if !result.OK {
+			continue
+		}
+		st, ok := result.Value.(*WorkspaceStatus)
+		if !ok || st == nil {
 			continue
 		}
 		// Re-queue running agents on restart — process is dead, re-dispatch

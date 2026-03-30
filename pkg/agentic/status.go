@@ -92,6 +92,8 @@ func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
 
 // ReadStatus parses the status.json in a workspace directory.
 //
+// Deprecated: use ReadStatusResult.
+//
 //	st, err := agentic.ReadStatus("/path/to/workspace")
 func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
 	r := ReadStatusResult(wsDir)

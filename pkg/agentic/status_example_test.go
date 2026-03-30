@@ -24,26 +24,6 @@ func Example_writeStatus() {
 	// Output: true
 }
 
-func ExampleReadStatus() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
-	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
-
-	writeStatus(dir, &WorkspaceStatus{
-		Status: "completed",
-		Agent:  "claude",
-		Repo:   "go-io",
-	})
-
-	st, err := ReadStatus(dir)
-	core.Println(err == nil)
-	core.Println(st.Status)
-	core.Println(st.Agent)
-	// Output:
-	// true
-	// completed
-	// claude
-}
-
 func ExampleReadStatusResult() {
 	fsys := (&core.Fs{}).NewUnrestricted()
 	dir := fsys.TempDir("agentic-status-result")

@@ -221,8 +221,12 @@ func (s *Service) drainQueue() {
 func (s *Service) drainOne() bool {
 	for _, statusPath := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
-		st, err := ReadStatus(wsDir)
-		if err != nil || st.Status != "queued" {
+		result := ReadStatusResult(wsDir)
+		if !result.OK {
+			continue
+		}
+		st, ok := result.Value.(*WorkspaceStatus)
+		if !ok || st == nil || st.Status != "queued" {
 			continue
 		}
 
