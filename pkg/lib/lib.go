@@ -196,12 +196,12 @@ func TaskBundle(slug string) core.Result {
 	if !r.OK {
 		return core.Result{Value: b, OK: true}
 	}
-	nr := data.ListNames(core.Concat("task/", slug))
+	nr := data.ListNames(core.JoinPath("task", slug))
 	if nr.OK {
 		for _, name := range nr.Value.([]string) {
 			for _, ext := range []string{".md", ".yaml", ".yml", ".txt", ""} {
 				fullName := core.Concat(name, ext)
-				if fr := taskFS.ReadString(core.Concat(slug, "/", fullName)); fr.OK {
+				if fr := taskFS.ReadString(core.JoinPath(slug, fullName)); fr.OK {
 					b.Files[fullName] = fr.Value.(string)
 					break
 				}
@@ -358,7 +358,7 @@ func listNamesRecursive(mount, dir string) []string {
 		return nil
 	}
 
-	path := core.Concat(mount, "/", dir)
+	path := core.JoinPath(mount, dir)
 	nr := data.ListNames(path)
 	if !nr.OK {
 		return nil
@@ -368,10 +368,10 @@ func listNamesRecursive(mount, dir string) []string {
 	for _, name := range nr.Value.([]string) {
 		relPath := name
 		if dir != "." {
-			relPath = core.Concat(dir, "/", name)
+			relPath = core.JoinPath(dir, name)
 		}
 
-		subPath := core.Concat(mount, "/", relPath)
+		subPath := core.JoinPath(mount, relPath)
 
 		// Try as directory — recurse if it has contents
 		if sub := data.ListNames(subPath); sub.OK {
@@ -389,7 +389,7 @@ func listNames(mount string) []string {
 		return nil
 	}
 
-	r := data.ListNames(core.Concat(mount, "/."))
+	r := data.ListNames(core.JoinPath(mount, "."))
 	if !r.OK {
 		return nil
 	}
