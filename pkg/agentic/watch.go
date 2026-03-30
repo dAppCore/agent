@@ -86,8 +86,11 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 	progressCount := float64(0)
 	total := float64(len(targets))
 
-	// Get progress token from request
-	progressToken := req.Params.GetProgressToken()
+	// MCP tests and internal callers may not provide a full request envelope.
+	progressToken := any(nil)
+	if req != nil && req.Params != nil {
+		progressToken = req.Params.GetProgressToken()
+	}
 
 	// Poll until all complete or timeout
 	for len(remaining) > 0 {
@@ -127,7 +130,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 				delete(remaining, ws)
 				progressCount++
 
-				if progressToken != nil && req.Session != nil {
+				if req != nil && progressToken != nil && req.Session != nil {
 					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
@@ -148,7 +151,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 				delete(remaining, ws)
 				progressCount++
 
-				if progressToken != nil && req.Session != nil {
+				if req != nil && progressToken != nil && req.Session != nil {
 					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
@@ -168,7 +171,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 				delete(remaining, ws)
 				progressCount++
 
-				if progressToken != nil && req.Session != nil {
+				if req != nil && progressToken != nil && req.Session != nil {
 					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,

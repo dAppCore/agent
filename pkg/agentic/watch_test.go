@@ -3,12 +3,20 @@
 package agentic
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
+
+func writeWatchStatus(root, name string, status WorkspaceStatus) string {
+	wsDir := core.JoinPath(root, "workspace", name)
+	fs.EnsureDir(wsDir)
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(status))
+	return wsDir
+}
 
 // --- resolveWorkspaceDir ---
 
@@ -174,4 +182,89 @@ func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
 		// JoinPath handles traversal; result should be absolute
 		assert.True(t, core.PathIsAbs(dir))
 	})
+}
+
+// --- watch Good/Bad/Ugly ---
+
+func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
+			Status: "ready-for-review",
+			Repo:   "go-io",
+			Agent:  "codex",
+			PRURL:  "https://forge.lthn.ai/core/go-io/pulls/42",
+		})
+	}()
+
+	s := newPrepWithProcess()
+	_, out, err := s.watch(context.Background(), nil, WatchInput{
+		PollInterval: 1,
+		Timeout:      2,
+	})
+	assert.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Len(t, out.Completed, 1)
+	assert.Empty(t, out.Failed)
+	assert.Equal(t, "core/go-io/task-42", out.Completed[0].Workspace)
+	assert.Equal(t, "ready-for-review", out.Completed[0].Status)
+	assert.Equal(t, "https://forge.lthn.ai/core/go-io/pulls/42", out.Completed[0].PRURL)
+}
+
+func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	writeWatchStatus(root, "ws-running", WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	s := newPrepWithProcess()
+	_, out, err := s.watch(ctx, nil, WatchInput{
+		Workspaces:   []string{"ws-running"},
+		PollInterval: 1,
+		Timeout:      2,
+	})
+	assert.Error(t, err)
+	assert.False(t, out.Success)
+	assert.Empty(t, out.Completed)
+	assert.Empty(t, out.Failed)
+}
+
+func TestWatch_Watch_Ugly_TimeoutMarksRemainingFailed(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	writeWatchStatus(root, "ws-stuck", WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})
+
+	s := newPrepWithProcess()
+	_, out, err := s.watch(context.Background(), nil, WatchInput{
+		Workspaces:   []string{"ws-stuck"},
+		PollInterval: 1,
+		Timeout:      1,
+	})
+	assert.NoError(t, err)
+	assert.False(t, out.Success)
+	assert.Empty(t, out.Completed)
+	assert.Len(t, out.Failed, 1)
+	assert.Equal(t, "ws-stuck", out.Failed[0].Workspace)
+	assert.Equal(t, "timeout", out.Failed[0].Status)
 }
