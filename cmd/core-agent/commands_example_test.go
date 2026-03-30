@@ -13,3 +13,10 @@ func Example_registerAppCommands() {
 	core.Println(len(c.Commands()))
 	// Output: 3
 }
+
+func Example_applyLogLevel() {
+	args := applyLogLevel([]string{"--debug", "status"})
+
+	core.Println(args[0])
+	// Output: status
+}

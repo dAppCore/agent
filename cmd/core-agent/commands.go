@@ -3,11 +3,67 @@
 package main
 
 import (
+	"bytes"
+	"flag"
+
 	"dappco.re/go/core"
 )
 
 type appCommandSet struct {
 	core *core.Core
+}
+
+// startupArgs applies early log flags, then returns args for c.Cli().Run().
+//
+//	args := startupArgs()
+//	_ = c.Cli().Run(args...)
+func startupArgs() []string {
+	previous := flag.CommandLine
+	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)
+	commandLine.SetOutput(&bytes.Buffer{})
+	commandLine.BoolFunc("quiet", "", func(string) error {
+		core.SetLevel(core.LevelError)
+		return nil
+	})
+	commandLine.BoolFunc("q", "", func(string) error {
+		core.SetLevel(core.LevelError)
+		return nil
+	})
+	commandLine.BoolFunc("debug", "", func(string) error {
+		core.SetLevel(core.LevelDebug)
+		return nil
+	})
+	commandLine.BoolFunc("d", "", func(string) error {
+		core.SetLevel(core.LevelDebug)
+		return nil
+	})
+
+	flag.CommandLine = commandLine
+	defer func() {
+		flag.CommandLine = previous
+	}()
+
+	flag.Parse()
+	return applyLogLevel(commandLine.Args())
+}
+
+// applyLogLevel strips log-level flags from args and applies the level in-order.
+//
+//	args := applyLogLevel([]string{"version", "-q"})
+//	args := applyLogLevel([]string{"--debug", "mcp"})
+func applyLogLevel(args []string) []string {
+	var cleaned []string
+	for _, arg := range args {
+		switch arg {
+		case "--quiet", "-q":
+			core.SetLevel(core.LevelError)
+		case "--debug", "-d":
+			core.SetLevel(core.LevelDebug)
+		default:
+			cleaned = append(cleaned, arg)
+		}
+	}
+	return cleaned
 }
 
 // registerAppCommands adds app-level CLI commands (version, check, env).

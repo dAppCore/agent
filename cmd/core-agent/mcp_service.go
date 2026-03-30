@@ -10,7 +10,14 @@ import (
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
+// registerMCPService builds the MCP service from registered AX subsystems.
+//
+//	r := registerMCPService(c)
 func registerMCPService(c *core.Core) core.Result {
+	if c == nil {
+		return core.Result{Value: core.E("main.registerMCPService", "core is required", nil), OK: false}
+	}
+
 	var subsystems []mcp.Subsystem
 
 	if prep, ok := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic"); ok {

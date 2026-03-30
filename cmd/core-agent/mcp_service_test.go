@@ -22,7 +22,14 @@ func TestMCP_RegisterMCPService_Good(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestMCP_RegisterMCPService_Good_WithRegisteredSubsystems(t *testing.T) {
+func TestMCP_RegisterMCPService_Bad(t *testing.T) {
+	result := registerMCPService(nil)
+
+	require.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "main.registerMCPService: core is required")
+}
+
+func TestMCP_RegisterMCPService_Ugly(t *testing.T) {
 	c := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),

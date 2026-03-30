@@ -3,6 +3,8 @@
 package main
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	"dappco.re/go/core"
@@ -15,10 +17,63 @@ func newTestCore(t *testing.T) *core.Core {
 	c := core.New(core.WithOption("name", "core-agent"))
 	c.App().Version = "test"
 	registerAppCommands(c)
+	c.Cli().SetOutput(&bytes.Buffer{})
 	return c
 }
 
-// --- registerAppCommands ---
+func withArgs(t *testing.T, args ...string) {
+	t.Helper()
+	previous := os.Args
+	os.Args = append([]string(nil), args...)
+	t.Cleanup(func() {
+		os.Args = previous
+	})
+}
+
+func TestCommands_ApplyLogLevel_Good(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	args := applyLogLevel([]string{"--quiet", "version"})
+	assert.Equal(t, []string{"version"}, args)
+}
+
+func TestCommands_ApplyLogLevel_Bad(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	args := applyLogLevel([]string{"status"})
+	assert.Equal(t, []string{"status"}, args)
+}
+
+func TestCommands_ApplyLogLevel_Ugly(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	args := applyLogLevel([]string{"version", "-q"})
+	assert.Equal(t, []string{"version"}, args)
+}
+
+func TestCommands_StartupArgs_Good(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	withArgs(t, "core-agent", "--debug", "check")
+	args := startupArgs()
+	assert.Equal(t, []string{"check"}, args)
+}
+
+func TestCommands_StartupArgs_Bad(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	withArgs(t, "core-agent", "status")
+	args := startupArgs()
+	assert.Equal(t, []string{"status"}, args)
+}
+
+func TestCommands_StartupArgs_Ugly(t *testing.T) {
+	defer core.SetLevel(core.LevelInfo)
+
+	withArgs(t, "core-agent", "version", "-q")
+	args := startupArgs()
+	assert.Equal(t, []string{"version"}, args)
+}
 
 func TestCommands_RegisterAppCommands_Good(t *testing.T) {
 	c := newTestCore(t)
@@ -28,17 +83,18 @@ func TestCommands_RegisterAppCommands_Good(t *testing.T) {
 	assert.Contains(t, cmds, "env")
 }
 
-// --- version command ---
-
 func TestCommands_Version_Good(t *testing.T) {
 	c := newTestCore(t)
 	version = "0.8.0"
+	t.Cleanup(func() {
+		version = ""
+	})
 
 	r := c.Cli().Run("version")
 	assert.True(t, r.OK)
 }
 
-func TestCommands_Version_Bad_DevVersion(t *testing.T) {
+func TestCommands_VersionDev_Bad(t *testing.T) {
 	c := newTestCore(t)
 	version = ""
 	c.App().Version = "dev"
@@ -47,16 +103,12 @@ func TestCommands_Version_Bad_DevVersion(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-// --- check command ---
-
 func TestCommands_Check_Good(t *testing.T) {
 	c := newTestCore(t)
 
 	r := c.Cli().Run("check")
 	assert.True(t, r.OK)
 }
-
-// --- env command ---
 
 func TestCommands_Env_Good(t *testing.T) {
 	c := newTestCore(t)
@@ -65,27 +117,23 @@ func TestCommands_Env_Good(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
-// --- CLI resolution ---
-
-func TestCommands_Cli_Bad_UnknownCommand(t *testing.T) {
+func TestCommands_CliUnknown_Bad(t *testing.T) {
 	c := newTestCore(t)
 	r := c.Cli().Run("nonexistent")
 	assert.False(t, r.OK)
 }
 
-func TestCommands_Cli_Good_Banner(t *testing.T) {
+func TestCommands_CliBanner_Good(t *testing.T) {
 	c := newTestCore(t)
 	c.Cli().SetBanner(func(_ *core.Cli) string {
 		return "core-agent test"
 	})
-	// No args — shows banner, returns empty Result
 	r := c.Cli().Run()
 	_ = r
 }
 
-func TestCommands_Cli_Ugly_EmptyArgs(t *testing.T) {
+func TestCommands_CliEmptyArgs_Ugly(t *testing.T) {
 	c := newTestCore(t)
-	// Explicit empty slice
 	r := c.Cli().Run()
 	_ = r
 }

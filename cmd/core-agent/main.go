@@ -3,6 +3,9 @@
 package main
 
 import (
+	"context"
+	"syscall"
+
 	"dappco.re/go/core"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -12,7 +15,10 @@ import (
 )
 
 func main() {
-	newCoreAgent().Run()
+	if err := runCoreAgent(); err != nil {
+		core.Error(err.Error())
+		syscall.Exit(1)
+	}
 }
 
 // newCoreAgent builds the Core app with services and CLI commands wired for startup.
@@ -50,4 +56,49 @@ func appVersion() string {
 		return version
 	}
 	return "dev"
+}
+
+// runCoreAgent builds the runtime and executes the CLI with startup flags applied.
+//
+//	err := runCoreAgent()
+func runCoreAgent() error {
+	return runApp(newCoreAgent(), startupArgs())
+}
+
+// runApp starts services, runs the CLI with explicit args, then shuts down.
+//
+//	err := runApp(c, []string{"version"})
+func runApp(c *core.Core, cliArgs []string) error {
+	if c == nil {
+		return core.E("main.runApp", "core is required", nil)
+	}
+
+	defer c.ServiceShutdown(context.Background())
+
+	result := c.ServiceStartup(c.Context(), nil)
+	if !result.OK {
+		return resultError("main.runApp", "startup failed", result)
+	}
+
+	if cli := c.Cli(); cli != nil {
+		result = cli.Run(cliArgs...)
+		if !result.OK {
+			return resultError("main.runApp", "cli failed", result)
+		}
+	}
+
+	return nil
+}
+
+// resultError extracts the error from a Result or wraps the failure in core.E().
+//
+//	err := resultError("main.runApp", "startup failed", result)
+func resultError(op, msg string, result core.Result) error {
+	if result.OK {
+		return nil
+	}
+	if err, ok := result.Value.(error); ok && err != nil {
+		return err
+	}
+	return core.E(op, msg, nil)
 }

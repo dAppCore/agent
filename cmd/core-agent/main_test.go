@@ -21,7 +21,7 @@ func withVersion(t *testing.T, value string) {
 	t.Cleanup(func() { version = oldVersion })
 }
 
-func TestMain_NewCoreAgent_Good_RegistersRuntime(t *testing.T) {
+func TestMain_NewCoreAgent_Good(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
@@ -51,7 +51,7 @@ func TestMain_NewCoreAgent_Good_RegistersRuntime(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestMain_NewCoreAgent_Good_BannerUsesVersion(t *testing.T) {
+func TestMain_NewCoreAgentBanner_Good(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
@@ -59,7 +59,22 @@ func TestMain_NewCoreAgent_Good_BannerUsesVersion(t *testing.T) {
 	assert.Equal(t, "core-agent 0.15.0 — agentic orchestration for the Core ecosystem", c.Cli().Banner())
 }
 
-func TestMain_NewCoreAgent_Ugly_DevVersionFallback(t *testing.T) {
+func TestMain_RunApp_Good(t *testing.T) {
+	withVersion(t, "0.15.0")
+
+	assert.NoError(t, runApp(newTestCore(t), []string{"version"}))
+}
+
+func TestMain_RunApp_Bad(t *testing.T) {
+	assert.EqualError(t, runApp(nil, []string{"version"}), "main.runApp: core is required")
+}
+
+func TestMain_ResultError_Ugly(t *testing.T) {
+	err := resultError("main.runApp", "cli failed", core.Result{})
+	assert.EqualError(t, err, "main.runApp: cli failed")
+}
+
+func TestMain_NewCoreAgentFallback_Ugly(t *testing.T) {
 	withVersion(t, "")
 
 	c := newCoreAgent()
