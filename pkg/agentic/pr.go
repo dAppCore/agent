@@ -65,11 +65,15 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	if st.Branch == "" {
-		branch := s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
-		if branch == "" {
+		process := s.Core().Process()
+		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+		if !r.OK {
 			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", nil)
 		}
-		st.Branch = branch
+		st.Branch = core.Trim(r.Value.(string))
+		if st.Branch == "" {
+			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", nil)
+		}
 	}
 
 	org := st.Org
@@ -107,7 +111,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	// Push branch to Forge (origin is the local clone, not Forge)
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	r := s.gitCmd(ctx, repoDir, "push", forgeRemote, st.Branch)
+	r := s.Core().Process().RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch)
 	if !r.OK {
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", r.Value.(string)), nil)
 	}

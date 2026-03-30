@@ -21,7 +21,7 @@ core/go provides the primitives. core/agent composes them.
 cmd/core-agent/main.go       — entry point: core.New + Run
 pkg/agentic/                  — orchestration (dispatch, prep, verify, scan, commands)
 pkg/agentic/actions.go        — named Action handlers (ctx, Options) → Result
-pkg/agentic/proc.go           — process helpers via s.Core().Process()
+pkg/agentic/pid.go            — PID lifecycle helpers
 pkg/agentic/handlers.go       — IPC completion pipeline handlers
 pkg/agentic/status.go         — workspace status (WriteAtomic + JSONMarshalString)
 pkg/agentic/paths.go          — paths, fs (NewUnrestricted), helpers
@@ -145,23 +145,13 @@ All handlers use `c.ACTION(messages.X{})` — no ChannelNotifier, no callbacks.
 All commands via `s.Core().Process()`. Returns `core.Result` — Value is always a string.
 
 ```go
-func (s *PrepSubsystem) runCmd(ctx context.Context, dir, command string, args ...string) core.Result {
-    return s.Core().Process().RunIn(ctx, dir, command, args...)
+process := s.Core().Process()
+r := process.RunIn(ctx, dir, "git", "log", "--oneline", "-20")
+if r.OK {
+    output := core.Trim(r.Value.(string))
 }
 
-func (s *PrepSubsystem) runCmdOK(ctx context.Context, dir, command string, args ...string) bool {
-    return s.runCmd(ctx, dir, command, args...).OK
-}
-
-func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
-    return s.runCmd(ctx, dir, "git", args...)
-}
-
-func (s *PrepSubsystem) gitOutput(ctx context.Context, dir string, args ...string) string {
-    r := s.gitCmd(ctx, dir, args...)
-    if !r.OK { return "" }
-    return core.Trim(r.Value.(string))
-}
+r = process.RunWithEnv(ctx, dir, []string{"GOWORK=off"}, "go", "test", "./...")
 ```
 
 go-process is fully Result-native. `Start`, `Run`, `StartWithOptions`, `RunWithOptions` all return `core.Result`. Value is `*Process` for Start, `string` for Run. OK=true guarantees the type.
@@ -409,10 +399,9 @@ c.Drive().New(core.NewOptions(
 Every exported function MUST have a usage-example comment:
 
 ```go
-// gitCmd runs a git command in a directory.
+// Process runs a git command in a directory.
 //
-//   r := s.gitCmd(ctx, "/repo", "log", "--oneline")
-func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) core.Result {
+//   r := s.Core().Process().RunIn(ctx, "/repo", "git", "log", "--oneline")
 ```
 
 ---
@@ -435,6 +424,7 @@ func (s *PrepSubsystem) gitCmd(ctx context.Context, dir string, args ...string) 
 ## Changelog
 
 - 2026-03-30: transport helpers preserve request and read causes, brain direct API calls surface upstream bodies, and review queue retry parsing no longer uses `MustCompile`.
+- 2026-03-30: direct Core process calls replaced the `proc.go` wrapper layer; PID helpers now live in `pid.go` and the workspace template documents `c.Process()` directly.
 - 2026-03-30: main now logs startup failures with structured context, and the workspace contract reference restored usage-example comments for the Action lifecycle messages.
 - 2026-03-30: plan IDs now come from core.ID(), workspace prep validates org/repo names with core.ValidateName, and plan paths use core.SanitisePath.
 - 2026-03-29: cmd/core-agent no longer rewrites `os.Args` before startup. The binary-owned commands now use named handlers, keeping the entrypoint on Core CLI primitives instead of repo-local argument mutation.

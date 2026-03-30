@@ -24,7 +24,7 @@ After loading all three, you have the full domain model:
 
 After loading, you should be able to answer without looking at code:
 - What does `c.Action("agentic.dispatch").Run(ctx, opts)` do?
-- Why is `proc.go` being deleted?
+- How do direct `s.Core().Process()` calls replace the old process wrapper layer?
 - What replaces the ACTION cascade in `handlers.go`?
 - Which imports are disallowed and what replaces each one?
 - What does `c.Entitled("agentic.concurrency", 1)` check?
@@ -43,7 +43,7 @@ Priority order:
 5. Replace `core.ID()` (plan.go)
 6. Register capabilities as named Actions (OnStartup)
 7. Replace ACTION cascade with Task pipeline (handlers.go)
-8. Delete `proc.go` → `s.Core().Process()` (after go-process v0.8.0)
+8. Use `s.Core().Process()` directly in call sites. The old `proc.go` wrapper layer has been removed.
 9. AX-7 test rename + gap fill
 10. Example tests per source file
 

@@ -59,7 +59,7 @@ dispatch → prep workspace → spawn agent in Docker container
 - **UK English**: colour, organisation, centre, initialise
 - **Errors**: `core.E("pkg.Method", "message", err)` — NEVER `fmt.Errorf`
 - **File I/O**: Package-level `fs` (go-io Medium) — NEVER `os.ReadFile/WriteFile`
-- **Processes**: `proc.go` helpers (go-process) — NEVER `os/exec` directly
+- **Processes**: `s.Core().Process()` / go-process — NEVER `os/exec` directly
 - **Strings**: `core.Contains/Split/Trim/HasPrefix/Sprintf` — NEVER `strings.*`
 - **Returns**: `core.Result{Value, OK}` — NEVER `(value, error)` pairs
 - **Comments**: Usage examples showing HOW with real values, not descriptions
@@ -86,12 +86,14 @@ One test file per source file. No catch-all files. Names must sort cleanly.
 
 ## Process Execution
 
-All external commands go through `pkg/agentic/proc.go` → go-process:
+All external commands go through `s.Core().Process()` → go-process:
 
 ```go
-out, err := runCmd(ctx, dir, "git", "log", "--oneline")
-ok := gitCmdOK(ctx, dir, "fetch", "origin", "main")
-branch := gitOutput(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
+process := s.Core().Process()
+out := process.RunIn(ctx, dir, "git", "log", "--oneline")
+ok := process.RunIn(ctx, dir, "git", "fetch", "origin", "main").OK
+branchResult := process.RunIn(ctx, dir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+branch := core.Trim(branchResult.Value.(string))
 ```
 
 **NEVER import `os/exec`.** Zero source files do.

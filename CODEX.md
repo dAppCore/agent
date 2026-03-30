@@ -42,7 +42,7 @@ c.Run()
 - Use UK English in comments and docs.
 - Use `core.E("pkg.Method", "message", err)` for errors. Never use `fmt.Errorf` or `errors.New`.
 - Use Core filesystem helpers or package-level `fs`. Never use raw `os.ReadFile`, `os.WriteFile`, or `filepath.*`.
-- Route external commands through `pkg/agentic/proc.go` or `s.Core().Process()`. Never import `os/exec`.
+- Route external commands through `s.Core().Process()`. Never import `os/exec`.
 - Use Core string helpers such as `core.Contains`, `core.Trim`, and `core.Split` instead of `strings.*`.
 - Prefer `core.Result{Value: x, OK: true}` over `(value, error)` return pairs in Core-facing code.
 - Comments should show real usage examples, not restate the signature.

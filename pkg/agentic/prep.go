@@ -431,6 +431,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	// Source repo path — org and repo were validated by workspaceDirResult.
 	repoPath := core.JoinPath(s.codePath, input.Org, input.Repo)
+	process := s.Core().Process()
 
 	// Ensure meta directory exists
 	if r := fs.EnsureDir(metaDir); !r.OK {
@@ -445,17 +446,21 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		// Preserve the current branch on resume. Pull it only if it exists on
 		// origin; otherwise refresh the default branch refs without abandoning the
 		// workspace branch.
-		currentBranch := s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+		currentBranch := ""
+		if r.OK {
+			currentBranch = core.Trim(r.Value.(string))
+		}
 		defaultBranch := s.DefaultBranch(repoDir)
 		if currentBranch == "" || currentBranch == "HEAD" {
 			currentBranch = defaultBranch
 		}
 		if currentBranch != "" {
-			s.gitCmd(ctx, repoDir, "checkout", currentBranch)
-			if s.gitCmdOK(ctx, repoDir, "ls-remote", "--exit-code", "--heads", "origin", currentBranch) {
-				s.gitCmd(ctx, repoDir, "pull", "--ff-only", "origin", currentBranch)
+			process.RunIn(ctx, repoDir, "git", "checkout", currentBranch)
+			if process.RunIn(ctx, repoDir, "git", "ls-remote", "--exit-code", "--heads", "origin", currentBranch).OK {
+				process.RunIn(ctx, repoDir, "git", "pull", "--ff-only", "origin", currentBranch)
 			} else if defaultBranch != "" {
-				s.gitCmd(ctx, repoDir, "fetch", "origin", defaultBranch)
+				process.RunIn(ctx, repoDir, "git", "fetch", "origin", defaultBranch)
 			}
 		}
 	}
@@ -470,7 +475,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 	if !resumed {
 		// Clone repo into repo/
-		if r := s.gitCmd(ctx, ".", "clone", repoPath, repoDir); !r.OK {
+		if r := process.RunIn(ctx, ".", "git", "clone", repoPath, repoDir); !r.OK {
 			return nil, PrepOutput{}, core.E("prep", core.Concat("git clone failed for ", input.Repo), nil)
 		}
 
@@ -487,13 +492,16 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		branchName := core.Sprintf("agent/%s", taskSlug)
 
-		if r := s.gitCmd(ctx, repoDir, "checkout", "-b", branchName); !r.OK {
+		if r := process.RunIn(ctx, repoDir, "git", "checkout", "-b", branchName); !r.OK {
 			return nil, PrepOutput{}, core.E("prep.branch", core.Sprintf("failed to create branch %q", branchName), nil)
 		}
 		out.Branch = branchName
 	} else {
 		// Resume: read branch from existing checkout
-		out.Branch = s.gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+		if r.OK {
+			out.Branch = core.Trim(r.Value.(string))
+		}
 	}
 
 	// Overwrite CODEX.md with language-specific version if needed.
@@ -517,7 +525,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if !fs.IsDir(docsDir) {
 		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
 		if fs.IsDir(core.JoinPath(docsRepo, ".git")) {
-			s.gitCmd(ctx, ".", "clone", "--depth", "1", docsRepo, docsDir)
+			process.RunIn(ctx, ".", "git", "clone", "--depth", "1", docsRepo, docsDir)
 		}
 	}
 
@@ -789,7 +797,11 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 }
 
 func (s *PrepSubsystem) getGitLog(repoPath string) string {
-	return s.gitOutput(context.Background(), repoPath, "log", "--oneline", "-20")
+	r := s.Core().Process().RunIn(context.Background(), repoPath, "git", "log", "--oneline", "-20")
+	if !r.OK {
+		return ""
+	}
+	return core.Trim(r.Value.(string))
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {

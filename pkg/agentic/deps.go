@@ -24,12 +24,15 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, wsDir, repoDir, 
 	if !r.OK {
 		return // no go.mod — not a Go project
 	}
-
 	// Parse requires from go.mod
 	deps := parseCoreDeps(r.Value.(string))
 	if len(deps) == 0 {
 		return
 	}
+	if s.ServiceRuntime == nil {
+		return
+	}
+	process := s.Core().Process()
 
 	// Deduplicate (dappco.re and forge.lthn.ai may map to same repo)
 	dedupSeen := make(map[string]bool)
@@ -52,7 +55,7 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, wsDir, repoDir, 
 		}
 
 		repoURL := forgeSSHURL(org, dep.repo)
-		if result := s.gitCmd(ctx, wsDir, "clone", "--depth=1", repoURL, dep.dir); result.OK {
+		if result := process.RunIn(ctx, wsDir, "git", "clone", "--depth=1", repoURL, dep.dir); result.OK {
 			cloned = append(cloned, dep.dir)
 		}
 	}

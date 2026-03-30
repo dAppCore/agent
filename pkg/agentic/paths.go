@@ -156,14 +156,16 @@ func AgentName() string {
 //	base := s.DefaultBranch("./src")
 func (s *PrepSubsystem) DefaultBranch(repoDir string) string {
 	ctx := context.Background()
-	if ref := s.gitOutput(ctx, repoDir, "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); ref != "" {
+	process := s.Core().Process()
+	if r := process.RunIn(ctx, repoDir, "git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short"); r.OK {
+		ref := core.Trim(r.Value.(string))
 		if core.HasPrefix(ref, "origin/") {
 			return core.TrimPrefix(ref, "origin/")
 		}
 		return ref
 	}
 	for _, branch := range []string{"main", "master"} {
-		if s.gitCmdOK(ctx, repoDir, "rev-parse", "--verify", branch) {
+		if process.RunIn(ctx, repoDir, "git", "rev-parse", "--verify", branch).OK {
 			return branch
 		}
 	}

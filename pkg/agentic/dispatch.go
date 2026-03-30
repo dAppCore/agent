@@ -443,6 +443,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, wsDir string) (int, string, er
 func (s *PrepSubsystem) runQA(wsDir string) bool {
 	ctx := context.Background()
 	repoDir := WorkspaceRepoDir(wsDir)
+	process := s.Core().Process()
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
 		for _, args := range [][]string{
@@ -450,7 +451,7 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 			{"go", "vet", "./..."},
 			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
 		} {
-			if !s.runCmdOK(ctx, repoDir, args[0], args[1:]...) {
+			if !process.RunIn(ctx, repoDir, args[0], args[1:]...).OK {
 				core.Warn("QA failed", "cmd", core.Join(" ", args...))
 				return false
 			}
@@ -459,17 +460,17 @@ func (s *PrepSubsystem) runQA(wsDir string) bool {
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
-		if !s.runCmdOK(ctx, repoDir, "composer", "install", "--no-interaction") {
+		if !process.RunIn(ctx, repoDir, "composer", "install", "--no-interaction").OK {
 			return false
 		}
-		return s.runCmdOK(ctx, repoDir, "composer", "test")
+		return process.RunIn(ctx, repoDir, "composer", "test").OK
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
-		if !s.runCmdOK(ctx, repoDir, "npm", "install") {
+		if !process.RunIn(ctx, repoDir, "npm", "install").OK {
 			return false
 		}
-		return s.runCmdOK(ctx, repoDir, "npm", "test")
+		return process.RunIn(ctx, repoDir, "npm", "test").OK
 	}
 
 	return true

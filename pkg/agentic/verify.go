@@ -104,14 +104,15 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 // rebaseBranch rebases the current branch onto the default branch and force-pushes.
 func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	ctx := context.Background()
+	process := s.Core().Process()
 	base := s.DefaultBranch(repoDir)
 
-	if !s.gitCmdOK(ctx, repoDir, "fetch", "origin", base) {
+	if !process.RunIn(ctx, repoDir, "git", "fetch", "origin", base).OK {
 		return false
 	}
 
-	if !s.gitCmdOK(ctx, repoDir, "rebase", core.Concat("origin/", base)) {
-		s.gitCmdOK(ctx, repoDir, "rebase", "--abort")
+	if !process.RunIn(ctx, repoDir, "git", "rebase", core.Concat("origin/", base)).OK {
+		process.RunIn(ctx, repoDir, "git", "rebase", "--abort")
 		return false
 	}
 
@@ -125,7 +126,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 		repo = st.Repo
 	}
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
-	return s.gitCmdOK(ctx, repoDir, "push", "--force-with-lease", forgeRemote, branch)
+	return process.RunIn(ctx, repoDir, "git", "push", "--force-with-lease", forgeRemote, branch).OK
 }
 
 // flagForReview adds the "needs-review" label to the PR via Forge API.
@@ -217,7 +218,8 @@ func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 
 func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 	ctx := context.Background()
-	r := s.runCmdEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
+	process := s.Core().Process()
+	r := process.RunWithEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
 	out := resultText(r)
 	exitCode := 0
 	if !r.OK {
@@ -228,10 +230,11 @@ func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 
 func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 	ctx := context.Background()
-	r := s.runCmd(ctx, repoDir, "composer", "test", "--no-interaction")
+	process := s.Core().Process()
+	r := process.RunIn(ctx, repoDir, "composer", "test", "--no-interaction")
 	if !r.OK {
 		// Try pest as fallback
-		r2 := s.runCmd(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
+		r2 := process.RunIn(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
 		if !r2.OK {
 			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
@@ -254,7 +257,8 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 	}
 
 	ctx := context.Background()
-	r = s.runCmd(ctx, repoDir, "npm", "test")
+	process := s.Core().Process()
+	r = process.RunIn(ctx, repoDir, "npm", "test")
 	out := resultText(r)
 	exitCode := 0
 	if !r.OK {

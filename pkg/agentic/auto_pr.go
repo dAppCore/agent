@@ -19,11 +19,16 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	ctx := context.Background()
 	repoDir := WorkspaceRepoDir(wsDir)
+	process := s.Core().Process()
 
 	// PRs target dev — agents never merge directly to main
 	base := "dev"
 
-	out := s.gitOutput(ctx, repoDir, "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
+	r := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
+	if !r.OK {
+		return
+	}
+	out := core.Trim(r.Value.(string))
 	if out == "" {
 		return
 	}
@@ -37,7 +42,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	if !s.gitCmdOK(ctx, repoDir, "push", forgeRemote, st.Branch) {
+	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch).OK {
 		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = "PR push failed"
 			writeStatus(wsDir, st2)

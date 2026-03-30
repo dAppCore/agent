@@ -163,6 +163,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 // reviewRepo runs CodeRabbit on a single repo and takes action.
 func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer string, dryRun, localOnly bool) ReviewResult {
 	result := ReviewResult{Repo: repo}
+	process := s.Core().Process()
 
 	// Check saved rate limit
 	if rl := s.loadRateLimitState(); rl != nil && rl.Limited && time.Now().Before(rl.RetryAt) {
@@ -176,7 +177,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 		reviewer = "coderabbit"
 	}
 	command, args := s.buildReviewCommand(repoDir, reviewer)
-	r := s.runCmd(ctx, repoDir, command, args...)
+	r := process.RunIn(ctx, repoDir, command, args...)
 	output, _ := r.Value.(string)
 
 	// Parse rate limit (both reviewers use similar patterns)
@@ -250,14 +251,15 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 
 // pushAndMerge pushes to GitHub dev and merges the PR.
 func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
-	if r := s.gitCmd(ctx, repoDir, "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
+	process := s.Core().Process()
+	if r := process.RunIn(ctx, repoDir, "git", "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
 		return core.E("pushAndMerge", core.Concat("push failed: ", r.Value.(string)), nil)
 	}
 
 	// Mark PR ready if draft
-	s.runCmdOK(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
+	process.RunIn(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
 
-	if r := s.runCmd(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
+	if r := process.RunIn(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
 		return core.E("pushAndMerge", core.Concat("merge failed: ", r.Value.(string)), nil)
 	}
 

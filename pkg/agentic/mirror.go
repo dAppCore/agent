@@ -54,6 +54,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	if maxFiles <= 0 {
 		maxFiles = 50
 	}
+	process := s.Core().Process()
 
 	basePath := s.codePath
 	if basePath == "" {
@@ -83,7 +84,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		// Fetch github to get current state
-		s.gitCmdOK(ctx, repoDir, "fetch", "github")
+		process.RunIn(ctx, repoDir, "git", "fetch", "github")
 
 		// Check how far ahead local default branch is vs github
 		localBase := s.DefaultBranch(repoDir)
@@ -119,7 +120,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 		// Push local main to github dev (explicit main, not HEAD)
 		base := s.DefaultBranch(repoDir)
-		if r := s.gitCmd(ctx, repoDir, "push", "github", core.Concat(base, ":refs/heads/dev"), "--force"); !r.OK {
+		if r := process.RunIn(ctx, repoDir, "git", "push", "github", core.Concat(base, ":refs/heads/dev"), "--force"); !r.OK {
 			sync.Skipped = core.Sprintf("push failed: %s", r.Value)
 			synced = append(synced, sync)
 			continue
@@ -148,9 +149,10 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 // createGitHubPR creates a PR from dev → main using the gh CLI.
 func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
 	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
+	process := s.Core().Process()
 
 	// Check if there's already an open PR from dev
-	r := s.runCmd(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
+	r := process.RunIn(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
 	if r.OK {
 		out := r.Value.(string)
 		if core.Contains(out, "url") {
@@ -166,7 +168,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 
 	title := core.Sprintf("[sync] %s: %d commits, %d files", repo, commits, files)
 
-	r = s.runCmd(ctx, repoDir, "gh", "pr", "create",
+	r = process.RunIn(ctx, repoDir, "gh", "pr", "create",
 		"--repo", ghRepo, "--head", "dev", "--base", "main",
 		"--title", title, "--body", body)
 	if !r.OK {
@@ -183,23 +185,31 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 
 // ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
 func (s *PrepSubsystem) ensureDevBranch(repoDir string) {
-	s.gitCmdOK(context.Background(), repoDir, "push", "github", "HEAD:refs/heads/dev")
+	s.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "github", "HEAD:refs/heads/dev")
 }
 
 // hasRemote checks if a git remote exists.
 func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {
-	return s.gitCmdOK(context.Background(), repoDir, "remote", "get-url", name)
+	return s.Core().Process().RunIn(context.Background(), repoDir, "git", "remote", "get-url", name).OK
 }
 
 // commitsAhead returns how many commits HEAD is ahead of the ref.
 func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
-	out := s.gitOutput(context.Background(), repoDir, "rev-list", core.Concat(base, "..", head), "--count")
+	r := s.Core().Process().RunIn(context.Background(), repoDir, "git", "rev-list", core.Concat(base, "..", head), "--count")
+	if !r.OK {
+		return 0
+	}
+	out := core.Trim(r.Value.(string))
 	return parseInt(out)
 }
 
 // filesChanged returns the number of files changed between two refs.
 func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
-	out := s.gitOutput(context.Background(), repoDir, "diff", "--name-only", core.Concat(base, "..", head))
+	r := s.Core().Process().RunIn(context.Background(), repoDir, "git", "diff", "--name-only", core.Concat(base, "..", head))
+	if !r.OK {
+		return 0
+	}
+	out := core.Trim(r.Value.(string))
 	if out == "" {
 		return 0
 	}

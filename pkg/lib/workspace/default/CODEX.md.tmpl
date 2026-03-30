@@ -124,7 +124,7 @@ if run.OK {
 - Use UK English in comments and docs.
 - Use `core.E("pkg.Method", "message", err)` for errors. Never use `fmt.Errorf` or `errors.New`.
 - Use `c.Fs()` or a package-level `fs` helper for file I/O. Never use raw `os.ReadFile`, `os.WriteFile`, or `filepath.*`.
-- Route external commands through `c.Process()` or the repo's process helper layer. Never import `os/exec`.
+- Route external commands through `c.Process()`. Never import `os/exec`.
 - Use Core string and path helpers such as `core.Contains`, `core.Trim`, `core.Split`, `core.Concat`, and `core.JoinPath` instead of raw `strings.*` or path concatenation.
 - Prefer `core.Result{Value: x, OK: true}` over `(value, error)` pairs in Core-facing code.
 - Comments should show HOW with real values, not restate the signature.
