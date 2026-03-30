@@ -9,13 +9,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// autoVerifyAndMerge runs inline tests (fast gate) and merges if they pass.
-// If tests fail or merge fails due to conflict, attempts one rebase+retry.
-// If the retry also fails, labels the PR "needs-review" for human attention.
-//
-// For deeper review (security, conventions), dispatch a separate task:
-//
-//	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
+// s.autoVerifyAndMerge("/srv/core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
@@ -34,7 +28,6 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 		return
 	}
 
-	// markMerged is a helper to avoid repeating the status update.
 	markMerged := func() {
 		if result := ReadStatusResult(workspaceDir); result.OK {
 			st2, ok := workspaceStatusValue(result)
@@ -46,14 +39,12 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 		}
 	}
 
-	// Attempt 1: run tests and try to merge
 	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, pullRequestNumber)
 	if mergeOutcome == mergeSuccess {
 		markMerged()
 		return
 	}
 
-	// Attempt 2: rebase onto main and retry
 	if mergeOutcome == mergeConflict || mergeOutcome == testFailed {
 		if s.rebaseBranch(repoDir, workspaceStatus.Branch) {
 			if s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, pullRequestNumber) == mergeSuccess {
@@ -63,7 +54,6 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 		}
 	}
 
-	// Both attempts failed — flag for human review
 	s.flagForReview(org, workspaceStatus.Repo, pullRequestNumber, mergeOutcome)
 
 	if result := ReadStatusResult(workspaceDir); result.OK {
@@ -84,7 +74,7 @@ const (
 	mergeConflict             // tests passed but merge failed (conflict)
 )
 
-// attemptVerifyAndMerge runs tests and tries to merge. Returns the outcome.
+// s.attemptVerifyAndMerge("/srv/core/workspace/core/go-io/task-5/repo", "core", "go-io", "feature/ax-cleanup", 42)
 func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string, pullRequestNumber int) mergeResult {
 	testResult := s.runVerification(repoDir)
 
@@ -95,7 +85,6 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 		return testFailed
 	}
 
-	// Tests passed — try merge
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -110,7 +99,7 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 	return mergeSuccess
 }
 
-// rebaseBranch rebases the current branch onto the default branch and force-pushes.
+// s.rebaseBranch("/srv/core/workspace/core/go-io/task-5/repo", "feature/ax-cleanup")
 func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	ctx := context.Background()
 	process := s.Core().Process()
@@ -139,22 +128,19 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	return process.RunIn(ctx, repoDir, "git", "push", "--force-with-lease", forgeRemote, branch).OK
 }
 
-// flagForReview adds the "needs-review" label to the PR via Forge API.
+// s.flagForReview("core", "go-io", 42, mergeConflict)
 func (s *PrepSubsystem) flagForReview(org, repo string, pullRequestNumber int, mergeOutcome mergeResult) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	// Ensure the label exists
 	s.ensureLabel(ctx, org, repo, "needs-review", "e11d48")
 
-	// Add label to PR
 	payload := core.JSONMarshalString(map[string]any{
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, pullRequestNumber)
 	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 
-	// Comment explaining the situation
 	reason := "Tests failed after rebase"
 	if mergeOutcome == mergeConflict {
 		reason = "Merge conflict persists after rebase"
@@ -163,7 +149,7 @@ func (s *PrepSubsystem) flagForReview(org, repo string, pullRequestNumber int, m
 	s.commentOnIssue(ctx, org, repo, pullRequestNumber, comment)
 }
 
-// ensureLabel creates a label if it doesn't exist.
+// s.ensureLabel(context.Background(), "core", "go-io", "needs-review", "e11d48")
 func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour string) {
 	payload := core.JSONMarshalString(map[string]string{
 		"name":  name,
@@ -173,7 +159,7 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
-// getLabelID fetches the ID of a label by name.
+// s.getLabelID(context.Background(), "core", "go-io", "needs-review")
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
 	getResult := HTTPGet(ctx, url, s.forgeToken, "token")
@@ -194,7 +180,6 @@ func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) 
 	return 0
 }
 
-// verifyResult holds the outcome of running tests.
 type verifyResult struct {
 	passed   bool
 	output   string
@@ -212,7 +197,7 @@ func resultText(result core.Result) string {
 	return ""
 }
 
-// runVerification detects the project type and runs the appropriate test suite.
+// s.runVerification("/srv/core/workspace/core/go-io/task-5/repo")
 func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 	if fileExists(core.JoinPath(repoDir, "go.mod")) {
 		return s.runGoTests(repoDir)
@@ -277,7 +262,7 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 	return verifyResult{passed: testResult.OK, output: out, exitCode: exitCode, testCmd: "npm test"}
 }
 
-// forgeMergePR merges a PR via the Forge API.
+// s.forgeMergePR(context.Background(), "core", "go-io", 42)
 func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, pullRequestNumber int) core.Result {
 	payload := core.JSONMarshalString(map[string]any{
 		"Do":                        "merge",
@@ -289,7 +274,7 @@ func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, pull
 	return HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
-// extractPullRequestNumber gets the PR number from a Forge PR URL.
+// extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42")
 func extractPullRequestNumber(pullRequestURL string) int {
 	parts := core.Split(pullRequestURL, "/")
 	if len(parts) == 0 {
@@ -298,7 +283,6 @@ func extractPullRequestNumber(pullRequestURL string) int {
 	return parseInt(parts[len(parts)-1])
 }
 
-// fileExists checks if a file exists.
 func fileExists(path string) bool {
 	return fs.IsFile(path)
 }

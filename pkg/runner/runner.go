@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package runner is the agent dispatch service.
-// Owns concurrency, queue drain, workspace lifecycle, and frozen state.
-// Communicates with other services via Core IPC — Actions, Tasks, and Messages.
+// Package runner owns agent dispatch and workspace lifecycle.
 //
-//	core.New(core.WithService(runner.Register))
+//	service := runner.New()
+//	service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 package runner
 
 import (
@@ -84,7 +83,6 @@ func Register(coreApp *core.Core) core.Result {
 func (s *Service) OnStartup(ctx context.Context) core.Result {
 	coreApp := s.Core()
 
-	// Actions — the runner's capability map
 	coreApp.Action("runner.dispatch", s.actionDispatch).Description = "Dispatch a subagent (checks frozen + concurrency)"
 	coreApp.Action("runner.status", s.actionStatus).Description = "Query workspace status"
 	coreApp.Action("runner.start", s.actionStart).Description = "Unfreeze dispatch queue"
@@ -92,13 +90,10 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 	coreApp.Action("runner.kill", s.actionKill).Description = "Kill all running agents (hard stop)"
 	coreApp.Action("runner.poke", s.actionPoke).Description = "Drain next queued task"
 
-	// Hydrate workspace registry from disk
 	s.hydrateWorkspaces()
 
-	// QUERY handler — workspace state queries
 	coreApp.RegisterQuery(s.handleWorkspaceQuery)
 
-	// Start the background queue runner
 	s.startRunner()
 
 	return core.Result{OK: true}
@@ -411,7 +406,6 @@ func (s *Service) hydrateWorkspaces() {
 		if !ok || workspaceStatus == nil {
 			continue
 		}
-		// Re-queue running agents on restart — process is dead, re-dispatch
 		if workspaceStatus.Status == "running" {
 			workspaceStatus.Status = "queued"
 		}

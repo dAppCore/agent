@@ -19,7 +19,6 @@ type BrainProvider struct {
 	hub    *ws.Hub
 }
 
-// compile-time interface checks
 var (
 	_ provider.Provider    = (*BrainProvider)(nil)
 	_ provider.Streamable  = (*BrainProvider)(nil)

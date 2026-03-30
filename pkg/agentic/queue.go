@@ -43,18 +43,14 @@ type ConcurrencyLimit struct {
 	Models map[string]int
 }
 
-// UnmarshalYAML handles both int and map forms for concurrency limits.
-//
-//	var limit ConcurrencyLimit
-//	_ = yaml.Unmarshal([]byte("total: 2\ngpt-5.4: 1\n"), &limit)
+// var limit ConcurrencyLimit
+// _ = yaml.Unmarshal([]byte("total: 2\ngpt-5.4: 1\n"), &limit)
 func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
-	// Try int first
 	var n int
 	if err := value.Decode(&n); err == nil {
 		c.Total = n
 		return nil
 	}
-	// Try map
 	var m map[string]int
 	if err := value.Decode(&m); err != nil {
 		return err
@@ -79,7 +75,7 @@ type AgentsConfig struct {
 	Rates       map[string]RateConfig       `yaml:"rates"`
 }
 
-// loadAgentsConfig reads config/agents.yaml from the code path.
+// config := s.loadAgentsConfig()
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
 		core.JoinPath(CoreRoot(), "agents.yaml"),
@@ -110,10 +106,8 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	}
 }
 
-// delayForAgent calculates how long to wait before spawning the next task
-// for a given agent type, based on rate config and time of day.
+// delay := s.delayForAgent("codex:gpt-5.4")
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
-	// Read from Core Config (loaded once at registration)
 	var rates map[string]RateConfig
 	if s.ServiceRuntime != nil {
 		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
@@ -128,7 +122,6 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 		return 0
 	}
 
-	// Parse reset time
 	resetHour, resetMin := 6, 0
 	parts := core.Split(rate.ResetUTC, ":")
 	if len(parts) >= 2 {
@@ -143,18 +136,15 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	now := time.Now().UTC()
 	resetToday := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMin, 0, 0, time.UTC)
 	if now.Before(resetToday) {
-		// Reset hasn't happened yet today — reset was yesterday
 		resetToday = resetToday.AddDate(0, 0, -1)
 	}
 	nextReset := resetToday.AddDate(0, 0, 1)
 	hoursUntilReset := nextReset.Sub(now).Hours()
 
-	// Burst mode: if within burst window of reset, use burst delay
 	if rate.BurstWindow > 0 && hoursUntilReset <= float64(rate.BurstWindow) {
 		return time.Duration(rate.BurstDelay) * time.Second
 	}
 
-	// Sustained mode
 	return time.Duration(rate.SustainedDelay) * time.Second
 }
 
@@ -181,8 +171,6 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	return s.countRunningByAgentDisk(runtime, agent)
 }
 
-// countRunningByAgentDisk scans workspace status.json files on disk.
-// Used only as fallback before Registry hydration completes.
 func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
@@ -224,8 +212,6 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	return s.countRunningByModelDisk(runtime, agent)
 }
 
-// countRunningByModelDisk scans workspace status.json files on disk.
-// Used only as fallback before Registry hydration completes.
 func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
@@ -244,7 +230,7 @@ func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string
 	return count
 }
 
-// baseAgent strips the model variant (gemini:flash → gemini).
+// base := baseAgent("gemini:flash") // "gemini"
 func baseAgent(agent string) string {
 	return core.SplitN(agent, ":", 2)[0]
 }
@@ -304,8 +290,7 @@ func modelVariant(agent string) string {
 	return parts[1]
 }
 
-// drainQueue fills all available concurrency slots from queued workspaces.
-// Serialised via c.Lock("drain") when Core is available, falls back to local mutex.
+// s.drainQueue()
 func (s *PrepSubsystem) drainQueue() {
 	if s.frozen {
 		return
@@ -323,8 +308,7 @@ func (s *PrepSubsystem) drainQueue() {
 	}
 }
 
-// drainOne finds the oldest queued workspace and spawns it if a slot is available.
-// Returns true if a task was spawned, false if nothing to do.
+// spawned := s.drainOne()
 func (s *PrepSubsystem) drainOne() bool {
 	for _, statusPath := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(statusPath)
