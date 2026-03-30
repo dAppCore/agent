@@ -3,13 +3,55 @@
 package lib
 
 import (
+	"embed"
 	"runtime"
+	"sync"
 	"testing"
 
 	core "dappco.re/go/core"
 )
 
 var testFs = (&core.Fs{}).NewUnrestricted()
+
+func breakLibMountForTest(t *testing.T) {
+	t.Helper()
+
+	originalPromptFiles := promptFiles
+	promptFiles = embed.FS{}
+	mountOnce = sync.Once{}
+	mountResult = core.Result{}
+	data = nil
+	promptFS = nil
+	taskFS = nil
+	flowFS = nil
+	personaFS = nil
+	workspaceFS = nil
+
+	t.Cleanup(func() {
+		promptFiles = originalPromptFiles
+		mountOnce = sync.Once{}
+		mountResult = core.Result{}
+		data = nil
+		promptFS = nil
+		taskFS = nil
+		flowFS = nil
+		personaFS = nil
+		workspaceFS = nil
+	})
+}
+
+func corruptLibMountForTest(t *testing.T) {
+	t.Helper()
+
+	MountData(core.New())
+	data = nil
+
+	t.Cleanup(func() {
+		mountOnce = sync.Once{}
+		mountResult = core.Result{}
+		data = nil
+	})
+}
 
 // --- Prompt ---
 
@@ -27,6 +69,13 @@ func TestLib_Prompt_Bad(t *testing.T) {
 	r := Prompt("nonexistent-slug")
 	if r.OK {
 		t.Error("Prompt('nonexistent-slug') should return !OK")
+	}
+}
+
+func TestLib_Prompt_Ugly(t *testing.T) {
+	r := Prompt("../coding")
+	if r.OK {
+		t.Error("Prompt('../coding') should return !OK")
 	}
 }
 
@@ -59,6 +108,13 @@ func TestLib_Task_Bad(t *testing.T) {
 	}
 }
 
+func TestLib_Task_Ugly(t *testing.T) {
+	r := Task("../bug-fix")
+	if r.OK {
+		t.Error("Task('../bug-fix') should return !OK")
+	}
+}
+
 // --- TaskBundle ---
 
 func TestLib_TaskBundle_Good(t *testing.T) {
@@ -82,6 +138,13 @@ func TestLib_TaskBundle_Bad(t *testing.T) {
 	}
 }
 
+func TestLib_TaskBundle_Ugly(t *testing.T) {
+	r := TaskBundle("../code/review")
+	if r.OK {
+		t.Error("TaskBundle('../code/review') should return !OK")
+	}
+}
+
 // --- Flow ---
 
 func TestLib_Flow_Good(t *testing.T) {
@@ -91,6 +154,20 @@ func TestLib_Flow_Good(t *testing.T) {
 	}
 	if r.Value.(string) == "" {
 		t.Error("Flow('go') returned empty string")
+	}
+}
+
+func TestLib_Flow_Bad(t *testing.T) {
+	r := Flow("nonexistent-flow")
+	if r.OK {
+		t.Error("Flow('nonexistent-flow') should return !OK")
+	}
+}
+
+func TestLib_Flow_Ugly(t *testing.T) {
+	r := Flow("../go")
+	if r.OK {
+		t.Error("Flow('../go') should return !OK")
 	}
 }
 
@@ -107,6 +184,20 @@ func TestLib_Persona_Good(t *testing.T) {
 	}
 	if r.Value.(string) == "" {
 		t.Errorf("Persona(%q) returned empty string", personas[0])
+	}
+}
+
+func TestLib_Persona_Bad(t *testing.T) {
+	r := Persona("nonexistent-persona")
+	if r.OK {
+		t.Error("Persona('nonexistent-persona') should return !OK")
+	}
+}
+
+func TestLib_Persona_Ugly(t *testing.T) {
+	r := Persona("../secops/developer")
+	if r.OK {
+		t.Error("Persona('../secops/developer') should return !OK")
 	}
 }
 
@@ -136,12 +227,111 @@ func TestLib_Template_Bad(t *testing.T) {
 	}
 }
 
+func TestLib_Template_Ugly(t *testing.T) {
+	r := Template("../coding")
+	if r.OK {
+		t.Error("Template('../coding') should return !OK")
+	}
+}
+
+// --- WorkspaceFile ---
+
+func TestLib_WorkspaceFile_Good(t *testing.T) {
+	r := WorkspaceFile("default", "CODEX.md.tmpl")
+	if !r.OK {
+		t.Fatal("WorkspaceFile('default', 'CODEX.md.tmpl') returned !OK")
+	}
+	if r.Value.(string) == "" {
+		t.Error("WorkspaceFile('default', 'CODEX.md.tmpl') returned empty string")
+	}
+}
+
+func TestLib_WorkspaceFile_Bad(t *testing.T) {
+	r := WorkspaceFile("missing-template", "CODEX.md.tmpl")
+	if r.OK {
+		t.Error("WorkspaceFile('missing-template', 'CODEX.md.tmpl') should return !OK")
+	}
+}
+
+func TestLib_WorkspaceFile_Ugly(t *testing.T) {
+	r := WorkspaceFile("default", "../CODEX.md.tmpl")
+	if r.OK {
+		t.Error("WorkspaceFile('default', '../CODEX.md.tmpl') should return !OK")
+	}
+}
+
+// --- MountData ---
+
+func TestLib_MountData_Good(t *testing.T) {
+	c := core.New()
+	MountData(c)
+
+	r := c.Data().ReadString("prompts/coding.md")
+	if !r.OK {
+		t.Fatal("MountData() did not register prompt data")
+	}
+}
+
+func TestLib_MountData_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	c := core.New()
+	MountData(c)
+
+	r := c.Data().ReadString("prompts/coding.md")
+	if r.OK {
+		t.Error("MountData() should not register prompt data when mounting fails")
+	}
+}
+
+func TestLib_MountData_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		MountData(nil)
+	}()
+	if !panicked {
+		t.Fatal("MountData(nil) should panic")
+	}
+}
+
 // --- List Functions ---
 
 func TestLib_ListPrompts_Good(t *testing.T) {
 	prompts := ListPrompts()
 	if len(prompts) == 0 {
 		t.Error("ListPrompts() returned empty")
+	}
+}
+
+func TestLib_ListPrompts_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	if prompts := ListPrompts(); prompts != nil {
+		t.Error("ListPrompts() should return nil when mounting fails")
+	}
+}
+
+func TestLib_ListPrompts_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = ListPrompts()
+	}()
+	if !panicked {
+		t.Fatal("ListPrompts() should panic when embedded state is corrupted")
 	}
 }
 
@@ -162,6 +352,31 @@ func TestLib_ListTasks_Good(t *testing.T) {
 	}
 }
 
+func TestLib_ListTasks_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	if tasks := ListTasks(); tasks != nil {
+		t.Error("ListTasks() should return nil when mounting fails")
+	}
+}
+
+func TestLib_ListTasks_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = ListTasks()
+	}()
+	if !panicked {
+		t.Fatal("ListTasks() should panic when embedded state is corrupted")
+	}
+}
+
 func TestLib_ListPersonas_Good(t *testing.T) {
 	personas := ListPersonas()
 	if len(personas) == 0 {
@@ -179,6 +394,31 @@ func TestLib_ListPersonas_Good(t *testing.T) {
 	}
 }
 
+func TestLib_ListPersonas_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	if personas := ListPersonas(); personas != nil {
+		t.Error("ListPersonas() should return nil when mounting fails")
+	}
+}
+
+func TestLib_ListPersonas_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = ListPersonas()
+	}()
+	if !panicked {
+		t.Fatal("ListPersonas() should panic when embedded state is corrupted")
+	}
+}
+
 func TestLib_ListFlows_Good(t *testing.T) {
 	flows := ListFlows()
 	if len(flows) == 0 {
@@ -186,10 +426,60 @@ func TestLib_ListFlows_Good(t *testing.T) {
 	}
 }
 
+func TestLib_ListFlows_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	if flows := ListFlows(); flows != nil {
+		t.Error("ListFlows() should return nil when mounting fails")
+	}
+}
+
+func TestLib_ListFlows_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = ListFlows()
+	}()
+	if !panicked {
+		t.Fatal("ListFlows() should panic when embedded state is corrupted")
+	}
+}
+
 func TestLib_ListWorkspaces_Good(t *testing.T) {
 	workspaces := ListWorkspaces()
 	if len(workspaces) == 0 {
 		t.Error("ListWorkspaces() returned empty")
+	}
+}
+
+func TestLib_ListWorkspaces_Bad(t *testing.T) {
+	breakLibMountForTest(t)
+
+	if workspaces := ListWorkspaces(); workspaces != nil {
+		t.Error("ListWorkspaces() should return nil when mounting fails")
+	}
+}
+
+func TestLib_ListWorkspaces_Ugly(t *testing.T) {
+	corruptLibMountForTest(t)
+
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		_ = ListWorkspaces()
+	}()
+	if !panicked {
+		t.Fatal("ListWorkspaces() should panic when embedded state is corrupted")
 	}
 }
 
@@ -263,6 +553,13 @@ func TestLib_ExtractWorkspace_Bad(t *testing.T) {
 	err := ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"})
 	if err == nil {
 		t.Fatal("ExtractWorkspace should fail for an unknown template")
+	}
+}
+
+func TestLib_ExtractWorkspace_Ugly(t *testing.T) {
+	err := ExtractWorkspace("default", t.TempDir(), nil)
+	if err == nil {
+		t.Fatal("ExtractWorkspace should fail when template data is nil")
 	}
 }
 

@@ -60,6 +60,12 @@ func ExampleTemplate() {
 	// Output: true
 }
 
+func ExampleWorkspaceFile() {
+	r := WorkspaceFile("default", "CODEX.md.tmpl")
+	core.Println(r.OK)
+	// Output: true
+}
+
 func ExampleMountData() {
 	c := core.New()
 	MountData(c)
