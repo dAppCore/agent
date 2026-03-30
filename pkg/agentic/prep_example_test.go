@@ -4,6 +4,12 @@ package agentic
 
 import core "dappco.re/go/core"
 
+func ExampleAgentOptions() {
+	opts := AgentOptions{}
+	core.Println(opts == AgentOptions{})
+	// Output: true
+}
+
 func ExamplePrepInput() {
 	input := PrepInput{Repo: "go-io", Issue: 42}
 	core.Println(input.Repo, input.Issue)

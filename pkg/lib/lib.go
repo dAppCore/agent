@@ -197,6 +197,10 @@ func Persona(path string) core.Result {
 // --- Workspace Templates ---
 
 // WorkspaceData is the data passed to workspace templates.
+//
+//	data := &lib.WorkspaceData{
+//		Repo: "go-io", Task: "fix tests", Agent: "codex", BuildCmd: "go build ./...",
+//	}
 type WorkspaceData struct {
 	Repo            string
 	Branch          string
@@ -287,7 +291,6 @@ func ListPersonas() []string {
 	a.Deduplicate()
 	return a.AsSlice()
 }
-
 
 // listNamesRecursive walks an embed tree via Data.ListNames.
 // Directories are recursed into. Files are added as slugs (extension stripped by ListNames).

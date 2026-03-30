@@ -19,6 +19,8 @@ import (
 )
 
 // AgentOptions configures the agentic service.
+//
+//	opts := agentic.AgentOptions{}
 type AgentOptions struct{}
 
 // PrepSubsystem provides agentic MCP tools for workspace orchestration.

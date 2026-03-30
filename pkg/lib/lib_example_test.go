@@ -82,6 +82,17 @@ func ExampleTaskBundle() {
 	// true
 }
 
+func ExampleWorkspaceData() {
+	data := &WorkspaceData{
+		Repo:     "go-io",
+		Task:     "fix tests",
+		Agent:    "codex",
+		BuildCmd: "go build ./...",
+	}
+	core.Println(data.Repo, data.Agent, data.BuildCmd)
+	// Output: go-io codex go build ./...
+}
+
 func ExampleExtractWorkspace() {
 	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
