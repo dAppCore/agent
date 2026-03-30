@@ -29,13 +29,13 @@ func main() {
 //	core.Println(c.App().Version) // "dev" or linked version
 func newCoreAgent() *core.Core {
 	c := core.New(
-		core.WithOption("name", "core-agent"),
+		core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(runner.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
-		core.WithName("mcp", registerMCPService),
+		core.WithService(registerMCPService),
 	)
 	c.App().Version = appVersion()
 

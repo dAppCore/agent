@@ -7,7 +7,7 @@ import (
 )
 
 func Example_registerAppCommands() {
-	c := core.New(core.WithOption("name", "core-agent"))
+	c := core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})))
 	registerAppCommands(c)
 
 	core.Println(len(c.Commands()))

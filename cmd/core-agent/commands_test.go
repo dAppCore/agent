@@ -15,7 +15,7 @@ import (
 // newTestCore creates a minimal Core with app commands registered.
 func newTestCore(t *testing.T) *core.Core {
 	t.Helper()
-	c := core.New(core.WithOption("name", "core-agent"))
+	c := core.New(core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})))
 	c.App().Version = "test"
 	registerAppCommands(c)
 	c.Cli().SetOutput(&bytes.Buffer{})
