@@ -423,6 +423,7 @@ Every exported function MUST have a usage-example comment:
 
 ## Changelog
 
+- 2026-03-30: `pkg/agentic/commands_workspace.go` now has a matching example companion, closing the last agentic source file without example coverage.
 - 2026-03-30: plan files and review queue rate-limit state now use `WriteAtomic`, keeping JSON state writes aligned with the AX safe-write convention.
 - 2026-03-30: transport helpers preserve request and read causes, brain direct API calls surface upstream bodies, and review queue retry parsing no longer uses `MustCompile`.
 - 2026-03-30: direct Core process calls replaced the `proc.go` wrapper layer; PID helpers now live in `pid.go` and the workspace template documents `c.Process()` directly.
