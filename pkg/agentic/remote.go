@@ -91,6 +91,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			"arguments": callParams,
 		},
 	}
+	body := []byte(core.JSONMarshalString(rpcReq))
 
 	url := core.Sprintf("http://%s/mcp", addr)
 
@@ -114,6 +115,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 			Error: core.Sprintf("init failed: %v", err),
 		}, err
 	}
+
 	callResult := mcpCallResult(ctx, url, token, sessionID, body)
 	if !callResult.OK {
 		err, _ := callResult.Value.(error)

@@ -105,7 +105,7 @@ func agentCommandResult(agent, prompt string) core.Result {
 				"exec",
 				"--dangerously-bypass-approvals-and-sandbox",
 				"Review the last 2 commits via git diff HEAD~2. Check for bugs, security issues, missing tests, naming issues. Report pass/fail with specifics. Do NOT make changes.",
-			}}, OK: true
+			}}, OK: true}
 		}
 		// Container IS the sandbox — let codex run unrestricted inside it
 		args := []string{
