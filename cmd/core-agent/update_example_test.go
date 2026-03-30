@@ -2,12 +2,15 @@
 
 package main
 
-import core "dappco.re/go/core"
+import (
+	agentpkg "dappco.re/go/agent"
+	core "dappco.re/go/core"
+)
 
 func Example_updateChannel() {
-	oldVersion := version
-	version = "0.15.0-alpha"
-	defer func() { version = oldVersion }()
+	oldVersion := agentpkg.Version
+	agentpkg.Version = "0.15.0-alpha"
+	defer func() { agentpkg.Version = oldVersion }()
 
 	core.Println(updateChannel())
 	// Output: prerelease

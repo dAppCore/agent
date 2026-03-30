@@ -5,6 +5,7 @@ package main
 import (
 	"testing"
 
+	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
@@ -16,9 +17,9 @@ import (
 
 func withVersion(t *testing.T, value string) {
 	t.Helper()
-	oldVersion := version
-	version = value
-	t.Cleanup(func() { version = oldVersion })
+	oldVersion := agentpkg.Version
+	agentpkg.Version = value
+	t.Cleanup(func() { agentpkg.Version = oldVersion })
 }
 
 func TestMain_NewCoreAgent_Good(t *testing.T) {

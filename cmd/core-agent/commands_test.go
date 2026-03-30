@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
@@ -85,9 +86,9 @@ func TestCommands_RegisterAppCommands_Good(t *testing.T) {
 
 func TestCommands_Version_Good(t *testing.T) {
 	c := newTestCore(t)
-	version = "0.8.0"
+	agentpkg.Version = "0.8.0"
 	t.Cleanup(func() {
-		version = ""
+		agentpkg.Version = ""
 	})
 
 	r := c.Cli().Run("version")
@@ -96,7 +97,7 @@ func TestCommands_Version_Good(t *testing.T) {
 
 func TestCommands_VersionDev_Bad(t *testing.T) {
 	c := newTestCore(t)
-	version = ""
+	agentpkg.Version = ""
 	c.App().Version = "dev"
 
 	r := c.Cli().Run("version")

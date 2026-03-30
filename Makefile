@@ -10,7 +10,7 @@ LDFLAGS = ""
 
 # If VERSION is set, inject into binary
 ifdef VERSION
-	LDFLAGS = -ldflags "-X '$(MODULE_PATH).version=$(VERSION)'"
+	LDFLAGS = -ldflags "-X '$(MODULE_PATH).Version=$(VERSION)'"
 endif
 
 .PHONY: build install agent-dev test coverage

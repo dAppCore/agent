@@ -2,12 +2,15 @@
 
 package main
 
-import core "dappco.re/go/core"
+import (
+	agentpkg "dappco.re/go/agent"
+	core "dappco.re/go/core"
+)
 
 func Example_newCoreAgent() {
-	oldVersion := version
-	version = "0.15.0"
-	defer func() { version = oldVersion }()
+	oldVersion := agentpkg.Version
+	agentpkg.Version = "0.15.0"
+	defer func() { agentpkg.Version = oldVersion }()
 
 	c := newCoreAgent()
 	core.Println(c.App().Name)
@@ -20,9 +23,9 @@ func Example_newCoreAgent() {
 }
 
 func Example_appVersion() {
-	oldVersion := version
-	version = "0.15.0"
-	defer func() { version = oldVersion }()
+	oldVersion := agentpkg.Version
+	agentpkg.Version = "0.15.0"
+	defer func() { agentpkg.Version = oldVersion }()
 
 	core.Println(appVersion())
 	// Output: 0.15.0

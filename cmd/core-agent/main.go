@@ -6,6 +6,7 @@ import (
 	"context"
 	"syscall"
 
+	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/core"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -49,11 +50,11 @@ func newCoreAgent() *core.Core {
 
 // appVersion resolves the build version injected at link time.
 //
-//	version = "0.15.0"
+//	agentpkg.Version = "0.15.0"
 //	appVersion() // "0.15.0"
 func appVersion() string {
-	if version != "" {
-		return version
+	if agentpkg.Version != "" {
+		return agentpkg.Version
 	}
 	return "dev"
 }
