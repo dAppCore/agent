@@ -10,7 +10,8 @@ import (
 	core "dappco.re/go/core"
 )
 
-// registerWorkspaceCommands adds workspace management commands.
+// c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
+// c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c := s.Core()
 	c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})

@@ -11,7 +11,8 @@ import (
 	core "dappco.re/go/core"
 )
 
-// registerCommands adds agentic CLI commands to Core's command tree.
+// c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
+// c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	s.startupContext = ctx
 	c := s.Core()

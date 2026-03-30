@@ -8,23 +8,17 @@ import (
 	core "dappco.re/go/core"
 )
 
-// RuntimeOptions carries service-level setup configuration.
-//
-//	options := setup.RuntimeOptions{}
+// options := setup.RuntimeOptions{}
 type RuntimeOptions struct{}
 
-// Service exposes workspace setup through Core service registration.
-//
-//	c := core.New(core.WithService(setup.Register))
-//	service, _ := core.ServiceFor[*setup.Service](c, "setup")
+// c := core.New(core.WithService(setup.Register))
+// service, _ := core.ServiceFor[*setup.Service](c, "setup")
 type Service struct {
 	*core.ServiceRuntime[RuntimeOptions]
 }
 
-// Register wires the setup service into Core.
-//
-//	c := core.New(core.WithService(setup.Register))
-//	service, _ := core.ServiceFor[*setup.Service](c, "setup")
+// c := core.New(core.WithService(setup.Register))
+// service, _ := core.ServiceFor[*setup.Service](c, "setup")
 func Register(c *core.Core) core.Result {
 	service := &Service{
 		ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{}),

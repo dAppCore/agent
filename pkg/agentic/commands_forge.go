@@ -86,7 +86,8 @@ func parseForgeArgs(options core.Options) (org, repo string, num int64) {
 
 func fmtIndex(n int64) string { return strconv.FormatInt(n, 10) }
 
-// registerForgeCommands adds Forge API commands to Core's command tree.
+// c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
+// c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
 func (s *PrepSubsystem) registerForgeCommands() {
 	c := s.Core()
 	c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})

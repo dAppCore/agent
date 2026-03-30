@@ -43,9 +43,8 @@ type channelSender interface {
 	ChannelSend(ctx context.Context, channel string, data any)
 }
 
-// New creates a runner service.
-//
-//	service := runner.New()
+// service := runner.New()
+// service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 func New() *Service {
 	return &Service{
 		backoff:    make(map[string]time.Time),
@@ -54,8 +53,8 @@ func New() *Service {
 	}
 }
 
-//	c := core.New(core.WithService(runner.Register))
-//	service, _ := core.ServiceFor[*runner.Service](c, "runner")
+// c := core.New(core.WithService(runner.Register))
+// service, _ := core.ServiceFor[*runner.Service](c, "runner")
 func Register(coreApp *core.Core) core.Result {
 	service := New()
 	service.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})

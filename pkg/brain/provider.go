@@ -12,10 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// BrainProvider exposes the same OpenBrain bridge over HTTP routes and WS events.
-//
-//	provider := brain.NewProvider(bridge, hub)
-//	core.Println(provider.BasePath()) // "/api/brain"
+// provider := brain.NewProvider(bridge, hub)
+// core.Println(provider.BasePath()) // "/api/brain"
 type BrainProvider struct {
 	bridge *ide.Bridge
 	hub    *ws.Hub
@@ -47,7 +45,7 @@ func NewProvider(bridge *ide.Bridge, hub *ws.Hub) *BrainProvider {
 	}
 }
 
-//	name := p.Name() // "brain"
+// name := p.Name() // "brain"
 func (p *BrainProvider) Name() string { return "brain" }
 
 // BasePath shows where the provider mounts its routes.

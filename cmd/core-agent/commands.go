@@ -67,12 +67,9 @@ func applyLogLevel(args []string) []string {
 	return cleaned
 }
 
-// registerApplicationCommands adds application-level CLI commands (version, check, env).
-// These are not owned by any service — they're the binary's own commands.
-//
-//	core-agent version   — build info
-//	core-agent check     — health check
-//	core-agent env       — environment variables
+// c.Command("version", core.Command{Description: "Print version and build info", Action: commands.version})
+// c.Command("check", core.Command{Description: "Verify workspace, deps, and config", Action: commands.check})
+// c.Command("env", core.Command{Description: "Show all core.Env() keys and values", Action: commands.env})
 func registerApplicationCommands(c *core.Core) {
 	commands := applicationCommandSet{core: c}
 
