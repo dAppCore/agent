@@ -9,10 +9,7 @@ import (
 )
 
 func agentHomeDir() string {
-	if home := core.Env("HOME"); home != "" {
-		return home
-	}
-	return core.Env("DIR_HOME")
+	return HomeDir()
 }
 
 // ingestFindings reads the agent output log and creates issues via the API

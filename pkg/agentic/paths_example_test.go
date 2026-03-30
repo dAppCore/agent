@@ -18,6 +18,12 @@ func ExampleCoreRoot() {
 	// Output: true
 }
 
+func ExampleHomeDir() {
+	home := HomeDir()
+	core.Println(home != "")
+	// Output: true
+}
+
 func ExamplePlansRoot() {
 	root := PlansRoot()
 	core.Println(core.HasSuffix(root, "plans"))

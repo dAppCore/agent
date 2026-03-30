@@ -22,7 +22,7 @@ var fs = (&core.Fs{}).NewUnrestricted()
 func LocalFs() *core.Fs { return fs }
 
 // WorkspaceRoot returns the root directory for agent workspaces.
-// Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core/workspace.
+// Checks CORE_WORKSPACE env var first, falls back to HomeDir()/Code/.core/workspace.
 //
 //	wsDir := core.JoinPath(agentic.WorkspaceRoot(), "core", "go-io", "task-42")
 func WorkspaceRoot() string {
@@ -58,14 +58,27 @@ func WorkspaceName(wsDir string) string {
 }
 
 // CoreRoot returns the root directory for core ecosystem files.
-// Checks CORE_WORKSPACE env var first, falls back to ~/Code/.core.
+// Checks CORE_WORKSPACE env var first, falls back to HomeDir()/Code/.core.
 //
 //	root := agentic.CoreRoot()
 func CoreRoot() string {
 	if root := core.Env("CORE_WORKSPACE"); root != "" {
 		return root
 	}
-	return core.JoinPath(core.Env("DIR_HOME"), "Code", ".core")
+	return core.JoinPath(HomeDir(), "Code", ".core")
+}
+
+// HomeDir returns the user home directory used by agentic path helpers.
+//
+//	home := agentic.HomeDir()
+func HomeDir() string {
+	if home := core.Env("CORE_HOME"); home != "" {
+		return home
+	}
+	if home := core.Env("HOME"); home != "" {
+		return home
+	}
+	return core.Env("DIR_HOME")
 }
 
 func workspaceStatusPaths(wsRoot string) []string {

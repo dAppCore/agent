@@ -207,7 +207,7 @@ func remoteToken(host string) string {
 	}
 
 	// Try reading from file
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 	tokenFiles := []string{
 		core.Sprintf("%s/.core/tokens/%s.token", home, core.Lower(host)),
 		core.Sprintf("%s/.core/agent-token", home),

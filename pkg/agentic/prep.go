@@ -52,7 +52,7 @@ var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
 //	sub := agentic.NewPrep()
 //	sub.SetCompletionNotifier(monitor)
 func NewPrep() *PrepSubsystem {
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 
 	forgeToken := core.Env("FORGE_TOKEN")
 	if forgeToken == "" {

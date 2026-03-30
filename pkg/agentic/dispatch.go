@@ -172,7 +172,7 @@ func containerCommand(agentType, command string, args []string, repoDir, metaDir
 		image = defaultDockerImage
 	}
 
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 
 	dockerArgs := []string{
 		"run", "--rm",

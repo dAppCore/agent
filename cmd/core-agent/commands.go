@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"flag"
 
+	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/core"
 )
 
@@ -95,7 +96,7 @@ func (commands appCommandSet) version(_ core.Options) core.Result {
 	core.Print(nil, "core-agent %s", commands.core.App().Version)
 	core.Print(nil, "  go:       %s", core.Env("GO"))
 	core.Print(nil, "  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
-	core.Print(nil, "  home:     %s", core.Env("DIR_HOME"))
+	core.Print(nil, "  home:     %s", agentic.HomeDir())
 	core.Print(nil, "  hostname: %s", core.Env("HOSTNAME"))
 	core.Print(nil, "  pid:      %s", core.Env("PID"))
 	core.Print(nil, "  channel:  %s", updateChannel())
@@ -108,14 +109,14 @@ func (commands appCommandSet) check(_ core.Options) core.Result {
 	core.Print(nil, "")
 	core.Print(nil, "  binary:    core-agent")
 
-	agentsPath := core.Path("Code", ".core", "agents.yaml")
+	agentsPath := core.JoinPath(agentic.CoreRoot(), "agents.yaml")
 	if fs.IsFile(agentsPath) {
 		core.Print(nil, "  agents:    %s (ok)", agentsPath)
 	} else {
 		core.Print(nil, "  agents:    %s (MISSING)", agentsPath)
 	}
 
-	wsRoot := core.Path("Code", ".core", "workspace")
+	wsRoot := agentic.WorkspaceRoot()
 	if fs.IsDir(wsRoot) {
 		entries := core.PathGlob(core.JoinPath(wsRoot, "*"))
 		core.Print(nil, "  workspace: %s (%d entries)", wsRoot, len(entries))

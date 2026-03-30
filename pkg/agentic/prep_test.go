@@ -178,6 +178,23 @@ func TestPrep_NewPrep_Good_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "/custom/code", s.codePath)
 }
 
+func TestPrep_NewPrep_Good_CoreHomeOverride(t *testing.T) {
+	tmpHome := t.TempDir()
+	claudeDir := core.JoinPath(tmpHome, ".claude")
+	require.True(t, fs.EnsureDir(claudeDir).OK)
+	require.True(t, fs.Write(core.JoinPath(claudeDir, "brain.key"), "core-home-key").OK)
+
+	t.Setenv("CORE_HOME", tmpHome)
+	t.Setenv("HOME", "/ignored-home")
+	t.Setenv("DIR_HOME", "/ignored-dir")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("CODE_PATH", "")
+
+	s := NewPrep()
+	assert.Equal(t, core.JoinPath(tmpHome, "Code"), s.codePath)
+	assert.Equal(t, "core-home-key", s.brainKey)
+}
+
 func TestPrep_NewPrep_Good_GiteaTokenFallback(t *testing.T) {
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "gitea-fallback-token")

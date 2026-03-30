@@ -184,7 +184,7 @@ func (s *PrepSubsystem) cmdPrompt(opts core.Options) core.Result {
 		task = "Review and report findings"
 	}
 
-	repoPath := core.JoinPath(core.Env("DIR_HOME"), "Code", org, repo)
+	repoPath := core.JoinPath(HomeDir(), "Code", org, repo)
 
 	input := PrepInput{
 		Repo:     repo,
@@ -209,7 +209,7 @@ func (s *PrepSubsystem) cmdExtract(opts core.Options) core.Result {
 	}
 	target := opts.String("target")
 	if target == "" {
-		target = core.Path("Code", ".core", "workspace", "test-extract")
+		target = core.JoinPath(WorkspaceRoot(), "test-extract")
 	}
 
 	data := &lib.WorkspaceData{

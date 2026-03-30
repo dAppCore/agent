@@ -19,8 +19,28 @@ func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
 
 func TestPaths_CoreRoot_Good_Fallback(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 	assert.Equal(t, home+"/Code/.core", CoreRoot())
+}
+
+func TestPaths_CoreRoot_Good_CoreHome(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "")
+	t.Setenv("CORE_HOME", "/tmp/core-home")
+	assert.Equal(t, "/tmp/core-home/Code/.core", CoreRoot())
+}
+
+func TestPaths_HomeDir_Good_CoreHome(t *testing.T) {
+	t.Setenv("CORE_HOME", "/tmp/core-home")
+	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("DIR_HOME", "/tmp/dir-home")
+	assert.Equal(t, "/tmp/core-home", HomeDir())
+}
+
+func TestPaths_HomeDir_Good_HomeFallback(t *testing.T) {
+	t.Setenv("CORE_HOME", "")
+	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("DIR_HOME", "/tmp/dir-home")
+	assert.Equal(t, "/tmp/home", HomeDir())
 }
 
 func TestPaths_WorkspaceRoot_Good(t *testing.T) {
@@ -131,7 +151,7 @@ func TestPaths_LocalFs_Ugly_EmptyPath(t *testing.T) {
 
 func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 	// Should fall back to ~/Code/.core/workspace
 	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
@@ -196,7 +216,7 @@ func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
 
 func TestPaths_PlansRoot_Bad_EmptyEnv(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
-	home := core.Env("DIR_HOME")
+	home := HomeDir()
 	assert.Equal(t, home+"/Code/.core/plans", PlansRoot())
 }
 

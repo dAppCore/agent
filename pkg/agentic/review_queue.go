@@ -76,7 +76,11 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		limit = 4
 	}
 
-	basePath := core.JoinPath(s.codePath, "core")
+	basePath := s.codePath
+	if basePath == "" {
+		basePath = core.JoinPath(HomeDir(), "Code")
+	}
+	basePath = core.JoinPath(basePath, "core")
 
 	// Find repos with draft PRs (ahead of GitHub)
 	candidates := s.findReviewCandidates(basePath)
@@ -335,7 +339,7 @@ func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []
 
 // storeReviewOutput saves raw review output for training data collection.
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
-	dataDir := core.JoinPath(core.Env("DIR_HOME"), ".core", "training", "reviews")
+	dataDir := core.JoinPath(HomeDir(), ".core", "training", "reviews")
 	fs.EnsureDir(dataDir)
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
@@ -367,13 +371,13 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 
 // saveRateLimitState persists rate limit info for cross-run awareness.
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
-	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 	fs.WriteAtomic(path, core.JSONMarshalString(info))
 }
 
 // loadRateLimitState reads persisted rate limit info.
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
-	path := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
+	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 	r := fs.Read(path)
 	if !r.OK {
 		return nil

@@ -58,7 +58,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	basePath := s.codePath
 	if basePath == "" {
-		basePath = core.JoinPath(core.Env("DIR_HOME"), "Code", "core")
+		basePath = core.JoinPath(HomeDir(), "Code", "core")
 	} else {
 		basePath = core.JoinPath(basePath, "core")
 	}
