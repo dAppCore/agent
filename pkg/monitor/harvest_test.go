@@ -218,7 +218,7 @@ func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 	})
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	// Call harvestWorkspace directly since harvestCompleted uses agentic.WorkspaceRoot()
 	result := mon.harvestWorkspace(wsDir)
@@ -272,7 +272,7 @@ func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 	})
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	msg := mon.harvestCompleted()
 	assert.Contains(t, msg, "Harvested:")
@@ -331,7 +331,7 @@ func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	})
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	msg := mon.harvestCompleted()
 	assert.Contains(t, msg, "REJECTED")

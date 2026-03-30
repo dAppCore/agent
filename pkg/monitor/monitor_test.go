@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	c := core.New(core.WithService(agentic.ProcessRegister))
 	c.ServiceStartup(context.Background(), nil)
 	testMon = New()
-	testMon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	testMon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 	os.Exit(m.Run())
 }
 
@@ -282,7 +282,7 @@ func TestMonitor_CheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
 	})
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	running, queued := mon.countLiveWorkspaces()
 	assert.Equal(t, 0, running)
@@ -466,7 +466,7 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	})
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 	assert.Equal(t, "", mon.checkCompletions())
 
 	for i := 0; i < 2; i++ {
@@ -605,7 +605,7 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	require.True(t, c.RegisterService("mcp", notifier).OK)
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 	mon.inboxSeeded = true
 
 	msg := mon.checkInbox()
@@ -716,7 +716,7 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	require.True(t, c.RegisterService("mcp", notifier).OK)
 
 	mon := New()
-	mon.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 	mon.inboxSeeded = true
 
 	msg := mon.checkInbox()

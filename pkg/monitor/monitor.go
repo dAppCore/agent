@@ -70,18 +70,12 @@ func resultString(r core.Result) (string, bool) {
 	return value, true
 }
 
-// MonitorOptions is the service-runtime payload used by core.WithService.
-//
-//	c := core.New(core.WithService(monitor.Register))
-//	_, _ = core.ServiceFor[*monitor.Subsystem](c, "monitor")
-type MonitorOptions struct{}
-
 // Subsystem owns the long-running monitor loop and MCP resource surface.
 //
 //	mon := monitor.New()
 //	mon.Start(context.Background())
 type Subsystem struct {
-	*core.ServiceRuntime[MonitorOptions]
+	*core.ServiceRuntime[Options]
 	server   *mcp.Server
 	interval time.Duration
 	cancel   context.CancelFunc
@@ -108,7 +102,7 @@ var _ coremcp.Subsystem = (*Subsystem)(nil)
 //
 //	mon.SetCore(c)
 func (m *Subsystem) SetCore(c *core.Core) {
-	m.ServiceRuntime = core.NewServiceRuntime(c, MonitorOptions{})
+	m.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 }
 
 // handleAgentStarted tracks started agents.
