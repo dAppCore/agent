@@ -423,6 +423,7 @@ Every exported function MUST have a usage-example comment:
 
 ## Changelog
 
+- 2026-03-30: `version.go` now has an example companion, closing the last build-relevant source file without example coverage.
 - 2026-03-30: `pkg/agentic/commands_workspace.go` now has a matching example companion, closing the last agentic source file without example coverage.
 - 2026-03-30: plan files and review queue rate-limit state now use `WriteAtomic`, keeping JSON state writes aligned with the AX safe-write convention.
 - 2026-03-30: plan create tests now assert the documented `core.ID()` shape and repeated plan creation produces unique IDs, keeping the plan contract aligned with the simplified generator.
