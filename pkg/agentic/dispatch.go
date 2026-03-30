@@ -515,7 +515,7 @@ func (s *PrepSubsystem) runQA(workspaceDir string) bool {
 	return true
 }
 
-func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
+func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
 	if input.Repo == "" {
 		return nil, DispatchOutput{}, core.E("dispatch", "repo is required", nil)
 	}
@@ -547,7 +547,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		Variables:    input.Variables,
 		Persona:      input.Persona,
 	}
-	_, prepOut, err := s.prepWorkspace(ctx, req, prepInput)
+	_, prepOut, err := s.prepWorkspace(ctx, callRequest, prepInput)
 	if err != nil {
 		return nil, DispatchOutput{}, core.E("dispatch", "prep workspace failed", err)
 	}

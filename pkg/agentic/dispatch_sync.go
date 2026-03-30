@@ -23,11 +23,11 @@ type DispatchSyncInput struct {
 // DispatchSyncResult is the output of a synchronous task run.
 //
 //	if result.OK { core.Print(nil, "done: %s", result.Status) }
-//	if !result.OK { core.Print(nil, "%v", result.Err) }
+//	if !result.OK { core.Print(nil, "%v", result.Error) }
 type DispatchSyncResult struct {
 	OK     bool
 	Status string
-	Err    error
+	Error  error
 	PRURL  string
 }
 
@@ -50,10 +50,10 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 
 	_, prepOut, err := s.prepWorkspace(prepContext, nil, prepInput)
 	if err != nil {
-		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep workspace failed", err)}
+		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "prep workspace failed", err)}
 	}
 	if !prepOut.Success {
-		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "prep failed", nil)}
+		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "prep failed", nil)}
 	}
 
 	workspaceDir := prepOut.WorkspaceDir
@@ -65,7 +65,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	// Spawn agent directly — no queue, no concurrency check
 	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
-		return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "spawn agent failed", err)}
+		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}
 
 	core.Print(nil, "  pid:       %d", pid)
@@ -83,7 +83,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	for {
 		select {
 		case <-ctx.Done():
-			return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "cancelled", ctx.Err())}
+			return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "cancelled", ctx.Err())}
 		case <-ticker.C:
 			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
 				// Process exited — read final status
@@ -91,7 +91,7 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 				st, ok := workspaceStatusValue(result)
 				if !ok {
 					err, _ := result.Value.(error)
-					return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "can't read final status", err)}
+					return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "can't read final status", err)}
 				}
 				return DispatchSyncResult{
 					OK:     st.Status == "completed",

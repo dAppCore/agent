@@ -53,7 +53,7 @@ func (s *PrepSubsystem) registerEpicTool(server *mcp.Server) {
 	}, s.createEpic)
 }
 
-func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
+func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
 	if input.Title == "" {
 		return nil, EpicOutput{}, core.E("createEpic", "title is required", nil)
 	}
@@ -127,7 +127,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, req *mcp.CallToolRequest
 	// Step 4: Optionally dispatch agents to each child
 	if input.Dispatch {
 		for _, child := range children {
-			_, _, err := s.dispatch(ctx, req, DispatchInput{
+			_, _, err := s.dispatch(ctx, callRequest, DispatchInput{
 				Repo:     input.Repo,
 				Org:      input.Org,
 				Task:     child.Title,
@@ -158,21 +158,21 @@ func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body 
 
 	data := core.JSONMarshalString(payload)
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues", s.forgeURL, org, repo)
-	r := HTTPPost(ctx, url, data, s.forgeToken, "token")
-	if !r.OK {
+	httpResult := HTTPPost(ctx, url, data, s.forgeToken, "token")
+	if !httpResult.OK {
 		return ChildRef{}, core.E("createIssue", "create issue request failed", nil)
 	}
 
-	var result struct {
+	var createdIssue struct {
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-	core.JSONUnmarshalString(r.Value.(string), &result)
+	core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue)
 
 	return ChildRef{
-		Number: result.Number,
+		Number: createdIssue.Number,
 		Title:  title,
-		URL:    result.HTMLURL,
+		URL:    createdIssue.HTMLURL,
 	}, nil
 }
 
@@ -184,8 +184,8 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 
 	// Fetch existing labels
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels?limit=50", s.forgeURL, org, repo)
-	r := HTTPGet(ctx, url, s.forgeToken, "token")
-	if !r.OK {
+	httpResult := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !httpResult.OK {
 		return nil
 	}
 
@@ -193,7 +193,7 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	core.JSONUnmarshalString(r.Value.(string), &existing)
+	core.JSONUnmarshalString(httpResult.Value.(string), &existing)
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -235,14 +235,14 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	})
 
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	r := HTTPPost(ctx, url, payload, s.forgeToken, "token")
-	if !r.OK {
+	httpResult := HTTPPost(ctx, url, payload, s.forgeToken, "token")
+	if !httpResult.OK {
 		return 0
 	}
 
-	var result struct {
+	var createdLabel struct {
 		ID int64 `json:"id"`
 	}
-	core.JSONUnmarshalString(r.Value.(string), &result)
-	return result.ID
+	core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel)
+	return createdLabel.ID
 }

@@ -26,7 +26,6 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 }
 
 // ctx := s.commandContext()
-// _ = ctx.Err()
 func (s *PrepSubsystem) commandContext() context.Context {
 	if s.startupContext != nil {
 		return s.startupContext
@@ -72,12 +71,12 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 	})
 
 	if !result.OK {
-		failureErr := result.Err
-		if failureErr == nil {
-			failureErr = core.E("agentic.runTask", "dispatch failed", nil)
+		failureError := result.Error
+		if failureError == nil {
+			failureError = core.E("agentic.runTask", "dispatch failed", nil)
 		}
-		core.Print(nil, "FAILED: %v", failureErr)
-		return core.Result{Value: failureErr, OK: false}
+		core.Print(nil, "FAILED: %v", failureError)
+		return core.Result{Value: failureError, OK: false}
 	}
 
 	core.Print(nil, "DONE: %s", result.Status)

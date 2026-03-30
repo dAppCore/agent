@@ -199,7 +199,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// registerCommands is in commands.go
+// s.registerCommands(ctx)
 
 // subsystem := agentic.NewPrep()
 // _ = subsystem.OnShutdown(context.Background())
