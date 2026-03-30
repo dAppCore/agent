@@ -17,8 +17,9 @@ import (
 //
 //	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
 func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
-	st, err := ReadStatus(wsDir)
-	if err != nil || st.PRURL == "" || st.Repo == "" {
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
+	if !ok || st.PRURL == "" || st.Repo == "" {
 		return
 	}
 
@@ -35,21 +36,25 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// markMerged is a helper to avoid repeating the status update.
 	markMerged := func() {
-		if st2, err := ReadStatus(wsDir); err == nil {
+		if result := ReadStatusResult(wsDir); result.OK {
+			st2, ok := workspaceStatusValue(result)
+			if !ok {
+				return
+			}
 			st2.Status = "merged"
 			writeStatusResult(wsDir, st2)
 		}
 	}
 
 	// Attempt 1: run tests and try to merge
-	result := s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum)
-	if result == mergeSuccess {
+	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum)
+	if mergeOutcome == mergeSuccess {
 		markMerged()
 		return
 	}
 
 	// Attempt 2: rebase onto main and retry
-	if result == mergeConflict || result == testFailed {
+	if mergeOutcome == mergeConflict || mergeOutcome == testFailed {
 		if s.rebaseBranch(repoDir, st.Branch) {
 			if s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
 				markMerged()
@@ -59,9 +64,13 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	}
 
 	// Both attempts failed — flag for human review
-	s.flagForReview(org, st.Repo, prNum, result)
+	s.flagForReview(org, st.Repo, prNum, mergeOutcome)
 
-	if st2, err := ReadStatus(wsDir); err == nil {
+	if result := ReadStatusResult(wsDir); result.OK {
+		st2, ok := workspaceStatusValue(result)
+		if !ok {
+			return
+		}
 		st2.Question = "Flagged for review — auto-merge failed after retry"
 		writeStatusResult(wsDir, st2)
 	}
@@ -116,10 +125,11 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 		return false
 	}
 
-	st, _ := ReadStatus(core.PathDir(repoDir))
+	result := ReadStatusResult(core.PathDir(repoDir))
+	st, ok := workspaceStatusValue(result)
 	org := "core"
 	repo := ""
-	if st != nil {
+	if ok {
 		if st.Org != "" {
 			org = st.Org
 		}

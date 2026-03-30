@@ -186,8 +186,9 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
-		st, err := ReadStatus(core.PathDir(statusPath))
-		if err != nil || st.Status != "running" {
+		result := ReadStatusResult(core.PathDir(statusPath))
+		st, ok := workspaceStatusValue(result)
+		if !ok || st.Status != "running" {
 			continue
 		}
 		if baseAgent(st.Agent) != agent {
@@ -228,8 +229,9 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string) int {
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
-		st, err := ReadStatus(core.PathDir(statusPath))
-		if err != nil || st.Status != "running" {
+		result := ReadStatusResult(core.PathDir(statusPath))
+		st, ok := workspaceStatusValue(result)
+		if !ok || st.Status != "running" {
 			continue
 		}
 		if st.Agent != agent {
@@ -326,8 +328,9 @@ func (s *PrepSubsystem) drainQueue() {
 func (s *PrepSubsystem) drainOne() bool {
 	for _, statusPath := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
-		st, err := ReadStatus(wsDir)
-		if err != nil || st.Status != "queued" {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok || st.Status != "queued" {
 			continue
 		}
 

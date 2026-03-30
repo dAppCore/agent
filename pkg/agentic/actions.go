@@ -189,17 +189,21 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Re
 	}
 	passed := s.runQA(wsDir)
 	if !passed {
-		if st, err := ReadStatus(wsDir); err == nil {
-			st.Status = "failed"
-			st.Question = "QA check failed — build or tests did not pass"
-			writeStatusResult(wsDir, st)
+		if result := ReadStatusResult(wsDir); result.OK {
+			st, ok := workspaceStatusValue(result)
+			if ok {
+				st.Status = "failed"
+				st.Question = "QA check failed — build or tests did not pass"
+				writeStatusResult(wsDir, st)
+			}
 		}
 	}
 	// Emit QA result for observability (monitor picks this up)
 	if s.ServiceRuntime != nil {
-		st, _ := ReadStatus(wsDir)
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
 		repo := ""
-		if st != nil {
+		if ok {
 			repo = st.Repo
 		}
 		s.Core().ACTION(messages.QAResult{
@@ -228,7 +232,9 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) cor
 
 	// Emit PRCreated for observability
 	if s.ServiceRuntime != nil {
-		if st, err := ReadStatus(wsDir); err == nil && st.PRURL != "" {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if ok && st.PRURL != "" {
 			s.Core().ACTION(messages.PRCreated{
 				Repo:   st.Repo,
 				Branch: st.Branch,
@@ -257,7 +263,9 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, opts core.Options) cor
 
 	// Emit merge/review events for observability
 	if s.ServiceRuntime != nil {
-		if st, err := ReadStatus(wsDir); err == nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if ok {
 			if st.Status == "merged" {
 				s.Core().ACTION(messages.PRMerged{
 					Repo:  st.Repo,

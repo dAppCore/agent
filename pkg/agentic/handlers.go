@@ -38,7 +38,11 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			break
 		}
 		// Update status with real PID
-		if st, serr := ReadStatus(wsDir); serr == nil {
+		if result := ReadStatusResult(wsDir); result.OK {
+			st, ok := workspaceStatusValue(result)
+			if !ok {
+				break
+			}
 			st.PID = pid
 			st.ProcessID = processID
 			writeStatusResult(wsDir, st)
@@ -84,8 +88,9 @@ func resolveWorkspace(name string) string {
 func findWorkspaceByPR(repo, branch string) string {
 	for _, path := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		st, err := ReadStatus(wsDir)
-		if err != nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			continue
 		}
 		if st.Repo == repo && st.Branch == branch {

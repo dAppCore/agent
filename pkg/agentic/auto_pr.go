@@ -12,8 +12,9 @@ import (
 // autoCreatePR pushes the agent's branch and creates a PR on Forge
 // if the agent made any commits beyond the initial clone.
 func (s *PrepSubsystem) autoCreatePR(wsDir string) {
-	st, err := ReadStatus(wsDir)
-	if err != nil || st.Branch == "" || st.Repo == "" {
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
+	if !ok || st.Branch == "" || st.Repo == "" {
 		return
 	}
 
@@ -43,7 +44,11 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
 	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch).OK {
-		if st2, err := ReadStatus(wsDir); err == nil {
+		if result := ReadStatusResult(wsDir); result.OK {
+			st2, ok := workspaceStatusValue(result)
+			if !ok {
+				return
+			}
 			st2.Question = "PR push failed"
 			writeStatusResult(wsDir, st2)
 		}
@@ -59,7 +64,11 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 
 	prURL, _, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
 	if err != nil {
-		if st2, err := ReadStatus(wsDir); err == nil {
+		if result := ReadStatusResult(wsDir); result.OK {
+			st2, ok := workspaceStatusValue(result)
+			if !ok {
+				return
+			}
 			st2.Question = core.Sprintf("PR creation failed: %v", err)
 			writeStatusResult(wsDir, st2)
 		}
@@ -67,7 +76,11 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	}
 
 	// Update status with PR URL
-	if st2, err := ReadStatus(wsDir); err == nil {
+	if result := ReadStatusResult(wsDir); result.OK {
+		st2, ok := workspaceStatusValue(result)
+		if !ok {
+			return
+		}
 		st2.PRURL = prURL
 		writeStatusResult(wsDir, st2)
 	}

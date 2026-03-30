@@ -24,8 +24,9 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 	for _, sf := range statusFiles {
 		wsDir := core.PathDir(sf)
 		wsName := WorkspaceName(wsDir)
-		st, err := ReadStatus(wsDir)
-		if err != nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			continue
 		}
 		core.Print(nil, "  %-8s %-8s %-10s %s", st.Status, st.Agent, st.Repo, wsName)
@@ -51,8 +52,9 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 	for _, sf := range statusFiles {
 		wsDir := core.PathDir(sf)
 		wsName := WorkspaceName(wsDir)
-		st, err := ReadStatus(wsDir)
-		if err != nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			continue
 		}
 		status := st.Status

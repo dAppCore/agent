@@ -235,8 +235,9 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 	}
 	for _, path := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		st, err := ReadStatus(wsDir)
-		if err != nil || st == nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			continue
 		}
 		s.workspaces.Set(WorkspaceName(wsDir), st)

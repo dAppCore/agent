@@ -136,6 +136,18 @@ func ReadStatusResult(wsDir string) core.Result {
 	return core.Result{Value: &s, OK: true}
 }
 
+// workspaceStatusValue extracts a WorkspaceStatus from a Result.
+//
+//	r := ReadStatusResult("/path/to/workspace")
+//	st, ok := workspaceStatusValue(r)
+func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
+	st, ok := result.Value.(*WorkspaceStatus)
+	if !ok || st == nil {
+		return nil, false
+	}
+	return st, true
+}
+
 // --- agentic_status tool ---
 
 // StatusInput is the input for agentic_status.
@@ -190,8 +202,9 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		wsDir := core.PathDir(statusPath)
 		name := WorkspaceName(wsDir)
 
-		st, err := ReadStatus(wsDir)
-		if err != nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			out.Total++
 			out.Failed++
 			continue

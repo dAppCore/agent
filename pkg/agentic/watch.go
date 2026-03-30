@@ -112,8 +112,9 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 		for ws := range remaining {
 			wsDir := s.resolveWorkspaceDir(ws)
-			st, err := ReadStatus(wsDir)
-			if err != nil {
+			result := ReadStatusResult(wsDir)
+			st, ok := workspaceStatusValue(result)
+			if !ok {
 				continue
 			}
 
@@ -196,8 +197,9 @@ func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	var active []string
 	for _, entry := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(entry)
-		st, err := ReadStatus(wsDir)
-		if err != nil {
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
+		if !ok {
 			continue
 		}
 		if st.Status == "running" || st.Status == "queued" {

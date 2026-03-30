@@ -282,8 +282,9 @@ func (s *PrepSubsystem) startIssueTracking(wsDir string) {
 	if s.forge == nil {
 		return
 	}
-	st, _ := ReadStatus(wsDir)
-	if st == nil || st.Issue == 0 {
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
+	if !ok || st.Issue == 0 {
 		return
 	}
 	org := st.Org
@@ -298,8 +299,9 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 	if s.forge == nil {
 		return
 	}
-	st, _ := ReadStatus(wsDir)
-	if st == nil || st.Issue == 0 {
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
+	if !ok || st.Issue == 0 {
 		return
 	}
 	org := st.Org
@@ -312,9 +314,10 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 // broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
 	wsName := WorkspaceName(wsDir)
-	st, _ := ReadStatus(wsDir)
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
 	repo := ""
-	if st != nil {
+	if ok {
 		repo = st.Repo
 	}
 	if s.ServiceRuntime != nil {
@@ -330,9 +333,10 @@ func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
 	wsName := WorkspaceName(wsDir)
 	emitCompletionEvent(agent, wsName, finalStatus)
 	if s.ServiceRuntime != nil {
-		st, _ := ReadStatus(wsDir)
+		result := ReadStatusResult(wsDir)
+		st, ok := workspaceStatusValue(result)
 		repo := ""
-		if st != nil {
+		if ok {
 			repo = st.Repo
 		}
 		s.Core().ACTION(messages.AgentCompleted{
@@ -354,16 +358,16 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
 
 	// Update workspace status (disk + registry)
-	if st, err := ReadStatus(wsDir); err == nil {
+	result := ReadStatusResult(wsDir)
+	st, ok := workspaceStatusValue(result)
+	if ok {
 		st.Status = finalStatus
 		st.PID = 0
 		st.Question = question
 		writeStatusResult(wsDir, st)
 		s.TrackWorkspace(WorkspaceName(wsDir), st)
-	}
 
-	// Rate-limit tracking
-	if st, _ := ReadStatus(wsDir); st != nil {
+		// Rate-limit tracking
 		s.trackFailureRate(agent, finalStatus, st.StartedAt)
 	}
 

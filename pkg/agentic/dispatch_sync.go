@@ -87,8 +87,10 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		case <-ticker.C:
 			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
 				// Process exited — read final status
-				st, err := ReadStatus(wsDir)
-				if err != nil {
+				result := ReadStatusResult(wsDir)
+				st, ok := workspaceStatusValue(result)
+				if !ok {
+					err, _ := result.Value.(error)
 					return DispatchSyncResult{Err: core.E("agentic.DispatchSync", "can't read final status", err)}
 				}
 				return DispatchSyncResult{
