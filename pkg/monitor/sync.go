@@ -63,7 +63,7 @@ func (m *Subsystem) syncRepos() string {
 	var pulled []string
 	for _, repo := range checkin.Changed {
 		// Sanitise repo name to prevent path traversal from API response
-		repoName := core.PathBase(monitorPath(repo.Repo))
+		repoName := core.PathBase(core.Replace(repo.Repo, "\\", "/"))
 		if repoName == "." || repoName == ".." || repoName == "" {
 			continue
 		}

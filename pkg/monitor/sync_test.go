@@ -124,6 +124,49 @@ func TestSync_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	assert.Contains(t, msg, "test-repo")
 }
 
+func TestSync_SyncRepos_Good_NormalisesWindowsRepoPath(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote")
+	fs.EnsureDir(remoteDir)
+	run(t, remoteDir, "git", "init", "--bare")
+
+	codeDir := t.TempDir()
+	repoDir := core.JoinPath(codeDir, "test-repo")
+	run(t, codeDir, "git", "clone", remoteDir, "test-repo")
+	run(t, repoDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "init")
+	run(t, repoDir, "git", "push", "-u", "origin", "main")
+
+	clone2Parent := t.TempDir()
+	tmpClone := core.JoinPath(clone2Parent, "clone2")
+	run(t, clone2Parent, "git", "clone", remoteDir, "clone2")
+	run(t, tmpClone, "git", "checkout", "main")
+	fs.Write(core.JoinPath(tmpClone, "new.go"), "package main\n")
+	run(t, tmpClone, "git", "add", ".")
+	run(t, tmpClone, "git", "commit", "-m", "agent work")
+	run(t, tmpClone, "git", "push", "origin", "main")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := CheckinResponse{
+			Changed:   []ChangedRepo{{Repo: "core\\test-repo", Branch: "main", SHA: "abc"}},
+			Timestamp: time.Now().Unix() + 100,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(resp)))
+	}))
+	defer srv.Close()
+
+	setupAPIEnv(t, srv.URL)
+	t.Setenv("CODE_PATH", codeDir)
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+	msg := mon.syncRepos()
+	assert.Contains(t, msg, "Synced 1 repo(s)")
+	assert.Contains(t, msg, "core\\test-repo")
+}
+
 func TestSync_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 	remoteDir := core.JoinPath(t.TempDir(), "remote")
 	fs.EnsureDir(remoteDir)

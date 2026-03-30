@@ -33,11 +33,6 @@ func brainKeyPath(home string) string {
 	return core.JoinPath(home, ".claude", "brain.key")
 }
 
-func monitorPath(path string) string {
-	ds := core.Env("DS")
-	return core.Replace(core.Replace(path, "\\", ds), "/", ds)
-}
-
 func monitorHomeDir() string {
 	if d := core.Env("CORE_HOME"); d != "" {
 		return d
