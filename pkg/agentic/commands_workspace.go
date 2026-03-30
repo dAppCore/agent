@@ -18,21 +18,18 @@ func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 }
 
-func (s *PrepSubsystem) cmdWorkspaceList(opts core.Options) core.Result {
-	fsys := s.Core().Fs()
-
+func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 	statusFiles := WorkspaceStatusPaths()
 	count := 0
 	for _, sf := range statusFiles {
-		wsName := WorkspaceName(core.PathDir(sf))
-		if sr := fsys.Read(sf); sr.OK {
-			content := sr.Value.(string)
-			status := extractField(content, "status")
-			repo := extractField(content, "repo")
-			agent := extractField(content, "agent")
-			core.Print(nil, "  %-8s %-8s %-10s %s", status, agent, repo, wsName)
-			count++
+		wsDir := core.PathDir(sf)
+		wsName := WorkspaceName(wsDir)
+		st, err := ReadStatus(wsDir)
+		if err != nil {
+			continue
 		}
+		core.Print(nil, "  %-8s %-8s %-10s %s", st.Status, st.Agent, st.Repo, wsName)
+		count++
 	}
 	if count == 0 {
 		core.Print(nil, "  no workspaces")
@@ -52,12 +49,13 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 	var toRemove []string
 
 	for _, sf := range statusFiles {
-		wsName := WorkspaceName(core.PathDir(sf))
-		sr := fsys.Read(sf)
-		if !sr.OK {
+		wsDir := core.PathDir(sf)
+		wsName := WorkspaceName(wsDir)
+		st, err := ReadStatus(wsDir)
+		if err != nil {
 			continue
 		}
-		status := extractField(sr.Value.(string), "status")
+		status := st.Status
 
 		switch filter {
 		case "all":
@@ -129,31 +127,4 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(opts core.Options) core.Result {
 		core.Print(nil, "  pid:       %d", out.PID)
 	}
 	return core.Result{OK: true}
-}
-
-// extractField does a quick JSON field extraction without full unmarshal.
-func extractField(jsonStr, field string) string {
-	needle := core.Concat("\"", field, "\"")
-	idx := -1
-	for i := 0; i <= len(jsonStr)-len(needle); i++ {
-		if jsonStr[i:i+len(needle)] == needle {
-			idx = i + len(needle)
-			break
-		}
-	}
-	if idx < 0 {
-		return ""
-	}
-	for idx < len(jsonStr) && (jsonStr[idx] == ':' || jsonStr[idx] == ' ' || jsonStr[idx] == '\t') {
-		idx++
-	}
-	if idx >= len(jsonStr) || jsonStr[idx] != '"' {
-		return ""
-	}
-	idx++
-	end := idx
-	for end < len(jsonStr) && jsonStr[end] != '"' {
-		end++
-	}
-	return jsonStr[idx:end]
 }

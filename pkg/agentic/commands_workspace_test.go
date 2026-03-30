@@ -10,61 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- extractField ---
-
-func TestCommandsworkspace_ExtractField_Good_SimpleJSON(t *testing.T) {
-	json := `{"status":"running","repo":"go-io","agent":"codex"}`
-	assert.Equal(t, "running", extractField(json, "status"))
-	assert.Equal(t, "go-io", extractField(json, "repo"))
-	assert.Equal(t, "codex", extractField(json, "agent"))
-}
-
-func TestCommandsworkspace_ExtractField_Good_PrettyPrinted(t *testing.T) {
-	json := `{
-  "status": "completed",
-  "repo": "go-crypt"
-}`
-	assert.Equal(t, "completed", extractField(json, "status"))
-	assert.Equal(t, "go-crypt", extractField(json, "repo"))
-}
-
-func TestCommandsworkspace_ExtractField_Good_TabSeparated(t *testing.T) {
-	json := `{"status":	"blocked"}`
-	assert.Equal(t, "blocked", extractField(json, "status"))
-}
-
-func TestCommandsworkspace_ExtractField_Bad_MissingField(t *testing.T) {
-	json := `{"status":"running"}`
-	assert.Empty(t, extractField(json, "nonexistent"))
-}
-
-func TestCommandsworkspace_ExtractField_Bad_EmptyJSON(t *testing.T) {
-	assert.Empty(t, extractField("", "status"))
-	assert.Empty(t, extractField("{}", "status"))
-}
-
-func TestCommandsworkspace_ExtractField_Bad_NoValue(t *testing.T) {
-	// Field key exists but no quoted value after colon
-	json := `{"status": 42}`
-	assert.Empty(t, extractField(json, "status"))
-}
-
-func TestCommandsworkspace_ExtractField_Bad_TruncatedJSON(t *testing.T) {
-	// Field key exists but string is truncated
-	json := `{"status":`
-	assert.Empty(t, extractField(json, "status"))
-}
-
-func TestCommandsworkspace_ExtractField_Good_EmptyValue(t *testing.T) {
-	json := `{"status":""}`
-	assert.Equal(t, "", extractField(json, "status"))
-}
-
-func TestCommandsworkspace_ExtractField_Good_ValueWithSpaces(t *testing.T) {
-	json := `{"task":"fix the failing tests"}`
-	assert.Equal(t, "fix the failing tests", extractField(json, "task"))
-}
-
 // --- CmdWorkspaceList Bad/Ugly ---
 
 func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T) {
@@ -75,8 +20,8 @@ func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T)
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.cmdWorkspaceList(core.NewOptions())
@@ -105,8 +50,8 @@ func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.cmdWorkspaceList(core.NewOptions())
@@ -134,8 +79,8 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Filter "unknown" matches no switch case — nothing gets removed
@@ -169,8 +114,8 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// "all" filter removes completed, failed, blocked, merged, ready-for-review but NOT running/queued
@@ -196,8 +141,8 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 	c := core.New()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	r := s.cmdWorkspaceDispatch(core.NewOptions(
@@ -211,23 +156,4 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 	// Dispatch calls the real method — fails because no source repo exists to clone.
 	// The test verifies the CLI correctly passes all fields through to dispatch.
 	assert.False(t, r.OK)
-}
-
-// --- ExtractField Ugly ---
-
-func TestCommandsworkspace_ExtractField_Ugly_NestedJSON(t *testing.T) {
-	// Nested JSON — extractField only finds top-level keys (simple scan)
-	j := `{"outer":{"inner":"value"},"status":"ok"}`
-	assert.Equal(t, "ok", extractField(j, "status"))
-	// "inner" is inside the nested object — extractField should still find it
-	assert.Equal(t, "value", extractField(j, "inner"))
-}
-
-func TestCommandsworkspace_ExtractField_Ugly_EscapedQuotes(t *testing.T) {
-	// Value with escaped quotes — extractField stops at the first unescaped quote
-	j := `{"msg":"hello \"world\"","status":"done"}`
-	// extractField will return "hello \" because it stops at first quote after open
-	// The important thing is it doesn't panic
-	_ = extractField(j, "msg")
-	assert.Equal(t, "done", extractField(j, "status"))
 }
