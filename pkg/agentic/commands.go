@@ -42,7 +42,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 	repo := options.String("repo")
 	agent := options.String("agent")
 	task := options.String("task")
-	issueStr := options.String("issue")
+	issueValue := options.String("issue")
 	org := options.String("org")
 
 	if repo == "" || task == "" {
@@ -56,7 +56,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 		org = "core"
 	}
 
-	issue := parseIntStr(issueStr)
+	issue := parseIntStr(issueValue)
 
 	core.Print(nil, "core-agent run task")
 	core.Print(nil, "  repo:  %s/%s", org, repo)
@@ -131,30 +131,30 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 		prepInput.Branch = "dev"
 	}
 
-	_, out, err := s.TestPrepWorkspace(context.Background(), prepInput)
+	_, prepOutput, err := s.TestPrepWorkspace(context.Background(), prepInput)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 
-	core.Print(nil, "workspace: %s", out.WorkspaceDir)
-	core.Print(nil, "repo:      %s", out.RepoDir)
-	core.Print(nil, "branch:    %s", out.Branch)
-	core.Print(nil, "resumed:   %v", out.Resumed)
-	core.Print(nil, "memories:  %d", out.Memories)
-	core.Print(nil, "consumers: %d", out.Consumers)
-	if out.Prompt != "" {
+	core.Print(nil, "workspace: %s", prepOutput.WorkspaceDir)
+	core.Print(nil, "repo:      %s", prepOutput.RepoDir)
+	core.Print(nil, "branch:    %s", prepOutput.Branch)
+	core.Print(nil, "resumed:   %v", prepOutput.Resumed)
+	core.Print(nil, "memories:  %d", prepOutput.Memories)
+	core.Print(nil, "consumers: %d", prepOutput.Consumers)
+	if prepOutput.Prompt != "" {
 		core.Print(nil, "")
-		core.Print(nil, "--- prompt (%d chars) ---", len(out.Prompt))
-		core.Print(nil, "%s", out.Prompt)
+		core.Print(nil, "--- prompt (%d chars) ---", len(prepOutput.Prompt))
+		core.Print(nil, "%s", prepOutput.Prompt)
 	}
 	return core.Result{OK: true}
 }
 
 func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
 	workspaceRoot := WorkspaceRoot()
-	fsys := s.Core().Fs()
-	listResult := fsys.List(workspaceRoot)
+	filesystem := s.Core().Fs()
+	listResult := filesystem.List(workspaceRoot)
 	if !listResult.OK {
 		core.Print(nil, "no workspaces found at %s", workspaceRoot)
 		return core.Result{OK: true}
@@ -231,12 +231,12 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", templateName), nil), OK: false}
 	}
 
-	fsys := s.Core().Fs()
+	filesystem := s.Core().Fs()
 	paths := core.PathGlob(core.JoinPath(target, "*"))
 	for _, p := range paths {
 		name := core.PathBase(p)
 		marker := " "
-		if fsys.IsDir(p) {
+		if filesystem.IsDir(p) {
 			marker = "/"
 		}
 		core.Print(nil, "  %s%s", name, marker)

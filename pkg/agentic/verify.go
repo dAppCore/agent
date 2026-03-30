@@ -29,8 +29,8 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 		org = "core"
 	}
 
-	prNum := extractPRNumber(workspaceStatus.PRURL)
-	if prNum == 0 {
+	pullRequestNumber := extractPullRequestNumber(workspaceStatus.PRURL)
+	if pullRequestNumber == 0 {
 		return
 	}
 
@@ -47,7 +47,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 	}
 
 	// Attempt 1: run tests and try to merge
-	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, prNum)
+	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, pullRequestNumber)
 	if mergeOutcome == mergeSuccess {
 		markMerged()
 		return
@@ -56,7 +56,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 	// Attempt 2: rebase onto main and retry
 	if mergeOutcome == mergeConflict || mergeOutcome == testFailed {
 		if s.rebaseBranch(repoDir, workspaceStatus.Branch) {
-			if s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, prNum) == mergeSuccess {
+			if s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, pullRequestNumber) == mergeSuccess {
 				markMerged()
 				return
 			}
@@ -64,7 +64,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 	}
 
 	// Both attempts failed — flag for human review
-	s.flagForReview(org, workspaceStatus.Repo, prNum, mergeOutcome)
+	s.flagForReview(org, workspaceStatus.Repo, pullRequestNumber, mergeOutcome)
 
 	if result := ReadStatusResult(workspaceDir); result.OK {
 		workspaceStatusUpdate, ok := workspaceStatusValue(result)
@@ -85,13 +85,13 @@ const (
 )
 
 // attemptVerifyAndMerge runs tests and tries to merge. Returns the outcome.
-func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string, prNum int) mergeResult {
+func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string, pullRequestNumber int) mergeResult {
 	testResult := s.runVerification(repoDir)
 
 	if !testResult.passed {
 		comment := core.Sprintf("## Verification Failed\n\n**Command:** `%s`\n\n```\n%s\n```\n\n**Exit code:** %d",
 			testResult.testCmd, truncate(testResult.output, 2000), testResult.exitCode)
-		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
+		s.commentOnIssue(context.Background(), org, repo, pullRequestNumber, comment)
 		return testFailed
 	}
 
@@ -99,14 +99,14 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if mergeResult := s.forgeMergePR(ctx, org, repo, prNum); !mergeResult.OK {
+	if mergeAttempt := s.forgeMergePR(ctx, org, repo, pullRequestNumber); !mergeAttempt.OK {
 		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed", testResult.testCmd)
-		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
+		s.commentOnIssue(context.Background(), org, repo, pullRequestNumber, comment)
 		return mergeConflict
 	}
 
 	comment := core.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
-	s.commentOnIssue(context.Background(), org, repo, prNum, comment)
+	s.commentOnIssue(context.Background(), org, repo, pullRequestNumber, comment)
 	return mergeSuccess
 }
 
@@ -140,7 +140,7 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 }
 
 // flagForReview adds the "needs-review" label to the PR via Forge API.
-func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeResult) {
+func (s *PrepSubsystem) flagForReview(org, repo string, pullRequestNumber int, mergeOutcome mergeResult) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -151,16 +151,16 @@ func (s *PrepSubsystem) flagForReview(org, repo string, prNum int, result mergeR
 	payload := core.JSONMarshalString(map[string]any{
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, prNum)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, pullRequestNumber)
 	HTTPPost(ctx, url, payload, s.forgeToken, "token")
 
 	// Comment explaining the situation
 	reason := "Tests failed after rebase"
-	if result == mergeConflict {
+	if mergeOutcome == mergeConflict {
 		reason = "Merge conflict persists after rebase"
 	}
 	comment := core.Sprintf("## Needs Review\n\n%s. Auto-merge gave up after retry.\n\nLabelled `needs-review` for human attention.", reason)
-	s.commentOnIssue(ctx, org, repo, prNum, comment)
+	s.commentOnIssue(ctx, org, repo, pullRequestNumber, comment)
 }
 
 // ensureLabel creates a label if it doesn't exist.
@@ -278,20 +278,20 @@ func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
 }
 
 // forgeMergePR merges a PR via the Forge API.
-func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, prNum int) core.Result {
+func (s *PrepSubsystem) forgeMergePR(ctx context.Context, org, repo string, pullRequestNumber int) core.Result {
 	payload := core.JSONMarshalString(map[string]any{
 		"Do":                        "merge",
 		"merge_message_field":       "Auto-merged by core-agent after verification\n\nCo-Authored-By: Virgil <virgil@lethean.io>",
 		"delete_branch_after_merge": true,
 	})
 
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, prNum)
+	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d/merge", s.forgeURL, org, repo, pullRequestNumber)
 	return HTTPPost(ctx, url, payload, s.forgeToken, "token")
 }
 
-// extractPRNumber gets the PR number from a Forge PR URL.
-func extractPRNumber(prURL string) int {
-	parts := core.Split(prURL, "/")
+// extractPullRequestNumber gets the PR number from a Forge PR URL.
+func extractPullRequestNumber(pullRequestURL string) int {
+	parts := core.Split(pullRequestURL, "/")
 	if len(parts) == 0 {
 		return 0
 	}

@@ -119,25 +119,25 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	// Create PR via Forge API
-	prURL, prNum, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
+	pullRequestURL, pullRequestNumber, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "failed to create PR", err)
 	}
 
 	// Update status with PR URL
-	workspaceStatus.PRURL = prURL
+	workspaceStatus.PRURL = pullRequestURL
 	writeStatusResult(workspaceDir, workspaceStatus)
 
 	// Comment on issue if tracked
 	if workspaceStatus.Issue > 0 {
-		comment := core.Sprintf("Pull request created: %s", prURL)
+		comment := core.Sprintf("Pull request created: %s", pullRequestURL)
 		s.commentOnIssue(ctx, org, workspaceStatus.Repo, workspaceStatus.Issue, comment)
 	}
 
 	return nil, CreatePROutput{
 		Success: true,
-		PRURL:   prURL,
-		PRNum:   prNum,
+		PRURL:   pullRequestURL,
+		PRNum:   pullRequestNumber,
 		Title:   title,
 		Branch:  workspaceStatus.Branch,
 		Repo:    workspaceStatus.Repo,
@@ -162,17 +162,17 @@ func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {
 }
 
 func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
-	var pr pullRequestView
+	var pullRequest pullRequestView
 	err := s.forge.Client().Post(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &forge_types.CreatePullRequestOption{
 		Title: title,
 		Body:  body,
 		Head:  head,
 		Base:  base,
-	}, &pr)
+	}, &pullRequest)
 	if err != nil {
 		return "", 0, core.E("forgeCreatePR", "create PR failed", err)
 	}
-	return pr.HTMLURL, int(pullRequestNumber(pr)), nil
+	return pullRequest.HTMLURL, int(pullRequestNumber(pullRequest)), nil
 }
 
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
@@ -275,36 +275,36 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 }
 
 func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
-	var prs []pullRequestView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
+	var pullRequests []pullRequestView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
 	if err != nil {
 		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), err)
 	}
 
 	var result []PRInfo
-	for _, pr := range prs {
-		prState := pr.State
-		if prState == "" {
-			prState = "open"
+	for _, pullRequest := range pullRequests {
+		pullRequestState := pullRequest.State
+		if pullRequestState == "" {
+			pullRequestState = "open"
 		}
-		if state != "" && state != "all" && prState != state {
+		if state != "" && state != "all" && pullRequestState != state {
 			continue
 		}
 		var labels []string
-		for _, l := range pr.Labels {
-			labels = append(labels, l.Name)
+		for _, label := range pullRequest.Labels {
+			labels = append(labels, label.Name)
 		}
 		result = append(result, PRInfo{
 			Repo:      repo,
-			Number:    int(pullRequestNumber(pr)),
-			Title:     pr.Title,
-			State:     prState,
-			Author:    pullRequestAuthor(pr),
-			Branch:    pr.Head.Ref,
-			Base:      pr.Base.Ref,
+			Number:    int(pullRequestNumber(pullRequest)),
+			Title:     pullRequest.Title,
+			State:     pullRequestState,
+			Author:    pullRequestAuthor(pullRequest),
+			Branch:    pullRequest.Head.Ref,
+			Base:      pullRequest.Base.Ref,
 			Labels:    labels,
-			Mergeable: pr.Mergeable,
-			URL:       pr.HTMLURL,
+			Mergeable: pullRequest.Mergeable,
+			URL:       pullRequest.HTMLURL,
 		})
 	}
 

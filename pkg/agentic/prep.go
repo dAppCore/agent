@@ -92,7 +92,7 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 // OnStartup implements core.Startable — registers named Actions, starts the queue runner,
 // and registers CLI commands. The Action registry IS the capability map.
 //
-//	c.Action("agentic.dispatch").Run(ctx, opts)
+//	c.Action("agentic.dispatch").Run(ctx, options)
 //	c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
@@ -194,7 +194,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	})
 
 	// PerformAsync wrapper — runs the completion Task in background with progress tracking.
-	// c.PerformAsync("agentic.complete", opts) broadcasts ActionTaskStarted/Completed.
+	// c.PerformAsync("agentic.complete", options) broadcasts ActionTaskStarted/Completed.
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify) in background"
 
 	// Hydrate workspace registry from disk
@@ -552,8 +552,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 // Maps repo name to plans directory: go-io → core/go/io, agent → core/agent, core-bio → core/php/bio.
 // Preserves subdirectory structure so sub-package specs land in specs/{pkg}/RFC.md.
 //
-//	s.copyRepoSpecs("/tmp/ws", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/ws/specs/
-//	s.copyRepoSpecs("/tmp/ws", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/ws/specs/
+//	s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
+//	s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
 func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	fs := (&core.Fs{}).NewUnrestricted()
 
@@ -586,7 +586,7 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 
 	// Glob RFC*.md at each depth level (root, 1 deep, 2 deep, 3 deep).
-	// Preserves subdirectory structure: specDir/pkg/sub/RFC.md → specs/pkg/sub/RFC.md
+	// Preserves subdirectory structure: specDir/pkg/nested/RFC.md → specs/pkg/nested/RFC.md
 	specsDir := core.JoinPath(workspaceDir, "specs")
 	fs.EnsureDir(specsDir)
 

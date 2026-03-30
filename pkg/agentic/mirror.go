@@ -128,11 +128,11 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		sync.Pushed = true
 
 		// Create PR: dev → main on GitHub
-		prURL, err := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
+		pullRequestURL, err := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
 		if err != nil {
 			sync.Skipped = core.Sprintf("PR creation failed: %v", err)
 		} else {
-			sync.PRURL = prURL
+			sync.PRURL = pullRequestURL
 		}
 
 		synced = append(synced, sync)

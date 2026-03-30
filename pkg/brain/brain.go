@@ -2,8 +2,8 @@
 
 // Package brain gives MCP and HTTP services the same OpenBrain capability map.
 //
-//	sub := brain.New(nil)
-//	core.Println(sub.Name())
+//	subsystem := brain.New(nil)
+//	core.Println(subsystem.Name())
 package brain
 
 import (
@@ -33,36 +33,36 @@ var errBridgeNotAvailable = core.E("brain", "bridge not available", nil)
 
 // Subsystem routes `brain_*` MCP tools through the shared IDE bridge.
 //
-//	sub := brain.New(nil)
-//	core.Println(sub.Name()) // "brain"
+//	subsystem := brain.New(nil)
+//	core.Println(subsystem.Name()) // "brain"
 type Subsystem struct {
 	bridge *ide.Bridge
 }
 
 // New builds the bridge-backed OpenBrain subsystem used by MCP.
 //
-//	sub := brain.New(nil)
-//	core.Println(sub.Name())
+//	subsystem := brain.New(nil)
+//	core.Println(subsystem.Name())
 func New(bridge *ide.Bridge) *Subsystem {
 	return &Subsystem{bridge: bridge}
 }
 
 // Name keeps the subsystem address stable for core.WithService and MCP.
 //
-//	name := sub.Name() // "brain"
+//	name := subsystem.Name() // "brain"
 func (s *Subsystem) Name() string { return "brain" }
 
 // RegisterTools publishes the bridge-backed brain tools on an MCP server.
 //
-//	sub := brain.New(nil)
-//	sub.RegisterTools(server)
+//	subsystem := brain.New(nil)
+//	subsystem.RegisterTools(server)
 func (s *Subsystem) RegisterTools(server *mcp.Server) {
 	s.registerBrainTools(server)
 }
 
 // Shutdown satisfies the MCP subsystem lifecycle without extra cleanup.
 //
-//	_ = sub.Shutdown(context.Background())
+//	_ = subsystem.Shutdown(context.Background())
 func (s *Subsystem) Shutdown(_ context.Context) error {
 	return nil
 }

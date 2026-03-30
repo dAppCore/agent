@@ -40,7 +40,7 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	workspaceRoot := WorkspaceRoot()
-	fsys := s.Core().Fs()
+	filesystem := s.Core().Fs()
 	filter := options.String("_arg")
 	if filter == "" {
 		filter = "all"
@@ -86,7 +86,7 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 
 	for _, name := range toRemove {
 		path := core.JoinPath(workspaceRoot, name)
-		fsys.DeleteAll(path)
+		filesystem.DeleteAll(path)
 		core.Print(nil, "  removed %s", name)
 	}
 	core.Print(nil, "\n  %d workspaces removed", len(toRemove))

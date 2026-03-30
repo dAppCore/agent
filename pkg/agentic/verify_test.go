@@ -122,23 +122,23 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
-// --- extractPRNumber (additional _Ugly cases) ---
+// --- extractPullRequestNumber (additional _Ugly cases) ---
 
-func TestVerify_ExtractPRNumber_Ugly_DoubleSlashEnd(t *testing.T) {
-	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
+func TestVerify_ExtractPullRequestNumber_Ugly_DoubleSlashEnd(t *testing.T) {
+	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
 }
 
-func TestVerify_ExtractPRNumber_Ugly_VeryLargeNumber(t *testing.T) {
-	assert.Equal(t, 999999, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/999999"))
+func TestVerify_ExtractPullRequestNumber_Ugly_VeryLargeNumber(t *testing.T) {
+	assert.Equal(t, 999999, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/999999"))
 }
 
-func TestVerify_ExtractPRNumber_Ugly_NegativeNumber(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Ugly_NegativeNumber(t *testing.T) {
 	// atoi of "-5" is -5, parseInt wraps atoi
-	assert.Equal(t, -5, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/-5"))
+	assert.Equal(t, -5, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/-5"))
 }
 
-func TestVerify_ExtractPRNumber_Ugly_ZeroExplicit(t *testing.T) {
-	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/0"))
+func TestVerify_ExtractPullRequestNumber_Ugly_ZeroExplicit(t *testing.T) {
+	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/0"))
 }
 
 // --- ensureLabel ---
@@ -410,7 +410,7 @@ func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	// extractPRNumber returns 0 for invalid URL, so autoVerifyAndMerge returns early
+	// extractPullRequestNumber returns 0 for invalid URL, so autoVerifyAndMerge returns early
 	assert.NotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
@@ -519,7 +519,7 @@ func TestAutopr_Truncate_Ugly_EmptyString(t *testing.T) {
 
 func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 	// Workspace with status=completed, repo=test, PRURL="not-a-url"
-	// extractPRNumber returns 0 for "not-a-url" → early return, no panic
+	// extractPullRequestNumber returns 0 for "not-a-url" → early return, no panic
 	dir := t.TempDir()
 	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
@@ -580,17 +580,17 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 	assert.True(t, commentCalled, "should have posted a comment about test failure")
 }
 
-// --- extractPRNumber (extended Ugly) ---
+// --- extractPullRequestNumber (extended Ugly) ---
 
-func TestVerify_ExtractPRNumber_Ugly(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Ugly(t *testing.T) {
 	// Just a bare number "5" → last segment is "5" → returns 5
-	assert.Equal(t, 5, extractPRNumber("5"))
+	assert.Equal(t, 5, extractPullRequestNumber("5"))
 
 	// Trailing slash → last segment is empty string → parseInt("") → 0
-	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
+	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
 
 	// Non-numeric string → parseInt("abc") → 0
-	assert.Equal(t, 0, extractPRNumber("abc"))
+	assert.Equal(t, 0, extractPullRequestNumber("abc"))
 }
 
 // --- EnsureLabel Ugly ---

@@ -727,33 +727,33 @@ func TestHandlers_FindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-// --- extractPRNumber ---
+// --- extractPullRequestNumber ---
 
-func TestVerify_ExtractPRNumber_Good_FullURL(t *testing.T) {
-	assert.Equal(t, 42, extractPRNumber("https://forge.lthn.ai/core/agent/pulls/42"))
-	assert.Equal(t, 1, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/1"))
-	assert.Equal(t, 999, extractPRNumber("https://forge.lthn.ai/core/go-log/pulls/999"))
+func TestVerify_ExtractPullRequestNumber_Good_FullURL(t *testing.T) {
+	assert.Equal(t, 42, extractPullRequestNumber("https://forge.lthn.ai/core/agent/pulls/42"))
+	assert.Equal(t, 1, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/1"))
+	assert.Equal(t, 999, extractPullRequestNumber("https://forge.lthn.ai/core/go-log/pulls/999"))
 }
 
-func TestVerify_ExtractPRNumber_Good_NumberOnly(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Good_NumberOnly(t *testing.T) {
 	// If someone passes a bare number as a URL it should still work
-	assert.Equal(t, 7, extractPRNumber("7"))
+	assert.Equal(t, 7, extractPullRequestNumber("7"))
 }
 
-func TestVerify_ExtractPRNumber_Bad_EmptyURL(t *testing.T) {
-	assert.Equal(t, 0, extractPRNumber(""))
+func TestVerify_ExtractPullRequestNumber_Bad_EmptyURL(t *testing.T) {
+	assert.Equal(t, 0, extractPullRequestNumber(""))
 }
 
-func TestVerify_ExtractPRNumber_Bad_TrailingSlash(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Bad_TrailingSlash(t *testing.T) {
 	// URL ending with slash has empty last segment
-	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/"))
+	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/"))
 }
 
-func TestVerify_ExtractPRNumber_Bad_NonNumericEnd(t *testing.T) {
-	assert.Equal(t, 0, extractPRNumber("https://forge.lthn.ai/core/go-io/pulls/abc"))
+func TestVerify_ExtractPullRequestNumber_Bad_NonNumericEnd(t *testing.T) {
+	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/abc"))
 }
 
-func TestVerify_ExtractPRNumber_Ugly_JustSlashes(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Ugly_JustSlashes(t *testing.T) {
 	// All slashes — last segment is empty
-	assert.Equal(t, 0, extractPRNumber("///"))
+	assert.Equal(t, 0, extractPullRequestNumber("///"))
 }

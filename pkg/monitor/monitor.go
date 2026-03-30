@@ -82,7 +82,7 @@ var _ coremcp.Subsystem = (*Subsystem)(nil)
 
 // Deprecated: prefer Register with core.WithService(monitor.Register).
 //
-//	mon.SetCore(c)
+//	monitorService.SetCore(c)
 func (m *Subsystem) SetCore(coreApp *core.Core) {
 	m.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
 }

@@ -114,8 +114,8 @@ func parseCoreDeps(gomod string) []coreDep {
 			repo := suffix
 			if core.HasPrefix(suffix, "core/") {
 				// core/process → go-process
-				sub := core.TrimPrefix(suffix, "core/")
-				repo = core.Concat("go-", sub)
+				repoSuffix := core.TrimPrefix(suffix, "core/")
+				repo = core.Concat("go-", repoSuffix)
 			} else if suffix == "core" {
 				repo = "go"
 			}

@@ -12,8 +12,8 @@ import (
 
 // RegisterMessagingTools adds direct agent messaging tools to an MCP server.
 //
-//	sub := brain.NewDirect()
-//	sub.RegisterMessagingTools(server)
+//	subsystem := brain.NewDirect()
+//	subsystem.RegisterMessagingTools(server)
 func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agent_send",

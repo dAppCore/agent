@@ -23,18 +23,18 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	process := s.Core().Process()
 
 	// PRs target dev — agents never merge directly to main
-	base := "dev"
+	defaultBranch := "dev"
 
-	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
+	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
 	if !processResult.OK {
 		return
 	}
-	out := core.Trim(processResult.Value.(string))
-	if out == "" {
+	commitLogOutput := core.Trim(processResult.Value.(string))
+	if commitLogOutput == "" {
 		return
 	}
 
-	commitCount := len(core.Split(out, "\n"))
+	commitCount := len(core.Split(commitLogOutput, "\n"))
 
 	org := workspaceStatus.Org
 	if org == "" {
@@ -62,7 +62,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
+	pullRequestURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, defaultBranch, title, body)
 	if err != nil {
 		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatusUpdate, ok := workspaceStatusValue(result)
@@ -81,7 +81,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 		if !ok {
 			return
 		}
-		workspaceStatusUpdate.PRURL = prURL
+		workspaceStatusUpdate.PRURL = pullRequestURL
 		writeStatusResult(workspaceDir, workspaceStatusUpdate)
 	}
 }

@@ -240,12 +240,12 @@ func agentOutputFile(workspaceDir, agent string) string {
 
 // detectFinalStatus reads workspace state after agent exit to determine outcome.
 // Returns (status, question) — "completed", "blocked", or "failed".
-func detectFinalStatus(repoDir string, exitCode int, procStatus string) (string, string) {
+func detectFinalStatus(repoDir string, exitCode int, processStatus string) (string, string) {
 	blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
 	if blockedResult := fs.Read(blockedPath); blockedResult.OK && core.Trim(blockedResult.Value.(string)) != "" {
 		return "blocked", core.Trim(blockedResult.Value.(string))
 	}
-	if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
+	if exitCode != 0 || processStatus == "failed" || processStatus == "killed" {
 		question := ""
 		if exitCode != 0 {
 			question = core.Sprintf("Agent exited with code %d", exitCode)
@@ -348,14 +348,14 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 
 // onAgentComplete handles all post-completion logic for a spawned agent.
 // Called from the monitoring goroutine after the process exits.
-func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, procStatus, output string) {
+func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, processStatus, output string) {
 	// Save output
 	if output != "" {
 		fs.Write(outputFile, output)
 	}
 
 	repoDir := WorkspaceRepoDir(workspaceDir)
-	finalStatus, question := detectFinalStatus(repoDir, exitCode, procStatus)
+	finalStatus, question := detectFinalStatus(repoDir, exitCode, processStatus)
 
 	// Update workspace status (disk + registry)
 	result := ReadStatusResult(workspaceDir)

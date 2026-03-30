@@ -18,7 +18,7 @@
 //	r := lib.Task("code/review")     // r.Value.(string)
 //	r := lib.Persona("secops/dev")   // r.Value.(string)
 //	r := lib.Flow("go")              // r.Value.(string)
-//	r := lib.ExtractWorkspace("default", "/tmp/ws", data)
+//	r := lib.ExtractWorkspace("default", "/tmp/workspace", data)
 //	core.Println(r.OK)
 package lib
 
@@ -80,18 +80,18 @@ func ensureMounted() core.Result {
 		mountedData := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
 
 		for _, item := range []struct {
-			name    string
-			fsys    embed.FS
-			basedir string
-			assign  func(*core.Embed)
+			name       string
+			filesystem embed.FS
+			baseDir    string
+			assign     func(*core.Embed)
 		}{
-			{name: "prompt", fsys: promptFiles, basedir: "prompt", assign: func(emb *core.Embed) { promptFS = emb }},
-			{name: "task", fsys: taskFiles, basedir: "task", assign: func(emb *core.Embed) { taskFS = emb }},
-			{name: "flow", fsys: flowFiles, basedir: "flow", assign: func(emb *core.Embed) { flowFS = emb }},
-			{name: "persona", fsys: personaFiles, basedir: "persona", assign: func(emb *core.Embed) { personaFS = emb }},
-			{name: "workspace", fsys: workspaceFiles, basedir: "workspace", assign: func(emb *core.Embed) { workspaceFS = emb }},
+			{name: "prompt", filesystem: promptFiles, baseDir: "prompt", assign: func(emb *core.Embed) { promptFS = emb }},
+			{name: "task", filesystem: taskFiles, baseDir: "task", assign: func(emb *core.Embed) { taskFS = emb }},
+			{name: "flow", filesystem: flowFiles, baseDir: "flow", assign: func(emb *core.Embed) { flowFS = emb }},
+			{name: "persona", filesystem: personaFiles, baseDir: "persona", assign: func(emb *core.Embed) { personaFS = emb }},
+			{name: "workspace", filesystem: workspaceFiles, baseDir: "workspace", assign: func(emb *core.Embed) { workspaceFS = emb }},
 		} {
-			mounted := mountEmbed(item.fsys, item.basedir)
+			mounted := mountEmbed(item.filesystem, item.baseDir)
 			if !mounted.OK {
 				mountResult = mounted
 				return
@@ -109,21 +109,21 @@ func ensureMounted() core.Result {
 	return mountResult
 }
 
-func mountEmbed(fsys embed.FS, basedir string) core.Result {
-	result := core.Mount(fsys, basedir)
+func mountEmbed(filesystem embed.FS, baseDir string) core.Result {
+	result := core.Mount(filesystem, baseDir)
 	if result.OK {
 		return result
 	}
 
 	if err, ok := result.Value.(error); ok {
 		return core.Result{
-			Value: core.E("lib.mountEmbed", core.Concat("mount ", basedir), err),
+			Value: core.E("lib.mountEmbed", core.Concat("mount ", baseDir), err),
 			OK:    false,
 		}
 	}
 
 	return core.Result{
-		Value: core.E("lib.mountEmbed", core.Concat("mount ", basedir), nil),
+		Value: core.E("lib.mountEmbed", core.Concat("mount ", baseDir), nil),
 		OK:    false,
 	}
 }
@@ -355,9 +355,9 @@ func ListTasks() []string {
 	}
 
 	result := listNamesRecursive("task", ".")
-	a := core.NewArray(result...)
-	a.Deduplicate()
-	return a.AsSlice()
+	names := core.NewArray(result...)
+	names.Deduplicate()
+	return names.AsSlice()
 }
 
 // ListPersonas returns available persona paths, including nested directories.
@@ -368,9 +368,9 @@ func ListPersonas() []string {
 		return nil
 	}
 
-	a := core.NewArray(listNamesRecursive("persona", ".")...)
-	a.Deduplicate()
-	return a.AsSlice()
+	names := core.NewArray(listNamesRecursive("persona", ".")...)
+	names.Deduplicate()
+	return names.AsSlice()
 }
 
 // listNamesRecursive walks an embed tree via Data.ListNames.
@@ -397,7 +397,7 @@ func listNamesRecursive(mount, dir string) []string {
 		subPath := core.JoinPath(mount, relPath)
 
 		// Try as directory — recurse if it has contents
-		if sub := data.ListNames(subPath); sub.OK {
+		if childNames := data.ListNames(subPath); childNames.OK {
 			slugs = append(slugs, listNamesRecursive(mount, relPath)...)
 		}
 

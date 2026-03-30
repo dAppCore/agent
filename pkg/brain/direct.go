@@ -14,8 +14,8 @@ import (
 
 // DirectSubsystem talks to OpenBrain over HTTP without the IDE bridge.
 //
-//	sub := brain.NewDirect()
-//	core.Println(sub.Name()) // "brain"
+//	subsystem := brain.NewDirect()
+//	core.Println(subsystem.Name()) // "brain"
 type DirectSubsystem struct {
 	apiURL string
 	apiKey string
@@ -25,8 +25,8 @@ var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
 
 // NewDirect builds the HTTP-backed OpenBrain subsystem.
 //
-//	sub := brain.NewDirect()
-//	core.Println(sub.Name())
+//	subsystem := brain.NewDirect()
+//	core.Println(subsystem.Name())
 func NewDirect() *DirectSubsystem {
 	apiURL := core.Env("CORE_BRAIN_URL")
 	if apiURL == "" {
@@ -58,13 +58,13 @@ func NewDirect() *DirectSubsystem {
 
 // Name keeps the direct subsystem address stable for core.WithService and MCP.
 //
-//	name := sub.Name() // "brain"
+//	name := subsystem.Name() // "brain"
 func (s *DirectSubsystem) Name() string { return "brain" }
 
 // RegisterTools publishes the direct `brain_*` and `agent_*` tools on an MCP server.
 //
-//	sub := brain.NewDirect()
-//	sub.RegisterTools(server)
+//	subsystem := brain.NewDirect()
+//	subsystem.RegisterTools(server)
 func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "brain_remember",
@@ -87,7 +87,7 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 
 // Shutdown satisfies the MCP subsystem lifecycle without extra cleanup.
 //
-//	_ = sub.Shutdown(context.Background())
+//	_ = subsystem.Shutdown(context.Background())
 func (s *DirectSubsystem) Shutdown(_ context.Context) error { return nil }
 
 func brainKeyPath(home string) string {

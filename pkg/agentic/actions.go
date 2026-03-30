@@ -239,7 +239,7 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) 
 				Repo:   workspaceStatus.Repo,
 				Branch: workspaceStatus.Branch,
 				PRURL:  workspaceStatus.PRURL,
-				PRNum:  extractPRNumber(workspaceStatus.PRURL),
+				PRNum:  extractPullRequestNumber(workspaceStatus.PRURL),
 			})
 		}
 	}
@@ -270,13 +270,13 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) 
 				s.Core().ACTION(messages.PRMerged{
 					Repo:  workspaceStatus.Repo,
 					PRURL: workspaceStatus.PRURL,
-					PRNum: extractPRNumber(workspaceStatus.PRURL),
+					PRNum: extractPullRequestNumber(workspaceStatus.PRURL),
 				})
 			} else if workspaceStatus.Question != "" {
 				s.Core().ACTION(messages.PRNeedsReview{
 					Repo:   workspaceStatus.Repo,
 					PRURL:  workspaceStatus.PRURL,
-					PRNum:  extractPRNumber(workspaceStatus.PRURL),
+					PRNum:  extractPullRequestNumber(workspaceStatus.PRURL),
 					Reason: workspaceStatus.Question,
 				})
 			}
