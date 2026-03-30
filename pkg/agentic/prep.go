@@ -287,8 +287,6 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 // _ = subsystem.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
-// --- Input/Output types ---
-
 // input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
 type PrepInput struct {
 	Repo         string            `json:"repo"`                    // required: e.g. "go-io"
@@ -511,8 +509,6 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	return nil, out, nil
 }
 
-// --- Spec Injection ---
-
 // copyRepoSpecs copies RFC spec files from the plans repo into the workspace specs/ folder.
 // Maps repo name to plans directory: go-io → core/go/io, agent → core/agent, core-bio → core/php/bio.
 // Preserves subdirectory structure so sub-package specs land in specs/{pkg}/RFC.md.
@@ -574,8 +570,6 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 }
 
-// --- Public API for CLI testing ---
-
 // TestPrepWorkspace exposes prepWorkspace for CLI testing.
 //
 //	_, out, err := prep.TestPrepWorkspace(ctx, input)
@@ -589,8 +583,6 @@ func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) 
 func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
 	return s.buildPrompt(ctx, input, branch, repoPath)
 }
-
-// --- Prompt Building ---
 
 // buildPrompt assembles all context into a single prompt string.
 // Context is gathered from: persona, flow, issue, brain, consumers, git log, wiki, plan.
@@ -677,8 +669,6 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 
 	return b.String(), memories, consumers
 }
-
-// --- Context Helpers (return strings, not write files) ---
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
 	idx := core.Sprintf("%d", issue)
@@ -863,8 +853,6 @@ func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]str
 
 	return plan.String()
 }
-
-// --- Detection helpers (unchanged) ---
 
 func detectLanguage(repoPath string) string {
 	checks := []struct {

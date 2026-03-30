@@ -3,8 +3,6 @@
 // c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Status: "completed"})
 package messages
 
-// --- Agent Lifecycle ---
-
 // c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"})
 type AgentStarted struct {
 	Agent     string
@@ -19,8 +17,6 @@ type AgentCompleted struct {
 	Workspace string
 	Status    string // completed, failed, blocked
 }
-
-// --- QA & PR Pipeline ---
 
 // c.ACTION(messages.QAResult{Workspace: "core/go-io/task-5", Repo: "go-io", Passed: true})
 type QAResult struct {
@@ -53,8 +49,6 @@ type PRNeedsReview struct {
 	Reason string
 }
 
-// --- Queue ---
-
 // c.ACTION(messages.QueueDrained{Completed: 3})
 type QueueDrained struct {
 	Completed int
@@ -75,8 +69,6 @@ type RateLimitDetected struct {
 	Pool     string
 	Duration string
 }
-
-// --- Monitor Events ---
 
 // c.ACTION(messages.HarvestComplete{Repo: "go-io", Branch: "agent/fix-tests", Files: 5})
 type HarvestComplete struct {

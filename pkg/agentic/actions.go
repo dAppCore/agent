@@ -17,14 +17,12 @@ import (
 	core "dappco.re/go/core"
 )
 
-// --- Dispatch & Workspace ---
-
-// handleDispatch dispatches a subagent to work on a repo task.
+// result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "repo", Value: "go-io"},
-//	    core.Option{Key: "task", Value: "Fix tests"},
-//	))
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "task", Value: "Fix tests"},
+//
+// ))
 func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options) core.Result {
 	input := DispatchInput{
 		Repo:  options.String("repo"),
@@ -39,12 +37,12 @@ func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options
 	return core.Result{Value: out, OK: true}
 }
 
-// handlePrep prepares a workspace without dispatching an agent.
+// result := c.Action("agentic.prep").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.prep").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "repo", Value: "go-io"},
-//	    core.Option{Key: "issue", Value: 42},
-//	))
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "issue", Value: 42},
+//
+// ))
 func (s *PrepSubsystem) handlePrep(ctx context.Context, options core.Options) core.Result {
 	input := PrepInput{
 		Repo:  options.String("repo"),
@@ -58,9 +56,7 @@ func (s *PrepSubsystem) handlePrep(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
-// handleStatus lists workspace statuses.
-//
-//	result := c.Action("agentic.status").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.status").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) core.Result {
 	input := StatusInput{
 		Workspace: options.String("workspace"),
@@ -74,11 +70,11 @@ func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) 
 	return core.Result{Value: out, OK: true}
 }
 
-// handleResume resumes a blocked workspace.
+// result := c.Action("agentic.resume").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.resume").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
-//	))
+//	core.Option{Key: "workspace", Value: "core/go-io/task-5"},
+//
+// ))
 func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) core.Result {
 	input := ResumeInput{
 		Workspace: options.String("workspace"),
@@ -91,9 +87,7 @@ func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) 
 	return core.Result{Value: out, OK: true}
 }
 
-// handleScan scans forge repos for actionable issues.
-//
-//	result := c.Action("agentic.scan").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.scan").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) core.Result {
 	input := ScanInput{
 		Org:   options.String("org"),
@@ -106,11 +100,11 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
-// handleWatch watches a workspace for completion.
+// result := c.Action("agentic.watch").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.watch").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
-//	))
+//	core.Option{Key: "workspace", Value: "core/go-io/task-5"},
+//
+// ))
 func (s *PrepSubsystem) handleWatch(ctx context.Context, options core.Options) core.Result {
 	input := WatchInput{
 		PollInterval: options.Int("poll_interval"),
@@ -126,58 +120,56 @@ func (s *PrepSubsystem) handleWatch(ctx context.Context, options core.Options) c
 	return core.Result{Value: out, OK: true}
 }
 
-// handlePrompt reads an embedded prompt by slug.
+// result := c.Action("agentic.prompt").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.prompt").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "slug", Value: "coding"},
-//	))
+//	core.Option{Key: "slug", Value: "coding"},
+//
+// ))
 func (s *PrepSubsystem) handlePrompt(_ context.Context, options core.Options) core.Result {
 	return lib.Prompt(options.String("slug"))
 }
 
-// handleTask reads an embedded task plan by slug.
+// result := c.Action("agentic.task").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.task").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "slug", Value: "bug-fix"},
-//	))
+//	core.Option{Key: "slug", Value: "bug-fix"},
+//
+// ))
 func (s *PrepSubsystem) handleTask(_ context.Context, options core.Options) core.Result {
 	return lib.Task(options.String("slug"))
 }
 
-// handleFlow reads an embedded flow by slug.
+// result := c.Action("agentic.flow").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.flow").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "slug", Value: "go"},
-//	))
+//	core.Option{Key: "slug", Value: "go"},
+//
+// ))
 func (s *PrepSubsystem) handleFlow(_ context.Context, options core.Options) core.Result {
 	return lib.Flow(options.String("slug"))
 }
 
-// handlePersona reads an embedded persona by path.
+// result := c.Action("agentic.persona").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.persona").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "path", Value: "code/backend-architect"},
-//	))
+//	core.Option{Key: "path", Value: "code/backend-architect"},
+//
+// ))
 func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) core.Result {
 	return lib.Persona(options.String("path"))
 }
 
-// --- Pipeline ---
-
-// handleComplete runs the named completion task.
+// result := c.Action("agentic.complete").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.complete").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "/srv/.core/workspace/core/go-io/task-42"},
-//	))
+//	core.Option{Key: "workspace", Value: "/srv/.core/workspace/core/go-io/task-42"},
+//
+// ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
 	return s.Core().Task("agent.completion").Run(ctx, s.Core(), options)
 }
 
-// handleQA runs build+test on a completed workspace.
+// result := c.Action("agentic.qa").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.qa").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
-//	))
+//	core.Option{Key: "workspace", Value: "/path/to/workspace"},
+//
+// ))
 func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core.Result {
 	// Feature flag gate — skip QA if disabled
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-qa") {
@@ -215,11 +207,11 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 	return core.Result{Value: passed, OK: passed}
 }
 
-// handleAutoPR creates a PR for a completed workspace.
+// result := c.Action("agentic.auto-pr").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.auto-pr").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
-//	))
+//	core.Option{Key: "workspace", Value: "/path/to/workspace"},
+//
+// ))
 func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) core.Result {
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-pr") {
 		return core.Result{OK: true}
@@ -246,11 +238,11 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) 
 	return core.Result{OK: true}
 }
 
-// handleVerify verifies and auto-merges a PR.
+// result := c.Action("agentic.verify").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.verify").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
-//	))
+//	core.Option{Key: "workspace", Value: "/path/to/workspace"},
+//
+// ))
 func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) core.Result {
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-merge") {
 		return core.Result{OK: true}
@@ -285,11 +277,11 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) 
 	return core.Result{OK: true}
 }
 
-// handleIngest creates issues from agent findings.
+// result := c.Action("agentic.ingest").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.ingest").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
-//	))
+//	core.Option{Key: "workspace", Value: "/path/to/workspace"},
+//
+// ))
 func (s *PrepSubsystem) handleIngest(ctx context.Context, options core.Options) core.Result {
 	workspaceDir := options.String("workspace")
 	if workspaceDir == "" {
@@ -307,11 +299,11 @@ func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Res
 	return core.Result{OK: true}
 }
 
-// handleMirror mirrors agent branches to GitHub.
+// result := c.Action("agentic.mirror").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.mirror").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "repo", Value: "go-io"},
-//	))
+//	core.Option{Key: "repo", Value: "go-io"},
+//
+// ))
 func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) core.Result {
 	input := MirrorInput{
 		Repo: options.String("repo"),
@@ -323,8 +315,6 @@ func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) 
 	return core.Result{Value: out, OK: true}
 }
 
-// --- Forge ---
-
 // handleIssueGet retrieves a forge issue.
 //
 //	result := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
@@ -335,21 +325,21 @@ func (s *PrepSubsystem) handleIssueGet(ctx context.Context, options core.Options
 	return s.cmdIssueGet(options)
 }
 
-// handleIssueList lists forge issues.
+// result := c.Action("agentic.issue.list").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.issue.list").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "_arg", Value: "go-io"},
-//	))
+//	core.Option{Key: "_arg", Value: "go-io"},
+//
+// ))
 func (s *PrepSubsystem) handleIssueList(ctx context.Context, options core.Options) core.Result {
 	return s.cmdIssueList(options)
 }
 
-// handleIssueCreate creates a forge issue.
+// result := c.Action("agentic.issue.create").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.issue.create").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "_arg", Value: "go-io"},
-//	    core.Option{Key: "title", Value: "Bug report"},
-//	))
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "title", Value: "Bug report"},
+//
+// ))
 func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, options core.Options) core.Result {
 	return s.cmdIssueCreate(options)
 }
@@ -364,11 +354,11 @@ func (s *PrepSubsystem) handlePRGet(ctx context.Context, options core.Options) c
 	return s.cmdPRGet(options)
 }
 
-// handlePRList lists forge PRs.
+// result := c.Action("agentic.pr.list").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.pr.list").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "_arg", Value: "go-io"},
-//	))
+//	core.Option{Key: "_arg", Value: "go-io"},
+//
+// ))
 func (s *PrepSubsystem) handlePRList(ctx context.Context, options core.Options) core.Result {
 	return s.cmdPRList(options)
 }
@@ -383,13 +373,11 @@ func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options)
 	return s.cmdPRMerge(options)
 }
 
-// --- Review ---
-
-// handleReviewQueue runs CodeRabbit review on a workspace.
+// result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
-//	))
+//	core.Option{Key: "workspace", Value: "core/go-io/task-5"},
+//
+// ))
 func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Options) core.Result {
 	input := ReviewQueueInput{
 		Limit:    options.Int("limit"),
@@ -403,13 +391,11 @@ func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Opti
 	return core.Result{Value: out, OK: true}
 }
 
-// --- Epic ---
-
-// handleEpic creates an epic (multi-repo task breakdown).
+// result := c.Action("agentic.epic").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.epic").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "task", Value: "Update all repos to v0.8.0"},
-//	))
+//	core.Option{Key: "task", Value: "Update all repos to v0.8.0"},
+//
+// ))
 func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) core.Result {
 	input := EpicInput{
 		Repo:  options.String("repo"),

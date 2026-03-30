@@ -40,11 +40,7 @@ type Phase struct {
 	Notes    string   `json:"notes,omitempty"`
 }
 
-// --- Input/Output types ---
-
-// PlanCreateInput is the input for agentic_plan_create.
-//
-//	input := agentic.PlanCreateInput{Title: "Migrate pkg/agentic", Objective: "Use Core primitives everywhere"}
+// input := agentic.PlanCreateInput{Title: "Migrate pkg/agentic", Objective: "Use Core primitives everywhere"}
 type PlanCreateInput struct {
 	Title     string  `json:"title"`
 	Objective string  `json:"objective"`
@@ -54,33 +50,25 @@ type PlanCreateInput struct {
 	Notes     string  `json:"notes,omitempty"`
 }
 
-// PlanCreateOutput is the output for agentic_plan_create.
-//
-//	out := agentic.PlanCreateOutput{Success: true, ID: "id-1-a3f2b1"}
+// out := agentic.PlanCreateOutput{Success: true, ID: "id-1-a3f2b1"}
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
 	Path    string `json:"path"`
 }
 
-// PlanReadInput is the input for agentic_plan_read.
-//
-//	input := agentic.PlanReadInput{ID: "id-1-a3f2b1"}
+// input := agentic.PlanReadInput{ID: "id-1-a3f2b1"}
 type PlanReadInput struct {
 	ID string `json:"id"`
 }
 
-// PlanReadOutput is the output for agentic_plan_read.
-//
-//	out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "id-1-a3f2b1"}}
+// out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "id-1-a3f2b1"}}
 type PlanReadOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
-// PlanUpdateInput is the input for agentic_plan_update.
-//
-//	input := agentic.PlanUpdateInput{ID: "id-1-a3f2b1", Status: "verified"}
+// input := agentic.PlanUpdateInput{ID: "id-1-a3f2b1", Status: "verified"}
 type PlanUpdateInput struct {
 	ID        string  `json:"id"`
 	Status    string  `json:"status,omitempty"`
@@ -91,47 +79,35 @@ type PlanUpdateInput struct {
 	Agent     string  `json:"agent,omitempty"`
 }
 
-// PlanUpdateOutput is the output for agentic_plan_update.
-//
-//	out := agentic.PlanUpdateOutput{Success: true, Plan: agentic.Plan{Status: "verified"}}
+// out := agentic.PlanUpdateOutput{Success: true, Plan: agentic.Plan{Status: "verified"}}
 type PlanUpdateOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
-// PlanDeleteInput is the input for agentic_plan_delete.
-//
-//	input := agentic.PlanDeleteInput{ID: "id-1-a3f2b1"}
+// input := agentic.PlanDeleteInput{ID: "id-1-a3f2b1"}
 type PlanDeleteInput struct {
 	ID string `json:"id"`
 }
 
-// PlanDeleteOutput is the output for agentic_plan_delete.
-//
-//	out := agentic.PlanDeleteOutput{Success: true, Deleted: "id-1-a3f2b1"}
+// out := agentic.PlanDeleteOutput{Success: true, Deleted: "id-1-a3f2b1"}
 type PlanDeleteOutput struct {
 	Success bool   `json:"success"`
 	Deleted string `json:"deleted"`
 }
 
-// PlanListInput is the input for agentic_plan_list.
-//
-//	input := agentic.PlanListInput{Repo: "go-io", Status: "ready"}
+// input := agentic.PlanListInput{Repo: "go-io", Status: "ready"}
 type PlanListInput struct {
 	Status string `json:"status,omitempty"`
 	Repo   string `json:"repo,omitempty"`
 }
 
-// PlanListOutput is the output for agentic_plan_list.
-//
-//	out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "id-1-a3f2b1"}}}
+// out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "id-1-a3f2b1"}}}
 type PlanListOutput struct {
 	Success bool   `json:"success"`
 	Count   int    `json:"count"`
 	Plans   []Plan `json:"plans"`
 }
-
-// --- Registration ---
 
 func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
@@ -159,8 +135,6 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Description: "List implementation plans. Supports filtering by status (draft, ready, in_progress, etc.) and repo.",
 	}, s.planList)
 }
-
-// --- Handlers ---
 
 func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
 	if input.Title == "" {
@@ -356,17 +330,13 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 	}, nil
 }
 
-// --- Helpers ---
-
 func planPath(dir, id string) string {
 	safe := core.SanitisePath(id)
 	return core.JoinPath(dir, core.Concat(safe, ".json"))
 }
 
-// readPlanResult reads and decodes a plan file as core.Result.
-//
-//	result := readPlanResult(PlansRoot(), "plan-id")
-//	if result.OK { plan := result.Value.(*Plan) }
+// result := readPlanResult(PlansRoot(), "plan-id")
+// if result.OK { plan := result.Value.(*Plan) }
 func readPlanResult(dir, id string) core.Result {
 	r := fs.Read(planPath(dir, id))
 	if !r.OK {
@@ -405,10 +375,8 @@ func readPlan(dir, id string) (*Plan, error) {
 	return plan, nil
 }
 
-// writePlanResult writes a plan file and returns core.Result.
-//
-//	result := writePlanResult(PlansRoot(), plan)
-//	if result.OK { path := result.Value.(string) }
+// result := writePlanResult(PlansRoot(), plan)
+// if result.OK { path := result.Value.(string) }
 func writePlanResult(dir string, plan *Plan) core.Result {
 	if plan == nil {
 		return core.Result{Value: core.E("writePlan", "plan is required", nil), OK: false}

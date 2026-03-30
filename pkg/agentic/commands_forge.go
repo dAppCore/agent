@@ -71,7 +71,13 @@ func pullRequestAuthor(pr pullRequestView) string {
 	return pr.User.Login
 }
 
-// parseForgeArgs extracts org and repo from options.
+// org, repo, num := parseForgeArgs(core.NewOptions(
+//
+//	core.Option{Key: "org", Value: "core"},
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "number", Value: "42"},
+//
+// ))
 func parseForgeArgs(options core.Options) (org, repo string, num int64) {
 	org = options.String("org")
 	if org == "" {

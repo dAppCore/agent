@@ -226,16 +226,13 @@ func containerCommand(command string, args []string, repoDir, metaDir string) (s
 	return "docker", dockerArgs
 }
 
-// --- spawnAgent: decomposed into testable steps ---
-
-// agentOutputFile returns the log file path for an agent's output.
+// outputFile := agentOutputFile(workspaceDir, "codex")
 func agentOutputFile(workspaceDir, agent string) string {
 	agentBase := core.SplitN(agent, ":", 2)[0]
 	return core.JoinPath(WorkspaceMetaDir(workspaceDir), core.Sprintf("agent-%s.log", agentBase))
 }
 
-// detectFinalStatus reads workspace state after agent exit to determine outcome.
-// Returns (status, question) — "completed", "blocked", or "failed".
+// status, question := detectFinalStatus(repoDir, 0, "completed")
 func detectFinalStatus(repoDir string, exitCode int, processStatus string) (string, string) {
 	blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
 	if blockedResult := fs.Read(blockedPath); blockedResult.OK && core.Trim(blockedResult.Value.(string)) != "" {
@@ -342,8 +339,6 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 	}
 }
 
-// onAgentComplete handles all post-completion logic for a spawned agent.
-// Called from the monitoring goroutine after the process exits.
 func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, processStatus, output string) {
 	// Save output
 	if output != "" {
@@ -384,9 +379,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 	}
 }
 
-// spawnAgent launches an agent inside a Docker container.
-// The repo/ directory is mounted at /workspace, agent runs sandboxed.
-// Output is captured and written to .meta/agent-{agent}.log on completion.
+// pid, processID, outputFile, err := s.spawnAgent(agent, prompt, workspaceDir)
 func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, string, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
@@ -472,8 +465,7 @@ func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Res
 	return core.Result{OK: true}
 }
 
-// runQA runs build + test checks on the repo after agent completion.
-// Returns true if QA passes, false if build or tests fail.
+// passed := s.runQA(workspaceDir)
 func (s *PrepSubsystem) runQA(workspaceDir string) bool {
 	ctx := context.Background()
 	repoDir := WorkspaceRepoDir(workspaceDir)

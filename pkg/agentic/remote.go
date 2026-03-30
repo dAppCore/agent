@@ -8,8 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_dispatch_remote tool ---
-
 // RemoteDispatchInput dispatches a task to a remote core-agent over HTTP.
 //
 //	input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}

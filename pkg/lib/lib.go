@@ -125,12 +125,8 @@ func mountEmbed(filesystem embed.FS, baseDir string) core.Result {
 	}
 }
 
-// --- Prompts ---
-
-// Template tries Prompt then Task (backwards compat).
-//
-//	r := lib.Template("coding")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.Template("coding")
+// if r.OK { content := r.Value.(string) }
 func Template(slug string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -141,10 +137,8 @@ func Template(slug string) core.Result {
 	return Task(slug)
 }
 
-// Prompt reads a system prompt by slug.
-//
-//	r := lib.Prompt("coding")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.Prompt("coding")
+// if r.OK { content := r.Value.(string) }
 func Prompt(slug string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -152,10 +146,8 @@ func Prompt(slug string) core.Result {
 	return promptFS.ReadString(core.Concat(slug, ".md"))
 }
 
-// Task reads a structured task plan by slug. Tries .md, .yaml, .yml.
-//
-//	r := lib.Task("code/review")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.Task("code/review")
+// if r.OK { content := r.Value.(string) }
 func Task(slug string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -180,10 +172,8 @@ type Bundle struct {
 	Files map[string]string
 }
 
-// TaskBundle reads a task and its companion files.
-//
-//	r := lib.TaskBundle("code/review")
-//	if r.OK { b := r.Value.(lib.Bundle) }
+// r := lib.TaskBundle("code/review")
+// if r.OK { b := r.Value.(lib.Bundle) }
 func TaskBundle(slug string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -212,10 +202,8 @@ func TaskBundle(slug string) core.Result {
 	return core.Result{Value: b, OK: true}
 }
 
-// Flow reads a build/release workflow by slug.
-//
-//	r := lib.Flow("go")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.Flow("go")
+// if r.OK { content := r.Value.(string) }
 func Flow(slug string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -223,18 +211,14 @@ func Flow(slug string) core.Result {
 	return flowFS.ReadString(core.Concat(slug, ".md"))
 }
 
-// Persona reads a domain/role persona by path.
-//
-//	r := lib.Persona("secops/developer")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.Persona("secops/developer")
+// if r.OK { content := r.Value.(string) }
 func Persona(path string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
 	}
 	return personaFS.ReadString(core.Concat(path, ".md"))
 }
-
-// --- Workspace Templates ---
 
 // WorkspaceData is the data passed to workspace templates.
 //
@@ -259,13 +243,11 @@ type WorkspaceData struct {
 	TestCmd         string
 }
 
-// ExtractWorkspace creates an agent workspace from a template.
-// Template names: "default", "security", "review".
-//
 //	r := lib.ExtractWorkspace("default", "/tmp/ws", &lib.WorkspaceData{
 //	    Repo: "go-io", Task: "fix tests", Agent: "codex",
 //	})
-//	core.Println(r.OK)
+//
+// core.Println(r.OK)
 func ExtractWorkspace(templateName, targetDir string, data *WorkspaceData) core.Result {
 	if result := ensureMounted(); !result.OK {
 		if err, ok := result.Value.(error); ok {
@@ -309,11 +291,8 @@ func ExtractWorkspace(templateName, targetDir string, data *WorkspaceData) core.
 	return core.Result{Value: targetDir, OK: true}
 }
 
-// WorkspaceFile reads a single file from a workspace template.
-// Returns the file content as a string.
-//
-//	r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl")
-//	if r.OK { content := r.Value.(string) }
+// r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl")
+// if r.OK { content := r.Value.(string) }
 func WorkspaceFile(templateName, filename string) core.Result {
 	if result := ensureMounted(); !result.OK {
 		return result
@@ -326,26 +305,16 @@ func WorkspaceFile(templateName, filename string) core.Result {
 	return embed.ReadString(filename)
 }
 
-// --- List Functions ---
-
-// ListPrompts returns available system prompt slugs.
-//
-//	prompts := lib.ListPrompts() // ["coding", "review", ...]
+// prompts := lib.ListPrompts() // ["coding", "review", ...]
 func ListPrompts() []string { return listNames("prompt") }
 
-// ListFlows returns available build/release flow slugs.
-//
-//	flows := lib.ListFlows() // ["go", "php", "node", ...]
+// flows := lib.ListFlows() // ["go", "php", "node", ...]
 func ListFlows() []string { return listNames("flow") }
 
-// ListWorkspaces returns available workspace template names.
-//
-//	templates := lib.ListWorkspaces() // ["default", "security", ...]
+// templates := lib.ListWorkspaces() // ["default", "security", ...]
 func ListWorkspaces() []string { return listNames("workspace") }
 
-// ListTasks returns available task plan slugs, including nested paths.
-//
-//	tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
+// tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
 func ListTasks() []string {
 	if result := ensureMounted(); !result.OK {
 		return nil
@@ -357,9 +326,7 @@ func ListTasks() []string {
 	return names.AsSlice()
 }
 
-// ListPersonas returns available persona paths, including nested directories.
-//
-//	personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
+// personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
 func ListPersonas() []string {
 	if result := ensureMounted(); !result.OK {
 		return nil

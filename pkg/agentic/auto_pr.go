@@ -9,8 +9,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// autoCreatePR pushes the agent's branch and creates a PR on Forge
-// if the agent made any commits beyond the initial clone.
+// s.autoCreatePR("/srv/.core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)

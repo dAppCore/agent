@@ -101,8 +101,6 @@ func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
 	return workspaceStatus, true
 }
 
-// --- agentic_status tool ---
-
 // input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all

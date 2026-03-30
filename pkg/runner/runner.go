@@ -250,8 +250,6 @@ func (s *Service) handleWorkspaceQuery(_ *core.Core, query core.Query) core.Resu
 	return core.Result{Value: s.workspaces, OK: true}
 }
 
-// --- Actions ---
-
 func (s *Service) actionDispatch(_ context.Context, options core.Options) core.Result {
 	if s.frozen {
 		return core.Result{Value: core.E("runner.actionDispatch", "queue is frozen", nil), OK: false}
@@ -342,8 +340,6 @@ func (s *Service) actionPoke(_ context.Context, _ core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-// --- Queue runner ---
-
 func (s *Service) startRunner() {
 	s.pokeCh = make(chan struct{}, 1)
 
@@ -369,8 +365,6 @@ func (s *Service) runLoop() {
 	}
 }
 
-// --- Workspace hydration ---
-
 func (s *Service) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
@@ -391,8 +385,6 @@ func (s *Service) hydrateWorkspaces() {
 		s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
 	}
 }
-
-// --- Types ---
 
 // AgentNotification is the channel payload sent on `agent.status`.
 //
@@ -419,9 +411,7 @@ type WorkspaceQuery struct {
 	Status string
 }
 
-// WorkspaceStatus tracks the state of an agent workspace.
-//
-//	workspaceStatus := &runner.WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 12345}
+// workspaceStatus := &runner.WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 12345}
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`
 	Agent     string    `json:"agent"`

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 // HTTP transport for Core API streams.
-// This is the ONE file in core/agent that imports net/http.
-// All other files use the exported helpers: HTTPGet, HTTPPost, HTTPCall.
 
 package agentic
 
@@ -26,10 +24,8 @@ type httpStream struct {
 	response []byte
 }
 
-// Send issues the configured HTTP request and caches the response body for Receive.
-//
-//	stream := &httpStream{client: defaultClient, url: "https://forge.lthn.ai/api/v1/version", method: "GET"}
-//	_ = stream.Send(nil)
+// stream := &httpStream{client: defaultClient, url: "https://forge.lthn.ai/api/v1/version", method: "GET"}
+// _ = stream.Send(nil)
 func (s *httpStream) Send(data []byte) error {
 	request, err := http.NewRequestWithContext(context.Background(), s.method, s.url, core.NewReader(string(data)))
 	if err != nil {
@@ -55,26 +51,20 @@ func (s *httpStream) Send(data []byte) error {
 	return nil
 }
 
-// Receive returns the cached response body from the last Send call.
-//
-//	stream := &httpStream{response: []byte(`{"ok":true}`)}
-//	data, _ := stream.Receive()
-//	_ = data
+// stream := &httpStream{response: []byte(`{"ok":true}`)}
+// data, _ := stream.Receive()
+// _ = data
 func (s *httpStream) Receive() ([]byte, error) {
 	return s.response, nil
 }
 
-// Close satisfies core.Stream for one-shot HTTP requests.
-//
-//	stream := &httpStream{}
-//	_ = stream.Close()
+// stream := &httpStream{}
+// _ = stream.Close()
 func (s *httpStream) Close() error {
 	return nil
 }
 
-// RegisterHTTPTransport registers the HTTP/HTTPS protocol handler with Core API.
-//
-//	agentic.RegisterHTTPTransport(c)
+// agentic.RegisterHTTPTransport(c)
 func RegisterHTTPTransport(c *core.Core) {
 	factory := func(handle *core.DriveHandle) (core.Stream, error) {
 		token := handle.Options.String("token")
@@ -89,50 +79,32 @@ func RegisterHTTPTransport(c *core.Core) {
 	c.API().RegisterProtocol("https", factory)
 }
 
-// --- REST helpers — all HTTP in core/agent routes through these ---
-
-// HTTPGet performs a GET request. Returns Result{Value: string (response body), OK: bool}.
-// Auth is "token {token}" for Forge, "Bearer {token}" for Brain.
-//
-//	result := agentic.HTTPGet(ctx, "https://forge.lthn.ai/api/v1/repos", "my-token", "token")
+// result := agentic.HTTPGet(ctx, "https://forge.lthn.ai/api/v1/repos", "my-token", "token")
 func HTTPGet(ctx context.Context, url, token, authScheme string) core.Result {
 	return httpDo(ctx, "GET", url, "", token, authScheme)
 }
 
-// HTTPPost performs a POST request with a JSON body. Returns Result{Value: string, OK: bool}.
-//
-//	result := agentic.HTTPPost(ctx, url, core.JSONMarshalString(payload), token, "token")
+// result := agentic.HTTPPost(ctx, url, core.JSONMarshalString(payload), token, "token")
 func HTTPPost(ctx context.Context, url, body, token, authScheme string) core.Result {
 	return httpDo(ctx, "POST", url, body, token, authScheme)
 }
 
-// HTTPPatch performs a PATCH request with a JSON body.
-//
-//	result := agentic.HTTPPatch(ctx, url, body, token, "token")
+// result := agentic.HTTPPatch(ctx, url, body, token, "token")
 func HTTPPatch(ctx context.Context, url, body, token, authScheme string) core.Result {
 	return httpDo(ctx, "PATCH", url, body, token, authScheme)
 }
 
-// HTTPDelete performs a DELETE request.
-//
-//	result := agentic.HTTPDelete(ctx, url, body, token, "Bearer")
+// result := agentic.HTTPDelete(ctx, url, body, token, "Bearer")
 func HTTPDelete(ctx context.Context, url, body, token, authScheme string) core.Result {
 	return httpDo(ctx, "DELETE", url, body, token, authScheme)
 }
 
-// HTTPDo performs an HTTP request with the specified method.
-//
-//	result := agentic.HTTPDo(ctx, "PUT", url, body, token, "token")
+// result := agentic.HTTPDo(ctx, "PUT", url, body, token, "token")
 func HTTPDo(ctx context.Context, method, url, body, token, authScheme string) core.Result {
 	return httpDo(ctx, method, url, body, token, authScheme)
 }
 
-// --- Drive-aware REST helpers — route through c.Drive() for endpoint resolution ---
-
-// DriveGet performs a GET request using a named Drive endpoint.
-// Reads base URL and token from the Drive handle registered in Core.
-//
-//	result := DriveGet(c, "forge", "/api/v1/repos/core/go-io", "token")
+// result := DriveGet(c, "forge", "/api/v1/repos/core/go-io", "token")
 func DriveGet(c *core.Core, drive, path, authScheme string) core.Result {
 	base, token := driveEndpoint(c, drive)
 	if base == "" {
@@ -141,9 +113,7 @@ func DriveGet(c *core.Core, drive, path, authScheme string) core.Result {
 	return httpDo(context.Background(), "GET", core.Concat(base, path), "", token, authScheme)
 }
 
-// DrivePost performs a POST request using a named Drive endpoint.
-//
-//	result := DrivePost(c, "forge", "/api/v1/repos/core/go-io/issues", body, "token")
+// result := DrivePost(c, "forge", "/api/v1/repos/core/go-io/issues", body, "token")
 func DrivePost(c *core.Core, drive, path, body, authScheme string) core.Result {
 	base, token := driveEndpoint(c, drive)
 	if base == "" {
@@ -152,9 +122,7 @@ func DrivePost(c *core.Core, drive, path, body, authScheme string) core.Result {
 	return httpDo(context.Background(), "POST", core.Concat(base, path), body, token, authScheme)
 }
 
-// DriveDo performs an HTTP request using a named Drive endpoint.
-//
-//	result := DriveDo(c, "forge", "PATCH", "/api/v1/repos/core/go-io/pulls/5", body, "token")
+// result := DriveDo(c, "forge", "PATCH", "/api/v1/repos/core/go-io/pulls/5", body, "token")
 func DriveDo(c *core.Core, drive, method, path, body, authScheme string) core.Result {
 	base, token := driveEndpoint(c, drive)
 	if base == "" {
@@ -163,7 +131,6 @@ func DriveDo(c *core.Core, drive, method, path, body, authScheme string) core.Re
 	return httpDo(context.Background(), method, core.Concat(base, path), body, token, authScheme)
 }
 
-// driveEndpoint reads base URL and token from a named Drive handle.
 func driveEndpoint(c *core.Core, name string) (base, token string) {
 	driveResult := c.Drive().Get(name)
 	if !driveResult.OK {
@@ -173,7 +140,6 @@ func driveEndpoint(c *core.Core, name string) (base, token string) {
 	return driveHandle.Transport, driveHandle.Options.String("token")
 }
 
-// httpDo is the single HTTP execution point. Every HTTP call in core/agent routes here.
 func httpDo(ctx context.Context, method, url, body, token, authScheme string) core.Result {
 	var request *http.Request
 	var err error
@@ -210,10 +176,7 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 	return core.Result{Value: readResult.Value.(string), OK: response.StatusCode < 400}
 }
 
-// --- MCP Streamable HTTP Transport ---
-
-// mcpInitialize performs the MCP initialise handshake over Streamable HTTP.
-// Returns the session ID from the Mcp-Session-Id header.
+// sessionID, err := mcpInitialize(ctx, url, token)
 func mcpInitialize(ctx context.Context, url, token string) (string, error) {
 	result := mcpInitializeResult(ctx, url, token)
 	if !result.OK {
@@ -285,7 +248,6 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	return core.Result{Value: sessionID, OK: true}
 }
 
-// mcpCall sends a JSON-RPC request and returns the parsed response.
 func mcpCall(ctx context.Context, url, token, sessionID string, body []byte) ([]byte, error) {
 	result := mcpCallResult(ctx, url, token, sessionID, body)
 	if !result.OK {
@@ -322,7 +284,6 @@ func mcpCallResult(ctx context.Context, url, token, sessionID string, body []byt
 	return readSSEDataResult(response)
 }
 
-// readSSEData reads an SSE response and extracts JSON from data: lines.
 func readSSEData(response *http.Response) ([]byte, error) {
 	result := readSSEDataResult(response)
 	if !result.OK {
@@ -339,7 +300,6 @@ func readSSEData(response *http.Response) ([]byte, error) {
 	return data, nil
 }
 
-// readSSEDataResult parses an SSE response and extracts the first data: payload as core.Result.
 func readSSEDataResult(response *http.Response) core.Result {
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
@@ -354,7 +314,6 @@ func readSSEDataResult(response *http.Response) core.Result {
 	return core.Result{Value: core.E("readSSEData", "no data in SSE response", nil), OK: false}
 }
 
-// mcpHeaders applies standard MCP HTTP headers.
 func mcpHeaders(request *http.Request, token, sessionID string) {
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json, text/event-stream")
@@ -366,7 +325,6 @@ func mcpHeaders(request *http.Request, token, sessionID string) {
 	}
 }
 
-// drainSSE reads and discards an SSE response body.
 func drainSSE(response *http.Response) {
 	core.ReadAll(response.Body)
 }

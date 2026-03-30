@@ -11,10 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DispatchConfig mirrors the `dispatch:` block in `agents.yaml`.
-//
 //	config := runner.DispatchConfig{
-//		DefaultAgent: "codex", DefaultTemplate: "coding", WorkspaceRoot: "/srv/core/workspace",
+//	    DefaultAgent: "codex", DefaultTemplate: "coding", WorkspaceRoot: "/srv/core/workspace",
 //	}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
@@ -22,10 +20,8 @@ type DispatchConfig struct {
 	WorkspaceRoot   string `yaml:"workspace_root"`
 }
 
-// RateConfig mirrors one agent pool under `rates:` in `agents.yaml`.
-//
 //	rate := runner.RateConfig{
-//		ResetUTC: "06:00", DailyLimit: 200, SustainedDelay: 120, BurstWindow: 2, BurstDelay: 300,
+//	    ResetUTC: "06:00", DailyLimit: 200, SustainedDelay: 120, BurstWindow: 2, BurstDelay: 300,
 //	}
 type RateConfig struct {
 	ResetUTC       string `yaml:"reset_utc"`
@@ -47,10 +43,8 @@ type ConcurrencyLimit struct {
 	Models map[string]int
 }
 
-// UnmarshalYAML handles both int and map forms for concurrency limits.
-//
-//	var limit ConcurrencyLimit
-//	_ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &limit)
+// var limit ConcurrencyLimit
+// _ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &limit)
 func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	var n int
 	if err := value.Decode(&n); err == nil {
@@ -71,11 +65,9 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// AgentsConfig mirrors the full `agents.yaml` file.
-//
 //	config := runner.AgentsConfig{
-//		Version: 1,
-//		Dispatch: runner.DispatchConfig{DefaultAgent: "codex", DefaultTemplate: "coding"},
+//	    Version: 1,
+//	    Dispatch: runner.DispatchConfig{DefaultAgent: "codex", DefaultTemplate: "coding"},
 //	}
 type AgentsConfig struct {
 	Version     int                         `yaml:"version"`
@@ -84,10 +76,8 @@ type AgentsConfig struct {
 	Rates       map[string]RateConfig       `yaml:"rates"`
 }
 
-// loadAgentsConfig reads `agents.yaml` from the Core root.
-//
-//	config := s.loadAgentsConfig()
-//	core.Println(config.Dispatch.DefaultAgent)
+// config := s.loadAgentsConfig()
+// core.Println(config.Dispatch.DefaultAgent)
 func (s *Service) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
 		core.JoinPath(CoreRoot(), "agents.yaml"),
@@ -115,9 +105,7 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 	}
 }
 
-// canDispatchAgent checks both pool-level and per-model concurrency limits.
-//
-//	if !s.canDispatchAgent("codex") { /* queue it */ }
+// if can, reason := s.canDispatchAgent("codex"); !can { _ = reason }
 func (s *Service) canDispatchAgent(agent string) (bool, string) {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
@@ -157,9 +145,7 @@ func (s *Service) canDispatchAgent(agent string) (bool, string) {
 	return true, ""
 }
 
-// countRunningByAgent counts running workspaces using the in-memory Registry.
-//
-//	n := s.countRunningByAgent("codex")
+// n := s.countRunningByAgent("codex")
 func (s *Service) countRunningByAgent(agent string) int {
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {
@@ -180,9 +166,7 @@ func (s *Service) countRunningByAgent(agent string) int {
 	return count
 }
 
-// countRunningByModel counts running workspaces for a specific `agent:model`.
-//
-//	n := s.countRunningByModel("codex:gpt-5.4")
+// n := s.countRunningByModel("codex:gpt-5.4")
 func (s *Service) countRunningByModel(agent string) int {
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {
@@ -203,9 +187,7 @@ func (s *Service) countRunningByModel(agent string) int {
 	return count
 }
 
-// drainQueue fills any free concurrency slots from queued workspaces.
-//
-//	s.drainQueue()
+// s.drainQueue()
 func (s *Service) drainQueue() {
 	if s.frozen {
 		return
@@ -335,8 +317,6 @@ func (s *Service) delayForAgent(agent string) time.Duration {
 
 	return time.Duration(rate.SustainedDelay) * time.Second
 }
-
-// --- Helpers ---
 
 func baseAgent(agent string) string {
 	return core.SplitN(agent, ":", 2)[0]

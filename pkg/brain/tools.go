@@ -11,11 +11,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// -- Input/Output types -------------------------------------------------------
-
 //	input := brain.RememberInput{
-//		Content: "Use core.Env for system paths.",
-//		Type:    "convention",
+//	    Content: "Use core.Env for system paths.",
+//	    Type:    "convention",
 //	}
 type RememberInput struct {
 	Content    string   `json:"content"`
@@ -28,8 +26,8 @@ type RememberInput struct {
 }
 
 //	output := brain.RememberOutput{
-//		Success:  true,
-//		MemoryID: "mem_123",
+//	    Success:  true,
+//	    MemoryID: "mem_123",
 //	}
 type RememberOutput struct {
 	Success   bool      `json:"success"`
@@ -38,8 +36,8 @@ type RememberOutput struct {
 }
 
 //	input := brain.RecallInput{
-//		Query: "core.Env conventions",
-//		TopK:  5,
+//	    Query: "core.Env conventions",
+//	    TopK:  5,
 //	}
 type RecallInput struct {
 	Query  string       `json:"query"`
@@ -48,8 +46,8 @@ type RecallInput struct {
 }
 
 //	filter := brain.RecallFilter{
-//		Project: "agent",
-//		Type:    "convention",
+//	    Project: "agent",
+//	    Type:    "convention",
 //	}
 type RecallFilter struct {
 	Project       string  `json:"project,omitempty"`
@@ -59,8 +57,8 @@ type RecallFilter struct {
 }
 
 //	output := brain.RecallOutput{
-//		Success: true,
-//		Count:   1,
+//	    Success: true,
+//	    Count:   1,
 //	}
 type RecallOutput struct {
 	Success  bool     `json:"success"`
@@ -69,9 +67,9 @@ type RecallOutput struct {
 }
 
 //	memory := brain.Memory{
-//		ID:      "mem_123",
-//		Type:    "convention",
-//		Content: "Use core.Env for system paths.",
+//	    ID:      "mem_123",
+//	    Type:    "convention",
+//	    Content: "Use core.Env for system paths.",
 //	}
 type Memory struct {
 	ID           string   `json:"id"`
@@ -88,8 +86,8 @@ type Memory struct {
 }
 
 //	input := brain.ForgetInput{
-//		ID:     "mem_123",
-//		Reason: "superseded",
+//	    ID:     "mem_123",
+//	    Reason: "superseded",
 //	}
 type ForgetInput struct {
 	ID     string `json:"id"`
@@ -97,8 +95,8 @@ type ForgetInput struct {
 }
 
 //	output := brain.ForgetOutput{
-//		Success:   true,
-//		Forgotten: "mem_123",
+//	    Success:   true,
+//	    Forgotten: "mem_123",
 //	}
 type ForgetOutput struct {
 	Success   bool      `json:"success"`
@@ -107,8 +105,8 @@ type ForgetOutput struct {
 }
 
 //	input := brain.ListInput{
-//		Project: "agent",
-//		Limit:   20,
+//	    Project: "agent",
+//	    Limit:   20,
 //	}
 type ListInput struct {
 	Project string `json:"project,omitempty"`
@@ -118,16 +116,14 @@ type ListInput struct {
 }
 
 //	output := brain.ListOutput{
-//		Success: true,
-//		Count:   2,
+//	    Success: true,
+//	    Count:   2,
 //	}
 type ListOutput struct {
 	Success  bool     `json:"success"`
 	Count    int      `json:"count"`
 	Memories []Memory `json:"memories"`
 }
-
-// -- Tool registration --------------------------------------------------------
 
 func (s *Subsystem) registerBrainTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
@@ -150,8 +146,6 @@ func (s *Subsystem) registerBrainTools(server *mcp.Server) {
 		Description: "List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.",
 	}, s.brainList)
 }
-
-// -- Tool handlers ------------------------------------------------------------
 
 func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
 	if s.bridge == nil {

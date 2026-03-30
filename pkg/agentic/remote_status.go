@@ -8,8 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_status_remote tool ---
-
 // RemoteStatusInput queries a remote core-agent for workspace status.
 //
 //	input := agentic.RemoteStatusInput{Host: "charon"}

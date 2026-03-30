@@ -7,10 +7,8 @@ import (
 	"dappco.re/go/core/process"
 )
 
-// ProcessAlive checks whether a managed process is still running.
-//
-//	alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)
-//	alive := agentic.ProcessAlive(c, "", 12345) // legacy PID fallback
+// alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)
+// alive := agentic.ProcessAlive(c, "", 12345) // legacy PID fallback
 func ProcessAlive(c *core.Core, processID string, pid int) bool {
 	if c == nil {
 		return false

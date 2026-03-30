@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 // result := m.harvestWorkspace("/srv/.core/workspace/core/go-io/task-5")
-// if result != nil && result.rejected == "" { /* ready-for-review */ }
-//
-// Completed workspaces are scanned, validated, and marked ready for review.
-// The code does not auto-push; review remains an explicit action.
+// if result != nil && result.rejected == "" { core.Print(nil, "%s", result.repo) }
 
 package monitor
 
@@ -17,7 +14,6 @@ import (
 	core "dappco.re/go/core"
 )
 
-// harvestResult tracks what happened during harvest.
 type harvestResult struct {
 	repo     string
 	branch   string
@@ -60,7 +56,7 @@ func (m *Subsystem) harvestCompleted() string {
 }
 
 // result := m.harvestWorkspace("/srv/.core/workspace/core/go-io/task-5")
-// if result != nil && result.rejected == "" { /* ready-for-review */ }
+// if result != nil && result.rejected == "" { core.Print(nil, "%s", result.repo) }
 func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))
 	if !statusResult.OK {
@@ -245,9 +241,7 @@ func (m *Subsystem) pushBranch(repoDir, branch string) error {
 	return nil
 }
 
-// updateStatus rewrites status.json after a harvest decision.
-//
-//	updateStatus(workspaceDir, "ready-for-review", "")
+// updateStatus(workspaceDir, "ready-for-review", "")
 func updateStatus(workspaceDir, status, question string) {
 	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))
 	if !statusResult.OK {

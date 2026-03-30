@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// fs reuses the shared unrestricted filesystem used by agentic.
+// fs := agentic.LocalFs()
 var fs = agentic.LocalFs()
 
 func runnerWorkspaceStatusFromAgentic(status *agentic.WorkspaceStatus) *WorkspaceStatus {

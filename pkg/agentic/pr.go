@@ -10,8 +10,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_create_pr ---
-
 // CreatePRInput is the input for agentic_create_pr.
 //
 //	input := agentic.CreatePRInput{Workspace: "core/go-io/task-42", Title: "Fix watcher panic"}
@@ -178,8 +176,6 @@ func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
 	s.forge.Issues.CreateComment(ctx, org, repo, int64(issue), comment)
 }
-
-// --- agentic_list_prs ---
 
 // ListPRsInput is the input for agentic_list_prs.
 //

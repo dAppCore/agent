@@ -141,10 +141,7 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	return time.Duration(rate.SustainedDelay) * time.Second
 }
 
-// countRunningByAgent counts running workspaces for a specific agent type
-// using the in-memory Registry. Falls back to disk scan if Registry is empty.
-//
-//	n := s.countRunningByAgent("codex") // counts all codex:* variants
+// n := s.countRunningByAgent("codex")
 func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {
@@ -182,10 +179,7 @@ func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string
 	return count
 }
 
-// countRunningByModel counts running workspaces for a specific agent:model string
-// using the in-memory Registry.
-//
-//	n := s.countRunningByModel("codex:gpt-5.4") // counts only that model
+// n := s.countRunningByModel("codex:gpt-5.4")
 func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {
@@ -268,11 +262,8 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	return true
 }
 
-// modelVariant extracts the model name from an agent string.
-//
-//	codex:gpt-5.4 → gpt-5.4
-//	codex:gpt-5.3-codex-spark → gpt-5.3-codex-spark
-//	claude → ""
+// model := modelVariant("codex:gpt-5.4")
+// _ = model
 func modelVariant(agent string) string {
 	parts := core.SplitN(agent, ":", 2)
 	if len(parts) < 2 {

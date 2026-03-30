@@ -9,20 +9,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_mirror tool ---
-
-// MirrorInput is the input for agentic_mirror.
-//
-//	input := agentic.MirrorInput{Repo: "go-io", DryRun: true, MaxFiles: 50}
+// input := agentic.MirrorInput{Repo: "go-io", DryRun: true, MaxFiles: 50}
 type MirrorInput struct {
 	Repo     string `json:"repo,omitempty"`      // Specific repo, or empty for all
 	DryRun   bool   `json:"dry_run,omitempty"`   // Preview without pushing
 	MaxFiles int    `json:"max_files,omitempty"` // Max files per PR (default 50, CodeRabbit limit)
 }
 
-// MirrorOutput is the output for agentic_mirror.
-//
-//	out := agentic.MirrorOutput{Success: true, Count: 1, Synced: []agentic.MirrorSync{{Repo: "go-io"}}}
+// out := agentic.MirrorOutput{Success: true, Count: 1, Synced: []agentic.MirrorSync{{Repo: "go-io"}}}
 type MirrorOutput struct {
 	Success bool         `json:"success"`
 	Synced  []MirrorSync `json:"synced"`
@@ -30,9 +24,7 @@ type MirrorOutput struct {
 	Count   int          `json:"count"`
 }
 
-// MirrorSync records one repo sync.
-//
-//	sync := agentic.MirrorSync{Repo: "go-io", CommitsAhead: 3, FilesChanged: 12}
+// sync := agentic.MirrorSync{Repo: "go-io", CommitsAhead: 3, FilesChanged: 12}
 type MirrorSync struct {
 	Repo         string `json:"repo"`
 	CommitsAhead int    `json:"commits_ahead"`
@@ -146,7 +138,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}, nil
 }
 
-// createGitHubPR creates a PR from dev → main using the gh CLI.
+// url, err := s.createGitHubPR(ctx, repoDir, "go-io", 3, 12)
 func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
 	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
 	process := s.Core().Process()
@@ -183,17 +175,14 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	return "", nil
 }
 
-// ensureDevBranch creates the dev branch on GitHub if it doesn't exist.
 func (s *PrepSubsystem) ensureDevBranch(repoDir string) {
 	s.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "github", "HEAD:refs/heads/dev")
 }
 
-// hasRemote checks if a git remote exists.
 func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {
 	return s.Core().Process().RunIn(context.Background(), repoDir, "git", "remote", "get-url", name).OK
 }
 
-// commitsAhead returns how many commits HEAD is ahead of the ref.
 func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
 	r := s.Core().Process().RunIn(context.Background(), repoDir, "git", "rev-list", core.Concat(base, "..", head), "--count")
 	if !r.OK {
@@ -203,7 +192,6 @@ func (s *PrepSubsystem) commitsAhead(repoDir, base, head string) int {
 	return parseInt(out)
 }
 
-// filesChanged returns the number of files changed between two refs.
 func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
 	r := s.Core().Process().RunIn(context.Background(), repoDir, "git", "diff", "--name-only", core.Concat(base, "..", head))
 	if !r.OK {
@@ -216,7 +204,6 @@ func (s *PrepSubsystem) filesChanged(repoDir, base, head string) int {
 	return len(core.Split(out, "\n"))
 }
 
-// listLocalRepos returns repo names that exist as directories in basePath.
 func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 	paths := core.PathGlob(core.JoinPath(basePath, "*"))
 	var repos []string
@@ -233,7 +220,6 @@ func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 	return repos
 }
 
-// extractJSONField extracts a simple string field from JSON array output.
 func extractJSONField(jsonStr, field string) string {
 	if jsonStr == "" || field == "" {
 		return ""

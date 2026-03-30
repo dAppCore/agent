@@ -11,11 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_review_queue tool ---
-
-// ReviewQueueInput controls the review queue runner.
-//
-//	input := agentic.ReviewQueueInput{Reviewer: "coderabbit", Limit: 4, DryRun: true}
+// input := agentic.ReviewQueueInput{Reviewer: "coderabbit", Limit: 4, DryRun: true}
 type ReviewQueueInput struct {
 	Limit     int    `json:"limit,omitempty"`      // Max PRs to process this run (default: 4)
 	Reviewer  string `json:"reviewer,omitempty"`   // "coderabbit" (default), "codex", or "both"
@@ -23,9 +19,7 @@ type ReviewQueueInput struct {
 	LocalOnly bool   `json:"local_only,omitempty"` // Run review locally, don't touch GitHub
 }
 
-// ReviewQueueOutput reports what happened.
-//
-//	out := agentic.ReviewQueueOutput{Success: true, Processed: []agentic.ReviewResult{{Repo: "go-io", Verdict: "clean"}}}
+// out := agentic.ReviewQueueOutput{Success: true, Processed: []agentic.ReviewResult{{Repo: "go-io", Verdict: "clean"}}}
 type ReviewQueueOutput struct {
 	Success   bool           `json:"success"`
 	Processed []ReviewResult `json:"processed"`
@@ -33,9 +27,7 @@ type ReviewQueueOutput struct {
 	RateLimit *RateLimitInfo `json:"rate_limit,omitempty"`
 }
 
-// ReviewResult is the outcome of reviewing one repo.
-//
-//	result := agentic.ReviewResult{Repo: "go-io", Verdict: "findings", Findings: 3, Action: "fix_dispatched"}
+// result := agentic.ReviewResult{Repo: "go-io", Verdict: "findings", Findings: 3, Action: "fix_dispatched"}
 type ReviewResult struct {
 	Repo     string `json:"repo"`
 	Verdict  string `json:"verdict"`  // clean, findings, rate_limited, error
@@ -44,9 +36,7 @@ type ReviewResult struct {
 	Detail   string `json:"detail,omitempty"`
 }
 
-// RateLimitInfo tracks CodeRabbit rate limit state.
-//
-//	limit := agentic.RateLimitInfo{Limited: true, Message: "retry after 2026-03-22T06:00:00Z"}
+// limit := agentic.RateLimitInfo{Limited: true, Message: "retry after 2026-03-22T06:00:00Z"}
 type RateLimitInfo struct {
 	Limited bool      `json:"limited"`
 	RetryAt time.Time `json:"retry_at,omitempty"`
@@ -143,7 +133,7 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 	}, nil
 }
 
-// findReviewCandidates returns repos that are ahead of GitHub main.
+// repos := s.findReviewCandidates("/srv/Code/core")
 func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 	paths := core.PathGlob(core.JoinPath(basePath, "*"))
 
@@ -164,7 +154,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 	return candidates
 }
 
-// reviewRepo runs CodeRabbit on a single repo and takes action.
+// result := s.reviewRepo(ctx, repoDir, "go-io", "coderabbit", false, false)
 func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer string, dryRun, localOnly bool) ReviewResult {
 	result := ReviewResult{Repo: repo}
 	process := s.Core().Process()
@@ -253,7 +243,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	return result
 }
 
-// pushAndMerge pushes to GitHub dev and merges the PR.
+// _ = s.pushAndMerge(ctx, repoDir, "go-io")
 func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
 	process := s.Core().Process()
 	if r := process.RunIn(ctx, repoDir, "git", "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
@@ -270,7 +260,7 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 	return nil
 }
 
-// dispatchFixFromQueue dispatches an opus agent to fix CodeRabbit findings.
+// _ = s.dispatchFixFromQueue(ctx, "go-io", task)
 func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) error {
 	// Use the dispatch system — creates workspace, spawns agent
 	input := DispatchInput{
@@ -288,7 +278,7 @@ func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task str
 	return nil
 }
 
-// countFindings estimates the number of findings in CodeRabbit output.
+// findings := countFindings(output)
 func countFindings(output string) int {
 	// Count lines that look like findings
 	count := 0
@@ -306,8 +296,7 @@ func countFindings(output string) int {
 	return count
 }
 
-// parseRetryAfter extracts the retry duration from a rate limit message.
-// Example: "please try after 4 minutes and 56 seconds"
+// delay := parseRetryAfter("please try after 4 minutes and 56 seconds")
 func parseRetryAfter(message string) time.Duration {
 	if retryAfterPattern == nil {
 		return 5 * time.Minute
@@ -325,9 +314,7 @@ func parseRetryAfter(message string) time.Duration {
 	return 5 * time.Minute
 }
 
-// buildReviewCommand returns the command and args for the chosen reviewer.
-//
-//	cmd, args := s.buildReviewCommand(repoDir, "coderabbit")
+// cmd, args := s.buildReviewCommand(repoDir, "coderabbit")
 func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []string) {
 	switch reviewer {
 	case "codex":
@@ -337,7 +324,7 @@ func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []
 	}
 }
 
-// storeReviewOutput saves raw review output for training data collection.
+// s.storeReviewOutput(repoDir, "go-io", "coderabbit", output)
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
 	dataDir := core.JoinPath(HomeDir(), ".core", "training", "reviews")
 	fs.EnsureDir(dataDir)
@@ -369,9 +356,7 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	core.WriteAll(r.Value, core.Concat(jsonLine, "\n"))
 }
 
-// saveRateLimitState writes the current rate-limit snapshot.
-//
-//	s.saveRateLimitState(&RateLimitInfo{Limited: true, RetryAt: time.Now().Add(30 * time.Minute)})
+// s.saveRateLimitState(&RateLimitInfo{Limited: true, RetryAt: time.Now().Add(30 * time.Minute)})
 func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 	if r := fs.WriteAtomic(path, core.JSONMarshalString(info)); !r.OK {
@@ -383,7 +368,7 @@ func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	}
 }
 
-// loadRateLimitState reads persisted rate limit info.
+// info := s.loadRateLimitState()
 func (s *PrepSubsystem) loadRateLimitState() *RateLimitInfo {
 	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 	r := fs.Read(path)

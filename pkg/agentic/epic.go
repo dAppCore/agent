@@ -9,11 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- agentic_create_epic ---
-
-// EpicInput is the input for agentic_create_epic.
-//
-//	input := agentic.EpicInput{Repo: "go-scm", Title: "Port agentic plans", Tasks: []string{"Read PHP flow", "Implement Go MCP tools"}}
+// input := agentic.EpicInput{Repo: "go-scm", Title: "Port agentic plans", Tasks: []string{"Read PHP flow", "Implement Go MCP tools"}}
 type EpicInput struct {
 	Repo     string   `json:"repo"`               // Target repo (e.g. "go-scm")
 	Org      string   `json:"org,omitempty"`      // Forge org (default "core")
@@ -26,9 +22,7 @@ type EpicInput struct {
 	Template string   `json:"template,omitempty"` // Prompt template for dispatch (default "coding")
 }
 
-// EpicOutput is the output for agentic_create_epic.
-//
-//	out := agentic.EpicOutput{Success: true, EpicNumber: 42, EpicURL: "https://forge.example/core/go-scm/issues/42"}
+// out := agentic.EpicOutput{Success: true, EpicNumber: 42, EpicURL: "https://forge.example/core/go-scm/issues/42"}
 type EpicOutput struct {
 	Success    bool       `json:"success"`
 	EpicNumber int        `json:"epic_number"`
@@ -37,9 +31,7 @@ type EpicOutput struct {
 	Dispatched int        `json:"dispatched,omitempty"`
 }
 
-// ChildRef references a child issue.
-//
-//	child := agentic.ChildRef{Number: 43, Title: "Implement plan list", URL: "https://forge.example/core/go-scm/issues/43"}
+// child := agentic.ChildRef{Number: 43, Title: "Implement plan list", URL: "https://forge.example/core/go-scm/issues/43"}
 type ChildRef struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
@@ -144,7 +136,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 	return nil, out, nil
 }
 
-// createIssue creates a single issue on Forge and returns its reference.
+// child, err := s.createIssue(ctx, "core", "go-scm", "Port agentic plans", "", nil)
 func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body string, labelIDs []int64) (ChildRef, error) {
 	payload := map[string]any{
 		"title": title,
@@ -176,7 +168,7 @@ func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body 
 	}, nil
 }
 
-// resolveLabelIDs looks up label IDs by name, creating labels that don't exist.
+// labelIDs := s.resolveLabelIDs(ctx, "core", "go-scm", []string{"agentic", "epic"})
 func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, names []string) []int64 {
 	if len(names) == 0 {
 		return nil
@@ -216,7 +208,7 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 	return ids
 }
 
-// createLabel creates a label on Forge and returns its ID.
+// id := s.createLabel(ctx, "core", "go-scm", "agentic")
 func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string) int64 {
 	colours := map[string]string{
 		"agentic":     "#7c3aed",

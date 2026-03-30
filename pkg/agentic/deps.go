@@ -13,11 +13,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// cloneWorkspaceDeps clones Core ecosystem dependencies into the workspace.
-// After this, the workspace go.work includes ./repo and all ./dep-* dirs,
-// giving the agent everything needed to build and test.
-//
-//	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
+// s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
 func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, repoDir, org string) {
 	goModPath := core.JoinPath(repoDir, "go.mod")
 	r := fs.Read(goModPath)
@@ -80,11 +76,8 @@ type coreDep struct {
 	dir    string // e.g. "core-go" (workspace subdir)
 }
 
-// parseCoreDeps extracts direct Core ecosystem dependencies from go.mod content.
-// Skips indirect deps — only clones what the repo directly imports.
-//
-//	deps := parseCoreDeps(goMod)
-//	if len(deps) > 0 { core.Println(deps[0].repo) }
+// deps := parseCoreDeps(goMod)
+// if len(deps) > 0 { core.Println(deps[0].repo) }
 func parseCoreDeps(gomod string) []coreDep {
 	var deps []coreDep
 	seen := make(map[string]bool)
