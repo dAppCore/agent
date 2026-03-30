@@ -49,6 +49,27 @@ func TestPlan_PlanCreate_Good(t *testing.T) {
 	assert.True(t, fs.Exists(out.Path))
 }
 
+func TestPlan_PlanCreate_Good_UniqueIDs(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, first, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Repeated Title",
+		Objective: "Repeated objective",
+	})
+	require.NoError(t, err)
+	assertCoreIDFormat(t, first.ID)
+
+	_, second, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Repeated Title",
+		Objective: "Repeated objective",
+	})
+	require.NoError(t, err)
+	assertCoreIDFormat(t, second.ID)
+	assert.NotEqual(t, first.ID, second.ID)
+}
+
 func TestPlan_PlanCreate_Bad_MissingTitle(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{

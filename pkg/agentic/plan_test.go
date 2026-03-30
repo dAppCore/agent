@@ -16,8 +16,9 @@ func assertCoreIDFormat(t *testing.T, id string) {
 	parts := strings.Split(id, "-")
 	if assert.Len(t, parts, 3) {
 		assert.Equal(t, "id", parts[0])
-		assert.NotEmpty(t, parts[1])
-		assert.NotEmpty(t, parts[2])
+		assert.Regexp(t, "^[1-9][0-9]*$", parts[1])
+		assert.Len(t, parts[2], 6)
+		assert.Regexp(t, "^[0-9a-f]{6}$", parts[2])
 	}
 }
 
