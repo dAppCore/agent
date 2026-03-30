@@ -165,12 +165,12 @@ func parseMessages(result map[string]any) []MessageItem {
 		mm, _ := m.(map[string]any)
 		messages = append(messages, MessageItem{
 			ID:        toInt(mm["id"]),
-			From:      fieldString(mm, "from"),
-			To:        fieldString(mm, "to"),
-			Subject:   fieldString(mm, "subject"),
-			Content:   fieldString(mm, "content"),
+			From:      stringField(mm, "from"),
+			To:        stringField(mm, "to"),
+			Subject:   stringField(mm, "subject"),
+			Content:   stringField(mm, "content"),
 			Read:      mm["read"] == true,
-			CreatedAt: fieldString(mm, "created_at"),
+			CreatedAt: stringField(mm, "created_at"),
 		})
 	}
 	return messages

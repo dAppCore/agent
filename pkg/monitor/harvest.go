@@ -62,26 +62,26 @@ func (m *Subsystem) harvestCompleted() string {
 
 // harvestWorkspace checks a single workspace and pushes if ready.
 func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
-	r := fs.Read(agentic.WorkspaceStatusPath(wsDir))
-	if !r.OK {
+	statusResult := fs.Read(agentic.WorkspaceStatusPath(wsDir))
+	if !statusResult.OK {
 		return nil
 	}
-	statusData, ok := resultString(r)
+	statusData, ok := resultString(statusResult)
 	if !ok {
 		return nil
 	}
 
-	var st struct {
+	var workspaceStatus struct {
 		Status string `json:"status"`
 		Repo   string `json:"repo"`
 		Branch string `json:"branch"`
 	}
-	if r := core.JSONUnmarshalString(statusData, &st); !r.OK {
+	if parseResult := core.JSONUnmarshalString(statusData, &workspaceStatus); !parseResult.OK {
 		return nil
 	}
 
 	// Only harvest completed workspaces (not merged, running, etc.)
-	if st.Status != "completed" {
+	if workspaceStatus.Status != "completed" {
 		return nil
 	}
 
@@ -91,7 +91,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	}
 
 	// Check if there are commits to push
-	branch := st.Branch
+	branch := workspaceStatus.Branch
 	if branch == "" {
 		branch = m.detectBranch(repoDir)
 	}
@@ -109,7 +109,7 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	// Safety checks before pushing
 	if reason := m.checkSafety(repoDir); reason != "" {
 		updateStatus(wsDir, "rejected", reason)
-		return &harvestResult{repo: st.Repo, branch: branch, rejected: reason}
+		return &harvestResult{repo: workspaceStatus.Repo, branch: branch, rejected: reason}
 	}
 
 	// Count changed files
@@ -120,16 +120,16 @@ func (m *Subsystem) harvestWorkspace(wsDir string) *harvestResult {
 	// explicit review (/review command), not silently in the background.
 	updateStatus(wsDir, "ready-for-review", "")
 
-	return &harvestResult{repo: st.Repo, branch: branch, files: files}
+	return &harvestResult{repo: workspaceStatus.Repo, branch: branch, files: files}
 }
 
 // gitOutput runs a git command and returns trimmed stdout via Core Process.
 func (m *Subsystem) gitOutput(dir string, args ...string) string {
-	r := m.Core().Process().RunIn(context.Background(), dir, "git", args...)
-	if !r.OK {
+	processResult := m.Core().Process().RunIn(context.Background(), dir, "git", args...)
+	if !processResult.OK {
 		return ""
 	}
-	return core.Trim(r.Value.(string))
+	return core.Trim(processResult.Value.(string))
 }
 
 // gitOK runs a git command and returns true if it exits 0.
@@ -235,9 +235,9 @@ func (m *Subsystem) countChangedFiles(srcDir string) int {
 
 // pushBranch pushes the agent's branch to origin.
 func (m *Subsystem) pushBranch(srcDir, branch string) error {
-	r := m.Core().Process().RunIn(context.Background(), srcDir, "git", "push", "origin", branch)
-	if !r.OK {
-		if err, ok := r.Value.(error); ok {
+	processResult := m.Core().Process().RunIn(context.Background(), srcDir, "git", "push", "origin", branch)
+	if !processResult.OK {
+		if err, ok := processResult.Value.(error); ok {
 			return core.E("harvest.pushBranch", "push failed", err)
 		}
 		return core.E("harvest.pushBranch", "push failed", nil)
@@ -249,27 +249,27 @@ func (m *Subsystem) pushBranch(srcDir, branch string) error {
 //
 //	updateStatus(wsDir, "ready-for-review", "")
 func updateStatus(wsDir, status, question string) {
-	r := fs.Read(agentic.WorkspaceStatusPath(wsDir))
-	if !r.OK {
+	statusResult := fs.Read(agentic.WorkspaceStatusPath(wsDir))
+	if !statusResult.OK {
 		return
 	}
-	statusData, ok := resultString(r)
+	statusData, ok := resultString(statusResult)
 	if !ok {
 		return
 	}
-	var st map[string]any
-	if r := core.JSONUnmarshalString(statusData, &st); !r.OK {
+	var workspaceStatus map[string]any
+	if parseResult := core.JSONUnmarshalString(statusData, &workspaceStatus); !parseResult.OK {
 		return
 	}
-	st["status"] = status
+	workspaceStatus["status"] = status
 	if question != "" {
-		st["question"] = question
+		workspaceStatus["question"] = question
 	} else {
-		delete(st, "question") // clear stale question from previous state
+		delete(workspaceStatus, "question") // clear stale question from previous state
 	}
 	statusPath := agentic.WorkspaceStatusPath(wsDir)
-	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(st)); !r.OK {
-		if err, ok := r.Value.(error); ok {
+	if writeResult := fs.WriteAtomic(statusPath, core.JSONMarshalString(workspaceStatus)); !writeResult.OK {
+		if err, ok := writeResult.Value.(error); ok {
 			core.Warn("monitor.updateStatus: failed to write status", "path", statusPath, "reason", err)
 			return
 		}

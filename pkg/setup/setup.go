@@ -22,24 +22,24 @@ type Options struct {
 //
 //	result := service.Run(setup.Options{Path: ".", Template: "auto"})
 //	core.Println(result.OK)
-func (s *Service) Run(opts Options) core.Result {
-	if opts.Path == "" {
-		opts.Path = core.Env("DIR_CWD")
+func (s *Service) Run(options Options) core.Result {
+	if options.Path == "" {
+		options.Path = core.Env("DIR_CWD")
 	}
-	opts.Path = absolutePath(opts.Path)
+	options.Path = absolutePath(options.Path)
 
-	projType := Detect(opts.Path)
-	allTypes := DetectAll(opts.Path)
+	projType := Detect(options.Path)
+	allTypes := DetectAll(options.Path)
 
-	core.Print(nil, "Project: %s", core.PathBase(opts.Path))
+	core.Print(nil, "Project: %s", core.PathBase(options.Path))
 	core.Print(nil, "Type:    %s", projType)
 	if len(allTypes) > 1 {
 		core.Print(nil, "Also:    %v (polyglot)", allTypes)
 	}
 
 	var tmplName string
-	if opts.Template != "" {
-		templateResult := resolveTemplateName(opts.Template, projType)
+	if options.Template != "" {
+		templateResult := resolveTemplateName(options.Template, projType)
 		if !templateResult.OK {
 			return templateResult
 		}
@@ -53,28 +53,28 @@ func (s *Service) Run(opts Options) core.Result {
 	}
 
 	// Generate .core/ config files
-	if result := setupCoreDir(opts, projType); !result.OK {
+	if result := setupCoreDir(options, projType); !result.OK {
 		return result
 	}
 
 	// Scaffold from dir template if requested
 	if tmplName != "" {
-		return s.scaffoldTemplate(opts, projType, tmplName)
+		return s.scaffoldTemplate(options, projType, tmplName)
 	}
 
-	return core.Result{Value: opts.Path, OK: true}
+	return core.Result{Value: options.Path, OK: true}
 }
 
 // setupCoreDir creates .core/ with build.yaml and test.yaml.
-func setupCoreDir(opts Options, projType ProjectType) core.Result {
-	coreDir := core.JoinPath(opts.Path, ".core")
+func setupCoreDir(options Options, projType ProjectType) core.Result {
+	coreDir := core.JoinPath(options.Path, ".core")
 
-	if opts.DryRun {
+	if options.DryRun {
 		core.Print(nil, "")
 		core.Print(nil, "Would create %s/", coreDir)
 	} else {
-		if r := fs.EnsureDir(coreDir); !r.OK {
-			err, _ := r.Value.(error)
+		if ensureResult := fs.EnsureDir(coreDir); !ensureResult.OK {
+			err, _ := ensureResult.Value.(error)
 			return core.Result{
 				Value: core.E("setup.setupCoreDir", "create .core directory", err),
 				OK:    false,
@@ -83,7 +83,7 @@ func setupCoreDir(opts Options, projType ProjectType) core.Result {
 	}
 
 	// build.yaml
-	buildConfig := GenerateBuildConfig(opts.Path, projType)
+	buildConfig := GenerateBuildConfig(options.Path, projType)
 	if !buildConfig.OK {
 		err, _ := buildConfig.Value.(error)
 		return core.Result{
@@ -91,7 +91,7 @@ func setupCoreDir(opts Options, projType ProjectType) core.Result {
 			OK:    false,
 		}
 	}
-	if result := writeConfig(core.JoinPath(coreDir, "build.yaml"), buildConfig.Value.(string), opts); !result.OK {
+	if result := writeConfig(core.JoinPath(coreDir, "build.yaml"), buildConfig.Value.(string), options); !result.OK {
 		return result
 	}
 
@@ -104,7 +104,7 @@ func setupCoreDir(opts Options, projType ProjectType) core.Result {
 			OK:    false,
 		}
 	}
-	if result := writeConfig(core.JoinPath(coreDir, "test.yaml"), testConfig.Value.(string), opts); !result.OK {
+	if result := writeConfig(core.JoinPath(coreDir, "test.yaml"), testConfig.Value.(string), options); !result.OK {
 		return result
 	}
 
@@ -112,29 +112,29 @@ func setupCoreDir(opts Options, projType ProjectType) core.Result {
 }
 
 // scaffoldTemplate extracts a dir template into the target path.
-func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName string) core.Result {
+func (s *Service) scaffoldTemplate(options Options, projType ProjectType, tmplName string) core.Result {
 	core.Print(nil, "Template: %s", tmplName)
 
 	data := &lib.WorkspaceData{
-		Repo:            core.PathBase(opts.Path),
+		Repo:            core.PathBase(options.Path),
 		Branch:          "main",
 		Task:            core.Sprintf("Initialise %s project tooling.", projType),
 		Agent:           "setup",
 		Language:        string(projType),
 		Prompt:          "This workspace was scaffolded by pkg/setup. Review the repository and continue from the generated context files.",
 		Flow:            formatFlow(projType),
-		RepoDescription: s.DetectGitRemote(opts.Path),
+		RepoDescription: s.DetectGitRemote(options.Path),
 		BuildCmd:        defaultBuildCommand(projType),
 		TestCmd:         defaultTestCommand(projType),
 	}
 
-	if opts.DryRun {
-		core.Print(nil, "Would extract workspace/%s to %s", tmplName, opts.Path)
+	if options.DryRun {
+		core.Print(nil, "Would extract workspace/%s to %s", tmplName, options.Path)
 		core.Print(nil, "  Template found: %s", tmplName)
-		return core.Result{Value: opts.Path, OK: true}
+		return core.Result{Value: options.Path, OK: true}
 	}
 
-	if result := lib.ExtractWorkspace(tmplName, opts.Path, data); !result.OK {
+	if result := lib.ExtractWorkspace(tmplName, options.Path, data); !result.OK {
 		if err, ok := result.Value.(error); ok {
 			return core.Result{
 				Value: core.E("setup.scaffoldTemplate", core.Concat("extract workspace template ", tmplName), err),
@@ -146,22 +146,22 @@ func (s *Service) scaffoldTemplate(opts Options, projType ProjectType, tmplName 
 			OK:    false,
 		}
 	}
-	return core.Result{Value: opts.Path, OK: true}
+	return core.Result{Value: options.Path, OK: true}
 }
 
-func writeConfig(path, content string, opts Options) core.Result {
-	if opts.DryRun {
+func writeConfig(path, content string, options Options) core.Result {
+	if options.DryRun {
 		core.Print(nil, "  %s", path)
 		return core.Result{Value: path, OK: true}
 	}
 
-	if !opts.Force && fs.Exists(path) {
+	if !options.Force && fs.Exists(path) {
 		core.Print(nil, "  skip %s (exists, use --force to overwrite)", core.PathBase(path))
 		return core.Result{Value: path, OK: true}
 	}
 
-	if r := fs.WriteMode(path, content, 0644); !r.OK {
-		err, _ := r.Value.(error)
+	if writeResult := fs.WriteMode(path, content, 0644); !writeResult.OK {
+		err, _ := writeResult.Value.(error)
 		return core.Result{
 			Value: core.E("setup.writeConfig", core.Concat("write ", core.PathBase(path)), err),
 			OK:    false,

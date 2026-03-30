@@ -15,7 +15,7 @@ import (
 // workspaceTracker is the interface runner.Service satisfies.
 // Uses *WorkspaceStatus from agentic — runner imports agentic for the type.
 type workspaceTracker interface {
-	TrackWorkspace(name string, st any)
+	TrackWorkspace(name string, status any)
 }
 
 // DispatchInput is the input for agentic_dispatch.
@@ -60,16 +60,16 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 // agentCommand returns the command and args for a given agent type.
 // Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
-	r := agentCommandResult(agent, prompt)
-	if !r.OK {
-		err, _ := r.Value.(error)
+	commandResult := agentCommandResult(agent, prompt)
+	if !commandResult.OK {
+		err, _ := commandResult.Value.(error)
 		if err == nil {
 			err = core.E("agentCommand", "failed to resolve command", nil)
 		}
 		return "", nil, err
 	}
 
-	result, ok := r.Value.(agentCommandResultValue)
+	result, ok := commandResult.Value.(agentCommandResultValue)
 	if !ok {
 		return "", nil, core.E("agentCommand", "invalid command result", nil)
 	}
@@ -242,8 +242,8 @@ func agentOutputFile(wsDir, agent string) string {
 // Returns (status, question) — "completed", "blocked", or "failed".
 func detectFinalStatus(repoDir string, exitCode int, procStatus string) (string, string) {
 	blockedPath := core.JoinPath(repoDir, "BLOCKED.md")
-	if r := fs.Read(blockedPath); r.OK && core.Trim(r.Value.(string)) != "" {
-		return "blocked", core.Trim(r.Value.(string))
+	if blockedResult := fs.Read(blockedPath); blockedResult.OK && core.Trim(blockedResult.Value.(string)) != "" {
+		return "blocked", core.Trim(blockedResult.Value.(string))
 	}
 	if exitCode != 0 || procStatus == "failed" || procStatus == "killed" {
 		question := ""
@@ -283,15 +283,15 @@ func (s *PrepSubsystem) startIssueTracking(wsDir string) {
 		return
 	}
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
-	if !ok || st.Issue == 0 {
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if !ok || workspaceStatus.Issue == 0 {
 		return
 	}
-	org := st.Org
+	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
 	}
-	s.forge.Issues.StartStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+	s.forge.Issues.StartStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
 }
 
 // stopIssueTracking stops a Forge stopwatch on the workspace's issue.
@@ -300,25 +300,25 @@ func (s *PrepSubsystem) stopIssueTracking(wsDir string) {
 		return
 	}
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
-	if !ok || st.Issue == 0 {
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if !ok || workspaceStatus.Issue == 0 {
 		return
 	}
-	org := st.Org
+	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
 	}
-	s.forge.Issues.StopStopwatch(context.Background(), org, st.Repo, int64(st.Issue))
+	s.forge.Issues.StopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
 }
 
 // broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, wsDir string) {
 	wsName := WorkspaceName(wsDir)
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(result)
 	repo := ""
 	if ok {
-		repo = st.Repo
+		repo = workspaceStatus.Repo
 	}
 	if s.ServiceRuntime != nil {
 		s.Core().ACTION(messages.AgentStarted{
@@ -334,10 +334,10 @@ func (s *PrepSubsystem) broadcastComplete(agent, wsDir, finalStatus string) {
 	emitCompletionEvent(agent, wsName, finalStatus)
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		repo := ""
 		if ok {
-			repo = st.Repo
+			repo = workspaceStatus.Repo
 		}
 		s.Core().ACTION(messages.AgentCompleted{
 			Agent: agent, Repo: repo,
@@ -359,16 +359,16 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 
 	// Update workspace status (disk + registry)
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(result)
 	if ok {
-		st.Status = finalStatus
-		st.PID = 0
-		st.Question = question
-		writeStatusResult(wsDir, st)
-		s.TrackWorkspace(WorkspaceName(wsDir), st)
+		workspaceStatus.Status = finalStatus
+		workspaceStatus.PID = 0
+		workspaceStatus.Question = question
+		writeStatusResult(wsDir, workspaceStatus)
+		s.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
 
 		// Rate-limit tracking
-		s.trackFailureRate(agent, finalStatus, st.StartedAt)
+		s.trackFailureRate(agent, finalStatus, workspaceStatus.StartedAt)
 	}
 
 	// Forge time tracking
@@ -380,7 +380,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 	// Run completion pipeline via PerformAsync for successful agents.
 	// Gets ActionTaskStarted/Completed broadcasts + WaitGroup integration for graceful shutdown.
 	//
-	//   c.PerformAsync("agentic.complete", opts) → runs agent.completion Task in background
+	//   c.PerformAsync("agentic.complete", options) → runs agent.completion Task in background
 	if finalStatus == "completed" && s.ServiceRuntime != nil {
 		s.Core().PerformAsync("agentic.complete", core.NewOptions(
 			core.Option{Key: "workspace", Value: wsDir},
@@ -568,13 +568,13 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 	// Step 2: Ask runner service for permission (frozen + concurrency check).
 	// Runner owns the gate — agentic owns the spawn.
 	if s.ServiceRuntime != nil {
-		r := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
+		dispatchResult := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
 			core.Option{Key: "agent", Value: input.Agent},
 			core.Option{Key: "repo", Value: input.Repo},
 		))
-		if !r.OK {
+		if !dispatchResult.OK {
 			// Runner denied — queue it
-			st := &WorkspaceStatus{
+			workspaceStatus := &WorkspaceStatus{
 				Status:    "queued",
 				Agent:     input.Agent,
 				Repo:      input.Repo,
@@ -584,9 +584,9 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 				StartedAt: time.Now(),
 				Runs:      0,
 			}
-			writeStatusResult(wsDir, st)
+			writeStatusResult(wsDir, workspaceStatus)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
+				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
 			}
 			return nil, DispatchOutput{
 				Success:      true,
@@ -604,7 +604,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		return nil, DispatchOutput{}, err
 	}
 
-	st := &WorkspaceStatus{
+	workspaceStatus := &WorkspaceStatus{
 		Status:    "running",
 		Agent:     input.Agent,
 		Repo:      input.Repo,
@@ -616,11 +616,11 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		StartedAt: time.Now(),
 		Runs:      1,
 	}
-	writeStatusResult(wsDir, st)
+	writeStatusResult(wsDir, workspaceStatus)
 	// Track in runner's registry (runner owns workspace state)
 	if s.ServiceRuntime != nil {
 		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-			runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
+			runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
 		}
 	}
 

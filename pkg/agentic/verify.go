@@ -18,18 +18,18 @@ import (
 //	agentic_dispatch repo=go-crypt template=verify persona=engineering/engineering-security-engineer
 func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
-	if !ok || st.PRURL == "" || st.Repo == "" {
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if !ok || workspaceStatus.PRURL == "" || workspaceStatus.Repo == "" {
 		return
 	}
 
 	repoDir := WorkspaceRepoDir(wsDir)
-	org := st.Org
+	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
 	}
 
-	prNum := extractPRNumber(st.PRURL)
+	prNum := extractPRNumber(workspaceStatus.PRURL)
 	if prNum == 0 {
 		return
 	}
@@ -47,7 +47,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	}
 
 	// Attempt 1: run tests and try to merge
-	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum)
+	mergeOutcome := s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, prNum)
 	if mergeOutcome == mergeSuccess {
 		markMerged()
 		return
@@ -55,8 +55,8 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	// Attempt 2: rebase onto main and retry
 	if mergeOutcome == mergeConflict || mergeOutcome == testFailed {
-		if s.rebaseBranch(repoDir, st.Branch) {
-			if s.attemptVerifyAndMerge(repoDir, org, st.Repo, st.Branch, prNum) == mergeSuccess {
+		if s.rebaseBranch(repoDir, workspaceStatus.Branch) {
+			if s.attemptVerifyAndMerge(repoDir, org, workspaceStatus.Repo, workspaceStatus.Branch, prNum) == mergeSuccess {
 				markMerged()
 				return
 			}
@@ -64,15 +64,15 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	}
 
 	// Both attempts failed — flag for human review
-	s.flagForReview(org, st.Repo, prNum, mergeOutcome)
+	s.flagForReview(org, workspaceStatus.Repo, prNum, mergeOutcome)
 
 	if result := ReadStatusResult(wsDir); result.OK {
-		st2, ok := workspaceStatusValue(result)
+		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {
 			return
 		}
-		st2.Question = "Flagged for review — auto-merge failed after retry"
-		writeStatusResult(wsDir, st2)
+		workspaceStatusUpdate.Question = "Flagged for review — auto-merge failed after retry"
+		writeStatusResult(wsDir, workspaceStatusUpdate)
 	}
 }
 
@@ -99,7 +99,7 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if r := s.forgeMergePR(ctx, org, repo, prNum); !r.OK {
+	if mergeResult := s.forgeMergePR(ctx, org, repo, prNum); !mergeResult.OK {
 		comment := core.Sprintf("## Tests Passed — Merge Failed\n\n`%s` passed but merge failed", testResult.testCmd)
 		s.commentOnIssue(context.Background(), org, repo, prNum, comment)
 		return mergeConflict
@@ -126,14 +126,14 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	}
 
 	result := ReadStatusResult(core.PathDir(repoDir))
-	st, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(result)
 	org := "core"
 	repo := ""
 	if ok {
-		if st.Org != "" {
-			org = st.Org
+		if workspaceStatus.Org != "" {
+			org = workspaceStatus.Org
 		}
-		repo = st.Repo
+		repo = workspaceStatus.Repo
 	}
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
 	return process.RunIn(ctx, repoDir, "git", "push", "--force-with-lease", forgeRemote, branch).OK
@@ -176,8 +176,8 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 // getLabelID fetches the ID of a label by name.
 func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) int {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	r := HTTPGet(ctx, url, s.forgeToken, "token")
-	if !r.OK {
+	getResult := HTTPGet(ctx, url, s.forgeToken, "token")
+	if !getResult.OK {
 		return 0
 	}
 
@@ -185,7 +185,7 @@ func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) 
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	}
-	core.JSONUnmarshalString(r.Value.(string), &labels)
+	core.JSONUnmarshalString(getResult.Value.(string), &labels)
 	for _, l := range labels {
 		if l.Name == name {
 			return l.ID
@@ -202,12 +202,12 @@ type verifyResult struct {
 	testCmd  string
 }
 
-func resultText(r core.Result) string {
-	if text, ok := r.Value.(string); ok {
+func resultText(result core.Result) string {
+	if text, ok := result.Value.(string); ok {
 		return text
 	}
-	if r.Value != nil {
-		return core.Sprint(r.Value)
+	if result.Value != nil {
+		return core.Sprint(result.Value)
 	}
 	return ""
 }
@@ -229,52 +229,52 @@ func (s *PrepSubsystem) runVerification(repoDir string) verifyResult {
 func (s *PrepSubsystem) runGoTests(repoDir string) verifyResult {
 	ctx := context.Background()
 	process := s.Core().Process()
-	r := process.RunWithEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
-	out := resultText(r)
+	processResult := process.RunWithEnv(ctx, repoDir, []string{"GOWORK=off"}, "go", "test", "./...", "-count=1", "-timeout", "120s")
+	out := resultText(processResult)
 	exitCode := 0
-	if !r.OK {
+	if !processResult.OK {
 		exitCode = 1
 	}
-	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "go test ./..."}
+	return verifyResult{passed: processResult.OK, output: out, exitCode: exitCode, testCmd: "go test ./..."}
 }
 
 func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 	ctx := context.Background()
 	process := s.Core().Process()
-	r := process.RunIn(ctx, repoDir, "composer", "test", "--no-interaction")
-	if !r.OK {
+	composerResult := process.RunIn(ctx, repoDir, "composer", "test", "--no-interaction")
+	if !composerResult.OK {
 		// Try pest as fallback
-		r2 := process.RunIn(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
-		if !r2.OK {
+		fallbackResult := process.RunIn(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
+		if !fallbackResult.OK {
 			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
 		}
-		return verifyResult{passed: true, output: resultText(r2), exitCode: 0, testCmd: "vendor/bin/pest"}
+		return verifyResult{passed: true, output: resultText(fallbackResult), exitCode: 0, testCmd: "vendor/bin/pest"}
 	}
-	return verifyResult{passed: true, output: resultText(r), exitCode: 0, testCmd: "composer test"}
+	return verifyResult{passed: true, output: resultText(composerResult), exitCode: 0, testCmd: "composer test"}
 }
 
 func (s *PrepSubsystem) runNodeTests(repoDir string) verifyResult {
-	r := fs.Read(core.JoinPath(repoDir, "package.json"))
-	if !r.OK {
+	packageResult := fs.Read(core.JoinPath(repoDir, "package.json"))
+	if !packageResult.OK {
 		return verifyResult{passed: true, testCmd: "none", output: "Could not read package.json"}
 	}
 
 	var pkg struct {
 		Scripts map[string]string `json:"scripts"`
 	}
-	if ur := core.JSONUnmarshalString(r.Value.(string), &pkg); !ur.OK || pkg.Scripts["test"] == "" {
+	if parseResult := core.JSONUnmarshalString(packageResult.Value.(string), &pkg); !parseResult.OK || pkg.Scripts["test"] == "" {
 		return verifyResult{passed: true, testCmd: "none", output: "No test script in package.json"}
 	}
 
 	ctx := context.Background()
 	process := s.Core().Process()
-	r = process.RunIn(ctx, repoDir, "npm", "test")
-	out := resultText(r)
+	testResult := process.RunIn(ctx, repoDir, "npm", "test")
+	out := resultText(testResult)
 	exitCode := 0
-	if !r.OK {
+	if !testResult.OK {
 		exitCode = 1
 	}
-	return verifyResult{passed: r.OK, output: out, exitCode: exitCode, testCmd: "npm test"}
+	return verifyResult{passed: testResult.OK, output: out, exitCode: exitCode, testCmd: "npm test"}
 }
 
 // forgeMergePR merges a PR via the Forge API.

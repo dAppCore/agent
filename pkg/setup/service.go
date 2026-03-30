@@ -43,9 +43,9 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 //
 //	remote := service.DetectGitRemote("/srv/repos/agent")
 func (s *Service) DetectGitRemote(path string) string {
-	r := s.Core().Process().RunIn(context.Background(), path, "git", "remote", "get-url", "origin")
-	if !r.OK {
+	result := s.Core().Process().RunIn(context.Background(), path, "git", "remote", "get-url", "origin")
+	if !result.OK {
 		return ""
 	}
-	return parseGitRemote(core.Trim(r.Value.(string)))
+	return parseGitRemote(core.Trim(result.Value.(string)))
 }

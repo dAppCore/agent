@@ -4,7 +4,7 @@
 // Each handler adapts (ctx, Options) → Result to call the existing MCP tool method.
 // Registered during OnStartup — the Action registry IS the capability map.
 //
-//	c.Action("agentic.dispatch").Run(ctx, opts)
+//	c.Action("agentic.dispatch").Run(ctx, options)
 //	c.Actions() // all registered capabilities
 
 package agentic
@@ -21,16 +21,16 @@ import (
 
 // handleDispatch dispatches a subagent to work on a repo task.
 //
-//	r := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "repo", Value: "go-io"},
 //	    core.Option{Key: "task", Value: "Fix tests"},
 //	))
-func (s *PrepSubsystem) handleDispatch(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options) core.Result {
 	input := DispatchInput{
-		Repo:  opts.String("repo"),
-		Task:  opts.String("task"),
-		Agent: opts.String("agent"),
-		Issue: opts.Int("issue"),
+		Repo:  options.String("repo"),
+		Task:  options.String("task"),
+		Agent: options.String("agent"),
+		Issue: options.Int("issue"),
 	}
 	_, out, err := s.dispatch(ctx, nil, input)
 	if err != nil {
@@ -41,15 +41,15 @@ func (s *PrepSubsystem) handleDispatch(ctx context.Context, opts core.Options) c
 
 // handlePrep prepares a workspace without dispatching an agent.
 //
-//	r := c.Action("agentic.prep").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.prep").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "repo", Value: "go-io"},
 //	    core.Option{Key: "issue", Value: 42},
 //	))
-func (s *PrepSubsystem) handlePrep(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handlePrep(ctx context.Context, options core.Options) core.Result {
 	input := PrepInput{
-		Repo:  opts.String("repo"),
-		Org:   opts.String("org"),
-		Issue: opts.Int("issue"),
+		Repo:  options.String("repo"),
+		Org:   options.String("org"),
+		Issue: options.Int("issue"),
 	}
 	_, out, err := s.prepWorkspace(ctx, nil, input)
 	if err != nil {
@@ -60,12 +60,12 @@ func (s *PrepSubsystem) handlePrep(ctx context.Context, opts core.Options) core.
 
 // handleStatus lists workspace statuses.
 //
-//	r := c.Action("agentic.status").Run(ctx, core.NewOptions())
-func (s *PrepSubsystem) handleStatus(ctx context.Context, opts core.Options) core.Result {
+//	result := c.Action("agentic.status").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) core.Result {
 	input := StatusInput{
-		Workspace: opts.String("workspace"),
-		Limit:     opts.Int("limit"),
-		Status:    opts.String("status"),
+		Workspace: options.String("workspace"),
+		Limit:     options.Int("limit"),
+		Status:    options.String("status"),
 	}
 	_, out, err := s.status(ctx, nil, input)
 	if err != nil {
@@ -76,13 +76,13 @@ func (s *PrepSubsystem) handleStatus(ctx context.Context, opts core.Options) cor
 
 // handleResume resumes a blocked workspace.
 //
-//	r := c.Action("agentic.resume").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.resume").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 //	))
-func (s *PrepSubsystem) handleResume(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) core.Result {
 	input := ResumeInput{
-		Workspace: opts.String("workspace"),
-		Answer:    opts.String("answer"),
+		Workspace: options.String("workspace"),
+		Answer:    options.String("answer"),
 	}
 	_, out, err := s.resume(ctx, nil, input)
 	if err != nil {
@@ -93,11 +93,11 @@ func (s *PrepSubsystem) handleResume(ctx context.Context, opts core.Options) cor
 
 // handleScan scans forge repos for actionable issues.
 //
-//	r := c.Action("agentic.scan").Run(ctx, core.NewOptions())
-func (s *PrepSubsystem) handleScan(ctx context.Context, opts core.Options) core.Result {
+//	result := c.Action("agentic.scan").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) core.Result {
 	input := ScanInput{
-		Org:   opts.String("org"),
-		Limit: opts.Int("limit"),
+		Org:   options.String("org"),
+		Limit: options.Int("limit"),
 	}
 	_, out, err := s.scan(ctx, nil, input)
 	if err != nil {
@@ -108,15 +108,15 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, opts core.Options) core.
 
 // handleWatch watches a workspace for completion.
 //
-//	r := c.Action("agentic.watch").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.watch").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 //	))
-func (s *PrepSubsystem) handleWatch(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleWatch(ctx context.Context, options core.Options) core.Result {
 	input := WatchInput{
-		PollInterval: opts.Int("poll_interval"),
-		Timeout:      opts.Int("timeout"),
+		PollInterval: options.Int("poll_interval"),
+		Timeout:      options.Int("timeout"),
 	}
-	if workspace := opts.String("workspace"); workspace != "" {
+	if workspace := options.String("workspace"); workspace != "" {
 		input.Workspaces = []string{workspace}
 	}
 	_, out, err := s.watch(ctx, nil, input)
@@ -128,83 +128,83 @@ func (s *PrepSubsystem) handleWatch(ctx context.Context, opts core.Options) core
 
 // handlePrompt reads an embedded prompt by slug.
 //
-//	r := c.Action("agentic.prompt").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.prompt").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "slug", Value: "coding"},
 //	))
-func (s *PrepSubsystem) handlePrompt(_ context.Context, opts core.Options) core.Result {
-	return lib.Prompt(opts.String("slug"))
+func (s *PrepSubsystem) handlePrompt(_ context.Context, options core.Options) core.Result {
+	return lib.Prompt(options.String("slug"))
 }
 
 // handleTask reads an embedded task plan by slug.
 //
-//	r := c.Action("agentic.task").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.task").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "slug", Value: "bug-fix"},
 //	))
-func (s *PrepSubsystem) handleTask(_ context.Context, opts core.Options) core.Result {
-	return lib.Task(opts.String("slug"))
+func (s *PrepSubsystem) handleTask(_ context.Context, options core.Options) core.Result {
+	return lib.Task(options.String("slug"))
 }
 
 // handleFlow reads an embedded flow by slug.
 //
-//	r := c.Action("agentic.flow").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.flow").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "slug", Value: "go"},
 //	))
-func (s *PrepSubsystem) handleFlow(_ context.Context, opts core.Options) core.Result {
-	return lib.Flow(opts.String("slug"))
+func (s *PrepSubsystem) handleFlow(_ context.Context, options core.Options) core.Result {
+	return lib.Flow(options.String("slug"))
 }
 
 // handlePersona reads an embedded persona by path.
 //
-//	r := c.Action("agentic.persona").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.persona").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "path", Value: "code/backend-architect"},
 //	))
-func (s *PrepSubsystem) handlePersona(_ context.Context, opts core.Options) core.Result {
-	return lib.Persona(opts.String("path"))
+func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) core.Result {
+	return lib.Persona(options.String("path"))
 }
 
 // --- Pipeline ---
 
 // handleComplete runs the named completion task.
 //
-//	r := c.Action("agentic.complete").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.complete").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "/srv/.core/workspace/core/go-io/task-42"},
 //	))
-func (s *PrepSubsystem) handleComplete(ctx context.Context, opts core.Options) core.Result {
-	return s.Core().Task("agent.completion").Run(ctx, s.Core(), opts)
+func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
+	return s.Core().Task("agent.completion").Run(ctx, s.Core(), options)
 }
 
 // handleQA runs build+test on a completed workspace.
 //
-//	r := c.Action("agentic.qa").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.qa").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
-func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core.Result {
 	// Feature flag gate — skip QA if disabled
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-qa") {
 		return core.Result{Value: true, OK: true}
 	}
-	wsDir := opts.String("workspace")
+	wsDir := options.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.qa", "workspace is required", nil), OK: false}
 	}
 	passed := s.runQA(wsDir)
 	if !passed {
 		if result := ReadStatusResult(wsDir); result.OK {
-			st, ok := workspaceStatusValue(result)
+			workspaceStatus, ok := workspaceStatusValue(result)
 			if ok {
-				st.Status = "failed"
-				st.Question = "QA check failed — build or tests did not pass"
-				writeStatusResult(wsDir, st)
+				workspaceStatus.Status = "failed"
+				workspaceStatus.Question = "QA check failed — build or tests did not pass"
+				writeStatusResult(wsDir, workspaceStatus)
 			}
 		}
 	}
 	// Emit QA result for observability (monitor picks this up)
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		repo := ""
 		if ok {
-			repo = st.Repo
+			repo = workspaceStatus.Repo
 		}
 		s.Core().ACTION(messages.QAResult{
 			Workspace: WorkspaceName(wsDir),
@@ -217,14 +217,14 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Re
 
 // handleAutoPR creates a PR for a completed workspace.
 //
-//	r := c.Action("agentic.auto-pr").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.auto-pr").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
-func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) core.Result {
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-pr") {
 		return core.Result{OK: true}
 	}
-	wsDir := opts.String("workspace")
+	wsDir := options.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.auto-pr", "workspace is required", nil), OK: false}
 	}
@@ -233,13 +233,13 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) cor
 	// Emit PRCreated for observability
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
-		if ok && st.PRURL != "" {
+		workspaceStatus, ok := workspaceStatusValue(result)
+		if ok && workspaceStatus.PRURL != "" {
 			s.Core().ACTION(messages.PRCreated{
-				Repo:   st.Repo,
-				Branch: st.Branch,
-				PRURL:  st.PRURL,
-				PRNum:  extractPRNumber(st.PRURL),
+				Repo:   workspaceStatus.Repo,
+				Branch: workspaceStatus.Branch,
+				PRURL:  workspaceStatus.PRURL,
+				PRNum:  extractPRNumber(workspaceStatus.PRURL),
 			})
 		}
 	}
@@ -248,14 +248,14 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, opts core.Options) cor
 
 // handleVerify verifies and auto-merges a PR.
 //
-//	r := c.Action("agentic.verify").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.verify").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
-func (s *PrepSubsystem) handleVerify(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) core.Result {
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-merge") {
 		return core.Result{OK: true}
 	}
-	wsDir := opts.String("workspace")
+	wsDir := options.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.verify", "workspace is required", nil), OK: false}
 	}
@@ -264,20 +264,20 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, opts core.Options) cor
 	// Emit merge/review events for observability
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		if ok {
-			if st.Status == "merged" {
+			if workspaceStatus.Status == "merged" {
 				s.Core().ACTION(messages.PRMerged{
-					Repo:  st.Repo,
-					PRURL: st.PRURL,
-					PRNum: extractPRNumber(st.PRURL),
+					Repo:  workspaceStatus.Repo,
+					PRURL: workspaceStatus.PRURL,
+					PRNum: extractPRNumber(workspaceStatus.PRURL),
 				})
-			} else if st.Question != "" {
+			} else if workspaceStatus.Question != "" {
 				s.Core().ACTION(messages.PRNeedsReview{
-					Repo:   st.Repo,
-					PRURL:  st.PRURL,
-					PRNum:  extractPRNumber(st.PRURL),
-					Reason: st.Question,
+					Repo:   workspaceStatus.Repo,
+					PRURL:  workspaceStatus.PRURL,
+					PRNum:  extractPRNumber(workspaceStatus.PRURL),
+					Reason: workspaceStatus.Question,
 				})
 			}
 		}
@@ -287,11 +287,11 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, opts core.Options) cor
 
 // handleIngest creates issues from agent findings.
 //
-//	r := c.Action("agentic.ingest").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.ingest").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "/path/to/workspace"},
 //	))
-func (s *PrepSubsystem) handleIngest(ctx context.Context, opts core.Options) core.Result {
-	wsDir := opts.String("workspace")
+func (s *PrepSubsystem) handleIngest(ctx context.Context, options core.Options) core.Result {
+	wsDir := options.String("workspace")
 	if wsDir == "" {
 		return core.Result{Value: core.E("agentic.ingest", "workspace is required", nil), OK: false}
 	}
@@ -301,20 +301,20 @@ func (s *PrepSubsystem) handleIngest(ctx context.Context, opts core.Options) cor
 
 // handlePoke drains the dispatch queue.
 //
-//	r := c.Action("agentic.poke").Run(ctx, core.NewOptions())
-func (s *PrepSubsystem) handlePoke(ctx context.Context, opts core.Options) core.Result {
+//	result := c.Action("agentic.poke").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Result {
 	s.Poke()
 	return core.Result{OK: true}
 }
 
 // handleMirror mirrors agent branches to GitHub.
 //
-//	r := c.Action("agentic.mirror").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.mirror").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "repo", Value: "go-io"},
 //	))
-func (s *PrepSubsystem) handleMirror(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) core.Result {
 	input := MirrorInput{
-		Repo: opts.String("repo"),
+		Repo: options.String("repo"),
 	}
 	_, out, err := s.mirror(ctx, nil, input)
 	if err != nil {
@@ -327,74 +327,74 @@ func (s *PrepSubsystem) handleMirror(ctx context.Context, opts core.Options) cor
 
 // handleIssueGet retrieves a forge issue.
 //
-//	r := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "repo", Value: "go-io"},
 //	    core.Option{Key: "number", Value: "42"},
 //	))
-func (s *PrepSubsystem) handleIssueGet(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdIssueGet(opts)
+func (s *PrepSubsystem) handleIssueGet(ctx context.Context, options core.Options) core.Result {
+	return s.cmdIssueGet(options)
 }
 
 // handleIssueList lists forge issues.
 //
-//	r := c.Action("agentic.issue.list").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.issue.list").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "_arg", Value: "go-io"},
 //	))
-func (s *PrepSubsystem) handleIssueList(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdIssueList(opts)
+func (s *PrepSubsystem) handleIssueList(ctx context.Context, options core.Options) core.Result {
+	return s.cmdIssueList(options)
 }
 
 // handleIssueCreate creates a forge issue.
 //
-//	r := c.Action("agentic.issue.create").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.issue.create").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "_arg", Value: "go-io"},
 //	    core.Option{Key: "title", Value: "Bug report"},
 //	))
-func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdIssueCreate(opts)
+func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, options core.Options) core.Result {
+	return s.cmdIssueCreate(options)
 }
 
 // handlePRGet retrieves a forge PR.
 //
-//	r := c.Action("agentic.pr.get").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.pr.get").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "_arg", Value: "go-io"},
 //	    core.Option{Key: "number", Value: "12"},
 //	))
-func (s *PrepSubsystem) handlePRGet(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdPRGet(opts)
+func (s *PrepSubsystem) handlePRGet(ctx context.Context, options core.Options) core.Result {
+	return s.cmdPRGet(options)
 }
 
 // handlePRList lists forge PRs.
 //
-//	r := c.Action("agentic.pr.list").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.pr.list").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "_arg", Value: "go-io"},
 //	))
-func (s *PrepSubsystem) handlePRList(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdPRList(opts)
+func (s *PrepSubsystem) handlePRList(ctx context.Context, options core.Options) core.Result {
+	return s.cmdPRList(options)
 }
 
 // handlePRMerge merges a forge PR.
 //
-//	r := c.Action("agentic.pr.merge").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.pr.merge").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "_arg", Value: "go-io"},
 //	    core.Option{Key: "number", Value: "12"},
 //	))
-func (s *PrepSubsystem) handlePRMerge(ctx context.Context, opts core.Options) core.Result {
-	return s.cmdPRMerge(opts)
+func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options) core.Result {
+	return s.cmdPRMerge(options)
 }
 
 // --- Review ---
 
 // handleReviewQueue runs CodeRabbit review on a workspace.
 //
-//	r := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 //	))
-func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Options) core.Result {
 	input := ReviewQueueInput{
-		Limit:    opts.Int("limit"),
-		Reviewer: opts.String("reviewer"),
-		DryRun:   opts.Bool("dry_run"),
+		Limit:    options.Int("limit"),
+		Reviewer: options.String("reviewer"),
+		DryRun:   options.Bool("dry_run"),
 	}
 	_, out, err := s.reviewQueue(ctx, nil, input)
 	if err != nil {
@@ -407,15 +407,15 @@ func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, opts core.Options
 
 // handleEpic creates an epic (multi-repo task breakdown).
 //
-//	r := c.Action("agentic.epic").Run(ctx, core.NewOptions(
+//	result := c.Action("agentic.epic").Run(ctx, core.NewOptions(
 //	    core.Option{Key: "task", Value: "Update all repos to v0.8.0"},
 //	))
-func (s *PrepSubsystem) handleEpic(ctx context.Context, opts core.Options) core.Result {
+func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) core.Result {
 	input := EpicInput{
-		Repo:  opts.String("repo"),
-		Org:   opts.String("org"),
-		Title: opts.String("title"),
-		Body:  opts.String("body"),
+		Repo:  options.String("repo"),
+		Org:   options.String("org"),
+		Title: options.String("title"),
+		Body:  options.String("body"),
 	}
 	_, out, err := s.createEpic(ctx, nil, input)
 	if err != nil {
@@ -426,20 +426,20 @@ func (s *PrepSubsystem) handleEpic(ctx context.Context, opts core.Options) core.
 
 // handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
 //
-//	r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
-//	r := c.QUERY(agentic.WorkspaceQuery{Status: "blocked"})
-func (s *PrepSubsystem) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
-	wq, ok := q.(WorkspaceQuery)
+//	result := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
+//	result := c.QUERY(agentic.WorkspaceQuery{Status: "blocked"})
+func (s *PrepSubsystem) handleWorkspaceQuery(_ *core.Core, query core.Query) core.Result {
+	workspaceQuery, ok := query.(WorkspaceQuery)
 	if !ok {
 		return core.Result{}
 	}
-	if wq.Name != "" {
-		return s.workspaces.Get(wq.Name)
+	if workspaceQuery.Name != "" {
+		return s.workspaces.Get(workspaceQuery.Name)
 	}
-	if wq.Status != "" {
+	if workspaceQuery.Status != "" {
 		var names []string
-		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
-			if st.Status == wq.Status {
+		s.workspaces.Each(func(name string, workspaceStatus *WorkspaceStatus) {
+			if workspaceStatus.Status == workspaceQuery.Status {
 				names = append(names, name)
 			}
 		})

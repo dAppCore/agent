@@ -38,8 +38,8 @@ func NewDirect() *DirectSubsystem {
 	if apiKey == "" {
 		keyPath = brainKeyPath(agentic.HomeDir())
 		if keyPath != "" {
-			if r := fs.Read(keyPath); r.OK {
-				apiKey = core.Trim(r.Value.(string))
+			if readResult := fs.Read(keyPath); readResult.OK {
+				apiKey = core.Trim(readResult.Value.(string))
 				if apiKey != "" {
 					core.Info("brain direct subsystem loaded API key from file", "path", keyPath)
 				}
@@ -110,22 +110,22 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 	if body != nil {
 		bodyStr = core.JSONMarshalString(body)
 	}
-	r := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
-	if !r.OK {
+	requestResult := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
+	if !requestResult.OK {
 		core.Error("brain API call failed", "method", method, "path", path)
-		if err, ok := r.Value.(error); ok {
+		if err, ok := requestResult.Value.(error); ok {
 			return core.Result{Value: core.E("brain.apiCall", "API call failed", err), OK: false}
 		}
-		if responseBody, ok := r.Value.(string); ok && responseBody != "" {
+		if responseBody, ok := requestResult.Value.(string); ok && responseBody != "" {
 			return core.Result{Value: core.E("brain.apiCall", core.Concat("API call failed: ", core.Trim(responseBody)), nil), OK: false}
 		}
 		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil), OK: false}
 	}
 
 	var result map[string]any
-	if ur := core.JSONUnmarshalString(r.Value.(string), &result); !ur.OK {
+	if parseResult := core.JSONUnmarshalString(requestResult.Value.(string), &result); !parseResult.OK {
 		core.Error("brain API response parse failed", "method", method, "path", path)
-		err, _ := ur.Value.(error)
+		err, _ := parseResult.Value.(error)
 		return core.Result{Value: core.E("brain.apiCall", "parse response", err), OK: false}
 	}
 
@@ -191,11 +191,11 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 		for _, m := range mems {
 			if mm, ok := m.(map[string]any); ok {
 				mem := Memory{
-					Content:   fieldString(mm, "content"),
-					Type:      fieldString(mm, "type"),
-					Project:   fieldString(mm, "project"),
-					AgentID:   fieldString(mm, "agent_id"),
-					CreatedAt: fieldString(mm, "created_at"),
+					Content:   stringField(mm, "content"),
+					Type:      stringField(mm, "type"),
+					Project:   stringField(mm, "project"),
+					AgentID:   stringField(mm, "agent_id"),
+					CreatedAt: stringField(mm, "created_at"),
 				}
 				if id, ok := mm["id"].(string); ok {
 					mem.ID = id

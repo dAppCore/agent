@@ -53,18 +53,18 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 	// Read current status
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
 		err, _ := result.Value.(error)
 		return nil, ResumeOutput{}, core.E("resume", "no status.json in workspace", err)
 	}
 
-	if st.Status != "blocked" && st.Status != "failed" && st.Status != "completed" {
-		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace is ", st.Status, ", not resumable (must be blocked, failed, or completed)"), nil)
+	if workspaceStatus.Status != "blocked" && workspaceStatus.Status != "failed" && workspaceStatus.Status != "completed" {
+		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace is ", workspaceStatus.Status, ", not resumable (must be blocked, failed, or completed)"), nil)
 	}
 
 	// Determine agent
-	agent := st.Agent
+	agent := workspaceStatus.Agent
 	if input.Agent != "" {
 		agent = input.Agent
 	}
@@ -73,14 +73,14 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	if input.Answer != "" {
 		answerPath := workspaceAnswerPath(wsDir)
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
-		if r := fs.Write(answerPath, content); !r.OK {
-			err, _ := r.Value.(error)
+		if writeResult := fs.Write(answerPath, content); !writeResult.OK {
+			err, _ := writeResult.Value.(error)
 			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", err)
 		}
 	}
 
 	// Build resume prompt — inline the task and answer, no file references
-	prompt := core.Concat("You are resuming previous work.\n\nORIGINAL TASK:\n", st.Task)
+	prompt := core.Concat("You are resuming previous work.\n\nORIGINAL TASK:\n", workspaceStatus.Task)
 	if input.Answer != "" {
 		prompt = core.Concat(prompt, "\n\nANSWER TO YOUR QUESTION:\n", input.Answer)
 	}
@@ -102,12 +102,12 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	// Update status
-	st.Status = "running"
-	st.PID = pid
-	st.ProcessID = processID
-	st.Runs++
-	st.Question = ""
-	writeStatusResult(wsDir, st)
+	workspaceStatus.Status = "running"
+	workspaceStatus.PID = pid
+	workspaceStatus.ProcessID = processID
+	workspaceStatus.Runs++
+	workspaceStatus.Question = ""
+	writeStatusResult(wsDir, workspaceStatus)
 
 	return nil, ResumeOutput{
 		Success:    true,

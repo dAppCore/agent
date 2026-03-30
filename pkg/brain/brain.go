@@ -18,12 +18,12 @@ import (
 // fs provides unrestricted filesystem access for shared brain credentials.
 //
 //	keyPath := core.JoinPath(home, ".claude", "brain.key")
-//	if r := fs.Read(keyPath); r.OK {
-//		apiKey = core.Trim(r.Value.(string))
+//	if readResult := fs.Read(keyPath); readResult.OK {
+//		apiKey = core.Trim(readResult.Value.(string))
 //	}
 var fs = agentic.LocalFs()
 
-func fieldString(values map[string]any, key string) string {
+func stringField(values map[string]any, key string) string {
 	return core.Sprint(values[key])
 }
 

@@ -93,12 +93,12 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 		core.JoinPath(CoreRoot(), "agents.yaml"),
 	}
 	for _, path := range paths {
-		r := fs.Read(path)
-		if !r.OK {
+		readResult := fs.Read(path)
+		if !readResult.OK {
 			continue
 		}
 		var config AgentsConfig
-		if err := yaml.Unmarshal([]byte(r.Value.(string)), &config); err != nil {
+		if err := yaml.Unmarshal([]byte(readResult.Value.(string)), &config); err != nil {
 			continue
 		}
 		return &config
@@ -121,9 +121,9 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 func (s *Service) canDispatchAgent(agent string) (bool, string) {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
-		r := s.Core().Config().Get("agents.concurrency")
-		if r.OK {
-			concurrency, _ = r.Value.(map[string]ConcurrencyLimit)
+		configurationResult := s.Core().Config().Get("agents.concurrency")
+		if configurationResult.OK {
+			concurrency, _ = configurationResult.Value.(map[string]ConcurrencyLimit)
 		}
 	}
 	if concurrency == nil {
@@ -166,14 +166,14 @@ func (s *Service) countRunningByAgent(agent string) int {
 		runtime = s.Core()
 	}
 	count := 0
-	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		if st.Status != "running" || baseAgent(st.Agent) != agent {
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		if workspaceStatus.Status != "running" || baseAgent(workspaceStatus.Agent) != agent {
 			return
 		}
 		switch {
-		case st.PID < 0:
+		case workspaceStatus.PID < 0:
 			count++
-		case st.PID > 0 && agentic.ProcessAlive(runtime, "", st.PID):
+		case workspaceStatus.PID > 0 && agentic.ProcessAlive(runtime, "", workspaceStatus.PID):
 			count++
 		}
 	})
@@ -189,14 +189,14 @@ func (s *Service) countRunningByModel(agent string) int {
 		runtime = s.Core()
 	}
 	count := 0
-	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		if st.Status != "running" || st.Agent != agent {
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		if workspaceStatus.Status != "running" || workspaceStatus.Agent != agent {
 			return
 		}
 		switch {
-		case st.PID < 0:
+		case workspaceStatus.PID < 0:
 			count++
-		case st.PID > 0 && agentic.ProcessAlive(runtime, "", st.PID):
+		case workspaceStatus.PID > 0 && agentic.ProcessAlive(runtime, "", workspaceStatus.PID):
 			count++
 		}
 	})
@@ -221,30 +221,30 @@ func (s *Service) drainQueue() {
 func (s *Service) drainOne() bool {
 	for _, statusPath := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
-		result := ReadStatusResult(wsDir)
-		if !result.OK {
+		statusResult := ReadStatusResult(wsDir)
+		if !statusResult.OK {
 			continue
 		}
-		st, ok := result.Value.(*WorkspaceStatus)
-		if !ok || st == nil || st.Status != "queued" {
-			continue
-		}
-
-		if can, _ := s.canDispatchAgent(st.Agent); !can {
+		workspaceStatus, ok := statusResult.Value.(*WorkspaceStatus)
+		if !ok || workspaceStatus == nil || workspaceStatus.Status != "queued" {
 			continue
 		}
 
-		pool := baseAgent(st.Agent)
+		if can, _ := s.canDispatchAgent(workspaceStatus.Agent); !can {
+			continue
+		}
+
+		pool := baseAgent(workspaceStatus.Agent)
 		if until, ok := s.backoff[pool]; ok && time.Now().Before(until) {
 			continue
 		}
 
-		delay := s.delayForAgent(st.Agent)
+		delay := s.delayForAgent(workspaceStatus.Agent)
 		if delay > 0 {
 			time.Sleep(delay)
 		}
 
-		if can, _ := s.canDispatchAgent(st.Agent); !can {
+		if can, _ := s.canDispatchAgent(workspaceStatus.Agent); !can {
 			continue
 		}
 
@@ -252,7 +252,7 @@ func (s *Service) drainOne() bool {
 		// agentic owns the actual process launch.
 		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
 		wsName := agentic.WorkspaceName(wsDir)
-		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", st.Agent)
+		core.Info("drainOne: found queued workspace", "workspace", wsName, "agent", workspaceStatus.Agent)
 
 		// Spawn directly — agentic is a Core service, use ServiceFor to get it
 		if s.ServiceRuntime == nil {
@@ -261,13 +261,13 @@ func (s *Service) drainOne() bool {
 		type spawner interface {
 			SpawnFromQueue(agent, prompt, wsDir string) core.Result
 		}
-		prep, ok := core.ServiceFor[spawner](s.Core(), "agentic")
+		agenticService, ok := core.ServiceFor[spawner](s.Core(), "agentic")
 		if !ok {
 			core.Error("drainOne: agentic service not found")
 			continue
 		}
-		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		spawnResult := prep.SpawnFromQueue(st.Agent, prompt, wsDir)
+		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
+		spawnResult := agenticService.SpawnFromQueue(workspaceStatus.Agent, prompt, wsDir)
 		if !spawnResult.OK {
 			core.Error("drainOne: spawn failed", "workspace", wsName, "reason", core.Sprint(spawnResult.Value))
 			continue
@@ -279,14 +279,14 @@ func (s *Service) drainOne() bool {
 		}
 
 		// Only mark running AFTER successful spawn
-		st.Status = "running"
-		st.PID = pid
-		st.Runs++
-		if r := WriteStatus(wsDir, st); !r.OK {
-			core.Error("drainOne: failed to write workspace status", "workspace", wsName, "reason", core.Sprint(r.Value))
+		workspaceStatus.Status = "running"
+		workspaceStatus.PID = pid
+		workspaceStatus.Runs++
+		if writeResult := WriteStatus(wsDir, workspaceStatus); !writeResult.OK {
+			core.Error("drainOne: failed to write workspace status", "workspace", wsName, "reason", core.Sprint(writeResult.Value))
 			continue
 		}
-		s.TrackWorkspace(wsName, st)
+		s.TrackWorkspace(wsName, workspaceStatus)
 		core.Info("drainOne: spawned", "pid", pid, "workspace", wsName)
 
 		return true

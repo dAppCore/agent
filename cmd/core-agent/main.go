@@ -28,7 +28,7 @@ func main() {
 //	core.Println(c.App().Name)    // "core-agent"
 //	core.Println(c.App().Version) // "dev" or linked version
 func newCoreAgent() *core.Core {
-	c := core.New(
+	coreApp := core.New(
 		core.WithOptions(core.NewOptions(core.Option{Key: "name", Value: "core-agent"})),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
@@ -37,15 +37,15 @@ func newCoreAgent() *core.Core {
 		core.WithService(brain.Register),
 		core.WithService(registerMCPService),
 	)
-	c.App().Version = appVersion()
+	coreApp.App().Version = appVersion()
 
-	c.Cli().SetBanner(func(_ *core.Cli) string {
-		return core.Concat("core-agent ", c.App().Version, " — agentic orchestration for the Core ecosystem")
+	coreApp.Cli().SetBanner(func(_ *core.Cli) string {
+		return core.Concat("core-agent ", coreApp.App().Version, " — agentic orchestration for the Core ecosystem")
 	})
 
-	registerAppCommands(c)
+	registerAppCommands(coreApp)
 
-	return c
+	return coreApp
 }
 
 // appVersion resolves the build version injected at link time.
@@ -69,19 +69,19 @@ func runCoreAgent() error {
 // runApp starts services, runs the CLI with explicit args, then shuts down.
 //
 //	err := runApp(c, []string{"version"})
-func runApp(c *core.Core, cliArgs []string) error {
-	if c == nil {
+func runApp(coreApp *core.Core, cliArgs []string) error {
+	if coreApp == nil {
 		return core.E("main.runApp", "core is required", nil)
 	}
 
-	defer c.ServiceShutdown(context.Background())
+	defer coreApp.ServiceShutdown(context.Background())
 
-	result := c.ServiceStartup(c.Context(), nil)
+	result := coreApp.ServiceStartup(coreApp.Context(), nil)
 	if !result.OK {
 		return resultError("main.runApp", "startup failed", result)
 	}
 
-	if cli := c.Cli(); cli != nil {
+	if cli := coreApp.Cli(); cli != nil {
 		result = cli.Run(cliArgs...)
 		if !result.OK {
 			return resultError("main.runApp", "cli failed", result)

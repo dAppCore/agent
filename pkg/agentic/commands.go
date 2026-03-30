@@ -34,16 +34,16 @@ func (s *PrepSubsystem) commandContext() context.Context {
 	return context.Background()
 }
 
-func (s *PrepSubsystem) cmdRunTask(opts core.Options) core.Result {
-	return s.runTask(s.commandContext(), opts)
+func (s *PrepSubsystem) cmdRunTask(options core.Options) core.Result {
+	return s.runTask(s.commandContext(), options)
 }
 
-func (s *PrepSubsystem) runTask(ctx context.Context, opts core.Options) core.Result {
-	repo := opts.String("repo")
-	agent := opts.String("agent")
-	task := opts.String("task")
-	issueStr := opts.String("issue")
-	org := opts.String("org")
+func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.Result {
+	repo := options.String("repo")
+	agent := options.String("agent")
+	task := options.String("task")
+	issueStr := options.String("issue")
+	org := options.String("org")
 
 	if repo == "" || task == "" {
 		core.Print(nil, "usage: core-agent run task --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]")
@@ -98,40 +98,40 @@ func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdPrep(opts core.Options) core.Result {
-	repo := opts.String("_arg")
+func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
+	repo := options.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent prep <repo> --issue=N|--pr=N|--branch=X --task=\"...\"")
 		return core.Result{Value: core.E("agentic.cmdPrep", "repo is required", nil), OK: false}
 	}
 
-	input := PrepInput{
+	prepInput := PrepInput{
 		Repo:     repo,
-		Org:      opts.String("org"),
-		Task:     opts.String("task"),
-		Template: opts.String("template"),
-		Persona:  opts.String("persona"),
-		DryRun:   opts.Bool("dry-run"),
+		Org:      options.String("org"),
+		Task:     options.String("task"),
+		Template: options.String("template"),
+		Persona:  options.String("persona"),
+		DryRun:   options.Bool("dry-run"),
 	}
 
-	if v := opts.String("issue"); v != "" {
-		input.Issue = parseIntStr(v)
+	if value := options.String("issue"); value != "" {
+		prepInput.Issue = parseIntStr(value)
 	}
-	if v := opts.String("pr"); v != "" {
-		input.PR = parseIntStr(v)
+	if value := options.String("pr"); value != "" {
+		prepInput.PR = parseIntStr(value)
 	}
-	if v := opts.String("branch"); v != "" {
-		input.Branch = v
+	if value := options.String("branch"); value != "" {
+		prepInput.Branch = value
 	}
-	if v := opts.String("tag"); v != "" {
-		input.Tag = v
-	}
-
-	if input.Issue == 0 && input.PR == 0 && input.Branch == "" && input.Tag == "" {
-		input.Branch = "dev"
+	if value := options.String("tag"); value != "" {
+		prepInput.Tag = value
 	}
 
-	_, out, err := s.TestPrepWorkspace(context.Background(), input)
+	if prepInput.Issue == 0 && prepInput.PR == 0 && prepInput.Branch == "" && prepInput.Tag == "" {
+		prepInput.Branch = "dev"
+	}
+
+	_, out, err := s.TestPrepWorkspace(context.Background(), prepInput)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -151,11 +151,11 @@ func (s *PrepSubsystem) cmdPrep(opts core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdStatus(opts core.Options) core.Result {
+func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
 	wsRoot := WorkspaceRoot()
 	fsys := s.Core().Fs()
-	r := fsys.List(wsRoot)
-	if !r.OK {
+	listResult := fsys.List(wsRoot)
+	if !listResult.OK {
 		core.Print(nil, "no workspaces found at %s", wsRoot)
 		return core.Result{OK: true}
 	}
@@ -172,33 +172,33 @@ func (s *PrepSubsystem) cmdStatus(opts core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdPrompt(opts core.Options) core.Result {
-	repo := opts.String("_arg")
+func (s *PrepSubsystem) cmdPrompt(options core.Options) core.Result {
+	repo := options.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent prompt <repo> --task=\"...\"")
 		return core.Result{Value: core.E("agentic.cmdPrompt", "repo is required", nil), OK: false}
 	}
 
-	org := opts.String("org")
+	org := options.String("org")
 	if org == "" {
 		org = "core"
 	}
-	task := opts.String("task")
+	task := options.String("task")
 	if task == "" {
 		task = "Review and report findings"
 	}
 
 	repoPath := core.JoinPath(HomeDir(), "Code", org, repo)
 
-	input := PrepInput{
+	prepInput := PrepInput{
 		Repo:     repo,
 		Org:      org,
 		Task:     task,
-		Template: opts.String("template"),
-		Persona:  opts.String("persona"),
+		Template: options.String("template"),
+		Persona:  options.String("persona"),
 	}
 
-	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), input, "dev", repoPath)
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), prepInput, "dev", repoPath)
 	core.Print(nil, "memories:  %d", memories)
 	core.Print(nil, "consumers: %d", consumers)
 	core.Print(nil, "")
@@ -206,29 +206,29 @@ func (s *PrepSubsystem) cmdPrompt(opts core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdExtract(opts core.Options) core.Result {
-	tmpl := opts.String("_arg")
-	if tmpl == "" {
-		tmpl = "default"
+func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
+	templateName := options.String("_arg")
+	if templateName == "" {
+		templateName = "default"
 	}
-	target := opts.String("target")
+	target := options.String("target")
 	if target == "" {
 		target = core.JoinPath(WorkspaceRoot(), "test-extract")
 	}
 
-	data := &lib.WorkspaceData{
+	workspaceData := &lib.WorkspaceData{
 		Repo:   "test-repo",
 		Branch: "dev",
 		Task:   "test extraction",
 		Agent:  "codex",
 	}
 
-	core.Print(nil, "extracting template %q to %s", tmpl, target)
-	if result := lib.ExtractWorkspace(tmpl, target, data); !result.OK {
+	core.Print(nil, "extracting template %q to %s", templateName, target)
+	if result := lib.ExtractWorkspace(templateName, target, workspaceData); !result.OK {
 		if err, ok := result.Value.(error); ok {
-			return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", tmpl), err), OK: false}
+			return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", templateName), err), OK: false}
 		}
-		return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", tmpl), nil), OK: false}
+		return core.Result{Value: core.E("agentic.cmdExtract", core.Concat("extract workspace template ", templateName), nil), OK: false}
 	}
 
 	fsys := s.Core().Fs()

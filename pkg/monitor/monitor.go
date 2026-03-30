@@ -19,8 +19,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// r := fs.Read(core.JoinPath(wsRoot, name, "status.json"))
-// if text, ok := resultString(r); ok { _ = core.JSONUnmarshalString(text, &st) }
+// readResult := fs.Read(core.JoinPath(wsRoot, name, "status.json"))
+// if text, ok := resultString(readResult); ok { _ = core.JSONUnmarshalString(text, &workspaceStatus) }
 var fs = agentic.LocalFs()
 
 type channelSender interface {
@@ -42,16 +42,16 @@ func monitorBrainKey() string {
 	if k := core.Env("CORE_BRAIN_KEY"); k != "" {
 		return k
 	}
-	if r := fs.Read(brainKeyPath(agentic.HomeDir())); r.OK {
-		if value, ok := resultString(r); ok {
+	if readResult := fs.Read(brainKeyPath(agentic.HomeDir())); readResult.OK {
+		if value, ok := resultString(readResult); ok {
 			return core.Trim(value)
 		}
 	}
 	return ""
 }
 
-func resultString(r core.Result) (string, bool) {
-	value, ok := r.Value.(string)
+func resultString(result core.Result) (string, bool) {
+	value, ok := result.Value.(string)
 	if !ok {
 		return "", false
 	}
@@ -172,15 +172,15 @@ func (m *Subsystem) Start(ctx context.Context) {
 	}()
 }
 
-// r := service.OnStartup(context.Background())
-// core.Println(r.OK)
+// result := service.OnStartup(context.Background())
+// core.Println(result.OK)
 func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 	m.Start(ctx)
 	return core.Result{OK: true}
 }
 
-// r := service.OnShutdown(context.Background())
-// core.Println(r.OK)
+// result := service.OnShutdown(context.Background())
+// core.Println(result.OK)
 func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
 	_ = m.Shutdown(ctx)
 	return core.Result{OK: true}

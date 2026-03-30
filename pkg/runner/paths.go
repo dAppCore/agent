@@ -69,16 +69,16 @@ func CoreRoot() string {
 //	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
 //	if result.OK { workspaceStatus := result.Value.(*WorkspaceStatus) }
 func ReadStatusResult(wsDir string) core.Result {
-	result := agentic.ReadStatusResult(wsDir)
-	if !result.OK {
-		err, _ := result.Value.(error)
+	statusResult := agentic.ReadStatusResult(wsDir)
+	if !statusResult.OK {
+		err, _ := statusResult.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("runner.ReadStatusResult", "failed to read status", nil), OK: false}
 		}
 		return core.Result{Value: core.E("runner.ReadStatusResult", "failed to read status", err), OK: false}
 	}
 
-	agenticStatus, ok := result.Value.(*agentic.WorkspaceStatus)
+	agenticStatus, ok := statusResult.Value.(*agentic.WorkspaceStatus)
 	if !ok || agenticStatus == nil {
 		return core.Result{Value: core.E("runner.ReadStatusResult", "invalid status payload", nil), OK: false}
 	}
@@ -91,8 +91,8 @@ func ReadStatusResult(wsDir string) core.Result {
 
 // WriteStatus writes `status.json` for one workspace directory.
 //
-//	r := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
-//	core.Println(r.OK)
+//	result := runner.WriteStatus("/srv/core/workspace/core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
+//	core.Println(result.OK)
 func WriteStatus(wsDir string, status *WorkspaceStatus) core.Result {
 	if status == nil {
 		return core.Result{Value: core.E("runner.WriteStatus", "status is required", nil), OK: false}
@@ -103,8 +103,8 @@ func WriteStatus(wsDir string, status *WorkspaceStatus) core.Result {
 		return core.Result{Value: core.E("runner.WriteStatus", "status conversion failed", nil), OK: false}
 	}
 	agenticStatus.UpdatedAt = time.Now()
-	if r := fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(agenticStatus)); !r.OK {
-		err, _ := r.Value.(error)
+	if writeResult := fs.WriteAtomic(agentic.WorkspaceStatusPath(wsDir), core.JSONMarshalString(agenticStatus)); !writeResult.OK {
+		err, _ := writeResult.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("runner.WriteStatus", "failed to write status", nil), OK: false}
 		}

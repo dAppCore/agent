@@ -13,8 +13,8 @@ import (
 // if the agent made any commits beyond the initial clone.
 func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
-	if !ok || st.Branch == "" || st.Repo == "" {
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if !ok || workspaceStatus.Branch == "" || workspaceStatus.Repo == "" {
 		return
 	}
 
@@ -25,78 +25,78 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// PRs target dev — agents never merge directly to main
 	base := "dev"
 
-	r := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
-	if !r.OK {
+	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", base, "..HEAD"))
+	if !processResult.OK {
 		return
 	}
-	out := core.Trim(r.Value.(string))
+	out := core.Trim(processResult.Value.(string))
 	if out == "" {
 		return
 	}
 
 	commitCount := len(core.Split(out, "\n"))
 
-	org := st.Org
+	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
 	}
 
 	// Push the branch to forge
-	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch).OK {
+	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, workspaceStatus.Repo)
+	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, workspaceStatus.Branch).OK {
 		if result := ReadStatusResult(wsDir); result.OK {
-			st2, ok := workspaceStatusValue(result)
+			workspaceStatusUpdate, ok := workspaceStatusValue(result)
 			if !ok {
 				return
 			}
-			st2.Question = "PR push failed"
-			writeStatusResult(wsDir, st2)
+			workspaceStatusUpdate.Question = "PR push failed"
+			writeStatusResult(wsDir, workspaceStatusUpdate)
 		}
 		return
 	}
 
 	// Create PR via Forge API
-	title := core.Sprintf("[agent/%s] %s", st.Agent, truncate(st.Task, 60))
-	body := s.buildAutoPRBody(st, commitCount)
+	title := core.Sprintf("[agent/%s] %s", workspaceStatus.Agent, truncate(workspaceStatus.Task, 60))
+	body := s.buildAutoPRBody(workspaceStatus, commitCount)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prURL, _, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
+	prURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
 		if result := ReadStatusResult(wsDir); result.OK {
-			st2, ok := workspaceStatusValue(result)
+			workspaceStatusUpdate, ok := workspaceStatusValue(result)
 			if !ok {
 				return
 			}
-			st2.Question = core.Sprintf("PR creation failed: %v", err)
-			writeStatusResult(wsDir, st2)
+			workspaceStatusUpdate.Question = core.Sprintf("PR creation failed: %v", err)
+			writeStatusResult(wsDir, workspaceStatusUpdate)
 		}
 		return
 	}
 
 	// Update status with PR URL
 	if result := ReadStatusResult(wsDir); result.OK {
-		st2, ok := workspaceStatusValue(result)
+		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {
 			return
 		}
-		st2.PRURL = prURL
-		writeStatusResult(wsDir, st2)
+		workspaceStatusUpdate.PRURL = prURL
+		writeStatusResult(wsDir, workspaceStatusUpdate)
 	}
 }
 
-func (s *PrepSubsystem) buildAutoPRBody(st *WorkspaceStatus, commits int) string {
+func (s *PrepSubsystem) buildAutoPRBody(workspaceStatus *WorkspaceStatus, commits int) string {
 	b := core.NewBuilder()
 	b.WriteString("## Task\n\n")
-	b.WriteString(st.Task)
+	b.WriteString(workspaceStatus.Task)
 	b.WriteString("\n\n")
-	if st.Issue > 0 {
-		b.WriteString(core.Sprintf("Closes #%d\n\n", st.Issue))
+	if workspaceStatus.Issue > 0 {
+		b.WriteString(core.Sprintf("Closes #%d\n\n", workspaceStatus.Issue))
 	}
-	b.WriteString(core.Sprintf("**Agent:** %s\n", st.Agent))
+	b.WriteString(core.Sprintf("**Agent:** %s\n", workspaceStatus.Agent))
 	b.WriteString(core.Sprintf("**Commits:** %d\n", commits))
-	b.WriteString(core.Sprintf("**Branch:** `%s`\n", st.Branch))
+	b.WriteString(core.Sprintf("**Branch:** `%s`\n", workspaceStatus.Branch))
 	b.WriteString("\n---\n")
 	b.WriteString("Auto-created by core-agent dispatch system.\n")
 	b.WriteString("Co-Authored-By: Virgil <virgil@lethean.io>\n")

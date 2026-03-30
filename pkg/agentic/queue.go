@@ -87,12 +87,12 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	}
 
 	for _, path := range paths {
-		r := fs.Read(path)
-		if !r.OK {
+		readResult := fs.Read(path)
+		if !readResult.OK {
 			continue
 		}
 		var config AgentsConfig
-		if err := yaml.Unmarshal([]byte(r.Value.(string)), &config); err != nil {
+		if err := yaml.Unmarshal([]byte(readResult.Value.(string)), &config); err != nil {
 			continue
 		}
 		return &config
@@ -169,8 +169,8 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	}
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
-		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && baseAgent(st.Agent) == agent && ProcessAlive(runtime, st.ProcessID, st.PID) {
+		s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+			if workspaceStatus.Status == "running" && baseAgent(workspaceStatus.Agent) == agent && ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 				count++
 			}
 		})
@@ -187,14 +187,14 @@ func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
 		result := ReadStatusResult(core.PathDir(statusPath))
-		st, ok := workspaceStatusValue(result)
-		if !ok || st.Status != "running" {
+		workspaceStatus, ok := workspaceStatusValue(result)
+		if !ok || workspaceStatus.Status != "running" {
 			continue
 		}
-		if baseAgent(st.Agent) != agent {
+		if baseAgent(workspaceStatus.Agent) != agent {
 			continue
 		}
-		if ProcessAlive(runtime, st.ProcessID, st.PID) {
+		if ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 			count++
 		}
 	}
@@ -212,8 +212,8 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	}
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
-		s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-			if st.Status == "running" && st.Agent == agent && ProcessAlive(runtime, st.ProcessID, st.PID) {
+		s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+			if workspaceStatus.Status == "running" && workspaceStatus.Agent == agent && ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 				count++
 			}
 		})
@@ -230,14 +230,14 @@ func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string
 	count := 0
 	for _, statusPath := range WorkspaceStatusPaths() {
 		result := ReadStatusResult(core.PathDir(statusPath))
-		st, ok := workspaceStatusValue(result)
-		if !ok || st.Status != "running" {
+		workspaceStatus, ok := workspaceStatusValue(result)
+		if !ok || workspaceStatus.Status != "running" {
 			continue
 		}
-		if st.Agent != agent {
+		if workspaceStatus.Agent != agent {
 			continue
 		}
-		if ProcessAlive(runtime, st.ProcessID, st.PID) {
+		if ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 			count++
 		}
 	}
@@ -255,9 +255,9 @@ func baseAgent(agent string) string {
 func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
-		r := s.Core().Config().Get("agents.concurrency")
-		if r.OK {
-			concurrency, _ = r.Value.(map[string]ConcurrencyLimit)
+		configurationResult := s.Core().Config().Get("agents.concurrency")
+		if configurationResult.OK {
+			concurrency, _ = configurationResult.Value.(map[string]ConcurrencyLimit)
 		}
 	}
 	if concurrency == nil {
@@ -329,45 +329,45 @@ func (s *PrepSubsystem) drainOne() bool {
 	for _, statusPath := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(statusPath)
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
-		if !ok || st.Status != "queued" {
+		workspaceStatus, ok := workspaceStatusValue(result)
+		if !ok || workspaceStatus.Status != "queued" {
 			continue
 		}
 
-		if !s.canDispatchAgent(st.Agent) {
+		if !s.canDispatchAgent(workspaceStatus.Agent) {
 			continue
 		}
 
 		// Skip if agent pool is in rate-limit backoff
-		pool := baseAgent(st.Agent)
+		pool := baseAgent(workspaceStatus.Agent)
 		if until, ok := s.backoff[pool]; ok && time.Now().Before(until) {
 			continue
 		}
 
 		// Apply rate delay before spawning
-		delay := s.delayForAgent(st.Agent)
+		delay := s.delayForAgent(workspaceStatus.Agent)
 		if delay > 0 {
 			time.Sleep(delay)
 		}
 
 		// Re-check concurrency after delay (another task may have started)
-		if !s.canDispatchAgent(st.Agent) {
+		if !s.canDispatchAgent(workspaceStatus.Agent) {
 			continue
 		}
 
-		prompt := core.Concat("TASK: ", st.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
+		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
-		pid, processID, _, err := s.spawnAgent(st.Agent, prompt, wsDir)
+		pid, processID, _, err := s.spawnAgent(workspaceStatus.Agent, prompt, wsDir)
 		if err != nil {
 			continue
 		}
 
-		st.Status = "running"
-		st.PID = pid
-		st.ProcessID = processID
-		st.Runs++
-		writeStatusResult(wsDir, st)
-		s.TrackWorkspace(WorkspaceName(wsDir), st)
+		workspaceStatus.Status = "running"
+		workspaceStatus.PID = pid
+		workspaceStatus.ProcessID = processID
+		workspaceStatus.Runs++
+		writeStatusResult(wsDir, workspaceStatus)
+		s.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
 
 		return true
 	}

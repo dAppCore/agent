@@ -39,15 +39,15 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 		}
 		// Update status with real PID
 		if result := ReadStatusResult(wsDir); result.OK {
-			st, ok := workspaceStatusValue(result)
+			workspaceStatus, ok := workspaceStatusValue(result)
 			if !ok {
 				break
 			}
-			st.PID = pid
-			st.ProcessID = processID
-			writeStatusResult(wsDir, st)
+			workspaceStatus.PID = pid
+			workspaceStatus.ProcessID = processID
+			writeStatusResult(wsDir, workspaceStatus)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](c, "runner"); ok {
-				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
+				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), workspaceStatus)
 			}
 		}
 		_ = outputFile
@@ -59,8 +59,8 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 // SpawnFromQueue spawns an agent in a pre-prepped workspace.
 // Called by runner.Service via ServiceFor interface matching.
 //
-//	r := prep.SpawnFromQueue("codex", prompt, wsDir)
-//	pid := r.Value.(int)
+//	spawnResult := prep.SpawnFromQueue("codex", prompt, wsDir)
+//	pid := spawnResult.Value.(int)
 func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, wsDir string) core.Result {
 	pid, _, _, err := s.spawnAgent(agent, prompt, wsDir)
 	if err != nil {
@@ -88,12 +88,12 @@ func resolveWorkspace(name string) string {
 func findWorkspaceByPR(repo, branch string) string {
 	for _, path := range WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		statusResult := ReadStatusResult(wsDir)
+		workspaceStatus, ok := workspaceStatusValue(statusResult)
 		if !ok {
 			continue
 		}
-		if st.Repo == repo && st.Branch == branch {
+		if workspaceStatus.Repo == repo && workspaceStatus.Branch == branch {
 			return wsDir
 		}
 	}

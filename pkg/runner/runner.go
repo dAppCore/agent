@@ -108,8 +108,8 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 
 // OnShutdown freezes the queue.
 //
-//	r := service.OnShutdown(context.Background())
-//	if r.OK {
+//	result := service.OnShutdown(context.Background())
+//	if result.OK {
 //		core.Println(service.IsFrozen())
 //	}
 func (s *Service) OnShutdown(_ context.Context) core.Result {
@@ -129,9 +129,9 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 		base := baseAgent(ev.Agent)
 		running := s.countRunningByAgent(base)
 		var limit int
-		r := c.Config().Get("agents.concurrency")
-		if r.OK {
-			if concurrency, ok := r.Value.(map[string]ConcurrencyLimit); ok {
+		configurationResult := c.Config().Get("agents.concurrency")
+		if configurationResult.OK {
+			if concurrency, ok := configurationResult.Value.(map[string]ConcurrencyLimit); ok {
 				if cl, has := concurrency[base]; has {
 					limit = cl.Total
 				}
@@ -152,26 +152,26 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	case messages.AgentCompleted:
 		// Update workspace status in Registry so concurrency count drops
 		if ev.Workspace != "" {
-			if r := s.workspaces.Get(ev.Workspace); r.OK {
-				if st, ok := r.Value.(*WorkspaceStatus); ok && st.Status == "running" {
-					st.Status = ev.Status
-					st.PID = 0
+			if workspaceResult := s.workspaces.Get(ev.Workspace); workspaceResult.OK {
+				if workspaceStatus, ok := workspaceResult.Value.(*WorkspaceStatus); ok && workspaceStatus.Status == "running" {
+					workspaceStatus.Status = ev.Status
+					workspaceStatus.PID = 0
 				}
 			}
 		} else {
-			s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-				if st.Repo == ev.Repo && st.Status == "running" {
-					st.Status = ev.Status
-					st.PID = 0
+			s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+				if workspaceStatus.Repo == ev.Repo && workspaceStatus.Status == "running" {
+					workspaceStatus.Status = ev.Status
+					workspaceStatus.PID = 0
 				}
 			})
 		}
 		cBase := baseAgent(ev.Agent)
 		cRunning := s.countRunningByAgent(cBase)
 		var cLimit int
-		cr := c.Config().Get("agents.concurrency")
-		if cr.OK {
-			if concurrency, ok := cr.Value.(map[string]ConcurrencyLimit); ok {
+		completionResult := c.Config().Get("agents.concurrency")
+		if completionResult.OK {
+			if concurrency, ok := completionResult.Value.(map[string]ConcurrencyLimit); ok {
 				if cl, has := concurrency[cBase]; has {
 					cLimit = cl.Total
 				}
@@ -222,54 +222,54 @@ func (s *Service) Poke() {
 //
 //	s.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex"})
 //	s.TrackWorkspace("core/go-io/task-5", &agentic.WorkspaceStatus{Status: "running", Agent: "codex"})
-func (s *Service) TrackWorkspace(name string, st any) {
+func (s *Service) TrackWorkspace(name string, status any) {
 	if s.workspaces == nil {
 		return
 	}
-	var ws *WorkspaceStatus
-	switch value := st.(type) {
+	var workspaceStatus *WorkspaceStatus
+	switch value := status.(type) {
 	case *WorkspaceStatus:
-		ws = value
+		workspaceStatus = value
 	case *agentic.WorkspaceStatus:
-		ws = runnerWorkspaceStatusFromAgentic(value)
+		workspaceStatus = runnerWorkspaceStatusFromAgentic(value)
 	default:
-		json := core.JSONMarshalString(st)
-		var workspace WorkspaceStatus
-		if r := core.JSONUnmarshalString(json, &workspace); r.OK {
-			ws = &workspace
+		statusJSON := core.JSONMarshalString(status)
+		var decodedWorkspace WorkspaceStatus
+		if result := core.JSONUnmarshalString(statusJSON, &decodedWorkspace); result.OK {
+			workspaceStatus = &decodedWorkspace
 		}
 	}
-	if ws == nil {
+	if workspaceStatus == nil {
 		return
 	}
-	s.workspaces.Set(name, ws)
+	s.workspaces.Set(name, workspaceStatus)
 	// Remove pending reservation now that the real workspace is tracked
-	s.workspaces.Delete(core.Concat("pending/", ws.Repo))
+	s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo))
 }
 
 // Workspaces returns the workspace Registry.
 //
-//	s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
+//	s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { ... })
 func (s *Service) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
 }
 
 // handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
 //
-//	r := c.QUERY(runner.WorkspaceQuery{Name: "core/go-io/task-42"})
-//	r := c.QUERY(runner.WorkspaceQuery{Status: "running"})
-func (s *Service) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
-	wq, ok := q.(WorkspaceQuery)
+//	result := c.QUERY(runner.WorkspaceQuery{Name: "core/go-io/task-42"})
+//	result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
+func (s *Service) handleWorkspaceQuery(_ *core.Core, query core.Query) core.Result {
+	workspaceQuery, ok := query.(WorkspaceQuery)
 	if !ok {
 		return core.Result{}
 	}
-	if wq.Name != "" {
-		return s.workspaces.Get(wq.Name)
+	if workspaceQuery.Name != "" {
+		return s.workspaces.Get(workspaceQuery.Name)
 	}
-	if wq.Status != "" {
+	if workspaceQuery.Status != "" {
 		var names []string
-		s.workspaces.Each(func(name string, st *WorkspaceStatus) {
-			if st.Status == wq.Status {
+		s.workspaces.Each(func(name string, workspaceStatus *WorkspaceStatus) {
+			if workspaceStatus.Status == workspaceQuery.Status {
 				names = append(names, name)
 			}
 		})
@@ -280,16 +280,16 @@ func (s *Service) handleWorkspaceQuery(_ *core.Core, q core.Query) core.Result {
 
 // --- Actions ---
 
-func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Result {
+func (s *Service) actionDispatch(_ context.Context, options core.Options) core.Result {
 	if s.frozen {
 		return core.Result{Value: core.E("runner.actionDispatch", "queue is frozen", nil), OK: false}
 	}
 
-	agent := opts.String("agent")
+	agent := options.String("agent")
 	if agent == "" {
 		agent = "codex"
 	}
-	repo := opts.String("repo")
+	repo := options.String("repo")
 
 	s.dispatchMu.Lock()
 	defer s.dispatchMu.Unlock()
@@ -313,8 +313,8 @@ func (s *Service) actionDispatch(_ context.Context, opts core.Options) core.Resu
 
 func (s *Service) actionStatus(_ context.Context, _ core.Options) core.Result {
 	running, queued, completed, failed := 0, 0, 0, 0
-	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		switch st.Status {
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		switch workspaceStatus.Status {
 		case "running":
 			running++
 		case "queued":
@@ -350,16 +350,16 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 		runtime = s.Core()
 	}
 	killed := 0
-	s.workspaces.Each(func(_ string, st *WorkspaceStatus) {
-		if st.Status == "running" && st.PID > 0 {
-			if agentic.ProcessTerminate(runtime, "", st.PID) {
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		if workspaceStatus.Status == "running" && workspaceStatus.PID > 0 {
+			if agentic.ProcessTerminate(runtime, "", workspaceStatus.PID) {
 				killed++
 			}
-			st.Status = "failed"
-			st.PID = 0
+			workspaceStatus.Status = "failed"
+			workspaceStatus.PID = 0
 		}
-		if st.Status == "queued" {
-			st.Status = "failed"
+		if workspaceStatus.Status == "queued" {
+			workspaceStatus.Status = "failed"
 		}
 	})
 	return core.Result{Value: core.Sprintf("killed %d agents", killed), OK: true}
@@ -405,19 +405,19 @@ func (s *Service) hydrateWorkspaces() {
 	}
 	for _, path := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		result := ReadStatusResult(wsDir)
-		if !result.OK {
+		statusResult := ReadStatusResult(wsDir)
+		if !statusResult.OK {
 			continue
 		}
-		st, ok := result.Value.(*WorkspaceStatus)
-		if !ok || st == nil {
+		workspaceStatus, ok := statusResult.Value.(*WorkspaceStatus)
+		if !ok || workspaceStatus == nil {
 			continue
 		}
 		// Re-queue running agents on restart — process is dead, re-dispatch
-		if st.Status == "running" {
-			st.Status = "queued"
+		if workspaceStatus.Status == "running" {
+			workspaceStatus.Status = "queued"
 		}
-		s.workspaces.Set(agentic.WorkspaceName(wsDir), st)
+		s.workspaces.Set(agentic.WorkspaceName(wsDir), workspaceStatus)
 	}
 }
 
@@ -442,7 +442,7 @@ type AgentNotification struct {
 
 // WorkspaceQuery is the QUERY type for workspace lookups.
 //
-//	r := c.QUERY(runner.WorkspaceQuery{Status: "running"})
+//	result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
 type WorkspaceQuery struct {
 	Name   string
 	Status string
@@ -450,7 +450,7 @@ type WorkspaceQuery struct {
 
 // WorkspaceStatus tracks the state of an agent workspace.
 //
-//	st := &runner.WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 12345}
+//	workspaceStatus := &runner.WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 12345}
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`
 	Agent     string    `json:"agent"`

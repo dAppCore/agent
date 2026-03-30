@@ -60,25 +60,25 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	// Read workspace status for repo, branch, issue context
 	result := ReadStatusResult(wsDir)
-	st, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
 		err, _ := result.Value.(error)
 		return nil, CreatePROutput{}, core.E("createPR", "no status.json", err)
 	}
 
-	if st.Branch == "" {
+	if workspaceStatus.Branch == "" {
 		process := s.Core().Process()
-		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
-		if !r.OK {
+		result := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+		if !result.OK {
 			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", nil)
 		}
-		st.Branch = core.Trim(r.Value.(string))
-		if st.Branch == "" {
+		workspaceStatus.Branch = core.Trim(result.Value.(string))
+		if workspaceStatus.Branch == "" {
 			return nil, CreatePROutput{}, core.E("createPR", "failed to detect branch", nil)
 		}
 	}
 
-	org := st.Org
+	org := workspaceStatus.Org
 	if org == "" {
 		org = "core"
 	}
@@ -90,48 +90,48 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	// Build PR title
 	title := input.Title
 	if title == "" {
-		title = st.Task
+		title = workspaceStatus.Task
 	}
 	if title == "" {
-		title = core.Sprintf("Agent work on %s", st.Branch)
+		title = core.Sprintf("Agent work on %s", workspaceStatus.Branch)
 	}
 
 	// Build PR body
 	body := input.Body
 	if body == "" {
-		body = s.buildPRBody(st)
+		body = s.buildPRBody(workspaceStatus)
 	}
 
 	if input.DryRun {
 		return nil, CreatePROutput{
 			Success: true,
 			Title:   title,
-			Branch:  st.Branch,
-			Repo:    st.Repo,
+			Branch:  workspaceStatus.Branch,
+			Repo:    workspaceStatus.Repo,
 		}, nil
 	}
 
 	// Push branch to Forge (origin is the local clone, not Forge)
-	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, st.Repo)
-	r := s.Core().Process().RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch)
-	if !r.OK {
-		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", r.Value.(string)), nil)
+	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, workspaceStatus.Repo)
+	pushResult := s.Core().Process().RunIn(ctx, repoDir, "git", "push", forgeRemote, workspaceStatus.Branch)
+	if !pushResult.OK {
+		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", pushResult.Value.(string)), nil)
 	}
 
 	// Create PR via Forge API
-	prURL, prNum, err := s.forgeCreatePR(ctx, org, st.Repo, st.Branch, base, title, body)
+	prURL, prNum, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "failed to create PR", err)
 	}
 
 	// Update status with PR URL
-	st.PRURL = prURL
-	writeStatusResult(wsDir, st)
+	workspaceStatus.PRURL = prURL
+	writeStatusResult(wsDir, workspaceStatus)
 
 	// Comment on issue if tracked
-	if st.Issue > 0 {
+	if workspaceStatus.Issue > 0 {
 		comment := core.Sprintf("Pull request created: %s", prURL)
-		s.commentOnIssue(ctx, org, st.Repo, st.Issue, comment)
+		s.commentOnIssue(ctx, org, workspaceStatus.Repo, workspaceStatus.Issue, comment)
 	}
 
 	return nil, CreatePROutput{
@@ -139,24 +139,24 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		PRURL:   prURL,
 		PRNum:   prNum,
 		Title:   title,
-		Branch:  st.Branch,
-		Repo:    st.Repo,
+		Branch:  workspaceStatus.Branch,
+		Repo:    workspaceStatus.Repo,
 		Pushed:  true,
 	}, nil
 }
 
-func (s *PrepSubsystem) buildPRBody(st *WorkspaceStatus) string {
+func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {
 	b := core.NewBuilder()
 	b.WriteString("## Summary\n\n")
-	if st.Task != "" {
-		b.WriteString(st.Task)
+	if workspaceStatus.Task != "" {
+		b.WriteString(workspaceStatus.Task)
 		b.WriteString("\n\n")
 	}
-	if st.Issue > 0 {
-		b.WriteString(core.Sprintf("Closes #%d\n\n", st.Issue))
+	if workspaceStatus.Issue > 0 {
+		b.WriteString(core.Sprintf("Closes #%d\n\n", workspaceStatus.Issue))
 	}
-	b.WriteString(core.Sprintf("**Agent:** %s\n", st.Agent))
-	b.WriteString(core.Sprintf("**Runs:** %d\n", st.Runs))
+	b.WriteString(core.Sprintf("**Agent:** %s\n", workspaceStatus.Agent))
+	b.WriteString(core.Sprintf("**Runs:** %d\n", workspaceStatus.Runs))
 	b.WriteString("\n---\n*Created by agentic dispatch*\n")
 	return b.String()
 }

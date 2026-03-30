@@ -25,11 +25,11 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 		wsDir := core.PathDir(sf)
 		wsName := WorkspaceName(wsDir)
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
 		}
-		core.Print(nil, "  %-8s %-8s %-10s %s", st.Status, st.Agent, st.Repo, wsName)
+		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, wsName)
 		count++
 	}
 	if count == 0 {
@@ -38,10 +38,10 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
+func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	wsRoot := WorkspaceRoot()
 	fsys := s.Core().Fs()
-	filter := opts.String("_arg")
+	filter := options.String("_arg")
 	if filter == "" {
 		filter = "all"
 	}
@@ -53,11 +53,11 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 		wsDir := core.PathDir(sf)
 		wsName := WorkspaceName(wsDir)
 		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
 		}
-		status := st.Status
+		status := workspaceStatus.Status
 
 		switch filter {
 		case "all":
@@ -93,8 +93,8 @@ func (s *PrepSubsystem) cmdWorkspaceClean(opts core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) cmdWorkspaceDispatch(opts core.Options) core.Result {
-	repo := opts.String("_arg")
+func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
+	repo := options.String("_arg")
 	if repo == "" {
 		core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
 		return core.Result{Value: core.E("agentic.cmdWorkspaceDispatch", "repo is required", nil), OK: false}
@@ -104,13 +104,13 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(opts core.Options) core.Result {
 	// not gated by the frozen-queue entitlement.
 	input := DispatchInput{
 		Repo:     repo,
-		Task:     opts.String("task"),
-		Agent:    opts.String("agent"),
-		Org:      opts.String("org"),
-		Template: opts.String("template"),
-		Branch:   opts.String("branch"),
-		Issue:    parseIntStr(opts.String("issue")),
-		PR:       parseIntStr(opts.String("pr")),
+		Task:     options.String("task"),
+		Agent:    options.String("agent"),
+		Org:      options.String("org"),
+		Template: options.String("template"),
+		Branch:   options.String("branch"),
+		Issue:    parseIntStr(options.String("issue")),
+		PR:       parseIntStr(options.String("pr")),
 	}
 	_, out, err := s.dispatch(context.Background(), nil, input)
 	if err != nil {

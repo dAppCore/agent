@@ -37,8 +37,8 @@ func ProcessRegister(c *core.Core) core.Result {
 	if !ok {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
 	}
-	if r := c.RegisterService("process", service); !r.OK {
-		return r
+	if registerResult := c.RegisterService("process", service); !registerResult.OK {
+		return registerResult
 	}
 
 	handlers := &processActionHandlers{service: service}
@@ -49,12 +49,12 @@ func ProcessRegister(c *core.Core) core.Result {
 	return core.Result{OK: true}
 }
 
-func (h *processActionHandlers) handleRun(ctx context.Context, opts core.Options) core.Result {
+func (h *processActionHandlers) handleRun(ctx context.Context, options core.Options) core.Result {
 	output, err := h.service.RunWithOptions(ctx, process.RunOptions{
-		Command: opts.String("command"),
-		Args:    optionStrings(opts, "args"),
-		Dir:     opts.String("dir"),
-		Env:     optionStrings(opts, "env"),
+		Command: options.String("command"),
+		Args:    optionStrings(options, "args"),
+		Dir:     options.String("dir"),
+		Env:     optionStrings(options, "env"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -62,13 +62,13 @@ func (h *processActionHandlers) handleRun(ctx context.Context, opts core.Options
 	return core.Result{Value: output, OK: true}
 }
 
-func (h *processActionHandlers) handleStart(ctx context.Context, opts core.Options) core.Result {
+func (h *processActionHandlers) handleStart(ctx context.Context, options core.Options) core.Result {
 	proc, err := h.service.StartWithOptions(ctx, process.RunOptions{
-		Command: opts.String("command"),
-		Args:    optionStrings(opts, "args"),
-		Dir:     opts.String("dir"),
-		Env:     optionStrings(opts, "env"),
-		Detach:  opts.Bool("detach"),
+		Command: options.String("command"),
+		Args:    optionStrings(options, "args"),
+		Dir:     options.String("dir"),
+		Env:     optionStrings(options, "env"),
+		Detach:  options.Bool("detach"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -76,8 +76,8 @@ func (h *processActionHandlers) handleStart(ctx context.Context, opts core.Optio
 	return core.Result{Value: proc, OK: true}
 }
 
-func (h *processActionHandlers) handleKill(_ context.Context, opts core.Options) core.Result {
-	id := opts.String("id")
+func (h *processActionHandlers) handleKill(_ context.Context, options core.Options) core.Result {
+	id := options.String("id")
 	if id == "" {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "process id is required", nil), OK: false}
 	}
@@ -87,12 +87,12 @@ func (h *processActionHandlers) handleKill(_ context.Context, opts core.Options)
 	return core.Result{OK: true}
 }
 
-func optionStrings(opts core.Options, key string) []string {
-	r := opts.Get(key)
-	if !r.OK {
+func optionStrings(options core.Options, key string) []string {
+	result := options.Get(key)
+	if !result.OK {
 		return nil
 	}
-	switch values := r.Value.(type) {
+	switch values := result.Value.(type) {
 	case []string:
 		return values
 	case []any:
