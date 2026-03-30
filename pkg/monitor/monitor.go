@@ -83,8 +83,8 @@ var _ coremcp.Subsystem = (*Subsystem)(nil)
 // Deprecated: prefer Register with core.WithService(monitor.Register).
 //
 //	mon.SetCore(c)
-func (m *Subsystem) SetCore(c *core.Core) {
-	m.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+func (m *Subsystem) SetCore(coreApp *core.Core) {
+	m.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
 }
 
 func (m *Subsystem) handleAgentStarted(ev messages.AgentStarted) {
@@ -160,7 +160,7 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 
 // service.Start(ctx)
 func (m *Subsystem) Start(ctx context.Context) {
-	monitorCtx, cancel := context.WithCancel(ctx)
+	loopCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
 
 	core.Info("monitor: started (interval=%s)", m.interval)
@@ -168,7 +168,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.loop(monitorCtx)
+		m.loop(loopCtx)
 	}()
 }
 
@@ -221,8 +221,8 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 		runtime = m.Core()
 	}
 	for _, path := range agentic.WorkspaceStatusPaths() {
-		wsDir := core.PathDir(path)
-		statusResult := agentic.ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(path)
+		statusResult := agentic.ReadStatusResult(workspaceDir)
 		if !statusResult.OK {
 			continue
 		}
@@ -242,8 +242,8 @@ func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 	return
 }
 
-func processAlive(c *core.Core, processID string, pid int) bool {
-	return agentic.ProcessAlive(c, processID, pid)
+func processAlive(coreApp *core.Core, processID string, pid int) bool {
+	return agentic.ProcessAlive(coreApp, processID, pid)
 }
 
 func (m *Subsystem) loop(ctx context.Context) {
@@ -273,30 +273,30 @@ func (m *Subsystem) loop(ctx context.Context) {
 }
 
 func (m *Subsystem) check(ctx context.Context) {
-	var messages []string
+	var statusMessages []string
 
-	if msg := m.checkCompletions(); msg != "" {
-		messages = append(messages, msg)
+	if statusMessage := m.checkCompletions(); statusMessage != "" {
+		statusMessages = append(statusMessages, statusMessage)
 	}
 
-	if msg := m.harvestCompleted(); msg != "" {
-		messages = append(messages, msg)
+	if statusMessage := m.harvestCompleted(); statusMessage != "" {
+		statusMessages = append(statusMessages, statusMessage)
 	}
 
-	if msg := m.checkInbox(); msg != "" {
-		messages = append(messages, msg)
+	if statusMessage := m.checkInbox(); statusMessage != "" {
+		statusMessages = append(statusMessages, statusMessage)
 	}
 
-	if msg := m.syncRepos(); msg != "" {
-		messages = append(messages, msg)
+	if statusMessage := m.syncRepos(); statusMessage != "" {
+		statusMessages = append(statusMessages, statusMessage)
 	}
 
-	if len(messages) == 0 {
+	if len(statusMessages) == 0 {
 		return
 	}
 
-	combined := core.Join("\n", messages...)
-	m.notify(ctx, combined)
+	combinedMessage := core.Join("\n", statusMessages...)
+	m.notify(ctx, combinedMessage)
 
 	if m.server != nil {
 		m.server.ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
@@ -383,19 +383,19 @@ func (m *Subsystem) checkCompletions() string {
 }
 
 func (m *Subsystem) checkInbox() string {
-	apiKeyStr := monitorBrainKey()
-	if apiKeyStr == "" {
+	brainKey := monitorBrainKey()
+	if brainKey == "" {
 		return ""
 	}
 
-	apiURL := monitorAPIURL()
-	inboxURL := core.Concat(apiURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName()))
-	httpResult := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(apiKeyStr), "Bearer")
+	baseURL := monitorAPIURL()
+	inboxURL := core.Concat(baseURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName()))
+	httpResult := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(brainKey), "Bearer")
 	if !httpResult.OK {
 		return ""
 	}
 
-	var resp struct {
+	var inboxResponse struct {
 		Data []struct {
 			ID      int    `json:"id"`
 			Read    bool   `json:"read"`
@@ -404,7 +404,7 @@ func (m *Subsystem) checkInbox() string {
 			Content string `json:"content"`
 		} `json:"data"`
 	}
-	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &resp); !parseResult.OK {
+	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &inboxResponse); !parseResult.OK {
 		m.debug("checkInbox: failed to decode response")
 		return ""
 	}
@@ -417,15 +417,15 @@ func (m *Subsystem) checkInbox() string {
 	seeded := m.inboxSeeded
 	m.mu.Unlock()
 
-	type newMessage struct {
+	type inboxMessage struct {
 		ID      int    `json:"id"`
 		From    string `json:"from"`
 		Subject string `json:"subject"`
 		Content string `json:"content"`
 	}
-	var newMessages []newMessage
+	var inboxMessages []inboxMessage
 
-	for _, message := range resp.Data {
+	for _, message := range inboxResponse.Data {
 		if message.ID > maxID {
 			maxID = message.ID
 		}
@@ -433,7 +433,7 @@ func (m *Subsystem) checkInbox() string {
 			unread++
 		}
 		if message.ID > prevMaxID {
-			newMessages = append(newMessages, newMessage{
+			inboxMessages = append(inboxMessages, inboxMessage{
 				ID:      message.ID,
 				From:    message.From,
 				Subject: message.Subject,
@@ -451,17 +451,17 @@ func (m *Subsystem) checkInbox() string {
 		return ""
 	}
 
-	if maxID <= prevMaxID || len(newMessages) == 0 {
+	if maxID <= prevMaxID || len(inboxMessages) == 0 {
 		return ""
 	}
 
 	if m.ServiceRuntime != nil {
 		if notifier, ok := core.ServiceFor[channelSender](m.Core(), "mcp"); ok {
-			for _, message := range newMessages {
+			for _, inboxMessage := range inboxMessages {
 				notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-					"from":    message.From,
-					"subject": message.Subject,
-					"content": message.Content,
+					"from":    inboxMessage.From,
+					"subject": inboxMessage.Subject,
+					"content": inboxMessage.Content,
 				})
 			}
 		}

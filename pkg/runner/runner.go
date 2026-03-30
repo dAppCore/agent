@@ -57,21 +57,21 @@ func New() *Service {
 // Register is the service factory for core.WithService.
 //
 //	core.New(core.WithService(runner.Register))
-func Register(c *core.Core) core.Result {
+func Register(coreApp *core.Core) core.Result {
 	service := New()
-	service.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+	service.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
 
 	// Load agents config
 	config := service.loadAgentsConfig()
-	c.Config().Set("agents.concurrency", config.Concurrency)
-	c.Config().Set("agents.rates", config.Rates)
-	c.Config().Set("agents.dispatch", config.Dispatch)
-	c.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
+	coreApp.Config().Set("agents.concurrency", config.Concurrency)
+	coreApp.Config().Set("agents.rates", config.Rates)
+	coreApp.Config().Set("agents.dispatch", config.Dispatch)
+	coreApp.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
 	codexTotal := 0
 	if limit, ok := config.Concurrency["codex"]; ok {
 		codexTotal = limit.Total
 	}
-	c.Config().Set("agents.codex_limit_debug", codexTotal)
+	coreApp.Config().Set("agents.codex_limit_debug", codexTotal)
 
 	return core.Result{Value: service, OK: true}
 }
@@ -84,21 +84,21 @@ func Register(c *core.Core) core.Result {
 //	))
 //	c.Action("runner.status").Run(ctx, core.NewOptions())
 func (s *Service) OnStartup(ctx context.Context) core.Result {
-	c := s.Core()
+	coreApp := s.Core()
 
 	// Actions — the runner's capability map
-	c.Action("runner.dispatch", s.actionDispatch).Description = "Dispatch a subagent (checks frozen + concurrency)"
-	c.Action("runner.status", s.actionStatus).Description = "Query workspace status"
-	c.Action("runner.start", s.actionStart).Description = "Unfreeze dispatch queue"
-	c.Action("runner.stop", s.actionStop).Description = "Freeze dispatch queue (graceful)"
-	c.Action("runner.kill", s.actionKill).Description = "Kill all running agents (hard stop)"
-	c.Action("runner.poke", s.actionPoke).Description = "Drain next queued task"
+	coreApp.Action("runner.dispatch", s.actionDispatch).Description = "Dispatch a subagent (checks frozen + concurrency)"
+	coreApp.Action("runner.status", s.actionStatus).Description = "Query workspace status"
+	coreApp.Action("runner.start", s.actionStart).Description = "Unfreeze dispatch queue"
+	coreApp.Action("runner.stop", s.actionStop).Description = "Freeze dispatch queue (graceful)"
+	coreApp.Action("runner.kill", s.actionKill).Description = "Kill all running agents (hard stop)"
+	coreApp.Action("runner.poke", s.actionPoke).Description = "Drain next queued task"
 
 	// Hydrate workspace registry from disk
 	s.hydrateWorkspaces()
 
 	// QUERY handler — workspace state queries
-	c.RegisterQuery(s.handleWorkspaceQuery)
+	coreApp.RegisterQuery(s.handleWorkspaceQuery)
 
 	// Start the background queue runner
 	s.startRunner()
@@ -123,17 +123,17 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 //	service.HandleIPCEvents(c, messages.AgentCompleted{
 //		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed",
 //	})
-func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
+func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentStarted:
-		base := baseAgent(ev.Agent)
-		running := s.countRunningByAgent(base)
+		baseAgentName := baseAgent(ev.Agent)
+		runningCount := s.countRunningByAgent(baseAgentName)
 		var limit int
-		configurationResult := c.Config().Get("agents.concurrency")
-		if configurationResult.OK {
-			if concurrency, ok := configurationResult.Value.(map[string]ConcurrencyLimit); ok {
-				if cl, has := concurrency[base]; has {
-					limit = cl.Total
+		concurrencyResult := coreApp.Config().Get("agents.concurrency")
+		if concurrencyResult.OK {
+			if concurrency, ok := concurrencyResult.Value.(map[string]ConcurrencyLimit); ok {
+				if concurrencyLimit, has := concurrency[baseAgentName]; has {
+					limit = concurrencyLimit.Total
 				}
 			}
 		}
@@ -142,10 +142,10 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 			Repo:      ev.Repo,
 			Agent:     ev.Agent,
 			Workspace: ev.Workspace,
-			Running:   running,
+			Running:   runningCount,
 			Limit:     limit,
 		}
-		if notifier, ok := core.ServiceFor[channelSender](c, "mcp"); ok {
+		if notifier, ok := core.ServiceFor[channelSender](coreApp, "mcp"); ok {
 			notifier.ChannelSend(context.Background(), "agent.status", notification)
 		}
 
@@ -166,14 +166,14 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 				}
 			})
 		}
-		cBase := baseAgent(ev.Agent)
-		cRunning := s.countRunningByAgent(cBase)
-		var cLimit int
-		completionResult := c.Config().Get("agents.concurrency")
+		completedBaseAgentName := baseAgent(ev.Agent)
+		runningCount := s.countRunningByAgent(completedBaseAgentName)
+		var limit int
+		completionResult := coreApp.Config().Get("agents.concurrency")
 		if completionResult.OK {
 			if concurrency, ok := completionResult.Value.(map[string]ConcurrencyLimit); ok {
-				if cl, has := concurrency[cBase]; has {
-					cLimit = cl.Total
+				if concurrencyLimit, has := concurrency[completedBaseAgentName]; has {
+					limit = concurrencyLimit.Total
 				}
 			}
 		}
@@ -182,10 +182,10 @@ func (s *Service) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 			Repo:      ev.Repo,
 			Agent:     ev.Agent,
 			Workspace: ev.Workspace,
-			Running:   cRunning,
-			Limit:     cLimit,
+			Running:   runningCount,
+			Limit:     limit,
 		}
-		if notifier, ok := core.ServiceFor[channelSender](c, "mcp"); ok {
+		if notifier, ok := core.ServiceFor[channelSender](coreApp, "mcp"); ok {
 			notifier.ChannelSend(context.Background(), "agent.status", notification)
 		}
 		s.Poke()
@@ -300,8 +300,8 @@ func (s *Service) actionDispatch(_ context.Context, options core.Options) core.R
 	}
 
 	// Reserve the slot immediately — before returning to agentic.
-	name := core.Concat("pending/", repo)
-	s.workspaces.Set(name, &WorkspaceStatus{
+	workspaceName := core.Concat("pending/", repo)
+	s.workspaces.Set(workspaceName, &WorkspaceStatus{
 		Status: "running",
 		Agent:  agent,
 		Repo:   repo,
@@ -404,8 +404,8 @@ func (s *Service) hydrateWorkspaces() {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
 	for _, path := range agentic.WorkspaceStatusPaths() {
-		wsDir := core.PathDir(path)
-		statusResult := ReadStatusResult(wsDir)
+		workspaceDir := core.PathDir(path)
+		statusResult := ReadStatusResult(workspaceDir)
 		if !statusResult.OK {
 			continue
 		}
@@ -417,7 +417,7 @@ func (s *Service) hydrateWorkspaces() {
 		if workspaceStatus.Status == "running" {
 			workspaceStatus.Status = "queued"
 		}
-		s.workspaces.Set(agentic.WorkspaceName(wsDir), workspaceStatus)
+		s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
 	}
 }
 

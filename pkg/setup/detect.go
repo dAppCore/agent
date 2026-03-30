@@ -40,9 +40,9 @@ func Detect(path string) ProjectType {
 		{"composer.json", TypePHP},
 		{"package.json", TypeNode},
 	}
-	for _, c := range checks {
-		if fs.IsFile(core.JoinPath(base, c.file)) {
-			return c.projType
+	for _, candidate := range checks {
+		if fs.IsFile(core.JoinPath(base, candidate.file)) {
+			return candidate.projType
 		}
 	}
 	return TypeUnknown
@@ -53,8 +53,8 @@ func Detect(path string) ProjectType {
 //	types := setup.DetectAll("./repo")
 func DetectAll(path string) []ProjectType {
 	base := absolutePath(path)
-	var types []ProjectType
-	all := []struct {
+	var projectTypes []ProjectType
+	checks := []struct {
 		file     string
 		projType ProjectType
 	}{
@@ -63,12 +63,12 @@ func DetectAll(path string) []ProjectType {
 		{"package.json", TypeNode},
 		{"wails.json", TypeWails},
 	}
-	for _, c := range all {
-		if fs.IsFile(core.JoinPath(base, c.file)) {
-			types = append(types, c.projType)
+	for _, candidate := range checks {
+		if fs.IsFile(core.JoinPath(base, candidate.file)) {
+			projectTypes = append(projectTypes, candidate.projType)
 		}
 	}
-	return types
+	return projectTypes
 }
 
 func absolutePath(path string) string {

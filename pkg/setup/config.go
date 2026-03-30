@@ -139,16 +139,16 @@ func GenerateTestConfig(projType ProjectType) core.Result {
 	return renderConfig("Test configuration", sections)
 }
 
-func renderConfig(comment string, sections []configSection) core.Result {
+func renderConfig(headerComment string, sections []configSection) core.Result {
 	builder := core.NewBuilder()
 
-	if comment != "" {
+	if headerComment != "" {
 		builder.WriteString("# ")
-		builder.WriteString(comment)
+		builder.WriteString(headerComment)
 		builder.WriteString("\n\n")
 	}
 
-	for idx, section := range sections {
+	for sectionIndex, section := range sections {
 		builder.WriteString(section.Key)
 		builder.WriteString(":\n")
 
@@ -169,7 +169,7 @@ func renderConfig(comment string, sections []configSection) core.Result {
 			builder.WriteString("\n")
 		}
 
-		if idx < len(sections)-1 {
+		if sectionIndex < len(sections)-1 {
 			builder.WriteString("\n")
 		}
 	}
@@ -205,12 +205,12 @@ func parseGitRemote(remote string) string {
 
 	// HTTPS/HTTP URL — extract path after host
 	if core.Contains(remote, "://") {
-		parts := core.SplitN(remote, "://", 2)
-		if len(parts) == 2 {
-			rest := parts[1]
-			if idx := core.Split(rest, "/"); len(idx) > 1 {
+		schemeParts := core.SplitN(remote, "://", 2)
+		if len(schemeParts) == 2 {
+			rest := schemeParts[1]
+			if pathSegments := core.Split(rest, "/"); len(pathSegments) > 1 {
 				// Skip host, take path
-				pathStart := len(idx[0]) + 1
+				pathStart := len(pathSegments[0]) + 1
 				if pathStart < len(rest) {
 					return trimRemotePath(rest[pathStart:])
 				}
@@ -218,9 +218,9 @@ func parseGitRemote(remote string) string {
 		}
 	}
 
-	parts := core.SplitN(remote, ":", 2)
-	if len(parts) == 2 && core.Contains(parts[0], "@") {
-		return trimRemotePath(parts[1])
+	pathParts := core.SplitN(remote, ":", 2)
+	if len(pathParts) == 2 && core.Contains(pathParts[0], "@") {
+		return trimRemotePath(pathParts[1])
 	}
 
 	if core.Contains(remote, "/") {

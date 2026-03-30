@@ -50,7 +50,7 @@ func (s *PrepSubsystem) registerWatchTool(server *mcp.Server) {
 	}, s.watch)
 }
 
-func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, input WatchInput) (*mcp.CallToolResult, WatchOutput, error) {
+func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest, input WatchInput) (*mcp.CallToolResult, WatchOutput, error) {
 	pollInterval := time.Duration(input.PollInterval) * time.Second
 	if pollInterval <= 0 {
 		pollInterval = 5 * time.Second
@@ -63,13 +63,12 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 	start := time.Now()
 	deadline := start.Add(timeout)
 
-	// Find workspaces to watch
-	targets := input.Workspaces
-	if len(targets) == 0 {
-		targets = s.findActiveWorkspaces()
+	workspaceNames := input.Workspaces
+	if len(workspaceNames) == 0 {
+		workspaceNames = s.findActiveWorkspaces()
 	}
 
-	if len(targets) == 0 {
+	if len(workspaceNames) == 0 {
 		return nil, WatchOutput{
 			Success:  true,
 			Duration: "0s",
@@ -78,26 +77,25 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 
 	var completed []WatchResult
 	var failed []WatchResult
-	remaining := make(map[string]bool)
-	for _, ws := range targets {
-		remaining[ws] = true
+	pendingWorkspaces := make(map[string]bool)
+	for _, workspaceName := range workspaceNames {
+		pendingWorkspaces[workspaceName] = true
 	}
 
 	progressCount := float64(0)
-	total := float64(len(targets))
+	total := float64(len(workspaceNames))
 
 	// MCP tests and internal callers may not provide a full request envelope.
 	progressToken := any(nil)
-	if req != nil && req.Params != nil {
-		progressToken = req.Params.GetProgressToken()
+	if request != nil && request.Params != nil {
+		progressToken = request.Params.GetProgressToken()
 	}
 
-	// Poll until all complete or timeout
-	for len(remaining) > 0 {
+	for len(pendingWorkspaces) > 0 {
 		if time.Now().After(deadline) {
-			for ws := range remaining {
+			for workspaceName := range pendingWorkspaces {
 				failed = append(failed, WatchResult{
-					Workspace: ws,
+					Workspace: workspaceName,
 					Status:    "timeout",
 				})
 			}
@@ -110,74 +108,74 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 		case <-time.After(pollInterval):
 		}
 
-		for ws := range remaining {
-			wsDir := s.resolveWorkspaceDir(ws)
-			result := ReadStatusResult(wsDir)
-			st, ok := workspaceStatusValue(result)
+		for workspaceName := range pendingWorkspaces {
+			workspaceDir := s.resolveWorkspaceDir(workspaceName)
+			statusResult := ReadStatusResult(workspaceDir)
+			workspaceStatus, ok := workspaceStatusValue(statusResult)
 			if !ok {
 				continue
 			}
 
-			switch st.Status {
+			switch workspaceStatus.Status {
 			case "completed":
-				result := WatchResult{
-					Workspace: ws,
-					Agent:     st.Agent,
-					Repo:      st.Repo,
+				watchResult := WatchResult{
+					Workspace: workspaceName,
+					Agent:     workspaceStatus.Agent,
+					Repo:      workspaceStatus.Repo,
 					Status:    "completed",
-					PRURL:     st.PRURL,
+					PRURL:     workspaceStatus.PRURL,
 				}
-				completed = append(completed, result)
-				delete(remaining, ws)
+				completed = append(completed, watchResult)
+				delete(pendingWorkspaces, workspaceName)
 				progressCount++
 
-				if req != nil && progressToken != nil && req.Session != nil {
-					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+				if request != nil && progressToken != nil && request.Session != nil {
+					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       core.Sprintf("%s completed (%s)", st.Repo, st.Agent),
+						Message:       core.Sprintf("%s completed (%s)", workspaceStatus.Repo, workspaceStatus.Agent),
 					})
 				}
 
 			case "merged", "ready-for-review":
-				result := WatchResult{
-					Workspace: ws,
-					Agent:     st.Agent,
-					Repo:      st.Repo,
-					Status:    st.Status,
-					PRURL:     st.PRURL,
+				watchResult := WatchResult{
+					Workspace: workspaceName,
+					Agent:     workspaceStatus.Agent,
+					Repo:      workspaceStatus.Repo,
+					Status:    workspaceStatus.Status,
+					PRURL:     workspaceStatus.PRURL,
 				}
-				completed = append(completed, result)
-				delete(remaining, ws)
+				completed = append(completed, watchResult)
+				delete(pendingWorkspaces, workspaceName)
 				progressCount++
 
-				if req != nil && progressToken != nil && req.Session != nil {
-					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+				if request != nil && progressToken != nil && request.Session != nil {
+					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       core.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+						Message:       core.Sprintf("%s %s (%s)", workspaceStatus.Repo, workspaceStatus.Status, workspaceStatus.Agent),
 					})
 				}
 
 			case "failed", "blocked":
-				result := WatchResult{
-					Workspace: ws,
-					Agent:     st.Agent,
-					Repo:      st.Repo,
-					Status:    st.Status,
+				watchResult := WatchResult{
+					Workspace: workspaceName,
+					Agent:     workspaceStatus.Agent,
+					Repo:      workspaceStatus.Repo,
+					Status:    workspaceStatus.Status,
 				}
-				failed = append(failed, result)
-				delete(remaining, ws)
+				failed = append(failed, watchResult)
+				delete(pendingWorkspaces, workspaceName)
 				progressCount++
 
-				if req != nil && progressToken != nil && req.Session != nil {
-					req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+				if request != nil && progressToken != nil && request.Session != nil {
+					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
-						Message:       core.Sprintf("%s %s (%s)", st.Repo, st.Status, st.Agent),
+						Message:       core.Sprintf("%s %s (%s)", workspaceStatus.Repo, workspaceStatus.Status, workspaceStatus.Agent),
 					})
 				}
 			}
@@ -196,23 +194,23 @@ func (s *PrepSubsystem) watch(ctx context.Context, req *mcp.CallToolRequest, inp
 func (s *PrepSubsystem) findActiveWorkspaces() []string {
 	var active []string
 	for _, entry := range WorkspaceStatusPaths() {
-		wsDir := core.PathDir(entry)
-		result := ReadStatusResult(wsDir)
-		st, ok := workspaceStatusValue(result)
+		workspaceDir := core.PathDir(entry)
+		statusResult := ReadStatusResult(workspaceDir)
+		workspaceStatus, ok := workspaceStatusValue(statusResult)
 		if !ok {
 			continue
 		}
-		if st.Status == "running" || st.Status == "queued" {
-			active = append(active, WorkspaceName(wsDir))
+		if workspaceStatus.Status == "running" || workspaceStatus.Status == "queued" {
+			active = append(active, WorkspaceName(workspaceDir))
 		}
 	}
 	return active
 }
 
 // resolveWorkspaceDir converts a workspace name to full path.
-func (s *PrepSubsystem) resolveWorkspaceDir(name string) string {
-	if core.PathIsAbs(name) {
-		return name
+func (s *PrepSubsystem) resolveWorkspaceDir(workspaceName string) string {
+	if core.PathIsAbs(workspaceName) {
+		return workspaceName
 	}
-	return core.JoinPath(WorkspaceRoot(), name)
+	return core.JoinPath(WorkspaceRoot(), workspaceName)
 }
