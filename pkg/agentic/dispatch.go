@@ -358,7 +358,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, wsDir, outputFile string, exitCod
 		st.Status = finalStatus
 		st.PID = 0
 		st.Question = question
-		writeStatus(wsDir, st)
+		writeStatusResult(wsDir, st)
 		s.TrackWorkspace(WorkspaceName(wsDir), st)
 	}
 
@@ -580,7 +580,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 				StartedAt: time.Now(),
 				Runs:      0,
 			}
-			writeStatus(wsDir, st)
+			writeStatusResult(wsDir, st)
 			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
 				runnerSvc.TrackWorkspace(WorkspaceName(wsDir), st)
 			}
@@ -612,7 +612,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, req *mcp.CallToolRequest, 
 		StartedAt: time.Now(),
 		Runs:      1,
 	}
-	writeStatus(wsDir, st)
+	writeStatusResult(wsDir, st)
 	// Track in runner's registry (runner owns workspace state)
 	if s.ServiceRuntime != nil {
 		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {

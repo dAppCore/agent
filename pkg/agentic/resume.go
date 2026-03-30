@@ -105,7 +105,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	st.ProcessID = processID
 	st.Runs++
 	st.Question = ""
-	writeStatus(wsDir, st)
+	writeStatusResult(wsDir, st)
 
 	return nil, ResumeOutput{
 		Success:    true,

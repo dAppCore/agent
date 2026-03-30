@@ -124,7 +124,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	// Update status with PR URL
 	st.PRURL = prURL
-	writeStatus(wsDir, st)
+	writeStatusResult(wsDir, st)
 
 	// Comment on issue if tracked
 	if st.Issue > 0 {

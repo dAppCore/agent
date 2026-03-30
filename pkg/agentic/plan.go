@@ -13,7 +13,7 @@ import (
 // Plan represents an implementation plan for agent work.
 //
 //	plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "..."}
-//	writePlan(PlansRoot(), plan)
+//	r := writePlanResult(PlansRoot(), plan)
 type Plan struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`

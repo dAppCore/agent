@@ -363,7 +363,7 @@ func (s *PrepSubsystem) drainOne() bool {
 		st.PID = pid
 		st.ProcessID = processID
 		st.Runs++
-		writeStatus(wsDir, st)
+		writeStatusResult(wsDir, st)
 		s.TrackWorkspace(WorkspaceName(wsDir), st)
 
 		return true

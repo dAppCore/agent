@@ -45,7 +45,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, st.Branch).OK {
 		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = "PR push failed"
-			writeStatus(wsDir, st2)
+			writeStatusResult(wsDir, st2)
 		}
 		return
 	}
@@ -61,7 +61,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	if err != nil {
 		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Question = core.Sprintf("PR creation failed: %v", err)
-			writeStatus(wsDir, st2)
+			writeStatusResult(wsDir, st2)
 		}
 		return
 	}
@@ -69,7 +69,7 @@ func (s *PrepSubsystem) autoCreatePR(wsDir string) {
 	// Update status with PR URL
 	if st2, err := ReadStatus(wsDir); err == nil {
 		st2.PRURL = prURL
-		writeStatus(wsDir, st2)
+		writeStatusResult(wsDir, st2)
 	}
 }
 

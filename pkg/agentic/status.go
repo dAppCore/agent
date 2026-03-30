@@ -26,8 +26,8 @@ import (
 
 // WorkspaceStatus represents the current state of an agent workspace.
 //
-//	st, err := ReadStatus(wsDir)
-//	if err == nil && st.Status == "completed" { autoCreatePR(wsDir) }
+//	r := ReadStatusResult(wsDir)
+//	if r.OK && r.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(wsDir) }
 type WorkspaceStatus struct {
 	Status    string    `json:"status"`               // running, completed, blocked, failed
 	Agent     string    `json:"agent"`                // gemini, claude, codex
@@ -212,7 +212,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 						st.Status = "completed"
 					}
 				}
-				writeStatus(wsDir, st)
+				writeStatusResult(wsDir, st)
 			}
 		}
 

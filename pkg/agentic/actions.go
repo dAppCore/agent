@@ -192,7 +192,7 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, opts core.Options) core.Re
 		if st, err := ReadStatus(wsDir); err == nil {
 			st.Status = "failed"
 			st.Question = "QA check failed — build or tests did not pass"
-			writeStatus(wsDir, st)
+			writeStatusResult(wsDir, st)
 		}
 	}
 	// Emit QA result for observability (monitor picks this up)

@@ -37,7 +37,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 	markMerged := func() {
 		if st2, err := ReadStatus(wsDir); err == nil {
 			st2.Status = "merged"
-			writeStatus(wsDir, st2)
+			writeStatusResult(wsDir, st2)
 		}
 	}
 
@@ -63,7 +63,7 @@ func (s *PrepSubsystem) autoVerifyAndMerge(wsDir string) {
 
 	if st2, err := ReadStatus(wsDir); err == nil {
 		st2.Question = "Flagged for review — auto-merge failed after retry"
-		writeStatus(wsDir, st2)
+		writeStatusResult(wsDir, st2)
 	}
 }
 
