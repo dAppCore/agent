@@ -10,27 +10,21 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ScanInput is the input for agentic_scan.
-//
-//	input := agentic.ScanInput{Org: "core", Labels: []string{"agentic", "bug"}, Limit: 20}
+// input := agentic.ScanInput{Org: "core", Labels: []string{"agentic", "bug"}, Limit: 20}
 type ScanInput struct {
-	Org    string   `json:"org,omitempty"`    // default "core"
-	Labels []string `json:"labels,omitempty"` // filter by labels (default: agentic, help-wanted, bug)
-	Limit  int      `json:"limit,omitempty"`  // max issues to return
+	Org    string   `json:"org,omitempty"`
+	Labels []string `json:"labels,omitempty"`
+	Limit  int      `json:"limit,omitempty"`
 }
 
-// ScanOutput is the output for agentic_scan.
-//
-//	out := agentic.ScanOutput{Success: true, Count: 1, Issues: []agentic.ScanIssue{{Repo: "go-io", Number: 12}}}
+// out := agentic.ScanOutput{Success: true, Count: 1, Issues: []agentic.ScanIssue{{Repo: "go-io", Number: 12}}}
 type ScanOutput struct {
 	Success bool        `json:"success"`
 	Count   int         `json:"count"`
 	Issues  []ScanIssue `json:"issues"`
 }
 
-// ScanIssue is a single actionable issue.
-//
-//	issue := agentic.ScanIssue{Repo: "go-io", Number: 12, Title: "Replace fmt.Errorf"}
+// issue := agentic.ScanIssue{Repo: "go-io", Number: 12, Title: "Replace fmt.Errorf"}
 type ScanIssue struct {
 	Repo     string   `json:"repo"`
 	Number   int      `json:"number"`
@@ -57,15 +51,14 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 
 	var allIssues []ScanIssue
 
-	// Get repos for the org
 	repos, err := s.listOrgRepos(ctx, input.Org)
 	if err != nil {
 		return nil, ScanOutput{}, err
 	}
 
-	for _, repo := range repos {
+	for _, repoName := range repos {
 		for _, label := range input.Labels {
-			issues, err := s.listRepoIssues(ctx, input.Org, repo, label)
+			issues, err := s.listRepoIssues(ctx, input.Org, repoName, label)
 			if err != nil {
 				continue
 			}
@@ -80,7 +73,6 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 		}
 	}
 
-	// Deduplicate by repo+number
 	seen := make(map[string]bool)
 	var unique []ScanIssue
 	for _, issue := range allIssues {
@@ -109,20 +101,20 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 	}
 
 	var allNames []string
-	for _, r := range repos {
-		allNames = append(allNames, r.Name)
+	for _, repoInfo := range repos {
+		allNames = append(allNames, repoInfo.Name)
 	}
 	return allNames, nil
 }
 
 func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label string) ([]ScanIssue, error) {
-	u := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
+	requestURL := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {
-		u = core.Concat(u, "&labels=", url.QueryEscape(label))
+		requestURL = core.Concat(requestURL, "&labels=", url.QueryEscape(label))
 	}
-	r := HTTPGet(ctx, u, s.forgeToken, "token")
-	if !r.OK {
+	httpResult := HTTPGet(ctx, requestURL, s.forgeToken, "token")
+	if !httpResult.OK {
 		return nil, core.E("scan.listRepoIssues", core.Concat("failed to list issues for ", repo), nil)
 	}
 
@@ -137,16 +129,16 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 		} `json:"assignee"`
 		HTMLURL string `json:"html_url"`
 	}
-	if ur := core.JSONUnmarshalString(r.Value.(string), &issues); !ur.OK {
-		err, _ := ur.Value.(error)
+	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &issues); !parseResult.OK {
+		err, _ := parseResult.Value.(error)
 		return nil, core.E("scan.listRepoIssues", "parse issues response", err)
 	}
 
 	var result []ScanIssue
 	for _, issue := range issues {
 		var labels []string
-		for _, l := range issue.Labels {
-			labels = append(labels, l.Name)
+		for _, labelInfo := range issue.Labels {
+			labels = append(labels, labelInfo.Name)
 		}
 		assignee := ""
 		if issue.Assignee != nil {

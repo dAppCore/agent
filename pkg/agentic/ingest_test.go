@@ -220,7 +220,7 @@ func TestIngest_CreateIssueViaAPI_Good_Success(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	s.createIssueViaAPI("go-io", "Test Issue", "Description", "bug", "high", "scan")
+	s.createIssueViaAPI("Test Issue", "Description", "bug", "high")
 	assert.True(t, called)
 }
 
@@ -234,7 +234,7 @@ func TestIngest_CreateIssueViaAPI_Bad_NoBrainKey(t *testing.T) {
 
 	// Should return early without panic
 	assert.NotPanics(t, func() {
-		s.createIssueViaAPI("go-io", "Title", "Body", "task", "normal", "scan")
+		s.createIssueViaAPI("Title", "Body", "task", "normal")
 	})
 }
 
@@ -253,7 +253,7 @@ func TestIngest_CreateIssueViaAPI_Bad_NoAPIKey(t *testing.T) {
 
 	// Should return early — no API key file
 	assert.NotPanics(t, func() {
-		s.createIssueViaAPI("go-io", "Title", "Body", "task", "normal", "scan")
+		s.createIssueViaAPI("Title", "Body", "task", "normal")
 	})
 }
 
@@ -278,7 +278,7 @@ func TestIngest_CreateIssueViaAPI_Bad_ServerError(t *testing.T) {
 
 	// Should not panic even on server error
 	assert.NotPanics(t, func() {
-		s.createIssueViaAPI("go-io", "Title", "Body", "task", "normal", "scan")
+		s.createIssueViaAPI("Title", "Body", "task", "normal")
 	})
 }
 
@@ -344,7 +344,7 @@ func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	s.createIssueViaAPI("go-io", "XSS Test", "<script>alert('xss')</script><b>bold</b>&amp;", "bug", "high", "scan")
+	s.createIssueViaAPI("XSS Test", "<script>alert('xss')</script><b>bold</b>&amp;", "bug", "high")
 	assert.True(t, called)
 }
 
