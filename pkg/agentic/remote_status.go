@@ -43,8 +43,20 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	token := remoteToken(input.Host)
 	url := core.Concat("http://", addr, "/mcp")
 
-	sessionID, err := mcpInitialize(ctx, url, token)
-	if err != nil {
+	sessionResult := mcpInitializeResult(ctx, url, token)
+	if !sessionResult.OK {
+		err, _ := sessionResult.Value.(error)
+		if err == nil {
+			err = core.E("statusRemote", "MCP initialize failed", nil)
+		}
+		return nil, RemoteStatusOutput{
+			Host:  input.Host,
+			Error: core.Concat("unreachable: ", err.Error()),
+		}, nil
+	}
+	sessionID, ok := sessionResult.Value.(string)
+	if !ok || sessionID == "" {
+		err := core.E("statusRemote", "invalid session id", nil)
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
 			Error: core.Concat("unreachable: ", err.Error()),
@@ -62,8 +74,20 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 	}
 	body := []byte(core.JSONMarshalString(rpcReq))
 
-	result, err := mcpCall(ctx, url, token, sessionID, body)
-	if err != nil {
+	callResult := mcpCallResult(ctx, url, token, sessionID, body)
+	if !callResult.OK {
+		err, _ := callResult.Value.(error)
+		if err == nil {
+			err = core.E("statusRemote", "tool call failed", nil)
+		}
+		return nil, RemoteStatusOutput{
+			Host:  input.Host,
+			Error: core.Concat("call failed: ", err.Error()),
+		}, nil
+	}
+	result, ok := callResult.Value.([]byte)
+	if !ok {
+		err := core.E("statusRemote", "invalid tool response", nil)
 		return nil, RemoteStatusOutput{
 			Host:  input.Host,
 			Error: core.Concat("call failed: ", err.Error()),

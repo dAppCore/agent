@@ -60,6 +60,29 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 // agentCommand returns the command and args for a given agent type.
 // Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
+	r := agentCommandResult(agent, prompt)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			err = core.E("agentCommand", "failed to resolve command", nil)
+		}
+		return "", nil, err
+	}
+
+	result, ok := r.Value.(agentCommandResultValue)
+	if !ok {
+		return "", nil, core.E("agentCommand", "invalid command result", nil)
+	}
+
+	return result.command, result.args, nil
+}
+
+type agentCommandResultValue struct {
+	command string
+	args    []string
+}
+
+func agentCommandResult(agent, prompt string) core.Result {
 	parts := core.SplitN(agent, ":", 2)
 	base := parts[0]
 	model := ""
@@ -73,16 +96,16 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		if model != "" {
 			args = append(args, "-m", core.Concat("gemini-2.5-", model))
 		}
-		return "gemini", args, nil
+		return core.Result{Value: agentCommandResultValue{command: "gemini", args: args}, OK: true}
 	case "codex":
 		if model == "review" {
 			// Use exec with bypass — codex review subcommand has its own sandbox that blocks shell
 			// No -o flag — stdout captured by process output, ../.meta path unreliable in sandbox
-			return "codex", []string{
+			return core.Result{Value: agentCommandResultValue{command: "codex", args: []string{
 				"exec",
 				"--dangerously-bypass-approvals-and-sandbox",
 				"Review the last 2 commits via git diff HEAD~2. Check for bugs, security issues, missing tests, naming issues. Report pass/fail with specifics. Do NOT make changes.",
-			}, nil
+			}}, OK: true
 		}
 		// Container IS the sandbox — let codex run unrestricted inside it
 		args := []string{
@@ -94,7 +117,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			args = append(args, "--model", model)
 		}
 		args = append(args, prompt)
-		return "codex", args, nil
+		return core.Result{Value: agentCommandResultValue{command: "codex", args: args}, OK: true}
 	case "claude":
 		args := []string{
 			"-p", prompt,
@@ -106,7 +129,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		if model != "" {
 			args = append(args, "--model", model)
 		}
-		return "claude", args, nil
+		return core.Result{Value: agentCommandResultValue{command: "claude", args: args}, OK: true}
 	case "coderabbit":
 		args := []string{"review", "--plain", "--base", "HEAD~1"}
 		if model != "" {
@@ -115,7 +138,7 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 		if prompt != "" {
 			args = append(args, "--config", "CLAUDE.md")
 		}
-		return "coderabbit", args, nil
+		return core.Result{Value: agentCommandResultValue{command: "coderabbit", args: args}, OK: true}
 	case "local":
 		// Local model via codex --oss → Ollama. Default model: devstral-24b
 		// socat proxies localhost:11434 → host.docker.internal:11434
@@ -128,9 +151,9 @@ func agentCommand(agent, prompt string) (string, []string, error) {
 			`socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5 && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m %s -o ../.meta/agent-codex.log %q`,
 			localModel, prompt,
 		)
-		return "sh", []string{"-c", script}, nil
+		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
 	default:
-		return "", nil, core.E("agentCommand", core.Concat("unknown agent: ", agent), nil)
+		return core.Result{Value: core.E("agentCommand", core.Concat("unknown agent: ", agent), nil), OK: false}
 	}
 }
 

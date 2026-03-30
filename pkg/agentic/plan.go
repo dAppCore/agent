@@ -196,9 +196,17 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		}
 	}
 
-	path, err := writePlan(PlansRoot(), &plan)
-	if err != nil {
-		return nil, PlanCreateOutput{}, core.E("planCreate", "failed to write plan", err)
+	writeResult := writePlanResult(PlansRoot(), &plan)
+	if !writeResult.OK {
+		err, _ := writeResult.Value.(error)
+		if err == nil {
+			err = core.E("planCreate", "failed to write plan", nil)
+		}
+		return nil, PlanCreateOutput{}, err
+	}
+	path, ok := writeResult.Value.(string)
+	if !ok {
+		return nil, PlanCreateOutput{}, core.E("planCreate", "invalid plan write result", nil)
 	}
 
 	return nil, PlanCreateOutput{
@@ -213,9 +221,17 @@ func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, PlanReadOutput{}, core.E("planRead", "id is required", nil)
 	}
 
-	plan, err := readPlan(PlansRoot(), input.ID)
-	if err != nil {
+	planResult := readPlanResult(PlansRoot(), input.ID)
+	if !planResult.OK {
+		err, _ := planResult.Value.(error)
+		if err == nil {
+			err = core.E("planRead", "failed to read plan", nil)
+		}
 		return nil, PlanReadOutput{}, err
+	}
+	plan, ok := planResult.Value.(*Plan)
+	if !ok || plan == nil {
+		return nil, PlanReadOutput{}, core.E("planRead", "invalid plan payload", nil)
 	}
 
 	return nil, PlanReadOutput{
@@ -229,9 +245,17 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanUpdateOutput{}, core.E("planUpdate", "id is required", nil)
 	}
 
-	plan, err := readPlan(PlansRoot(), input.ID)
-	if err != nil {
+	planResult := readPlanResult(PlansRoot(), input.ID)
+	if !planResult.OK {
+		err, _ := planResult.Value.(error)
+		if err == nil {
+			err = core.E("planUpdate", "failed to read plan", nil)
+		}
 		return nil, PlanUpdateOutput{}, err
+	}
+	plan, ok := planResult.Value.(*Plan)
+	if !ok || plan == nil {
+		return nil, PlanUpdateOutput{}, core.E("planUpdate", "invalid plan payload", nil)
 	}
 
 	// Apply partial updates
@@ -259,8 +283,13 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 
 	plan.UpdatedAt = time.Now()
 
-	if _, err := writePlan(PlansRoot(), plan); err != nil {
-		return nil, PlanUpdateOutput{}, core.E("planUpdate", "failed to write plan", err)
+	writeResult := writePlanResult(PlansRoot(), plan)
+	if !writeResult.OK {
+		err, _ := writeResult.Value.(error)
+		if err == nil {
+			err = core.E("planUpdate", "failed to write plan", nil)
+		}
+		return nil, PlanUpdateOutput{}, err
 	}
 
 	return nil, PlanUpdateOutput{
@@ -302,8 +331,12 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 	var plans []Plan
 	for _, f := range jsonFiles {
 		id := core.TrimSuffix(core.PathBase(f), ".json")
-		plan, err := readPlan(dir, id)
-		if err != nil {
+		planResult := readPlanResult(dir, id)
+		if !planResult.OK {
+			continue
+		}
+		plan, ok := planResult.Value.(*Plan)
+		if !ok || plan == nil {
 			continue
 		}
 
@@ -345,30 +378,93 @@ func generatePlanID(title string) string {
 	return core.Concat(slug, "-", hex.EncodeToString(b))
 }
 
-func readPlan(dir, id string) (*Plan, error) {
+// readPlanResult reads and decodes a plan file as core.Result.
+//
+//	result := readPlanResult(PlansRoot(), "plan-id")
+//	if result.OK { plan := result.Value.(*Plan) }
+func readPlanResult(dir, id string) core.Result {
 	r := fs.Read(planPath(dir, id))
 	if !r.OK {
-		return nil, core.E("readPlan", core.Concat("plan not found: ", id), nil)
+		err, _ := r.Value.(error)
+		if err == nil {
+			return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), nil), OK: false}
+		}
+		return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), err), OK: false}
 	}
 
 	var plan Plan
 	if ur := core.JSONUnmarshalString(r.Value.(string), &plan); !ur.OK {
-		return nil, core.E("readPlan", core.Concat("failed to parse plan ", id), nil)
+		err, _ := ur.Value.(error)
+		if err == nil {
+			return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", id), nil), OK: false}
+		}
+		return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", id), err), OK: false}
 	}
-	return &plan, nil
+	return core.Result{Value: &plan, OK: true}
 }
 
-func writePlan(dir string, plan *Plan) (string, error) {
+// readPlan reads a plan file. Kept as compatibility wrapper.
+//
+//	plan, err := readPlan(PlansRoot(), "plan-id")
+func readPlan(dir, id string) (*Plan, error) {
+	r := readPlanResult(dir, id)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			return nil, core.E("readPlan", "failed to read plan", nil)
+		}
+		return nil, err
+	}
+	plan, ok := r.Value.(*Plan)
+	if !ok || plan == nil {
+		return nil, core.E("readPlan", "invalid plan payload", nil)
+	}
+	return plan, nil
+}
+
+// writePlanResult writes a plan file and returns core.Result.
+//
+//	result := writePlanResult(PlansRoot(), plan)
+//	if result.OK { path := result.Value.(string) }
+func writePlanResult(dir string, plan *Plan) core.Result {
+	if plan == nil {
+		return core.Result{Value: core.E("writePlan", "plan is required", nil), OK: false}
+	}
 	if r := fs.EnsureDir(dir); !r.OK {
 		err, _ := r.Value.(error)
-		return "", core.E("writePlan", "failed to create plans directory", err)
+		if err == nil {
+			return core.Result{Value: core.E("writePlan", "failed to create plans directory", nil), OK: false}
+		}
+		return core.Result{Value: core.E("writePlan", "failed to create plans directory", err), OK: false}
 	}
 
 	path := planPath(dir, plan.ID)
 
 	if r := fs.Write(path, core.JSONMarshalString(plan)); !r.OK {
 		err, _ := r.Value.(error)
-		return "", core.E("writePlan", "failed to write plan", err)
+		if err == nil {
+			return core.Result{Value: core.E("writePlan", "failed to write plan", nil), OK: false}
+		}
+		return core.Result{Value: core.E("writePlan", "failed to write plan", err), OK: false}
+	}
+	return core.Result{Value: path, OK: true}
+}
+
+// writePlan writes a plan file. Kept as compatibility wrapper.
+//
+//	_, err := writePlan(PlansRoot(), plan)
+func writePlan(dir string, plan *Plan) (string, error) {
+	r := writePlanResult(dir, plan)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			return "", core.E("writePlan", "failed to write plan", nil)
+		}
+		return "", err
+	}
+	path, ok := r.Value.(string)
+	if !ok {
+		return "", core.E("writePlan", "invalid plan write result", nil)
 	}
 	return path, nil
 }

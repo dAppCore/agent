@@ -30,18 +30,41 @@ func CoreRoot() string {
 //
 //	st, err := runner.ReadStatus("/srv/core/workspace/core/go-io/task-5")
 func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
+	r := ReadStatusResult(wsDir)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			return nil, core.E("runner.ReadStatus", "failed to read status", nil)
+		}
+		return nil, err
+	}
+	st, ok := r.Value.(*WorkspaceStatus)
+	if !ok || st == nil {
+		return nil, core.E("runner.ReadStatus", "invalid status payload", nil)
+	}
+	return st, nil
+}
+
+// ReadStatusResult reads status.json as core.Result.
+//
+//	result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")
+//	if result.OK { st := result.Value.(*WorkspaceStatus) }
+func ReadStatusResult(wsDir string) core.Result {
 	status, err := agentic.ReadStatus(wsDir)
 	if err != nil {
-		return nil, core.E("runner.ReadStatus", "failed to read status", err)
+		return core.Result{Value: core.E("runner.ReadStatus", "failed to read status", err), OK: false}
 	}
 
 	json := core.JSONMarshalString(status)
 	var st WorkspaceStatus
 	if result := core.JSONUnmarshalString(json, &st); !result.OK {
 		parseErr, _ := result.Value.(error)
-		return nil, core.E("runner.ReadStatus", "failed to parse status", parseErr)
+		if parseErr == nil {
+			parseErr = core.E("runner.ReadStatus", "failed to parse status", nil)
+		}
+		return core.Result{Value: parseErr, OK: false}
 	}
-	return &st, nil
+	return core.Result{Value: &st, OK: true}
 }
 
 // WriteStatus writes `status.json` for one workspace directory.

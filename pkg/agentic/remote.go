@@ -95,22 +95,43 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	url := core.Sprintf("http://%s/mcp", addr)
 
 	// Step 1: Initialize session
-	sessionID, err := mcpInitialize(ctx, url, token)
-	if err != nil {
+	sessionResult := mcpInitializeResult(ctx, url, token)
+	if !sessionResult.OK {
+		err, _ := sessionResult.Value.(error)
+		if err == nil {
+			err = core.E("dispatchRemote", "MCP initialize failed", nil)
+		}
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
 			Error: core.Sprintf("init failed: %v", err),
 		}, core.E("dispatchRemote", "MCP initialize failed", err)
 	}
-
-	// Step 2: Call the tool
-	body := []byte(core.JSONMarshalString(rpcReq))
-	result, err := mcpCall(ctx, url, token, sessionID, body)
-	if err != nil {
+	sessionID, ok := sessionResult.Value.(string)
+	if !ok || sessionID == "" {
+		err := core.E("dispatchRemote", "invalid session id", nil)
+		return nil, RemoteDispatchOutput{
+			Host:  input.Host,
+			Error: core.Sprintf("init failed: %v", err),
+		}, err
+	}
+	callResult := mcpCallResult(ctx, url, token, sessionID, body)
+	if !callResult.OK {
+		err, _ := callResult.Value.(error)
+		if err == nil {
+			err = core.E("dispatchRemote", "tool call failed", nil)
+		}
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
 			Error: core.Sprintf("call failed: %v", err),
 		}, core.E("dispatchRemote", "tool call failed", err)
+	}
+	result, ok := callResult.Value.([]byte)
+	if !ok {
+		err := core.E("dispatchRemote", "invalid tool response", nil)
+		return nil, RemoteDispatchOutput{
+			Host:  input.Host,
+			Error: core.Sprintf("call failed: %v", err),
+		}, err
 	}
 
 	// Parse result

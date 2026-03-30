@@ -57,29 +57,79 @@ type WorkspaceQuery struct {
 }
 
 func writeStatus(wsDir string, status *WorkspaceStatus) error {
+	r := writeStatusResult(wsDir, status)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			err = core.E("writeStatus", "failed to write status", nil)
+		}
+		return err
+	}
+	return nil
+}
+
+// writeStatusResult writes status.json and returns core.Result.
+//
+//	r := writeStatusResult("/srv/core/workspace/core/go-io/task-5", &WorkspaceStatus{Status: "running"})
+//	if r.OK { return }
+func writeStatusResult(wsDir string, status *WorkspaceStatus) core.Result {
+	if status == nil {
+		return core.Result{Value: core.E("writeStatus", "status is required", nil), OK: false}
+	}
 	status.UpdatedAt = time.Now()
 	statusPath := WorkspaceStatusPath(wsDir)
 	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
-		return core.E("writeStatus", "failed to write status", err)
+		if err == nil {
+			return core.Result{Value: core.E("writeStatus", "failed to write status", nil), OK: false}
+		}
+		return core.Result{Value: core.E("writeStatus", "failed to write status", err), OK: false}
 	}
-	return nil
+	return core.Result{OK: true}
 }
 
 // ReadStatus parses the status.json in a workspace directory.
 //
 //	st, err := agentic.ReadStatus("/path/to/workspace")
 func ReadStatus(wsDir string) (*WorkspaceStatus, error) {
+	r := ReadStatusResult(wsDir)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			return nil, core.E("ReadStatus", "failed to read status", nil)
+		}
+		return nil, err
+	}
+
+	st, ok := r.Value.(*WorkspaceStatus)
+	if !ok || st == nil {
+		return nil, core.E("ReadStatus", "invalid status payload", nil)
+	}
+	return st, nil
+}
+
+// ReadStatusResult parses status.json and returns a WorkspaceStatus pointer.
+//
+//	r := ReadStatusResult("/path/to/workspace")
+//	if r.OK { st := r.Value.(*WorkspaceStatus) }
+func ReadStatusResult(wsDir string) core.Result {
 	r := fs.Read(WorkspaceStatusPath(wsDir))
 	if !r.OK {
-		return nil, core.E("ReadStatus", "status not found", nil)
+		err, _ := r.Value.(error)
+		if err == nil {
+			return core.Result{Value: core.E("ReadStatus", "status not found", nil), OK: false}
+		}
+		return core.Result{Value: core.E("ReadStatus", core.Concat("status not found for ", wsDir), err), OK: false}
 	}
 	var s WorkspaceStatus
 	if ur := core.JSONUnmarshalString(r.Value.(string), &s); !ur.OK {
 		err, _ := ur.Value.(error)
-		return nil, core.E("ReadStatus", "invalid status json", err)
+		if err == nil {
+			return core.Result{Value: core.E("ReadStatus", "invalid status json", nil), OK: false}
+		}
+		return core.Result{Value: core.E("ReadStatus", "invalid status json", err), OK: false}
 	}
-	return &s, nil
+	return core.Result{Value: &s, OK: true}
 }
 
 // --- agentic_status tool ---

@@ -278,8 +278,12 @@ func (m *Subsystem) checkIdleAfterDelay() {
 func (m *Subsystem) countLiveWorkspaces() (running, queued int) {
 	for _, path := range agentic.WorkspaceStatusPaths() {
 		wsDir := core.PathDir(path)
-		st, err := agentic.ReadStatus(wsDir)
-		if err != nil {
+		r := agentic.ReadStatusResult(wsDir)
+		if !r.OK {
+			continue
+		}
+		st, ok := r.Value.(*agentic.WorkspaceStatus)
+		if !ok || st == nil {
 			continue
 		}
 		switch st.Status {

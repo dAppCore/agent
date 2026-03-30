@@ -353,18 +353,38 @@ type PrepOutput struct {
 //	dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
 //	// → ".core/workspace/core/go-io/task-15"
 func workspaceDir(org, repo string, input PrepInput) (string, error) {
+	r := workspaceDirResult(org, repo, input)
+	if !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			err = core.E("workspaceDir", "failed to resolve workspace directory", nil)
+		}
+		return "", err
+	}
+	wsDir, ok := r.Value.(string)
+	if !ok || wsDir == "" {
+		return "", core.E("workspaceDir", "invalid workspace directory result", nil)
+	}
+	return wsDir, nil
+}
+
+// workspaceDirResult resolves the workspace path and returns core.Result.
+//
+//	r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
+//	if r.OK { wsDir := r.Value.(string) }
+func workspaceDirResult(org, repo string, input PrepInput) core.Result {
 	base := core.JoinPath(WorkspaceRoot(), org, repo)
 	switch {
 	case input.PR > 0:
-		return core.JoinPath(base, core.Sprintf("pr-%d", input.PR)), nil
+		return core.Result{Value: core.JoinPath(base, core.Sprintf("pr-%d", input.PR)), OK: true}
 	case input.Issue > 0:
-		return core.JoinPath(base, core.Sprintf("task-%d", input.Issue)), nil
+		return core.Result{Value: core.JoinPath(base, core.Sprintf("task-%d", input.Issue)), OK: true}
 	case input.Branch != "":
-		return core.JoinPath(base, input.Branch), nil
+		return core.Result{Value: core.JoinPath(base, input.Branch), OK: true}
 	case input.Tag != "":
-		return core.JoinPath(base, input.Tag), nil
+		return core.Result{Value: core.JoinPath(base, input.Tag), OK: true}
 	default:
-		return "", core.E("workspaceDir", "one of issue, pr, branch, or tag is required", nil)
+		return core.Result{Value: core.E("workspaceDir", "one of issue, pr, branch, or tag is required", nil), OK: false}
 	}
 }
 
@@ -380,9 +400,17 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	// Resolve workspace directory from identifier
-	wsDir, err := workspaceDir(input.Org, input.Repo, input)
-	if err != nil {
+	wsDirResult := workspaceDirResult(input.Org, input.Repo, input)
+	if !wsDirResult.OK {
+		err, _ := wsDirResult.Value.(error)
+		if err == nil {
+			err = core.E("prepWorkspace", "workspace path not resolved", nil)
+		}
 		return nil, PrepOutput{}, err
+	}
+	wsDir, ok := wsDirResult.Value.(string)
+	if !ok || wsDir == "" {
+		return nil, PrepOutput{}, core.E("prepWorkspace", "invalid workspace path", nil)
 	}
 
 	repoDir := workspaceRepoDir(wsDir)
