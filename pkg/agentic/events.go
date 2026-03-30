@@ -8,10 +8,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// CompletionEvent is emitted when a dispatched agent finishes.
-// Written to ~/.core/workspace/events.jsonl as append-only log.
-//
-//	event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}
+// event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}
 type CompletionEvent struct {
 	Type      string `json:"type"`
 	Agent     string `json:"agent"`
@@ -20,7 +17,6 @@ type CompletionEvent struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// emitEvent appends an event to the events log.
 func emitEvent(eventType, agent, workspace, status string) {
 	eventsFile := core.JoinPath(WorkspaceRoot(), "events.jsonl")
 
@@ -34,7 +30,6 @@ func emitEvent(eventType, agent, workspace, status string) {
 
 	line := core.Concat(core.JSONMarshalString(event), "\n")
 
-	// Append to events log
 	r := fs.Append(eventsFile)
 	if !r.OK {
 		return
@@ -42,12 +37,10 @@ func emitEvent(eventType, agent, workspace, status string) {
 	core.WriteAll(r.Value, line)
 }
 
-// emitStartEvent logs that an agent has been spawned.
 func emitStartEvent(agent, workspace string) {
 	emitEvent("agent_started", agent, workspace, "running")
 }
 
-// emitCompletionEvent logs that an agent has finished.
 func emitCompletionEvent(agent, workspace, status string) {
 	emitEvent("agent_completed", agent, workspace, status)
 }

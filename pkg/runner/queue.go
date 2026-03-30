@@ -196,7 +196,6 @@ func (s *Service) drainQueue() {
 	defer s.drainMu.Unlock()
 
 	for s.drainOne() {
-		// keep filling slots
 	}
 }
 

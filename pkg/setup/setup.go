@@ -48,12 +48,10 @@ func (s *Service) Run(options Options) core.Result {
 		}
 	}
 
-	// Generate .core/ config files
 	if result := setupCoreDir(options, projectType); !result.OK {
 		return result
 	}
 
-	// Scaffold from dir template if requested
 	if templateName != "" {
 		return s.scaffoldTemplate(options, projectType, templateName)
 	}
@@ -78,7 +76,6 @@ func setupCoreDir(options Options, projectType ProjectType) core.Result {
 		}
 	}
 
-	// build.yaml
 	buildConfig := GenerateBuildConfig(options.Path, projectType)
 	if !buildConfig.OK {
 		err, _ := buildConfig.Value.(error)
@@ -91,7 +88,6 @@ func setupCoreDir(options Options, projectType ProjectType) core.Result {
 		return result
 	}
 
-	// test.yaml
 	testConfig := GenerateTestConfig(projectType)
 	if !testConfig.OK {
 		err, _ := testConfig.Value.(error)

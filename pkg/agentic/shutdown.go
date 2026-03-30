@@ -9,14 +9,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ShutdownInput is the input for agentic_dispatch_shutdown.
-//
-//	input := agentic.ShutdownInput{}
+// input := agentic.ShutdownInput{}
 type ShutdownInput struct{}
 
-// ShutdownOutput is the output for agentic_dispatch_shutdown.
-//
-//	out := agentic.ShutdownOutput{Success: true, Running: 3, Message: "draining"}
+// out := agentic.ShutdownOutput{Success: true, Running: 3, Message: "draining"}
 type ShutdownOutput struct {
 	Success bool   `json:"success"`
 	Running int    `json:"running"`
@@ -41,7 +37,6 @@ func (s *PrepSubsystem) registerShutdownTools(server *mcp.Server) {
 	}, s.shutdownNow)
 }
 
-// dispatchStart delegates to runner.start Action.
 func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.start").Run(ctx, core.NewOptions())
@@ -52,7 +47,6 @@ func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolReques
 	}, nil
 }
 
-// shutdownGraceful delegates to runner.stop Action.
 func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.stop").Run(ctx, core.NewOptions())
@@ -63,7 +57,6 @@ func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, _ *mcp.CallToolReq
 	}, nil
 }
 
-// shutdownNow delegates to runner.kill Action.
 func (s *PrepSubsystem) shutdownNow(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.kill").Run(ctx, core.NewOptions())

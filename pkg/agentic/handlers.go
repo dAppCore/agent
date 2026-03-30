@@ -7,14 +7,11 @@ import (
 	core "dappco.re/go/core"
 )
 
-// HandleIPCEvents applies agent lifecycle messages to the prep subsystem.
-//
-//	_ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
-//	_ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
+// _ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
+// _ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.AgentCompleted:
-		// Ingest findings (feature-flag gated)
 		if c.Config().Enabled("auto-ingest") {
 			if workspaceDir := resolveWorkspace(ev.Workspace); workspaceDir != "" {
 				s.ingestFindings(workspaceDir)
@@ -22,7 +19,6 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 		}
 
 	case messages.SpawnQueued:
-		// Runner asks agentic to spawn a queued workspace
 		workspaceDir := resolveWorkspace(ev.Workspace)
 		if workspaceDir == "" {
 			break
@@ -32,7 +28,6 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 		if err != nil {
 			break
 		}
-		// Update status with real PID
 		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatus, ok := workspaceStatusValue(result)
 			if !ok {
@@ -51,11 +46,8 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 	return core.Result{OK: true}
 }
 
-// SpawnFromQueue spawns an agent in a pre-prepped workspace.
-// Called by runner.Service via ServiceFor interface matching.
-//
-//	spawnResult := prep.SpawnFromQueue("codex", prompt, workspaceDir)
-//	pid := spawnResult.Value.(int)
+// spawnResult := prep.SpawnFromQueue("codex", prompt, workspaceDir)
+// pid := spawnResult.Value.(int)
 func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.Result {
 	pid, _, _, err := s.spawnAgent(agent, prompt, workspaceDir)
 	if err != nil {
@@ -78,8 +70,6 @@ func resolveWorkspace(name string) string {
 	return ""
 }
 
-// findWorkspaceByPR finds a workspace directory by repo name and branch.
-// Scans running/completed workspaces for a matching repo+branch combination.
 func findWorkspaceByPR(repo, branch string) string {
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)

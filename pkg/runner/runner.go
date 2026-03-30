@@ -50,7 +50,6 @@ func Register(coreApp *core.Core) core.Result {
 	service := New()
 	service.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
 
-	// Load agents config
 	config := service.loadAgentsConfig()
 	coreApp.Config().Set("agents.concurrency", config.Concurrency)
 	coreApp.Config().Set("agents.rates", config.Rates)
@@ -133,7 +132,6 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 		}
 
 	case messages.AgentCompleted:
-		// Update workspace status in Registry so concurrency count drops
 		if ev.Workspace != "" {
 			if workspaceResult := s.workspaces.Get(ev.Workspace); workspaceResult.OK {
 				if workspaceStatus, ok := workspaceResult.Value.(*WorkspaceStatus); ok && workspaceStatus.Status == "running" {
@@ -219,7 +217,6 @@ func (s *Service) TrackWorkspace(name string, status any) {
 		return
 	}
 	s.workspaces.Set(name, workspaceStatus)
-	// Remove pending reservation now that the real workspace is tracked
 	s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo))
 }
 
@@ -386,14 +383,7 @@ func (s *Service) hydrateWorkspaces() {
 	}
 }
 
-// AgentNotification is the channel payload sent on `agent.status`.
-//
-//	n := runner.AgentNotification{
-//		Status: "started", Repo: "go-io", Agent: "codex", Workspace: "core/go-io/task-5", Running: 1, Limit: 2,
-//	}
-//
-// Field order is guaranteed by json tags so truncated notifications still show
-// status and repo first.
+// notification := runner.AgentNotification{Status: "started", Repo: "go-io", Agent: "codex", Workspace: "core/go-io/task-5", Running: 1, Limit: 2}
 type AgentNotification struct {
 	Status    string `json:"status"`
 	Repo      string `json:"repo"`

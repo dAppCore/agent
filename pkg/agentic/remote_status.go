@@ -8,16 +8,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// RemoteStatusInput queries a remote core-agent for workspace status.
-//
-//	input := agentic.RemoteStatusInput{Host: "charon"}
+// input := agentic.RemoteStatusInput{Host: "charon"}
 type RemoteStatusInput struct {
 	Host string `json:"host"` // Remote agent host (e.g. "charon")
 }
 
-// RemoteStatusOutput is the response from a remote status check.
-//
-//	out := agentic.RemoteStatusOutput{Success: true, Host: "charon"}
+// out := agentic.RemoteStatusOutput{Success: true, Host: "charon"}
 type RemoteStatusOutput struct {
 	Success bool         `json:"success"`
 	Host    string       `json:"host"`

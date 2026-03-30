@@ -76,7 +76,6 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 		return nil
 	}
 
-	// Only harvest completed workspaces (not merged, running, etc.)
 	if workspaceStatus.Status != "completed" {
 		return nil
 	}
@@ -86,7 +85,6 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 		return nil
 	}
 
-	// Check if there are commits ahead of the default branch
 	branch := workspaceStatus.Branch
 	if branch == "" {
 		branch = m.detectBranch(repoDir)
@@ -96,24 +94,18 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 		return nil
 	}
 
-	// Check for unpushed commits
 	unpushed := m.countUnpushed(repoDir, branch)
 	if unpushed == 0 {
-		return nil // already on origin or no commits
+		return nil
 	}
 
-	// Safety checks before marking ready-for-review
 	if reason := m.checkSafety(repoDir); reason != "" {
 		updateStatus(workspaceDir, "rejected", reason)
 		return &harvestResult{repo: workspaceStatus.Repo, branch: branch, rejected: reason}
 	}
 
-	// Count changed files
 	files := m.countChangedFiles(repoDir)
 
-	// Mark ready for review — do NOT auto-push.
-	// Pushing is a high-impact mutation that should happen during
-	// explicit review (/review command), not silently in the background.
 	updateStatus(workspaceDir, "ready-for-review", "")
 
 	return &harvestResult{repo: workspaceStatus.Repo, branch: branch, files: files}

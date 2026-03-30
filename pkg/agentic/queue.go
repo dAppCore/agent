@@ -157,7 +157,6 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 		return count
 	}
 
-	// Fallback: scan disk (cold start before hydration)
 	return s.countRunningByAgentDisk(runtime, agent)
 }
 
@@ -195,7 +194,6 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 		return count
 	}
 
-	// Fallback: scan disk
 	return s.countRunningByModelDisk(runtime, agent)
 }
 
@@ -286,7 +284,6 @@ func (s *PrepSubsystem) drainQueue() {
 	}
 
 	for s.drainOne() {
-		// keep filling slots
 	}
 }
 

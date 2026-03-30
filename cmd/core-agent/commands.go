@@ -11,7 +11,7 @@ import (
 )
 
 type applicationCommandSet struct {
-	core *core.Core
+	coreApp *core.Core
 }
 
 // args := startupArgs()
@@ -67,7 +67,7 @@ func applyLogLevel(args []string) []string {
 // c.Command("check", core.Command{Description: "Verify workspace, deps, and config", Action: commands.check})
 // c.Command("env", core.Command{Description: "Show all core.Env() keys and values", Action: commands.env})
 func registerApplicationCommands(c *core.Core) {
-	commands := applicationCommandSet{core: c}
+	commands := applicationCommandSet{coreApp: c}
 
 	c.Command("version", core.Command{
 		Description: "Print version and build info",
@@ -86,7 +86,7 @@ func registerApplicationCommands(c *core.Core) {
 }
 
 func (commands applicationCommandSet) version(_ core.Options) core.Result {
-	core.Print(nil, "core-agent %s", commands.core.App().Version)
+	core.Print(nil, "core-agent %s", commands.coreApp.App().Version)
 	core.Print(nil, "  go:       %s", core.Env("GO"))
 	core.Print(nil, "  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
 	core.Print(nil, "  home:     %s", agentic.HomeDir())
@@ -97,8 +97,8 @@ func (commands applicationCommandSet) version(_ core.Options) core.Result {
 }
 
 func (commands applicationCommandSet) check(_ core.Options) core.Result {
-	fs := commands.core.Fs()
-	core.Print(nil, "core-agent %s health check", commands.core.App().Version)
+	fs := commands.coreApp.Fs()
+	core.Print(nil, "core-agent %s health check", commands.coreApp.App().Version)
 	core.Print(nil, "")
 	core.Print(nil, "  binary:    core-agent")
 
@@ -117,9 +117,9 @@ func (commands applicationCommandSet) check(_ core.Options) core.Result {
 		core.Print(nil, "  workspace: %s (MISSING)", workspaceRoot)
 	}
 
-	core.Print(nil, "  services:  %d registered", len(commands.core.Services()))
-	core.Print(nil, "  actions:   %d registered", len(commands.core.Actions()))
-	core.Print(nil, "  commands:  %d registered", len(commands.core.Commands()))
+	core.Print(nil, "  services:  %d registered", len(commands.coreApp.Services()))
+	core.Print(nil, "  actions:   %d registered", len(commands.coreApp.Actions()))
+	core.Print(nil, "  commands:  %d registered", len(commands.coreApp.Commands()))
 	core.Print(nil, "  env keys:  %d loaded", len(core.EnvKeys()))
 	core.Print(nil, "")
 	core.Print(nil, "ok")

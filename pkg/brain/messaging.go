@@ -29,8 +29,6 @@ func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
 	}, s.conversation)
 }
 
-// Input/Output types
-
 // brain.SendInput{To: "charon", Subject: "status update", Content: "deploy complete"}
 type SendInput struct {
 	To      string `json:"to"`
@@ -78,8 +76,6 @@ type ConversationOutput struct {
 	Messages []MessageItem `json:"messages"`
 }
 
-// Handlers
-
 func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	if input.To == "" || input.Content == "" {
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
@@ -112,7 +108,6 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 	if agent == "" {
 		agent = agentic.AgentName()
 	}
-	// Agent names are validated identifiers — no URL escaping needed.
 	result := s.apiCall(ctx, "GET", core.Concat("/v1/messages/inbox?agent=", agent), nil)
 	if !result.OK {
 		err, _ := result.Value.(error)

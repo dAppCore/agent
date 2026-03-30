@@ -189,8 +189,6 @@ func (p *BrainProvider) Describe() []api.RouteDescription {
 	}
 }
 
-// -- Handlers -----------------------------------------------------------------
-
 func (p *BrainProvider) remember(c *gin.Context) {
 	if p.bridge == nil {
 		p.respondBridgeUnavailable(c)
@@ -355,7 +353,6 @@ func (p *BrainProvider) respondBridgeError(c *gin.Context, err error) {
 	c.JSON(statusInternalServerError, api.Fail("bridge_error", err.Error()))
 }
 
-// emitEvent sends a WS event if the hub is available.
 func (p *BrainProvider) emitEvent(channel string, data any) {
 	if p.hub == nil {
 		return

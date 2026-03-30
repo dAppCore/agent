@@ -53,13 +53,10 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "task is required", nil)
 	}
 
-	// Resolve host aliases
 	addr := resolveHost(input.Host)
 
-	// Get auth token for remote agent
 	token := remoteToken(input.Host)
 
-	// Build the MCP JSON-RPC call to agentic_dispatch on the remote
 	callParams := map[string]any{
 		"repo": input.Repo,
 		"task": input.Task,
@@ -93,7 +90,6 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 
 	url := core.Sprintf("http://%s/mcp", addr)
 
-	// Step 1: Initialize session
 	sessionResult := mcpInitializeResult(ctx, url, token)
 	if !sessionResult.OK {
 		err, _ := sessionResult.Value.(error)
@@ -134,7 +130,6 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		}, err
 	}
 
-	// Parse result
 	output := RemoteDispatchOutput{
 		Success: true,
 		Host:    input.Host,
@@ -172,7 +167,6 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 
 // resolveHost maps friendly names to addresses.
 func resolveHost(host string) string {
-	// Known hosts
 	aliases := map[string]string{
 		"charon":  "10.69.69.165:9101",
 		"cladius": "127.0.0.1:9101",
@@ -183,7 +177,6 @@ func resolveHost(host string) string {
 		return addr
 	}
 
-	// If no port specified, add default
 	if !core.Contains(host, ":") {
 		return core.Concat(host, ":9101")
 	}
@@ -193,18 +186,15 @@ func resolveHost(host string) string {
 
 // remoteToken gets the auth token for a remote agent.
 func remoteToken(host string) string {
-	// Check environment first
 	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
 	if token := core.Env(envKey); token != "" {
 		return token
 	}
 
-	// Fallback to shared agent token
 	if token := core.Env("MCP_AUTH_TOKEN"); token != "" {
 		return token
 	}
 
-	// Try reading from file
 	home := HomeDir()
 	tokenFiles := []string{
 		core.Sprintf("%s/.core/tokens/%s.token", home, core.Lower(host)),

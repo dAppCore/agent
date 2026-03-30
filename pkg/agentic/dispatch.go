@@ -304,7 +304,6 @@ func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	s.forge.Issues.StopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
 }
 
-// broadcastStart emits IPC + audit events for agent start.
 func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 	workspaceName := WorkspaceName(workspaceDir)
 	result := ReadStatusResult(workspaceDir)
@@ -321,7 +320,6 @@ func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 	emitStartEvent(agent, workspaceName)
 }
 
-// broadcastComplete emits IPC + audit events for agent completion.
 func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus string) {
 	workspaceName := WorkspaceName(workspaceDir)
 	emitCompletionEvent(agent, workspaceName, finalStatus)
@@ -340,7 +338,6 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 }
 
 func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, processStatus, output string) {
-	// Save output
 	if output != "" {
 		fs.Write(outputFile, output)
 	}
@@ -348,7 +345,6 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 	repoDir := WorkspaceRepoDir(workspaceDir)
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, processStatus)
 
-	// Update workspace status (disk + registry)
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if ok {
@@ -358,14 +354,11 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 		writeStatusResult(workspaceDir, workspaceStatus)
 		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
-		// Rate-limit tracking
 		s.trackFailureRate(agent, finalStatus, workspaceStatus.StartedAt)
 	}
 
-	// Forge time tracking
 	s.stopIssueTracking(workspaceDir)
 
-	// Broadcast completion
 	s.broadcastComplete(agent, workspaceDir, finalStatus)
 
 	// Run completion pipeline via PerformAsync for successful agents.
@@ -519,7 +512,6 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		input.Template = "coding"
 	}
 
-	// Step 1: Prep workspace — clone + build prompt
 	prepInput := PrepInput{
 		Repo:         input.Repo,
 		Org:          input.Org,
@@ -552,15 +544,12 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		}, nil
 	}
 
-	// Step 2: Ask runner service for permission (frozen + concurrency check).
-	// Runner owns the gate — agentic owns the spawn.
 	if s.ServiceRuntime != nil {
 		dispatchResult := s.Core().Action("runner.dispatch").Run(ctx, core.NewOptions(
 			core.Option{Key: "agent", Value: input.Agent},
 			core.Option{Key: "repo", Value: input.Repo},
 		))
 		if !dispatchResult.OK {
-			// Runner denied — queue it
 			workspaceStatus := &WorkspaceStatus{
 				Status:    "queued",
 				Agent:     input.Agent,
@@ -585,7 +574,6 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		}
 	}
 
-	// Step 3: Spawn agent in repo/ directory
 	pid, processID, outputFile, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err

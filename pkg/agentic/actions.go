@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Named Action handlers for the agentic service.
-// Each handler adapts (ctx, Options) → Result to call the existing MCP tool method.
-// Registered during OnStartup — the Action registry IS the capability map.
-//
 //	c.Action("agentic.dispatch").Run(ctx, options)
 //	c.Actions() // all registered capabilities
 
@@ -171,7 +167,6 @@ func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options
 //
 // ))
 func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core.Result {
-	// Feature flag gate — skip QA if disabled
 	if s.ServiceRuntime != nil && !s.Config().Enabled("auto-qa") {
 		return core.Result{Value: true, OK: true}
 	}
@@ -190,7 +185,6 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 			}
 		}
 	}
-	// Emit QA result for observability (monitor picks this up)
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
@@ -222,7 +216,6 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) 
 	}
 	s.autoCreatePR(workspaceDir)
 
-	// Emit PRCreated for observability
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
@@ -253,7 +246,6 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) 
 	}
 	s.autoVerifyAndMerge(workspaceDir)
 
-	// Emit merge/review events for observability
 	if s.ServiceRuntime != nil {
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
@@ -291,9 +283,7 @@ func (s *PrepSubsystem) handleIngest(ctx context.Context, options core.Options) 
 	return core.Result{OK: true}
 }
 
-// handlePoke drains the dispatch queue.
-//
-//	result := c.Action("agentic.poke").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.poke").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Result {
 	s.Poke()
 	return core.Result{OK: true}
@@ -315,12 +305,12 @@ func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) 
 	return core.Result{Value: out, OK: true}
 }
 
-// handleIssueGet retrieves a forge issue.
+// result := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "repo", Value: "go-io"},
-//	    core.Option{Key: "number", Value: "42"},
-//	))
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "number", Value: "42"},
+//
+// ))
 func (s *PrepSubsystem) handleIssueGet(ctx context.Context, options core.Options) core.Result {
 	return s.cmdIssueGet(options)
 }
@@ -344,12 +334,12 @@ func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, options core.Opti
 	return s.cmdIssueCreate(options)
 }
 
-// handlePRGet retrieves a forge PR.
+// result := c.Action("agentic.pr.get").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.pr.get").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "_arg", Value: "go-io"},
-//	    core.Option{Key: "number", Value: "12"},
-//	))
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "number", Value: "12"},
+//
+// ))
 func (s *PrepSubsystem) handlePRGet(ctx context.Context, options core.Options) core.Result {
 	return s.cmdPRGet(options)
 }
@@ -363,12 +353,12 @@ func (s *PrepSubsystem) handlePRList(ctx context.Context, options core.Options) 
 	return s.cmdPRList(options)
 }
 
-// handlePRMerge merges a forge PR.
+// result := c.Action("agentic.pr.merge").Run(ctx, core.NewOptions(
 //
-//	result := c.Action("agentic.pr.merge").Run(ctx, core.NewOptions(
-//	    core.Option{Key: "_arg", Value: "go-io"},
-//	    core.Option{Key: "number", Value: "12"},
-//	))
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "number", Value: "12"},
+//
+// ))
 func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options) core.Result {
 	return s.cmdPRMerge(options)
 }
@@ -410,10 +400,8 @@ func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
-// handleWorkspaceQuery answers workspace state queries from Core QUERY calls.
-//
-//	result := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
-//	result := c.QUERY(agentic.WorkspaceQuery{Status: "blocked"})
+// result := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
+// result := c.QUERY(agentic.WorkspaceQuery{Status: "blocked"})
 func (s *PrepSubsystem) handleWorkspaceQuery(_ *core.Core, query core.Query) core.Result {
 	workspaceQuery, ok := query.(WorkspaceQuery)
 	if !ok {

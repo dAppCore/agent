@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// HTTP transport for Core API streams.
-
 package agentic
 
 import (
@@ -12,10 +10,8 @@ import (
 	core "dappco.re/go/core"
 )
 
-// defaultClient is the shared HTTP client for all transport calls.
 var defaultClient = &http.Client{Timeout: 30 * time.Second}
 
-// httpStream implements core.Stream over HTTP request/response.
 type httpStream struct {
 	client   *http.Client
 	url      string
@@ -24,8 +20,6 @@ type httpStream struct {
 	response []byte
 }
 
-// stream := &httpStream{client: defaultClient, url: "https://forge.lthn.ai/api/v1/version", method: "GET"}
-// _ = stream.Send(nil)
 func (s *httpStream) Send(data []byte) error {
 	request, err := http.NewRequestWithContext(context.Background(), s.method, s.url, core.NewReader(string(data)))
 	if err != nil {
@@ -51,15 +45,10 @@ func (s *httpStream) Send(data []byte) error {
 	return nil
 }
 
-// stream := &httpStream{response: []byte(`{"ok":true}`)}
-// data, _ := stream.Receive()
-// _ = data
 func (s *httpStream) Receive() ([]byte, error) {
 	return s.response, nil
 }
 
-// stream := &httpStream{}
-// _ = stream.Close()
 func (s *httpStream) Close() error {
 	return nil
 }
@@ -227,10 +216,8 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 
 	sessionID := response.Header.Get("Mcp-Session-Id")
 
-	// Drain SSE response
 	drainSSE(response)
 
-	// Send initialised notification
 	notification := core.JSONMarshalString(map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "notifications/initialized",
