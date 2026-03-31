@@ -127,6 +127,8 @@ type PlanListOutput struct {
 	Plans   []Plan `json:"plans"`
 }
 
+const planListDefaultLimit = 20
+
 // result := c.Action("plan.create").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "title", Value: "AX RFC follow-up"},
@@ -468,6 +470,11 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, PlanListOutput{}, core.E("planList", "failed to access plans directory", err)
 	}
 
+	limit := input.Limit
+	if limit <= 0 {
+		limit = planListDefaultLimit
+	}
+
 	jsonFiles := core.PathGlob(core.JoinPath(dir, "*.json"))
 
 	var plans []Plan
@@ -490,7 +497,7 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		plans = append(plans, *plan)
-		if input.Limit > 0 && len(plans) >= input.Limit {
+		if len(plans) >= limit {
 			break
 		}
 	}

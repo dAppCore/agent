@@ -421,6 +421,25 @@ func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 	assert.Equal(t, 1, out.Count, "should skip non-JSON files")
 }
 
+func TestPlan_PlanList_Good_DefaultLimit(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	for i := 0; i < 21; i++ {
+		_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+			Title:     core.Sprintf("Plan %d", i+1),
+			Objective: "Test default list limit",
+		})
+		require.NoError(t, err)
+	}
+
+	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
+	require.NoError(t, err)
+	assert.Equal(t, 20, out.Count)
+	assert.Len(t, out.Plans, 20)
+}
+
 // --- planPath edge cases ---
 
 func TestPlan_PlanPath_Bad_PathTraversal(t *testing.T) {
