@@ -34,6 +34,11 @@ type syncQueuedPush struct {
 	QueuedAt   time.Time        `json:"queued_at"`
 }
 
+type syncStatusState struct {
+	LastPushAt time.Time `json:"last_push_at,omitempty"`
+	LastPullAt time.Time `json:"last_pull_at,omitempty"`
+}
+
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options) core.Result {
 	output, err := s.syncPush(ctx, options.String("agent_id"))
@@ -84,6 +89,7 @@ func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushO
 			return SyncPushOutput{Success: true, Count: synced}, nil
 		}
 		synced += len(queued.Dispatches)
+		recordSyncPush(time.Now())
 	}
 
 	writeSyncQueue(nil)
@@ -107,20 +113,21 @@ func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullO
 		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
 
-	var response struct {
-		Data []map[string]any `json:"data"`
-	}
+	var response map[string]any
 	parseResult := core.JSONUnmarshalString(result.Value.(string), &response)
 	if !parseResult.OK {
 		cached := readSyncContext()
 		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
-	writeSyncContext(response.Data)
+
+	contextData := syncContextPayload(response)
+	writeSyncContext(contextData)
+	recordSyncPull(time.Now())
 
 	return SyncPullOutput{
 		Success: true,
-		Count:   len(response.Data),
-		Context: response.Data,
+		Count:   len(contextData),
+		Context: contextData,
 	}, nil
 }
 
@@ -159,18 +166,7 @@ func collectSyncDispatches() []map[string]any {
 		if !shouldSyncStatus(workspaceStatus.Status) {
 			continue
 		}
-		dispatches = append(dispatches, map[string]any{
-			"workspace":  WorkspaceName(workspaceDir),
-			"repo":       workspaceStatus.Repo,
-			"org":        workspaceStatus.Org,
-			"task":       workspaceStatus.Task,
-			"agent":      workspaceStatus.Agent,
-			"branch":     workspaceStatus.Branch,
-			"status":     workspaceStatus.Status,
-			"pr_url":     workspaceStatus.PRURL,
-			"started_at": workspaceStatus.StartedAt,
-			"updated_at": workspaceStatus.UpdatedAt,
-		})
+		dispatches = append(dispatches, syncDispatchRecord(workspaceDir, workspaceStatus))
 	}
 	return dispatches
 }
@@ -213,6 +209,10 @@ func syncContextPath() string {
 	return core.JoinPath(syncStateDir(), "context.json")
 }
 
+func syncStatusPath() string {
+	return core.JoinPath(syncStateDir(), "status.json")
+}
+
 func readSyncQueue() []syncQueuedPush {
 	var queued []syncQueuedPush
 	result := fs.Read(syncQueuePath())
@@ -251,4 +251,90 @@ func readSyncContext() []map[string]any {
 func writeSyncContext(contextData []map[string]any) {
 	fs.EnsureDir(syncStateDir())
 	fs.WriteAtomic(syncContextPath(), core.JSONMarshalString(contextData))
+}
+
+func syncContextPayload(payload map[string]any) []map[string]any {
+	if contextData := payloadDataSlice(payload, "context", "items", "memories"); len(contextData) > 0 {
+		return contextData
+	}
+	return nil
+}
+
+func syncDispatchRecord(workspaceDir string, workspaceStatus *WorkspaceStatus) map[string]any {
+	record := map[string]any{
+		"workspace":  WorkspaceName(workspaceDir),
+		"repo":       workspaceStatus.Repo,
+		"org":        workspaceStatus.Org,
+		"task":       workspaceStatus.Task,
+		"agent":      workspaceStatus.Agent,
+		"branch":     workspaceStatus.Branch,
+		"status":     workspaceStatus.Status,
+		"question":   workspaceStatus.Question,
+		"issue":      workspaceStatus.Issue,
+		"runs":       workspaceStatus.Runs,
+		"process_id": workspaceStatus.ProcessID,
+		"pr_url":     workspaceStatus.PRURL,
+		"started_at": workspaceStatus.StartedAt,
+		"updated_at": workspaceStatus.UpdatedAt,
+	}
+
+	if report := readSyncWorkspaceReport(workspaceDir); len(report) > 0 {
+		record["report"] = report
+		if findings := anyMapSliceValue(report["findings"]); len(findings) > 0 {
+			record["findings"] = findings
+		}
+		if changes := anyMapValue(report["changes"]); len(changes) > 0 {
+			record["changes"] = changes
+		}
+	}
+
+	return record
+}
+
+func readSyncWorkspaceReport(workspaceDir string) map[string]any {
+	reportPath := core.JoinPath(WorkspaceMetaDir(workspaceDir), "report.json")
+	result := fs.Read(reportPath)
+	if !result.OK {
+		return nil
+	}
+
+	var report map[string]any
+	parseResult := core.JSONUnmarshalString(result.Value.(string), &report)
+	if !parseResult.OK {
+		return nil
+	}
+
+	return report
+}
+
+func readSyncStatusState() syncStatusState {
+	var state syncStatusState
+	result := fs.Read(syncStatusPath())
+	if !result.OK {
+		return state
+	}
+
+	parseResult := core.JSONUnmarshalString(result.Value.(string), &state)
+	if !parseResult.OK {
+		return syncStatusState{}
+	}
+
+	return state
+}
+
+func writeSyncStatusState(state syncStatusState) {
+	fs.EnsureDir(syncStateDir())
+	fs.WriteAtomic(syncStatusPath(), core.JSONMarshalString(state))
+}
+
+func recordSyncPush(at time.Time) {
+	state := readSyncStatusState()
+	state.LastPushAt = at
+	writeSyncStatusState(state)
+}
+
+func recordSyncPull(at time.Time) {
+	state := readSyncStatusState()
+	state.LastPullAt = at
+	writeSyncStatusState(state)
 }

@@ -288,7 +288,7 @@ func (s *PrepSubsystem) sessionEnd(ctx context.Context, _ *mcp.CallToolRequest, 
 }
 
 func sessionDataMap(payload map[string]any) map[string]any {
-	data := payloadDataMap(payload)
+	data := payloadResourceMap(payload, "session")
 	if len(data) > 0 {
 		return data
 	}
@@ -320,15 +320,15 @@ func parseSession(values map[string]any) Session {
 }
 
 func parseSessionListOutput(payload map[string]any) SessionListOutput {
-	sessionData := payloadDataSlice(payload)
+	sessionData := payloadDataSlice(payload, "sessions")
 	sessions := make([]Session, 0, len(sessionData))
 	for _, values := range sessionData {
 		sessions = append(sessions, parseSession(values))
 	}
 
-	count := intValue(payload["count"])
+	count := mapIntValue(payload, "count", "total")
 	if count == 0 {
-		count = intValue(payload["total"])
+		count = mapIntValue(payloadDataMap(payload), "count", "total")
 	}
 	if count == 0 {
 		count = len(sessions)

@@ -59,6 +59,7 @@ func TestSync_HandleSyncPush_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, output.Success)
 	assert.Equal(t, 1, output.Count)
+	assert.False(t, readSyncStatusState().LastPushAt.IsZero())
 }
 
 func TestSync_HandleSyncPush_Bad(t *testing.T) {
@@ -155,6 +156,88 @@ func TestSync_HandleSyncPull_Good(t *testing.T) {
 	cached := readSyncContext()
 	require.Len(t, cached, 1)
 	assert.Equal(t, "mem-1", cached[0]["id"])
+	assert.False(t, readSyncStatusState().LastPullAt.IsZero())
+}
+
+func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	fs.EnsureDir(WorkspaceMetaDir(workspaceDir))
+	require.True(t, fs.Write(core.JoinPath(WorkspaceMetaDir(workspaceDir), "report.json"), `{"findings":[{"file":"main.go"}],"changes":{"files_changed":1}}`).OK)
+	writeStatusResult(workspaceDir, &WorkspaceStatus{
+		Status:    "blocked",
+		Agent:     "codex",
+		Repo:      "go-io",
+		Org:       "core",
+		Task:      "Fix tests",
+		Branch:    "agent/fix-tests",
+		Issue:     42,
+		Question:  "Which API version?",
+		ProcessID: "proc-1",
+		Runs:      2,
+		StartedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+
+		dispatches, ok := payload["dispatches"].([]any)
+		require.True(t, ok)
+		require.Len(t, dispatches, 1)
+
+		record, ok := dispatches[0].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "Which API version?", record["question"])
+		require.Equal(t, float64(42), record["issue"])
+		require.Equal(t, float64(2), record["runs"])
+		require.Equal(t, "proc-1", record["process_id"])
+		require.NotNil(t, record["report"])
+		require.NotNil(t, record["findings"])
+		require.NotNil(t, record["changes"])
+
+		_, _ = w.Write([]byte(`{"data":{"synced":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+	output, err := subsystem.syncPush(context.Background(), "")
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 1, output.Count)
+}
+
+func TestSync_HandleSyncPull_Good_NestedEnvelope(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"context":[{"id":"ctx-1","content":"Known pattern"}]}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+	output, err := subsystem.syncPull(context.Background(), "codex")
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 1, output.Count)
+	require.Len(t, output.Context, 1)
+	assert.Equal(t, "ctx-1", output.Context[0]["id"])
 }
 
 func TestSync_HandleSyncPull_Bad(t *testing.T) {

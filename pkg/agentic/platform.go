@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"time"
 
 	core "dappco.re/go/core"
 )
@@ -11,6 +12,7 @@ import (
 // node := agentic.FleetNode{AgentID: "charon", Platform: "linux", Status: "online"}
 type FleetNode struct {
 	ID              int            `json:"id"`
+	WorkspaceID     int            `json:"workspace_id,omitempty"`
 	AgentID         string         `json:"agent_id"`
 	Platform        string         `json:"platform"`
 	Models          []string       `json:"models,omitempty"`
@@ -25,6 +27,8 @@ type FleetNode struct {
 // task := agentic.FleetTask{ID: 7, Repo: "go-io", Task: "Fix tests", Status: "assigned"}
 type FleetTask struct {
 	ID          int              `json:"id"`
+	WorkspaceID int              `json:"workspace_id,omitempty"`
+	FleetNodeID int              `json:"fleet_node_id,omitempty"`
 	Repo        string           `json:"repo"`
 	Branch      string           `json:"branch,omitempty"`
 	Task        string           `json:"task"`
@@ -76,6 +80,8 @@ type CreditBalance struct {
 // entry := agentic.CreditEntry{ID: 4, TaskType: "fleet-task", Amount: 2}
 type CreditEntry struct {
 	ID           int    `json:"id"`
+	WorkspaceID  int    `json:"workspace_id,omitempty"`
+	FleetNodeID  int    `json:"fleet_node_id,omitempty"`
 	TaskType     string `json:"task_type"`
 	Amount       int    `json:"amount"`
 	BalanceAfter int    `json:"balance_after"`
@@ -108,6 +114,13 @@ func (s *PrepSubsystem) handleSyncStatus(ctx context.Context, options core.Optio
 		Queued:       len(readSyncQueue()),
 		ContextCount: len(readSyncContext()),
 	}
+	localStatus := readSyncStatusState()
+	if !localStatus.LastPushAt.IsZero() {
+		output.LastPushAt = localStatus.LastPushAt.Format(time.RFC3339)
+	}
+	if !localStatus.LastPullAt.IsZero() {
+		output.LastPullAt = localStatus.LastPullAt.Format(time.RFC3339)
+	}
 
 	if s.syncToken() == "" {
 		return core.Result{Value: output, OK: true}
@@ -123,14 +136,27 @@ func (s *PrepSubsystem) handleSyncStatus(ctx context.Context, options core.Optio
 		return core.Result{Value: output, OK: true}
 	}
 
-	data := payloadDataMap(result.Value.(map[string]any))
+	data := payloadResourceMap(result.Value.(map[string]any), "status")
 	if len(data) == 0 {
 		return core.Result{Value: output, OK: true}
 	}
 
+	if remoteAgentID := stringValue(data["agent_id"]); remoteAgentID != "" {
+		output.AgentID = remoteAgentID
+	}
 	output.Status = stringValue(data["status"])
-	output.LastPushAt = stringValue(data["last_push_at"])
-	output.LastPullAt = stringValue(data["last_pull_at"])
+	if lastPushAt := stringValue(data["last_push_at"]); lastPushAt != "" {
+		output.LastPushAt = lastPushAt
+	}
+	if lastPullAt := stringValue(data["last_pull_at"]); lastPullAt != "" {
+		output.LastPullAt = lastPullAt
+	}
+	if queued, ok := intValueOK(data["queued"]); ok {
+		output.Queued = queued
+	}
+	if contextCount, ok := intValueOK(data["context_count"]); ok {
+		output.ContextCount = contextCount
+	}
 	if output.Status == "" {
 		output.Status = "online"
 	}
@@ -166,7 +192,7 @@ func (s *PrepSubsystem) handleFleetRegister(ctx context.Context, options core.Op
 		return result
 	}
 
-	return core.Result{Value: parseFleetNode(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseFleetNode(payloadResourceMap(result.Value.(map[string]any), "node")), OK: true}
 }
 
 // result := c.Action("agentic.fleet.heartbeat").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -190,7 +216,7 @@ func (s *PrepSubsystem) handleFleetHeartbeat(ctx context.Context, options core.O
 		return result
 	}
 
-	return core.Result{Value: parseFleetNode(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseFleetNode(payloadResourceMap(result.Value.(map[string]any), "node")), OK: true}
 }
 
 // result := c.Action("agentic.fleet.deregister").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -256,7 +282,7 @@ func (s *PrepSubsystem) handleFleetAssignTask(ctx context.Context, options core.
 		return result
 	}
 
-	return core.Result{Value: parseFleetTask(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseFleetTask(payloadResourceMap(result.Value.(map[string]any), "task")), OK: true}
 }
 
 // result := c.Action("agentic.fleet.task.complete").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -289,7 +315,7 @@ func (s *PrepSubsystem) handleFleetCompleteTask(ctx context.Context, options cor
 		return result
 	}
 
-	return core.Result{Value: parseFleetTask(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseFleetTask(payloadResourceMap(result.Value.(map[string]any), "task")), OK: true}
 }
 
 // result := c.Action("agentic.fleet.task.next").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -307,7 +333,7 @@ func (s *PrepSubsystem) handleFleetNextTask(ctx context.Context, options core.Op
 		return result
 	}
 
-	data := payloadDataMap(result.Value.(map[string]any))
+	data := payloadResourceMap(result.Value.(map[string]any), "task")
 	if len(data) == 0 {
 		var task *FleetTask
 		return core.Result{Value: task, OK: true}
@@ -324,7 +350,7 @@ func (s *PrepSubsystem) handleFleetStats(ctx context.Context, options core.Optio
 		return result
 	}
 
-	return core.Result{Value: parseFleetStats(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseFleetStats(payloadResourceMap(result.Value.(map[string]any), "stats")), OK: true}
 }
 
 // result := c.Action("agentic.credits.award").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -353,7 +379,7 @@ func (s *PrepSubsystem) handleCreditsAward(ctx context.Context, options core.Opt
 		return result
 	}
 
-	return core.Result{Value: parseCreditEntry(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseCreditEntry(payloadResourceMap(result.Value.(map[string]any), "entry")), OK: true}
 }
 
 // result := c.Action("agentic.credits.balance").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -369,7 +395,7 @@ func (s *PrepSubsystem) handleCreditsBalance(ctx context.Context, options core.O
 		return result
 	}
 
-	return core.Result{Value: parseCreditBalance(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseCreditBalance(payloadResourceMap(result.Value.(map[string]any), "balance")), OK: true}
 }
 
 // result := c.Action("agentic.credits.history").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -404,7 +430,7 @@ func (s *PrepSubsystem) handleSubscriptionDetect(ctx context.Context, options co
 		return result
 	}
 
-	return core.Result{Value: parseSubscriptionCapabilities(payloadDataMap(result.Value.(map[string]any))), OK: true}
+	return core.Result{Value: parseSubscriptionCapabilities(payloadResourceMap(result.Value.(map[string]any), "capabilities", "subscription")), OK: true}
 }
 
 // result := c.Action("agentic.subscription.budget").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -420,7 +446,7 @@ func (s *PrepSubsystem) handleSubscriptionBudget(ctx context.Context, options co
 		return result
 	}
 
-	return core.Result{Value: payloadDataMap(result.Value.(map[string]any)), OK: true}
+	return core.Result{Value: payloadResourceMap(result.Value.(map[string]any), "budget"), OK: true}
 }
 
 // result := c.Action("agentic.subscription.budget.update").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -439,7 +465,7 @@ func (s *PrepSubsystem) handleSubscriptionBudgetUpdate(ctx context.Context, opti
 		return result
 	}
 
-	return core.Result{Value: payloadDataMap(result.Value.(map[string]any)), OK: true}
+	return core.Result{Value: payloadResourceMap(result.Value.(map[string]any), "budget"), OK: true}
 }
 
 func (s *PrepSubsystem) platformPayload(ctx context.Context, action, method, path string, body any) core.Result {
@@ -492,13 +518,88 @@ func payloadDataMap(payload map[string]any) map[string]any {
 	return anyMapValue(payload["data"])
 }
 
-func payloadDataSlice(payload map[string]any) []map[string]any {
-	return anyMapSliceValue(payload["data"])
+func payloadDataSlice(payload map[string]any, keys ...string) []map[string]any {
+	if values := anyMapSliceValue(payload["data"]); len(values) > 0 {
+		return values
+	}
+
+	if data := payloadDataMap(payload); len(data) > 0 {
+		for _, key := range keys {
+			if values := anyMapSliceValue(data[key]); len(values) > 0 {
+				return values
+			}
+		}
+	}
+
+	for _, key := range keys {
+		if values := anyMapSliceValue(payload[key]); len(values) > 0 {
+			return values
+		}
+	}
+
+	return nil
+}
+
+func payloadResourceMap(payload map[string]any, keys ...string) map[string]any {
+	if data := payloadDataMap(payload); len(data) > 0 {
+		for _, key := range keys {
+			if values := anyMapValue(data[key]); len(values) > 0 {
+				return values
+			}
+		}
+		return data
+	}
+
+	for _, key := range keys {
+		if values := anyMapValue(payload[key]); len(values) > 0 {
+			return values
+		}
+	}
+
+	for key, value := range payload {
+		switch key {
+		case "data", "error", "code", "message":
+			continue
+		}
+		if value != nil {
+			return payload
+		}
+	}
+
+	return nil
+}
+
+func mapIntValue(values map[string]any, keys ...string) int {
+	for _, key := range keys {
+		if value, ok := values[key]; ok {
+			return intValue(value)
+		}
+	}
+	return 0
+}
+
+func intValueOK(value any) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case string:
+		trimmed := core.Trim(typed)
+		parsed := parseInt(trimmed)
+		if parsed != 0 || trimmed == "0" {
+			return parsed, true
+		}
+	}
+	return 0, false
 }
 
 func parseFleetNode(values map[string]any) FleetNode {
 	return FleetNode{
 		ID:              intValue(values["id"]),
+		WorkspaceID:     intValue(values["workspace_id"]),
 		AgentID:         stringValue(values["agent_id"]),
 		Platform:        stringValue(values["platform"]),
 		Models:          listValue(values["models"]),
@@ -514,6 +615,8 @@ func parseFleetNode(values map[string]any) FleetNode {
 func parseFleetTask(values map[string]any) FleetTask {
 	return FleetTask{
 		ID:          intValue(values["id"]),
+		WorkspaceID: intValue(values["workspace_id"]),
+		FleetNodeID: intValue(values["fleet_node_id"]),
 		Repo:        stringValue(values["repo"]),
 		Branch:      stringValue(values["branch"]),
 		Task:        stringValue(values["task"]),
@@ -530,13 +633,16 @@ func parseFleetTask(values map[string]any) FleetTask {
 }
 
 func parseFleetNodesOutput(payload map[string]any) FleetNodesOutput {
-	nodesData := payloadDataSlice(payload)
+	nodesData := payloadDataSlice(payload, "nodes")
 	nodes := make([]FleetNode, 0, len(nodesData))
 	for _, values := range nodesData {
 		nodes = append(nodes, parseFleetNode(values))
 	}
 
-	total := intValue(payload["total"])
+	total := mapIntValue(payload, "total", "count")
+	if total == 0 {
+		total = mapIntValue(payloadDataMap(payload), "total", "count")
+	}
 	if total == 0 {
 		total = len(nodes)
 	}
@@ -561,6 +667,8 @@ func parseFleetStats(values map[string]any) FleetStats {
 func parseCreditEntry(values map[string]any) CreditEntry {
 	return CreditEntry{
 		ID:           intValue(values["id"]),
+		WorkspaceID:  intValue(values["workspace_id"]),
+		FleetNodeID:  intValue(values["fleet_node_id"]),
 		TaskType:     stringValue(values["task_type"]),
 		Amount:       intValue(values["amount"]),
 		BalanceAfter: intValue(values["balance_after"]),
@@ -578,13 +686,16 @@ func parseCreditBalance(values map[string]any) CreditBalance {
 }
 
 func parseCreditsHistoryOutput(payload map[string]any) CreditsHistoryOutput {
-	entriesData := payloadDataSlice(payload)
+	entriesData := payloadDataSlice(payload, "entries", "history")
 	entries := make([]CreditEntry, 0, len(entriesData))
 	for _, values := range entriesData {
 		entries = append(entries, parseCreditEntry(values))
 	}
 
-	total := intValue(payload["total"])
+	total := mapIntValue(payload, "total", "count")
+	if total == 0 {
+		total = mapIntValue(payloadDataMap(payload), "total", "count")
+	}
 	if total == 0 {
 		total = len(entries)
 	}
@@ -596,10 +707,19 @@ func parseCreditsHistoryOutput(payload map[string]any) CreditsHistoryOutput {
 }
 
 func parseSubscriptionCapabilities(values map[string]any) SubscriptionCapabilities {
-	return SubscriptionCapabilities{
+	capabilities := SubscriptionCapabilities{
 		Providers: boolMapValue(values["providers"]),
 		Available: listValue(values["available"]),
 	}
+	if len(capabilities.Available) == 0 && len(capabilities.Providers) > 0 {
+		for name, enabled := range capabilities.Providers {
+			if enabled {
+				capabilities.Available = append(capabilities.Available, name)
+			}
+		}
+		capabilities.Available = cleanStrings(capabilities.Available)
+	}
+	return capabilities
 }
 
 func appendQueryParam(path, key, value string) string {

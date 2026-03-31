@@ -194,6 +194,43 @@ func TestPlatform_HandleCreditsHistory_Good(t *testing.T) {
 	assert.Equal(t, 7, output.Entries[0].BalanceAfter)
 }
 
+func TestPlatform_HandleFleetNodes_Good_NestedEnvelope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"nodes":[{"id":1,"workspace_id":7,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetNodes(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(FleetNodesOutput)
+	require.True(t, ok)
+	require.Len(t, output.Nodes, 1)
+	assert.Equal(t, 1, output.Total)
+	assert.Equal(t, 7, output.Nodes[0].WorkspaceID)
+}
+
+func TestPlatform_HandleCreditsHistory_Good_NestedEnvelope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"entries":[{"id":1,"workspace_id":3,"fleet_node_id":9,"task_type":"fleet-task","amount":2,"balance_after":7}],"total":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleCreditsHistory(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(CreditsHistoryOutput)
+	require.True(t, ok)
+	require.Len(t, output.Entries, 1)
+	assert.Equal(t, 1, output.Total)
+	assert.Equal(t, 3, output.Entries[0].WorkspaceID)
+	assert.Equal(t, 9, output.Entries[0].FleetNodeID)
+}
+
 func TestPlatform_HandleSubscriptionDetect_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/subscription/detect", r.URL.Path)
@@ -221,4 +258,44 @@ func TestPlatform_HandleSubscriptionDetect_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, capabilities.Providers["claude"])
 	assert.Equal(t, []string{"claude", "openai"}, capabilities.Available)
+}
+
+func TestPlatform_HandleSubscriptionDetect_Good_ProvidersOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"providers":{"claude":true,"openai":false,"gemini":true}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSubscriptionDetect(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+
+	capabilities, ok := result.Value.(SubscriptionCapabilities)
+	require.True(t, ok)
+	assert.ElementsMatch(t, []string{"claude", "gemini"}, capabilities.Available)
+}
+
+func TestPlatform_HandleSyncStatus_Good_LocalStateFallback(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	recordSyncPush(time.Date(2026, 3, 31, 8, 0, 0, 0, time.UTC))
+	recordSyncPull(time.Date(2026, 3, 31, 8, 5, 0, 0, time.UTC))
+
+	c := core.New()
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	result := subsystem.handleSyncStatus(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	require.True(t, result.OK)
+
+	status, ok := result.Value.(SyncStatusOutput)
+	require.True(t, ok)
+	assert.Equal(t, "2026-03-31T08:00:00Z", status.LastPushAt)
+	assert.Equal(t, "2026-03-31T08:05:00Z", status.LastPullAt)
 }

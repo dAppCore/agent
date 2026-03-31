@@ -87,6 +87,24 @@ func TestSession_HandleSessionGet_Good(t *testing.T) {
 	assert.Equal(t, "ax-follow-up", output.Session.Plan)
 }
 
+func TestSession_HandleSessionGet_Good_NestedEnvelope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"session":{"session_id":"ses_nested","plan":"ax-follow-up","agent_type":"codex","status":"active"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSessionGet(context.Background(), core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses_nested"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "ses_nested", output.Session.SessionID)
+	assert.Equal(t, "active", output.Session.Status)
+}
+
 func TestSession_HandleSessionList_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/sessions", r.URL.Path)
@@ -109,6 +127,23 @@ func TestSession_HandleSessionList_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 2, output.Count)
 	require.Len(t, output.Sessions, 2)
+	assert.Equal(t, "ses_1", output.Sessions[0].SessionID)
+}
+
+func TestSession_HandleSessionList_Good_NestedEnvelope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"sessions":[{"session_id":"ses_1","agent_type":"codex","status":"active"}],"total":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSessionList(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionListOutput)
+	require.True(t, ok)
+	assert.Equal(t, 1, output.Count)
+	require.Len(t, output.Sessions, 1)
 	assert.Equal(t, "ses_1", output.Sessions[0].SessionID)
 }
 
