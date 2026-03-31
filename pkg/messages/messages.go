@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Status: "completed"})
+// c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed"})
 package messages
 
 // c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"})
@@ -26,7 +26,7 @@ type QAResult struct {
 	Output    string
 }
 
-// c.ACTION(messages.PRCreated{Repo: "go-io", Branch: "agent/fix-tests", PRURL: "https://...", PRNum: 12})
+// c.ACTION(messages.PRCreated{Repo: "go-io", Branch: "agent/fix-tests", PRURL: "https://forge.lthn.ai/core/go-io/pulls/12", PRNum: 12})
 type PRCreated struct {
 	Repo   string
 	Branch string
@@ -34,7 +34,7 @@ type PRCreated struct {
 	PRNum  int
 }
 
-// c.ACTION(messages.PRMerged{Repo: "go-io", PRURL: "https://...", PRNum: 12})
+// c.ACTION(messages.PRMerged{Repo: "go-io", PRURL: "https://forge.lthn.ai/core/go-io/pulls/12", PRNum: 12})
 type PRMerged struct {
 	Repo  string
 	PRURL string

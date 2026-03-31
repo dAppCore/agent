@@ -228,7 +228,7 @@ func (s *Service) TrackWorkspace(name string, status any) {
 	s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo))
 }
 
-// s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { ... })
+// s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { core.Println(name, workspaceStatus.Status) })
 func (s *Service) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
 }

@@ -49,5 +49,5 @@ func ExampleRegister_task() {
 	// Completion pipeline registered as a Task
 	t := c.Task("agent.completion")
 	core.Println(t.Description)
-	// Output: QA → PR → Verify → Merge
+	// Output: QA → PR → Verify → Ingest → Poke
 }

@@ -287,16 +287,16 @@ func WorkspaceFile(templateName, filename string) core.Result {
 	return embed.ReadString(filename)
 }
 
-// prompts := lib.ListPrompts() // ["coding", "review", ...]
+// prompts := lib.ListPrompts() // ["coding", "conventions", "security"]
 func ListPrompts() []string { return listNames("prompt") }
 
-// flows := lib.ListFlows() // ["go", "php", "node", ...]
+// flows := lib.ListFlows() // ["go", "php", "release"]
 func ListFlows() []string { return listNames("flow") }
 
-// templates := lib.ListWorkspaces() // ["default", "security", ...]
+// templates := lib.ListWorkspaces() // ["default", "review", "security"]
 func ListWorkspaces() []string { return listNames("workspace") }
 
-// tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor", ...]
+// tasks := lib.ListTasks() // ["bug-fix", "code/review", "code/refactor"]
 func ListTasks() []string {
 	if result := ensureMounted(); !result.OK {
 		return nil
@@ -308,7 +308,7 @@ func ListTasks() []string {
 	return names.AsSlice()
 }
 
-// personas := lib.ListPersonas() // ["code/go", "secops/developer", ...]
+// personas := lib.ListPersonas() // ["code/backend-architect", "secops/security-developer", "testing/model-qa"]
 func ListPersonas() []string {
 	if result := ensureMounted(); !result.OK {
 		return nil
@@ -320,7 +320,7 @@ func ListPersonas() []string {
 }
 
 // names := listNamesRecursive("task", ".")
-// core.Println(names) // ["code/review", "code/refactor", ...]
+// core.Println(names) // ["bug-fix", "code/review", "code/refactor"]
 func listNamesRecursive(mount, dir string) []string {
 	if result := ensureMounted(); !result.OK {
 		return nil

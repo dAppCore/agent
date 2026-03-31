@@ -15,7 +15,7 @@ type applicationCommandSet struct {
 }
 
 // args := startupArgs()
-// _ = c.Cli().Run(args...)
+// _ = c.Cli().Run("version")
 func startupArgs() []string {
 	previous := flag.CommandLine
 	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)

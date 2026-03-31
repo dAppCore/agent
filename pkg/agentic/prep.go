@@ -74,7 +74,7 @@ func NewPrep() *PrepSubsystem {
 }
 
 // c.Action("agentic.dispatch").Run(ctx, options)
-// c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
+// c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", "agentic.verify"]
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
@@ -142,7 +142,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.persona", s.handlePersona).Description = "Read a persona by path"
 
 	c.Task("agent.completion", core.Task{
-		Description: "QA → PR → Verify → Merge",
+		Description: "QA → PR → Verify → Ingest → Poke",
 		Steps: []core.Step{
 			{Action: "agentic.qa"},
 			{Action: "agentic.auto-pr"},
@@ -152,7 +152,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		},
 	})
 
-	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify) in background"
+	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Ingest → Poke) in background"
 
 	s.hydrateWorkspaces()
 
@@ -175,7 +175,7 @@ func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 }
 
 // s.hydrateWorkspaces()
-// s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", ...]
+// s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", "ws-ready-for-review"]
 func (s *PrepSubsystem) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
@@ -200,7 +200,7 @@ func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 
 // s.Workspaces().Names()                        // all workspace names
 // s.Workspaces().List("core/*")                 // org-scoped workspaces
-// s.Workspaces().Each(func(name string, st *WorkspaceStatus) { ... })
+// s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { core.Println(name, workspaceStatus.Status) })
 func (s *PrepSubsystem) Workspaces() *core.Registry[*WorkspaceStatus] {
 	return s.workspaces
 }
