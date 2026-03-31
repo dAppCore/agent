@@ -17,14 +17,14 @@ type DispatchConfig struct {
 	WorkspaceRoot   string `yaml:"workspace_root"`
 }
 
-// rate := agentic.RateConfig{ResetUTC: "06:00", SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
+// rate := agentic.RateConfig{ResetUTC: "06:00", DailyLimit: 200, MinDelay: 15, SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
 type RateConfig struct {
-	ResetUTC       string `yaml:"reset_utc"`       // Daily quota reset time (UTC), e.g. "06:00"
-	DailyLimit     int    `yaml:"daily_limit"`     // Max requests per day (0 = unknown)
-	MinDelay       int    `yaml:"min_delay"`       // Minimum seconds between task starts
-	SustainedDelay int    `yaml:"sustained_delay"` // Delay when pacing for full-day use
-	BurstWindow    int    `yaml:"burst_window"`    // Hours before reset where burst kicks in
-	BurstDelay     int    `yaml:"burst_delay"`     // Delay during burst window
+	ResetUTC       string `yaml:"reset_utc"`
+	DailyLimit     int    `yaml:"daily_limit"`
+	MinDelay       int    `yaml:"min_delay"`
+	SustainedDelay int    `yaml:"sustained_delay"`
+	BurstWindow    int    `yaml:"burst_window"`
+	BurstDelay     int    `yaml:"burst_delay"`
 }
 
 // claude: 1                       → Total=1, Models=nil
@@ -240,12 +240,10 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 		return true
 	}
 
-	// Check pool total
 	if s.countRunningByAgent(base) >= limit.Total {
 		return false
 	}
 
-	// Check per-model limit if configured
 	if limit.Models != nil {
 		model := modelVariant(agent)
 		if model != "" {
@@ -261,7 +259,7 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 }
 
 // model := modelVariant("codex:gpt-5.4")
-// _ = model
+// core.Println(model) // "gpt-5.4"
 func modelVariant(agent string) string {
 	parts := core.SplitN(agent, ":", 2)
 	if len(parts) < 2 {
@@ -301,19 +299,16 @@ func (s *PrepSubsystem) drainOne() bool {
 			continue
 		}
 
-		// Skip if agent pool is in rate-limit backoff
 		pool := baseAgent(workspaceStatus.Agent)
 		if until, ok := s.backoff[pool]; ok && time.Now().Before(until) {
 			continue
 		}
 
-		// Apply rate delay before spawning
 		delay := s.delayForAgent(workspaceStatus.Agent)
 		if delay > 0 {
 			time.Sleep(delay)
 		}
 
-		// Re-check concurrency after delay (another task may have started)
 		if !s.canDispatchAgent(workspaceStatus.Agent) {
 			continue
 		}

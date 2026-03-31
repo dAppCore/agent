@@ -58,9 +58,8 @@ func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.
 	return core.Result{Value: pid, OK: true}
 }
 
-// resolveWorkspace converts a workspace name back to the full path.
-//
-//	resolveWorkspace("core/go-io/task-5") → "/Users/snider/Code/.core/workspace/core/go-io/task-5"
+// workspaceDir := resolveWorkspace("core/go-io/task-5")
+// core.Println(workspaceDir) // "/srv/.core/workspace/core/go-io/task-5"
 func resolveWorkspace(name string) string {
 	workspaceRoot := WorkspaceRoot()
 	path := core.JoinPath(workspaceRoot, name)
