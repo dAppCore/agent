@@ -135,3 +135,135 @@ func TestActions_HandleWorkspaceQuery_Bad(t *testing.T) {
 	assert.False(t, r.OK)
 	assert.Nil(t, r.Value)
 }
+
+func TestActions_DispatchInputFromOptions_Good_MapsRFCFields(t *testing.T) {
+	input := dispatchInputFromOptions(core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "org", Value: "core"},
+		core.Option{Key: "task", Value: "Fix the failing tests"},
+		core.Option{Key: "agent", Value: "codex:gpt-5.4"},
+		core.Option{Key: "template", Value: "coding"},
+		core.Option{Key: "plan_template", Value: "bug-fix"},
+		core.Option{Key: "variables", Value: map[string]any{"ISSUE": 42, "MODE": "deep"}},
+		core.Option{Key: "persona", Value: "code/reviewer"},
+		core.Option{Key: "issue", Value: "42"},
+		core.Option{Key: "pr", Value: 7},
+		core.Option{Key: "branch", Value: "agent/fix-tests"},
+		core.Option{Key: "tag", Value: "v0.8.0"},
+		core.Option{Key: "dry-run", Value: "true"},
+	))
+
+	assert.Equal(t, "go-io", input.Repo)
+	assert.Equal(t, "core", input.Org)
+	assert.Equal(t, "Fix the failing tests", input.Task)
+	assert.Equal(t, "codex:gpt-5.4", input.Agent)
+	assert.Equal(t, "coding", input.Template)
+	assert.Equal(t, "bug-fix", input.PlanTemplate)
+	assert.Equal(t, map[string]string{"ISSUE": "42", "MODE": "deep"}, input.Variables)
+	assert.Equal(t, "code/reviewer", input.Persona)
+	assert.Equal(t, 42, input.Issue)
+	assert.Equal(t, 7, input.PR)
+	assert.Equal(t, "agent/fix-tests", input.Branch)
+	assert.Equal(t, "v0.8.0", input.Tag)
+	assert.True(t, input.DryRun)
+}
+
+func TestActions_PrepInputFromOptions_Good_MapsRFCFields(t *testing.T) {
+	input := prepInputFromOptions(core.NewOptions(
+		core.Option{Key: "repo", Value: "go-scm"},
+		core.Option{Key: "org", Value: "core"},
+		core.Option{Key: "task", Value: "Prepare release branch"},
+		core.Option{Key: "agent", Value: "claude"},
+		core.Option{Key: "issue", Value: 12},
+		core.Option{Key: "branch", Value: "dev"},
+		core.Option{Key: "template", Value: "security"},
+		core.Option{Key: "plan-template", Value: "release"},
+		core.Option{Key: "variables", Value: "{\"REPO\":\"go-scm\",\"MODE\":\"resume\"}"},
+		core.Option{Key: "persona", Value: "code/security"},
+		core.Option{Key: "dry_run", Value: true},
+	))
+
+	assert.Equal(t, "go-scm", input.Repo)
+	assert.Equal(t, "core", input.Org)
+	assert.Equal(t, "Prepare release branch", input.Task)
+	assert.Equal(t, "claude", input.Agent)
+	assert.Equal(t, 12, input.Issue)
+	assert.Equal(t, "dev", input.Branch)
+	assert.Equal(t, "security", input.Template)
+	assert.Equal(t, "release", input.PlanTemplate)
+	assert.Equal(t, map[string]string{"REPO": "go-scm", "MODE": "resume"}, input.Variables)
+	assert.Equal(t, "code/security", input.Persona)
+	assert.True(t, input.DryRun)
+}
+
+func TestActions_WatchInputFromOptions_Good_ParsesWorkspaceList(t *testing.T) {
+	input := watchInputFromOptions(core.NewOptions(
+		core.Option{Key: "workspaces", Value: []any{"core/go-io/task-5", " core/go-scm/task-6 "}},
+		core.Option{Key: "poll-interval", Value: "15"},
+		core.Option{Key: "timeout", Value: "900"},
+	))
+
+	assert.Equal(t, []string{"core/go-io/task-5", "core/go-scm/task-6"}, input.Workspaces)
+	assert.Equal(t, 15, input.PollInterval)
+	assert.Equal(t, 900, input.Timeout)
+}
+
+func TestActions_ReviewQueueInputFromOptions_Good_MapsLocalOnly(t *testing.T) {
+	input := reviewQueueInputFromOptions(core.NewOptions(
+		core.Option{Key: "limit", Value: "4"},
+		core.Option{Key: "reviewer", Value: "both"},
+		core.Option{Key: "dry_run", Value: true},
+		core.Option{Key: "local_only", Value: "yes"},
+	))
+
+	assert.Equal(t, 4, input.Limit)
+	assert.Equal(t, "both", input.Reviewer)
+	assert.True(t, input.DryRun)
+	assert.True(t, input.LocalOnly)
+}
+
+func TestActions_EpicInputFromOptions_Good_ParsesListFields(t *testing.T) {
+	input := epicInputFromOptions(core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "org", Value: "core"},
+		core.Option{Key: "title", Value: "AX RFC follow-up"},
+		core.Option{Key: "body", Value: "Finish the remaining wrappers"},
+		core.Option{Key: "tasks", Value: "[\"Map action inputs\",\"Add tests\"]"},
+		core.Option{Key: "labels", Value: "agentic, ax"},
+		core.Option{Key: "dispatch", Value: "true"},
+		core.Option{Key: "agent", Value: "codex"},
+		core.Option{Key: "template", Value: "coding"},
+	))
+
+	assert.Equal(t, "go-io", input.Repo)
+	assert.Equal(t, "core", input.Org)
+	assert.Equal(t, "AX RFC follow-up", input.Title)
+	assert.Equal(t, "Finish the remaining wrappers", input.Body)
+	assert.Equal(t, []string{"Map action inputs", "Add tests"}, input.Tasks)
+	assert.Equal(t, []string{"agentic", "ax"}, input.Labels)
+	assert.True(t, input.Dispatch)
+	assert.Equal(t, "codex", input.Agent)
+	assert.Equal(t, "coding", input.Template)
+}
+
+func TestActions_NormaliseForgeActionOptions_Good_MapsRepoAndNumber(t *testing.T) {
+	options := normaliseForgeActionOptions(core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "number", Value: 12},
+		core.Option{Key: "title", Value: "Fix watcher"},
+	))
+
+	assert.Equal(t, "go-io", options.String("_arg"))
+	assert.Equal(t, "12", options.String("number"))
+	assert.Equal(t, "Fix watcher", options.String("title"))
+}
+
+func TestActions_OptionHelpers_Ugly_IgnoreMalformedMapJSON(t *testing.T) {
+	input := dispatchInputFromOptions(core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "task", Value: "Review"},
+		core.Option{Key: "variables", Value: "{\"BROKEN\""},
+	))
+
+	assert.Nil(t, input.Variables)
+}

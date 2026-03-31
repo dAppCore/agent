@@ -20,12 +20,7 @@ import (
 //
 // ))
 func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options) core.Result {
-	input := DispatchInput{
-		Repo:  options.String("repo"),
-		Task:  options.String("task"),
-		Agent: options.String("agent"),
-		Issue: options.Int("issue"),
-	}
+	input := dispatchInputFromOptions(options)
 	_, out, err := s.dispatch(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -40,11 +35,7 @@ func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options
 //
 // ))
 func (s *PrepSubsystem) handlePrep(ctx context.Context, options core.Options) core.Result {
-	input := PrepInput{
-		Repo:  options.String("repo"),
-		Org:   options.String("org"),
-		Issue: options.Int("issue"),
-	}
+	input := prepInputFromOptions(options)
 	_, out, err := s.prepWorkspace(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -72,10 +63,7 @@ func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) 
 //
 // ))
 func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) core.Result {
-	input := ResumeInput{
-		Workspace: options.String("workspace"),
-		Answer:    options.String("answer"),
-	}
+	input := resumeInputFromOptions(options)
 	_, out, err := s.resume(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -85,10 +73,7 @@ func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) 
 
 // result := c.Action("agentic.scan").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) core.Result {
-	input := ScanInput{
-		Org:   options.String("org"),
-		Limit: options.Int("limit"),
-	}
+	input := scanInputFromOptions(options)
 	_, out, err := s.scan(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -102,13 +87,7 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) co
 //
 // ))
 func (s *PrepSubsystem) handleWatch(ctx context.Context, options core.Options) core.Result {
-	input := WatchInput{
-		PollInterval: options.Int("poll_interval"),
-		Timeout:      options.Int("timeout"),
-	}
-	if workspace := options.String("workspace"); workspace != "" {
-		input.Workspaces = []string{workspace}
-	}
+	input := watchInputFromOptions(options)
 	_, out, err := s.watch(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -298,9 +277,7 @@ func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Res
 //
 // ))
 func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) core.Result {
-	input := MirrorInput{
-		Repo: options.String("repo"),
-	}
+	input := mirrorInputFromOptions(options)
 	_, out, err := s.mirror(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -315,7 +292,7 @@ func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) 
 //
 // ))
 func (s *PrepSubsystem) handleIssueGet(ctx context.Context, options core.Options) core.Result {
-	return s.cmdIssueGet(options)
+	return s.cmdIssueGet(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.issue.list").Run(ctx, core.NewOptions(
@@ -324,7 +301,7 @@ func (s *PrepSubsystem) handleIssueGet(ctx context.Context, options core.Options
 //
 // ))
 func (s *PrepSubsystem) handleIssueList(ctx context.Context, options core.Options) core.Result {
-	return s.cmdIssueList(options)
+	return s.cmdIssueList(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.issue.create").Run(ctx, core.NewOptions(
@@ -334,7 +311,7 @@ func (s *PrepSubsystem) handleIssueList(ctx context.Context, options core.Option
 //
 // ))
 func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, options core.Options) core.Result {
-	return s.cmdIssueCreate(options)
+	return s.cmdIssueCreate(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.pr.get").Run(ctx, core.NewOptions(
@@ -344,7 +321,7 @@ func (s *PrepSubsystem) handleIssueCreate(ctx context.Context, options core.Opti
 //
 // ))
 func (s *PrepSubsystem) handlePRGet(ctx context.Context, options core.Options) core.Result {
-	return s.cmdPRGet(options)
+	return s.cmdPRGet(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.pr.list").Run(ctx, core.NewOptions(
@@ -353,7 +330,7 @@ func (s *PrepSubsystem) handlePRGet(ctx context.Context, options core.Options) c
 //
 // ))
 func (s *PrepSubsystem) handlePRList(ctx context.Context, options core.Options) core.Result {
-	return s.cmdPRList(options)
+	return s.cmdPRList(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.pr.merge").Run(ctx, core.NewOptions(
@@ -363,7 +340,7 @@ func (s *PrepSubsystem) handlePRList(ctx context.Context, options core.Options) 
 //
 // ))
 func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options) core.Result {
-	return s.cmdPRMerge(options)
+	return s.cmdPRMerge(normaliseForgeActionOptions(options))
 }
 
 // result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
@@ -372,11 +349,7 @@ func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options)
 //
 // ))
 func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Options) core.Result {
-	input := ReviewQueueInput{
-		Limit:    options.Int("limit"),
-		Reviewer: options.String("reviewer"),
-		DryRun:   options.Bool("dry_run"),
-	}
+	input := reviewQueueInputFromOptions(options)
 	_, out, err := s.reviewQueue(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -390,17 +363,307 @@ func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Opti
 //
 // ))
 func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) core.Result {
-	input := EpicInput{
-		Repo:  options.String("repo"),
-		Org:   options.String("org"),
-		Title: options.String("title"),
-		Body:  options.String("body"),
-	}
+	input := epicInputFromOptions(options)
 	_, out, err := s.createEpic(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
 	return core.Result{Value: out, OK: true}
+}
+
+func dispatchInputFromOptions(options core.Options) DispatchInput {
+	return DispatchInput{
+		Repo:         optionStringValue(options, "repo"),
+		Org:          optionStringValue(options, "org"),
+		Task:         optionStringValue(options, "task"),
+		Agent:        optionStringValue(options, "agent"),
+		Template:     optionStringValue(options, "template"),
+		PlanTemplate: optionStringValue(options, "plan_template", "plan-template"),
+		Variables:    optionStringMapValue(options, "variables"),
+		Persona:      optionStringValue(options, "persona"),
+		Issue:        optionIntValue(options, "issue"),
+		PR:           optionIntValue(options, "pr"),
+		Branch:       optionStringValue(options, "branch"),
+		Tag:          optionStringValue(options, "tag"),
+		DryRun:       optionBoolValue(options, "dry_run", "dry-run"),
+	}
+}
+
+func prepInputFromOptions(options core.Options) PrepInput {
+	return PrepInput{
+		Repo:         optionStringValue(options, "repo"),
+		Org:          optionStringValue(options, "org"),
+		Task:         optionStringValue(options, "task"),
+		Agent:        optionStringValue(options, "agent"),
+		Issue:        optionIntValue(options, "issue"),
+		PR:           optionIntValue(options, "pr"),
+		Branch:       optionStringValue(options, "branch"),
+		Tag:          optionStringValue(options, "tag"),
+		Template:     optionStringValue(options, "template"),
+		PlanTemplate: optionStringValue(options, "plan_template", "plan-template"),
+		Variables:    optionStringMapValue(options, "variables"),
+		Persona:      optionStringValue(options, "persona"),
+		DryRun:       optionBoolValue(options, "dry_run", "dry-run"),
+	}
+}
+
+func resumeInputFromOptions(options core.Options) ResumeInput {
+	return ResumeInput{
+		Workspace: optionStringValue(options, "workspace"),
+		Answer:    optionStringValue(options, "answer"),
+		Agent:     optionStringValue(options, "agent"),
+		DryRun:    optionBoolValue(options, "dry_run", "dry-run"),
+	}
+}
+
+func scanInputFromOptions(options core.Options) ScanInput {
+	return ScanInput{
+		Org:    optionStringValue(options, "org"),
+		Labels: optionStringSliceValue(options, "labels"),
+		Limit:  optionIntValue(options, "limit"),
+	}
+}
+
+func watchInputFromOptions(options core.Options) WatchInput {
+	workspaces := optionStringSliceValue(options, "workspaces")
+	if len(workspaces) == 0 {
+		if workspace := optionStringValue(options, "workspace"); workspace != "" {
+			workspaces = []string{workspace}
+		}
+	}
+	return WatchInput{
+		Workspaces:   workspaces,
+		PollInterval: optionIntValue(options, "poll_interval", "poll-interval"),
+		Timeout:      optionIntValue(options, "timeout"),
+	}
+}
+
+func mirrorInputFromOptions(options core.Options) MirrorInput {
+	return MirrorInput{
+		Repo:     optionStringValue(options, "repo"),
+		DryRun:   optionBoolValue(options, "dry_run", "dry-run"),
+		MaxFiles: optionIntValue(options, "max_files", "max-files"),
+	}
+}
+
+func reviewQueueInputFromOptions(options core.Options) ReviewQueueInput {
+	return ReviewQueueInput{
+		Limit:     optionIntValue(options, "limit"),
+		Reviewer:  optionStringValue(options, "reviewer"),
+		DryRun:    optionBoolValue(options, "dry_run", "dry-run"),
+		LocalOnly: optionBoolValue(options, "local_only", "local-only"),
+	}
+}
+
+func epicInputFromOptions(options core.Options) EpicInput {
+	return EpicInput{
+		Repo:     optionStringValue(options, "repo"),
+		Org:      optionStringValue(options, "org"),
+		Title:    optionStringValue(options, "title"),
+		Body:     optionStringValue(options, "body"),
+		Tasks:    optionStringSliceValue(options, "tasks"),
+		Labels:   optionStringSliceValue(options, "labels"),
+		Dispatch: optionBoolValue(options, "dispatch"),
+		Agent:    optionStringValue(options, "agent"),
+		Template: optionStringValue(options, "template"),
+	}
+}
+
+func normaliseForgeActionOptions(options core.Options) core.Options {
+	normalised := core.NewOptions(options.Items()...)
+	if normalised.String("_arg") == "" {
+		if repo := optionStringValue(options, "repo"); repo != "" {
+			normalised.Set("_arg", repo)
+		}
+	}
+	if number := optionStringValue(options, "number"); number != "" {
+		normalised.Set("number", number)
+	}
+	return normalised
+}
+
+func optionStringValue(options core.Options, keys ...string) string {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		if value := stringValue(result.Value); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func optionIntValue(options core.Options, keys ...string) int {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		switch value := result.Value.(type) {
+		case int:
+			return value
+		case int64:
+			return int(value)
+		case float64:
+			return int(value)
+		case string:
+			parsed := parseInt(value)
+			if parsed != 0 || core.Trim(value) == "0" {
+				return parsed
+			}
+			return parseIntString(value)
+		}
+	}
+	return 0
+}
+
+func optionBoolValue(options core.Options, keys ...string) bool {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		switch value := result.Value.(type) {
+		case bool:
+			return value
+		case string:
+			switch core.Lower(core.Trim(value)) {
+			case "1", "true", "yes", "on":
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func optionStringSliceValue(options core.Options, keys ...string) []string {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		values := stringSliceValue(result.Value)
+		if len(values) > 0 {
+			return values
+		}
+	}
+	return nil
+}
+
+func optionStringMapValue(options core.Options, keys ...string) map[string]string {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		values := stringMapValue(result.Value)
+		if len(values) > 0 {
+			return values
+		}
+	}
+	return nil
+}
+
+func stringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case int:
+		return core.Sprint(typed)
+	case int64:
+		return core.Sprint(typed)
+	case float64:
+		return core.Sprint(int(typed))
+	case bool:
+		return core.Sprint(typed)
+	}
+	return ""
+}
+
+func stringSliceValue(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return cleanStrings(typed)
+	case []any:
+		var values []string
+		for _, item := range typed {
+			if text := stringValue(item); text != "" {
+				values = append(values, text)
+			}
+		}
+		return cleanStrings(values)
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "[") {
+			var values []string
+			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
+				return cleanStrings(values)
+			}
+			var generic []any
+			if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+				return stringSliceValue(generic)
+			}
+		}
+		return cleanStrings(core.Split(trimmed, ","))
+	default:
+		if text := stringValue(value); text != "" {
+			return []string{text}
+		}
+	}
+	return nil
+}
+
+func stringMapValue(value any) map[string]string {
+	switch typed := value.(type) {
+	case map[string]string:
+		out := make(map[string]string, len(typed))
+		for key, val := range typed {
+			if text := core.Trim(val); text != "" {
+				out[key] = text
+			}
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]string, len(typed))
+		for key, val := range typed {
+			if text := stringValue(val); text != "" {
+				out[key] = text
+			}
+		}
+		return out
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "{") {
+			var values map[string]string
+			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
+				return stringMapValue(values)
+			}
+			var generic map[string]any
+			if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+				return stringMapValue(generic)
+			}
+		}
+	}
+	return nil
+}
+
+func cleanStrings(values []string) []string {
+	var cleaned []string
+	for _, value := range values {
+		trimmed := core.Trim(value)
+		if trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	return cleaned
 }
 
 // result := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-42"})
