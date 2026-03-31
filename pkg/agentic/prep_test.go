@@ -431,6 +431,22 @@ func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 	assert.True(t, s.OnStartup(context.Background()).OK)
 }
 
+func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("plan.create").Exists())
+	assert.True(t, c.Action("plan.read").Exists())
+	assert.True(t, c.Action("plan.update").Exists())
+	assert.True(t, c.Action("plan.delete").Exists())
+	assert.True(t, c.Action("plan.list").Exists())
+}
+
 func TestPrep_OnStartup_Bad(t *testing.T) {
 	// OnStartup with nil ServiceRuntime — panics because
 	// registerCommands calls s.Core().Command().

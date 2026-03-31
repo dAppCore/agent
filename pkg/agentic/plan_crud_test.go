@@ -329,6 +329,67 @@ func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 	assert.Equal(t, 2, out.Count)
 }
 
+func TestPlan_HandlePlanCreate_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	result := s.handlePlanCreate(context.Background(), core.NewOptions(
+		core.Option{Key: "title", Value: "Named plan action"},
+		core.Option{Key: "objective", Value: "Expose plan CRUD as named actions"},
+		core.Option{Key: "repo", Value: "agent"},
+		core.Option{Key: "phases", Value: []any{
+			map[string]any{
+				"name":     "Register actions",
+				"criteria": []any{"plan.create exists", "tests cover handlers"},
+				"tests":    2,
+			},
+		}},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(PlanCreateOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assertCoreIDFormat(t, output.ID)
+
+	read, err := readPlan(PlansRoot(), output.ID)
+	require.NoError(t, err)
+	require.Len(t, read.Phases, 1)
+	assert.Equal(t, "Register actions", read.Phases[0].Name)
+	assert.Equal(t, []string{"plan.create exists", "tests cover handlers"}, read.Phases[0].Criteria)
+	assert.Equal(t, 2, read.Phases[0].Tests)
+}
+
+func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Update via action",
+		Objective: "Parse phase JSON from action options",
+	})
+	require.NoError(t, err)
+
+	result := s.handlePlanUpdate(context.Background(), core.NewOptions(
+		core.Option{Key: "id", Value: created.ID},
+		core.Option{Key: "status", Value: "ready"},
+		core.Option{Key: "agent", Value: "codex"},
+		core.Option{Key: "phases", Value: `[{"number":1,"name":"Review drift","status":"pending","criteria":["actions registered"]}]`},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(PlanUpdateOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, "ready", output.Plan.Status)
+	assert.Equal(t, "codex", output.Plan.Agent)
+	require.Len(t, output.Plan.Phases, 1)
+	assert.Equal(t, "Review drift", output.Plan.Phases[0].Name)
+	assert.Equal(t, []string{"actions registered"}, output.Plan.Phases[0].Criteria)
+}
+
 func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)

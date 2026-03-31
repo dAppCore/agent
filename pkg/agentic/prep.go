@@ -153,6 +153,11 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
 	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
+	c.Action("plan.create", s.handlePlanCreate).Description = "Create a structured implementation plan"
+	c.Action("plan.read", s.handlePlanRead).Description = "Read an implementation plan by ID"
+	c.Action("plan.update", s.handlePlanUpdate).Description = "Update plan status, phases, notes, or agent assignment"
+	c.Action("plan.delete", s.handlePlanDelete).Description = "Delete an implementation plan by ID"
+	c.Action("plan.list", s.handlePlanList).Description = "List implementation plans with optional filters"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
