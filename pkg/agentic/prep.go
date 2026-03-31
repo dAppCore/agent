@@ -183,6 +183,14 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("session.list", s.handleSessionList).Description = "List sessions with optional plan or status filters"
 	c.Action("session.continue", s.handleSessionContinue).Description = "Continue a session from its latest saved context"
 	c.Action("session.end", s.handleSessionEnd).Description = "End a session with status and summary"
+	c.Action("session.log", s.handleSessionLog).Description = "Append a typed work-log entry to a stored session"
+	c.Action("session.artifact", s.handleSessionArtifact).Description = "Record a created, modified, deleted, or reviewed artifact for a session"
+	c.Action("session.handoff", s.handleSessionHandoff).Description = "Pause a session with handoff notes for the next agent"
+	c.Action("session.resume", s.handleSessionResume).Description = "Resume a paused or handed-off session from local cache"
+	c.Action("session.replay", s.handleSessionReplay).Description = "Build replay context for a session from work logs and artifacts"
+	c.Action("state.set", s.handleStateSet).Description = "Store shared plan state for later sessions"
+	c.Action("state.get", s.handleStateGet).Description = "Read shared plan state by key"
+	c.Action("state.list", s.handleStateList).Description = "List shared plan state for a plan"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
@@ -286,6 +294,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerReviewQueueTool(server)
 	s.registerShutdownTools(server)
 	s.registerSessionTools(server)
+	s.registerStateTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",

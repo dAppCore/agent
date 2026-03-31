@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"time"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -73,6 +74,75 @@ type SessionListOutput struct {
 	Success  bool      `json:"success"`
 	Count    int       `json:"count"`
 	Sessions []Session `json:"sessions"`
+}
+
+// input := agentic.SessionLogInput{SessionID: "ses_abc123", Message: "Checked build", Type: "checkpoint"}
+type SessionLogInput struct {
+	SessionID string         `json:"session_id"`
+	Message   string         `json:"message"`
+	Type      string         `json:"type,omitempty"`
+	Data      map[string]any `json:"data,omitempty"`
+}
+
+// out := agentic.SessionLogOutput{Success: true, Logged: "Checked build"}
+type SessionLogOutput struct {
+	Success bool   `json:"success"`
+	Logged  string `json:"logged"`
+}
+
+// input := agentic.SessionArtifactInput{SessionID: "ses_abc123", Path: "pkg/agentic/session.go", Action: "modified"}
+type SessionArtifactInput struct {
+	SessionID   string         `json:"session_id"`
+	Path        string         `json:"path"`
+	Action      string         `json:"action"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	Description string         `json:"description,omitempty"`
+}
+
+// out := agentic.SessionArtifactOutput{Success: true, Artifact: "pkg/agentic/session.go"}
+type SessionArtifactOutput struct {
+	Success  bool   `json:"success"`
+	Artifact string `json:"artifact"`
+}
+
+// input := agentic.SessionHandoffInput{SessionID: "ses_abc123", Summary: "Ready for review"}
+type SessionHandoffInput struct {
+	SessionID      string         `json:"session_id"`
+	Summary        string         `json:"summary"`
+	NextSteps      []string       `json:"next_steps,omitempty"`
+	Blockers       []string       `json:"blockers,omitempty"`
+	ContextForNext map[string]any `json:"context_for_next,omitempty"`
+}
+
+// out := agentic.SessionHandoffOutput{Success: true}
+type SessionHandoffOutput struct {
+	Success        bool           `json:"success"`
+	HandoffContext map[string]any `json:"handoff_context"`
+}
+
+// input := agentic.SessionResumeInput{SessionID: "ses_abc123"}
+type SessionResumeInput struct {
+	SessionID string `json:"session_id"`
+}
+
+// out := agentic.SessionResumeOutput{Success: true, Session: agentic.Session{SessionID: "ses_abc123"}}
+type SessionResumeOutput struct {
+	Success        bool             `json:"success"`
+	Session        Session          `json:"session"`
+	HandoffContext map[string]any   `json:"handoff_context,omitempty"`
+	RecentActions  []map[string]any `json:"recent_actions,omitempty"`
+	Artifacts      []map[string]any `json:"artifacts,omitempty"`
+}
+
+// input := agentic.SessionReplayInput{SessionID: "ses_abc123"}
+type SessionReplayInput struct {
+	SessionID string `json:"session_id"`
+}
+
+// out := agentic.SessionReplayOutput{Success: true}
+type SessionReplayOutput struct {
+	Success       bool           `json:"success"`
+	ReplayContext map[string]any `json:"replay_context"`
 }
 
 // result := c.Action("session.start").Run(ctx, core.NewOptions(
@@ -145,6 +215,87 @@ func (s *PrepSubsystem) handleSessionEnd(ctx context.Context, options core.Optio
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Action("session.log").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "session_id", Value: "ses_abc123"},
+//	core.Option{Key: "message", Value: "Checked build"},
+//
+// ))
+func (s *PrepSubsystem) handleSessionLog(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.sessionLog(ctx, nil, SessionLogInput{
+		SessionID: optionStringValue(options, "session_id", "id", "_arg"),
+		Message:   optionStringValue(options, "message"),
+		Type:      optionStringValue(options, "type"),
+		Data:      optionAnyMapValue(options, "data"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("session.artifact").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "session_id", Value: "ses_abc123"},
+//	core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+//
+// ))
+func (s *PrepSubsystem) handleSessionArtifact(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.sessionArtifact(ctx, nil, SessionArtifactInput{
+		SessionID:   optionStringValue(options, "session_id", "id", "_arg"),
+		Path:        optionStringValue(options, "path"),
+		Action:      optionStringValue(options, "action"),
+		Metadata:    optionAnyMapValue(options, "metadata"),
+		Description: optionStringValue(options, "description"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("session.handoff").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "session_id", Value: "ses_abc123"},
+//	core.Option{Key: "summary", Value: "Ready for review"},
+//
+// ))
+func (s *PrepSubsystem) handleSessionHandoff(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.sessionHandoff(ctx, nil, SessionHandoffInput{
+		SessionID:      optionStringValue(options, "session_id", "id", "_arg"),
+		Summary:        optionStringValue(options, "summary"),
+		NextSteps:      optionStringSliceValue(options, "next_steps", "next-steps"),
+		Blockers:       optionStringSliceValue(options, "blockers"),
+		ContextForNext: optionAnyMapValue(options, "context_for_next", "context-for-next"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("session.resume").Run(ctx, core.NewOptions(core.Option{Key: "session_id", Value: "ses_abc123"}))
+func (s *PrepSubsystem) handleSessionResume(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.sessionResume(ctx, nil, SessionResumeInput{
+		SessionID: optionStringValue(options, "session_id", "id", "_arg"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("session.replay").Run(ctx, core.NewOptions(core.Option{Key: "session_id", Value: "ses_abc123"}))
+func (s *PrepSubsystem) handleSessionReplay(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.sessionReplay(ctx, nil, SessionReplayInput{
+		SessionID: optionStringValue(options, "session_id", "id", "_arg"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_start",
@@ -170,6 +321,31 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_end",
 		Description: "End a session with status, summary, and optional handoff notes.",
 	}, s.sessionEnd)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_log",
+		Description: "Add a typed work log entry to a stored session.",
+	}, s.sessionLog)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_artifact",
+		Description: "Record a created, modified, deleted, or reviewed artifact for a stored session.",
+	}, s.sessionArtifact)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_handoff",
+		Description: "Prepare a stored session for handoff and pause it with summary, blockers, and next-step context.",
+	}, s.sessionHandoff)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_resume",
+		Description: "Resume a paused or handed-off stored session and return handoff context.",
+	}, s.sessionResume)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_replay",
+		Description: "Build replay context for a stored session from its work log, checkpoints, errors, and artifacts.",
+	}, s.sessionReplay)
 }
 
 func (s *PrepSubsystem) sessionStart(ctx context.Context, _ *mcp.CallToolRequest, input SessionStartInput) (*mcp.CallToolResult, SessionOutput, error) {
@@ -194,7 +370,7 @@ func (s *PrepSubsystem) sessionStart(ctx context.Context, _ *mcp.CallToolRequest
 
 	return nil, SessionOutput{
 		Success: true,
-		Session: parseSession(sessionDataMap(result.Value.(map[string]any))),
+		Session: s.storeSession(sessionFromInput(parseSession(sessionDataMap(result.Value.(map[string]any))), input)),
 	}, nil
 }
 
@@ -211,7 +387,7 @@ func (s *PrepSubsystem) sessionGet(ctx context.Context, _ *mcp.CallToolRequest, 
 
 	return nil, SessionOutput{
 		Success: true,
-		Session: parseSession(sessionDataMap(result.Value.(map[string]any))),
+		Session: s.storeSession(parseSession(sessionDataMap(result.Value.(map[string]any)))),
 	}, nil
 }
 
@@ -228,7 +404,12 @@ func (s *PrepSubsystem) sessionList(ctx context.Context, _ *mcp.CallToolRequest,
 		return nil, SessionListOutput{}, resultErrorValue("session.list", result)
 	}
 
-	return nil, parseSessionListOutput(result.Value.(map[string]any)), nil
+	output := parseSessionListOutput(result.Value.(map[string]any))
+	for i := range output.Sessions {
+		output.Sessions[i] = s.storeSession(output.Sessions[i])
+	}
+
+	return nil, output, nil
 }
 
 func (s *PrepSubsystem) sessionContinue(ctx context.Context, _ *mcp.CallToolRequest, input SessionContinueInput) (*mcp.CallToolResult, SessionOutput, error) {
@@ -255,7 +436,7 @@ func (s *PrepSubsystem) sessionContinue(ctx context.Context, _ *mcp.CallToolRequ
 
 	return nil, SessionOutput{
 		Success: true,
-		Session: parseSession(sessionDataMap(result.Value.(map[string]any))),
+		Session: s.storeSession(parseSession(sessionDataMap(result.Value.(map[string]any)))),
 	}, nil
 }
 
@@ -283,7 +464,168 @@ func (s *PrepSubsystem) sessionEnd(ctx context.Context, _ *mcp.CallToolRequest, 
 
 	return nil, SessionOutput{
 		Success: true,
-		Session: parseSession(sessionDataMap(result.Value.(map[string]any))),
+		Session: s.storeSession(sessionEndFromInput(parseSession(sessionDataMap(result.Value.(map[string]any))), input)),
+	}, nil
+}
+
+func (s *PrepSubsystem) sessionLog(ctx context.Context, _ *mcp.CallToolRequest, input SessionLogInput) (*mcp.CallToolResult, SessionLogOutput, error) {
+	if input.SessionID == "" {
+		return nil, SessionLogOutput{}, core.E("sessionLog", "session_id is required", nil)
+	}
+	if input.Message == "" {
+		return nil, SessionLogOutput{}, core.E("sessionLog", "message is required", nil)
+	}
+
+	session, err := s.loadSession(ctx, input.SessionID)
+	if err != nil {
+		return nil, SessionLogOutput{}, err
+	}
+
+	entryType := input.Type
+	if entryType == "" {
+		entryType = "info"
+	}
+
+	entry := map[string]any{
+		"message":   input.Message,
+		"type":      entryType,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	if len(input.Data) > 0 {
+		entry["data"] = input.Data
+	}
+
+	session.WorkLog = append(session.WorkLog, entry)
+	session.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	if err := writeSessionCache(&session); err != nil {
+		return nil, SessionLogOutput{}, err
+	}
+
+	return nil, SessionLogOutput{
+		Success: true,
+		Logged:  input.Message,
+	}, nil
+}
+
+func (s *PrepSubsystem) sessionArtifact(ctx context.Context, _ *mcp.CallToolRequest, input SessionArtifactInput) (*mcp.CallToolResult, SessionArtifactOutput, error) {
+	if input.SessionID == "" {
+		return nil, SessionArtifactOutput{}, core.E("sessionArtifact", "session_id is required", nil)
+	}
+	if input.Path == "" {
+		return nil, SessionArtifactOutput{}, core.E("sessionArtifact", "path is required", nil)
+	}
+	if input.Action == "" {
+		return nil, SessionArtifactOutput{}, core.E("sessionArtifact", "action is required", nil)
+	}
+
+	session, err := s.loadSession(ctx, input.SessionID)
+	if err != nil {
+		return nil, SessionArtifactOutput{}, err
+	}
+
+	artifact := map[string]any{
+		"path":      input.Path,
+		"action":    input.Action,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	metadata := input.Metadata
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	if input.Description != "" {
+		metadata["description"] = input.Description
+	}
+	if len(metadata) > 0 {
+		artifact["metadata"] = metadata
+	}
+
+	session.Artifacts = append(session.Artifacts, artifact)
+	session.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	if err := writeSessionCache(&session); err != nil {
+		return nil, SessionArtifactOutput{}, err
+	}
+
+	return nil, SessionArtifactOutput{
+		Success:  true,
+		Artifact: input.Path,
+	}, nil
+}
+
+func (s *PrepSubsystem) sessionHandoff(ctx context.Context, _ *mcp.CallToolRequest, input SessionHandoffInput) (*mcp.CallToolResult, SessionHandoffOutput, error) {
+	if input.SessionID == "" {
+		return nil, SessionHandoffOutput{}, core.E("sessionHandoff", "session_id is required", nil)
+	}
+	if input.Summary == "" {
+		return nil, SessionHandoffOutput{}, core.E("sessionHandoff", "summary is required", nil)
+	}
+
+	session, err := s.loadSession(ctx, input.SessionID)
+	if err != nil {
+		return nil, SessionHandoffOutput{}, err
+	}
+
+	session.Handoff = map[string]any{
+		"summary":          input.Summary,
+		"next_steps":       cleanStrings(input.NextSteps),
+		"blockers":         cleanStrings(input.Blockers),
+		"context_for_next": input.ContextForNext,
+	}
+	session.Status = "paused"
+	session.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	if err := writeSessionCache(&session); err != nil {
+		return nil, SessionHandoffOutput{}, err
+	}
+
+	return nil, SessionHandoffOutput{
+		Success:        true,
+		HandoffContext: sessionHandoffContext(session),
+	}, nil
+}
+
+func (s *PrepSubsystem) sessionResume(ctx context.Context, _ *mcp.CallToolRequest, input SessionResumeInput) (*mcp.CallToolResult, SessionResumeOutput, error) {
+	if input.SessionID == "" {
+		return nil, SessionResumeOutput{}, core.E("sessionResume", "session_id is required", nil)
+	}
+
+	session, err := s.loadSession(ctx, input.SessionID)
+	if err != nil {
+		return nil, SessionResumeOutput{}, err
+	}
+
+	if session.Status == "" || session.Status == "paused" || session.Status == "handed_off" {
+		session.Status = "active"
+	}
+	session.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	if err := writeSessionCache(&session); err != nil {
+		return nil, SessionResumeOutput{}, err
+	}
+
+	return nil, SessionResumeOutput{
+		Success:        true,
+		Session:        session,
+		HandoffContext: session.Handoff,
+		RecentActions:  recentSessionActions(session.WorkLog, 20),
+		Artifacts:      session.Artifacts,
+	}, nil
+}
+
+func (s *PrepSubsystem) sessionReplay(ctx context.Context, _ *mcp.CallToolRequest, input SessionReplayInput) (*mcp.CallToolResult, SessionReplayOutput, error) {
+	if input.SessionID == "" {
+		return nil, SessionReplayOutput{}, core.E("sessionReplay", "session_id is required", nil)
+	}
+
+	session, err := s.loadSession(ctx, input.SessionID)
+	if err != nil {
+		return nil, SessionReplayOutput{}, err
+	}
+
+	return nil, SessionReplayOutput{
+		Success:       true,
+		ReplayContext: sessionReplayContext(session),
 	}, nil
 }
 
@@ -317,6 +659,313 @@ func parseSession(values map[string]any) Session {
 		UpdatedAt:      stringValue(values["updated_at"]),
 		EndedAt:        stringValue(values["ended_at"]),
 	}
+}
+
+func (s *PrepSubsystem) loadSession(ctx context.Context, sessionID string) (Session, error) {
+	if cached, err := readSessionCache(sessionID); err == nil && cached != nil {
+		return *cached, nil
+	}
+
+	_, output, err := s.sessionGet(ctx, nil, SessionGetInput{SessionID: sessionID})
+	if err != nil {
+		return Session{}, err
+	}
+
+	return output.Session, nil
+}
+
+func (s *PrepSubsystem) storeSession(session Session) Session {
+	merged, err := mergeSessionCache(session)
+	if err != nil {
+		return session
+	}
+	if err := writeSessionCache(&merged); err != nil {
+		return merged
+	}
+	return merged
+}
+
+func sessionFromInput(session Session, input SessionStartInput) Session {
+	if session.PlanSlug == "" {
+		session.PlanSlug = input.PlanSlug
+	}
+	if session.Plan == "" {
+		session.Plan = input.PlanSlug
+	}
+	if session.AgentType == "" {
+		session.AgentType = input.AgentType
+	}
+	if len(session.ContextSummary) == 0 && len(input.Context) > 0 {
+		session.ContextSummary = input.Context
+	}
+	return session
+}
+
+func sessionEndFromInput(session Session, input SessionEndInput) Session {
+	if session.SessionID == "" {
+		session.SessionID = input.SessionID
+	}
+	if session.Status == "" {
+		session.Status = input.Status
+	}
+	if session.Summary == "" {
+		session.Summary = input.Summary
+	}
+	if len(session.Handoff) == 0 && len(input.Handoff) > 0 {
+		session.Handoff = input.Handoff
+	}
+	if session.Status == "completed" || session.Status == "failed" || session.Status == "handed_off" {
+		if session.EndedAt == "" {
+			session.EndedAt = time.Now().Format(time.RFC3339)
+		}
+	}
+	return session
+}
+
+func sessionCacheRoot() string {
+	return core.JoinPath(CoreRoot(), "sessions")
+}
+
+func sessionCachePath(sessionID string) string {
+	return core.JoinPath(sessionCacheRoot(), core.Concat(core.SanitisePath(sessionID), ".json"))
+}
+
+func readSessionCache(sessionID string) (*Session, error) {
+	if sessionID == "" {
+		return nil, core.E("readSessionCache", "session_id is required", nil)
+	}
+
+	result := fs.Read(sessionCachePath(sessionID))
+	if !result.OK {
+		err, _ := result.Value.(error)
+		if err == nil {
+			return nil, core.E("readSessionCache", core.Concat("session not found: ", sessionID), nil)
+		}
+		return nil, core.E("readSessionCache", core.Concat("session not found: ", sessionID), err)
+	}
+
+	var session Session
+	if parseResult := core.JSONUnmarshalString(result.Value.(string), &session); !parseResult.OK {
+		err, _ := parseResult.Value.(error)
+		return nil, core.E("readSessionCache", "failed to parse session cache", err)
+	}
+
+	return &session, nil
+}
+
+func writeSessionCache(session *Session) error {
+	if session == nil {
+		return core.E("writeSessionCache", "session is required", nil)
+	}
+	if session.SessionID == "" {
+		return core.E("writeSessionCache", "session_id is required", nil)
+	}
+
+	now := time.Now().Format(time.RFC3339)
+	if session.CreatedAt == "" {
+		session.CreatedAt = now
+	}
+	if session.UpdatedAt == "" {
+		session.UpdatedAt = now
+	}
+
+	if ensureDirResult := fs.EnsureDir(sessionCacheRoot()); !ensureDirResult.OK {
+		err, _ := ensureDirResult.Value.(error)
+		return core.E("writeSessionCache", "failed to create session cache directory", err)
+	}
+
+	if writeResult := fs.WriteAtomic(sessionCachePath(session.SessionID), core.JSONMarshalString(session)); !writeResult.OK {
+		err, _ := writeResult.Value.(error)
+		return core.E("writeSessionCache", "failed to write session cache", err)
+	}
+
+	return nil
+}
+
+func mergeSessionCache(session Session) (Session, error) {
+	existing, err := readSessionCache(session.SessionID)
+	if err == nil && existing != nil {
+		if session.ID == 0 {
+			session.ID = existing.ID
+		}
+		if session.Plan == "" {
+			session.Plan = existing.Plan
+		}
+		if session.PlanSlug == "" {
+			session.PlanSlug = existing.PlanSlug
+		}
+		if session.AgentType == "" {
+			session.AgentType = existing.AgentType
+		}
+		if session.Status == "" {
+			session.Status = existing.Status
+		}
+		if len(session.ContextSummary) == 0 {
+			session.ContextSummary = existing.ContextSummary
+		}
+		if len(session.WorkLog) == 0 {
+			session.WorkLog = existing.WorkLog
+		}
+		if len(session.Artifacts) == 0 {
+			session.Artifacts = existing.Artifacts
+		}
+		if len(session.Handoff) == 0 {
+			session.Handoff = existing.Handoff
+		}
+		if session.Summary == "" {
+			session.Summary = existing.Summary
+		}
+		if session.CreatedAt == "" {
+			session.CreatedAt = existing.CreatedAt
+		}
+		if session.EndedAt == "" {
+			session.EndedAt = existing.EndedAt
+		}
+	}
+
+	if session.SessionID == "" {
+		return session, core.E("mergeSessionCache", "session_id is required", nil)
+	}
+
+	if session.CreatedAt == "" {
+		session.CreatedAt = time.Now().Format(time.RFC3339)
+	}
+	session.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	return session, nil
+}
+
+func sessionHandoffContext(session Session) map[string]any {
+	context := map[string]any{
+		"session_id":      session.SessionID,
+		"agent_type":      session.AgentType,
+		"context_summary": session.ContextSummary,
+		"recent_actions":  recentSessionActions(session.WorkLog, 20),
+		"artifacts":       session.Artifacts,
+		"handoff_notes":   session.Handoff,
+	}
+	if session.PlanSlug != "" || session.Plan != "" {
+		context["plan"] = map[string]any{
+			"slug": sessionPlanSlug(session),
+		}
+	}
+	if session.CreatedAt != "" {
+		context["started_at"] = session.CreatedAt
+	}
+	if session.UpdatedAt != "" {
+		context["last_active_at"] = session.UpdatedAt
+	}
+	return context
+}
+
+func sessionReplayContext(session Session) map[string]any {
+	checkpoints := filterSessionEntries(session.WorkLog, "checkpoint")
+	decisions := filterSessionEntries(session.WorkLog, "decision")
+	errors := filterSessionEntries(session.WorkLog, "error")
+	lastCheckpoint := map[string]any(nil)
+	if len(checkpoints) > 0 {
+		lastCheckpoint = checkpoints[len(checkpoints)-1]
+	}
+
+	return map[string]any{
+		"session_id":       session.SessionID,
+		"status":           session.Status,
+		"agent_type":       session.AgentType,
+		"plan":             map[string]any{"slug": sessionPlanSlug(session)},
+		"started_at":       session.CreatedAt,
+		"last_active_at":   session.UpdatedAt,
+		"context_summary":  session.ContextSummary,
+		"progress_summary": sessionProgressSummary(session.WorkLog),
+		"last_checkpoint":  lastCheckpoint,
+		"checkpoints":      checkpoints,
+		"decisions":        decisions,
+		"errors":           errors,
+		"artifacts":        session.Artifacts,
+		"artifacts_by_action": map[string]any{
+			"created":  filterArtifactsByAction(session.Artifacts, "created"),
+			"modified": filterArtifactsByAction(session.Artifacts, "modified"),
+			"deleted":  filterArtifactsByAction(session.Artifacts, "deleted"),
+			"reviewed": filterArtifactsByAction(session.Artifacts, "reviewed"),
+		},
+		"recent_actions": recentSessionActions(session.WorkLog, 20),
+		"total_actions":  len(session.WorkLog),
+		"handoff_notes":  session.Handoff,
+		"final_summary":  session.Summary,
+	}
+}
+
+func filterSessionEntries(entries []map[string]any, entryType string) []map[string]any {
+	filtered := make([]map[string]any, 0, len(entries))
+	for _, entry := range entries {
+		if stringValue(entry["type"]) == entryType {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func recentSessionActions(entries []map[string]any, limit int) []map[string]any {
+	if len(entries) == 0 || limit <= 0 {
+		return nil
+	}
+
+	recent := make([]map[string]any, 0, limit)
+	for i := len(entries) - 1; i >= 0 && len(recent) < limit; i-- {
+		recent = append(recent, entries[i])
+	}
+	return recent
+}
+
+func sessionProgressSummary(entries []map[string]any) map[string]any {
+	if len(entries) == 0 {
+		return map[string]any{
+			"completed_steps": 0,
+			"last_action":     nil,
+			"summary":         "No work recorded",
+		}
+	}
+
+	lastEntry := entries[len(entries)-1]
+	checkpointCount := len(filterSessionEntries(entries, "checkpoint"))
+	errorCount := len(filterSessionEntries(entries, "error"))
+	lastAction := stringValue(lastEntry["action"])
+	if lastAction == "" {
+		lastAction = stringValue(lastEntry["message"])
+	}
+	if lastAction == "" {
+		lastAction = "Unknown"
+	}
+
+	return map[string]any{
+		"completed_steps":  len(entries),
+		"checkpoint_count": checkpointCount,
+		"error_count":      errorCount,
+		"last_action":      lastAction,
+		"last_action_at":   stringValue(lastEntry["timestamp"]),
+		"summary": core.Sprintf(
+			"%d actions recorded, %d checkpoints, %d errors",
+			len(entries),
+			checkpointCount,
+			errorCount,
+		),
+	}
+}
+
+func filterArtifactsByAction(artifacts []map[string]any, action string) []map[string]any {
+	filtered := make([]map[string]any, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		if stringValue(artifact["action"]) == action {
+			filtered = append(filtered, artifact)
+		}
+	}
+	return filtered
+}
+
+func sessionPlanSlug(session Session) string {
+	if session.PlanSlug != "" {
+		return session.PlanSlug
+	}
+	return session.Plan
 }
 
 func parseSessionListOutput(payload map[string]any) SessionListOutput {

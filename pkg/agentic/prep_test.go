@@ -461,6 +461,14 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("session.list").Exists())
 	assert.True(t, c.Action("session.continue").Exists())
 	assert.True(t, c.Action("session.end").Exists())
+	assert.True(t, c.Action("session.log").Exists())
+	assert.True(t, c.Action("session.artifact").Exists())
+	assert.True(t, c.Action("session.handoff").Exists())
+	assert.True(t, c.Action("session.resume").Exists())
+	assert.True(t, c.Action("session.replay").Exists())
+	assert.True(t, c.Action("state.set").Exists())
+	assert.True(t, c.Action("state.get").Exists())
+	assert.True(t, c.Action("state.list").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {

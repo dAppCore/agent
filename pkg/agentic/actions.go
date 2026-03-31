@@ -566,6 +566,17 @@ func optionStringMapValue(options core.Options, keys ...string) map[string]strin
 	return nil
 }
 
+func optionAnyValue(options core.Options, keys ...string) any {
+	for _, key := range keys {
+		result := options.Get(key)
+		if !result.OK {
+			continue
+		}
+		return normaliseOptionValue(result.Value)
+	}
+	return nil
+}
+
 func stringValue(value any) string {
 	switch typed := value.(type) {
 	case string:
@@ -616,6 +627,40 @@ func stringSliceValue(value any) []string {
 		}
 	}
 	return nil
+}
+
+func normaliseOptionValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return ""
+		}
+		if core.HasPrefix(trimmed, "{") {
+			var values map[string]any
+			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
+				return values
+			}
+		}
+		if core.HasPrefix(trimmed, "[") {
+			var values []any
+			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
+				return values
+			}
+		}
+		switch core.Lower(trimmed) {
+		case "true":
+			return true
+		case "false":
+			return false
+		}
+		if parsed := parseInt(trimmed); parsed != 0 || trimmed == "0" {
+			return parsed
+		}
+		return typed
+	default:
+		return value
+	}
 }
 
 func stringMapValue(value any) map[string]string {
