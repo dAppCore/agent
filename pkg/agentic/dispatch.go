@@ -551,7 +551,6 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		Runs:      1,
 	}
 	writeStatusResult(workspaceDir, workspaceStatus)
-	// Track in runner's registry (runner owns workspace state)
 	if s.ServiceRuntime != nil {
 		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
 			runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)

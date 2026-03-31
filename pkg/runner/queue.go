@@ -228,13 +228,9 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 
-		// Ask agentic to spawn — runner owns the gate,
-		// agentic owns the actual process launch.
-		// Workspace name is relative path from workspace root (e.g. "core/go-ai/dev")
 		workspaceName := agentic.WorkspaceName(workspaceDir)
 		core.Info("drainOne: found queued workspace", "workspace", workspaceName, "agent", workspaceStatus.Agent)
 
-		// Spawn directly — agentic is a Core service, use ServiceFor to get it
 		if s.ServiceRuntime == nil {
 			continue
 		}
@@ -258,7 +254,6 @@ func (s *Service) drainOne() bool {
 			continue
 		}
 
-		// Only mark running AFTER successful spawn
 		workspaceStatus.Status = "running"
 		workspaceStatus.PID = pid
 		workspaceStatus.Runs++

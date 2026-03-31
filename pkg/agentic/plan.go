@@ -296,7 +296,6 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 			continue
 		}
 
-		// Apply filters
 		if input.Status != "" && plan.Status != input.Status {
 			continue
 		}

@@ -257,19 +257,19 @@ func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
 type PrepInput struct {
-	Repo         string            `json:"repo"`                    // required: e.g. "go-io"
-	Org          string            `json:"org,omitempty"`           // default "core"
-	Task         string            `json:"task,omitempty"`          // task description
-	Agent        string            `json:"agent,omitempty"`         // agent type
-	Issue        int               `json:"issue,omitempty"`         // Forge issue → workspace: task-{num}/
-	PR           int               `json:"pr,omitempty"`            // PR number → workspace: pr-{num}/
-	Branch       string            `json:"branch,omitempty"`        // branch → workspace: {branch}/
-	Tag          string            `json:"tag,omitempty"`           // tag → workspace: {tag}/ (immutable)
-	Template     string            `json:"template,omitempty"`      // prompt template slug
-	PlanTemplate string            `json:"plan_template,omitempty"` // plan template slug
-	Variables    map[string]string `json:"variables,omitempty"`     // template variable substitution
-	Persona      string            `json:"persona,omitempty"`       // persona slug
-	DryRun       bool              `json:"dry_run,omitempty"`       // preview without executing
+	Repo         string            `json:"repo"`
+	Org          string            `json:"org,omitempty"`
+	Task         string            `json:"task,omitempty"`
+	Agent        string            `json:"agent,omitempty"`
+	Issue        int               `json:"issue,omitempty"`
+	PR           int               `json:"pr,omitempty"`
+	Branch       string            `json:"branch,omitempty"`
+	Tag          string            `json:"tag,omitempty"`
+	Template     string            `json:"template,omitempty"`
+	PlanTemplate string            `json:"plan_template,omitempty"`
+	Variables    map[string]string `json:"variables,omitempty"`
+	Persona      string            `json:"persona,omitempty"`
+	DryRun       bool              `json:"dry_run,omitempty"`
 }
 
 // out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/core/go-io/task-15"}
@@ -343,7 +343,6 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		input.Template = "coding"
 	}
 
-	// Resolve workspace directory from identifier
 	workspaceResult := workspaceDirResult(input.Org, input.Repo, input)
 	if !workspaceResult.OK {
 		err, _ := workspaceResult.Value.(error)
@@ -361,23 +360,17 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	metaDir := workspaceMetaDir(workspaceDir)
 	out := PrepOutput{WorkspaceDir: workspaceDir, RepoDir: repoDir}
 
-	// Source repo path — org and repo were validated by workspaceDirResult.
 	repoPath := core.JoinPath(s.codePath, input.Org, input.Repo)
 	process := s.Core().Process()
 
-	// Ensure meta directory exists
 	if r := fs.EnsureDir(metaDir); !r.OK {
 		return nil, PrepOutput{}, core.E("prep", "failed to create meta dir", nil)
 	}
 
-	// Check for resume: if repo/ already has .git, pull latest instead of re-cloning
 	resumed := fs.IsDir(core.JoinPath(repoDir, ".git"))
 	out.Resumed = resumed
 
 	if resumed {
-		// Preserve the current branch on resume. Pull it only if it exists on
-		// origin; otherwise refresh the default branch refs without abandoning the
-		// workspace branch.
 		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
 		currentBranch := ""
 		if r.OK {
@@ -397,7 +390,6 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	// Extract default workspace template (go.work etc.)
 	if result := lib.ExtractWorkspace("default", workspaceDir, &lib.WorkspaceData{
 		Repo:   input.Repo,
 		Branch: "",
@@ -411,12 +403,10 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	if !resumed {
-		// Clone repo into repo/
 		if r := process.RunIn(ctx, ".", "git", "clone", repoPath, repoDir); !r.OK {
 			return nil, PrepOutput{}, core.E("prep", core.Concat("git clone failed for ", input.Repo), nil)
 		}
 
-		// Create feature branch
 		taskSlug := sanitiseBranchSlug(input.Task, 40)
 		if taskSlug == "" {
 			if input.Issue > 0 {
@@ -434,15 +424,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		out.Branch = branchName
 	} else {
-		// Resume: read branch from existing checkout
 		r := process.RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
 		if r.OK {
 			out.Branch = core.Trim(r.Value.(string))
 		}
 	}
 
-	// Overwrite CODEX.md with language-specific version if needed.
-	// The default template is Go-focused. PHP repos get CODEX-PHP.md instead.
 	lang := detectLanguage(repoPath)
 	if lang == "php" {
 		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
@@ -451,13 +438,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	// Clone workspace dependencies — Core modules needed to build the repo.
-	// Reads go.mod, finds dappco.re/go/core/* imports, clones from Forge,
-	// and updates go.work so the agent can build inside the workspace.
 	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
 
-	// Clone ecosystem docs into .core/reference/ so agents have full documentation.
-	// The docs site (core.help) has architecture guides, specs, and API references.
 	docsDir := core.JoinPath(workspaceDir, ".core", "reference", "docs")
 	if !fs.IsDir(docsDir) {
 		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
@@ -466,11 +448,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	// Copy RFC specs from plans repo into workspace specs/ folder.
-	// Maps repo name to plans directory: go-io → core/go/io/, go-process → core/go/process/, etc.
 	s.copyRepoSpecs(workspaceDir, input.Repo)
 
-	// Build the rich prompt with all context
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 
 	out.Success = true
@@ -482,27 +461,22 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	fs := (&core.Fs{}).NewUnrestricted()
 
-	// Plans repo base — look for it relative to codePath
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
 	if !fs.IsDir(plansBase) {
 		return
 	}
 
-	// Map repo name to plans directory
 	var specDir string
 	switch {
 	case core.HasPrefix(repo, "go-"):
-		// go-io → core/go/io, go-process → core/go/process
 		pkg := core.TrimPrefix(repo, "go-")
 		specDir = core.JoinPath(plansBase, "core", "go", pkg)
 	case core.HasPrefix(repo, "core-"):
-		// core-bio → core/php/bio, core-social → core/php/social
 		mod := core.TrimPrefix(repo, "core-")
 		specDir = core.JoinPath(plansBase, "core", "php", mod)
 	case repo == "go":
 		specDir = core.JoinPath(plansBase, "core", "go")
 	default:
-		// agent → core/agent, mcp → core/mcp, cli → core/go/cli, ide → core/ide
 		specDir = core.JoinPath(plansBase, "core", repo)
 	}
 
@@ -510,8 +484,6 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 		return
 	}
 
-	// Glob RFC*.md at each depth level (root, 1 deep, 2 deep, 3 deep).
-	// Preserves subdirectory structure: specDir/pkg/nested/RFC.md → specs/pkg/nested/RFC.md
 	specsDir := core.JoinPath(workspaceDir, "specs")
 	fs.EnsureDir(specsDir)
 
@@ -550,18 +522,15 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	memories := 0
 	consumers := 0
 
-	// Task
 	b.WriteString("TASK: ")
 	b.WriteString(input.Task)
 	b.WriteString("\n\n")
 
-	// Repo info
 	b.WriteString(core.Sprintf("REPO: %s/%s on branch %s\n", input.Org, input.Repo, branch))
 	b.WriteString(core.Sprintf("LANGUAGE: %s\n", detectLanguage(repoPath)))
 	b.WriteString(core.Sprintf("BUILD: %s\n", detectBuildCmd(repoPath)))
 	b.WriteString(core.Sprintf("TEST: %s\n\n", detectTestCmd(repoPath)))
 
-	// Persona
 	if input.Persona != "" {
 		if r := lib.Persona(input.Persona); r.OK {
 			b.WriteString("PERSONA:\n")
@@ -570,14 +539,12 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 		}
 	}
 
-	// Flow
 	if r := lib.Flow(detectLanguage(repoPath)); r.OK {
 		b.WriteString("WORKFLOW:\n")
 		b.WriteString(r.Value.(string))
 		b.WriteString("\n\n")
 	}
 
-	// Issue body
 	if input.Issue > 0 {
 		if body := s.getIssueBody(ctx, input.Org, input.Repo, input.Issue); body != "" {
 			b.WriteString("ISSUE:\n")
@@ -586,7 +553,6 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 		}
 	}
 
-	// Brain recall
 	if recall, count := s.brainRecall(ctx, input.Repo); recall != "" {
 		b.WriteString("CONTEXT (from OpenBrain):\n")
 		b.WriteString(recall)
@@ -594,7 +560,6 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 		memories = count
 	}
 
-	// Consumers
 	if list, count := s.findConsumersList(input.Repo); list != "" {
 		b.WriteString("CONSUMERS (modules that import this repo):\n")
 		b.WriteString(list)
@@ -602,14 +567,12 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 		consumers = count
 	}
 
-	// Recent git log
 	if log := s.getGitLog(repoPath); log != "" {
 		b.WriteString("RECENT CHANGES:\n```\n")
 		b.WriteString(log)
 		b.WriteString("```\n\n")
 	}
 
-	// Plan template
 	if input.PlanTemplate != "" {
 		if plan := s.renderPlan(input.PlanTemplate, input.Variables, input.Task); plan != "" {
 			b.WriteString("PLAN:\n")
@@ -618,7 +581,6 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 		}
 	}
 
-	// Constraints
 	b.WriteString("CONSTRAINTS:\n")
 	b.WriteString("- Read CODEX.md for coding conventions (if it exists)\n")
 	b.WriteString("- Read CLAUDE.md for project-specific instructions (if it exists)\n")

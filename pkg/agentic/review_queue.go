@@ -210,11 +210,9 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 			return result
 		}
 
-		// Save findings for agent dispatch
 		findingsFile := core.JoinPath(repoDir, ".core", "coderabbit-findings.txt")
 		fs.Write(findingsFile, output)
 
-		// Dispatch fix agent with the findings
 		task := core.Sprintf(
 			"Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. Read it, verify each finding against the code, fix what's valid. Run tests. Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
@@ -302,7 +300,7 @@ func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []
 	switch reviewer {
 	case "codex":
 		return "codex", []string{"review", "--base", "github/main"}
-	default: // coderabbit
+	default:
 		return "coderabbit", []string{"review", "--plain", "--base", "github/main", "--config", "CLAUDE.md", "--cwd", repoDir}
 	}
 }
@@ -315,10 +313,8 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	filename := core.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
 
-	// Write raw output
 	fs.Write(core.JoinPath(dataDir, filename), output)
 
-	// Append to JSONL for structured training
 	entry := map[string]string{
 		"repo":      repo,
 		"reviewer":  reviewer,

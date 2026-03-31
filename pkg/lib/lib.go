@@ -341,12 +341,10 @@ func listNamesRecursive(mount, dir string) []string {
 
 		subPath := core.JoinPath(mount, relPath)
 
-		// Try as directory — recurse if it has contents
 		if childNames := data.ListNames(subPath); childNames.OK {
 			slugs = append(slugs, listNamesRecursive(mount, relPath)...)
 		}
 
-		// Always add the slug — ListNames includes both files and dirs
 		slugs = append(slugs, relPath)
 	}
 	return slugs
