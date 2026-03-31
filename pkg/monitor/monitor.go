@@ -78,12 +78,6 @@ type Subsystem struct {
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
-// c := core.New(core.WithService(monitor.Register))
-// monitorService.SetCore(c)
-func (m *Subsystem) SetCore(coreApp *core.Core) {
-	m.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
-}
-
 func (m *Subsystem) handleAgentStarted(ev messages.AgentStarted) {
 	m.mu.Lock()
 	m.seenRunning[ev.Workspace] = true

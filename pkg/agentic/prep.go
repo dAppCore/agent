@@ -73,11 +73,6 @@ func NewPrep() *PrepSubsystem {
 	}
 }
 
-// prep.SetCore(c)
-func (s *PrepSubsystem) SetCore(c *core.Core) {
-	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
-}
-
 // c.Action("agentic.dispatch").Run(ctx, options)
 // c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", ...]
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {

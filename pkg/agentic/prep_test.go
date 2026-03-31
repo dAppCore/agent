@@ -208,15 +208,6 @@ func TestPrep_Subsystem_Good_Name(t *testing.T) {
 	assert.Equal(t, "agentic", s.Name())
 }
 
-func TestPrep_SetCore_Good(t *testing.T) {
-	s := &PrepSubsystem{}
-	assert.Nil(t, s.ServiceRuntime)
-
-	c := core.New(core.WithOption("name", "test"))
-	s.SetCore(c)
-	assert.NotNil(t, s.ServiceRuntime)
-}
-
 // --- sanitiseBranchSlug Bad/Ugly ---
 
 func TestSanitise_SanitiseBranchSlug_Bad_EmptyString(t *testing.T) {
@@ -396,29 +387,6 @@ func TestPrep_NewPrep_Ugly(t *testing.T) {
 	assert.NotNil(t, s.forge, "Forge client must not be nil")
 }
 
-// --- SetCore Bad/Ugly ---
-
-func TestPrep_SetCore_Bad(t *testing.T) {
-	// SetCore with nil — should not panic
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.NotPanics(t, func() {
-		s.SetCore(nil)
-	})
-}
-
-func TestPrep_SetCore_Ugly(t *testing.T) {
-	// SetCore twice — second overwrites first
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	c1 := core.New(core.WithOption("name", "first"))
-	c2 := core.New(core.WithOption("name", "second"))
-
-	s.SetCore(c1)
-	assert.NotNil(t, s.ServiceRuntime)
-
-	s.SetCore(c2)
-	assert.Equal(t, c2, s.Core(), "second SetCore should overwrite first")
-}
-
 // --- OnStartup Good/Bad/Ugly ---
 
 func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
@@ -429,7 +397,7 @@ func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
 
 	c := core.New(core.WithOption("name", "test"))
 	s := NewPrep()
-	s.SetCore(c)
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	assert.Nil(t, s.pokeCh, "pokeCh should be nil before OnStartup")
 
@@ -447,7 +415,7 @@ func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
 
 	c := core.New(core.WithOption("name", "test"))
 	s := NewPrep()
-	s.SetCore(c)
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	assert.True(t, s.OnStartup(context.Background()).OK)
 }
@@ -458,13 +426,13 @@ func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 
 	c := core.New(core.WithOption("name", "test"))
 	s := NewPrep()
-	s.SetCore(c)
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	assert.True(t, s.OnStartup(context.Background()).OK)
 }
 
 func TestPrep_OnStartup_Bad(t *testing.T) {
-	// OnStartup without SetCore (nil ServiceRuntime) — panics because
+	// OnStartup with nil ServiceRuntime — panics because
 	// registerCommands calls s.Core().Command().
 	s := &PrepSubsystem{
 		ServiceRuntime: nil,
@@ -484,7 +452,7 @@ func TestPrep_OnStartup_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	c := core.New(core.WithOption("name", "test"))
-	s.SetCore(c)
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	assert.NotPanics(t, func() {
 		_ = s.OnStartup(context.Background())

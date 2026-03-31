@@ -163,17 +163,6 @@ func TestMonitor_Shutdown_Good_NilCancel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// --- SetCore ---
-
-func TestMonitor_SetCore_Good_WiresServiceRuntime(t *testing.T) {
-	c := core.New()
-	mon := New()
-
-	assert.NotPanics(t, func() { mon.SetCore(c) })
-	assert.NotNil(t, mon.ServiceRuntime)
-	assert.Equal(t, c, mon.Core())
-}
-
 // --- handleAgentStarted / handleAgentCompleted ---
 
 func TestMonitor_HandleAgentStarted_Good(t *testing.T) {
