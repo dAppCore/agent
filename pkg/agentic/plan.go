@@ -246,6 +246,11 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 	}, s.planCreateCompat)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_read",
+		Description: "Read a plan using the legacy plain-name MCP alias.",
+	}, s.planRead)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_get",
 		Description: "Read a plan by slug with progress details and full phases.",
 	}, s.planGetCompat)
@@ -256,9 +261,19 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 	}, s.planListCompat)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_update",
+		Description: "Update a plan using the legacy plain-name MCP alias.",
+	}, s.planUpdate)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
 	}, s.planUpdateStatusCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_delete",
+		Description: "Delete a plan using the legacy plain-name MCP alias.",
+	}, s.planDelete)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_archive",

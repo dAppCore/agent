@@ -270,6 +270,11 @@ func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 	}, s.contentBatchGenerate)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "content_batch",
+		Description: "Generate content for a stored batch specification using the legacy MCP alias.",
+	}, s.contentBatchGenerate)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "content_brief_create",
 		Description: "Create a reusable content brief for later generation work.",
 	}, s.contentBriefCreate)
