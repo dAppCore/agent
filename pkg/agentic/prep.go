@@ -180,6 +180,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("plan.get", s.handlePlanGet).Description = "Read an implementation plan by ID or slug"
 	c.Action("plan.read", s.handlePlanRead).Description = "Read an implementation plan by ID"
 	c.Action("plan.update", s.handlePlanUpdate).Description = "Update plan status, phases, notes, or agent assignment"
+	c.Action("plan.update_status", s.handlePlanUpdateStatus).Description = "Update an implementation plan lifecycle status by slug"
 	c.Action("plan.archive", s.handlePlanArchive).Description = "Archive an implementation plan by slug"
 	c.Action("plan.delete", s.handlePlanDelete).Description = "Delete an implementation plan by ID"
 	c.Action("plan.list", s.handlePlanList).Description = "List implementation plans with optional filters"
@@ -204,6 +205,17 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("template.list", s.handleTemplateList).Description = "List available YAML plan templates"
 	c.Action("template.preview", s.handleTemplatePreview).Description = "Preview a YAML plan template with variable substitution"
 	c.Action("template.create_plan", s.handleTemplateCreatePlan).Description = "Create a stored plan from a YAML template"
+	c.Action("issue.create", s.handleIssueRecordCreate).Description = "Create a tracked platform issue"
+	c.Action("issue.get", s.handleIssueRecordGet).Description = "Read a tracked platform issue by slug"
+	c.Action("issue.list", s.handleIssueRecordList).Description = "List tracked platform issues with optional filters"
+	c.Action("issue.update", s.handleIssueRecordUpdate).Description = "Update a tracked platform issue by slug"
+	c.Action("issue.comment", s.handleIssueRecordComment).Description = "Add a comment to a tracked platform issue"
+	c.Action("issue.archive", s.handleIssueRecordArchive).Description = "Archive a tracked platform issue by slug"
+	c.Action("sprint.create", s.handleSprintCreate).Description = "Create a tracked platform sprint"
+	c.Action("sprint.get", s.handleSprintGet).Description = "Read a tracked platform sprint by slug"
+	c.Action("sprint.list", s.handleSprintList).Description = "List tracked platform sprints with optional filters"
+	c.Action("sprint.update", s.handleSprintUpdate).Description = "Update a tracked platform sprint by slug"
+	c.Action("sprint.archive", s.handleSprintArchive).Description = "Archive a tracked platform sprint by slug"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
@@ -305,12 +317,15 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerRemoteDispatchTool(server)
 	s.registerRemoteStatusTool(server)
 	s.registerReviewQueueTool(server)
+	s.registerPlatformTools(server)
 	s.registerShutdownTools(server)
 	s.registerSessionTools(server)
 	s.registerStateTools(server)
 	s.registerPhaseTools(server)
 	s.registerTaskTools(server)
 	s.registerTemplateTools(server)
+	s.registerIssueTools(server)
+	s.registerSprintTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",

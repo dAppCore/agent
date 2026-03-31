@@ -84,6 +84,18 @@ func (s *PrepSubsystem) handlePlanArchive(ctx context.Context, options core.Opti
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Action("plan.update_status").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
+func (s *PrepSubsystem) handlePlanUpdateStatus(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.planUpdateStatusCompat(ctx, nil, PlanStatusUpdateInput{
+		Slug:   optionStringValue(options, "slug", "_arg"),
+		Status: optionStringValue(options, "status"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) planCreateCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCompatibilityCreateOutput, error) {
 	_, created, err := s.planCreate(ctx, nil, input)
 	if err != nil {

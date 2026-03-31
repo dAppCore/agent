@@ -444,6 +444,7 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("plan.get").Exists())
 	assert.True(t, c.Action("plan.read").Exists())
 	assert.True(t, c.Action("plan.update").Exists())
+	assert.True(t, c.Action("plan.update_status").Exists())
 	assert.True(t, c.Action("plan.archive").Exists())
 	assert.True(t, c.Action("plan.delete").Exists())
 	assert.True(t, c.Action("plan.list").Exists())
@@ -476,6 +477,17 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("state.set").Exists())
 	assert.True(t, c.Action("state.get").Exists())
 	assert.True(t, c.Action("state.list").Exists())
+	assert.True(t, c.Action("issue.create").Exists())
+	assert.True(t, c.Action("issue.get").Exists())
+	assert.True(t, c.Action("issue.list").Exists())
+	assert.True(t, c.Action("issue.update").Exists())
+	assert.True(t, c.Action("issue.comment").Exists())
+	assert.True(t, c.Action("issue.archive").Exists())
+	assert.True(t, c.Action("sprint.create").Exists())
+	assert.True(t, c.Action("sprint.get").Exists())
+	assert.True(t, c.Action("sprint.list").Exists())
+	assert.True(t, c.Action("sprint.update").Exists())
+	assert.True(t, c.Action("sprint.archive").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
