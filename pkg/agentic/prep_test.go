@@ -441,10 +441,17 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.True(t, c.Action("plan.create").Exists())
+	assert.True(t, c.Action("plan.get").Exists())
 	assert.True(t, c.Action("plan.read").Exists())
 	assert.True(t, c.Action("plan.update").Exists())
+	assert.True(t, c.Action("plan.archive").Exists())
 	assert.True(t, c.Action("plan.delete").Exists())
 	assert.True(t, c.Action("plan.list").Exists())
+	assert.True(t, c.Action("phase.get").Exists())
+	assert.True(t, c.Action("phase.update_status").Exists())
+	assert.True(t, c.Action("phase.add_checkpoint").Exists())
+	assert.True(t, c.Action("task.update").Exists())
+	assert.True(t, c.Action("task.toggle").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {

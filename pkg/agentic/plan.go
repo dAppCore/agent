@@ -13,36 +13,61 @@ import (
 // plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "Replace raw process calls with Core.Process()"}
 // r := writePlanResult(PlansRoot(), plan)
 type Plan struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Status    string    `json:"status"`
-	Repo      string    `json:"repo,omitempty"`
-	Org       string    `json:"org,omitempty"`
-	Objective string    `json:"objective"`
-	Phases    []Phase   `json:"phases,omitempty"`
-	Notes     string    `json:"notes,omitempty"`
-	Agent     string    `json:"agent,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string         `json:"id"`
+	Slug        string         `json:"slug,omitempty"`
+	Title       string         `json:"title"`
+	Status      string         `json:"status"`
+	Repo        string         `json:"repo,omitempty"`
+	Org         string         `json:"org,omitempty"`
+	Objective   string         `json:"objective"`
+	Description string         `json:"description,omitempty"`
+	Context     map[string]any `json:"context,omitempty"`
+	Phases      []Phase        `json:"phases,omitempty"`
+	Notes       string         `json:"notes,omitempty"`
+	Agent       string         `json:"agent,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
-	Number   int      `json:"number"`
-	Name     string   `json:"name"`
-	Status   string   `json:"status"`
-	Criteria []string `json:"criteria,omitempty"`
-	Tests    int      `json:"tests,omitempty"`
-	Notes    string   `json:"notes,omitempty"`
+	Number      int               `json:"number"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Status      string            `json:"status"`
+	Criteria    []string          `json:"criteria,omitempty"`
+	Tasks       []PlanTask        `json:"tasks,omitempty"`
+	Checkpoints []PhaseCheckpoint `json:"checkpoints,omitempty"`
+	Tests       int               `json:"tests,omitempty"`
+	Notes       string            `json:"notes,omitempty"`
+}
+
+// task := agentic.PlanTask{ID: "1", Title: "Review imports", Status: "pending"}
+type PlanTask struct {
+	ID          string `json:"id,omitempty"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Notes       string `json:"notes,omitempty"`
+}
+
+// checkpoint := agentic.PhaseCheckpoint{Note: "Build passes", CreatedAt: "2026-03-31T00:00:00Z"}
+type PhaseCheckpoint struct {
+	Note      string         `json:"note"`
+	Context   map[string]any `json:"context,omitempty"`
+	CreatedAt string         `json:"created_at,omitempty"`
 }
 
 type PlanCreateInput struct {
-	Title     string  `json:"title"`
-	Objective string  `json:"objective"`
-	Repo      string  `json:"repo,omitempty"`
-	Org       string  `json:"org,omitempty"`
-	Phases    []Phase `json:"phases,omitempty"`
-	Notes     string  `json:"notes,omitempty"`
+	Title       string         `json:"title"`
+	Slug        string         `json:"slug,omitempty"`
+	Objective   string         `json:"objective,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Context     map[string]any `json:"context,omitempty"`
+	Repo        string         `json:"repo,omitempty"`
+	Org         string         `json:"org,omitempty"`
+	Phases      []Phase        `json:"phases,omitempty"`
+	Notes       string         `json:"notes,omitempty"`
 }
 
 type PlanCreateOutput struct {
@@ -52,7 +77,8 @@ type PlanCreateOutput struct {
 }
 
 type PlanReadInput struct {
-	ID string `json:"id"`
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
 }
 
 type PlanReadOutput struct {
@@ -61,13 +87,16 @@ type PlanReadOutput struct {
 }
 
 type PlanUpdateInput struct {
-	ID        string  `json:"id"`
-	Status    string  `json:"status,omitempty"`
-	Title     string  `json:"title,omitempty"`
-	Objective string  `json:"objective,omitempty"`
-	Phases    []Phase `json:"phases,omitempty"`
-	Notes     string  `json:"notes,omitempty"`
-	Agent     string  `json:"agent,omitempty"`
+	ID          string         `json:"id,omitempty"`
+	Slug        string         `json:"slug,omitempty"`
+	Status      string         `json:"status,omitempty"`
+	Title       string         `json:"title,omitempty"`
+	Objective   string         `json:"objective,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Context     map[string]any `json:"context,omitempty"`
+	Phases      []Phase        `json:"phases,omitempty"`
+	Notes       string         `json:"notes,omitempty"`
+	Agent       string         `json:"agent,omitempty"`
 }
 
 type PlanUpdateOutput struct {
@@ -76,7 +105,9 @@ type PlanUpdateOutput struct {
 }
 
 type PlanDeleteInput struct {
-	ID string `json:"id"`
+	ID     string `json:"id,omitempty"`
+	Slug   string `json:"slug,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 type PlanDeleteOutput struct {
@@ -87,6 +118,7 @@ type PlanDeleteOutput struct {
 type PlanListInput struct {
 	Status string `json:"status,omitempty"`
 	Repo   string `json:"repo,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
 }
 
 type PlanListOutput struct {
@@ -103,12 +135,15 @@ type PlanListOutput struct {
 // ))
 func (s *PrepSubsystem) handlePlanCreate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.planCreate(ctx, nil, PlanCreateInput{
-		Title:     optionStringValue(options, "title"),
-		Objective: optionStringValue(options, "objective"),
-		Repo:      optionStringValue(options, "repo"),
-		Org:       optionStringValue(options, "org"),
-		Phases:    planPhasesValue(options, "phases"),
-		Notes:     optionStringValue(options, "notes"),
+		Title:       optionStringValue(options, "title"),
+		Slug:        optionStringValue(options, "slug"),
+		Objective:   optionStringValue(options, "objective"),
+		Description: optionStringValue(options, "description"),
+		Context:     optionAnyMapValue(options, "context"),
+		Repo:        optionStringValue(options, "repo"),
+		Org:         optionStringValue(options, "org"),
+		Phases:      planPhasesValue(options, "phases"),
+		Notes:       optionStringValue(options, "notes"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -119,7 +154,8 @@ func (s *PrepSubsystem) handlePlanCreate(ctx context.Context, options core.Optio
 // result := c.Action("plan.read").Run(ctx, core.NewOptions(core.Option{Key: "id", Value: "id-42-a3f2b1"}))
 func (s *PrepSubsystem) handlePlanRead(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.planRead(ctx, nil, PlanReadInput{
-		ID: optionStringValue(options, "id"),
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -135,13 +171,16 @@ func (s *PrepSubsystem) handlePlanRead(ctx context.Context, options core.Options
 // ))
 func (s *PrepSubsystem) handlePlanUpdate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.planUpdate(ctx, nil, PlanUpdateInput{
-		ID:        optionStringValue(options, "id"),
-		Status:    optionStringValue(options, "status"),
-		Title:     optionStringValue(options, "title"),
-		Objective: optionStringValue(options, "objective"),
-		Phases:    planPhasesValue(options, "phases"),
-		Notes:     optionStringValue(options, "notes"),
-		Agent:     optionStringValue(options, "agent"),
+		ID:          optionStringValue(options, "id", "_arg"),
+		Slug:        optionStringValue(options, "slug"),
+		Status:      optionStringValue(options, "status"),
+		Title:       optionStringValue(options, "title"),
+		Objective:   optionStringValue(options, "objective"),
+		Description: optionStringValue(options, "description"),
+		Context:     optionAnyMapValue(options, "context"),
+		Phases:      planPhasesValue(options, "phases"),
+		Notes:       optionStringValue(options, "notes"),
+		Agent:       optionStringValue(options, "agent"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -152,7 +191,9 @@ func (s *PrepSubsystem) handlePlanUpdate(ctx context.Context, options core.Optio
 // result := c.Action("plan.delete").Run(ctx, core.NewOptions(core.Option{Key: "id", Value: "id-42-a3f2b1"}))
 func (s *PrepSubsystem) handlePlanDelete(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.planDelete(ctx, nil, PlanDeleteInput{
-		ID: optionStringValue(options, "id"),
+		ID:     optionStringValue(options, "id", "_arg"),
+		Slug:   optionStringValue(options, "slug"),
+		Reason: optionStringValue(options, "reason"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -165,6 +206,7 @@ func (s *PrepSubsystem) handlePlanList(ctx context.Context, options core.Options
 	_, output, err := s.planList(ctx, nil, PlanListInput{
 		Status: optionStringValue(options, "status"),
 		Repo:   optionStringValue(options, "repo"),
+		Limit:  optionIntValue(options, "limit"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -197,38 +239,66 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Name:        "agentic_plan_list",
 		Description: "List implementation plans. Supports filtering by status (draft, ready, in_progress, etc.) and repo.",
 	}, s.planList)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_create",
+		Description: "Create a plan using the slug-based compatibility surface described by the platform RFC.",
+	}, s.planCreateCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_get",
+		Description: "Read a plan by slug with progress details and full phases.",
+	}, s.planGetCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_list",
+		Description: "List plans using the compatibility surface with slug and progress summaries.",
+	}, s.planListCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_update_status",
+		Description: "Update a plan lifecycle status by slug.",
+	}, s.planUpdateStatusCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_archive",
+		Description: "Archive a plan by slug without deleting the local record.",
+	}, s.planArchiveCompat)
 }
 
 func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
 	if input.Title == "" {
 		return nil, PlanCreateOutput{}, core.E("planCreate", "title is required", nil)
 	}
-	if input.Objective == "" {
+	description := input.Description
+	if description == "" {
+		description = input.Objective
+	}
+	objective := input.Objective
+	if objective == "" {
+		objective = description
+	}
+	if objective == "" {
 		return nil, PlanCreateOutput{}, core.E("planCreate", "objective is required", nil)
 	}
 
 	id := core.ID()
 	plan := Plan{
-		ID:        id,
-		Title:     input.Title,
-		Status:    "draft",
-		Repo:      input.Repo,
-		Org:       input.Org,
-		Objective: input.Objective,
-		Phases:    input.Phases,
-		Notes:     input.Notes,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:          id,
+		Slug:        planSlugValue(input.Slug, input.Title, id),
+		Title:       input.Title,
+		Status:      "draft",
+		Repo:        input.Repo,
+		Org:         input.Org,
+		Objective:   objective,
+		Description: description,
+		Context:     input.Context,
+		Phases:      input.Phases,
+		Notes:       input.Notes,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
-
-	for i := range plan.Phases {
-		if plan.Phases[i].Status == "" {
-			plan.Phases[i].Status = "pending"
-		}
-		if plan.Phases[i].Number == 0 {
-			plan.Phases[i].Number = i + 1
-		}
-	}
+	plan = normalisePlan(plan)
 
 	writeResult := writePlanResult(PlansRoot(), &plan)
 	if !writeResult.OK {
@@ -251,11 +321,12 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
-	if input.ID == "" {
+	ref := planReference(input.ID, input.Slug)
+	if ref == "" {
 		return nil, PlanReadOutput{}, core.E("planRead", "id is required", nil)
 	}
 
-	planResult := readPlanResult(PlansRoot(), input.ID)
+	planResult := readPlanResult(PlansRoot(), ref)
 	if !planResult.OK {
 		err, _ := planResult.Value.(error)
 		if err == nil {
@@ -275,11 +346,12 @@ func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, inpu
 }
 
 func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
-	if input.ID == "" {
+	ref := planReference(input.ID, input.Slug)
+	if ref == "" {
 		return nil, PlanUpdateOutput{}, core.E("planUpdate", "id is required", nil)
 	}
 
-	planResult := readPlanResult(PlansRoot(), input.ID)
+	planResult := readPlanResult(PlansRoot(), ref)
 	if !planResult.OK {
 		err, _ := planResult.Value.(error)
 		if err == nil {
@@ -301,8 +373,23 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	if input.Title != "" {
 		plan.Title = input.Title
 	}
+	if input.Slug != "" {
+		plan.Slug = planSlugValue(input.Slug, plan.Title, plan.ID)
+	}
 	if input.Objective != "" {
 		plan.Objective = input.Objective
+		if plan.Description == "" {
+			plan.Description = input.Objective
+		}
+	}
+	if input.Description != "" {
+		plan.Description = input.Description
+		if plan.Objective == "" || input.Objective == "" {
+			plan.Objective = input.Description
+		}
+	}
+	if input.Context != nil {
+		plan.Context = input.Context
 	}
 	if input.Phases != nil {
 		plan.Phases = input.Phases
@@ -314,6 +401,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 		plan.Agent = input.Agent
 	}
 
+	*plan = normalisePlan(*plan)
 	plan.UpdatedAt = time.Now()
 
 	writeResult := writePlanResult(PlansRoot(), plan)
@@ -332,13 +420,19 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
-	if input.ID == "" {
+	ref := planReference(input.ID, input.Slug)
+	if ref == "" {
 		return nil, PlanDeleteOutput{}, core.E("planDelete", "id is required", nil)
 	}
 
-	path := planPath(PlansRoot(), input.ID)
+	plan, err := readPlan(PlansRoot(), ref)
+	if err != nil {
+		return nil, PlanDeleteOutput{}, err
+	}
+
+	path := planPath(PlansRoot(), plan.ID)
 	if !fs.Exists(path) {
-		return nil, PlanDeleteOutput{}, core.E("planDelete", core.Concat("plan not found: ", input.ID), nil)
+		return nil, PlanDeleteOutput{}, core.E("planDelete", core.Concat("plan not found: ", ref), nil)
 	}
 
 	if r := fs.Delete(path); !r.OK {
@@ -348,7 +442,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 
 	return nil, PlanDeleteOutput{
 		Success: true,
-		Deleted: input.ID,
+		Deleted: plan.ID,
 	}, nil
 }
 
@@ -381,6 +475,9 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 		}
 
 		plans = append(plans, *plan)
+		if input.Limit > 0 && len(plans) >= input.Limit {
+			break
+		}
 	}
 
 	return nil, PlanListOutput{
@@ -462,12 +559,15 @@ func phaseValue(value any) (Phase, bool) {
 		return typed, true
 	case map[string]any:
 		return Phase{
-			Number:   intValue(typed["number"]),
-			Name:     stringValue(typed["name"]),
-			Status:   stringValue(typed["status"]),
-			Criteria: stringSliceValue(typed["criteria"]),
-			Tests:    intValue(typed["tests"]),
-			Notes:    stringValue(typed["notes"]),
+			Number:      intValue(typed["number"]),
+			Name:        stringValue(typed["name"]),
+			Description: stringValue(typed["description"]),
+			Status:      stringValue(typed["status"]),
+			Criteria:    stringSliceValue(typed["criteria"]),
+			Tasks:       planTaskSliceValue(typed["tasks"]),
+			Checkpoints: phaseCheckpointSliceValue(typed["checkpoints"]),
+			Tests:       intValue(typed["tests"]),
+			Notes:       stringValue(typed["notes"]),
 		}, true
 	case map[string]string:
 		return phaseValue(anyMapValue(typed))
@@ -483,27 +583,179 @@ func phaseValue(value any) (Phase, bool) {
 	return Phase{}, false
 }
 
+func planTaskSliceValue(value any) []PlanTask {
+	switch typed := value.(type) {
+	case []PlanTask:
+		return typed
+	case []string:
+		tasks := make([]PlanTask, 0, len(typed))
+		for _, title := range cleanStrings(typed) {
+			tasks = append(tasks, PlanTask{Title: title})
+		}
+		return tasks
+	case []any:
+		tasks := make([]PlanTask, 0, len(typed))
+		for _, item := range typed {
+			if task, ok := planTaskValue(item); ok {
+				tasks = append(tasks, task)
+			}
+		}
+		return tasks
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "[") {
+			var tasks []PlanTask
+			if result := core.JSONUnmarshalString(trimmed, &tasks); result.OK {
+				return tasks
+			}
+			var generic []any
+			if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+				return planTaskSliceValue(generic)
+			}
+			var titles []string
+			if result := core.JSONUnmarshalString(trimmed, &titles); result.OK {
+				return planTaskSliceValue(titles)
+			}
+		}
+	case []map[string]any:
+		tasks := make([]PlanTask, 0, len(typed))
+		for _, item := range typed {
+			if task, ok := planTaskValue(item); ok {
+				tasks = append(tasks, task)
+			}
+		}
+		return tasks
+	}
+	if task, ok := planTaskValue(value); ok {
+		return []PlanTask{task}
+	}
+	return nil
+}
+
+func planTaskValue(value any) (PlanTask, bool) {
+	switch typed := value.(type) {
+	case PlanTask:
+		return typed, true
+	case map[string]any:
+		title := stringValue(typed["title"])
+		if title == "" {
+			title = stringValue(typed["name"])
+		}
+		return PlanTask{
+			ID:          stringValue(typed["id"]),
+			Title:       title,
+			Description: stringValue(typed["description"]),
+			Status:      stringValue(typed["status"]),
+			Notes:       stringValue(typed["notes"]),
+		}, title != ""
+	case map[string]string:
+		return planTaskValue(anyMapValue(typed))
+	case string:
+		title := core.Trim(typed)
+		if title == "" {
+			return PlanTask{}, false
+		}
+		if core.HasPrefix(title, "{") {
+			if values := anyMapValue(title); len(values) > 0 {
+				return planTaskValue(values)
+			}
+		}
+		return PlanTask{Title: title}, true
+	}
+	return PlanTask{}, false
+}
+
+func phaseCheckpointSliceValue(value any) []PhaseCheckpoint {
+	switch typed := value.(type) {
+	case []PhaseCheckpoint:
+		return typed
+	case []any:
+		checkpoints := make([]PhaseCheckpoint, 0, len(typed))
+		for _, item := range typed {
+			if checkpoint, ok := phaseCheckpointValue(item); ok {
+				checkpoints = append(checkpoints, checkpoint)
+			}
+		}
+		return checkpoints
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "[") {
+			var checkpoints []PhaseCheckpoint
+			if result := core.JSONUnmarshalString(trimmed, &checkpoints); result.OK {
+				return checkpoints
+			}
+			var generic []any
+			if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+				return phaseCheckpointSliceValue(generic)
+			}
+		}
+	case []map[string]any:
+		checkpoints := make([]PhaseCheckpoint, 0, len(typed))
+		for _, item := range typed {
+			if checkpoint, ok := phaseCheckpointValue(item); ok {
+				checkpoints = append(checkpoints, checkpoint)
+			}
+		}
+		return checkpoints
+	}
+	if checkpoint, ok := phaseCheckpointValue(value); ok {
+		return []PhaseCheckpoint{checkpoint}
+	}
+	return nil
+}
+
+func phaseCheckpointValue(value any) (PhaseCheckpoint, bool) {
+	switch typed := value.(type) {
+	case PhaseCheckpoint:
+		return typed, typed.Note != ""
+	case map[string]any:
+		note := stringValue(typed["note"])
+		return PhaseCheckpoint{
+			Note:      note,
+			Context:   anyMapValue(typed["context"]),
+			CreatedAt: stringValue(typed["created_at"]),
+		}, note != ""
+	case map[string]string:
+		return phaseCheckpointValue(anyMapValue(typed))
+	case string:
+		note := core.Trim(typed)
+		if note == "" {
+			return PhaseCheckpoint{}, false
+		}
+		if core.HasPrefix(note, "{") {
+			if values := anyMapValue(note); len(values) > 0 {
+				return phaseCheckpointValue(values)
+			}
+		}
+		return PhaseCheckpoint{Note: note}, true
+	}
+	return PhaseCheckpoint{}, false
+}
+
 // result := readPlanResult(PlansRoot(), "plan-id")
 // if result.OK { plan := result.Value.(*Plan) }
 func readPlanResult(dir, id string) core.Result {
-	r := fs.Read(planPath(dir, id))
-	if !r.OK {
-		err, _ := r.Value.(error)
-		if err == nil {
-			return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), nil), OK: false}
-		}
-		return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), err), OK: false}
+	path := planPath(dir, id)
+	r := fs.Read(path)
+	if r.OK {
+		return planFromReadResult(r, id)
 	}
 
-	var plan Plan
-	if ur := core.JSONUnmarshalString(r.Value.(string), &plan); !ur.OK {
-		err, _ := ur.Value.(error)
-		if err == nil {
-			return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", id), nil), OK: false}
-		}
-		return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", id), err), OK: false}
+	if found := findPlanBySlugResult(dir, id); found.OK {
+		return found
 	}
-	return core.Result{Value: &plan, OK: true}
+
+	err, _ := r.Value.(error)
+	if err == nil {
+		return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), nil), OK: false}
+	}
+	return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", id), err), OK: false}
 }
 
 // plan, err := readPlan(PlansRoot(), "plan-id")
@@ -529,6 +781,8 @@ func writePlanResult(dir string, plan *Plan) core.Result {
 	if plan == nil {
 		return core.Result{Value: core.E("writePlan", "plan is required", nil), OK: false}
 	}
+	normalised := normalisePlan(*plan)
+	plan = &normalised
 	if r := fs.EnsureDir(dir); !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
@@ -572,4 +826,146 @@ func validPlanStatus(status string) bool {
 		return true
 	}
 	return false
+}
+
+func normalisePlan(plan Plan) Plan {
+	if plan.Slug == "" {
+		plan.Slug = planSlugValue("", plan.Title, plan.ID)
+	}
+	if plan.Description == "" {
+		plan.Description = plan.Objective
+	}
+	if plan.Objective == "" {
+		plan.Objective = plan.Description
+	}
+	for i := range plan.Phases {
+		plan.Phases[i] = normalisePhase(plan.Phases[i], i+1)
+	}
+	return plan
+}
+
+func normalisePhase(phase Phase, number int) Phase {
+	if phase.Number == 0 {
+		phase.Number = number
+	}
+	if phase.Status == "" {
+		phase.Status = "pending"
+	}
+	for i := range phase.Tasks {
+		phase.Tasks[i] = normalisePlanTask(phase.Tasks[i], i+1)
+	}
+	for i := range phase.Checkpoints {
+		if phase.Checkpoints[i].CreatedAt == "" {
+			phase.Checkpoints[i].CreatedAt = time.Now().Format(time.RFC3339)
+		}
+	}
+	return phase
+}
+
+func normalisePlanTask(task PlanTask, index int) PlanTask {
+	if task.ID == "" {
+		task.ID = core.Sprint(index)
+	}
+	if task.Status == "" {
+		task.Status = "pending"
+	}
+	if task.Title == "" {
+		task.Title = task.Description
+	}
+	return task
+}
+
+func planReference(id, slug string) string {
+	if id != "" {
+		return id
+	}
+	return slug
+}
+
+func planFromReadResult(result core.Result, ref string) core.Result {
+	var plan Plan
+	if ur := core.JSONUnmarshalString(result.Value.(string), &plan); !ur.OK {
+		err, _ := ur.Value.(error)
+		if err == nil {
+			return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", ref), nil), OK: false}
+		}
+		return core.Result{Value: core.E("readPlan", core.Concat("failed to parse plan ", ref), err), OK: false}
+	}
+	normalised := normalisePlan(plan)
+	return core.Result{Value: &normalised, OK: true}
+}
+
+func findPlanBySlugResult(dir, slug string) core.Result {
+	ref := core.Trim(slug)
+	if ref == "" {
+		return core.Result{Value: core.E("readPlan", "plan not found: invalid", nil), OK: false}
+	}
+
+	for _, path := range core.PathGlob(core.JoinPath(dir, "*.json")) {
+		result := fs.Read(path)
+		if !result.OK {
+			continue
+		}
+		planResult := planFromReadResult(result, ref)
+		if !planResult.OK {
+			continue
+		}
+		plan, ok := planResult.Value.(*Plan)
+		if !ok || plan == nil {
+			continue
+		}
+		if plan.Slug == ref || plan.ID == ref {
+			return core.Result{Value: plan, OK: true}
+		}
+	}
+
+	return core.Result{Value: core.E("readPlan", core.Concat("plan not found: ", ref), nil), OK: false}
+}
+
+func planSlugValue(input, title, id string) string {
+	slug := cleanPlanSlug(input)
+	if slug != "" {
+		return slug
+	}
+
+	base := cleanPlanSlug(title)
+	if base == "" {
+		base = "plan"
+	}
+	suffix := planSlugSuffix(id)
+	if suffix == "" {
+		return base
+	}
+	return core.Concat(base, "-", suffix)
+}
+
+func cleanPlanSlug(value string) string {
+	slug := core.Lower(core.Trim(value))
+	if slug == "" {
+		return ""
+	}
+	for _, old := range []string{"/", "\\", "_", ".", ":", ";", ",", " ", "\t", "\n", "\r"} {
+		slug = core.Replace(slug, old, "-")
+	}
+	for core.Contains(slug, "--") {
+		slug = core.Replace(slug, "--", "-")
+	}
+	for core.HasPrefix(slug, "-") {
+		slug = slug[1:]
+	}
+	for core.HasSuffix(slug, "-") {
+		slug = slug[:len(slug)-1]
+	}
+	if slug == "" || slug == "invalid" {
+		return ""
+	}
+	return slug
+}
+
+func planSlugSuffix(id string) string {
+	parts := core.Split(id, "-")
+	if len(parts) == 0 {
+		return ""
+	}
+	return core.Trim(parts[len(parts)-1])
 }

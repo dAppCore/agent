@@ -174,10 +174,17 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
 	c.Action("plan.create", s.handlePlanCreate).Description = "Create a structured implementation plan"
+	c.Action("plan.get", s.handlePlanGet).Description = "Read an implementation plan by ID or slug"
 	c.Action("plan.read", s.handlePlanRead).Description = "Read an implementation plan by ID"
 	c.Action("plan.update", s.handlePlanUpdate).Description = "Update plan status, phases, notes, or agent assignment"
+	c.Action("plan.archive", s.handlePlanArchive).Description = "Archive an implementation plan by slug"
 	c.Action("plan.delete", s.handlePlanDelete).Description = "Delete an implementation plan by ID"
 	c.Action("plan.list", s.handlePlanList).Description = "List implementation plans with optional filters"
+	c.Action("phase.get", s.handlePhaseGet).Description = "Read a plan phase by slug and order"
+	c.Action("phase.update_status", s.handlePhaseUpdateStatus).Description = "Update plan phase status by slug and order"
+	c.Action("phase.add_checkpoint", s.handlePhaseAddCheckpoint).Description = "Append a checkpoint note to a plan phase"
+	c.Action("task.update", s.handleTaskUpdate).Description = "Update a plan task by slug, phase, and identifier"
+	c.Action("task.toggle", s.handleTaskToggle).Description = "Toggle a plan task between pending and completed"
 	c.Action("session.start", s.handleSessionStart).Description = "Start an agent session for a plan"
 	c.Action("session.get", s.handleSessionGet).Description = "Read a session by session ID"
 	c.Action("session.list", s.handleSessionList).Description = "List sessions with optional plan or status filters"
@@ -295,6 +302,8 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerShutdownTools(server)
 	s.registerSessionTools(server)
 	s.registerStateTools(server)
+	s.registerPhaseTools(server)
+	s.registerTaskTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
