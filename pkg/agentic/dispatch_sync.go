@@ -9,9 +9,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-// DispatchSyncInput is the input for a synchronous (blocking) task run.
-//
-//	input := agentic.DispatchSyncInput{Repo: "go-crypt", Agent: "codex:gpt-5.3-codex-spark", Task: "fix it", Issue: 7}
+// input := agentic.DispatchSyncInput{Repo: "go-crypt", Agent: "codex:gpt-5.3-codex-spark", Task: "fix it", Issue: 7}
 type DispatchSyncInput struct {
 	Org   string
 	Repo  string
@@ -20,10 +18,8 @@ type DispatchSyncInput struct {
 	Issue int
 }
 
-// DispatchSyncResult is the output of a synchronous task run.
-//
-//	if result.OK { core.Print(nil, "done: %s", result.Status) }
-//	if !result.OK { core.Print(nil, "%v", result.Error) }
+// if result.OK { core.Print(nil, "done: %s", result.Status) }
+// if !result.OK { core.Print(nil, "%v", result.Error) }
 type DispatchSyncResult struct {
 	OK     bool
 	Status string
@@ -31,10 +27,7 @@ type DispatchSyncResult struct {
 	PRURL  string
 }
 
-// DispatchSync preps a workspace, spawns the agent directly (no queue, no concurrency check),
-// and blocks until the agent completes.
-//
-//	result := prep.DispatchSync(ctx, input)
+// result := prep.DispatchSync(ctx, input)
 func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInput) DispatchSyncResult {
 	// Prep workspace
 	prepInput := PrepInput{

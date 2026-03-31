@@ -9,7 +9,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.EpicInput{Repo: "go-scm", Title: "Port agentic plans", Tasks: []string{"Read PHP flow", "Implement Go MCP tools"}}
 type EpicInput struct {
 	Repo     string   `json:"repo"`               // Target repo (e.g. "go-scm")
 	Org      string   `json:"org,omitempty"`      // Forge org (default "core")
@@ -22,7 +21,6 @@ type EpicInput struct {
 	Template string   `json:"template,omitempty"` // Prompt template for dispatch (default "coding")
 }
 
-// out := agentic.EpicOutput{Success: true, EpicNumber: 42, EpicURL: "https://forge.example/core/go-scm/issues/42"}
 type EpicOutput struct {
 	Success    bool       `json:"success"`
 	EpicNumber int        `json:"epic_number"`
@@ -31,7 +29,6 @@ type EpicOutput struct {
 	Dispatched int        `json:"dispatched,omitempty"`
 }
 
-// child := agentic.ChildRef{Number: 43, Title: "Implement plan list", URL: "https://forge.example/core/go-scm/issues/43"}
 type ChildRef struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`

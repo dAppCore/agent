@@ -66,8 +66,8 @@ func Register(coreApp *core.Core) core.Result {
 
 // c.Action("runner.dispatch").Run(ctx, core.NewOptions(
 //
-//	core.Option{Key: "repo", Value: "go-io"},
-//	core.Option{Key: "agent", Value: "codex"},
+// core.Option{Key: "repo", Value: "go-io"},
+// core.Option{Key: "agent", Value: "codex"},
 //
 // ))
 // c.Action("runner.status").Run(ctx, core.NewOptions())
@@ -393,9 +393,7 @@ type AgentNotification struct {
 	Limit     int    `json:"limit"`
 }
 
-// WorkspaceQuery is the QUERY type for workspace lookups.
-//
-//	result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
+// result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
 type WorkspaceQuery struct {
 	Name   string
 	Status string

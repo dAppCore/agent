@@ -12,15 +12,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// workspaceTracker is the interface runner.Service satisfies.
-// Uses *WorkspaceStatus from agentic — runner imports agentic for the type.
 type workspaceTracker interface {
 	TrackWorkspace(name string, status any)
 }
 
-// DispatchInput is the input for agentic_dispatch.
-//
-//	input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
+// input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
 type DispatchInput struct {
 	Repo         string            `json:"repo"`                    // Target repo (e.g. "go-io")
 	Org          string            `json:"org,omitempty"`           // Forge org (default "core")
@@ -37,9 +33,7 @@ type DispatchInput struct {
 	DryRun       bool              `json:"dry_run,omitempty"`       // Preview without executing
 }
 
-// DispatchOutput is the output for agentic_dispatch.
-//
-//	out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/core/go-io/task-15"}
+// out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type DispatchOutput struct {
 	Success      bool   `json:"success"`
 	Agent        string `json:"agent"`
@@ -58,7 +52,6 @@ func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
 }
 
 // command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
-// Supports model variants: "gemini", "gemini:flash", "codex", "claude", "claude:haiku".
 func agentCommand(agent, prompt string) (string, []string, error) {
 	commandResult := agentCommandResult(agent, prompt)
 	if !commandResult.OK {
@@ -157,8 +150,6 @@ func agentCommandResult(agent, prompt string) core.Result {
 	}
 }
 
-// defaultDockerImage is the container image for agent dispatch.
-// Override via AGENT_DOCKER_IMAGE env var.
 const defaultDockerImage = "core-dev"
 
 // command, args := containerCommand("local", "codex", []string{"exec", "--oss"}, "/srv/.core/workspace/core/go-io/task-5/repo", "/srv/.core/workspace/core/go-io/task-5/.meta")
@@ -248,8 +239,7 @@ func detectFinalStatus(repoDir string, exitCode int, processStatus string) (stri
 	return "completed", ""
 }
 
-// trackFailureRate detects fast consecutive failures and applies backoff.
-// Returns true if backoff was triggered.
+// backoff := s.trackFailureRate("codex", "failed", time.Now().Add(-30*time.Second))
 func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Time) bool {
 	pool := baseAgent(agent)
 	if status == "failed" {
@@ -270,7 +260,7 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 	return false
 }
 
-// startIssueTracking starts a Forge stopwatch on the workspace's issue.
+// s.startIssueTracking("/srv/.core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
@@ -287,7 +277,7 @@ func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	s.forge.Issues.StartStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
 }
 
-// stopIssueTracking stops a Forge stopwatch on the workspace's issue.
+// s.stopIssueTracking("/srv/.core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
@@ -361,10 +351,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 
 	s.broadcastComplete(agent, workspaceDir, finalStatus)
 
-	// Run completion pipeline via PerformAsync for successful agents.
-	// Gets ActionTaskStarted/Completed broadcasts + WaitGroup integration for graceful shutdown.
-	//
-	//   c.PerformAsync("agentic.complete", options) → runs agent.completion Task in background
+	// c.PerformAsync("agentic.complete", core.NewOptions(core.Option{Key: "workspace", Value: workspaceDir}))
 	if finalStatus == "completed" && s.ServiceRuntime != nil {
 		s.Core().PerformAsync("agentic.complete", core.NewOptions(
 			core.Option{Key: "workspace", Value: workspaceDir},
@@ -432,10 +419,8 @@ type completionProcess interface {
 	Output() string
 }
 
-// agentCompletionMonitor waits for a spawned process to finish, then finalises the workspace.
-//
-//	monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: workspaceDir, outputFile: outputFile, process: proc}
-//	s.Core().Action("agentic.monitor.core.go-io.task-5", monitor.run)
+// monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: workspaceDir, outputFile: outputFile, process: proc}
+// s.Core().Action("agentic.monitor.core.go-io.task-5", monitor.run)
 type agentCompletionMonitor struct {
 	service      *PrepSubsystem
 	agent        string

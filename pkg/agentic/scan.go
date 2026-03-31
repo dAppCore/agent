@@ -10,21 +10,18 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.ScanInput{Org: "core", Labels: []string{"agentic", "bug"}, Limit: 20}
 type ScanInput struct {
 	Org    string   `json:"org,omitempty"`
 	Labels []string `json:"labels,omitempty"`
 	Limit  int      `json:"limit,omitempty"`
 }
 
-// out := agentic.ScanOutput{Success: true, Count: 1, Issues: []agentic.ScanIssue{{Repo: "go-io", Number: 12}}}
 type ScanOutput struct {
 	Success bool        `json:"success"`
 	Count   int         `json:"count"`
 	Issues  []ScanIssue `json:"issues"`
 }
 
-// issue := agentic.ScanIssue{Repo: "go-io", Number: 12, Title: "Replace fmt.Errorf"}
 type ScanIssue struct {
 	Repo     string   `json:"repo"`
 	Number   int      `json:"number"`

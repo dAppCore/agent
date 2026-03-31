@@ -8,12 +8,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.RemoteStatusInput{Host: "charon"}
 type RemoteStatusInput struct {
 	Host string `json:"host"` // Remote agent host (e.g. "charon")
 }
 
-// out := agentic.RemoteStatusOutput{Success: true, Host: "charon"}
 type RemoteStatusOutput struct {
 	Success bool         `json:"success"`
 	Host    string       `json:"host"`

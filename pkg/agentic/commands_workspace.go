@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Workspace CLI commands registered by the agentic service during OnStartup.
-
 package agentic
 
 import (
@@ -10,8 +8,6 @@ import (
 	core "dappco.re/go/core"
 )
 
-// c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
-// c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c := s.Core()
 	c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
@@ -94,6 +90,7 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
+// input := DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Issue: 12}
 func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 	repo := options.String("_arg")
 	if repo == "" {
@@ -101,8 +98,6 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdWorkspaceDispatch", "repo is required", nil), OK: false}
 	}
 
-	// Call dispatch directly — CLI is an explicit user action,
-	// not gated by the frozen-queue entitlement.
 	input := DispatchInput{
 		Repo:     repo,
 		Task:     options.String("task"),

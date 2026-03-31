@@ -9,14 +9,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.MirrorInput{Repo: "go-io", DryRun: true, MaxFiles: 50}
 type MirrorInput struct {
 	Repo     string `json:"repo,omitempty"`      // Specific repo, or empty for all
 	DryRun   bool   `json:"dry_run,omitempty"`   // Preview without pushing
 	MaxFiles int    `json:"max_files,omitempty"` // Max files per PR (default 50, CodeRabbit limit)
 }
 
-// out := agentic.MirrorOutput{Success: true, Count: 1, Synced: []agentic.MirrorSync{{Repo: "go-io"}}}
 type MirrorOutput struct {
 	Success bool         `json:"success"`
 	Synced  []MirrorSync `json:"synced"`
@@ -24,7 +22,6 @@ type MirrorOutput struct {
 	Count   int          `json:"count"`
 }
 
-// sync := agentic.MirrorSync{Repo: "go-io", CommitsAhead: 3, FilesChanged: 12}
 type MirrorSync struct {
 	Repo         string `json:"repo"`
 	CommitsAhead int    `json:"commits_ahead"`

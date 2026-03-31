@@ -10,9 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// CreatePRInput is the input for agentic_create_pr.
-//
-//	input := agentic.CreatePRInput{Workspace: "core/go-io/task-42", Title: "Fix watcher panic"}
+// input := agentic.CreatePRInput{Workspace: "core/go-io/task-42", Title: "Fix watcher panic"}
 type CreatePRInput struct {
 	Workspace string `json:"workspace"`         // workspace name (e.g. "core/go-io/task-42")
 	Title     string `json:"title,omitempty"`   // PR title (default: task description)
@@ -21,9 +19,7 @@ type CreatePRInput struct {
 	DryRun    bool   `json:"dry_run,omitempty"` // preview without creating
 }
 
-// CreatePROutput is the output for agentic_create_pr.
-//
-//	out := agentic.CreatePROutput{Success: true, PRURL: "https://forge.example/core/go-io/pulls/12", PRNum: 12}
+// out := agentic.CreatePROutput{Success: true, PRURL: "https://forge.example/core/go-io/pulls/12", PRNum: 12}
 type CreatePROutput struct {
 	Success bool   `json:"success"`
 	PRURL   string `json:"pr_url,omitempty"`
@@ -177,9 +173,7 @@ func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, is
 	s.forge.Issues.CreateComment(ctx, org, repo, int64(issue), comment)
 }
 
-// ListPRsInput is the input for agentic_list_prs.
-//
-//	input := agentic.ListPRsInput{Org: "core", Repo: "go-io", State: "open", Limit: 10}
+// input := agentic.ListPRsInput{Org: "core", Repo: "go-io", State: "open", Limit: 10}
 type ListPRsInput struct {
 	Org   string `json:"org,omitempty"`   // forge org (default "core")
 	Repo  string `json:"repo,omitempty"`  // specific repo, or empty for all
@@ -187,18 +181,14 @@ type ListPRsInput struct {
 	Limit int    `json:"limit,omitempty"` // max results (default 20)
 }
 
-// ListPRsOutput is the output for agentic_list_prs.
-//
-//	out := agentic.ListPRsOutput{Success: true, Count: 2, PRs: []agentic.PRInfo{{Repo: "go-io", Number: 12}}}
+// out := agentic.ListPRsOutput{Success: true, Count: 2, PRs: []agentic.PRInfo{{Repo: "go-io", Number: 12}}}
 type ListPRsOutput struct {
 	Success bool     `json:"success"`
 	Count   int      `json:"count"`
 	PRs     []PRInfo `json:"prs"`
 }
 
-// PRInfo represents a pull request.
-//
-//	pr := agentic.PRInfo{Repo: "go-io", Number: 12, Title: "Migrate pkg/fs", Branch: "agent/migrate-fs"}
+// pr := agentic.PRInfo{Repo: "go-io", Number: 12, Title: "Migrate pkg/fs", Branch: "agent/migrate-fs"}
 type PRInfo struct {
 	Repo      string   `json:"repo"`
 	Number    int      `json:"number"`

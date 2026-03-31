@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Workspace dependency cloning.
-// Reads the repo's go.mod, finds Core ecosystem modules, clones them into
-// the workspace alongside ./repo, and builds a go.work that includes them all.
-// This gives the agent a complete, buildable workspace without needing go.work=off.
-
 package agentic
 
 import (
@@ -137,7 +132,7 @@ func parseCoreDeps(gomod string) []coreDep {
 
 // forgeSSHURL builds the Forge SSH clone URL for a repo.
 //
-//	forgeSSHURL("core", "go-io") → "ssh://git@forge.lthn.ai:2223/core/go-io.git"
+// forgeSSHURL("core", "go-io") → "ssh://git@forge.lthn.ai:2223/core/go-io.git"
 func forgeSSHURL(org, repo string) string {
 	return core.Concat("ssh://git@forge.lthn.ai:2223/", org, "/", repo, ".git")
 }

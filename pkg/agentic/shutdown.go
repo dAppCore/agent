@@ -9,10 +9,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.ShutdownInput{}
 type ShutdownInput struct{}
 
-// out := agentic.ShutdownOutput{Success: true, Running: 3, Message: "draining"}
 type ShutdownOutput struct {
 	Success bool   `json:"success"`
 	Running int    `json:"running"`

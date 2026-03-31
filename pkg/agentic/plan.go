@@ -10,10 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Plan represents an implementation plan for agent work.
-//
-//	plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "..."}
-//	r := writePlanResult(PlansRoot(), plan)
+// plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "..."}
+// r := writePlanResult(PlansRoot(), plan)
 type Plan struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
@@ -28,9 +26,7 @@ type Plan struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Phase represents a phase within an implementation plan.
-//
-//	phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
+// phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
 	Number   int      `json:"number"`
 	Name     string   `json:"name"`
@@ -40,7 +36,6 @@ type Phase struct {
 	Notes    string   `json:"notes,omitempty"`
 }
 
-// input := agentic.PlanCreateInput{Title: "Migrate pkg/agentic", Objective: "Use Core primitives everywhere"}
 type PlanCreateInput struct {
 	Title     string  `json:"title"`
 	Objective string  `json:"objective"`
@@ -50,25 +45,21 @@ type PlanCreateInput struct {
 	Notes     string  `json:"notes,omitempty"`
 }
 
-// out := agentic.PlanCreateOutput{Success: true, ID: "id-1-a3f2b1"}
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
 	Path    string `json:"path"`
 }
 
-// input := agentic.PlanReadInput{ID: "id-1-a3f2b1"}
 type PlanReadInput struct {
 	ID string `json:"id"`
 }
 
-// out := agentic.PlanReadOutput{Success: true, Plan: agentic.Plan{ID: "id-1-a3f2b1"}}
 type PlanReadOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
-// input := agentic.PlanUpdateInput{ID: "id-1-a3f2b1", Status: "verified"}
 type PlanUpdateInput struct {
 	ID        string  `json:"id"`
 	Status    string  `json:"status,omitempty"`
@@ -79,30 +70,25 @@ type PlanUpdateInput struct {
 	Agent     string  `json:"agent,omitempty"`
 }
 
-// out := agentic.PlanUpdateOutput{Success: true, Plan: agentic.Plan{Status: "verified"}}
 type PlanUpdateOutput struct {
 	Success bool `json:"success"`
 	Plan    Plan `json:"plan"`
 }
 
-// input := agentic.PlanDeleteInput{ID: "id-1-a3f2b1"}
 type PlanDeleteInput struct {
 	ID string `json:"id"`
 }
 
-// out := agentic.PlanDeleteOutput{Success: true, Deleted: "id-1-a3f2b1"}
 type PlanDeleteOutput struct {
 	Success bool   `json:"success"`
 	Deleted string `json:"deleted"`
 }
 
-// input := agentic.PlanListInput{Repo: "go-io", Status: "ready"}
 type PlanListInput struct {
 	Status string `json:"status,omitempty"`
 	Repo   string `json:"repo,omitempty"`
 }
 
-// out := agentic.PlanListOutput{Success: true, Count: 2, Plans: []agentic.Plan{{ID: "id-1-a3f2b1"}}}
 type PlanListOutput struct {
 	Success bool   `json:"success"`
 	Count   int    `json:"count"`

@@ -208,11 +208,8 @@ func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// hydrateWorkspaces scans disk and populates the workspace Registry on startup.
-// Keyed by workspace name (relative path from workspace root).
-//
-//	s.hydrateWorkspaces()
-//	s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", ...]
+// s.hydrateWorkspaces()
+// s.workspaces.Names() // ["core/go-io/task-5", "ws-blocked", ...]
 func (s *PrepSubsystem) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
@@ -509,12 +506,8 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	return nil, out, nil
 }
 
-// copyRepoSpecs copies RFC spec files from the plans repo into the workspace specs/ folder.
-// Maps repo name to plans directory: go-io → core/go/io, agent → core/agent, core-bio → core/php/bio.
-// Preserves subdirectory structure so sub-package specs land in specs/{pkg}/RFC.md.
-//
-//	s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
-//	s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
+// s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
+// s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
 func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	fs := (&core.Fs{}).NewUnrestricted()
 
@@ -570,22 +563,17 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 }
 
-// TestPrepWorkspace exposes prepWorkspace for CLI testing.
-//
-//	_, out, err := prep.TestPrepWorkspace(ctx, input)
+// _, out, err := prep.TestPrepWorkspace(ctx, input)
 func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
 	return s.prepWorkspace(ctx, nil, input)
 }
 
-// TestBuildPrompt exposes buildPrompt for CLI testing.
-//
-//	prompt, memories, consumers := prep.TestBuildPrompt(ctx, input, "dev", repoPath)
+// prompt, memories, consumers := prep.TestBuildPrompt(ctx, input, "dev", repoPath)
 func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
 	return s.buildPrompt(ctx, input, branch, repoPath)
 }
 
-// buildPrompt assembles all context into a single prompt string.
-// Context is gathered from: persona, flow, issue, brain, consumers, git log, wiki, plan.
+// prompt, memories, consumers := prep.buildPrompt(ctx, input, "dev", "/srv/repos/go-io")
 func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
 	b := core.NewBuilder()
 	memories := 0

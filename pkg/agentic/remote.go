@@ -8,9 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// RemoteDispatchInput dispatches a task to a remote core-agent over HTTP.
-//
-//	input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}
+// input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}
 type RemoteDispatchInput struct {
 	Host      string            `json:"host"`                // Remote agent host (e.g. "charon", "10.69.69.165:9101")
 	Repo      string            `json:"repo"`                // Target repo
@@ -22,9 +20,7 @@ type RemoteDispatchInput struct {
 	Variables map[string]string `json:"variables,omitempty"` // Template variables
 }
 
-// RemoteDispatchOutput is the response from a remote dispatch.
-//
-//	out := agentic.RemoteDispatchOutput{Success: true, Host: "charon", Repo: "go-io", Agent: "claude:opus"}
+// out := agentic.RemoteDispatchOutput{Success: true, Host: "charon", Repo: "go-io", Agent: "claude:opus"}
 type RemoteDispatchOutput struct {
 	Success      bool   `json:"success"`
 	Host         string `json:"host"`
@@ -165,7 +161,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 	return nil, output, nil
 }
 
-// resolveHost maps friendly names to addresses.
+// addr := resolveHost("charon") // "10.69.69.165:9101"
 func resolveHost(host string) string {
 	aliases := map[string]string{
 		"charon":  "10.69.69.165:9101",
@@ -184,7 +180,7 @@ func resolveHost(host string) string {
 	return host
 }
 
-// remoteToken gets the auth token for a remote agent.
+// token := remoteToken("charon")
 func remoteToken(host string) string {
 	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
 	if token := core.Env(envKey); token != "" {
