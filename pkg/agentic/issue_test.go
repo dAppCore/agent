@@ -53,7 +53,26 @@ func TestIssue_HandleIssueRecordGet_Bad(t *testing.T) {
 
 	result := subsystem.handleIssueRecordGet(context.Background(), core.NewOptions())
 	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueGet: slug is required")
+	assert.EqualError(t, result.Value.(error), "issueGet: id or slug is required")
+}
+
+func TestIssue_HandleIssueRecordGet_Good_IDAlias(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/42", r.URL.Path)
+		_, _ = w.Write([]byte(`{"data":{"id":42,"slug":"fix-auth","title":"Fix auth","status":"open"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleIssueRecordGet(context.Background(), core.NewOptions(
+		core.Option{Key: "id", Value: "42"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueOutput)
+	require.True(t, ok)
+	assert.Equal(t, 42, output.Issue.ID)
+	assert.Equal(t, "fix-auth", output.Issue.Slug)
 }
 
 func TestIssue_HandleIssueRecordList_Ugly_NestedEnvelope(t *testing.T) {

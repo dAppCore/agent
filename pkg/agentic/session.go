@@ -42,9 +42,10 @@ type SessionGetInput struct {
 
 // input := agentic.SessionListInput{PlanSlug: "ax-follow-up", Status: "active"}
 type SessionListInput struct {
-	PlanSlug string `json:"plan_slug,omitempty"`
-	Status   string `json:"status,omitempty"`
-	Limit    int    `json:"limit,omitempty"`
+	PlanSlug  string `json:"plan_slug,omitempty"`
+	AgentType string `json:"agent_type,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
 }
 
 // input := agentic.SessionContinueInput{SessionID: "ses_abc123", AgentType: "codex"}
@@ -177,9 +178,10 @@ func (s *PrepSubsystem) handleSessionGet(ctx context.Context, options core.Optio
 // result := c.Action("session.list").Run(ctx, core.NewOptions(core.Option{Key: "status", Value: "active"}))
 func (s *PrepSubsystem) handleSessionList(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sessionList(ctx, nil, SessionListInput{
-		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
-		Status:   optionStringValue(options, "status"),
-		Limit:    optionIntValue(options, "limit"),
+		PlanSlug:  optionStringValue(options, "plan_slug", "plan"),
+		AgentType: optionStringValue(options, "agent_type", "agent"),
+		Status:    optionStringValue(options, "status"),
+		Limit:     optionIntValue(options, "limit"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -394,6 +396,7 @@ func (s *PrepSubsystem) sessionGet(ctx context.Context, _ *mcp.CallToolRequest, 
 func (s *PrepSubsystem) sessionList(ctx context.Context, _ *mcp.CallToolRequest, input SessionListInput) (*mcp.CallToolResult, SessionListOutput, error) {
 	path := "/v1/sessions"
 	path = appendQueryParam(path, "plan_slug", input.PlanSlug)
+	path = appendQueryParam(path, "agent_type", input.AgentType)
 	path = appendQueryParam(path, "status", input.Status)
 	if input.Limit > 0 {
 		path = appendQueryParam(path, "limit", core.Sprint(input.Limit))

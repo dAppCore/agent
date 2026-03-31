@@ -62,6 +62,51 @@ func TestSync_HandleSyncPush_Good(t *testing.T) {
 	assert.False(t, readSyncStatusState().LastPushAt.IsZero())
 }
 
+func TestSync_HandleSyncPush_Good_UsesProvidedDispatches(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/agent/sync", r.URL.Path)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "charon", payload["agent_id"])
+
+		dispatches, ok := payload["dispatches"].([]any)
+		require.True(t, ok)
+		require.Len(t, dispatches, 1)
+
+		record, ok := dispatches[0].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "external-1", record["workspace"])
+		require.Equal(t, "completed", record["status"])
+
+		_, _ = w.Write([]byte(`{"data":{"synced":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+	output, err := subsystem.syncPushInput(context.Background(), SyncPushInput{
+		AgentID: "charon",
+		Dispatches: []map[string]any{
+			{"workspace": "external-1", "status": "completed"},
+		},
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 1, output.Count)
+	assert.Empty(t, readSyncQueue())
+}
+
 func TestSync_HandleSyncPush_Bad(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
@@ -88,6 +133,31 @@ func TestSync_HandleSyncPush_Bad(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, 0, output.Count)
 	assert.Empty(t, readSyncQueue())
+}
+
+func TestSync_HandleSyncPush_Bad_QueuesProvidedDispatchesWhenOffline(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "")
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+	}
+	output, err := subsystem.syncPushInput(context.Background(), SyncPushInput{
+		AgentID: "charon",
+		Dispatches: []map[string]any{
+			{"workspace": "external-1", "status": "completed"},
+		},
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 0, output.Count)
+
+	queued := readSyncQueue()
+	require.Len(t, queued, 1)
+	assert.Equal(t, "charon", queued[0].AgentID)
+	require.Len(t, queued[0].Dispatches, 1)
+	assert.Equal(t, "external-1", queued[0].Dispatches[0]["workspace"])
 }
 
 func TestSync_HandleSyncPush_Ugly(t *testing.T) {
@@ -157,6 +227,34 @@ func TestSync_HandleSyncPull_Good(t *testing.T) {
 	require.Len(t, cached, 1)
 	assert.Equal(t, "mem-1", cached[0]["id"])
 	assert.False(t, readSyncStatusState().LastPullAt.IsZero())
+}
+
+func TestSync_HandleSyncPull_Good_SinceQuery(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/agent/context", r.URL.Path)
+		require.Equal(t, "codex", r.URL.Query().Get("agent_id"))
+		require.Equal(t, "2026-03-30T00:00:00Z", r.URL.Query().Get("since"))
+		_, _ = w.Write([]byte(`{"data":[{"id":"mem-2","content":"Recent pattern"}]}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+	output, err := subsystem.syncPullInput(context.Background(), SyncPullInput{
+		AgentID: "codex",
+		Since:   "2026-03-30T00:00:00Z",
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 1, output.Count)
+	require.Len(t, output.Context, 1)
+	assert.Equal(t, "mem-2", output.Context[0]["id"])
 }
 
 func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {

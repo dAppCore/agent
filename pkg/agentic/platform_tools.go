@@ -137,7 +137,7 @@ func (s *PrepSubsystem) registerPlatformTools(server *mcp.Server) {
 }
 
 func (s *PrepSubsystem) syncPushTool(ctx context.Context, _ *mcp.CallToolRequest, input SyncPushInput) (*mcp.CallToolResult, SyncPushOutput, error) {
-	output, err := s.syncPush(ctx, input.AgentID)
+	output, err := s.syncPushInput(ctx, input)
 	if err != nil {
 		return nil, SyncPushOutput{}, err
 	}
@@ -145,7 +145,7 @@ func (s *PrepSubsystem) syncPushTool(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 func (s *PrepSubsystem) syncPullTool(ctx context.Context, _ *mcp.CallToolRequest, input SyncPullInput) (*mcp.CallToolResult, SyncPullOutput, error) {
-	output, err := s.syncPull(ctx, input.AgentID)
+	output, err := s.syncPullInput(ctx, input)
 	if err != nil {
 		return nil, SyncPullOutput{}, err
 	}

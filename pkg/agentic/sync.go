@@ -10,7 +10,8 @@ import (
 )
 
 type SyncPushInput struct {
-	AgentID string `json:"agent_id,omitempty"`
+	AgentID    string           `json:"agent_id,omitempty"`
+	Dispatches []map[string]any `json:"dispatches,omitempty"`
 }
 
 type SyncPushOutput struct {
@@ -20,6 +21,7 @@ type SyncPushOutput struct {
 
 type SyncPullInput struct {
 	AgentID string `json:"agent_id,omitempty"`
+	Since   string `json:"since,omitempty"`
 }
 
 type SyncPullOutput struct {
@@ -41,7 +43,10 @@ type syncStatusState struct {
 
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options) core.Result {
-	output, err := s.syncPush(ctx, options.String("agent_id"))
+	output, err := s.syncPushInput(ctx, SyncPushInput{
+		AgentID:    optionStringValue(options, "agent_id", "agent-id", "_arg"),
+		Dispatches: optionAnyMapSliceValue(options, "dispatches"),
+	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -50,7 +55,10 @@ func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options
 
 // result := c.Action("agentic.sync.pull").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPull(ctx context.Context, options core.Options) core.Result {
-	output, err := s.syncPull(ctx, options.String("agent_id"))
+	output, err := s.syncPullInput(ctx, SyncPullInput{
+		AgentID: optionStringValue(options, "agent_id", "agent-id", "_arg"),
+		Since:   optionStringValue(options, "since"),
+	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -58,15 +66,19 @@ func (s *PrepSubsystem) handleSyncPull(ctx context.Context, options core.Options
 }
 
 func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushOutput, error) {
+	return s.syncPushInput(ctx, SyncPushInput{AgentID: agentID})
+}
+
+func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) (SyncPushOutput, error) {
+	agentID := input.AgentID
 	if agentID == "" {
 		agentID = AgentName()
 	}
-	dispatches := collectSyncDispatches()
-	token := s.syncToken()
-	if token == "" {
-		return SyncPushOutput{Success: true, Count: 0}, nil
+	dispatches := input.Dispatches
+	if len(dispatches) == 0 {
+		dispatches = collectSyncDispatches()
 	}
-
+	token := s.syncToken()
 	queuedPushes := readSyncQueue()
 	if len(dispatches) > 0 {
 		queuedPushes = append(queuedPushes, syncQueuedPush{
@@ -74,6 +86,12 @@ func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushO
 			Dispatches: dispatches,
 			QueuedAt:   time.Now(),
 		})
+	}
+	if token == "" {
+		if len(input.Dispatches) > 0 {
+			writeSyncQueue(queuedPushes)
+		}
+		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
 	if len(queuedPushes) == 0 {
 		return SyncPushOutput{Success: true, Count: 0}, nil
@@ -97,6 +115,11 @@ func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushO
 }
 
 func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullOutput, error) {
+	return s.syncPullInput(ctx, SyncPullInput{AgentID: agentID})
+}
+
+func (s *PrepSubsystem) syncPullInput(ctx context.Context, input SyncPullInput) (SyncPullOutput, error) {
+	agentID := input.AgentID
 	if agentID == "" {
 		agentID = AgentName()
 	}
@@ -106,7 +129,9 @@ func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullO
 		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
 
-	endpoint := core.Concat(s.syncAPIURL(), "/v1/agent/context?agent_id=", agentID)
+	path := appendQueryParam("/v1/agent/context", "agent_id", agentID)
+	path = appendQueryParam(path, "since", input.Since)
+	endpoint := core.Concat(s.syncAPIURL(), path)
 	result := HTTPGet(ctx, endpoint, token, "Bearer")
 	if !result.OK {
 		cached := readSyncContext()

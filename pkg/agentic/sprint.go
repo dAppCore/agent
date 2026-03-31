@@ -36,7 +36,8 @@ type SprintCreateInput struct {
 
 // input := agentic.SprintGetInput{Slug: "ax-follow-up"}
 type SprintGetInput struct {
-	Slug string `json:"slug"`
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // input := agentic.SprintListInput{Status: "active", Limit: 10}
@@ -47,7 +48,8 @@ type SprintListInput struct {
 
 // input := agentic.SprintUpdateInput{Slug: "ax-follow-up", Status: "completed"}
 type SprintUpdateInput struct {
-	Slug      string         `json:"slug"`
+	ID        string         `json:"id,omitempty"`
+	Slug      string         `json:"slug,omitempty"`
 	Title     string         `json:"title,omitempty"`
 	Goal      string         `json:"goal,omitempty"`
 	Status    string         `json:"status,omitempty"`
@@ -58,7 +60,8 @@ type SprintUpdateInput struct {
 
 // input := agentic.SprintArchiveInput{Slug: "ax-follow-up"}
 type SprintArchiveInput struct {
-	Slug string `json:"slug"`
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // out := agentic.SprintOutput{Success: true, Sprint: agentic.Sprint{Slug: "ax-follow-up"}}
@@ -99,7 +102,8 @@ func (s *PrepSubsystem) handleSprintCreate(ctx context.Context, options core.Opt
 // result := c.Action("sprint.get").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintGet(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sprintGet(ctx, nil, SprintGetInput{
-		Slug: optionStringValue(options, "slug", "_arg"),
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -122,7 +126,8 @@ func (s *PrepSubsystem) handleSprintList(ctx context.Context, options core.Optio
 // result := c.Action("sprint.update").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintUpdate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sprintUpdate(ctx, nil, SprintUpdateInput{
-		Slug:      optionStringValue(options, "slug", "_arg"),
+		ID:        optionStringValue(options, "id", "_arg"),
+		Slug:      optionStringValue(options, "slug"),
 		Title:     optionStringValue(options, "title"),
 		Goal:      optionStringValue(options, "goal"),
 		Status:    optionStringValue(options, "status"),
@@ -139,7 +144,8 @@ func (s *PrepSubsystem) handleSprintUpdate(ctx context.Context, options core.Opt
 // result := c.Action("sprint.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintArchive(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sprintArchive(ctx, nil, SprintArchiveInput{
-		Slug: optionStringValue(options, "slug", "_arg"),
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -210,11 +216,12 @@ func (s *PrepSubsystem) sprintCreate(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 func (s *PrepSubsystem) sprintGet(ctx context.Context, _ *mcp.CallToolRequest, input SprintGetInput) (*mcp.CallToolResult, SprintOutput, error) {
-	if input.Slug == "" {
-		return nil, SprintOutput{}, core.E("sprintGet", "slug is required", nil)
+	identifier := sprintIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, SprintOutput{}, core.E("sprintGet", "id or slug is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "sprint.get", "GET", core.Concat("/v1/sprints/", input.Slug), nil)
+	result := s.platformPayload(ctx, "sprint.get", "GET", core.Concat("/v1/sprints/", identifier), nil)
 	if !result.OK {
 		return nil, SprintOutput{}, resultErrorValue("sprint.get", result)
 	}
@@ -241,8 +248,9 @@ func (s *PrepSubsystem) sprintList(ctx context.Context, _ *mcp.CallToolRequest, 
 }
 
 func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest, input SprintUpdateInput) (*mcp.CallToolResult, SprintOutput, error) {
-	if input.Slug == "" {
-		return nil, SprintOutput{}, core.E("sprintUpdate", "slug is required", nil)
+	identifier := sprintIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, SprintOutput{}, core.E("sprintUpdate", "id or slug is required", nil)
 	}
 
 	body := map[string]any{}
@@ -268,7 +276,7 @@ func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest
 		return nil, SprintOutput{}, core.E("sprintUpdate", "at least one field is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "sprint.update", "PATCH", core.Concat("/v1/sprints/", input.Slug), body)
+	result := s.platformPayload(ctx, "sprint.update", "PATCH", core.Concat("/v1/sprints/", identifier), body)
 	if !result.OK {
 		return nil, SprintOutput{}, resultErrorValue("sprint.update", result)
 	}
@@ -280,18 +288,19 @@ func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolRequest, input SprintArchiveInput) (*mcp.CallToolResult, SprintArchiveOutput, error) {
-	if input.Slug == "" {
-		return nil, SprintArchiveOutput{}, core.E("sprintArchive", "slug is required", nil)
+	identifier := sprintIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, SprintArchiveOutput{}, core.E("sprintArchive", "id or slug is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "sprint.archive", "DELETE", core.Concat("/v1/sprints/", input.Slug), nil)
+	result := s.platformPayload(ctx, "sprint.archive", "DELETE", core.Concat("/v1/sprints/", identifier), nil)
 	if !result.OK {
 		return nil, SprintArchiveOutput{}, resultErrorValue("sprint.archive", result)
 	}
 
 	output := SprintArchiveOutput{
 		Success:  true,
-		Archived: input.Slug,
+		Archived: identifier,
 	}
 	if values := payloadResourceMap(result.Value.(map[string]any), "sprint", "result"); len(values) > 0 {
 		if slug := stringValue(values["slug"]); slug != "" {
@@ -302,6 +311,15 @@ func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 	return nil, output, nil
+}
+
+func sprintIdentifier(values ...string) string {
+	for _, value := range values {
+		if trimmed := core.Trim(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func parseSprint(values map[string]any) Sprint {

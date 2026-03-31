@@ -109,6 +109,7 @@ func TestSession_HandleSessionList_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/sessions", r.URL.Path)
 		require.Equal(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
+		require.Equal(t, "codex", r.URL.Query().Get("agent_type"))
 		require.Equal(t, "active", r.URL.Query().Get("status"))
 		require.Equal(t, "5", r.URL.Query().Get("limit"))
 		_, _ = w.Write([]byte(`{"data":[{"session_id":"ses_1","agent_type":"codex","status":"active"},{"session_id":"ses_2","agent_type":"claude","status":"completed"}],"count":2}`))
@@ -118,6 +119,7 @@ func TestSession_HandleSessionList_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.handleSessionList(context.Background(), core.NewOptions(
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+		core.Option{Key: "agent_type", Value: "codex"},
 		core.Option{Key: "status", Value: "active"},
 		core.Option{Key: "limit", Value: 5},
 	))

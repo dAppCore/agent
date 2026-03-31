@@ -50,7 +50,8 @@ type IssueCreateInput struct {
 
 // input := agentic.IssueGetInput{Slug: "fix-auth"}
 type IssueGetInput struct {
-	Slug string `json:"slug"`
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // input := agentic.IssueListInput{Status: "open", Type: "bug"}
@@ -64,7 +65,8 @@ type IssueListInput struct {
 
 // input := agentic.IssueUpdateInput{Slug: "fix-auth", Status: "in_progress"}
 type IssueUpdateInput struct {
-	Slug        string   `json:"slug"`
+	ID          string   `json:"id,omitempty"`
+	Slug        string   `json:"slug,omitempty"`
 	Title       string   `json:"title,omitempty"`
 	Description string   `json:"description,omitempty"`
 	Type        string   `json:"type,omitempty"`
@@ -77,7 +79,9 @@ type IssueUpdateInput struct {
 
 // input := agentic.IssueCommentInput{Slug: "fix-auth", Body: "Ready for review"}
 type IssueCommentInput struct {
-	Slug     string         `json:"slug"`
+	ID       string         `json:"id,omitempty"`
+	IssueID  string         `json:"issue_id,omitempty"`
+	Slug     string         `json:"slug,omitempty"`
 	Body     string         `json:"body"`
 	Author   string         `json:"author,omitempty"`
 	Metadata map[string]any `json:"metadata,omitempty"`
@@ -85,7 +89,8 @@ type IssueCommentInput struct {
 
 // input := agentic.IssueArchiveInput{Slug: "fix-auth"}
 type IssueArchiveInput struct {
-	Slug string `json:"slug"`
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // out := agentic.IssueOutput{Success: true, Issue: agentic.Issue{Slug: "fix-auth"}}
@@ -134,7 +139,8 @@ func (s *PrepSubsystem) handleIssueRecordCreate(ctx context.Context, options cor
 // result := c.Action("issue.get").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordGet(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.issueGet(ctx, nil, IssueGetInput{
-		Slug: optionStringValue(options, "slug", "_arg"),
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -160,7 +166,8 @@ func (s *PrepSubsystem) handleIssueRecordList(ctx context.Context, options core.
 // result := c.Action("issue.update").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.issueUpdate(ctx, nil, IssueUpdateInput{
-		Slug:        optionStringValue(options, "slug", "_arg"),
+		ID:          optionStringValue(options, "id", "_arg"),
+		Slug:        optionStringValue(options, "slug"),
 		Title:       optionStringValue(options, "title"),
 		Description: optionStringValue(options, "description"),
 		Type:        optionStringValue(options, "type"),
@@ -179,7 +186,9 @@ func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options cor
 // result := c.Action("issue.comment").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordComment(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.issueComment(ctx, nil, IssueCommentInput{
-		Slug:     optionStringValue(options, "slug", "_arg"),
+		ID:       optionStringValue(options, "id", "_arg"),
+		IssueID:  optionStringValue(options, "issue_id", "issue-id"),
+		Slug:     optionStringValue(options, "slug"),
 		Body:     optionStringValue(options, "body"),
 		Author:   optionStringValue(options, "author"),
 		Metadata: optionAnyMapValue(options, "metadata"),
@@ -193,7 +202,8 @@ func (s *PrepSubsystem) handleIssueRecordComment(ctx context.Context, options co
 // result := c.Action("issue.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordArchive(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.issueArchive(ctx, nil, IssueArchiveInput{
-		Slug: optionStringValue(options, "slug", "_arg"),
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -275,11 +285,12 @@ func (s *PrepSubsystem) issueCreate(ctx context.Context, _ *mcp.CallToolRequest,
 }
 
 func (s *PrepSubsystem) issueGet(ctx context.Context, _ *mcp.CallToolRequest, input IssueGetInput) (*mcp.CallToolResult, IssueOutput, error) {
-	if input.Slug == "" {
-		return nil, IssueOutput{}, core.E("issueGet", "slug is required", nil)
+	identifier := issueRecordIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, IssueOutput{}, core.E("issueGet", "id or slug is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "issue.get", "GET", core.Concat("/v1/issues/", input.Slug), nil)
+	result := s.platformPayload(ctx, "issue.get", "GET", core.Concat("/v1/issues/", identifier), nil)
 	if !result.OK {
 		return nil, IssueOutput{}, resultErrorValue("issue.get", result)
 	}
@@ -311,8 +322,9 @@ func (s *PrepSubsystem) issueList(ctx context.Context, _ *mcp.CallToolRequest, i
 }
 
 func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest, input IssueUpdateInput) (*mcp.CallToolResult, IssueOutput, error) {
-	if input.Slug == "" {
-		return nil, IssueOutput{}, core.E("issueUpdate", "slug is required", nil)
+	identifier := issueRecordIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, IssueOutput{}, core.E("issueUpdate", "id or slug is required", nil)
 	}
 
 	body := map[string]any{}
@@ -344,7 +356,7 @@ func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest,
 		return nil, IssueOutput{}, core.E("issueUpdate", "at least one field is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "issue.update", "PATCH", core.Concat("/v1/issues/", input.Slug), body)
+	result := s.platformPayload(ctx, "issue.update", "PATCH", core.Concat("/v1/issues/", identifier), body)
 	if !result.OK {
 		return nil, IssueOutput{}, resultErrorValue("issue.update", result)
 	}
@@ -356,8 +368,9 @@ func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest,
 }
 
 func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest, input IssueCommentInput) (*mcp.CallToolResult, IssueCommentOutput, error) {
-	if input.Slug == "" {
-		return nil, IssueCommentOutput{}, core.E("issueComment", "slug is required", nil)
+	identifier := issueRecordIdentifier(input.Slug, input.IssueID, input.ID)
+	if identifier == "" {
+		return nil, IssueCommentOutput{}, core.E("issueComment", "issue_id, id, or slug is required", nil)
 	}
 	if input.Body == "" {
 		return nil, IssueCommentOutput{}, core.E("issueComment", "body is required", nil)
@@ -373,7 +386,7 @@ func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest
 		body["metadata"] = input.Metadata
 	}
 
-	result := s.platformPayload(ctx, "issue.comment", "POST", core.Concat("/v1/issues/", input.Slug, "/comments"), body)
+	result := s.platformPayload(ctx, "issue.comment", "POST", core.Concat("/v1/issues/", identifier, "/comments"), body)
 	if !result.OK {
 		return nil, IssueCommentOutput{}, resultErrorValue("issue.comment", result)
 	}
@@ -385,18 +398,19 @@ func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 func (s *PrepSubsystem) issueArchive(ctx context.Context, _ *mcp.CallToolRequest, input IssueArchiveInput) (*mcp.CallToolResult, IssueArchiveOutput, error) {
-	if input.Slug == "" {
-		return nil, IssueArchiveOutput{}, core.E("issueArchive", "slug is required", nil)
+	identifier := issueRecordIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, IssueArchiveOutput{}, core.E("issueArchive", "id or slug is required", nil)
 	}
 
-	result := s.platformPayload(ctx, "issue.archive", "DELETE", core.Concat("/v1/issues/", input.Slug), nil)
+	result := s.platformPayload(ctx, "issue.archive", "DELETE", core.Concat("/v1/issues/", identifier), nil)
 	if !result.OK {
 		return nil, IssueArchiveOutput{}, resultErrorValue("issue.archive", result)
 	}
 
 	output := IssueArchiveOutput{
 		Success:  true,
-		Archived: input.Slug,
+		Archived: identifier,
 	}
 	if values := payloadResourceMap(result.Value.(map[string]any), "issue", "result"); len(values) > 0 {
 		if slug := stringValue(values["slug"]); slug != "" {
@@ -425,6 +439,15 @@ func parseIssue(values map[string]any) Issue {
 		CreatedAt:   stringValue(values["created_at"]),
 		UpdatedAt:   stringValue(values["updated_at"]),
 	}
+}
+
+func issueRecordIdentifier(values ...string) string {
+	for _, value := range values {
+		if trimmed := core.Trim(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func parseIssueComment(values map[string]any) IssueComment {

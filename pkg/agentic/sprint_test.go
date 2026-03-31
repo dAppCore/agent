@@ -50,7 +50,26 @@ func TestSprint_HandleSprintGet_Bad(t *testing.T) {
 
 	result := subsystem.handleSprintGet(context.Background(), core.NewOptions())
 	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "sprintGet: slug is required")
+	assert.EqualError(t, result.Value.(error), "sprintGet: id or slug is required")
+}
+
+func TestSprint_HandleSprintGet_Good_IDAlias(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sprints/7", r.URL.Path)
+		_, _ = w.Write([]byte(`{"data":{"id":7,"slug":"ax-follow-up","title":"AX Follow-up","status":"active"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSprintGet(context.Background(), core.NewOptions(
+		core.Option{Key: "id", Value: "7"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SprintOutput)
+	require.True(t, ok)
+	assert.Equal(t, 7, output.Sprint.ID)
+	assert.Equal(t, "ax-follow-up", output.Sprint.Slug)
 }
 
 func TestSprint_HandleSprintList_Ugly_NestedEnvelope(t *testing.T) {
