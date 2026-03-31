@@ -11,5 +11,6 @@ import (
 // core.Println(subsystem.OK) // true
 func Register(c *core.Core) core.Result {
 	subsystem := NewDirect()
+	subsystem.ServiceRuntime = core.NewServiceRuntime(c, directOptions{})
 	return core.Result{Value: subsystem, OK: true}
 }
