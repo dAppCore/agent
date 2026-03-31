@@ -69,9 +69,9 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 type mergeResult int
 
 const (
-	mergeSuccess  mergeResult = iota
-	testFailed                // tests didn't pass
-	mergeConflict             // tests passed but merge failed (conflict)
+	mergeSuccess mergeResult = iota
+	testFailed
+	mergeConflict
 )
 
 // s.attemptVerifyAndMerge("/srv/core/workspace/core/go-io/task-5/repo", "core", "go-io", "feature/ax-cleanup", 42)

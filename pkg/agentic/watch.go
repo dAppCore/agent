@@ -12,12 +12,9 @@ import (
 
 // input := agentic.WatchInput{Workspaces: []string{"core/go-io/task-42"}, PollInterval: 5, Timeout: 600}
 type WatchInput struct {
-	// Workspaces to watch. If empty, watches all running/queued workspaces.
-	Workspaces []string `json:"workspaces,omitempty"`
-	// PollInterval in seconds (default: 5)
-	PollInterval int `json:"poll_interval,omitempty"`
-	// Timeout in seconds (default: 600 = 10 minutes)
-	Timeout int `json:"timeout,omitempty"`
+	Workspaces   []string `json:"workspaces,omitempty"`
+	PollInterval int      `json:"poll_interval,omitempty"`
+	Timeout      int      `json:"timeout,omitempty"`
 }
 
 // out := agentic.WatchOutput{Success: true, Completed: []agentic.WatchResult{{Workspace: "core/go-io/task-42", Status: "completed"}}}

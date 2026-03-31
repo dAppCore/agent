@@ -10,10 +10,10 @@ import (
 // result := service.Run(setup.Options{Path: ".", Template: "auto", Force: true})
 // if !result.OK { core.Print(nil, "%v", result.Value) }
 type Options struct {
-	Path     string // Target directory (default: cwd)
-	DryRun   bool   // Preview only, don't write
-	Force    bool   // Overwrite existing files
-	Template string // Workspace template or compatibility alias (default, review, security, agent, go, php, gui, auto)
+	Path     string
+	DryRun   bool
+	Force    bool
+	Template string
 }
 
 // result := service.Run(setup.Options{Path: ".", Template: "auto"})

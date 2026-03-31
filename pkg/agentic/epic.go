@@ -10,15 +10,15 @@ import (
 )
 
 type EpicInput struct {
-	Repo     string   `json:"repo"`               // Target repo (e.g. "go-scm")
-	Org      string   `json:"org,omitempty"`      // Forge org (default "core")
-	Title    string   `json:"title"`              // Epic title
-	Body     string   `json:"body,omitempty"`     // Epic description (above checklist)
-	Tasks    []string `json:"tasks"`              // Sub-task titles (become child issues)
-	Labels   []string `json:"labels,omitempty"`   // Labels for epic + children (e.g. ["agentic"])
-	Dispatch bool     `json:"dispatch,omitempty"` // Auto-dispatch agents to each child
-	Agent    string   `json:"agent,omitempty"`    // Agent type for dispatch (default "claude")
-	Template string   `json:"template,omitempty"` // Prompt template for dispatch (default "coding")
+	Repo     string   `json:"repo"`
+	Org      string   `json:"org,omitempty"`
+	Title    string   `json:"title"`
+	Body     string   `json:"body,omitempty"`
+	Tasks    []string `json:"tasks"`
+	Labels   []string `json:"labels,omitempty"`
+	Dispatch bool     `json:"dispatch,omitempty"`
+	Agent    string   `json:"agent,omitempty"`
+	Template string   `json:"template,omitempty"`
 }
 
 type EpicOutput struct {

@@ -15,7 +15,7 @@ type AgentCompleted struct {
 	Agent     string
 	Repo      string
 	Workspace string
-	Status    string // completed, failed, blocked
+	Status    string
 }
 
 // c.ACTION(messages.QAResult{Workspace: "core/go-io/task-5", Repo: "go-io", Passed: true})

@@ -168,10 +168,10 @@ func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, is
 
 // input := agentic.ListPRsInput{Org: "core", Repo: "go-io", State: "open", Limit: 10}
 type ListPRsInput struct {
-	Org   string `json:"org,omitempty"`   // forge org (default "core")
-	Repo  string `json:"repo,omitempty"`  // specific repo, or empty for all
-	State string `json:"state,omitempty"` // "open" (default), "closed", "all"
-	Limit int    `json:"limit,omitempty"` // max results (default 20)
+	Org   string `json:"org,omitempty"`
+	Repo  string `json:"repo,omitempty"`
+	State string `json:"state,omitempty"`
+	Limit int    `json:"limit,omitempty"`
 }
 
 // out := agentic.ListPRsOutput{Success: true, Count: 2, PRs: []agentic.PRInfo{{Repo: "go-io", Number: 12}}}
