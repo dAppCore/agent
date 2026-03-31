@@ -100,7 +100,7 @@ class StateSet extends AgentTool
             ],
             [
                 'value' => $value,
-                'category' => $this->optional($args, 'category', 'general'),
+                'category' => $this->optional($args, 'category', WorkspaceState::CATEGORY_GENERAL),
             ]
         );
 
@@ -108,7 +108,7 @@ class StateSet extends AgentTool
             'state' => [
                 'key' => $state->key,
                 'value' => $state->value,
-                'category' => $state->category,
+                'category' => $state->category ?? WorkspaceState::CATEGORY_GENERAL,
             ],
         ]);
     }

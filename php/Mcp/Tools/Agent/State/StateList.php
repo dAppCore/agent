@@ -7,6 +7,7 @@ namespace Core\Mod\Agentic\Mcp\Tools\Agent\State;
 use Core\Mcp\Dependencies\ToolDependency;
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Agentic\Models\WorkspaceState;
 
 /**
  * List all state values for a plan.
@@ -95,7 +96,7 @@ class StateList extends AgentTool
             'states' => $states->map(fn ($state) => [
                 'key' => $state->key,
                 'value' => $state->value,
-                'category' => $state->category,
+                'category' => $state->category ?? WorkspaceState::CATEGORY_GENERAL,
             ])->all(),
             'total' => $states->count(),
         ]);

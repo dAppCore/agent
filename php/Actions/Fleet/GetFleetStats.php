@@ -19,6 +19,9 @@ class GetFleetStats
     {
         $nodes = FleetNode::query()->where('workspace_id', $workspaceId);
         $tasks = FleetTask::query()->where('workspace_id', $workspaceId);
+        $taskSamples = (clone $tasks)
+            ->whereNotNull('started_at')
+            ->get();
 
         return [
             'nodes_online' => (clone $nodes)->online()->count(),
@@ -26,7 +29,21 @@ class GetFleetStats
             'tasks_week' => (clone $tasks)->where('created_at', '>=', now()->subDays(7))->count(),
             'repos_touched' => (clone $tasks)->distinct('repo')->count('repo'),
             'findings_total' => (clone $tasks)->get()->sum(static fn (FleetTask $task) => count($task->findings ?? [])),
-            'compute_hours' => 0,
+            'compute_hours' => (int) round(
+                $taskSamples->sum(fn (FleetTask $task) => self::taskDurationSeconds($task)) / 3600,
+            ),
         ];
+    }
+
+    private static function taskDurationSeconds(FleetTask $fleetTask): int
+    {
+        if ($fleetTask->started_at === null) {
+            return 0;
+        }
+
+        return max(
+            0,
+            (int) $fleetTask->started_at->diffInSeconds($fleetTask->completed_at ?? now()),
+        );
     }
 }

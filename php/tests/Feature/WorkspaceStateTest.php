@@ -63,6 +63,21 @@ class WorkspaceStateTest extends TestCase
         $this->assertEquals(42, $fresh->value['count']);
     }
 
+    public function test_it_persists_category_metadata(): void
+    {
+        $state = WorkspaceState::create([
+            'agent_plan_id' => $this->plan->id,
+            'key' => 'categorised_key',
+            'category' => 'analysis',
+            'value' => ['foo' => 'bar'],
+        ]);
+
+        $this->assertDatabaseHas('agent_workspace_states', [
+            'id' => $state->id,
+            'category' => 'analysis',
+        ]);
+    }
+
     // =========================================================================
     // Type constants and helpers
     // =========================================================================
@@ -230,6 +245,7 @@ class WorkspaceStateTest extends TestCase
         $state = WorkspaceState::create([
             'agent_plan_id' => $this->plan->id,
             'key' => 'mcp_key',
+            'category' => 'analysis',
             'value' => ['x' => 99],
             'type' => WorkspaceState::TYPE_JSON,
             'description' => 'Test state entry',
@@ -238,11 +254,13 @@ class WorkspaceStateTest extends TestCase
         $context = $state->toMcpContext();
 
         $this->assertArrayHasKey('key', $context);
+        $this->assertArrayHasKey('category', $context);
         $this->assertArrayHasKey('type', $context);
         $this->assertArrayHasKey('description', $context);
         $this->assertArrayHasKey('value', $context);
         $this->assertArrayHasKey('updated_at', $context);
         $this->assertEquals('mcp_key', $context['key']);
+        $this->assertEquals('analysis', $context['category']);
         $this->assertEquals('Test state entry', $context['description']);
     }
 

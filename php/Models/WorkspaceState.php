@@ -15,6 +15,8 @@ class WorkspaceState extends Model
 
     protected $table = 'agent_workspace_states';
 
+    public const CATEGORY_GENERAL = 'general';
+
     public const TYPE_JSON = 'json';
 
     public const TYPE_MARKDOWN = 'markdown';
@@ -26,6 +28,7 @@ class WorkspaceState extends Model
     protected $fillable = [
         'agent_plan_id',
         'key',
+        'category',
         'value',
         'type',
         'description',
@@ -50,6 +53,11 @@ class WorkspaceState extends Model
     public function scopeOfType(Builder $query, string $type): Builder
     {
         return $query->where('type', $type);
+    }
+
+    public function scopeInCategory(Builder $query, string $category): Builder
+    {
+        return $query->where('category', $category);
     }
 
     public function isJson(): bool
@@ -128,6 +136,7 @@ class WorkspaceState extends Model
     {
         return [
             'key' => $this->key,
+            'category' => $this->category ?? self::CATEGORY_GENERAL,
             'type' => $this->type,
             'description' => $this->description,
             'value' => $this->value,

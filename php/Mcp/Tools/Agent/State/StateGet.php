@@ -7,6 +7,7 @@ namespace Core\Mod\Agentic\Mcp\Tools\Agent\State;
 use Core\Mcp\Dependencies\ToolDependency;
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Agentic\Models\WorkspaceState;
 
 /**
  * Get a workspace state value.
@@ -92,7 +93,7 @@ class StateGet extends AgentTool
         return $this->success([
             'key' => $state->key,
             'value' => $state->value,
-            'category' => $state->category,
+            'category' => $state->category ?? WorkspaceState::CATEGORY_GENERAL,
             'updated_at' => $state->updated_at->toIso8601String(),
         ]);
     }
