@@ -105,8 +105,8 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		Org:      options.String("org"),
 		Template: options.String("template"),
 		Branch:   options.String("branch"),
-		Issue:    parseIntStr(options.String("issue")),
-		PR:       parseIntStr(options.String("pr")),
+		Issue:    parseIntString(options.String("issue")),
+		PR:       parseIntString(options.String("pr")),
 	}
 	_, out, err := s.dispatch(context.Background(), nil, input)
 	if err != nil {

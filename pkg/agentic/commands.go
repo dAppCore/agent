@@ -55,7 +55,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 		org = "core"
 	}
 
-	issue := parseIntStr(issueValue)
+	issue := parseIntString(issueValue)
 
 	core.Print(nil, "core-agent run task")
 	core.Print(nil, "  repo:  %s/%s", org, repo)
@@ -114,10 +114,10 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	}
 
 	if value := options.String("issue"); value != "" {
-		prepInput.Issue = parseIntStr(value)
+		prepInput.Issue = parseIntString(value)
 	}
 	if value := options.String("pr"); value != "" {
-		prepInput.PR = parseIntStr(value)
+		prepInput.PR = parseIntString(value)
 	}
 	if value := options.String("branch"); value != "" {
 		prepInput.Branch = value
@@ -130,7 +130,7 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 		prepInput.Branch = "dev"
 	}
 
-	_, prepOutput, err := s.TestPrepWorkspace(context.Background(), prepInput)
+	_, prepOutput, err := s.PrepareWorkspace(context.Background(), prepInput)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -197,7 +197,7 @@ func (s *PrepSubsystem) cmdPrompt(options core.Options) core.Result {
 		Persona:  options.String("persona"),
 	}
 
-	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), prepInput, "dev", repoPath)
+	prompt, memories, consumers := s.BuildPrompt(context.Background(), prepInput, "dev", repoPath)
 	core.Print(nil, "memories:  %d", memories)
 	core.Print(nil, "consumers: %d", consumers)
 	core.Print(nil, "")
@@ -245,8 +245,8 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	return core.Result{OK: true}
 }
 
-// parseIntStr("issue-42") // 42
-func parseIntStr(s string) int {
+// parseIntString("issue-42") // 42
+func parseIntString(s string) int {
 	n := 0
 	for _, ch := range s {
 		if ch >= '0' && ch <= '9' {

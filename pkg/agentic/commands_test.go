@@ -684,11 +684,11 @@ func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 }
 
 func TestCommands_ParseIntStr_Good(t *testing.T) {
-	assert.Equal(t, 42, parseIntStr("42"))
-	assert.Equal(t, 123, parseIntStr("issue-123"))
-	assert.Equal(t, 0, parseIntStr(""))
-	assert.Equal(t, 0, parseIntStr("abc"))
-	assert.Equal(t, 7, parseIntStr("#7"))
+	assert.Equal(t, 42, parseIntString("42"))
+	assert.Equal(t, 123, parseIntString("issue-123"))
+	assert.Equal(t, 0, parseIntString(""))
+	assert.Equal(t, 0, parseIntString("abc"))
+	assert.Equal(t, 7, parseIntString("#7"))
 }
 
 // --- Registration verification ---
@@ -815,7 +815,7 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 		core.Option{Key: "task", Value: "fix it"},
 		core.Option{Key: "issue", Value: "issue-42abc"},
 	))
-	// Will fail on dispatch but exercises parseIntStr with mixed chars
+	// Will fail on dispatch but exercises parseIntString with mixed chars
 	assert.False(t, r.OK)
 }
 
@@ -882,16 +882,16 @@ func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
 // --- ParseIntStr Bad/Ugly ---
 
 func TestCommands_ParseIntStr_Bad_NegativeAndOverflow(t *testing.T) {
-	// parseIntStr extracts digits only, ignoring minus signs
-	assert.Equal(t, 5, parseIntStr("-5"))  // extracts "5", ignores "-"
-	assert.Equal(t, 0, parseIntStr("-"))   // no digits
-	assert.Equal(t, 0, parseIntStr("---")) // no digits
+	// parseIntString extracts digits only, ignoring minus signs
+	assert.Equal(t, 5, parseIntString("-5"))  // extracts "5", ignores "-"
+	assert.Equal(t, 0, parseIntString("-"))   // no digits
+	assert.Equal(t, 0, parseIntString("---")) // no digits
 }
 
 func TestCommands_ParseIntStr_Ugly_UnicodeAndMixed(t *testing.T) {
 	// Unicode digits (e.g. Arabic-Indic) are NOT ASCII 0-9 so ignored
-	assert.Equal(t, 0, parseIntStr("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
-	assert.Equal(t, 42, parseIntStr("abc42xyz"))          // mixed chars
-	assert.Equal(t, 123, parseIntStr("1a2b3c"))           // interleaved
-	assert.Equal(t, 0, parseIntStr("  \t\n"))             // whitespace only
+	assert.Equal(t, 0, parseIntString("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
+	assert.Equal(t, 42, parseIntString("abc42xyz"))          // mixed chars
+	assert.Equal(t, 123, parseIntString("1a2b3c"))           // interleaved
+	assert.Equal(t, 0, parseIntString("  \t\n"))             // whitespace only
 }

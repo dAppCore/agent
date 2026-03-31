@@ -575,9 +575,9 @@ func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
 	})
 }
 
-// --- TestPrepWorkspace (public API wrapper) ---
+// --- PrepareWorkspace ---
 
-func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
+func TestPrep_PrepareWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -589,7 +589,7 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	}
 
 	// Valid input but repo won't exist — still exercises the public wrapper delegation
-	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{
 		Repo:  "go-io",
 		Issue: 1,
 	})
@@ -597,7 +597,7 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
+func TestPrep_PrepareWorkspace_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -606,12 +606,12 @@ func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
 	}
 
 	// Missing repo — should return error
-	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{})
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "repo is required")
 }
 
-func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
+func TestPrep_PrepareWorkspace_Ugly(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
 
@@ -623,7 +623,7 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 	}
 
 	// Bare ".." is caught as invalid repo name by PathBase check
-	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{
 		Repo:  "..",
 		Issue: 1,
 	})
@@ -631,9 +631,9 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid repo name")
 }
 
-// --- TestBuildPrompt (public API wrapper) ---
+// --- BuildPrompt ---
 
-func TestPrep_TestBuildPrompt_Good(t *testing.T) {
+func TestPrep_BuildPrompt_Good(t *testing.T) {
 	dir := t.TempDir()
 	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 
@@ -644,7 +644,7 @@ func TestPrep_TestBuildPrompt_Good(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+	prompt, memories, consumers := s.BuildPrompt(context.Background(), PrepInput{
 		Task: "Review code",
 		Org:  "core",
 		Repo: "go-io",
@@ -657,7 +657,7 @@ func TestPrep_TestBuildPrompt_Good(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
-func TestPrep_TestBuildPrompt_Bad(t *testing.T) {
+func TestPrep_BuildPrompt_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -666,7 +666,7 @@ func TestPrep_TestBuildPrompt_Bad(t *testing.T) {
 	}
 
 	// Empty inputs — should still return a prompt string without panicking
-	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{}, "", "")
+	prompt, memories, consumers := s.BuildPrompt(context.Background(), PrepInput{}, "", "")
 	assert.NotEmpty(t, prompt)
 	assert.Contains(t, prompt, "TASK:")
 	assert.Contains(t, prompt, "CONSTRAINTS:")
@@ -674,7 +674,7 @@ func TestPrep_TestBuildPrompt_Bad(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
-func TestPrep_TestBuildPrompt_Ugly(t *testing.T) {
+func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	s := &PrepSubsystem{
@@ -685,7 +685,7 @@ func TestPrep_TestBuildPrompt_Ugly(t *testing.T) {
 	}
 
 	// Unicode in all fields — should not panic
-	prompt, _, _ := s.TestBuildPrompt(context.Background(), PrepInput{
+	prompt, _, _ := s.BuildPrompt(context.Background(), PrepInput{
 		Task: "\u00e9nchantr\u00efx \u2603 \U0001f600",
 		Org:  "c\u00f6re",
 		Repo: "g\u00f6-i\u00f6",
@@ -817,7 +817,7 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+	_, out, err := s.PrepareWorkspace(context.Background(), PrepInput{
 		Repo:  "test-repo",
 		Issue: 1,
 		Task:  "Fix tests",

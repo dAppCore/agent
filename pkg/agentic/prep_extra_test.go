@@ -19,8 +19,8 @@ import (
 func TestPrep_Shutdown_Good(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	err := s.Shutdown(context.Background())
 	assert.NoError(t, err)
@@ -64,9 +64,9 @@ use (
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  dir,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       dir,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	list, count := s.findConsumersList("go")
@@ -92,9 +92,9 @@ use (
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  dir,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       dir,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	list, count := s.findConsumersList("go")
@@ -105,9 +105,9 @@ use (
 func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	list, count := s.findConsumersList("go")
@@ -144,9 +144,9 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
@@ -164,9 +164,9 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
@@ -187,9 +187,9 @@ func TestPrep_GetIssueBody_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 15)
@@ -204,9 +204,9 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 999)
@@ -222,9 +222,9 @@ func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, memories, consumers := s.buildPrompt(context.Background(), PrepInput{
@@ -256,10 +256,10 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, _, _ := s.buildPrompt(context.Background(), PrepInput{
@@ -275,16 +275,16 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 
 // --- buildPrompt (naming convention tests) ---
 
-func TestPrep_BuildPrompt_Good(t *testing.T) {
+func TestPrep_BuildPromptNaming_Good(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language as "go"
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, memories, consumers := s.buildPrompt(context.Background(), PrepInput{
@@ -303,13 +303,13 @@ func TestPrep_BuildPrompt_Good(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
-func TestPrep_BuildPrompt_Bad(t *testing.T) {
+func TestPrep_BuildPromptNaming_Bad(t *testing.T) {
 	// Empty repo path — still produces a prompt (no crash)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, memories, consumers := s.buildPrompt(context.Background(), PrepInput{
@@ -324,7 +324,7 @@ func TestPrep_BuildPrompt_Bad(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
-func TestPrep_BuildPrompt_Ugly(t *testing.T) {
+func TestPrep_BuildPromptNaming_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
@@ -339,10 +339,10 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, _, _ := s.buildPrompt(context.Background(), PrepInput{
@@ -375,9 +375,9 @@ func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prompt, _, _ := s.buildPrompt(context.Background(), PrepInput{
@@ -399,8 +399,8 @@ func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	// Will fail (composer not found) — that's the expected path
 	result := s.runQA(dir)
@@ -418,9 +418,9 @@ func TestPrep_PullWikiContent_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
@@ -448,9 +448,9 @@ func TestPrep_PullWikiContent_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
@@ -464,8 +464,8 @@ func TestPrep_RenderPlan_Ugly(t *testing.T) {
 	// Template with variables that don't exist in template — variables just won't match
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Passing variables that won't match any {{placeholder}} in the template
@@ -494,10 +494,10 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		brainURL:  srv.URL,
-		brainKey:  "test-key",
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		brainURL:       srv.URL,
+		brainKey:       "test-key",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	recall, count := s.brainRecall(context.Background(), "go-io")
@@ -513,9 +513,9 @@ func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  t.TempDir(),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Repo name "." — should be rejected as invalid
@@ -554,9 +554,9 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		codePath:  dir,
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		codePath:       dir,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic, just skip missing go.mod entries
@@ -580,9 +580,9 @@ func TestPrep_GetIssueBody_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:     forge.NewForge(srv.URL, "test-token"),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 99)
