@@ -8,7 +8,7 @@ import (
 )
 
 // projectType := setup.Detect("/srv/repos/agent")
-// if projectType == setup.TypeGo { /* generate Go defaults */ }
+// if projectType == setup.TypeGo { setup.GenerateBuildConfig("/srv/repos/agent", setup.TypeGo) }
 type ProjectType string
 
 const (
