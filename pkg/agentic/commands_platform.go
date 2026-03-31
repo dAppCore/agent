@@ -11,6 +11,8 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 	c.Command("sync/push", core.Command{Description: "Push completed dispatch state to the platform API", Action: s.cmdSyncPush})
 	c.Command("sync/pull", core.Command{Description: "Pull shared fleet context from the platform API", Action: s.cmdSyncPull})
 	c.Command("sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus})
+	c.Command("auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision})
+	c.Command("auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
 
 	c.Command("fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister})
 	c.Command("fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat})
@@ -29,6 +31,65 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 	c.Command("subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget})
 	c.Command("subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
 	c.Command("subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
+}
+
+func (s *PrepSubsystem) cmdAuthProvision(options core.Options) core.Result {
+	if optionStringValue(options, "oauth_user_id", "oauth-user-id", "user_id", "user-id", "_arg") == "" {
+		core.Print(nil, "usage: core-agent auth provision <oauth-user-id> [--name=codex] [--permissions=plans:read,plans:write] [--rate-limit=60] [--expires-at=2026-04-01T00:00:00Z]")
+		return core.Result{Value: core.E("agentic.cmdAuthProvision", "oauth_user_id is required", nil), OK: false}
+	}
+
+	result := s.handleAuthProvision(s.commandContext(), options)
+	if !result.OK {
+		err := commandResultError("agentic.cmdAuthProvision", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(AuthProvisionOutput)
+	if !ok {
+		err := core.E("agentic.cmdAuthProvision", "invalid auth provision output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "key id:      %d", output.Key.ID)
+	core.Print(nil, "name:        %s", output.Key.Name)
+	core.Print(nil, "prefix:      %s", output.Key.Prefix)
+	if output.Key.Key != "" {
+		core.Print(nil, "key:         %s", output.Key.Key)
+	}
+	if len(output.Key.Permissions) > 0 {
+		core.Print(nil, "permissions: %s", core.Join(",", output.Key.Permissions...))
+	}
+	if output.Key.ExpiresAt != "" {
+		core.Print(nil, "expires:     %s", output.Key.ExpiresAt)
+	}
+	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdAuthRevoke(options core.Options) core.Result {
+	if optionStringValue(options, "key_id", "key-id", "_arg") == "" {
+		core.Print(nil, "usage: core-agent auth revoke <key-id>")
+		return core.Result{Value: core.E("agentic.cmdAuthRevoke", "key_id is required", nil), OK: false}
+	}
+
+	result := s.handleAuthRevoke(s.commandContext(), options)
+	if !result.OK {
+		err := commandResultError("agentic.cmdAuthRevoke", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(AuthRevokeOutput)
+	if !ok {
+		err := core.E("agentic.cmdAuthRevoke", "invalid auth revoke output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "revoked: %s", output.KeyID)
+	return core.Result{OK: true}
 }
 
 func (s *PrepSubsystem) cmdSyncPush(options core.Options) core.Result {

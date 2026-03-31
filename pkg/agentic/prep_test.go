@@ -489,6 +489,10 @@ func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.True(t, c.Action("agentic.sync.push").Exists())
 	assert.True(t, c.Action("agent.sync.push").Exists())
+	assert.True(t, c.Action("agentic.auth.provision").Exists())
+	assert.True(t, c.Action("agent.auth.provision").Exists())
+	assert.True(t, c.Action("agentic.auth.revoke").Exists())
+	assert.True(t, c.Action("agent.auth.revoke").Exists())
 	assert.True(t, c.Action("agentic.fleet.register").Exists())
 	assert.True(t, c.Action("agent.fleet.register").Exists())
 	assert.True(t, c.Action("agentic.credits.balance").Exists())
@@ -506,6 +510,8 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.Contains(t, c.Commands(), "auth/provision")
+	assert.Contains(t, c.Commands(), "auth/revoke")
 	assert.Contains(t, c.Commands(), "subscription/budget/update")
 	assert.Contains(t, c.Commands(), "subscription/update-budget")
 }

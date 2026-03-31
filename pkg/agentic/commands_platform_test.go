@@ -17,6 +17,27 @@ func TestCommandsplatform_CmdFleetRegister_Bad(t *testing.T) {
 	assert.False(t, result.OK)
 }
 
+func TestCommandsplatform_CmdAuthProvision_Bad(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	result := subsystem.cmdAuthProvision(core.NewOptions())
+	assert.False(t, result.OK)
+}
+
+func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"key_id":"7","revoked":true}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		result := subsystem.cmdAuthRevoke(core.NewOptions(core.Option{Key: "_arg", Value: "7"}))
+		assert.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "revoked: 7")
+}
+
 func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":1,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}`))
