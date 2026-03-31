@@ -490,6 +490,28 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("sprint.archive").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("content.generate").Exists())
+	assert.True(t, c.Action("content.batch.generate").Exists())
+	assert.True(t, c.Action("content.batch_generate").Exists())
+	assert.True(t, c.Action("content.brief.create").Exists())
+	assert.True(t, c.Action("content.brief.get").Exists())
+	assert.True(t, c.Action("content.brief.list").Exists())
+	assert.True(t, c.Action("content.status").Exists())
+	assert.True(t, c.Action("content.usage.stats").Exists())
+	assert.True(t, c.Action("content.usage_stats").Exists())
+	assert.True(t, c.Action("content.from.plan").Exists())
+	assert.True(t, c.Action("content.from_plan").Exists())
+}
+
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")

@@ -216,6 +216,20 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("sprint.list", s.handleSprintList).Description = "List tracked platform sprints with optional filters"
 	c.Action("sprint.update", s.handleSprintUpdate).Description = "Update a tracked platform sprint by slug"
 	c.Action("sprint.archive", s.handleSprintArchive).Description = "Archive a tracked platform sprint by slug"
+	c.Action("content.generate", s.handleContentGenerate).Description = "Generate content using the platform content pipeline"
+	c.Action("content.batch.generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
+	c.Action("content.batch_generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
+	c.Action("content.brief.create", s.handleContentBriefCreate).Description = "Create a reusable content brief"
+	c.Action("content.brief_create", s.handleContentBriefCreate).Description = "Create a reusable content brief"
+	c.Action("content.brief.get", s.handleContentBriefGet).Description = "Read a content brief by ID or slug"
+	c.Action("content.brief_get", s.handleContentBriefGet).Description = "Read a content brief by ID or slug"
+	c.Action("content.brief.list", s.handleContentBriefList).Description = "List content briefs with optional filters"
+	c.Action("content.brief_list", s.handleContentBriefList).Description = "List content briefs with optional filters"
+	c.Action("content.status", s.handleContentStatus).Description = "Read batch content generation status"
+	c.Action("content.usage.stats", s.handleContentUsageStats).Description = "Read content provider usage statistics"
+	c.Action("content.usage_stats", s.handleContentUsageStats).Description = "Read content provider usage statistics"
+	c.Action("content.from.plan", s.handleContentFromPlan).Description = "Generate content from plan context"
+	c.Action("content.from_plan", s.handleContentFromPlan).Description = "Generate content from plan context"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
@@ -326,6 +340,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerTemplateTools(server)
 	s.registerIssueTools(server)
 	s.registerSprintTools(server)
+	s.registerContentTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
