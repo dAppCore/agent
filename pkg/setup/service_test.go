@@ -14,7 +14,9 @@ import (
 
 func TestService_Register_Good(t *testing.T) {
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Service](c, "setup")
+	service := c.Service("setup")
+	assert.True(t, service.OK)
+	svc, ok := service.Value.(*Service)
 	assert.True(t, ok)
 	assert.NotNil(t, svc)
 }

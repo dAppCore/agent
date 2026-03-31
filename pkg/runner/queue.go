@@ -237,9 +237,14 @@ func (s *Service) drainOne() bool {
 		type spawner interface {
 			SpawnFromQueue(agent, prompt, workspaceDir string) core.Result
 		}
-		agenticService, ok := core.ServiceFor[spawner](s.Core(), "agentic")
-		if !ok {
+		agenticResult := s.Core().Service("agentic")
+		if !agenticResult.OK {
 			core.Error("drainOne: agentic service not found")
+			continue
+		}
+		agenticService, ok := agenticResult.Value.(spawner)
+		if !ok {
+			core.Error("drainOne: agentic service has unexpected type")
 			continue
 		}
 		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")

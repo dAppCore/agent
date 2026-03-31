@@ -12,7 +12,7 @@ import (
 //	core.WithService(agentic.Register),
 //
 // )
-// prep, _ := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic")
+// prep := c.Service("agentic")
 func Register(c *core.Core) core.Result {
 	subsystem := NewPrep()
 	subsystem.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})

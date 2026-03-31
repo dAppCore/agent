@@ -218,7 +218,9 @@ func TestMonitor_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	c := core.New(core.WithService(Register))
-	mon, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	require.True(t, service.OK)
+	mon, ok := service.Value.(*Subsystem)
 	require.True(t, ok)
 
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-2", Status: "completed"})

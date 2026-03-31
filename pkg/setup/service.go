@@ -12,13 +12,13 @@ import (
 type RuntimeOptions struct{}
 
 // c := core.New(core.WithService(setup.Register))
-// service, _ := core.ServiceFor[*setup.Service](c, "setup")
+// service := c.Service("setup")
 type Service struct {
 	*core.ServiceRuntime[RuntimeOptions]
 }
 
 // c := core.New(core.WithService(setup.Register))
-// service, _ := core.ServiceFor[*setup.Service](c, "setup")
+// service := c.Service("setup")
 func Register(c *core.Core) core.Result {
 	service := &Service{
 		ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{}),

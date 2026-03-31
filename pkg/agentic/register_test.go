@@ -23,8 +23,10 @@ func TestRegister_ServiceRegistered_Good(t *testing.T) {
 	require.NotNil(t, c)
 
 	// Service auto-registered under the last segment of the package path: "agentic"
-	prep, ok := core.ServiceFor[*PrepSubsystem](c, "agentic")
-	assert.True(t, ok, "PrepSubsystem must be registered as \"agentic\"")
+	service := c.Service("agentic")
+	require.True(t, service.OK)
+	prep, ok := service.Value.(*PrepSubsystem)
+	require.True(t, ok, "PrepSubsystem must be registered as \"agentic\"")
 	assert.NotNil(t, prep)
 }
 
@@ -35,7 +37,9 @@ func TestRegister_CoreWired_Good(t *testing.T) {
 
 	c := core.New(core.WithService(Register))
 
-	prep, ok := core.ServiceFor[*PrepSubsystem](c, "agentic")
+	service := c.Service("agentic")
+	require.True(t, service.OK)
+	prep, ok := service.Value.(*PrepSubsystem)
 	require.True(t, ok)
 	// Register must wire ServiceRuntime — service needs it for Core access
 	assert.NotNil(t, prep.ServiceRuntime, "Register must set ServiceRuntime")

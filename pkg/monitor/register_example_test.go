@@ -6,7 +6,8 @@ import core "dappco.re/go/core"
 
 func ExampleRegister_ipc() {
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	svc, ok := service.Value.(*Subsystem)
 	core.Println(ok)
 	core.Println(svc.Name())
 	// Output:

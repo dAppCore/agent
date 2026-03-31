@@ -6,9 +6,10 @@ import (
 	core "dappco.re/go/core"
 )
 
-func ExampleRegister_serviceFor() {
+func ExampleRegister_service() {
 	c := core.New(core.WithService(Register))
-	service, ok := core.ServiceFor[*Service](c, "setup")
+	serviceResult := c.Service("setup")
+	service, ok := serviceResult.Value.(*Service)
 	core.Println(ok)
 	core.Println(service != nil)
 	// Output:

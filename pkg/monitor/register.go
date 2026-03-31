@@ -7,8 +7,8 @@ import (
 )
 
 // c := core.New(core.WithService(monitor.Register))
-// service, _ := core.ServiceFor[*monitor.Subsystem](c, "monitor")
-// core.Println(service.Name()) // "monitor"
+// service := c.Service("monitor")
+// core.Println(service.OK) // true
 func Register(c *core.Core) core.Result {
 	service := New(Options{})
 	service.ServiceRuntime = core.NewServiceRuntime(c, Options{})

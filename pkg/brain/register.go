@@ -7,8 +7,8 @@ import (
 )
 
 // c := core.New(core.WithService(brain.Register))
-// subsystem, _ := core.ServiceFor[*brain.DirectSubsystem](c, "brain")
-// core.Println(subsystem.Name()) // "brain"
+// subsystem := c.Service("brain")
+// core.Println(subsystem.OK) // true
 func Register(c *core.Core) core.Result {
 	subsystem := NewDirect()
 	return core.Result{Value: subsystem, OK: true}

@@ -355,9 +355,13 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 
 	command, args = containerCommand(command, args, repoDir, metaDir)
 
-	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
-	if !ok {
+	processResult := s.Core().Service("process")
+	if !processResult.OK {
 		return 0, "", "", core.E("dispatch.spawnAgent", "process service not registered", nil)
+	}
+	procSvc, ok := processResult.Value.(*process.Service)
+	if !ok {
+		return 0, "", "", core.E("dispatch.spawnAgent", "process service has unexpected type", nil)
 	}
 	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
@@ -520,8 +524,10 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 				Runs:      0,
 			}
 			writeStatusResult(workspaceDir, workspaceStatus)
-			if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-				runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
+			if runnerResult := s.Core().Service("runner"); runnerResult.OK {
+				if runnerSvc, ok := runnerResult.Value.(workspaceTracker); ok {
+					runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
+				}
 			}
 			return nil, DispatchOutput{
 				Success:      true,
@@ -552,8 +558,10 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 	}
 	writeStatusResult(workspaceDir, workspaceStatus)
 	if s.ServiceRuntime != nil {
-		if runnerSvc, ok := core.ServiceFor[workspaceTracker](s.Core(), "runner"); ok {
-			runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
+		if runnerResult := s.Core().Service("runner"); runnerResult.OK {
+			if runnerSvc, ok := runnerResult.Value.(workspaceTracker); ok {
+				runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
+			}
 		}
 	}
 

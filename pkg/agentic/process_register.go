@@ -13,13 +13,13 @@ type processActionHandlers struct {
 	service *process.Service
 }
 
-//	c := core.New(core.WithService(agentic.ProcessRegister))
-//	processService, _ := core.ServiceFor[*process.Service](c, "process")
+// c := core.New(core.WithService(agentic.ProcessRegister))
+// processService := c.Service("process")
 func ProcessRegister(c *core.Core) core.Result {
 	if c == nil {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "core is required", nil), OK: false}
 	}
-	if _, ok := core.ServiceFor[*process.Service](c, "process"); ok {
+	if result := c.Service("process"); result.OK {
 		return core.Result{OK: true}
 	}
 

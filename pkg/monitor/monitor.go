@@ -453,13 +453,15 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	if m.ServiceRuntime != nil {
-		if notifier, ok := core.ServiceFor[channelSender](m.Core(), "mcp"); ok {
-			for _, inboxMessage := range inboxMessages {
-				notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-					"from":    inboxMessage.From,
-					"subject": inboxMessage.Subject,
-					"content": inboxMessage.Content,
-				})
+		if notifierResult := m.Core().Service("mcp"); notifierResult.OK {
+			if notifier, ok := notifierResult.Value.(channelSender); ok {
+				for _, inboxMessage := range inboxMessages {
+					notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
+						"from":    inboxMessage.From,
+						"subject": inboxMessage.Subject,
+						"content": inboxMessage.Content,
+					})
+				}
 			}
 		}
 	}

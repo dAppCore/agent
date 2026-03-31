@@ -3,15 +3,12 @@
 package main
 
 import (
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/brain"
-	"dappco.re/go/agent/pkg/monitor"
 	core "dappco.re/go/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
 // c := core.New(core.WithService(registerMCPService))
-// _, ok := core.ServiceFor[*mcp.Service](c, "mcp")
+// service := c.Service("mcp")
 func registerMCPService(c *core.Core) core.Result {
 	if c == nil {
 		return core.Result{Value: core.E("main.registerMCPService", "core is required", nil), OK: false}
@@ -19,15 +16,20 @@ func registerMCPService(c *core.Core) core.Result {
 
 	var registeredSubsystems []mcp.Subsystem
 
-	if agenticSubsystem, ok := core.ServiceFor[*agentic.PrepSubsystem](c, "agentic"); ok {
-		registeredSubsystems = append(registeredSubsystems, agenticSubsystem)
+	appendSubsystem := func(name string) {
+		serviceResult := c.Service(name)
+		if !serviceResult.OK {
+			return
+		}
+		subsystem, ok := serviceResult.Value.(mcp.Subsystem)
+		if !ok {
+			return
+		}
+		registeredSubsystems = append(registeredSubsystems, subsystem)
 	}
-	if monitorSubsystem, ok := core.ServiceFor[*monitor.Subsystem](c, "monitor"); ok {
-		registeredSubsystems = append(registeredSubsystems, monitorSubsystem)
-	}
-	if brainSubsystem, ok := core.ServiceFor[*brain.DirectSubsystem](c, "brain"); ok {
-		registeredSubsystems = append(registeredSubsystems, brainSubsystem)
-	}
+	appendSubsystem("agentic")
+	appendSubsystem("monitor")
+	appendSubsystem("brain")
 
 	service, err := mcp.New(mcp.Options{
 		Subsystems: registeredSubsystems,

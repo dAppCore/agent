@@ -16,7 +16,9 @@ func TestRegister_Register_Good_ReturnsSubsystem(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	assert.True(t, service.OK)
+	svc, ok := service.Value.(*Subsystem)
 	assert.True(t, ok)
 	assert.NotNil(t, svc)
 }
@@ -34,7 +36,9 @@ func TestRegister_Register_Good_WiresServiceRuntime(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	c := core.New(core.WithService(Register))
-	svc, _ := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	require.True(t, service.OK)
+	svc, _ := service.Value.(*Subsystem)
 	assert.NotNil(t, svc.ServiceRuntime)
 	assert.Equal(t, c, svc.Core())
 }
@@ -45,7 +49,9 @@ func TestRegister_Register_Good_TracksStartedIPC(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	require.True(t, service.OK)
+	svc, ok := service.Value.(*Subsystem)
 	require.True(t, ok)
 
 	c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "ws-reg"})
@@ -61,7 +67,9 @@ func TestRegister_Register_Good_TracksCompletedIPC(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	c := core.New(core.WithService(Register))
-	svc, ok := core.ServiceFor[*Subsystem](c, "monitor")
+	service := c.Service("monitor")
+	require.True(t, service.OK)
+	svc, ok := service.Value.(*Subsystem)
 	require.True(t, ok)
 
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-done", Status: "completed"})

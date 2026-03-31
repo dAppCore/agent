@@ -10,11 +10,7 @@ import (
 // alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)
 // alive := agentic.ProcessAlive(c, "", 12345) // legacy PID fallback
 func ProcessAlive(c *core.Core, processID string, pid int) bool {
-	if c == nil {
-		return false
-	}
-
-	service, ok := core.ServiceFor[*process.Service](c, "process")
+	service, ok := lookupProcessService(c)
 	if !ok {
 		return false
 	}
@@ -40,11 +36,7 @@ func ProcessAlive(c *core.Core, processID string, pid int) bool {
 
 // terminated := agentic.ProcessTerminate(c, proc.ID, proc.Info().PID)
 func ProcessTerminate(c *core.Core, processID string, pid int) bool {
-	if c == nil {
-		return false
-	}
-
-	service, ok := core.ServiceFor[*process.Service](c, "process")
+	service, ok := lookupProcessService(c)
 	if !ok {
 		return false
 	}
@@ -66,4 +58,16 @@ func ProcessTerminate(c *core.Core, processID string, pid int) bool {
 	}
 
 	return false
+}
+
+func lookupProcessService(c *core.Core) (*process.Service, bool) {
+	if c == nil {
+		return nil, false
+	}
+	result := c.Service("process")
+	if !result.OK {
+		return nil, false
+	}
+	service, ok := result.Value.(*process.Service)
+	return service, ok
 }

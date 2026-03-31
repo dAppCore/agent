@@ -45,7 +45,7 @@ func New() *Service {
 }
 
 // c := core.New(core.WithService(runner.Register))
-// service, _ := core.ServiceFor[*runner.Service](c, "runner")
+// service := c.Service("runner")
 func Register(coreApp *core.Core) core.Result {
 	service := New()
 	service.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
@@ -106,6 +106,18 @@ func (s *Service) OnShutdown(_ context.Context) core.Result {
 //		Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed",
 //	})
 func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Result {
+	sendNotification := func(channel string, data any) {
+		serviceResult := coreApp.Service("mcp")
+		if !serviceResult.OK {
+			return
+		}
+		notifier, ok := serviceResult.Value.(channelSender)
+		if !ok {
+			return
+		}
+		notifier.ChannelSend(context.Background(), channel, data)
+	}
+
 	switch ev := msg.(type) {
 	case messages.AgentStarted:
 		baseAgentName := baseAgent(ev.Agent)
@@ -127,9 +139,7 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 			Running:   runningCount,
 			Limit:     limit,
 		}
-		if notifier, ok := core.ServiceFor[channelSender](coreApp, "mcp"); ok {
-			notifier.ChannelSend(context.Background(), "agent.status", notification)
-		}
+		sendNotification("agent.status", notification)
 
 	case messages.AgentCompleted:
 		if ev.Workspace != "" {
@@ -166,9 +176,7 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 			Running:   runningCount,
 			Limit:     limit,
 		}
-		if notifier, ok := core.ServiceFor[channelSender](coreApp, "mcp"); ok {
-			notifier.ChannelSend(context.Background(), "agent.status", notification)
-		}
+		sendNotification("agent.status", notification)
 		s.Poke()
 
 	case messages.PokeQueue:

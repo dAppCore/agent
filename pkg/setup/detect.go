@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// service := core.ServiceFor[*setup.Service](core.New(core.WithService(setup.Register)), "setup")
+// service := core.New(core.WithService(setup.Register)).Service("setup")
 package setup
 
 import (
