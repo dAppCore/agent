@@ -29,7 +29,6 @@ type DispatchSyncResult struct {
 
 // result := prep.DispatchSync(ctx, input)
 func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInput) DispatchSyncResult {
-	// Prep workspace
 	prepInput := PrepInput{
 		Org:   input.Org,
 		Repo:  input.Repo,
@@ -55,7 +54,6 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	core.Print(nil, "  workspace: %s", workspaceDir)
 	core.Print(nil, "  branch:    %s", prepOut.Branch)
 
-	// Spawn agent directly — no queue, no concurrency check
 	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "spawn agent failed", err)}
@@ -69,7 +67,6 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		runtime = s.Core()
 	}
 
-	// Poll for process exit
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
@@ -79,7 +76,6 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 			return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "cancelled", ctx.Err())}
 		case <-ticker.C:
 			if pid > 0 && !ProcessAlive(runtime, processID, pid) {
-				// Process exited — read final status
 				result := ReadStatusResult(workspaceDir)
 				st, ok := workspaceStatusValue(result)
 				if !ok {

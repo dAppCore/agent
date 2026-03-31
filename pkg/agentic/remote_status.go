@@ -9,7 +9,7 @@ import (
 )
 
 type RemoteStatusInput struct {
-	Host string `json:"host"` // Remote agent host (e.g. "charon")
+	Host string `json:"host"`
 }
 
 type RemoteStatusOutput struct {

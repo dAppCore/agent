@@ -10,9 +10,9 @@ import (
 )
 
 type MirrorInput struct {
-	Repo     string `json:"repo,omitempty"`      // Specific repo, or empty for all
-	DryRun   bool   `json:"dry_run,omitempty"`   // Preview without pushing
-	MaxFiles int    `json:"max_files,omitempty"` // Max files per PR (default 50, CodeRabbit limit)
+	Repo     string `json:"repo,omitempty"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+	MaxFiles int    `json:"max_files,omitempty"`
 }
 
 type MirrorOutput struct {
@@ -52,7 +52,6 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		basePath = core.JoinPath(basePath, "core")
 	}
 
-	// Build list of repos to sync
 	var repos []string
 	if input.Repo != "" {
 		repos = []string{input.Repo}
@@ -66,23 +65,19 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	for _, repo := range repos {
 		repoDir := core.JoinPath(basePath, repo)
 
-		// Check if github remote exists
 		if !s.hasRemote(repoDir, "github") {
 			skipped = append(skipped, core.Concat(repo, ": no github remote"))
 			continue
 		}
 
-		// Fetch github to get current state
 		process.RunIn(ctx, repoDir, "git", "fetch", "github")
 
-		// Check how far ahead local default branch is vs github
 		localBase := s.DefaultBranch(repoDir)
 		ahead := s.commitsAhead(repoDir, "github/main", localBase)
 		if ahead == 0 {
-			continue // Already in sync
+			continue
 		}
 
-		// Count files changed
 		files := s.filesChanged(repoDir, "github/main", localBase)
 
 		sync := MirrorSync{
@@ -91,7 +86,6 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			FilesChanged: files,
 		}
 
-		// Skip if too many files for one PR
 		if files > maxFiles {
 			sync.Skipped = core.Sprintf("%d files exceeds limit of %d", files, maxFiles)
 			synced = append(synced, sync)
@@ -104,10 +98,8 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			continue
 		}
 
-		// Ensure dev branch exists on GitHub
 		s.ensureDevBranch(repoDir)
 
-		// Push local main to github dev (explicit main, not HEAD)
 		base := s.DefaultBranch(repoDir)
 		if r := process.RunIn(ctx, repoDir, "git", "push", "github", core.Concat(base, ":refs/heads/dev"), "--force"); !r.OK {
 			sync.Skipped = core.Sprintf("push failed: %s", r.Value)
@@ -116,7 +108,6 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 		sync.Pushed = true
 
-		// Create PR: dev → main on GitHub
 		pullRequestURL, err := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
 		if err != nil {
 			sync.Skipped = core.Sprintf("PR creation failed: %v", err)
@@ -140,7 +131,6 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
 	process := s.Core().Process()
 
-	// Check if there's already an open PR from dev
 	r := process.RunIn(ctx, repoDir, "gh", "pr", "list", "--repo", ghRepo, "--head", "dev", "--state", "open", "--json", "url", "--limit", "1")
 	if r.OK {
 		out := r.Value.(string)
@@ -209,7 +199,6 @@ func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 		if !fs.IsDir(p) {
 			continue
 		}
-		// Must have a .git directory
 		if fs.IsDir(core.JoinPath(basePath, name, ".git")) {
 			repos = append(repos, name)
 		}

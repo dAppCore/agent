@@ -21,7 +21,6 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	repoDir := WorkspaceRepoDir(workspaceDir)
 	process := s.Core().Process()
 
-	// PRs target dev — agents never merge directly to main
 	defaultBranch := "dev"
 
 	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
@@ -40,7 +39,6 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 		org = "core"
 	}
 
-	// Push the branch to forge
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, workspaceStatus.Repo)
 	if !process.RunIn(ctx, repoDir, "git", "push", forgeRemote, workspaceStatus.Branch).OK {
 		if result := ReadStatusResult(workspaceDir); result.OK {
@@ -54,7 +52,6 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 		return
 	}
 
-	// Create PR via Forge API
 	title := core.Sprintf("[agent/%s] %s", workspaceStatus.Agent, truncate(workspaceStatus.Task, 60))
 	body := s.buildAutoPRBody(workspaceStatus, commitCount)
 
@@ -74,7 +71,6 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 		return
 	}
 
-	// Update status with PR URL
 	if result := ReadStatusResult(workspaceDir); result.OK {
 		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {

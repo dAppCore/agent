@@ -30,13 +30,13 @@ type PrepSubsystem struct {
 	brainKey       string
 	codePath       string
 	startupContext context.Context
-	dispatchMu     sync.Mutex // serialises concurrency check + spawn
+	dispatchMu     sync.Mutex
 	drainMu        sync.Mutex
 	pokeCh         chan struct{}
 	frozen         bool
-	backoff        map[string]time.Time             // pool → paused until
-	failCount      map[string]int                   // pool → consecutive fast failures
-	workspaces     *core.Registry[*WorkspaceStatus] // in-memory workspace state
+	backoff        map[string]time.Time
+	failCount      map[string]int
+	workspaces     *core.Registry[*WorkspaceStatus]
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -83,19 +83,10 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
-	// Entitlement — gates agentic Actions when queue is frozen.
-	// Per-agent concurrency is checked inside handlers (needs Options for agent name).
-	// Entitlement gates the global capability: "can this Core dispatch at all?"
-	//
-	//   e := c.Entitled("agentic.dispatch")
-	//   e.Allowed  // false when frozen
-	//   e.Reason   // "agent queue is frozen"
 	c.SetEntitlementChecker(func(action string, qty int, _ context.Context) core.Entitlement {
-		// Only gate agentic.* actions
 		if !core.HasPrefix(action, "agentic.") {
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
-		// Read-only + internal actions always allowed
 		if core.HasPrefix(action, "agentic.monitor.") || core.HasPrefix(action, "agentic.complete") {
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
@@ -105,20 +96,14 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona":
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
-		// Write actions gated by frozen state
 		if s.frozen {
 			return core.Entitlement{Allowed: false, Reason: "agent queue is frozen — shutting down"}
 		}
 		return core.Entitlement{Allowed: true}
 	})
 
-	// Data — mount embedded content so other services can access it via c.Data()
-	//
-	//   c.Data().ReadString("prompts/coding.md")
-	//   c.Data().ListNames("flows")
 	lib.MountData(c)
 
-	// Transport — register HTTP protocol + Drive endpoints
 	RegisterHTTPTransport(c)
 	c.Drive().New(core.NewOptions(
 		core.Option{Key: "name", Value: "forge"},
@@ -131,7 +116,6 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		core.Option{Key: "token", Value: s.brainKey},
 	))
 
-	// Dispatch & workspace
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
 	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
 	c.Action("agentic.status", s.handleStatus).Description = "List workspace states (running/completed/blocked)"
@@ -139,7 +123,6 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.scan", s.handleScan).Description = "Scan Forge repos for actionable issues"
 	c.Action("agentic.watch", s.handleWatch).Description = "Watch workspace for changes and report"
 
-	// Pipeline
 	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
 	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
 	c.Action("agentic.verify", s.handleVerify).Description = "Verify PR and auto-merge if clean"
@@ -147,7 +130,6 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.poke", s.handlePoke).Description = "Drain next queued task from the queue"
 	c.Action("agentic.mirror", s.handleMirror).Description = "Mirror agent branches to GitHub"
 
-	// Forge
 	c.Action("agentic.issue.get", s.handleIssueGet).Description = "Get a Forge issue by number"
 	c.Action("agentic.issue.list", s.handleIssueList).Description = "List Forge issues for a repo"
 	c.Action("agentic.issue.create", s.handleIssueCreate).Description = "Create a Forge issue"
@@ -155,19 +137,15 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
 	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
 
-	// Review
 	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
-	// Epic
 	c.Action("agentic.epic", s.handleEpic).Description = "Create sub-issues from an epic plan"
 
-	// Content — accessible via IPC, no lib import needed
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
 	c.Action("agentic.flow", s.handleFlow).Description = "Read a build/release flow by slug"
 	c.Action("agentic.persona", s.handlePersona).Description = "Read a persona by path"
 
-	// Completion pipeline — Task composition
 	c.Task("agent.completion", core.Task{
 		Description: "QA → PR → Verify → Merge",
 		Steps: []core.Step{
@@ -179,17 +157,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		},
 	})
 
-	// PerformAsync wrapper — runs the completion Task in background with progress tracking.
-	// c.PerformAsync("agentic.complete", options) broadcasts ActionTaskStarted/Completed.
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify) in background"
 
-	// Hydrate workspace registry from disk
 	s.hydrateWorkspaces()
 
-	// QUERY handler — "what workspaces exist?"
-	//
-	//   r := c.QUERY(agentic.WorkspaceQuery{})
-	//   if r.OK { workspaces := r.Value.(*core.Registry[*WorkspaceStatus]) }
 	c.RegisterQuery(s.handleWorkspaceQuery)
 
 	s.StartRunner()

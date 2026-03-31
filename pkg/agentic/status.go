@@ -13,28 +13,28 @@ import (
 // result := ReadStatusResult(workspaceDir)
 // if result.OK && result.Value.(*WorkspaceStatus).Status == "completed" { autoCreatePR(workspaceDir) }
 type WorkspaceStatus struct {
-	Status    string    `json:"status"`               // running, completed, blocked, failed
-	Agent     string    `json:"agent"`                // gemini, claude, codex
-	Repo      string    `json:"repo"`                 // target repo
-	Org       string    `json:"org,omitempty"`        // forge org (e.g. "core")
-	Task      string    `json:"task"`                 // task description
-	Branch    string    `json:"branch,omitempty"`     // git branch name
-	Issue     int       `json:"issue,omitempty"`      // forge issue number
-	PID       int       `json:"pid,omitempty"`        // OS process ID (if running)
-	ProcessID string    `json:"process_id,omitempty"` // go-process ID for managed lookup
-	StartedAt time.Time `json:"started_at"`           // when dispatch started
-	UpdatedAt time.Time `json:"updated_at"`           // last status change
-	Question  string    `json:"question,omitempty"`   // from BLOCKED.md
-	Runs      int       `json:"runs"`                 // how many times dispatched/resumed
-	PRURL     string    `json:"pr_url,omitempty"`     // pull request URL (after PR created)
+	Status    string    `json:"status"`
+	Agent     string    `json:"agent"`
+	Repo      string    `json:"repo"`
+	Org       string    `json:"org,omitempty"`
+	Task      string    `json:"task"`
+	Branch    string    `json:"branch,omitempty"`
+	Issue     int       `json:"issue,omitempty"`
+	PID       int       `json:"pid,omitempty"`
+	ProcessID string    `json:"process_id,omitempty"`
+	StartedAt time.Time `json:"started_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Question  string    `json:"question,omitempty"`
+	Runs      int       `json:"runs"`
+	PRURL     string    `json:"pr_url,omitempty"`
 }
 
 // r := c.QUERY(agentic.WorkspaceQuery{})
 // if r.OK { reg := r.Value.(*core.Registry[*WorkspaceStatus]) }
 // r := c.QUERY(agentic.WorkspaceQuery{Name: "core/go-io/task-5"})
 type WorkspaceQuery struct {
-	Name   string // specific workspace (empty = all)
-	Status string // filter by status (empty = all)
+	Name   string
+	Status string
 }
 
 func writeStatus(workspaceDir string, status *WorkspaceStatus) error {
@@ -103,9 +103,9 @@ func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
 
 // input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
 type StatusInput struct {
-	Workspace string `json:"workspace,omitempty"` // specific workspace name, or empty for all
-	Limit     int    `json:"limit,omitempty"`     // max results (default 100)
-	Status    string `json:"status,omitempty"`    // filter: running, completed, failed, blocked
+	Workspace string `json:"workspace,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 // out := agentic.StatusOutput{Total: 42, Running: 3, Queued: 10, Completed: 25}
@@ -154,7 +154,6 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			continue
 		}
 
-		// If status is "running", check whether the managed process is still alive.
 		if workspaceStatus.Status == "running" && (workspaceStatus.ProcessID != "" || workspaceStatus.PID > 0) {
 			if !ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
 				blockedPath := workspaceBlockedPath(workspaceDir)

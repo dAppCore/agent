@@ -12,11 +12,11 @@ import (
 
 // input := agentic.CreatePRInput{Workspace: "core/go-io/task-42", Title: "Fix watcher panic"}
 type CreatePRInput struct {
-	Workspace string `json:"workspace"`         // workspace name (e.g. "core/go-io/task-42")
-	Title     string `json:"title,omitempty"`   // PR title (default: task description)
-	Body      string `json:"body,omitempty"`    // PR body (default: auto-generated)
-	Base      string `json:"base,omitempty"`    // base branch (default: "main")
-	DryRun    bool   `json:"dry_run,omitempty"` // preview without creating
+	Workspace string `json:"workspace"`
+	Title     string `json:"title,omitempty"`
+	Body      string `json:"body,omitempty"`
+	Base      string `json:"base,omitempty"`
+	DryRun    bool   `json:"dry_run,omitempty"`
 }
 
 // out := agentic.CreatePROutput{Success: true, PRURL: "https://forge.example/core/go-io/pulls/12", PRNum: 12}
@@ -52,7 +52,6 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
-	// Read workspace status for repo, branch, issue context
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
@@ -81,7 +80,6 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		base = "dev"
 	}
 
-	// Build PR title
 	title := input.Title
 	if title == "" {
 		title = workspaceStatus.Task
@@ -90,7 +88,6 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		title = core.Sprintf("Agent work on %s", workspaceStatus.Branch)
 	}
 
-	// Build PR body
 	body := input.Body
 	if body == "" {
 		body = s.buildPRBody(workspaceStatus)
@@ -105,24 +102,20 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		}, nil
 	}
 
-	// Push branch to Forge (origin is the local clone, not Forge)
 	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, workspaceStatus.Repo)
 	pushResult := s.Core().Process().RunIn(ctx, repoDir, "git", "push", forgeRemote, workspaceStatus.Branch)
 	if !pushResult.OK {
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", pushResult.Value.(string)), nil)
 	}
 
-	// Create PR via Forge API
 	pullRequestURL, pullRequestNumber, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "failed to create PR", err)
 	}
 
-	// Update status with PR URL
 	workspaceStatus.PRURL = pullRequestURL
 	writeStatusResult(workspaceDir, workspaceStatus)
 
-	// Comment on issue if tracked
 	if workspaceStatus.Issue > 0 {
 		comment := core.Sprintf("Pull request created: %s", pullRequestURL)
 		s.commentOnIssue(ctx, org, workspaceStatus.Repo, workspaceStatus.Issue, comment)

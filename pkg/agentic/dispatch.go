@@ -18,19 +18,19 @@ type workspaceTracker interface {
 
 // input := agentic.DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Agent: "codex", Issue: 15}
 type DispatchInput struct {
-	Repo         string            `json:"repo"`                    // Target repo (e.g. "go-io")
-	Org          string            `json:"org,omitempty"`           // Forge org (default "core")
-	Task         string            `json:"task"`                    // What the agent should do
-	Agent        string            `json:"agent,omitempty"`         // "codex" (default), "claude", "gemini"
-	Template     string            `json:"template,omitempty"`      // "conventions", "security", "coding" (default)
-	PlanTemplate string            `json:"plan_template,omitempty"` // Plan template slug
-	Variables    map[string]string `json:"variables,omitempty"`     // Template variable substitution
-	Persona      string            `json:"persona,omitempty"`       // Persona slug
-	Issue        int               `json:"issue,omitempty"`         // Forge issue number → workspace: task-{num}/
-	PR           int               `json:"pr,omitempty"`            // PR number → workspace: pr-{num}/
-	Branch       string            `json:"branch,omitempty"`        // Branch → workspace: {branch}/
-	Tag          string            `json:"tag,omitempty"`           // Tag → workspace: {tag}/ (immutable)
-	DryRun       bool              `json:"dry_run,omitempty"`       // Preview without executing
+	Repo         string            `json:"repo"`
+	Org          string            `json:"org,omitempty"`
+	Task         string            `json:"task"`
+	Agent        string            `json:"agent,omitempty"`
+	Template     string            `json:"template,omitempty"`
+	PlanTemplate string            `json:"plan_template,omitempty"`
+	Variables    map[string]string `json:"variables,omitempty"`
+	Persona      string            `json:"persona,omitempty"`
+	Issue        int               `json:"issue,omitempty"`
+	PR           int               `json:"pr,omitempty"`
+	Branch       string            `json:"branch,omitempty"`
+	Tag          string            `json:"tag,omitempty"`
+	DryRun       bool              `json:"dry_run,omitempty"`
 }
 
 // out := agentic.DispatchOutput{Success: true, Agent: "codex", Repo: "go-io", WorkspaceDir: ".core/workspace/core/go-io/task-15"}
@@ -92,15 +92,12 @@ func agentCommandResult(agent, prompt string) core.Result {
 		return core.Result{Value: agentCommandResultValue{command: "gemini", args: args}, OK: true}
 	case "codex":
 		if model == "review" {
-			// Use exec with bypass — codex review subcommand has its own sandbox that blocks shell
-			// No -o flag — stdout captured by process output, ../.meta path unreliable in sandbox
 			return core.Result{Value: agentCommandResultValue{command: "codex", args: []string{
 				"exec",
 				"--dangerously-bypass-approvals-and-sandbox",
 				"Review the last 2 commits via git diff HEAD~2. Check for bugs, security issues, missing tests, naming issues. Report pass/fail with specifics. Do NOT make changes.",
 			}}, OK: true}
 		}
-		// Container IS the sandbox — let codex run unrestricted inside it
 		args := []string{
 			"exec",
 			"--dangerously-bypass-approvals-and-sandbox",
@@ -133,9 +130,6 @@ func agentCommandResult(agent, prompt string) core.Result {
 		}
 		return core.Result{Value: agentCommandResultValue{command: "coderabbit", args: args}, OK: true}
 	case "local":
-		// Local model via codex --oss → Ollama. Default model: devstral-24b
-		// socat proxies localhost:11434 → host.docker.internal:11434
-		// because codex hardcodes localhost check for Ollama.
 		localModel := model
 		if localModel == "" {
 			localModel = "devstral-24b"
@@ -163,46 +157,36 @@ func containerCommand(command string, args []string, repoDir, metaDir string) (s
 
 	dockerArgs := []string{
 		"run", "--rm",
-		// Host access for Ollama (local models)
 		"--add-host=host.docker.internal:host-gateway",
-		// Workspace: repo + meta
 		"-v", core.Concat(repoDir, ":/workspace"),
 		"-v", core.Concat(metaDir, ":/workspace/.meta"),
 		"-w", "/workspace",
-		// Auth: agent configs only — NO SSH keys, git push runs on host
 		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/dev/.codex:ro"),
-		// API keys — passed by name, Docker resolves from host env
 		"-e", "OPENAI_API_KEY",
 		"-e", "ANTHROPIC_API_KEY",
 		"-e", "GEMINI_API_KEY",
 		"-e", "GOOGLE_API_KEY",
-		// Agent environment
 		"-e", "TERM=dumb",
 		"-e", "NO_COLOR=1",
 		"-e", "CI=true",
 		"-e", "GIT_USER_NAME=Virgil",
 		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
-		// Go workspace — local modules bypass checksum verification
 		"-e", "GONOSUMCHECK=dappco.re/*,forge.lthn.ai/*",
 		"-e", "GOFLAGS=-mod=mod",
 	}
 
-	// Mount Claude config if dispatching claude agent
 	if command == "claude" {
 		dockerArgs = append(dockerArgs,
 			"-v", core.Concat(core.JoinPath(home, ".claude"), ":/home/dev/.claude:ro"),
 		)
 	}
 
-	// Mount Gemini config if dispatching gemini agent
 	if command == "gemini" {
 		dockerArgs = append(dockerArgs,
 			"-v", core.Concat(core.JoinPath(home, ".gemini"), ":/home/dev/.gemini:ro"),
 		)
 	}
 
-	// Wrap agent command in sh -c to chmod workspace after exit.
-	// Docker runs as a different user — without this, host can't delete workspace files.
 	quoted := core.NewBuilder()
 	quoted.WriteString(command)
 	for _, a := range args {
@@ -252,15 +236,14 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 				return true
 			}
 		} else {
-			s.failCount[pool] = 0 // slow failure = real failure, reset count
+			s.failCount[pool] = 0
 		}
 	} else {
-		s.failCount[pool] = 0 // success resets count
+		s.failCount[pool] = 0
 	}
 	return false
 }
 
-// s.startIssueTracking("/srv/.core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
@@ -277,7 +260,6 @@ func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	s.forge.Issues.StartStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
 }
 
-// s.stopIssueTracking("/srv/.core/workspace/core/go-io/task-5")
 func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	if s.forge == nil {
 		return
@@ -351,7 +333,6 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 
 	s.broadcastComplete(agent, workspaceDir, finalStatus)
 
-	// c.PerformAsync("agentic.complete", core.NewOptions(core.Option{Key: "workspace", Value: workspaceDir}))
 	if finalStatus == "completed" && s.ServiceRuntime != nil {
 		s.Core().PerformAsync("agentic.complete", core.NewOptions(
 			core.Option{Key: "workspace", Value: workspaceDir},
@@ -370,10 +351,8 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	metaDir := WorkspaceMetaDir(workspaceDir)
 	outputFile := agentOutputFile(workspaceDir, agent)
 
-	// Clean up stale BLOCKED.md from previous runs
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
-	// All agents run containerised
 	command, args = containerCommand(command, args, repoDir, metaDir)
 
 	procSvc, ok := core.ServiceFor[*process.Service](s.Core(), "process")
@@ -397,8 +376,6 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	s.broadcastStart(agent, workspaceDir)
 	s.startIssueTracking(workspaceDir)
 
-	// Register a one-shot Action that monitors this agent, then run it via PerformAsync.
-	// PerformAsync tracks it in Core's WaitGroup — ServiceShutdown waits for it.
 	monitorAction := core.Concat("agentic.monitor.", core.Replace(WorkspaceName(workspaceDir), "/", "."))
 	monitor := &agentCompletionMonitor{
 		service:      s,
@@ -419,8 +396,6 @@ type completionProcess interface {
 	Output() string
 }
 
-// monitor := &agentCompletionMonitor{service: s, agent: "codex", workspaceDir: workspaceDir, outputFile: outputFile, process: proc}
-// s.Core().Action("agentic.monitor.core.go-io.task-5", monitor.run)
 type agentCompletionMonitor struct {
 	service      *PrepSubsystem
 	agent        string
@@ -443,7 +418,6 @@ func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Res
 	return core.Result{OK: true}
 }
 
-// passed := s.runQA(workspaceDir)
 func (s *PrepSubsystem) runQA(workspaceDir string) bool {
 	ctx := context.Background()
 	repoDir := WorkspaceRepoDir(workspaceDir)

@@ -11,10 +11,10 @@ import (
 
 // input := agentic.ResumeInput{Workspace: "core/go-scm/task-42", Answer: "Use the existing queue config"}
 type ResumeInput struct {
-	Workspace string `json:"workspace"`         // workspace name (e.g. "core/go-scm/task-42")
-	Answer    string `json:"answer,omitempty"`  // answer to the blocked question (written to ANSWER.md)
-	Agent     string `json:"agent,omitempty"`   // override agent type (default: same as original)
-	DryRun    bool   `json:"dry_run,omitempty"` // preview without executing
+	Workspace string `json:"workspace"`
+	Answer    string `json:"answer,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	DryRun    bool   `json:"dry_run,omitempty"`
 }
 
 // out := agentic.ResumeOutput{Success: true, Workspace: "core/go-scm/task-42", Agent: "codex"}
@@ -42,12 +42,10 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	workspaceDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
 	repoDir := WorkspaceRepoDir(workspaceDir)
 
-	// Verify workspace exists
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
 		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
-	// Read current status
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
@@ -59,13 +57,11 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace is ", workspaceStatus.Status, ", not resumable (must be blocked, failed, or completed)"), nil)
 	}
 
-	// Determine agent
 	agent := workspaceStatus.Agent
 	if input.Agent != "" {
 		agent = input.Agent
 	}
 
-	// Write ANSWER.md if answer provided
 	if input.Answer != "" {
 		answerPath := workspaceAnswerPath(workspaceDir)
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
@@ -75,7 +71,6 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 	}
 
-	// Build resume prompt — inline the task and answer, no file references
 	prompt := core.Concat("You are resuming previous work.\n\nORIGINAL TASK:\n", workspaceStatus.Task)
 	if input.Answer != "" {
 		prompt = core.Concat(prompt, "\n\nANSWER TO YOUR QUESTION:\n", input.Answer)
@@ -91,13 +86,11 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}, nil
 	}
 
-	// Spawn agent via go-process
 	pid, processID, _, err := s.spawnAgent(agent, prompt, workspaceDir)
 	if err != nil {
 		return nil, ResumeOutput{}, err
 	}
 
-	// Update status
 	workspaceStatus.Status = "running"
 	workspaceStatus.PID = pid
 	workspaceStatus.ProcessID = processID

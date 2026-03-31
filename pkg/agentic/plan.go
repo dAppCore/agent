@@ -15,7 +15,7 @@ import (
 type Plan struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
-	Status    string    `json:"status"` // draft, ready, in_progress, needs_verification, verified, approved
+	Status    string    `json:"status"`
 	Repo      string    `json:"repo,omitempty"`
 	Org       string    `json:"org,omitempty"`
 	Objective string    `json:"objective"`
@@ -30,7 +30,7 @@ type Plan struct {
 type Phase struct {
 	Number   int      `json:"number"`
 	Name     string   `json:"name"`
-	Status   string   `json:"status"` // pending, in_progress, done
+	Status   string   `json:"status"`
 	Criteria []string `json:"criteria,omitempty"`
 	Tests    int      `json:"tests,omitempty"`
 	Notes    string   `json:"notes,omitempty"`
@@ -144,7 +144,6 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		UpdatedAt: time.Now(),
 	}
 
-	// Default phase status to pending
 	for i := range plan.Phases {
 		if plan.Phases[i].Status == "" {
 			plan.Phases[i].Status = "pending"
@@ -216,7 +215,6 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanUpdateOutput{}, core.E("planUpdate", "invalid plan payload", nil)
 	}
 
-	// Apply partial updates
 	if input.Status != "" {
 		if !validPlanStatus(input.Status) {
 			return nil, PlanUpdateOutput{}, core.E("planUpdate", core.Concat("invalid status: ", input.Status, " (valid: draft, ready, in_progress, needs_verification, verified, approved)"), nil)

@@ -18,7 +18,7 @@ type harvestResult struct {
 	repo     string
 	branch   string
 	files    int
-	rejected string // non-empty if rejected (binary, too large, etc.)
+	rejected string
 }
 
 // summary := m.harvestCompleted()
@@ -151,7 +151,6 @@ func (m *Subsystem) countUnpushed(repoDir, branch string) int {
 	base := m.defaultBranch(repoDir)
 	out := m.gitOutput(repoDir, "rev-list", "--count", core.Concat("origin/", base, "..", branch))
 	if out == "" {
-		// Fallback
 		out2 := m.gitOutput(repoDir, "log", "--oneline", core.Concat(base, "..", branch))
 		if out2 == "" {
 			return 0
@@ -251,7 +250,7 @@ func updateStatus(workspaceDir, status, question string) {
 	if question != "" {
 		workspaceStatus["question"] = question
 	} else {
-		delete(workspaceStatus, "question") // clear stale question from previous state
+		delete(workspaceStatus, "question")
 	}
 	statusPath := agentic.WorkspaceStatusPath(workspaceDir)
 	if writeResult := fs.WriteAtomic(statusPath, core.JSONMarshalString(workspaceStatus)); !writeResult.OK {

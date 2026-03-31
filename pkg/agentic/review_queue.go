@@ -13,10 +13,10 @@ import (
 
 // input := agentic.ReviewQueueInput{Reviewer: "coderabbit", Limit: 4, DryRun: true}
 type ReviewQueueInput struct {
-	Limit     int    `json:"limit,omitempty"`      // Max PRs to process this run (default: 4)
-	Reviewer  string `json:"reviewer,omitempty"`   // "coderabbit" (default), "codex", or "both"
-	DryRun    bool   `json:"dry_run,omitempty"`    // Preview without acting
-	LocalOnly bool   `json:"local_only,omitempty"` // Run review locally, don't touch GitHub
+	Limit     int    `json:"limit,omitempty"`
+	Reviewer  string `json:"reviewer,omitempty"`
+	DryRun    bool   `json:"dry_run,omitempty"`
+	LocalOnly bool   `json:"local_only,omitempty"`
 }
 
 // out := agentic.ReviewQueueOutput{Success: true, Processed: []agentic.ReviewResult{{Repo: "go-io", Verdict: "clean"}}}
@@ -30,9 +30,9 @@ type ReviewQueueOutput struct {
 // result := agentic.ReviewResult{Repo: "go-io", Verdict: "findings", Findings: 3, Action: "fix_dispatched"}
 type ReviewResult struct {
 	Repo     string `json:"repo"`
-	Verdict  string `json:"verdict"`  // clean, findings, rate_limited, error
-	Findings int    `json:"findings"` // Number of findings (0 = clean)
-	Action   string `json:"action"`   // merged, fix_dispatched, skipped, waiting
+	Verdict  string `json:"verdict"`
+	Findings int    `json:"findings"`
+	Action   string `json:"action"`
 	Detail   string `json:"detail,omitempty"`
 }
 
@@ -72,7 +72,6 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 	}
 	basePath = core.JoinPath(basePath, "core")
 
-	// Find repos with draft PRs (ahead of GitHub)
 	candidates := s.findReviewCandidates(basePath)
 	if len(candidates) == 0 {
 		return nil, ReviewQueueOutput{
@@ -91,7 +90,6 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 			continue
 		}
 
-		// Check rate limit from previous run
 		if rateInfo != nil && rateInfo.Limited && time.Now().Before(rateInfo.RetryAt) {
 			skipped = append(skipped, core.Concat(repo, " (rate limited)"))
 			continue
@@ -104,7 +102,6 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		}
 		result := s.reviewRepo(ctx, repoDir, repo, reviewer, input.DryRun, input.LocalOnly)
 
-		// Parse rate limit from result
 		if result.Verdict == "rate_limited" {
 			retryAfter := parseRetryAfter(result.Detail)
 			rateInfo = &RateLimitInfo{
@@ -112,7 +109,6 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 				RetryAt: time.Now().Add(retryAfter),
 				Message: result.Detail,
 			}
-			// Don't count rate-limited as processed — save the slot
 			skipped = append(skipped, core.Concat(repo, " (rate limited: ", retryAfter.String(), ")"))
 			continue
 		}
@@ -120,7 +116,6 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 		processed = append(processed, result)
 	}
 
-	// Save rate limit state for next run
 	if rateInfo != nil {
 		s.saveRateLimitState(rateInfo)
 	}
@@ -159,14 +154,12 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	result := ReviewResult{Repo: repo}
 	process := s.Core().Process()
 
-	// Check saved rate limit
 	if rl := s.loadRateLimitState(); rl != nil && rl.Limited && time.Now().Before(rl.RetryAt) {
 		result.Verdict = "rate_limited"
 		result.Detail = core.Sprintf("retry after %s", rl.RetryAt.Format(time.RFC3339))
 		return result
 	}
 
-	// Run reviewer CLI locally — use the reviewer passed from reviewQueue
 	if reviewer == "" {
 		reviewer = "coderabbit"
 	}
@@ -174,24 +167,20 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	r := process.RunIn(ctx, repoDir, command, args...)
 	output, _ := r.Value.(string)
 
-	// Parse rate limit (both reviewers use similar patterns)
 	if core.Contains(output, "Rate limit exceeded") || core.Contains(output, "rate limit") {
 		result.Verdict = "rate_limited"
 		result.Detail = output
 		return result
 	}
 
-	// Parse error
 	if !r.OK && !core.Contains(output, "No findings") && !core.Contains(output, "no issues") {
 		result.Verdict = "error"
 		result.Detail = output
 		return result
 	}
 
-	// Store raw output for training data
 	s.storeReviewOutput(repoDir, repo, reviewer, output)
 
-	// Parse verdict
 	if core.Contains(output, "No findings") || core.Contains(output, "no issues") || core.Contains(output, "LGTM") {
 		result.Verdict = "clean"
 		result.Findings = 0
@@ -206,14 +195,12 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 			return result
 		}
 
-		// Push to GitHub and mark PR ready / merge
 		if err := s.pushAndMerge(ctx, repoDir, repo); err != nil {
 			result.Action = core.Concat("push failed: ", err.Error())
 		} else {
 			result.Action = "merged"
 		}
 	} else {
-		// Has findings — count them and dispatch fix agent
 		result.Verdict = "findings"
 		result.Findings = countFindings(output)
 		result.Detail = truncate(output, 500)
@@ -250,7 +237,6 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 		return core.E("pushAndMerge", core.Concat("push failed: ", r.Value.(string)), nil)
 	}
 
-	// Mark PR ready if draft
 	process.RunIn(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
 
 	if r := process.RunIn(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
@@ -262,7 +248,6 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 
 // _ = s.dispatchFixFromQueue(ctx, "go-io", task)
 func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) error {
-	// Use the dispatch system — creates workspace, spawns agent
 	input := DispatchInput{
 		Repo:  repo,
 		Task:  task,
@@ -280,7 +265,6 @@ func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task str
 
 // findings := countFindings(output)
 func countFindings(output string) int {
-	// Count lines that look like findings
 	count := 0
 	for _, line := range core.Split(output, "\n") {
 		trimmed := core.Trim(line)
@@ -291,7 +275,7 @@ func countFindings(output string) int {
 		}
 	}
 	if count == 0 && !core.Contains(output, "No findings") {
-		count = 1 // At least one finding if not clean
+		count = 1
 	}
 	return count
 }
@@ -310,7 +294,6 @@ func parseRetryAfter(message string) time.Duration {
 		}
 		return time.Duration(mins)*time.Minute + time.Duration(secs)*time.Second
 	}
-	// Default: 5 minutes
 	return 5 * time.Minute
 }
 

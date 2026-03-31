@@ -10,14 +10,14 @@ import (
 
 // input := agentic.RemoteDispatchInput{Host: "charon", Repo: "go-io", Task: "Run the review queue"}
 type RemoteDispatchInput struct {
-	Host      string            `json:"host"`                // Remote agent host (e.g. "charon", "10.69.69.165:9101")
-	Repo      string            `json:"repo"`                // Target repo
-	Task      string            `json:"task"`                // What the agent should do
-	Agent     string            `json:"agent,omitempty"`     // Agent type (default: claude:opus)
-	Template  string            `json:"template,omitempty"`  // Prompt template
-	Persona   string            `json:"persona,omitempty"`   // Persona slug
-	Org       string            `json:"org,omitempty"`       // Forge org (default: core)
-	Variables map[string]string `json:"variables,omitempty"` // Template variables
+	Host      string            `json:"host"`
+	Repo      string            `json:"repo"`
+	Task      string            `json:"task"`
+	Agent     string            `json:"agent,omitempty"`
+	Template  string            `json:"template,omitempty"`
+	Persona   string            `json:"persona,omitempty"`
+	Org       string            `json:"org,omitempty"`
+	Variables map[string]string `json:"variables,omitempty"`
 }
 
 // out := agentic.RemoteDispatchOutput{Success: true, Host: "charon", Repo: "go-io", Agent: "claude:opus"}
