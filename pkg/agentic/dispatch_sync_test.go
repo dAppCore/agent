@@ -9,13 +9,16 @@ import (
 )
 
 func TestDispatchsync_ContainerCommand_Good(t *testing.T) {
-	cmd, args := containerCommand("codex", []string{"--model", "gpt-5.4"}, "/workspace", "/meta")
+	cmd, args := containerCommand("codex", []string{"--model", "gpt-5.4"}, "/workspace/task-5", "/workspace/task-5/.meta")
 	assert.Equal(t, "docker", cmd)
 	assert.Contains(t, args, "run")
+	assert.Contains(t, args, "/workspace/task-5:/workspace")
+	assert.Contains(t, args, "/workspace/task-5/.meta:/workspace/.meta")
+	assert.Contains(t, args, "/workspace/repo")
 }
 
 func TestDispatchsync_ContainerCommand_Bad_UnknownAgent(t *testing.T) {
-	cmd, args := containerCommand("unknown", nil, "/workspace", "/meta")
+	cmd, args := containerCommand("unknown", nil, "/workspace/task-5", "/workspace/task-5/.meta")
 	assert.Equal(t, "docker", cmd)
 	assert.NotEmpty(t, args)
 }

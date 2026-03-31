@@ -146,8 +146,8 @@ func agentCommandResult(agent, prompt string) core.Result {
 
 const defaultDockerImage = "core-dev"
 
-// command, args := containerCommand("local", "codex", []string{"exec", "--oss"}, "/srv/.core/workspace/core/go-io/task-5/repo", "/srv/.core/workspace/core/go-io/task-5/.meta")
-func containerCommand(command string, args []string, repoDir, metaDir string) (string, []string) {
+// command, args := containerCommand("codex", []string{"exec", "--model", "gpt-5.4"}, "/srv/.core/workspace/core/go-io/task-5", "/srv/.core/workspace/core/go-io/task-5/.meta")
+func containerCommand(command string, args []string, workspaceDir, metaDir string) (string, []string) {
 	image := core.Env("AGENT_DOCKER_IMAGE")
 	if image == "" {
 		image = defaultDockerImage
@@ -158,9 +158,9 @@ func containerCommand(command string, args []string, repoDir, metaDir string) (s
 	dockerArgs := []string{
 		"run", "--rm",
 		"--add-host=host.docker.internal:host-gateway",
-		"-v", core.Concat(repoDir, ":/workspace"),
+		"-v", core.Concat(workspaceDir, ":/workspace"),
 		"-v", core.Concat(metaDir, ":/workspace/.meta"),
-		"-w", "/workspace",
+		"-w", "/workspace/repo",
 		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/dev/.codex:ro"),
 		"-e", "OPENAI_API_KEY",
 		"-e", "ANTHROPIC_API_KEY",
@@ -188,11 +188,15 @@ func containerCommand(command string, args []string, repoDir, metaDir string) (s
 	}
 
 	quoted := core.NewBuilder()
-	quoted.WriteString(command)
-	for _, a := range args {
-		quoted.WriteString(" '")
-		quoted.WriteString(core.Replace(a, "'", "'\\''"))
-		quoted.WriteString("'")
+	quoted.WriteString("if [ ! -d /workspace/repo ]; then echo 'missing /workspace/repo' >&2; exit 1; fi")
+	if command != "" {
+		quoted.WriteString("; ")
+		quoted.WriteString(command)
+		for _, a := range args {
+			quoted.WriteString(" '")
+			quoted.WriteString(core.Replace(a, "'", "'\\''"))
+			quoted.WriteString("'")
+		}
 	}
 	quoted.WriteString("; chmod -R a+w /workspace /workspace/.meta 2>/dev/null; true")
 
@@ -341,13 +345,12 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 		return 0, "", "", err
 	}
 
-	repoDir := WorkspaceRepoDir(workspaceDir)
 	metaDir := WorkspaceMetaDir(workspaceDir)
 	outputFile := agentOutputFile(workspaceDir, agent)
 
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
-	command, args = containerCommand(command, args, repoDir, metaDir)
+	command, args = containerCommand(command, args, workspaceDir, metaDir)
 
 	processResult := s.Core().Service("process")
 	if !processResult.OK {
@@ -360,7 +363,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
-		Dir:     repoDir,
+		Dir:     workspaceDir,
 		Detach:  true,
 	})
 	if err != nil {

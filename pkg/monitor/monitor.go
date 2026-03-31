@@ -93,6 +93,13 @@ func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
 	go m.checkIdleAfterDelay()
 }
 
+func (m *Subsystem) handleWorkspacePushed(ev messages.WorkspacePushed) {
+	if m.ServiceRuntime == nil {
+		return
+	}
+	m.syncWorkspacePush(ev.Repo, ev.Branch, ev.Org)
+}
+
 // c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"})
 // c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed"})
 func (m *Subsystem) HandleIPCEvents(_ *core.Core, msg core.Message) core.Result {
@@ -101,6 +108,8 @@ func (m *Subsystem) HandleIPCEvents(_ *core.Core, msg core.Message) core.Result 
 		m.handleAgentCompleted(ev)
 	case messages.AgentStarted:
 		m.handleAgentStarted(ev)
+	case messages.WorkspacePushed:
+		m.handleWorkspacePushed(ev)
 	}
 	return core.Result{OK: true}
 }

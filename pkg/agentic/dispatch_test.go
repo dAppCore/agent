@@ -584,11 +584,13 @@ func TestDispatch_ContainerCommand_Bad(t *testing.T) {
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	// Empty command string — docker still runs, just with no command after image
-	cmd, args := containerCommand("", []string{}, "/ws/repo", "/ws/.meta")
+	cmd, args := containerCommand("", []string{}, "/ws", "/ws/.meta")
 	assert.Equal(t, "docker", cmd)
 	assert.Contains(t, args, "run")
 	// The image should still be present in args
 	assert.Contains(t, args, defaultDockerImage)
+	assert.Contains(t, args, "/ws:/workspace")
+	assert.Contains(t, args, "/workspace/repo")
 }
 
 // --- canDispatchAgent ---

@@ -100,6 +100,71 @@ func (m *Subsystem) syncRepos() string {
 	return core.Sprintf("Synced %d repo(s): %s", len(pulled), core.Join(", ", pulled...))
 }
 
+func (m *Subsystem) syncWorkspacePush(repo, branch, org string) bool {
+	if m.ServiceRuntime == nil {
+		return false
+	}
+
+	repoDir := localRepoDir(org, repo)
+	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+		return false
+	}
+
+	targetBranch := core.Trim(branch)
+	if targetBranch == "" {
+		targetBranch = m.detectBranch(repoDir)
+	}
+	if targetBranch == "" {
+		targetBranch = m.defaultBranch(repoDir)
+	}
+	if targetBranch == "" {
+		return false
+	}
+
+	if !m.gitOK(repoDir, "fetch", "origin", targetBranch) {
+		return false
+	}
+
+	currentBranch := m.detectBranch(repoDir)
+	if currentBranch != "" && currentBranch != targetBranch {
+		return true
+	}
+
+	return m.gitOK(repoDir, "reset", "--hard", core.Concat("origin/", targetBranch))
+}
+
+func localRepoDir(org, repo string) string {
+	basePath := core.Env("CODE_PATH")
+	if basePath == "" {
+		basePath = core.JoinPath(agentic.HomeDir(), "Code")
+	}
+
+	normalisedRepo := core.Replace(repo, "\\", "/")
+	repoName := core.PathBase(normalisedRepo)
+	orgName := core.PathBase(core.Replace(org, "\\", "/"))
+	repoParts := core.Split(normalisedRepo, "/")
+	if orgName == "" && len(repoParts) > 1 {
+		orgName = repoParts[0]
+	}
+
+	candidates := []string{}
+	if orgName != "" {
+		candidates = append(candidates, core.JoinPath(basePath, orgName, repoName))
+	}
+	candidates = append(candidates, core.JoinPath(basePath, repoName))
+
+	for _, candidate := range candidates {
+		if fs.Exists(candidate) && !fs.IsFile(candidate) {
+			return candidate
+		}
+	}
+
+	if len(candidates) == 0 {
+		return ""
+	}
+	return candidates[0]
+}
+
 func (m *Subsystem) initSyncTimestamp() {
 	m.mu.Lock()
 	if m.lastSyncTimestamp == 0 {

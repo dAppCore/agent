@@ -121,14 +121,16 @@ func TestDispatch_ContainerCommand_Good_Codex(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	cmd, args := containerCommand("codex", []string{"exec", "--dangerously-bypass-approvals-and-sandbox", "do it"}, "/ws/repo", "/ws/.meta")
+	cmd, args := containerCommand("codex", []string{"exec", "--dangerously-bypass-approvals-and-sandbox", "do it"}, "/ws", "/ws/.meta")
 	assert.Equal(t, "docker", cmd)
 	assert.Contains(t, args, "run")
 	assert.Contains(t, args, "--rm")
-	assert.Contains(t, args, "/ws/repo:/workspace")
+	assert.Contains(t, args, "/ws:/workspace")
 	assert.Contains(t, args, "/ws/.meta:/workspace/.meta")
+	assert.Contains(t, args, "/workspace/repo")
 	// Command is wrapped in sh -c for chmod cleanup
 	shCmd := args[len(args)-1]
+	assert.Contains(t, shCmd, "missing /workspace/repo")
 	assert.Contains(t, shCmd, "codex")
 	// Should use default image
 	assert.Contains(t, args, defaultDockerImage)
@@ -138,7 +140,7 @@ func TestDispatch_ContainerCommand_Good_CustomImage(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "my-custom-image:latest")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	cmd, args := containerCommand("codex", []string{"exec"}, "/ws/repo", "/ws/.meta")
+	cmd, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
 	assert.Equal(t, "docker", cmd)
 	assert.Contains(t, args, "my-custom-image:latest")
 }
@@ -147,7 +149,7 @@ func TestDispatch_ContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	_, args := containerCommand("claude", []string{"-p", "do it"}, "/ws/repo", "/ws/.meta")
+	_, args := containerCommand("claude", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	assert.Contains(t, joined, ".claude:/home/dev/.claude:ro")
 }
@@ -156,7 +158,7 @@ func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	_, args := containerCommand("gemini", []string{"-p", "do it"}, "/ws/repo", "/ws/.meta")
+	_, args := containerCommand("gemini", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	assert.Contains(t, joined, ".gemini:/home/dev/.gemini:ro")
 }
@@ -165,7 +167,7 @@ func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	_, args := containerCommand("codex", []string{"exec"}, "/ws/repo", "/ws/.meta")
+	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	// codex agent must NOT mount .claude config
 	assert.NotContains(t, joined, ".claude:/home/dev/.claude:ro")
@@ -175,7 +177,7 @@ func TestDispatch_ContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
-	_, args := containerCommand("codex", []string{"exec"}, "/ws/repo", "/ws/.meta")
+	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	assert.Contains(t, joined, "OPENAI_API_KEY")
 	assert.Contains(t, joined, "ANTHROPIC_API_KEY")

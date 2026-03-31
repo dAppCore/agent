@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 )
@@ -141,6 +142,46 @@ func TestSync_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	msg := mon.syncRepos()
 	assert.Contains(t, msg, "Synced 1 repo(s)")
 	assert.Contains(t, msg, "test-repo")
+}
+
+func TestSync_HandleWorkspacePushed_Good_ResetsTrackedRepo(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote")
+	fs.EnsureDir(remoteDir)
+	run(t, remoteDir, "git", "init", "--bare")
+
+	codeDir := t.TempDir()
+	orgDir := core.JoinPath(codeDir, "core")
+	fs.EnsureDir(orgDir)
+	repoDir := core.JoinPath(orgDir, "test-repo")
+	run(t, orgDir, "git", "clone", remoteDir, "test-repo")
+	run(t, repoDir, "git", "checkout", "-b", "main")
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "commit", "-m", "init")
+	run(t, repoDir, "git", "push", "-u", "origin", "main")
+
+	cloneParent := t.TempDir()
+	tmpClone := core.JoinPath(cloneParent, "clone2")
+	run(t, cloneParent, "git", "clone", remoteDir, "clone2")
+	run(t, tmpClone, "git", "checkout", "main")
+	fs.Write(core.JoinPath(tmpClone, "new.go"), "package main\n")
+	run(t, tmpClone, "git", "add", ".")
+	run(t, tmpClone, "git", "commit", "-m", "agent work")
+	run(t, tmpClone, "git", "push", "origin", "main")
+
+	t.Setenv("CODE_PATH", codeDir)
+
+	mon := New()
+	mon.ServiceRuntime = testMon.ServiceRuntime
+
+	result := mon.HandleIPCEvents(mon.Core(), messages.WorkspacePushed{
+		Repo:   "test-repo",
+		Branch: "main",
+		Org:    "core",
+	})
+	assert.True(t, result.OK)
+	assert.True(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	assert.Equal(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
 }
 
 func TestSync_SyncRepos_Good_NormalisesWindowsRepoPath(t *testing.T) {
