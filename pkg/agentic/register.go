@@ -30,6 +30,7 @@ func Register(c *core.Core) core.Result {
 	c.Config().Enable("auto-pr")
 	c.Config().Enable("auto-merge")
 	c.Config().Enable("auto-ingest")
+	RegisterHandlers(c, subsystem)
 
 	return core.Result{Value: subsystem, OK: true}
 }

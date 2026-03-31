@@ -3,12 +3,15 @@
 package agentic
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // newCoreForHandlerTests creates a Core with PrepSubsystem registered via
@@ -31,6 +34,7 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 	// RegisterService auto-discovers HandleIPCEvents on PrepSubsystem
 	c.RegisterService("agentic", s)
+	RegisterHandlers(c, s)
 
 	return c, s
 }
@@ -46,25 +50,22 @@ func TestHandlers_HandleIPCEvents_Good(t *testing.T) {
 }
 
 func TestHandlers_PokeOnCompletion_Good(t *testing.T) {
-	_, s := newCoreForHandlerTests(t)
+	c, _ := newCoreForHandlerTests(t)
 
-	// Drain any existing poke
-	select {
-	case <-s.pokeCh:
-	default:
-	}
+	poked := make(chan struct{}, 1)
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
+		select {
+		case poked <- struct{}{}:
+		default:
+		}
+		return core.Result{OK: true}
+	})
 
-	// HandleIPCEvents receives AgentCompleted → calls Poke
-	s.HandleIPCEvents(s.Core(), messages.AgentCompleted{
+	c.ACTION(messages.AgentCompleted{
 		Workspace: "ws-test", Repo: "go-io", Status: "completed",
 	})
 
-	select {
-	case <-s.pokeCh:
-		// poke received
-	default:
-		t.Log("poke signal may not have been received synchronously")
-	}
+	require.Eventually(t, func() bool { return len(poked) == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
@@ -112,6 +113,84 @@ func TestHandlers_PokeQueue_Good(t *testing.T) {
 	// PokeQueue message → drainQueue called
 	c.ACTION(messages.PokeQueue{})
 	// Should call drainQueue without panic
+}
+
+func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	workspaceName := "core/go-io/task-5"
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	require.True(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
+	require.NoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Branch: "agent/fix-tests",
+		Agent:  "codex",
+	}))
+
+	var mu sync.Mutex
+	called := make(map[string]bool)
+	mark := func(name string) {
+		mu.Lock()
+		called[name] = true
+		mu.Unlock()
+	}
+	seen := func(name string) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return called[name]
+	}
+
+	c := core.New()
+	c.Config().Enable("auto-ingest")
+	RegisterHandlers(c, &PrepSubsystem{})
+
+	c.Action("agentic.qa", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("qa")
+		}
+		c.ACTION(messages.QAResult{Workspace: workspaceName, Repo: "go-io", Passed: true})
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.auto-pr", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("auto-pr")
+		}
+		c.ACTION(messages.PRCreated{
+			Repo:   "go-io",
+			Branch: "agent/fix-tests",
+			PRURL:  "https://forge.lthn.ai/core/go-io/pulls/12",
+			PRNum:  12,
+		})
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.verify", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("verify")
+		}
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.ingest", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("ingest")
+		}
+		return core.Result{OK: true}
+	})
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
+		mark("poke")
+		return core.Result{OK: true}
+	})
+
+	c.ACTION(messages.AgentCompleted{
+		Workspace: workspaceName,
+		Repo:      "go-io",
+		Status:    "completed",
+	})
+
+	require.Eventually(t, func() bool {
+		return seen("qa") && seen("auto-pr") && seen("verify") && seen("ingest") && seen("poke")
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestHandlers_IngestDisabled_Bad(t *testing.T) {

@@ -81,6 +81,22 @@ func TestActions_HandlePoke_Good(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestActions_HandlePoke_Good_DelegatesToRunner(t *testing.T) {
+	called := false
+	c := core.New()
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	r := s.handlePoke(context.Background(), core.NewOptions())
+	require.True(t, r.OK)
+	assert.True(t, called)
+}
+
 func TestActions_HandleQA_Bad_NoWorkspace(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleQA(context.Background(), core.NewOptions())

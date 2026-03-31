@@ -332,12 +332,6 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 	s.stopIssueTracking(workspaceDir)
 
 	s.broadcastComplete(agent, workspaceDir, finalStatus)
-
-	if finalStatus == "completed" && s.ServiceRuntime != nil {
-		s.Core().PerformAsync("agentic.complete", core.NewOptions(
-			core.Option{Key: "workspace", Value: workspaceDir},
-		))
-	}
 }
 
 // pid, processID, outputFile, err := s.spawnAgent(agent, prompt, workspaceDir)

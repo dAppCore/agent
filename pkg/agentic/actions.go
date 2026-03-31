@@ -285,6 +285,9 @@ func (s *PrepSubsystem) handleIngest(ctx context.Context, options core.Options) 
 
 // result := c.Action("agentic.poke").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Result {
+	if s.ServiceRuntime != nil && s.Core().Action("runner.poke").Exists() {
+		return s.Core().Action("runner.poke").Run(ctx, core.NewOptions())
+	}
 	s.Poke()
 	return core.Result{OK: true}
 }

@@ -7,17 +7,36 @@ import (
 	core "dappco.re/go/core"
 )
 
+// RegisterHandlers(c, subsystem)
+// c.ACTION(messages.AgentCompleted{Workspace: "core/go-io/task-5", Repo: "go-io", Status: "completed"})
+func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
+	if c == nil || s == nil {
+		return
+	}
+
+	c.RegisterActions(
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionQA(coreApp, msg)
+		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionAutoPR(coreApp, msg)
+		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionVerify(coreApp, msg)
+		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionIngest(coreApp, msg)
+		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionPoke(coreApp, msg)
+		},
+	)
+}
+
 // _ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
 // _ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
-	case messages.AgentCompleted:
-		if c.Config().Enabled("auto-ingest") {
-			if workspaceDir := resolveWorkspace(ev.Workspace); workspaceDir != "" {
-				s.ingestFindings(workspaceDir)
-			}
-		}
-
 	case messages.SpawnQueued:
 		workspaceDir := resolveWorkspace(ev.Workspace)
 		if workspaceDir == "" {
@@ -46,6 +65,89 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 	}
 
 	return core.Result{OK: true}
+}
+
+func handleCompletionQA(c *core.Core, msg core.Message) core.Result {
+	ev, ok := msg.(messages.AgentCompleted)
+	if !ok || ev.Status != "completed" {
+		return core.Result{OK: true}
+	}
+
+	workspaceDir := resolveWorkspace(ev.Workspace)
+	if workspaceDir == "" {
+		return core.Result{OK: true}
+	}
+
+	performAsyncIfRegistered(c, "agentic.qa", workspaceActionOptions(workspaceDir))
+	return core.Result{OK: true}
+}
+
+func handleCompletionAutoPR(c *core.Core, msg core.Message) core.Result {
+	ev, ok := msg.(messages.QAResult)
+	if !ok || !ev.Passed {
+		return core.Result{OK: true}
+	}
+
+	workspaceDir := resolveWorkspace(ev.Workspace)
+	if workspaceDir == "" {
+		return core.Result{OK: true}
+	}
+
+	performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir))
+	return core.Result{OK: true}
+}
+
+func handleCompletionVerify(c *core.Core, msg core.Message) core.Result {
+	ev, ok := msg.(messages.PRCreated)
+	if !ok {
+		return core.Result{OK: true}
+	}
+
+	workspaceDir := findWorkspaceByPR(ev.Repo, ev.Branch)
+	if workspaceDir == "" {
+		return core.Result{OK: true}
+	}
+
+	performAsyncIfRegistered(c, "agentic.verify", workspaceActionOptions(workspaceDir))
+	return core.Result{OK: true}
+}
+
+func handleCompletionIngest(c *core.Core, msg core.Message) core.Result {
+	ev, ok := msg.(messages.AgentCompleted)
+	if !ok || c == nil || !c.Config().Enabled("auto-ingest") {
+		return core.Result{OK: true}
+	}
+
+	workspaceDir := resolveWorkspace(ev.Workspace)
+	if workspaceDir == "" {
+		return core.Result{OK: true}
+	}
+
+	performAsyncIfRegistered(c, "agentic.ingest", workspaceActionOptions(workspaceDir))
+	return core.Result{OK: true}
+}
+
+func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
+	if _, ok := msg.(messages.AgentCompleted); !ok {
+		return core.Result{OK: true}
+	}
+
+	if performAsyncIfRegistered(c, "runner.poke", core.NewOptions()).OK {
+		return core.Result{OK: true}
+	}
+	performAsyncIfRegistered(c, "agentic.poke", core.NewOptions())
+	return core.Result{OK: true}
+}
+
+func workspaceActionOptions(workspaceDir string) core.Options {
+	return core.NewOptions(core.Option{Key: "workspace", Value: workspaceDir})
+}
+
+func performAsyncIfRegistered(c *core.Core, action string, options core.Options) core.Result {
+	if c == nil || !c.Action(action).Exists() {
+		return core.Result{}
+	}
+	return c.PerformAsync(action, options)
 }
 
 // spawnResult := prep.SpawnFromQueue("codex", prompt, workspaceDir)
