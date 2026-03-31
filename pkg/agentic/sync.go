@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"time"
 
 	core "dappco.re/go/core"
 )
@@ -25,6 +26,12 @@ type SyncPullOutput struct {
 	Success bool             `json:"success"`
 	Count   int              `json:"count"`
 	Context []map[string]any `json:"context"`
+}
+
+type syncQueuedPush struct {
+	AgentID    string           `json:"agent_id"`
+	Dispatches []map[string]any `json:"dispatches"`
+	QueuedAt   time.Time        `json:"queued_at"`
 }
 
 // result := c.Action("agent.sync.push").Run(ctx, core.NewOptions())
@@ -49,31 +56,38 @@ func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushO
 	if agentID == "" {
 		agentID = AgentName()
 	}
+	dispatches := collectSyncDispatches()
 	token := s.syncToken()
 	if token == "" {
-		return SyncPushOutput{}, core.E("agent.sync.push", "api token is required", nil)
-	}
-
-	dispatches := collectSyncDispatches()
-	if len(dispatches) == 0 {
 		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
 
-	payload := map[string]any{
-		"agent_id":   agentID,
-		"dispatches": dispatches,
+	queuedPushes := readSyncQueue()
+	if len(dispatches) > 0 {
+		queuedPushes = append(queuedPushes, syncQueuedPush{
+			AgentID:    agentID,
+			Dispatches: dispatches,
+			QueuedAt:   time.Now(),
+		})
+	}
+	if len(queuedPushes) == 0 {
+		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
 
-	result := HTTPPost(ctx, core.Concat(s.syncAPIURL(), "/v1/agent/sync"), core.JSONMarshalString(payload), token, "Bearer")
-	if !result.OK {
-		err, _ := result.Value.(error)
-		if err == nil {
-			err = core.E("agent.sync.push", "sync push failed", nil)
+	synced := 0
+	for i, queued := range queuedPushes {
+		if len(queued.Dispatches) == 0 {
+			continue
 		}
-		return SyncPushOutput{}, err
+		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
+			writeSyncQueue(queuedPushes[i:])
+			return SyncPushOutput{Success: true, Count: synced}, nil
+		}
+		synced += len(queued.Dispatches)
 	}
 
-	return SyncPushOutput{Success: true, Count: len(dispatches)}, nil
+	writeSyncQueue(nil)
+	return SyncPushOutput{Success: true, Count: synced}, nil
 }
 
 func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullOutput, error) {
@@ -82,17 +96,15 @@ func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullO
 	}
 	token := s.syncToken()
 	if token == "" {
-		return SyncPullOutput{}, core.E("agent.sync.pull", "api token is required", nil)
+		cached := readSyncContext()
+		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
 
 	endpoint := core.Concat(s.syncAPIURL(), "/v1/agent/context?agent_id=", agentID)
 	result := HTTPGet(ctx, endpoint, token, "Bearer")
 	if !result.OK {
-		err, _ := result.Value.(error)
-		if err == nil {
-			err = core.E("agent.sync.pull", "sync pull failed", nil)
-		}
-		return SyncPullOutput{}, err
+		cached := readSyncContext()
+		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
 
 	var response struct {
@@ -100,12 +112,10 @@ func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullO
 	}
 	parseResult := core.JSONUnmarshalString(result.Value.(string), &response)
 	if !parseResult.OK {
-		err, _ := parseResult.Value.(error)
-		if err == nil {
-			err = core.E("agent.sync.pull", "failed to parse sync response", nil)
-		}
-		return SyncPullOutput{}, err
+		cached := readSyncContext()
+		return SyncPullOutput{Success: true, Count: len(cached), Context: cached}, nil
 	}
+	writeSyncContext(response.Data)
 
 	return SyncPullOutput{
 		Success: true,
@@ -171,4 +181,74 @@ func shouldSyncStatus(status string) bool {
 		return true
 	}
 	return false
+}
+
+func (s *PrepSubsystem) postSyncPush(ctx context.Context, agentID string, dispatches []map[string]any, token string) error {
+	payload := map[string]any{
+		"agent_id":   agentID,
+		"dispatches": dispatches,
+	}
+
+	result := HTTPPost(ctx, core.Concat(s.syncAPIURL(), "/v1/agent/sync"), core.JSONMarshalString(payload), token, "Bearer")
+	if result.OK {
+		return nil
+	}
+
+	err, _ := result.Value.(error)
+	if err == nil {
+		err = core.E("agent.sync.push", "sync push failed", nil)
+	}
+	return err
+}
+
+func syncStateDir() string {
+	return core.JoinPath(CoreRoot(), "sync")
+}
+
+func syncQueuePath() string {
+	return core.JoinPath(syncStateDir(), "queue.json")
+}
+
+func syncContextPath() string {
+	return core.JoinPath(syncStateDir(), "context.json")
+}
+
+func readSyncQueue() []syncQueuedPush {
+	var queued []syncQueuedPush
+	result := fs.Read(syncQueuePath())
+	if !result.OK {
+		return queued
+	}
+	parseResult := core.JSONUnmarshalString(result.Value.(string), &queued)
+	if !parseResult.OK {
+		return []syncQueuedPush{}
+	}
+	return queued
+}
+
+func writeSyncQueue(queued []syncQueuedPush) {
+	if len(queued) == 0 {
+		fs.Delete(syncQueuePath())
+		return
+	}
+	fs.EnsureDir(syncStateDir())
+	fs.WriteAtomic(syncQueuePath(), core.JSONMarshalString(queued))
+}
+
+func readSyncContext() []map[string]any {
+	var contextData []map[string]any
+	result := fs.Read(syncContextPath())
+	if !result.OK {
+		return contextData
+	}
+	parseResult := core.JSONUnmarshalString(result.Value.(string), &contextData)
+	if !parseResult.OK {
+		return []map[string]any{}
+	}
+	return contextData
+}
+
+func writeSyncContext(contextData []map[string]any) {
+	fs.EnsureDir(syncStateDir())
+	fs.WriteAtomic(syncContextPath(), core.JSONMarshalString(contextData))
 }
