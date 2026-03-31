@@ -27,6 +27,7 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 
 	c.Command("subscription/detect", core.Command{Description: "Detect available provider capabilities", Action: s.cmdSubscriptionDetect})
 	c.Command("subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget})
+	c.Command("subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
 	c.Command("subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
 }
 
@@ -441,7 +442,7 @@ func (s *PrepSubsystem) cmdSubscriptionBudget(options core.Options) core.Result 
 
 func (s *PrepSubsystem) cmdSubscriptionUpdateBudget(options core.Options) core.Result {
 	if optionStringValue(options, "agent_id", "agent-id", "_arg") == "" || len(optionAnyMapValue(options, "limits")) == 0 {
-		core.Print(nil, "usage: core-agent subscription update-budget <agent-id> --limits='{\"max_daily_hours\":2}'")
+		core.Print(nil, "usage: core-agent subscription budget update <agent-id> --limits='{\"max_daily_hours\":2}'")
 		return core.Result{Value: core.E("agentic.cmdSubscriptionUpdateBudget", "agent_id and limits are required", nil), OK: false}
 	}
 

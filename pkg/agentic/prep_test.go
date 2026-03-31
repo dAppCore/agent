@@ -447,6 +447,38 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("plan.list").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("agentic.sync.push").Exists())
+	assert.True(t, c.Action("agent.sync.push").Exists())
+	assert.True(t, c.Action("agentic.fleet.register").Exists())
+	assert.True(t, c.Action("agent.fleet.register").Exists())
+	assert.True(t, c.Action("agentic.credits.balance").Exists())
+	assert.True(t, c.Action("agent.credits.balance").Exists())
+	assert.True(t, c.Action("agentic.subscription.budget.update").Exists())
+	assert.True(t, c.Action("agent.subscription.budget.update").Exists())
+}
+
+func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.Contains(t, c.Commands(), "subscription/budget/update")
+	assert.Contains(t, c.Commands(), "subscription/update-budget")
+}
+
 func TestPrep_OnStartup_Bad(t *testing.T) {
 	// OnStartup with nil ServiceRuntime — panics because
 	// registerCommands calls s.Core().Command().

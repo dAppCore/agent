@@ -34,7 +34,7 @@ type syncQueuedPush struct {
 	QueuedAt   time.Time        `json:"queued_at"`
 }
 
-// result := c.Action("agent.sync.push").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options) core.Result {
 	output, err := s.syncPush(ctx, options.String("agent_id"))
 	if err != nil {
@@ -43,7 +43,7 @@ func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options
 	return core.Result{Value: output, OK: true}
 }
 
-// result := c.Action("agent.sync.pull").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.sync.pull").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPull(ctx context.Context, options core.Options) core.Result {
 	output, err := s.syncPull(ctx, options.String("agent_id"))
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *PrepSubsystem) postSyncPush(ctx context.Context, agentID string, dispat
 
 	err, _ := result.Value.(error)
 	if err == nil {
-		err = core.E("agent.sync.push", "sync push failed", nil)
+		err = core.E("agentic.sync.push", "sync push failed", nil)
 	}
 	return err
 }

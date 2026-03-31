@@ -95,7 +95,7 @@ type SubscriptionCapabilities struct {
 	Available []string        `json:"available,omitempty"`
 }
 
-// result := c.Action("agent.sync.status").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.sync.status").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncStatus(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
@@ -114,7 +114,7 @@ func (s *PrepSubsystem) handleSyncStatus(ctx context.Context, options core.Optio
 	}
 
 	path := appendQueryParam("/v1/agent/status", "agent_id", agentID)
-	result := s.platformPayload(ctx, "agent.sync.status", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.sync.status", "GET", path, nil)
 	if !result.OK {
 		err, _ := result.Value.(error)
 		if err != nil {
@@ -138,11 +138,11 @@ func (s *PrepSubsystem) handleSyncStatus(ctx context.Context, options core.Optio
 	return core.Result{Value: output, OK: true}
 }
 
-// result := c.Action("agent.fleet.register").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.register").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetRegister(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.fleet.register", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.register", "agent_id is required", nil), OK: false}
 	}
 
 	platform := optionStringValue(options, "platform")
@@ -161,7 +161,7 @@ func (s *PrepSubsystem) handleFleetRegister(ctx context.Context, options core.Op
 		body["capabilities"] = capabilities
 	}
 
-	result := s.platformPayload(ctx, "agent.fleet.register", "POST", "/v1/fleet/register", body)
+	result := s.platformPayload(ctx, "agentic.fleet.register", "POST", "/v1/fleet/register", body)
 	if !result.OK {
 		return result
 	}
@@ -169,12 +169,12 @@ func (s *PrepSubsystem) handleFleetRegister(ctx context.Context, options core.Op
 	return core.Result{Value: parseFleetNode(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.fleet.heartbeat").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.heartbeat").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetHeartbeat(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	status := optionStringValue(options, "status")
 	if agentID == "" || status == "" {
-		return core.Result{Value: core.E("agent.fleet.heartbeat", "agent_id and status are required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.heartbeat", "agent_id and status are required", nil), OK: false}
 	}
 
 	body := map[string]any{
@@ -185,7 +185,7 @@ func (s *PrepSubsystem) handleFleetHeartbeat(ctx context.Context, options core.O
 		body["compute_budget"] = budget
 	}
 
-	result := s.platformPayload(ctx, "agent.fleet.heartbeat", "POST", "/v1/fleet/heartbeat", body)
+	result := s.platformPayload(ctx, "agentic.fleet.heartbeat", "POST", "/v1/fleet/heartbeat", body)
 	if !result.OK {
 		return result
 	}
@@ -193,14 +193,14 @@ func (s *PrepSubsystem) handleFleetHeartbeat(ctx context.Context, options core.O
 	return core.Result{Value: parseFleetNode(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.fleet.deregister").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.deregister").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetDeregister(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.fleet.deregister", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.deregister", "agent_id is required", nil), OK: false}
 	}
 
-	result := s.platformPayload(ctx, "agent.fleet.deregister", "POST", "/v1/fleet/deregister", map[string]any{
+	result := s.platformPayload(ctx, "agentic.fleet.deregister", "POST", "/v1/fleet/deregister", map[string]any{
 		"agent_id": agentID,
 	})
 	if !result.OK {
@@ -213,13 +213,13 @@ func (s *PrepSubsystem) handleFleetDeregister(ctx context.Context, options core.
 	}, OK: true}
 }
 
-// result := c.Action("agent.fleet.nodes").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.fleet.nodes").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleFleetNodes(ctx context.Context, options core.Options) core.Result {
 	path := "/v1/fleet/nodes"
 	path = appendQueryParam(path, "status", optionStringValue(options, "status"))
 	path = appendQueryParam(path, "platform", optionStringValue(options, "platform"))
 
-	result := s.platformPayload(ctx, "agent.fleet.nodes", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.fleet.nodes", "GET", path, nil)
 	if !result.OK {
 		return result
 	}
@@ -227,13 +227,13 @@ func (s *PrepSubsystem) handleFleetNodes(ctx context.Context, options core.Optio
 	return core.Result{Value: parseFleetNodesOutput(result.Value.(map[string]any)), OK: true}
 }
 
-// result := c.Action("agent.fleet.task.assign").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.task.assign").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetAssignTask(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	repo := optionStringValue(options, "repo")
 	task := optionStringValue(options, "task")
 	if agentID == "" || repo == "" || task == "" {
-		return core.Result{Value: core.E("agent.fleet.task.assign", "agent_id, repo, and task are required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.task.assign", "agent_id, repo, and task are required", nil), OK: false}
 	}
 
 	body := map[string]any{
@@ -251,7 +251,7 @@ func (s *PrepSubsystem) handleFleetAssignTask(ctx context.Context, options core.
 		body["agent_model"] = agentModel
 	}
 
-	result := s.platformPayload(ctx, "agent.fleet.task.assign", "POST", "/v1/fleet/task/assign", body)
+	result := s.platformPayload(ctx, "agentic.fleet.task.assign", "POST", "/v1/fleet/task/assign", body)
 	if !result.OK {
 		return result
 	}
@@ -259,12 +259,12 @@ func (s *PrepSubsystem) handleFleetAssignTask(ctx context.Context, options core.
 	return core.Result{Value: parseFleetTask(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.fleet.task.complete").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.task.complete").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetCompleteTask(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	taskID := optionIntValue(options, "task_id", "task-id")
 	if agentID == "" || taskID == 0 {
-		return core.Result{Value: core.E("agent.fleet.task.complete", "agent_id and task_id are required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.task.complete", "agent_id and task_id are required", nil), OK: false}
 	}
 
 	body := map[string]any{
@@ -284,7 +284,7 @@ func (s *PrepSubsystem) handleFleetCompleteTask(ctx context.Context, options cor
 		body["report"] = report
 	}
 
-	result := s.platformPayload(ctx, "agent.fleet.task.complete", "POST", "/v1/fleet/task/complete", body)
+	result := s.platformPayload(ctx, "agentic.fleet.task.complete", "POST", "/v1/fleet/task/complete", body)
 	if !result.OK {
 		return result
 	}
@@ -292,17 +292,17 @@ func (s *PrepSubsystem) handleFleetCompleteTask(ctx context.Context, options cor
 	return core.Result{Value: parseFleetTask(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.fleet.task.next").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.fleet.task.next").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleFleetNextTask(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.fleet.task.next", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.fleet.task.next", "agent_id is required", nil), OK: false}
 	}
 
 	path := appendQueryParam("/v1/fleet/task/next", "agent_id", agentID)
 	path = appendQuerySlice(path, "capabilities[]", optionStringSliceValue(options, "capabilities"))
 
-	result := s.platformPayload(ctx, "agent.fleet.task.next", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.fleet.task.next", "GET", path, nil)
 	if !result.OK {
 		return result
 	}
@@ -317,9 +317,9 @@ func (s *PrepSubsystem) handleFleetNextTask(ctx context.Context, options core.Op
 	return core.Result{Value: &task, OK: true}
 }
 
-// result := c.Action("agent.fleet.stats").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.fleet.stats").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleFleetStats(ctx context.Context, options core.Options) core.Result {
-	result := s.platformPayload(ctx, "agent.fleet.stats", "GET", "/v1/fleet/stats", nil)
+	result := s.platformPayload(ctx, "agentic.fleet.stats", "GET", "/v1/fleet/stats", nil)
 	if !result.OK {
 		return result
 	}
@@ -327,13 +327,13 @@ func (s *PrepSubsystem) handleFleetStats(ctx context.Context, options core.Optio
 	return core.Result{Value: parseFleetStats(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.credits.award").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.credits.award").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleCreditsAward(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	taskType := optionStringValue(options, "task_type", "task-type")
 	amount := optionIntValue(options, "amount")
 	if agentID == "" || taskType == "" || amount == 0 {
-		return core.Result{Value: core.E("agent.credits.award", "agent_id, task_type, and amount are required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.credits.award", "agent_id, task_type, and amount are required", nil), OK: false}
 	}
 
 	body := map[string]any{
@@ -348,7 +348,7 @@ func (s *PrepSubsystem) handleCreditsAward(ctx context.Context, options core.Opt
 		body["description"] = description
 	}
 
-	result := s.platformPayload(ctx, "agent.credits.award", "POST", "/v1/credits/award", body)
+	result := s.platformPayload(ctx, "agentic.credits.award", "POST", "/v1/credits/award", body)
 	if !result.OK {
 		return result
 	}
@@ -356,15 +356,15 @@ func (s *PrepSubsystem) handleCreditsAward(ctx context.Context, options core.Opt
 	return core.Result{Value: parseCreditEntry(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.credits.balance").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.credits.balance").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleCreditsBalance(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.credits.balance", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.credits.balance", "agent_id is required", nil), OK: false}
 	}
 
 	path := core.Concat("/v1/credits/balance/", agentID)
-	result := s.platformPayload(ctx, "agent.credits.balance", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.credits.balance", "GET", path, nil)
 	if !result.OK {
 		return result
 	}
@@ -372,11 +372,11 @@ func (s *PrepSubsystem) handleCreditsBalance(ctx context.Context, options core.O
 	return core.Result{Value: parseCreditBalance(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.credits.history").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.credits.history").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleCreditsHistory(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.credits.history", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.credits.history", "agent_id is required", nil), OK: false}
 	}
 
 	path := core.Concat("/v1/credits/history/", agentID)
@@ -384,7 +384,7 @@ func (s *PrepSubsystem) handleCreditsHistory(ctx context.Context, options core.O
 		path = appendQueryParam(path, "limit", core.Sprint(limit))
 	}
 
-	result := s.platformPayload(ctx, "agent.credits.history", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.credits.history", "GET", path, nil)
 	if !result.OK {
 		return result
 	}
@@ -392,14 +392,14 @@ func (s *PrepSubsystem) handleCreditsHistory(ctx context.Context, options core.O
 	return core.Result{Value: parseCreditsHistoryOutput(result.Value.(map[string]any)), OK: true}
 }
 
-// result := c.Action("agent.subscription.detect").Run(ctx, core.NewOptions())
+// result := c.Action("agentic.subscription.detect").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSubscriptionDetect(ctx context.Context, options core.Options) core.Result {
 	body := map[string]any{}
 	if apiKeys := optionStringMapValue(options, "api_keys", "api-keys"); len(apiKeys) > 0 {
 		body["api_keys"] = apiKeys
 	}
 
-	result := s.platformPayload(ctx, "agent.subscription.detect", "POST", "/v1/subscription/detect", body)
+	result := s.platformPayload(ctx, "agentic.subscription.detect", "POST", "/v1/subscription/detect", body)
 	if !result.OK {
 		return result
 	}
@@ -407,15 +407,15 @@ func (s *PrepSubsystem) handleSubscriptionDetect(ctx context.Context, options co
 	return core.Result{Value: parseSubscriptionCapabilities(payloadDataMap(result.Value.(map[string]any))), OK: true}
 }
 
-// result := c.Action("agent.subscription.budget").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.subscription.budget").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleSubscriptionBudget(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	if agentID == "" {
-		return core.Result{Value: core.E("agent.subscription.budget", "agent_id is required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.subscription.budget", "agent_id is required", nil), OK: false}
 	}
 
 	path := core.Concat("/v1/subscription/budget/", agentID)
-	result := s.platformPayload(ctx, "agent.subscription.budget", "GET", path, nil)
+	result := s.platformPayload(ctx, "agentic.subscription.budget", "GET", path, nil)
 	if !result.OK {
 		return result
 	}
@@ -423,16 +423,16 @@ func (s *PrepSubsystem) handleSubscriptionBudget(ctx context.Context, options co
 	return core.Result{Value: payloadDataMap(result.Value.(map[string]any)), OK: true}
 }
 
-// result := c.Action("agent.subscription.budget.update").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+// result := c.Action("agentic.subscription.budget.update").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleSubscriptionBudgetUpdate(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
 	limits := optionAnyMapValue(options, "limits")
 	if agentID == "" || len(limits) == 0 {
-		return core.Result{Value: core.E("agent.subscription.budget.update", "agent_id and limits are required", nil), OK: false}
+		return core.Result{Value: core.E("agentic.subscription.budget.update", "agent_id and limits are required", nil), OK: false}
 	}
 
 	path := core.Concat("/v1/subscription/budget/", agentID)
-	result := s.platformPayload(ctx, "agent.subscription.budget.update", "PUT", path, map[string]any{
+	result := s.platformPayload(ctx, "agentic.subscription.budget.update", "PUT", path, map[string]any{
 		"limits": limits,
 	})
 	if !result.OK {

@@ -88,7 +88,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		switch action {
 		case "agentic.status", "agentic.scan", "agentic.watch",
 			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",
-			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona":
+			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
+			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats",
+			"agentic.credits.balance", "agentic.credits.history",
+			"agentic.subscription.detect", "agentic.subscription.budget":
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
 		if s.frozen {
@@ -111,22 +114,39 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		core.Option{Key: "token", Value: s.brainKey},
 	))
 
+	c.Action("agentic.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
 	c.Action("agent.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
+	c.Action("agentic.sync.pull", s.handleSyncPull).Description = "Pull fleet context from the platform API"
 	c.Action("agent.sync.pull", s.handleSyncPull).Description = "Pull fleet context from the platform API"
+	c.Action("agentic.sync.status", s.handleSyncStatus).Description = "Get fleet sync status from the platform API"
 	c.Action("agent.sync.status", s.handleSyncStatus).Description = "Get fleet sync status from the platform API"
+	c.Action("agentic.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
 	c.Action("agent.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
+	c.Action("agentic.fleet.heartbeat", s.handleFleetHeartbeat).Description = "Send a heartbeat for a fleet node"
 	c.Action("agent.fleet.heartbeat", s.handleFleetHeartbeat).Description = "Send a heartbeat for a fleet node"
+	c.Action("agentic.fleet.deregister", s.handleFleetDeregister).Description = "Deregister a fleet node from the platform API"
 	c.Action("agent.fleet.deregister", s.handleFleetDeregister).Description = "Deregister a fleet node from the platform API"
+	c.Action("agentic.fleet.nodes", s.handleFleetNodes).Description = "List registered fleet nodes"
 	c.Action("agent.fleet.nodes", s.handleFleetNodes).Description = "List registered fleet nodes"
+	c.Action("agentic.fleet.task.assign", s.handleFleetAssignTask).Description = "Assign a fleet task to an agent"
 	c.Action("agent.fleet.task.assign", s.handleFleetAssignTask).Description = "Assign a fleet task to an agent"
+	c.Action("agentic.fleet.task.complete", s.handleFleetCompleteTask).Description = "Complete a fleet task and report results"
 	c.Action("agent.fleet.task.complete", s.handleFleetCompleteTask).Description = "Complete a fleet task and report results"
+	c.Action("agentic.fleet.task.next", s.handleFleetNextTask).Description = "Ask the platform for the next fleet task"
 	c.Action("agent.fleet.task.next", s.handleFleetNextTask).Description = "Ask the platform for the next fleet task"
+	c.Action("agentic.fleet.stats", s.handleFleetStats).Description = "Get fleet activity statistics"
 	c.Action("agent.fleet.stats", s.handleFleetStats).Description = "Get fleet activity statistics"
+	c.Action("agentic.credits.award", s.handleCreditsAward).Description = "Award credits to a fleet node"
 	c.Action("agent.credits.award", s.handleCreditsAward).Description = "Award credits to a fleet node"
+	c.Action("agentic.credits.balance", s.handleCreditsBalance).Description = "Get credit balance for a fleet node"
 	c.Action("agent.credits.balance", s.handleCreditsBalance).Description = "Get credit balance for a fleet node"
+	c.Action("agentic.credits.history", s.handleCreditsHistory).Description = "List credit entries for a fleet node"
 	c.Action("agent.credits.history", s.handleCreditsHistory).Description = "List credit entries for a fleet node"
+	c.Action("agentic.subscription.detect", s.handleSubscriptionDetect).Description = "Detect available provider capabilities"
 	c.Action("agent.subscription.detect", s.handleSubscriptionDetect).Description = "Detect available provider capabilities"
+	c.Action("agentic.subscription.budget", s.handleSubscriptionBudget).Description = "Get the compute budget for a fleet node"
 	c.Action("agent.subscription.budget", s.handleSubscriptionBudget).Description = "Get the compute budget for a fleet node"
+	c.Action("agentic.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
 	c.Action("agent.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
 
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
