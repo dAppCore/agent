@@ -11,7 +11,7 @@ func Example_registerApplicationCommands() {
 	registerApplicationCommands(c)
 
 	core.Println(len(c.Commands()))
-	// Output: 3
+	// Output: 5
 }
 
 func Example_applyLogLevel() {

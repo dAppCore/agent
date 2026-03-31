@@ -113,6 +113,8 @@ func TestCommands_RegisterApplicationCommands_Good(t *testing.T) {
 	assert.Contains(t, cmds, "version")
 	assert.Contains(t, cmds, "check")
 	assert.Contains(t, cmds, "env")
+	assert.Contains(t, cmds, "mcp")
+	assert.Contains(t, cmds, "serve")
 }
 
 func TestCommands_Version_Good(t *testing.T) {
@@ -167,6 +169,60 @@ func TestCommands_Env_Good(t *testing.T) {
 
 	r := c.Cli().Run("env")
 	assert.True(t, r.OK)
+}
+
+func TestCommands_MCPService_Good(t *testing.T) {
+	c := core.New(
+		core.WithOption("name", "core-agent"),
+		core.WithService(registerMCPService),
+	)
+	registerApplicationCommands(c)
+
+	service, err := (applicationCommandSet{coreApp: c}).mcpService()
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+}
+
+func TestCommands_MCPService_Bad(t *testing.T) {
+	_, err := (applicationCommandSet{coreApp: newTestCore(t)}).mcpService()
+	assert.EqualError(t, err, "main.mcpService: mcp service not registered")
+}
+
+func TestCommands_MCPService_Ugly(t *testing.T) {
+	c := core.New(core.WithOption("name", "core-agent"))
+	assert.True(t, c.RegisterService("mcp", "invalid").OK)
+
+	_, err := (applicationCommandSet{coreApp: c}).mcpService()
+	assert.EqualError(t, err, "main.mcpService: mcp service has invalid type")
+}
+
+func TestCommands_ServeAddress_Good(t *testing.T) {
+	c := newTestCore(t)
+
+	addr := (applicationCommandSet{coreApp: c}).serveAddress(core.NewOptions(
+		core.Option{Key: "addr", Value: "0.0.0.0:9201"},
+	))
+
+	assert.Equal(t, "0.0.0.0:9201", addr)
+}
+
+func TestCommands_ServeAddress_Bad(t *testing.T) {
+	c := newTestCore(t)
+	t.Setenv("CORE_AGENT_HTTP_ADDR", "")
+
+	addr := (applicationCommandSet{coreApp: c}).serveAddress(core.NewOptions())
+
+	assert.Equal(t, "127.0.0.1:9101", addr)
+}
+
+func TestCommands_ServeAddress_Ugly(t *testing.T) {
+	c := newTestCore(t)
+
+	addr := (applicationCommandSet{coreApp: c}).serveAddress(core.NewOptions(
+		core.Option{Key: "_arg", Value: "127.0.0.1:9911"},
+	))
+
+	assert.Equal(t, "127.0.0.1:9911", addr)
 }
 
 func TestCommands_CliUnknown_Bad(t *testing.T) {
