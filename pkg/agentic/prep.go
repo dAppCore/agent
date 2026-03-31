@@ -14,7 +14,6 @@ import (
 	"dappco.re/go/core/forge"
 	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gopkg.in/yaml.v3"
 )
 
 // options := agentic.AgentOptions{}
@@ -202,6 +201,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("state.set", s.handleStateSet).Description = "Store shared plan state for later sessions"
 	c.Action("state.get", s.handleStateGet).Description = "Read shared plan state by key"
 	c.Action("state.list", s.handleStateList).Description = "List shared plan state for a plan"
+	c.Action("template.list", s.handleTemplateList).Description = "List available YAML plan templates"
+	c.Action("template.preview", s.handleTemplatePreview).Description = "Preview a YAML plan template with variable substitution"
+	c.Action("template.create_plan", s.handleTemplateCreatePlan).Description = "Create a stored plan from a YAML template"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
@@ -308,6 +310,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerStateTools(server)
 	s.registerPhaseTools(server)
 	s.registerTaskTools(server)
+	s.registerTemplateTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
@@ -778,68 +781,11 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 }
 
 func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]string, task string) string {
-	r := lib.Template(templateSlug)
-	if !r.OK {
+	definition, err := loadPlanTemplateDefinition(templateSlug, variables)
+	if err != nil {
 		return ""
 	}
-
-	content := r.Value.(string)
-	for key, value := range variables {
-		content = core.Replace(content, core.Concat("{{", key, "}}"), value)
-		content = core.Replace(content, core.Concat("{{ ", key, " }}"), value)
-	}
-
-	var tmpl struct {
-		Name        string   `yaml:"name"`
-		Description string   `yaml:"description"`
-		Guidelines  []string `yaml:"guidelines"`
-		Phases      []struct {
-			Name        string `yaml:"name"`
-			Description string `yaml:"description"`
-			Tasks       []any  `yaml:"tasks"`
-		} `yaml:"phases"`
-	}
-
-	if err := yaml.Unmarshal([]byte(content), &tmpl); err != nil {
-		return ""
-	}
-
-	plan := core.NewBuilder()
-	plan.WriteString(core.Concat("# ", tmpl.Name, "\n\n"))
-	if task != "" {
-		plan.WriteString(core.Concat("**Task:** ", task, "\n\n"))
-	}
-	if tmpl.Description != "" {
-		plan.WriteString(core.Concat(tmpl.Description, "\n\n"))
-	}
-
-	if len(tmpl.Guidelines) > 0 {
-		plan.WriteString("## Guidelines\n\n")
-		for _, g := range tmpl.Guidelines {
-			plan.WriteString(core.Concat("- ", g, "\n"))
-		}
-		plan.WriteString("\n")
-	}
-
-	for i, phase := range tmpl.Phases {
-		plan.WriteString(core.Sprintf("## Phase %d: %s\n\n", i+1, phase.Name))
-		if phase.Description != "" {
-			plan.WriteString(core.Concat(phase.Description, "\n\n"))
-		}
-		for _, t := range phase.Tasks {
-			switch v := t.(type) {
-			case string:
-				plan.WriteString(core.Concat("- [ ] ", v, "\n"))
-			case map[string]any:
-				if name, ok := v["name"].(string); ok {
-					plan.WriteString(core.Concat("- [ ] ", name, "\n"))
-				}
-			}
-		}
-		plan.WriteString("\n")
-	}
-
-	return plan.String()
+	return renderPlanMarkdown(definition, task)
 }
 
 func detectLanguage(repoPath string) string {
