@@ -79,7 +79,6 @@ func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest,
 	progressCount := float64(0)
 	total := float64(len(workspaceNames))
 
-	// MCP tests and internal callers may not provide a full request envelope.
 	progressToken := any(nil)
 	if request != nil && request.Params != nil {
 		progressToken = request.Params.GetProgressToken()

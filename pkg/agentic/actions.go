@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //	c.Action("agentic.dispatch").Run(ctx, options)
-//	c.Actions() // all registered capabilities
+//	c.Actions()
 
 package agentic
 

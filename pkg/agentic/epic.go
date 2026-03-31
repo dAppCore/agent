@@ -62,7 +62,6 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 		input.Template = "coding"
 	}
 
-	// Ensure "agentic" label exists
 	labels := input.Labels
 	hasAgentic := false
 	for _, l := range labels {
@@ -75,20 +74,17 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 		labels = append(labels, "agentic")
 	}
 
-	// Get label IDs
 	labelIDs := s.resolveLabelIDs(ctx, input.Org, input.Repo, labels)
 
-	// Step 1: Create child issues first (we need their numbers for the checklist)
 	var children []ChildRef
 	for _, task := range input.Tasks {
 		child, err := s.createIssue(ctx, input.Org, input.Repo, task, "", labelIDs)
 		if err != nil {
-			continue // Skip failed children, create what we can
+			continue
 		}
 		children = append(children, child)
 	}
 
-	// Step 2: Build epic body with checklist
 	body := core.NewBuilder()
 	if input.Body != "" {
 		body.WriteString(input.Body)
@@ -99,7 +95,6 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 		body.WriteString(core.Sprintf("- [ ] #%d %s\n", child.Number, child.Title))
 	}
 
-	// Step 3: Create epic issue
 	epicLabels := append(labelIDs, s.resolveLabelIDs(ctx, input.Org, input.Repo, []string{"epic"})...)
 	epic, err := s.createIssue(ctx, input.Org, input.Repo, input.Title, body.String(), epicLabels)
 	if err != nil {
@@ -113,7 +108,6 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 		Children:   children,
 	}
 
-	// Step 4: Optionally dispatch agents to each child
 	if input.Dispatch {
 		for _, child := range children {
 			_, _, err := s.dispatch(ctx, callRequest, DispatchInput{
@@ -171,7 +165,6 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		return nil
 	}
 
-	// Fetch existing labels
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels?limit=50", s.forgeURL, org, repo)
 	httpResult := HTTPGet(ctx, url, s.forgeToken, "token")
 	if !httpResult.OK {
@@ -194,7 +187,6 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		if id, ok := nameToID[name]; ok {
 			ids = append(ids, id)
 		} else {
-			// Create the label
 			id := s.createLabel(ctx, org, repo, name)
 			if id > 0 {
 				ids = append(ids, id)

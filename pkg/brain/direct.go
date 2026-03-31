@@ -73,7 +73,6 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 		Description: "Remove a memory from OpenBrain by ID.",
 	}, s.forget)
 
-	// Agent messaging — direct, chronological, not semantic
 	s.RegisterMessagingTools(server)
 }
 
@@ -152,7 +151,6 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 		"query": input.Query,
 		"top_k": input.TopK,
 	}
-	// Only filter by agent_id if explicitly provided — shared brain by default
 	if input.Filter.AgentID != "" {
 		body["agent_id"] = input.Filter.AgentID
 	}

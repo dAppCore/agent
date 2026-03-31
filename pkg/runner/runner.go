@@ -274,7 +274,6 @@ func (s *Service) actionDispatch(_ context.Context, options core.Options) core.R
 		return core.Result{Value: core.E("runner.actionDispatch", core.Concat("queue at capacity: ", reason), nil), OK: false}
 	}
 
-	// Reserve the slot immediately — before returning to agentic.
 	workspaceName := core.Concat("pending/", repo)
 	s.workspaces.Set(workspaceName, &WorkspaceStatus{
 		Status: "running",

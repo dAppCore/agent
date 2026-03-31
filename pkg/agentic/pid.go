@@ -8,7 +8,7 @@ import (
 )
 
 // alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)
-// alive := agentic.ProcessAlive(c, "", 12345) // legacy PID fallback
+// alive := agentic.ProcessAlive(c, "", 12345)
 func ProcessAlive(c *core.Core, processID string, pid int) bool {
 	service, ok := lookupProcessService(c)
 	if !ok {

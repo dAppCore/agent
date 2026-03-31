@@ -193,13 +193,11 @@ func parseGitRemote(remote string) string {
 		return ""
 	}
 
-	// HTTPS/HTTP URL — extract path after host
 	if core.Contains(remote, "://") {
 		schemeParts := core.SplitN(remote, "://", 2)
 		if len(schemeParts) == 2 {
 			rest := schemeParts[1]
 			if pathSegments := core.Split(rest, "/"); len(pathSegments) > 1 {
-				// Skip host, take path
 				pathStart := len(pathSegments[0]) + 1
 				if pathStart < len(rest) {
 					return trimRemotePath(rest[pathStart:])

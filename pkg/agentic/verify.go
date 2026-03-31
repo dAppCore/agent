@@ -228,7 +228,6 @@ func (s *PrepSubsystem) runPHPTests(repoDir string) verifyResult {
 	process := s.Core().Process()
 	composerResult := process.RunIn(ctx, repoDir, "composer", "test", "--no-interaction")
 	if !composerResult.OK {
-		// Try pest as fallback
 		fallbackResult := process.RunIn(ctx, repoDir, "./vendor/bin/pest", "--no-interaction")
 		if !fallbackResult.OK {
 			return verifyResult{passed: false, testCmd: "none", output: "No PHP test runner found (composer test and vendor/bin/pest both unavailable)", exitCode: 1}
