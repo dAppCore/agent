@@ -88,7 +88,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		case "agentic.status", "agentic.scan", "agentic.watch",
 			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
-			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats",
+			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats", "agentic.fleet.events",
 			"agentic.credits.balance", "agentic.credits.history",
 			"agentic.subscription.detect", "agentic.subscription.budget":
 			return core.Entitlement{Allowed: true, Unlimited: true}
@@ -139,6 +139,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agent.fleet.task.next", s.handleFleetNextTask).Description = "Ask the platform for the next fleet task"
 	c.Action("agentic.fleet.stats", s.handleFleetStats).Description = "Get fleet activity statistics"
 	c.Action("agent.fleet.stats", s.handleFleetStats).Description = "Get fleet activity statistics"
+	c.Action("agentic.fleet.events", s.handleFleetEvents).Description = "Read fleet task assignment events from the platform API"
+	c.Action("agent.fleet.events", s.handleFleetEvents).Description = "Read fleet task assignment events from the platform API"
 	c.Action("agentic.credits.award", s.handleCreditsAward).Description = "Award credits to a fleet node"
 	c.Action("agent.credits.award", s.handleCreditsAward).Description = "Award credits to a fleet node"
 	c.Action("agentic.credits.balance", s.handleCreditsBalance).Description = "Get credit balance for a fleet node"

@@ -3,7 +3,10 @@
 package agentic
 
 import (
+	"bufio"
 	"context"
+	"io"
+	"net/http"
 	"time"
 
 	core "dappco.re/go/core"
@@ -57,6 +60,26 @@ type FleetStats struct {
 	ReposTouched  int `json:"repos_touched"`
 	FindingsTotal int `json:"findings_total"`
 	ComputeHours  int `json:"compute_hours"`
+}
+
+// event := agentic.FleetEvent{Type: "task.assigned", AgentID: "charon", Repo: "core/go-io"}
+type FleetEvent struct {
+	Type       string         `json:"type,omitempty"`
+	Event      string         `json:"event,omitempty"`
+	AgentID    string         `json:"agent_id,omitempty"`
+	TaskID     int            `json:"task_id,omitempty"`
+	Repo       string         `json:"repo,omitempty"`
+	Branch     string         `json:"branch,omitempty"`
+	Status     string         `json:"status,omitempty"`
+	ReceivedAt string         `json:"received_at,omitempty"`
+	Payload    map[string]any `json:"payload,omitempty"`
+}
+
+// out := agentic.FleetEventOutput{Success: true, Event: agentic.FleetEvent{Type: "task.assigned"}}
+type FleetEventOutput struct {
+	Success bool       `json:"success"`
+	Event   FleetEvent `json:"event"`
+	Raw     string     `json:"raw,omitempty"`
 }
 
 // status := agentic.SyncStatusOutput{AgentID: "charon", Status: "online"}
@@ -353,6 +376,25 @@ func (s *PrepSubsystem) handleFleetStats(ctx context.Context, options core.Optio
 	return core.Result{Value: parseFleetStats(payloadResourceMap(result.Value.(map[string]any), "stats")), OK: true}
 }
 
+// result := c.Action("agentic.fleet.events").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
+func (s *PrepSubsystem) handleFleetEvents(ctx context.Context, options core.Options) core.Result {
+	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
+	path := "/v1/fleet/events"
+	path = appendQueryParam(path, "agent_id", agentID)
+
+	result := s.platformEventPayload(ctx, "agentic.fleet.events", path)
+	if !result.OK {
+		return result
+	}
+
+	output, err := parseFleetEventOutput(result.Value.(map[string]any))
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+
+	return core.Result{Value: output, OK: true}
+}
+
 // result := c.Action("agentic.credits.award").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) handleCreditsAward(ctx context.Context, options core.Options) core.Result {
 	agentID := optionStringValue(options, "agent_id", "agent-id", "_arg")
@@ -489,6 +531,50 @@ func (s *PrepSubsystem) platformPayload(ctx context.Context, action, method, pat
 	if !parseResult.OK {
 		err, _ := parseResult.Value.(error)
 		return core.Result{Value: core.E(action, "failed to parse platform response", err), OK: false}
+	}
+
+	return core.Result{Value: payload, OK: true}
+}
+
+func (s *PrepSubsystem) platformEventPayload(ctx context.Context, action, path string) core.Result {
+	token := s.syncToken()
+	if token == "" {
+		return core.Result{Value: core.E(action, "no platform API key configured", nil), OK: false}
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "GET", core.Concat(s.syncAPIURL(), path), nil)
+	if err != nil {
+		return core.Result{Value: core.E(action, "create request", err), OK: false}
+	}
+	request.Header.Set("Accept", "text/event-stream, application/json")
+	request.Header.Set("Authorization", core.Concat("Bearer ", token))
+
+	response, err := defaultClient.Do(request)
+	if err != nil {
+		return core.Result{Value: core.E(action, "request failed", err), OK: false}
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode >= 400 {
+		readResult := core.ReadAll(response.Body)
+		if !readResult.OK {
+			return core.Result{Value: core.E(action, core.Sprintf("HTTP %d", response.StatusCode), nil), OK: false}
+		}
+		body := core.Trim(readResult.Value.(string))
+		if body == "" {
+			return core.Result{Value: core.E(action, core.Sprintf("HTTP %d", response.StatusCode), nil), OK: false}
+		}
+		return core.Result{Value: platformResultError(action, core.Result{Value: body, OK: false}), OK: false}
+	}
+
+	eventBody, readErr := readFleetEventBody(response.Body)
+	if readErr != nil {
+		return core.Result{Value: core.E(action, "failed to read event stream", readErr), OK: false}
+	}
+
+	payload := s.eventPayloadValue(eventBody)
+	if len(payload) == 0 {
+		return core.Result{Value: core.E(action, "no fleet event payload returned", nil), OK: false}
 	}
 
 	return core.Result{Value: payload, OK: true}
@@ -662,6 +748,114 @@ func parseFleetStats(values map[string]any) FleetStats {
 		FindingsTotal: intValue(values["findings_total"]),
 		ComputeHours:  intValue(values["compute_hours"]),
 	}
+}
+
+func parseFleetEventOutput(values map[string]any) (FleetEventOutput, error) {
+	eventValues := payloadResourceMap(values, "event")
+	if len(eventValues) == 0 {
+		eventValues = values
+	}
+
+	event := parseFleetEvent(eventValues)
+	if event.Event == "" && event.Type == "" && event.AgentID == "" && event.Repo == "" {
+		return FleetEventOutput{}, core.E("parseFleetEventOutput", "fleet event payload is empty", nil)
+	}
+
+	return FleetEventOutput{
+		Success: true,
+		Event:   event,
+		Raw:     core.Trim(stringValue(values["raw"])),
+	}, nil
+}
+
+func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
+	trimmed := core.Trim(body)
+	if trimmed == "" {
+		return nil
+	}
+
+	if core.HasPrefix(trimmed, "data: ") {
+		trimmed = core.Trim(core.TrimPrefix(trimmed, "data: "))
+	}
+
+	var payload map[string]any
+	if parseResult := core.JSONUnmarshalString(trimmed, &payload); parseResult.OK {
+		if payload != nil {
+			payload["raw"] = trimmed
+		}
+		return payload
+	}
+
+	return map[string]any{
+		"raw": trimmed,
+	}
+}
+
+func readFleetEventBody(body io.ReadCloser) (string, error) {
+	reader := bufio.NewReader(body)
+	rawLines := make([]string, 0, 4)
+	dataLines := make([]string, 0, 4)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if line != "" {
+			trimmed := core.Trim(line)
+			if trimmed != "" {
+				rawLines = append(rawLines, trimmed)
+				if core.HasPrefix(trimmed, "data:") {
+					dataLines = append(dataLines, core.Trim(core.TrimPrefix(trimmed, "data:")))
+				}
+			} else if len(dataLines) > 0 {
+				return core.Join("\n", dataLines...), nil
+			}
+		}
+
+		if err == io.EOF {
+			if len(dataLines) > 0 {
+				return core.Join("\n", dataLines...), nil
+			}
+			return core.Join("\n", rawLines...), nil
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+}
+
+func parseFleetEvent(values map[string]any) FleetEvent {
+	payload := map[string]any{}
+	for key, value := range values {
+		switch key {
+		case "type", "event", "agent_id", "task_id", "repo", "branch", "status", "received_at":
+			continue
+		default:
+			payload[key] = value
+		}
+	}
+	if len(payload) == 0 {
+		payload = nil
+	}
+
+	event := FleetEvent{
+		Type:       stringValue(values["type"]),
+		Event:      stringValue(values["event"]),
+		AgentID:    stringValue(values["agent_id"]),
+		TaskID:     intValue(values["task_id"]),
+		Repo:       stringValue(values["repo"]),
+		Branch:     stringValue(values["branch"]),
+		Status:     stringValue(values["status"]),
+		ReceivedAt: stringValue(values["received_at"]),
+		Payload:    payload,
+	}
+
+	if event.Event == "" {
+		event.Event = event.Type
+	}
+	if event.Type == "" {
+		event.Type = event.Event
+	}
+
+	return event
 }
 
 func parseCreditEntry(values map[string]any) CreditEntry {

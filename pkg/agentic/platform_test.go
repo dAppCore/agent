@@ -150,6 +150,57 @@ func TestPlatform_HandleFleetNextTask_Ugly(t *testing.T) {
 	assert.Nil(t, task)
 }
 
+func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/fleet/events", r.URL.Path)
+		require.Equal(t, "charon", r.URL.Query().Get("agent_id"))
+		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte("data: {\"event\":\"task.assigned\",\"type\":\"task.assigned\",\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\",\"status\":\"assigned\"}\n\n"))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetEvents(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(FleetEventOutput)
+	require.True(t, ok)
+	assert.Equal(t, "task.assigned", output.Event.Event)
+	assert.Equal(t, "charon", output.Event.AgentID)
+	assert.Equal(t, 9, output.Event.TaskID)
+	assert.Equal(t, "core/go-io", output.Event.Repo)
+	assert.Equal(t, "dev", output.Event.Branch)
+}
+
+func TestPlatform_HandleFleetEvents_Bad(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetEvents(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	assert.False(t, result.OK)
+}
+
+func TestPlatform_HandleFleetEvents_Ugly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("data: not-json\n\n"))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetEvents(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	assert.False(t, result.OK)
+}
+
 func TestPlatform_HandleSyncStatus_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/agent/status", r.URL.Path)

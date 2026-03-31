@@ -22,6 +22,7 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 	c.Command("fleet/task/complete", core.Command{Description: "Complete a fleet task and report findings", Action: s.cmdFleetTaskComplete})
 	c.Command("fleet/task/next", core.Command{Description: "Ask the platform for the next fleet task", Action: s.cmdFleetTaskNext})
 	c.Command("fleet/stats", core.Command{Description: "Show fleet activity statistics", Action: s.cmdFleetStats})
+	c.Command("fleet/events", core.Command{Description: "Read the next fleet event from the platform SSE stream", Action: s.cmdFleetEvents})
 
 	c.Command("credits/award", core.Command{Description: "Award credits to a fleet node", Action: s.cmdCreditsAward})
 	c.Command("credits/balance", core.Command{Description: "Show credit balance for a fleet node", Action: s.cmdCreditsBalance})
@@ -366,6 +367,46 @@ func (s *PrepSubsystem) cmdFleetStats(options core.Options) core.Result {
 	core.Print(nil, "repos touched:  %d", stats.ReposTouched)
 	core.Print(nil, "findings total: %d", stats.FindingsTotal)
 	core.Print(nil, "compute hours:  %d", stats.ComputeHours)
+	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdFleetEvents(options core.Options) core.Result {
+	result := s.handleFleetEvents(s.commandContext(), normalisePlatformCommandOptions(options))
+	if !result.OK {
+		err := commandResultError("agentic.cmdFleetEvents", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(FleetEventOutput)
+	if !ok {
+		err := core.E("agentic.cmdFleetEvents", "invalid fleet event output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "event:       %s", output.Event.Event)
+	if output.Event.Type != "" && output.Event.Type != output.Event.Event {
+		core.Print(nil, "type:        %s", output.Event.Type)
+	}
+	if output.Event.AgentID != "" {
+		core.Print(nil, "agent:       %s", output.Event.AgentID)
+	}
+	if output.Event.Repo != "" {
+		core.Print(nil, "repo:        %s", output.Event.Repo)
+	}
+	if output.Event.Branch != "" {
+		core.Print(nil, "branch:      %s", output.Event.Branch)
+	}
+	if output.Event.TaskID > 0 {
+		core.Print(nil, "task id:     %d", output.Event.TaskID)
+	}
+	if output.Event.Status != "" {
+		core.Print(nil, "status:      %s", output.Event.Status)
+	}
+	if len(output.Event.Payload) > 0 {
+		core.Print(nil, "payload:     %s", core.JSONMarshalString(output.Event.Payload))
+	}
 	return core.Result{OK: true}
 }
 

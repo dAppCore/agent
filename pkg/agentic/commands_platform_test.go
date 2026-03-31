@@ -54,6 +54,23 @@ func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
 	assert.Contains(t, output, "total: 1")
 }
 
+func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("data: {\"event\":\"task.assigned\",\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\"}\n\n"))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		result := subsystem.cmdFleetEvents(core.NewOptions(core.Option{Key: "_arg", Value: "charon"}))
+		assert.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "event:       task.assigned")
+	assert.Contains(t, output, "agent:       charon")
+	assert.Contains(t, output, "repo:        core/go-io")
+}
+
 func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"agent_id":"charon","status":"online","last_push_at":"2026-03-31T08:00:00Z"}}`))

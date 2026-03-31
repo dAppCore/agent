@@ -533,6 +533,8 @@ func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	assert.True(t, c.Action("agent.fleet.register").Exists())
 	assert.True(t, c.Action("agentic.credits.balance").Exists())
 	assert.True(t, c.Action("agent.credits.balance").Exists())
+	assert.True(t, c.Action("agentic.fleet.events").Exists())
+	assert.True(t, c.Action("agent.fleet.events").Exists())
 	assert.True(t, c.Action("agentic.subscription.budget.update").Exists())
 	assert.True(t, c.Action("agent.subscription.budget.update").Exists())
 }
@@ -550,6 +552,7 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 	assert.Contains(t, c.Commands(), "auth/revoke")
 	assert.Contains(t, c.Commands(), "subscription/budget/update")
 	assert.Contains(t, c.Commands(), "subscription/update-budget")
+	assert.Contains(t, c.Commands(), "fleet/events")
 }
 
 func TestPrep_OnStartup_Bad(t *testing.T) {

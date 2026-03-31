@@ -106,6 +106,11 @@ func (s *PrepSubsystem) registerPlatformTools(server *mcp.Server) {
 	}, s.fleetStatsTool)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_fleet_events",
+		Description: "Read the next fleet event from the platform SSE stream.",
+	}, s.fleetEventsTool)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_credits_award",
 		Description: "Award credits to a fleet node for completed work.",
 	}, s.creditsAwardTool)
@@ -325,6 +330,20 @@ func (s *PrepSubsystem) fleetStatsTool(ctx context.Context, _ *mcp.CallToolReque
 	output, ok := result.Value.(FleetStats)
 	if !ok {
 		return nil, FleetStats{}, core.E("agentic.fleet.stats", "invalid fleet stats output", nil)
+	}
+	return nil, output, nil
+}
+
+func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
+	AgentID string `json:"agent_id,omitempty"`
+}) (*mcp.CallToolResult, FleetEventOutput, error) {
+	result := s.handleFleetEvents(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
+	if !result.OK {
+		return nil, FleetEventOutput{}, resultErrorValue("agentic.fleet.events", result)
+	}
+	output, ok := result.Value.(FleetEventOutput)
+	if !ok {
+		return nil, FleetEventOutput{}, core.E("agentic.fleet.events", "invalid fleet event output", nil)
 	}
 	return nil, output, nil
 }
