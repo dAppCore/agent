@@ -113,6 +113,21 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 	c.Action("agent.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
 	c.Action("agent.sync.pull", s.handleSyncPull).Description = "Pull fleet context from the platform API"
+	c.Action("agent.sync.status", s.handleSyncStatus).Description = "Get fleet sync status from the platform API"
+	c.Action("agent.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
+	c.Action("agent.fleet.heartbeat", s.handleFleetHeartbeat).Description = "Send a heartbeat for a fleet node"
+	c.Action("agent.fleet.deregister", s.handleFleetDeregister).Description = "Deregister a fleet node from the platform API"
+	c.Action("agent.fleet.nodes", s.handleFleetNodes).Description = "List registered fleet nodes"
+	c.Action("agent.fleet.task.assign", s.handleFleetAssignTask).Description = "Assign a fleet task to an agent"
+	c.Action("agent.fleet.task.complete", s.handleFleetCompleteTask).Description = "Complete a fleet task and report results"
+	c.Action("agent.fleet.task.next", s.handleFleetNextTask).Description = "Ask the platform for the next fleet task"
+	c.Action("agent.fleet.stats", s.handleFleetStats).Description = "Get fleet activity statistics"
+	c.Action("agent.credits.award", s.handleCreditsAward).Description = "Award credits to a fleet node"
+	c.Action("agent.credits.balance", s.handleCreditsBalance).Description = "Get credit balance for a fleet node"
+	c.Action("agent.credits.history", s.handleCreditsHistory).Description = "List credit entries for a fleet node"
+	c.Action("agent.subscription.detect", s.handleSubscriptionDetect).Description = "Detect available provider capabilities"
+	c.Action("agent.subscription.budget", s.handleSubscriptionBudget).Description = "Get the compute budget for a fleet node"
+	c.Action("agent.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
 
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
 	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
@@ -165,6 +180,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	s.registerCommands(ctx)
 	s.registerWorkspaceCommands()
 	s.registerForgeCommands()
+	s.registerPlatformCommands()
 	return core.Result{OK: true}
 }
 
