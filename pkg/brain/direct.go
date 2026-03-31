@@ -4,6 +4,7 @@ package brain
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -72,6 +73,11 @@ func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
 		Name:        "brain_forget",
 		Description: "Remove a memory from OpenBrain by ID.",
 	}, s.forget)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "brain_list",
+		Description: "List memories in OpenBrain with optional project, type, agent, and limit filters.",
+	}, s.list)
 
 	s.RegisterMessagingTools(server)
 }
@@ -173,36 +179,8 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, RecallOutput{}, err
 	}
 
-	var memories []Memory
 	payload, _ := result.Value.(map[string]any)
-	if mems, ok := payload["memories"].([]any); ok {
-		for _, m := range mems {
-			if mm, ok := m.(map[string]any); ok {
-				mem := Memory{
-					Content:   stringField(mm, "content"),
-					Type:      stringField(mm, "type"),
-					Project:   stringField(mm, "project"),
-					AgentID:   stringField(mm, "agent_id"),
-					CreatedAt: stringField(mm, "created_at"),
-				}
-				if id, ok := mm["id"].(string); ok {
-					mem.ID = id
-				}
-				if score, ok := mm["score"].(float64); ok {
-					mem.Confidence = score
-				}
-				if tags, ok := mm["tags"].([]any); ok {
-					for _, tag := range tags {
-						mem.Tags = append(mem.Tags, core.Sprint(tag))
-					}
-				}
-				if source, ok := mm["source"].(string); ok {
-					mem.Tags = append(mem.Tags, core.Concat("source:", source))
-				}
-				memories = append(memories, mem)
-			}
-		}
-	}
+	memories := memoriesFromPayload(payload)
 
 	return nil, RecallOutput{
 		Success:  true,
@@ -223,4 +201,84 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 		Forgotten: input.ID,
 		Timestamp: time.Now(),
 	}, nil
+}
+
+func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+	params := url.Values{}
+	if input.Project != "" {
+		params.Set("project", input.Project)
+	}
+	if input.Type != "" {
+		params.Set("type", input.Type)
+	}
+	if input.AgentID != "" {
+		params.Set("agent_id", input.AgentID)
+	}
+	if input.Limit > 0 {
+		params.Set("limit", core.Sprint(input.Limit))
+	}
+
+	path := "/v1/brain/list"
+	if encoded := params.Encode(); encoded != "" {
+		path = core.Concat(path, "?", encoded)
+	}
+
+	result := s.apiCall(ctx, "GET", path, nil)
+	if !result.OK {
+		err, _ := result.Value.(error)
+		return nil, ListOutput{}, err
+	}
+
+	payload, _ := result.Value.(map[string]any)
+	memories := memoriesFromPayload(payload)
+
+	return nil, ListOutput{
+		Success:  true,
+		Count:    len(memories),
+		Memories: memories,
+	}, nil
+}
+
+func memoriesFromPayload(payload map[string]any) []Memory {
+	var memories []Memory
+	if mems, ok := payload["memories"].([]any); ok {
+		for _, m := range mems {
+			memoryMap, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			memory := Memory{
+				Content:   stringField(memoryMap, "content"),
+				Type:      stringField(memoryMap, "type"),
+				Project:   stringField(memoryMap, "project"),
+				AgentID:   stringField(memoryMap, "agent_id"),
+				CreatedAt: stringField(memoryMap, "created_at"),
+				UpdatedAt: stringField(memoryMap, "updated_at"),
+				ExpiresAt: stringField(memoryMap, "expires_at"),
+			}
+			if id, ok := memoryMap["id"].(string); ok {
+				memory.ID = id
+			}
+			if score, ok := memoryMap["score"].(float64); ok {
+				memory.Confidence = score
+			}
+			if confidence, ok := memoryMap["confidence"].(float64); ok && memory.Confidence == 0 {
+				memory.Confidence = confidence
+			}
+			if supersedesID, ok := memoryMap["supersedes_id"].(string); ok {
+				memory.SupersedesID = supersedesID
+			}
+			if tags, ok := memoryMap["tags"].([]any); ok {
+				for _, tag := range tags {
+					memory.Tags = append(memory.Tags, core.Sprint(tag))
+				}
+			}
+			if source, ok := memoryMap["source"].(string); ok {
+				memory.Tags = append(memory.Tags, core.Concat("source:", source))
+			}
+			memories = append(memories, memory)
+		}
+	}
+	return memories
 }

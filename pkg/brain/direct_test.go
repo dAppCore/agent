@@ -381,3 +381,88 @@ func TestDirect_Forget_Bad_APIError(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, out.Success)
 }
+
+// --- list ---
+
+func TestDirect_List_Good_WithMemories(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/v1/brain/list", r.URL.Path)
+		assert.Equal(t, "agent", r.URL.Query().Get("project"))
+		assert.Equal(t, "decision", r.URL.Query().Get("type"))
+		assert.Equal(t, "codex", r.URL.Query().Get("agent_id"))
+		assert.Equal(t, "2", r.URL.Query().Get("limit"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"memories": []any{
+				map[string]any{
+					"id":            "mem-list-1",
+					"content":       "Use the review queue for completed workspaces",
+					"type":          "decision",
+					"project":       "agent",
+					"agent_id":      "codex",
+					"confidence":    0.73,
+					"tags":          []any{"queue", "review"},
+					"updated_at":    "2026-03-30T10:00:00Z",
+					"created_at":    "2026-03-30T09:00:00Z",
+					"expires_at":    "2026-04-01T00:00:00Z",
+					"source":        "manual",
+					"supersedes_id": "mem-old",
+				},
+				map[string]any{
+					"id":         "mem-list-2",
+					"content":    "AgentCompleted should key on workspace",
+					"type":       "architecture",
+					"project":    "agent",
+					"agent_id":   "cladius",
+					"score":      0.91,
+					"created_at": "2026-03-31T08:00:00Z",
+				},
+			},
+		})))
+	}))
+	defer srv.Close()
+
+	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{
+		Project: "agent",
+		Type:    "decision",
+		AgentID: "codex",
+		Limit:   2,
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, 2, out.Count)
+	require.Len(t, out.Memories, 2)
+
+	assert.Equal(t, "mem-list-1", out.Memories[0].ID)
+	assert.Equal(t, 0.73, out.Memories[0].Confidence)
+	assert.Equal(t, "mem-old", out.Memories[0].SupersedesID)
+	assert.Equal(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)
+	assert.Equal(t, "2026-04-01T00:00:00Z", out.Memories[0].ExpiresAt)
+	assert.Contains(t, out.Memories[0].Tags, "queue")
+	assert.Contains(t, out.Memories[0].Tags, "source:manual")
+
+	assert.Equal(t, "mem-list-2", out.Memories[1].ID)
+	assert.Equal(t, 0.91, out.Memories[1].Confidence)
+}
+
+func TestDirect_List_Good_EmptyMemories(t *testing.T) {
+	srv := httptest.NewServer(jsonHandler(map[string]any{"memories": []any{}}))
+	defer srv.Close()
+
+	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, 0, out.Count)
+	assert.Empty(t, out.Memories)
+}
+
+func TestDirect_List_Bad_APIError(t *testing.T) {
+	srv := httptest.NewServer(errorHandler(http.StatusServiceUnavailable, `{"error":"list unavailable"}`))
+	defer srv.Close()
+
+	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{Project: "agent"})
+	require.Error(t, err)
+	assert.False(t, out.Success)
+}
