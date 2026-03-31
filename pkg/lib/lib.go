@@ -6,17 +6,6 @@
 // persona := lib.Persona("secops/dev")
 // data := &lib.WorkspaceData{Repo: "go-io", Task: "fix tests", Agent: "codex"}
 // workspace := lib.ExtractWorkspace("default", "/tmp/workspace", data)
-//
-// Package lib exposes embedded prompts, tasks, flows, personas, and workspace templates.
-//
-// Structure:
-//
-//	prompt/      — System prompts (HOW to work)
-//	task/        — Structured task plans (WHAT to do)
-//	task/code/   — Code-specific tasks (review, refactor, etc.)
-//	flow/        — Build/release workflows per language/tool
-//	persona/     — Domain/role system prompts (WHO you are)
-//	workspace/   — Agent workspace templates (WHERE to work)
 package lib
 
 import (
