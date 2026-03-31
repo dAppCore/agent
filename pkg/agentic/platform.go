@@ -791,9 +791,9 @@ func anyMapValue(value any) map[string]any {
 			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
 				return values
 			}
-			var strings map[string]string
-			if result := core.JSONUnmarshalString(trimmed, &strings); result.OK {
-				return anyMapValue(strings)
+			var stringValues map[string]string
+			if result := core.JSONUnmarshalString(trimmed, &stringValues); result.OK {
+				return anyMapValue(stringValues)
 			}
 		}
 		values := stringMapValue(trimmed)

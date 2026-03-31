@@ -80,15 +80,15 @@ func ReadStatusResult(workspaceDir string) core.Result {
 		}
 		return core.Result{Value: core.E("ReadStatusResult", core.Concat("status not found for ", workspaceDir), err), OK: false}
 	}
-	var s WorkspaceStatus
-	if parseResult := core.JSONUnmarshalString(r.Value.(string), &s); !parseResult.OK {
+	var workspaceStatus WorkspaceStatus
+	if parseResult := core.JSONUnmarshalString(r.Value.(string), &workspaceStatus); !parseResult.OK {
 		err, _ := parseResult.Value.(error)
 		if err == nil {
 			return core.Result{Value: core.E("ReadStatusResult", "invalid status json", nil), OK: false}
 		}
 		return core.Result{Value: core.E("ReadStatusResult", "invalid status json", err), OK: false}
 	}
-	return core.Result{Value: &s, OK: true}
+	return core.Result{Value: &workspaceStatus, OK: true}
 }
 
 // result := ReadStatusResult("/path/to/workspace")
@@ -140,7 +140,7 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		runtime = s.Core()
 	}
 
-	var out StatusOutput
+	var statusSummary StatusOutput
 
 	for _, statusPath := range statusFiles {
 		workspaceDir := core.PathDir(statusPath)
@@ -149,8 +149,8 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
-			out.Total++
-			out.Failed++
+			statusSummary.Total++
+			statusSummary.Failed++
 			continue
 		}
 
@@ -172,18 +172,18 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			}
 		}
 
-		out.Total++
+		statusSummary.Total++
 		switch workspaceStatus.Status {
 		case "running":
-			out.Running++
+			statusSummary.Running++
 		case "queued":
-			out.Queued++
+			statusSummary.Queued++
 		case "completed":
-			out.Completed++
+			statusSummary.Completed++
 		case "failed":
-			out.Failed++
+			statusSummary.Failed++
 		case "blocked":
-			out.Blocked = append(out.Blocked, BlockedInfo{
+			statusSummary.Blocked = append(statusSummary.Blocked, BlockedInfo{
 				Name:     name,
 				Repo:     workspaceStatus.Repo,
 				Agent:    workspaceStatus.Agent,
@@ -192,5 +192,5 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 	}
 
-	return nil, out, nil
+	return nil, statusSummary, nil
 }

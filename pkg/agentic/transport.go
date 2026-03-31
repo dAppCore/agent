@@ -131,15 +131,15 @@ func driveEndpoint(c *core.Core, name string) (base, token string) {
 
 func httpDo(ctx context.Context, method, url, body, token, authScheme string) core.Result {
 	var request *http.Request
-	var err error
+	var requestErr error
 
 	if body != "" {
-		request, err = http.NewRequestWithContext(ctx, method, url, core.NewReader(body))
+		request, requestErr = http.NewRequestWithContext(ctx, method, url, core.NewReader(body))
 	} else {
-		request, err = http.NewRequestWithContext(ctx, method, url, nil)
+		request, requestErr = http.NewRequestWithContext(ctx, method, url, nil)
 	}
-	if err != nil {
-		return core.Result{Value: core.E("httpDo", "create request", err), OK: false}
+	if requestErr != nil {
+		return core.Result{Value: core.E("httpDo", "create request", requestErr), OK: false}
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -151,15 +151,15 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 		request.Header.Set("Authorization", core.Concat(authScheme, " ", token))
 	}
 
-	response, err := defaultClient.Do(request)
-	if err != nil {
-		return core.Result{Value: core.E("httpDo", "request failed", err), OK: false}
+	response, requestErr := defaultClient.Do(request)
+	if requestErr != nil {
+		return core.Result{Value: core.E("httpDo", "request failed", requestErr), OK: false}
 	}
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
-		err, _ := readResult.Value.(error)
-		return core.Result{Value: core.E("httpDo", "failed to read response", err), OK: false}
+		readErr, _ := readResult.Value.(error)
+		return core.Result{Value: core.E("httpDo", "failed to read response", readErr), OK: false}
 	}
 
 	return core.Result{Value: readResult.Value.(string), OK: response.StatusCode < 400}

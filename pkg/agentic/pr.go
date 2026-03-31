@@ -217,39 +217,39 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 		input.Limit = 20
 	}
 
-	var repos []string
+	var repositories []string
 	if input.Repo != "" {
-		repos = []string{input.Repo}
+		repositories = []string{input.Repo}
 	} else {
-		var err error
-		repos, err = s.listOrgRepos(ctx, input.Org)
-		if err != nil {
-			return nil, ListPRsOutput{}, err
+		var repositoryErr error
+		repositories, repositoryErr = s.listOrgRepos(ctx, input.Org)
+		if repositoryErr != nil {
+			return nil, ListPRsOutput{}, repositoryErr
 		}
 	}
 
-	var allPRs []PRInfo
+	var allPullRequests []PRInfo
 
-	for _, repo := range repos {
+	for _, repo := range repositories {
 		prs, err := s.listRepoPRs(ctx, input.Org, repo, input.State)
 		if err != nil {
 			continue
 		}
-		allPRs = append(allPRs, prs...)
+		allPullRequests = append(allPullRequests, prs...)
 
-		if len(allPRs) >= input.Limit {
+		if len(allPullRequests) >= input.Limit {
 			break
 		}
 	}
 
-	if len(allPRs) > input.Limit {
-		allPRs = allPRs[:input.Limit]
+	if len(allPullRequests) > input.Limit {
+		allPullRequests = allPullRequests[:input.Limit]
 	}
 
 	return nil, ListPRsOutput{
 		Success: true,
-		Count:   len(allPRs),
-		PRs:     allPRs,
+		Count:   len(allPullRequests),
+		PRs:     allPullRequests,
 	}, nil
 }
 
