@@ -145,10 +145,9 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 	}
 
 	payload, _ := result.Value.(map[string]any)
-	id, _ := payload["id"].(string)
 	return nil, RememberOutput{
 		Success:   true,
-		MemoryID:  id,
+		MemoryID:  stringField(payloadMap(payload), "id"),
 		Timestamp: time.Now(),
 	}, nil
 }
@@ -242,7 +241,8 @@ func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, inpu
 
 func memoriesFromPayload(payload map[string]any) []Memory {
 	var memories []Memory
-	if mems, ok := payload["memories"].([]any); ok {
+	source := payloadMap(payload)
+	if mems, ok := source["memories"].([]any); ok {
 		for _, m := range mems {
 			memoryMap, ok := m.(map[string]any)
 			if !ok {
@@ -282,4 +282,11 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 		}
 	}
 	return memories
+}
+
+func payloadMap(payload map[string]any) map[string]any {
+	if data, ok := payload["data"].(map[string]any); ok && len(data) > 0 {
+		return data
+	}
+	return payload
 }

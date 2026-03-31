@@ -201,7 +201,9 @@ func TestDirect_Remember_Good(t *testing.T) {
 		assert.Equal(t, "observation", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": "mem-abc"})))
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"data": map[string]any{"id": "mem-abc"},
+		})))
 	}))
 	defer srv.Close()
 
@@ -215,6 +217,19 @@ func TestDirect_Remember_Good(t *testing.T) {
 	assert.True(t, out.Success)
 	assert.Equal(t, "mem-abc", out.MemoryID)
 	assert.False(t, out.Timestamp.IsZero())
+}
+
+func TestDirect_Remember_Ugly_LegacyTopLevelID(t *testing.T) {
+	srv := httptest.NewServer(jsonHandler(map[string]any{"id": "mem-legacy"}))
+	defer srv.Close()
+
+	_, out, err := newTestDirect(srv).remember(context.Background(), nil, RememberInput{
+		Content: "legacy payload",
+		Type:    "observation",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, "mem-legacy", out.MemoryID)
 }
 
 func TestDirect_Remember_Bad_APIError(t *testing.T) {
@@ -242,25 +257,27 @@ func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
-			"memories": []any{
-				map[string]any{
-					"id":         "mem-1",
-					"content":    "Use Qdrant for vector search",
-					"type":       "decision",
-					"project":    "agent",
-					"agent_id":   "virgil",
-					"score":      0.95,
-					"source":     "manual",
-					"created_at": "2026-03-03T12:00:00Z",
-				},
-				map[string]any{
-					"id":         "mem-2",
-					"content":    "DuckDB for embedded use",
-					"type":       "architecture",
-					"project":    "agent",
-					"agent_id":   "cladius",
-					"score":      0.88,
-					"created_at": "2026-03-04T10:00:00Z",
+			"data": map[string]any{
+				"memories": []any{
+					map[string]any{
+						"id":         "mem-1",
+						"content":    "Use Qdrant for vector search",
+						"type":       "decision",
+						"project":    "agent",
+						"agent_id":   "virgil",
+						"score":      0.95,
+						"source":     "manual",
+						"created_at": "2026-03-03T12:00:00Z",
+					},
+					map[string]any{
+						"id":         "mem-2",
+						"content":    "DuckDB for embedded use",
+						"type":       "architecture",
+						"project":    "agent",
+						"agent_id":   "cladius",
+						"score":      0.88,
+						"created_at": "2026-03-04T10:00:00Z",
+					},
 				},
 			},
 		})))
@@ -293,7 +310,9 @@ func TestDirect_Recall_Good_DefaultTopK(t *testing.T) {
 		assert.Equal(t, float64(10), body["top_k"])
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(core.JSONMarshalString(map[string]any{"memories": []any{}})))
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"data": map[string]any{"memories": []any{}},
+		})))
 	}))
 	defer srv.Close()
 
@@ -315,7 +334,9 @@ func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 		assert.Equal(t, "decision", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(core.JSONMarshalString(map[string]any{"memories": []any{}})))
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"data": map[string]any{"memories": []any{}},
+		})))
 	}))
 	defer srv.Close()
 
@@ -332,7 +353,9 @@ func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 }
 
 func TestDirect_Recall_Good_EmptyMemories(t *testing.T) {
-	srv := httptest.NewServer(jsonHandler(map[string]any{"memories": []any{}}))
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"data": map[string]any{"memories": []any{}},
+	}))
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).recall(context.Background(), nil, RecallInput{Query: "nothing"})
@@ -395,29 +418,31 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
-			"memories": []any{
-				map[string]any{
-					"id":            "mem-list-1",
-					"content":       "Use the review queue for completed workspaces",
-					"type":          "decision",
-					"project":       "agent",
-					"agent_id":      "codex",
-					"confidence":    0.73,
-					"tags":          []any{"queue", "review"},
-					"updated_at":    "2026-03-30T10:00:00Z",
-					"created_at":    "2026-03-30T09:00:00Z",
-					"expires_at":    "2026-04-01T00:00:00Z",
-					"source":        "manual",
-					"supersedes_id": "mem-old",
-				},
-				map[string]any{
-					"id":         "mem-list-2",
-					"content":    "AgentCompleted should key on workspace",
-					"type":       "architecture",
-					"project":    "agent",
-					"agent_id":   "cladius",
-					"score":      0.91,
-					"created_at": "2026-03-31T08:00:00Z",
+			"data": map[string]any{
+				"memories": []any{
+					map[string]any{
+						"id":            "mem-list-1",
+						"content":       "Use the review queue for completed workspaces",
+						"type":          "decision",
+						"project":       "agent",
+						"agent_id":      "codex",
+						"confidence":    0.73,
+						"tags":          []any{"queue", "review"},
+						"updated_at":    "2026-03-30T10:00:00Z",
+						"created_at":    "2026-03-30T09:00:00Z",
+						"expires_at":    "2026-04-01T00:00:00Z",
+						"source":        "manual",
+						"supersedes_id": "mem-old",
+					},
+					map[string]any{
+						"id":         "mem-list-2",
+						"content":    "AgentCompleted should key on workspace",
+						"type":       "architecture",
+						"project":    "agent",
+						"agent_id":   "cladius",
+						"score":      0.91,
+						"created_at": "2026-03-31T08:00:00Z",
+					},
 				},
 			},
 		})))
@@ -448,7 +473,9 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 }
 
 func TestDirect_List_Good_EmptyMemories(t *testing.T) {
-	srv := httptest.NewServer(jsonHandler(map[string]any{"memories": []any{}}))
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"data": map[string]any{"memories": []any{}},
+	}))
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{})
