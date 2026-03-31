@@ -103,6 +103,7 @@ func (s *PrepSubsystem) registerForgeCommands() {
 	c.Command("pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet})
 	c.Command("pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList})
 	c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
+	c.Command("pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose})
 	c.Command("repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet})
 	c.Command("repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList})
 }
@@ -290,6 +291,27 @@ func (s *PrepSubsystem) cmdPRMerge(options core.Options) core.Result {
 		return core.Result{Value: err, OK: false}
 	}
 	core.Print(nil, "merged %s/%s#%d via %s", org, repo, num, method)
+	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdPRClose(options core.Options) core.Result {
+	ctx := context.Background()
+	org, repo, num := parseForgeArgs(options)
+	if repo == "" || num == 0 {
+		core.Print(nil, "usage: core-agent pr close <repo> --number=N [--org=core]")
+		return core.Result{Value: core.E("agentic.cmdPRClose", "repo and number are required", nil), OK: false}
+	}
+
+	var pr pullRequestView
+	err := s.forge.Client().Patch(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &forge_types.EditPullRequestOption{
+		State: "closed",
+	}, &pr)
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "closed %s/%s#%d", org, repo, num)
 	return core.Result{OK: true}
 }
 

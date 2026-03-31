@@ -339,6 +339,50 @@ func TestCommandsforge_CmdPRMerge_Good_CustomMethod(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommandsforge_CmdPRClose_Bad_MissingArgs(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdPRClose(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCommandsforge_CmdPRClose_Good_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "/api/v1/repos/core/go-io/pulls/5", r.URL.Path)
+
+		bodyResult := core.ReadAll(r.Body)
+		assert.True(t, bodyResult.OK)
+		assert.Contains(t, bodyResult.Value.(string), `"state":"closed"`)
+
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"number": 5,
+			"state":  "closed",
+		})))
+	}))
+	t.Cleanup(srv.Close)
+
+	s, _ := testPrepWithCore(t, srv)
+	r := s.cmdPRClose(core.NewOptions(
+		core.Option{Key: "_arg", Value: "go-io"},
+		core.Option{Key: "number", Value: "5"},
+	))
+	assert.True(t, r.OK)
+}
+
+func TestCommandsforge_CmdPRClose_Ugly_APIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	s, _ := testPrepWithCore(t, srv)
+	r := s.cmdPRClose(core.NewOptions(
+		core.Option{Key: "_arg", Value: "go-io"},
+		core.Option{Key: "number", Value: "5"},
+	))
+	assert.False(t, r.OK)
+}
+
 func TestCommandsforge_CmdIssueGet_Good_WithBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{

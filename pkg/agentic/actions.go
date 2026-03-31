@@ -343,6 +343,16 @@ func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options)
 	return s.cmdPRMerge(normaliseForgeActionOptions(options))
 }
 
+// result := c.Action("agentic.pr.close").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "number", Value: "12"},
+//
+// ))
+func (s *PrepSubsystem) handlePRClose(ctx context.Context, options core.Options) core.Result {
+	return s.cmdPRClose(normaliseForgeActionOptions(options))
+}
+
 // result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "core/go-io/task-5"},

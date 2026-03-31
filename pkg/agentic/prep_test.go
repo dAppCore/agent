@@ -490,6 +490,21 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("sprint.archive").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersForgeActions(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("agentic.pr.get").Exists())
+	assert.True(t, c.Action("agentic.pr.list").Exists())
+	assert.True(t, c.Action("agentic.pr.merge").Exists())
+	assert.True(t, c.Action("agentic.pr.close").Exists())
+}
+
 func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")

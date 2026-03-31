@@ -174,6 +174,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.pr.get", s.handlePRGet).Description = "Get a Forge PR by number"
 	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
 	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
+	c.Action("agentic.pr.close", s.handlePRClose).Description = "Close a Forge PR"
 
 	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
