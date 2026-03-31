@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package lib provides embedded content for agent dispatch.
-// Prompts, tasks, flows, personas, and workspace templates.
+// lib.MountData(c)
+// prompts := lib.ListPrompts()
+// task := lib.Task("code/review")
+// persona := lib.Persona("secops/dev")
+// data := &lib.WorkspaceData{Repo: "go-io", Task: "fix tests", Agent: "codex"}
+// workspace := lib.ExtractWorkspace("default", "/tmp/workspace", data)
+//
+// Package lib exposes embedded prompts, tasks, flows, personas, and workspace templates.
 //
 // Structure:
 //
@@ -11,15 +17,6 @@
 //	flow/        — Build/release workflows per language/tool
 //	persona/     — Domain/role system prompts (WHO you are)
 //	workspace/   — Agent workspace templates (WHERE to work)
-//
-// Usage:
-//
-//	r := lib.Prompt("coding")        // r.Value.(string)
-//	r := lib.Task("code/review")     // r.Value.(string)
-//	r := lib.Persona("secops/dev")   // r.Value.(string)
-//	r := lib.Flow("go")              // r.Value.(string)
-//	r := lib.ExtractWorkspace("default", "/tmp/workspace", data)
-//	core.Println(r.OK)
 package lib
 
 import (
@@ -163,10 +160,8 @@ func Task(slug string) core.Result {
 	}
 }
 
-// Bundle holds a task's main content plus companion files.
-//
-//	r := lib.TaskBundle("code/review")
-//	if r.OK { b := r.Value.(lib.Bundle) }
+// bundle := lib.Bundle{Main: "Prompt body", Files: map[string]string{"README.md": "Context"}}
+// core.Println(bundle.Files["README.md"])
 type Bundle struct {
 	Main  string
 	Files map[string]string
@@ -220,8 +215,6 @@ func Persona(path string) core.Result {
 	return personaFS.ReadString(core.Concat(path, ".md"))
 }
 
-// WorkspaceData is the data passed to workspace templates.
-//
 //	data := &lib.WorkspaceData{
 //		Repo: "go-io", Task: "fix tests", Agent: "codex", BuildCmd: "go build ./...",
 //	}
@@ -337,9 +330,8 @@ func ListPersonas() []string {
 	return names.AsSlice()
 }
 
-// listNamesRecursive walks an embed tree via Data.ListNames.
-// Directories are recursed into. Files are added as slugs (extension stripped by ListNames).
-// A name can be both a file AND a directory (e.g. code/review.md + code/review/).
+// names := listNamesRecursive("task", ".")
+// core.Println(names) // ["code/review", "code/refactor", ...]
 func listNamesRecursive(mount, dir string) []string {
 	if result := ensureMounted(); !result.OK {
 		return nil

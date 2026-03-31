@@ -38,9 +38,7 @@ func ProcessAlive(c *core.Core, processID string, pid int) bool {
 	return false
 }
 
-// ProcessTerminate stops a managed process.
-//
-//	_ = agentic.ProcessTerminate(c, proc.ID, proc.Info().PID)
+// terminated := agentic.ProcessTerminate(c, proc.ID, proc.Info().PID)
 func ProcessTerminate(c *core.Core, processID string, pid int) bool {
 	if c == nil {
 		return false

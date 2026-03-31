@@ -32,12 +32,11 @@ type RateConfig struct {
 	BurstDelay     int    `yaml:"burst_delay"`
 }
 
-// ConcurrencyLimit supports both flat (int) and nested (map with total + per-model) formats.
+// flat := runner.ConcurrencyLimit{}
+// _ = yaml.Unmarshal([]byte("1\n"), &flat)
 //
-//	claude: 1                       → Total=1, Models=nil
-//	codex:                          → Total=5, Models={"gpt-5.4": 1}
-//	  total: 5
-//	  gpt-5.4: 1
+// nested := runner.ConcurrencyLimit{}
+// _ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &nested)
 type ConcurrencyLimit struct {
 	Total  int
 	Models map[string]int

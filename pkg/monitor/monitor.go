@@ -78,9 +78,8 @@ type Subsystem struct {
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
-// Use core.New(core.WithService(monitor.Register)) for new code.
-//
-//	monitorService.SetCore(c)
+// c := core.New(core.WithService(monitor.Register))
+// monitorService.SetCore(c)
 func (m *Subsystem) SetCore(coreApp *core.Core) {
 	m.ServiceRuntime = core.NewServiceRuntime(coreApp, Options{})
 }
