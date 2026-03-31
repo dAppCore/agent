@@ -104,6 +104,56 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 	assert.Equal(t, "agent", out.Blocked[0].Repo)
 }
 
+func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := core.JoinPath(root, "workspace")
+
+	ws1 := core.JoinPath(wsRoot, "task-1")
+	require.True(t, fs.EnsureDir(ws1).OK)
+	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Agent:  "codex",
+	}))
+
+	ws2 := core.JoinPath(wsRoot, "task-2")
+	require.True(t, fs.EnsureDir(ws2).OK)
+	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
+		Status:   "blocked",
+		Repo:     "go-log",
+		Agent:    "claude",
+		Question: "Which log format?",
+	}))
+
+	ws3 := core.JoinPath(wsRoot, "task-3")
+	require.True(t, fs.EnsureDir(ws3).OK)
+	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
+		Status: "running",
+		Repo:   "agent",
+		Agent:  "gemini",
+	}))
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.status(context.Background(), nil, StatusInput{
+		Workspace: "task-2",
+		Status:    "blocked",
+		Limit:     1,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, out.Total)
+	assert.Equal(t, 0, out.Failed)
+	assert.Equal(t, 0, out.Completed)
+	assert.Len(t, out.Blocked, 1)
+	assert.Equal(t, "go-log", out.Blocked[0].Repo)
+	assert.Equal(t, "Which log format?", out.Blocked[0].Question)
+}
+
 func TestStatus_DeepLayout_Good(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)

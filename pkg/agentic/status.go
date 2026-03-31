@@ -101,7 +101,7 @@ func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
 	return workspaceStatus, true
 }
 
-// input := agentic.StatusInput{Workspace: "core/go-io/task-42", Limit: 50}
+// input := agentic.StatusInput{Workspace: "core/go-io/task-42", Status: "blocked", Limit: 50}
 type StatusInput struct {
 	Workspace string `json:"workspace,omitempty"`
 	Limit     int    `json:"limit,omitempty"`
@@ -129,7 +129,7 @@ type BlockedInfo struct {
 func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_status",
-		Description: "List agent workspaces and their status (running, completed, blocked, failed). Shows blocked agents with their questions.",
+		Description: "List agent workspaces and their status (running, completed, blocked, failed). Supports workspace, status, and limit filters. Shows blocked agents with their questions.",
 	}, s.status)
 }
 
@@ -141,16 +141,30 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	var statusSummary StatusOutput
+	matched := 0
 
 	for _, statusPath := range statusFiles {
 		workspaceDir := core.PathDir(statusPath)
 		name := WorkspaceName(workspaceDir)
+		if !statusInputMatchesWorkspace(input.Workspace, workspaceDir, name) {
+			continue
+		}
 
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
+			if input.Status != "" && input.Status != "failed" {
+				continue
+			}
+			if !statusInputMatchesStatus(input.Status, "failed") {
+				continue
+			}
 			statusSummary.Total++
 			statusSummary.Failed++
+			matched++
+			if input.Limit > 0 && matched >= input.Limit {
+				break
+			}
 			continue
 		}
 
@@ -172,6 +186,10 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 			}
 		}
 
+		if !statusInputMatchesStatus(input.Status, workspaceStatus.Status) {
+			continue
+		}
+
 		statusSummary.Total++
 		switch workspaceStatus.Status {
 		case "running":
@@ -190,7 +208,31 @@ func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, inpu
 				Question: workspaceStatus.Question,
 			})
 		}
+		matched++
+		if input.Limit > 0 && matched >= input.Limit {
+			break
+		}
 	}
 
 	return nil, statusSummary, nil
+}
+
+func statusInputMatchesWorkspace(requested, workspaceDir, workspaceName string) bool {
+	if requested == "" {
+		return true
+	}
+	if requested == workspaceName {
+		return true
+	}
+	if requested == workspaceDir {
+		return true
+	}
+	return false
+}
+
+func statusInputMatchesStatus(requested, current string) bool {
+	if requested == "" {
+		return true
+	}
+	return requested == current
 }
