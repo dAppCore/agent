@@ -447,6 +447,10 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	if m.ServiceRuntime != nil {
+		m.Core().ACTION(messages.InboxMessage{
+			New:   len(inboxMessages),
+			Total: unread,
+		})
 		if notifierResult := m.Core().Service("mcp"); notifierResult.OK {
 			if notifier, ok := notifierResult.Value.(channelSender); ok {
 				for _, inboxMessage := range inboxMessages {

@@ -72,7 +72,9 @@ class AgentApiAuth
 
         // Store API key in request for downstream use
         $request->attributes->set('agent_api_key', $key);
+        $request->attributes->set('api_key', $key);
         $request->attributes->set('workspace_id', $key->workspace_id);
+        $request->attributes->set('workspace', $key->workspace);
 
         /** @var Response $response */
         $response = $next($request);

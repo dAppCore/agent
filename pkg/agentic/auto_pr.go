@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 )
 
@@ -50,6 +51,13 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 			writeStatusResult(workspaceDir, workspaceStatusUpdate)
 		}
 		return
+	}
+	if s.ServiceRuntime != nil {
+		s.Core().ACTION(messages.WorkspacePushed{
+			Repo:   workspaceStatus.Repo,
+			Branch: workspaceStatus.Branch,
+			Org:    org,
+		})
 	}
 
 	title := core.Sprintf("[agent/%s] %s", workspaceStatus.Agent, truncate(workspaceStatus.Task, 60))

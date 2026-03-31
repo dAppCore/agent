@@ -3,8 +3,19 @@
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Controllers\AgentApiController;
+use Core\Mod\Agentic\Controllers\Api\AuthController;
+use Core\Mod\Agentic\Controllers\Api\BrainController;
+use Core\Mod\Agentic\Controllers\Api\CreditsController;
+use Core\Mod\Agentic\Controllers\Api\FleetController;
 use Core\Mod\Agentic\Controllers\Api\IssueController;
+use Core\Mod\Agentic\Controllers\Api\MessageController;
+use Core\Mod\Agentic\Controllers\Api\PhaseController;
+use Core\Mod\Agentic\Controllers\Api\PlanController;
+use Core\Mod\Agentic\Controllers\Api\SessionController;
 use Core\Mod\Agentic\Controllers\Api\SprintController;
+use Core\Mod\Agentic\Controllers\Api\SubscriptionController;
+use Core\Mod\Agentic\Controllers\Api\SyncController;
+use Core\Mod\Agentic\Controllers\Api\TaskController;
 use Core\Mod\Agentic\Middleware\AgentApiAuth;
 use Illuminate\Support\Facades\Route;
 
@@ -33,42 +44,46 @@ Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () 
     Route::get('v1/agent/checkin', [\Core\Mod\Agentic\Controllers\Api\CheckinController::class, 'checkin']);
 });
 
-// Authenticated agent endpoints
+Route::middleware(AgentApiAuth::class.':brain.read')->group(function () {
+    Route::post('v1/brain/recall', [BrainController::class, 'recall']);
+    Route::get('v1/brain/list', [BrainController::class, 'list']);
+});
+
+Route::middleware(AgentApiAuth::class.':brain.write')->group(function () {
+    Route::post('v1/brain/remember', [BrainController::class, 'remember']);
+    Route::delete('v1/brain/forget/{id}', [BrainController::class, 'forget']);
+});
+
 Route::middleware(AgentApiAuth::class.':plans.read')->group(function () {
-    // Plans (read)
-    Route::get('v1/plans', [AgentApiController::class, 'listPlans']);
-    Route::get('v1/plans/{slug}', [AgentApiController::class, 'getPlan']);
-
-    // Phases (read)
-    Route::get('v1/plans/{slug}/phases/{phase}', [AgentApiController::class, 'getPhase']);
-
-    // Sessions (read)
-    Route::get('v1/sessions', [AgentApiController::class, 'listSessions']);
-    Route::get('v1/sessions/{sessionId}', [AgentApiController::class, 'getSession']);
+    Route::get('v1/plans', [PlanController::class, 'index']);
+    Route::get('v1/plans/{slug}', [PlanController::class, 'show']);
+    Route::get('v1/plans/{slug}/phases/{phase}', [PhaseController::class, 'show']);
 });
 
 Route::middleware(AgentApiAuth::class.':plans.write')->group(function () {
-    // Plans (write)
-    Route::post('v1/plans', [AgentApiController::class, 'createPlan']);
-    Route::patch('v1/plans/{slug}', [AgentApiController::class, 'updatePlan']);
-    Route::delete('v1/plans/{slug}', [AgentApiController::class, 'archivePlan']);
+    Route::post('v1/plans', [PlanController::class, 'store']);
+    Route::patch('v1/plans/{slug}/status', [PlanController::class, 'update']);
+    Route::delete('v1/plans/{slug}', [PlanController::class, 'destroy']);
 });
 
 Route::middleware(AgentApiAuth::class.':phases.write')->group(function () {
-    // Phases (write)
-    Route::patch('v1/plans/{slug}/phases/{phase}', [AgentApiController::class, 'updatePhase']);
-    Route::post('v1/plans/{slug}/phases/{phase}/checkpoint', [AgentApiController::class, 'addCheckpoint']);
-    Route::patch('v1/plans/{slug}/phases/{phase}/tasks/{taskIdx}', [AgentApiController::class, 'updateTask'])
-        ->whereNumber('taskIdx');
-    Route::post('v1/plans/{slug}/phases/{phase}/tasks/{taskIdx}/toggle', [AgentApiController::class, 'toggleTask'])
-        ->whereNumber('taskIdx');
+    Route::patch('v1/plans/{slug}/phases/{phase}', [PhaseController::class, 'update']);
+    Route::post('v1/plans/{slug}/phases/{phase}/checkpoint', [PhaseController::class, 'checkpoint']);
+    Route::patch('v1/plans/{slug}/phases/{phase}/tasks/{index}', [TaskController::class, 'update'])
+        ->whereNumber('index');
+    Route::post('v1/plans/{slug}/phases/{phase}/tasks/{index}/toggle', [TaskController::class, 'toggle'])
+        ->whereNumber('index');
+});
+
+Route::middleware(AgentApiAuth::class.':sessions.read')->group(function () {
+    Route::get('v1/sessions', [SessionController::class, 'index']);
+    Route::get('v1/sessions/{id}', [SessionController::class, 'show']);
 });
 
 Route::middleware(AgentApiAuth::class.':sessions.write')->group(function () {
-    // Sessions (write)
-    Route::post('v1/sessions', [AgentApiController::class, 'startSession']);
-    Route::post('v1/sessions/{sessionId}/end', [AgentApiController::class, 'endSession']);
-    Route::post('v1/sessions/{sessionId}/continue', [AgentApiController::class, 'continueSession']);
+    Route::post('v1/sessions', [SessionController::class, 'store']);
+    Route::post('v1/sessions/{id}/continue', [SessionController::class, 'continue']);
+    Route::post('v1/sessions/{id}/end', [SessionController::class, 'end']);
 });
 
 // Issue tracker
@@ -97,13 +112,62 @@ Route::middleware(AgentApiAuth::class.':sprints.write')->group(function () {
     Route::delete('v1/sprints/{slug}', [SprintController::class, 'destroy']);
 });
 
-// Agent messaging — uses auth.api (same as brain routes) so CORE_BRAIN_KEY works
-Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () {
-    Route::get('v1/messages/inbox', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'inbox']);
-    Route::get('v1/messages/conversation/{agent}', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'conversation']);
+Route::middleware(AgentApiAuth::class.':messages.read')->group(function () {
+    Route::get('v1/messages/inbox', [MessageController::class, 'inbox']);
+    Route::get('v1/messages/conversation/{agent}', [MessageController::class, 'conversation']);
 });
 
-Route::middleware(['throttle:60,1', 'auth.api:brain:write'])->group(function () {
-    Route::post('v1/messages/send', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'send']);
-    Route::post('v1/messages/{id}/read', [\Core\Mod\Agentic\Controllers\Api\MessageController::class, 'markRead']);
+Route::middleware(AgentApiAuth::class.':messages.write')->group(function () {
+    Route::post('v1/messages/send', [MessageController::class, 'send']);
+    Route::post('v1/messages/{id}/read', [MessageController::class, 'markRead']);
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('v1/agent/auth/provision', [AuthController::class, 'provision']);
+});
+
+Route::middleware(AgentApiAuth::class.':auth.write')->group(function () {
+    Route::delete('v1/agent/auth/revoke/{keyId}', [AuthController::class, 'revoke']);
+});
+
+Route::middleware(AgentApiAuth::class.':fleet.write')->group(function () {
+    Route::post('v1/fleet/register', [FleetController::class, 'register']);
+    Route::post('v1/fleet/heartbeat', [FleetController::class, 'heartbeat']);
+    Route::post('v1/fleet/deregister', [FleetController::class, 'deregister']);
+    Route::post('v1/fleet/task/assign', [FleetController::class, 'assignTask']);
+    Route::post('v1/fleet/task/complete', [FleetController::class, 'completeTask']);
+});
+
+Route::middleware(AgentApiAuth::class.':fleet.read')->group(function () {
+    Route::get('v1/fleet/nodes', [FleetController::class, 'index']);
+    Route::get('v1/fleet/task/next', [FleetController::class, 'nextTask']);
+    Route::get('v1/fleet/events', [FleetController::class, 'events']);
+    Route::get('v1/fleet/stats', [FleetController::class, 'stats']);
+});
+
+Route::middleware(AgentApiAuth::class.':sync.write')->group(function () {
+    Route::post('v1/agent/sync', [SyncController::class, 'push']);
+});
+
+Route::middleware(AgentApiAuth::class.':sync.read')->group(function () {
+    Route::get('v1/agent/context', [SyncController::class, 'pull']);
+    Route::get('v1/agent/status', [SyncController::class, 'status']);
+});
+
+Route::middleware(AgentApiAuth::class.':credits.write')->group(function () {
+    Route::post('v1/credits/award', [CreditsController::class, 'award']);
+});
+
+Route::middleware(AgentApiAuth::class.':credits.read')->group(function () {
+    Route::get('v1/credits/balance/{agentId}', [CreditsController::class, 'balance']);
+    Route::get('v1/credits/history/{agentId}', [CreditsController::class, 'history']);
+});
+
+Route::middleware(AgentApiAuth::class.':subscription.write')->group(function () {
+    Route::post('v1/subscription/detect', [SubscriptionController::class, 'detect']);
+    Route::put('v1/subscription/budget/{agentId}', [SubscriptionController::class, 'updateBudget']);
+});
+
+Route::middleware(AgentApiAuth::class.':subscription.read')->group(function () {
+    Route::get('v1/subscription/budget/{agentId}', [SubscriptionController::class, 'budget']);
 });

@@ -32,3 +32,9 @@ func ExampleQueueDrained() {
 	fmt.Println(ev.Completed)
 	// Output: 3
 }
+
+func ExampleWorkspacePushed() {
+	ev := WorkspacePushed{Repo: "go-io", Branch: "agent/fix-tests", Org: "core"}
+	fmt.Println(ev.Repo, ev.Org)
+	// Output: go-io core
+}

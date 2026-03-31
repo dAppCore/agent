@@ -41,6 +41,13 @@ type PRMerged struct {
 	PRNum int
 }
 
+// c.ACTION(messages.WorkspacePushed{Repo: "go-io", Branch: "agent/fix-tests", Org: "core"})
+type WorkspacePushed struct {
+	Repo   string
+	Branch string
+	Org    string
+}
+
 // c.ACTION(messages.PRNeedsReview{Repo: "go-io", PRNum: 12, Reason: "merge conflict"})
 type PRNeedsReview struct {
 	Repo   string
@@ -84,9 +91,8 @@ type HarvestRejected struct {
 	Reason string
 }
 
-// c.ACTION(messages.InboxMessage{From: "charon", Subject: "status", Content: "all green"})
+// c.ACTION(messages.InboxMessage{New: 2, Total: 5})
 type InboxMessage struct {
-	From    string
-	Subject string
-	Content string
+	New   int
+	Total int
 }

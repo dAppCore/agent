@@ -198,14 +198,52 @@ class Boot extends ServiceProvider
     {
         $registry = $this->app->make(Services\AgentToolRegistry::class);
 
-        $registry->registerMany([
-            new Mcp\Tools\Agent\Brain\BrainRemember(),
-            new Mcp\Tools\Agent\Brain\BrainRecall(),
-            new Mcp\Tools\Agent\Brain\BrainForget(),
-            new Mcp\Tools\Agent\Brain\BrainList(),
-            new Mcp\Tools\Agent\Messaging\AgentSend(),
-            new Mcp\Tools\Agent\Messaging\AgentInbox(),
-            new Mcp\Tools\Agent\Messaging\AgentConversation(),
-        ]);
+        $toolClasses = [
+            Mcp\Tools\Agent\Brain\BrainRemember::class,
+            Mcp\Tools\Agent\Brain\BrainRecall::class,
+            Mcp\Tools\Agent\Brain\BrainForget::class,
+            Mcp\Tools\Agent\Brain\BrainList::class,
+            Mcp\Tools\Agent\Messaging\AgentSend::class,
+            Mcp\Tools\Agent\Messaging\AgentInbox::class,
+            Mcp\Tools\Agent\Messaging\AgentConversation::class,
+            Mcp\Tools\Agent\Plan\PlanCreate::class,
+            Mcp\Tools\Agent\Plan\PlanGet::class,
+            Mcp\Tools\Agent\Plan\PlanList::class,
+            Mcp\Tools\Agent\Plan\PlanUpdateStatus::class,
+            Mcp\Tools\Agent\Plan\PlanArchive::class,
+            Mcp\Tools\Agent\Phase\PhaseGet::class,
+            Mcp\Tools\Agent\Phase\PhaseUpdateStatus::class,
+            Mcp\Tools\Agent\Phase\PhaseAddCheckpoint::class,
+            Mcp\Tools\Agent\Session\SessionStart::class,
+            Mcp\Tools\Agent\Session\SessionEnd::class,
+            Mcp\Tools\Agent\Session\SessionLog::class,
+            Mcp\Tools\Agent\Session\SessionHandoff::class,
+            Mcp\Tools\Agent\Session\SessionResume::class,
+            Mcp\Tools\Agent\Session\SessionReplay::class,
+            Mcp\Tools\Agent\Session\SessionContinue::class,
+            Mcp\Tools\Agent\Session\SessionArtifact::class,
+            Mcp\Tools\Agent\Session\SessionList::class,
+            Mcp\Tools\Agent\State\StateSet::class,
+            Mcp\Tools\Agent\State\StateGet::class,
+            Mcp\Tools\Agent\State\StateList::class,
+            Mcp\Tools\Agent\Task\TaskUpdate::class,
+            Mcp\Tools\Agent\Task\TaskToggle::class,
+            Mcp\Tools\Agent\Template\TemplateList::class,
+            Mcp\Tools\Agent\Template\TemplatePreview::class,
+            Mcp\Tools\Agent\Template\TemplateCreatePlan::class,
+            Mcp\Tools\Agent\Content\ContentGenerate::class,
+            Mcp\Tools\Agent\Content\ContentBatchGenerate::class,
+            Mcp\Tools\Agent\Content\ContentBriefCreate::class,
+            Mcp\Tools\Agent\Content\ContentBriefGet::class,
+            Mcp\Tools\Agent\Content\ContentBriefList::class,
+            Mcp\Tools\Agent\Content\ContentStatus::class,
+            Mcp\Tools\Agent\Content\ContentUsageStats::class,
+            Mcp\Tools\Agent\Content\ContentFromPlan::class,
+        ];
+
+        $registry->registerMany(array_map(
+            static fn (string $toolClass) => new $toolClass(),
+            $toolClasses,
+        ));
     }
 }

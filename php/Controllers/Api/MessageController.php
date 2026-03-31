@@ -69,15 +69,19 @@ class MessageController extends Controller
         $validated = $request->validate([
             'to' => 'required|string|max:100',
             'content' => 'required|string|max:10000',
-            'from' => 'required|string|max:100',
+            'from' => 'nullable|string|max:100',
             'subject' => 'nullable|string|max:255',
         ]);
 
         $workspaceId = $request->attributes->get('workspace_id');
+        $apiKey = $request->attributes->get('agent_api_key');
+        $from = $validated['from']
+            ?? $apiKey?->name
+            ?? $request->header('X-Agent-Name', 'unknown');
 
         $message = AgentMessage::create([
             'workspace_id' => $workspaceId,
-            'from_agent' => $validated['from'],
+            'from_agent' => $from,
             'to_agent' => $validated['to'],
             'content' => $validated['content'],
             'subject' => $validated['subject'] ?? null,

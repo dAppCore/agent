@@ -18,16 +18,17 @@ func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
 		QAResult{Workspace: "core/go-io/task-5", Repo: "go-io", Passed: true},
 		PRCreated{Repo: "go-io", Branch: "agent/fix", PRURL: "https://forge.lthn.ai/core/go-io/pulls/1", PRNum: 1},
 		PRMerged{Repo: "go-io", PRURL: "https://forge.lthn.ai/core/go-io/pulls/1", PRNum: 1},
+		WorkspacePushed{Repo: "go-io", Branch: "agent/fix", Org: "core"},
 		PRNeedsReview{Repo: "go-io", PRNum: 1, Reason: "merge conflict"},
 		QueueDrained{Completed: 3},
 		PokeQueue{},
 		RateLimitDetected{Pool: "codex", Duration: "30m"},
 		HarvestComplete{Repo: "go-io", Branch: "agent/fix", Files: 5},
 		HarvestRejected{Repo: "go-io", Branch: "agent/fix", Reason: "binary detected"},
-		InboxMessage{From: "charon", Subject: "test", Content: "hello"},
+		InboxMessage{New: 1, Total: 3},
 	}
 
-	assert.Len(t, msgs, 12, "expected 12 message types")
+	assert.Len(t, msgs, 13, "expected 13 message types")
 	for _, msg := range msgs {
 		assert.NotNil(t, msg)
 	}

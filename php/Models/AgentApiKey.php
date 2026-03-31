@@ -80,6 +80,40 @@ class AgentApiKey extends Model
 
     public const PERM_SESSIONS_WRITE = 'sessions.write';
 
+    public const PERM_BRAIN_READ = 'brain.read';
+
+    public const PERM_BRAIN_WRITE = 'brain.write';
+
+    public const PERM_ISSUES_READ = 'issues.read';
+
+    public const PERM_ISSUES_WRITE = 'issues.write';
+
+    public const PERM_SPRINTS_READ = 'sprints.read';
+
+    public const PERM_SPRINTS_WRITE = 'sprints.write';
+
+    public const PERM_MESSAGES_READ = 'messages.read';
+
+    public const PERM_MESSAGES_WRITE = 'messages.write';
+
+    public const PERM_AUTH_WRITE = 'auth.write';
+
+    public const PERM_FLEET_READ = 'fleet.read';
+
+    public const PERM_FLEET_WRITE = 'fleet.write';
+
+    public const PERM_SYNC_READ = 'sync.read';
+
+    public const PERM_SYNC_WRITE = 'sync.write';
+
+    public const PERM_CREDITS_READ = 'credits.read';
+
+    public const PERM_CREDITS_WRITE = 'credits.write';
+
+    public const PERM_SUBSCRIPTION_READ = 'subscription.read';
+
+    public const PERM_SUBSCRIPTION_WRITE = 'subscription.write';
+
     public const PERM_TOOLS_READ = 'tools.read';
 
     public const PERM_TEMPLATES_READ = 'templates.read';
@@ -104,6 +138,23 @@ class AgentApiKey extends Model
             self::PERM_PHASES_WRITE => 'Update phase status, add/complete tasks',
             self::PERM_SESSIONS_READ => 'List and view sessions',
             self::PERM_SESSIONS_WRITE => 'Start, update, complete sessions',
+            self::PERM_BRAIN_READ => 'Recall and list brain memories',
+            self::PERM_BRAIN_WRITE => 'Store and forget brain memories',
+            self::PERM_ISSUES_READ => 'List and view issues',
+            self::PERM_ISSUES_WRITE => 'Create, update, and archive issues',
+            self::PERM_SPRINTS_READ => 'List and view sprints',
+            self::PERM_SPRINTS_WRITE => 'Create, update, and archive sprints',
+            self::PERM_MESSAGES_READ => 'Read inbox and conversation threads',
+            self::PERM_MESSAGES_WRITE => 'Send and acknowledge messages',
+            self::PERM_AUTH_WRITE => 'Provision and revoke agent API keys',
+            self::PERM_FLEET_READ => 'View fleet nodes, tasks, and stats',
+            self::PERM_FLEET_WRITE => 'Register nodes and manage fleet tasks',
+            self::PERM_SYNC_READ => 'Pull shared fleet context and sync status',
+            self::PERM_SYNC_WRITE => 'Push dispatch history to the platform',
+            self::PERM_CREDITS_READ => 'View agent credit balances and history',
+            self::PERM_CREDITS_WRITE => 'Award agent credits',
+            self::PERM_SUBSCRIPTION_READ => 'View node budgets and capability detection',
+            self::PERM_SUBSCRIPTION_WRITE => 'Update node budgets',
             self::PERM_TOOLS_READ => 'View tool analytics',
             self::PERM_TEMPLATES_READ => 'List and view templates',
             self::PERM_TEMPLATES_INSTANTIATE => 'Create plans from templates',
@@ -252,7 +303,15 @@ class AgentApiKey extends Model
     // Permission helpers
     public function hasPermission(string $permission): bool
     {
-        return in_array($permission, $this->permissions ?? []);
+        $wanted = $this->normalisePermission($permission);
+
+        foreach ($this->permissions ?? [] as $granted) {
+            if ($this->normalisePermission((string) $granted) === $wanted) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function hasAnyPermission(array $permissions): bool
@@ -275,6 +334,11 @@ class AgentApiKey extends Model
         }
 
         return true;
+    }
+
+    protected function normalisePermission(string $permission): string
+    {
+        return str_replace(':', '.', trim($permission));
     }
 
     // Actions

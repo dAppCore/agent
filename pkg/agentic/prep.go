@@ -111,6 +111,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		core.Option{Key: "token", Value: s.brainKey},
 	))
 
+	c.Action("agent.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
+	c.Action("agent.sync.pull", s.handleSyncPull).Description = "Pull fleet context from the platform API"
+
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
 	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
 	c.Action("agentic.status", s.handleStatus).Description = "List workspace states (running/completed/blocked)"

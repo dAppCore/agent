@@ -33,11 +33,12 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
-        $apiKey = $request->attributes->get('api_key');
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
+        $apiKey = $request->attributes->get('api_key') ?? $request->attributes->get('agent_api_key');
         $agentId = $apiKey?->name ?? 'api';
 
         try {
-            $memory = RememberKnowledge::run($validated, $workspace->id, $agentId);
+            $memory = RememberKnowledge::run($validated, $workspaceId, $agentId);
 
             return response()->json([
                 'data' => $memory->toMcpContext(),
@@ -73,11 +74,12 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
 
         try {
             $result = RecallKnowledge::run(
                 $validated['query'],
-                $workspace->id,
+                $workspaceId,
                 $validated['filter'] ?? [],
                 $validated['top_k'] ?? 5,
             );
@@ -110,11 +112,12 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
-        $apiKey = $request->attributes->get('api_key');
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
+        $apiKey = $request->attributes->get('api_key') ?? $request->attributes->get('agent_api_key');
         $agentId = $apiKey?->name ?? 'api';
 
         try {
-            $result = ForgetKnowledge::run($id, $workspace->id, $agentId, $request->input('reason'));
+            $result = ForgetKnowledge::run($id, $workspaceId, $agentId, $request->input('reason'));
 
             return response()->json([
                 'data' => $result,
@@ -147,9 +150,10 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
 
         try {
-            $result = ListKnowledge::run($workspace->id, $validated);
+            $result = ListKnowledge::run($workspaceId, $validated);
 
             return response()->json([
                 'data' => $result,
