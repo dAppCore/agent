@@ -447,6 +447,22 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("plan.list").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("session.start").Exists())
+	assert.True(t, c.Action("session.get").Exists())
+	assert.True(t, c.Action("session.list").Exists())
+	assert.True(t, c.Action("session.continue").Exists())
+	assert.True(t, c.Action("session.end").Exists())
+}
+
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")

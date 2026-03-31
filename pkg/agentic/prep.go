@@ -178,6 +178,11 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("plan.update", s.handlePlanUpdate).Description = "Update plan status, phases, notes, or agent assignment"
 	c.Action("plan.delete", s.handlePlanDelete).Description = "Delete an implementation plan by ID"
 	c.Action("plan.list", s.handlePlanList).Description = "List implementation plans with optional filters"
+	c.Action("session.start", s.handleSessionStart).Description = "Start an agent session for a plan"
+	c.Action("session.get", s.handleSessionGet).Description = "Read a session by session ID"
+	c.Action("session.list", s.handleSessionList).Description = "List sessions with optional plan or status filters"
+	c.Action("session.continue", s.handleSessionContinue).Description = "Continue a session from its latest saved context"
+	c.Action("session.end", s.handleSessionEnd).Description = "End a session with status and summary"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
@@ -280,6 +285,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerRemoteStatusTool(server)
 	s.registerReviewQueueTool(server)
 	s.registerShutdownTools(server)
+	s.registerSessionTools(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
