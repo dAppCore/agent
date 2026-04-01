@@ -59,7 +59,7 @@ func NewPrep() *PrepSubsystem {
 
 	forgeURL := envOr("FORGE_URL", "https://forge.lthn.ai")
 
-	return &PrepSubsystem{
+	subsystem := &PrepSubsystem{
 		forge:      forge.NewForge(forgeURL, forgeToken),
 		forgeURL:   forgeURL,
 		forgeToken: forgeToken,
@@ -70,6 +70,8 @@ func NewPrep() *PrepSubsystem {
 		failCount:  make(map[string]int),
 		workspaces: core.NewRegistry[*WorkspaceStatus](),
 	}
+	subsystem.loadRuntimeState()
+	return subsystem
 }
 
 // c.Action("agentic.dispatch").Run(ctx, options)

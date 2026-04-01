@@ -236,6 +236,7 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 			s.failCount[pool]++
 			if s.failCount[pool] >= 3 {
 				s.backoff[pool] = time.Now().Add(30 * time.Minute)
+				s.persistRuntimeState()
 				core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
 				return true
 			}
@@ -245,6 +246,7 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 	} else {
 		s.failCount[pool] = 0
 	}
+	s.persistRuntimeState()
 	return false
 }
 
