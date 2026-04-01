@@ -181,14 +181,23 @@ func (s *PrepSubsystem) cmdPlanCheck(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPlanCheck", "slug is required", nil), OK: false}
 	}
 
-	phaseOrder := optionIntValue(options, "phase", "phase_order")
-	_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: slug})
-	if err != nil {
+	result := s.handlePlanCheck(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: slug},
+		core.Option{Key: "phase", Value: optionIntValue(options, "phase", "phase_order")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPlanCheck", result)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 
-	check := planCheckOutput(output.Plan, phaseOrder)
+	check, ok := result.Value.(PlanCheckOutput)
+	if !ok {
+		err := core.E("agentic.cmdPlanCheck", "invalid plan check output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
 	core.Print(nil, "slug:     %s", check.Plan.Slug)
 	core.Print(nil, "status:   %s", check.Plan.Status)
 	core.Print(nil, "progress: %d/%d (%d%%)", check.Plan.Progress.Completed, check.Plan.Progress.Total, check.Plan.Progress.Percentage)

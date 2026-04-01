@@ -68,6 +68,12 @@ type PlanArchiveOutput struct {
 	Archived string `json:"archived"`
 }
 
+// input := agentic.PlanCheckInput{Slug: "my-plan-abc123", Phase: 1}
+type PlanCheckInput struct {
+	Slug  string `json:"slug"`
+	Phase int    `json:"phase,omitempty"`
+}
+
 // out := agentic.PlanCheckOutput{Success: true, Complete: true}
 type PlanCheckOutput struct {
 	Success   bool                  `json:"success"`
@@ -101,6 +107,18 @@ func (s *PrepSubsystem) handlePlanUpdateStatus(ctx context.Context, options core
 	_, output, err := s.planUpdateStatusCompat(ctx, nil, PlanStatusUpdateInput{
 		Slug:   optionStringValue(options, "slug", "_arg"),
 		Status: optionStringValue(options, "status"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("plan.check").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
+func (s *PrepSubsystem) handlePlanCheck(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.planCheck(ctx, nil, PlanCheckInput{
+		Slug:  optionStringValue(options, "slug", "_arg"),
+		Phase: optionIntValue(options, "phase", "phase_order"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -184,6 +202,19 @@ func (s *PrepSubsystem) planUpdateStatusCompat(ctx context.Context, _ *mcp.CallT
 		Success: true,
 		Plan:    planCompatibilityView(output.Plan),
 	}, nil
+}
+
+func (s *PrepSubsystem) planCheck(ctx context.Context, _ *mcp.CallToolRequest, input PlanCheckInput) (*mcp.CallToolResult, PlanCheckOutput, error) {
+	if input.Slug == "" {
+		return nil, PlanCheckOutput{}, core.E("planCheck", "slug is required", nil)
+	}
+
+	_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: input.Slug})
+	if err != nil {
+		return nil, PlanCheckOutput{}, err
+	}
+
+	return nil, planCheckOutput(output.Plan, input.Phase), nil
 }
 
 func (s *PrepSubsystem) planArchiveCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {

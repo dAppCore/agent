@@ -91,3 +91,37 @@ func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 	assert.Equal(t, "Setup", output.PhaseName)
 	assert.Equal(t, []string{"Patch code"}, output.Pending)
 }
+
+func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Action Check Plan",
+		Description: "Confirm the plan check action reports completion",
+		Phases: []Phase{
+			{
+				Name: "Setup",
+				Tasks: []PlanTask{
+					{ID: "1", Title: "Review RFC", Status: "completed"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	r := s.handlePlanCheck(context.Background(), core.NewOptions(
+		core.Option{Key: "slug", Value: plan.Slug},
+	))
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(PlanCheckOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.True(t, output.Complete)
+	assert.Equal(t, plan.Slug, output.Plan.Slug)
+}

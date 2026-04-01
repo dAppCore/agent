@@ -445,6 +445,7 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("plan.read").Exists())
 	assert.True(t, c.Action("plan.update").Exists())
 	assert.True(t, c.Action("plan.update_status").Exists())
+	assert.True(t, c.Action("plan.check").Exists())
 	assert.True(t, c.Action("plan.archive").Exists())
 	assert.True(t, c.Action("plan.delete").Exists())
 	assert.True(t, c.Action("plan.list").Exists())

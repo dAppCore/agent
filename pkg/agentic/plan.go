@@ -269,6 +269,11 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 	}, s.planListCompat)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_check",
+		Description: "Check whether a plan or phase is complete using the compatibility surface.",
+	}, s.planCheck)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_update",
 		Description: "Update a plan using the legacy plain-name MCP alias.",
 	}, s.planUpdate)
