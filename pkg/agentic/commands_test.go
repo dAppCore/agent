@@ -905,6 +905,32 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	assert.Contains(t, output, "content:  Template draft")
 }
 
+func TestCommands_CmdComplete_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+
+	c.Action("noop", func(_ context.Context, _ core.Options) core.Result {
+		return core.Result{OK: true}
+	})
+	c.Task("agent.completion", core.Task{
+		Description: "QA → PR → Verify → Ingest → Poke",
+		Steps: []core.Step{
+			{Action: "noop"},
+		},
+	})
+
+	r := s.cmdComplete(core.NewOptions(
+		core.Option{Key: "workspace", Value: core.JoinPath(WorkspaceRoot(), "core/go-io/task-42")},
+	))
+	assert.True(t, r.OK)
+}
+
+func TestCommands_CmdComplete_Bad_MissingTask(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	r := s.cmdComplete(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
 func TestCommands_CmdScan_Good(t *testing.T) {
 	server := mockScanServer(t)
 	s := &PrepSubsystem{
@@ -1131,6 +1157,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "run/task")
 	assert.Contains(t, cmds, "run/orchestrator")
 	assert.Contains(t, cmds, "prep")
+	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "scan")
 	assert.Contains(t, cmds, "status")
 	assert.Contains(t, cmds, "prompt")

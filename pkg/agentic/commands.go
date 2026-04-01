@@ -22,6 +22,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Ingest → Poke)", Action: s.cmdComplete})
 	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
@@ -209,6 +210,17 @@ func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {
 	}
 
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdComplete(options core.Options) core.Result {
+	result := s.handleComplete(s.commandContext(), options)
+	if !result.OK {
+		err := commandResultError("agentic.cmdComplete", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	return result
 }
 
 func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
