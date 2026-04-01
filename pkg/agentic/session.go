@@ -879,11 +879,17 @@ func sessionReplayContext(session Session) map[string]any {
 		"last_active_at":   session.UpdatedAt,
 		"context_summary":  session.ContextSummary,
 		"progress_summary": sessionProgressSummary(session.WorkLog),
+		"work_log":         session.WorkLog,
 		"last_checkpoint":  lastCheckpoint,
 		"checkpoints":      checkpoints,
 		"decisions":        decisions,
 		"errors":           errors,
-		"artifacts":        session.Artifacts,
+		"work_log_by_type": map[string]any{
+			"checkpoint": checkpoints,
+			"decision":   decisions,
+			"error":      errors,
+		},
+		"artifacts": session.Artifacts,
 		"artifacts_by_action": map[string]any{
 			"created":  filterArtifactsByAction(session.Artifacts, "created"),
 			"modified": filterArtifactsByAction(session.Artifacts, "modified"),

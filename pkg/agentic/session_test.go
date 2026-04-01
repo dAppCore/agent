@@ -408,7 +408,9 @@ func TestSession_HandleSessionReplay_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "ses_replay", output.ReplayContext["session_id"])
 	assert.Equal(t, 3, output.ReplayContext["total_actions"])
+	require.Len(t, output.ReplayContext["work_log"].([]map[string]any), 3)
 	require.Len(t, output.ReplayContext["checkpoints"].([]map[string]any), 1)
+	require.Len(t, output.ReplayContext["work_log_by_type"].(map[string]any)["error"].([]map[string]any), 1)
 }
 
 func TestSession_HandleSessionReplay_Bad(t *testing.T) {
