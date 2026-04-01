@@ -100,6 +100,8 @@ func (s *PrepSubsystem) registerForgeCommands() {
 	c.Command("issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList})
 	c.Command("issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment})
 	c.Command("issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate})
+	c.Command("issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate})
+	c.Command("issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive})
 	c.Command("pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet})
 	c.Command("pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList})
 	c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
@@ -226,6 +228,72 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 	core.Print(nil, "#%d %s", issue.Index, issue.Title)
 	core.Print(nil, "  url: %s", issue.HTMLURL)
 	return core.Result{Value: issue.Index, OK: true}
+}
+
+func (s *PrepSubsystem) cmdIssueUpdate(options core.Options) core.Result {
+	ctx := context.Background()
+	id := optionStringValue(options, "id", "slug", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent issue update <slug> [--title=\"...\"] [--description=\"...\"] [--type=bug] [--status=open] [--priority=high] [--labels=a,b] [--sprint-id=7|--sprint-slug=phase-1]")
+		return core.Result{Value: core.E("agentic.cmdIssueUpdate", "slug or id is required", nil), OK: false}
+	}
+
+	result := s.handleIssueRecordUpdate(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: id},
+		core.Option{Key: "title", Value: options.String("title")},
+		core.Option{Key: "description", Value: options.String("description")},
+		core.Option{Key: "type", Value: options.String("type")},
+		core.Option{Key: "status", Value: options.String("status")},
+		core.Option{Key: "priority", Value: options.String("priority")},
+		core.Option{Key: "labels", Value: options.String("labels")},
+		core.Option{Key: "sprint_id", Value: options.String("sprint-id")},
+		core.Option{Key: "sprint_slug", Value: options.String("sprint-slug")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdIssueUpdate", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(IssueOutput)
+	if !ok {
+		err := core.E("agentic.cmdIssueUpdate", "invalid issue update output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "%s", output.Issue.Slug)
+	core.Print(nil, "  status: %s", output.Issue.Status)
+	core.Print(nil, "  title:  %s", output.Issue.Title)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdIssueArchive(options core.Options) core.Result {
+	ctx := context.Background()
+	id := optionStringValue(options, "id", "slug", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent issue archive <slug>")
+		return core.Result{Value: core.E("agentic.cmdIssueArchive", "slug or id is required", nil), OK: false}
+	}
+
+	result := s.handleIssueRecordArchive(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: id},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdIssueArchive", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(IssueArchiveOutput)
+	if !ok {
+		err := core.E("agentic.cmdIssueArchive", "invalid issue archive output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "archived: %s", output.Archived)
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdPRGet(options core.Options) core.Result {

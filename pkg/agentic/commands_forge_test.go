@@ -10,6 +10,7 @@ import (
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- parseForgeArgs ---
@@ -145,6 +146,82 @@ func TestCommandsforge_CmdIssueCreate_Ugly(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
+func TestCommandsforge_CmdIssueUpdate_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)
+		require.Equal(t, http.MethodPatch, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "Fix auth middleware", payload["title"])
+		require.Equal(t, "in_progress", payload["status"])
+
+		_, _ = w.Write([]byte(`{"data":{"issue":{"slug":"fix-auth","title":"Fix auth middleware","status":"in_progress","priority":"high","labels":["auth","backend"]}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdIssueUpdate(core.NewOptions(
+		core.Option{Key: "_arg", Value: "fix-auth"},
+		core.Option{Key: "title", Value: "Fix auth middleware"},
+		core.Option{Key: "status", Value: "in_progress"},
+		core.Option{Key: "priority", Value: "high"},
+		core.Option{Key: "labels", Value: "auth,backend"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueOutput)
+	require.True(t, ok)
+	assert.Equal(t, "fix-auth", output.Issue.Slug)
+	assert.Equal(t, "in_progress", output.Issue.Status)
+	assert.Equal(t, []string{"auth", "backend"}, output.Issue.Labels)
+}
+
+func TestCommandsforge_CmdIssueUpdate_Bad_MissingSlug(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.cmdIssueUpdate(core.NewOptions())
+	assert.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "agentic.cmdIssueUpdate: slug or id is required")
+}
+
+func TestCommandsforge_CmdIssueArchive_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)
+		require.Equal(t, http.MethodDelete, r.Method)
+
+		_, _ = w.Write([]byte(`{"data":{"result":{"slug":"fix-auth","success":true}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdIssueArchive(core.NewOptions(
+		core.Option{Key: "slug", Value: "fix-auth"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueArchiveOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, "fix-auth", output.Archived)
+}
+
+func TestCommandsforge_CmdIssueArchive_Ugly_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdIssueArchive(core.NewOptions(
+		core.Option{Key: "_arg", Value: "fix-auth"},
+	))
+	assert.False(t, result.OK)
+}
+
 func TestCommandsforge_CmdPRGet_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
@@ -244,4 +321,6 @@ func TestCommandsforge_RegisterForgeCommands_Good_RepoSyncRegistered(t *testing.
 	s, c := testPrepWithCore(t, nil)
 	s.registerForgeCommands()
 	assert.Contains(t, c.Commands(), "repo/sync")
+	assert.Contains(t, c.Commands(), "issue/update")
+	assert.Contains(t, c.Commands(), "issue/archive")
 }
