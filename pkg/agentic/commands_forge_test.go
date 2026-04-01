@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -192,4 +193,55 @@ func TestCommandsforge_CmdRepoList_Ugly(t *testing.T) {
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdRepoList(core.NewOptions(core.Option{Key: "org", Value: "<script>alert(1)</script>"}))
 	assert.False(t, r.OK)
+}
+
+func TestCommandsforge_CmdRepoSync_Bad_MissingRepo(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdRepoSync(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCommandsforge_CmdRepoSync_Good_ResetLocalRepo(t *testing.T) {
+	codeDir := t.TempDir()
+	orgDir := core.JoinPath(codeDir, "core")
+	fs.EnsureDir(orgDir)
+	repoDir := core.JoinPath(orgDir, "test-repo")
+	fs.EnsureDir(repoDir)
+
+	binDir := t.TempDir()
+	logPath := core.JoinPath(t.TempDir(), "git.log")
+	gitPath := core.JoinPath(binDir, "git")
+	fs.Write(gitPath, core.Concat("#!/bin/sh\nprintf '%s\\n' \"$*\" >> ", logPath, "\nexit 0\n"))
+	assert.True(t, testCore.Process().RunIn(context.Background(), binDir, "chmod", "+x", gitPath).OK)
+	oldPath := core.Env("PATH")
+	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       codeDir,
+	}
+
+	output := captureStdout(t, func() {
+		r := s.cmdRepoSync(core.NewOptions(
+			core.Option{Key: "_arg", Value: "test-repo"},
+			core.Option{Key: "org", Value: "core"},
+			core.Option{Key: "branch", Value: "main"},
+			core.Option{Key: "reset", Value: true},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "fetched core/test-repo@main")
+	assert.Contains(t, output, "reset")
+
+	logResult := fs.Read(logPath)
+	assert.True(t, logResult.OK)
+	assert.Contains(t, logResult.Value.(string), "fetch origin")
+	assert.Contains(t, logResult.Value.(string), "reset --hard origin/main")
+}
+
+func TestCommandsforge_RegisterForgeCommands_Good_RepoSyncRegistered(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	s.registerForgeCommands()
+	assert.Contains(t, c.Commands(), "repo/sync")
 }

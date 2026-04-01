@@ -31,6 +31,7 @@ core-agent [command]
 | `pr/merge` | Merge Forge PR |
 | `repo/get` | Get Forge repo info |
 | `repo/list` | List Forge repos |
+| `repo/sync` | Fetch and optionally reset a local repo from origin |
 | `mcp` | Start MCP server (stdio) |
 | `serve` | Start HTTP/API server |
 

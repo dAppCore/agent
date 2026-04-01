@@ -106,6 +106,7 @@ func (s *PrepSubsystem) registerForgeCommands() {
 	c.Command("pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose})
 	c.Command("repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet})
 	c.Command("repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList})
+	c.Command("repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync})
 }
 
 func (s *PrepSubsystem) cmdIssueGet(options core.Options) core.Result {
@@ -356,4 +357,107 @@ func (s *PrepSubsystem) cmdRepoList(options core.Options) core.Result {
 	}
 	core.Print(nil, "\n  %d repos", len(repos))
 	return core.Result{OK: true}
+}
+
+// result := c.Command("repo/sync").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "reset", Value: true},
+//
+// ))
+func (s *PrepSubsystem) cmdRepoSync(options core.Options) core.Result {
+	ctx := context.Background()
+	org, repo, _ := parseForgeArgs(options)
+	if repo == "" {
+		core.Print(nil, "usage: core-agent repo sync <repo> [--org=core] [--branch=main] [--reset]")
+		return core.Result{Value: core.E("agentic.cmdRepoSync", "repo is required", nil), OK: false}
+	}
+
+	branch := options.String("branch")
+	reset := options.Bool("reset")
+	repoDir := s.localRepoDir(org, repo)
+	if repoDir == "" {
+		return core.Result{Value: core.E("agentic.cmdRepoSync", "local repo directory is unavailable", nil), OK: false}
+	}
+	if !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+		core.Print(nil, "repo not found: %s", repoDir)
+		return core.Result{Value: core.E("agentic.cmdRepoSync", "local repo not found", nil), OK: false}
+	}
+
+	if branch == "" {
+		branch = s.currentBranch(repoDir)
+	}
+	if branch == "" {
+		branch = s.DefaultBranch(repoDir)
+	}
+	if branch == "" {
+		return core.Result{Value: core.E("agentic.cmdRepoSync", "branch is required", nil), OK: false}
+	}
+
+	process := s.Core().Process()
+	fetchResult := process.RunIn(ctx, repoDir, "git", "fetch", "origin")
+	if !fetchResult.OK {
+		core.Print(nil, "error: %v", fetchResult.Value)
+		return core.Result{Value: fetchResult.Value, OK: false}
+	}
+
+	core.Print(nil, "fetched %s/%s@%s", org, repo, branch)
+	if reset {
+		resetResult := process.RunIn(ctx, repoDir, "git", "reset", "--hard", core.Concat("origin/", branch))
+		if !resetResult.OK {
+			core.Print(nil, "error: %v", resetResult.Value)
+			return core.Result{Value: resetResult.Value, OK: false}
+		}
+		core.Print(nil, "reset %s to origin/%s", repoDir, branch)
+	}
+
+	return core.Result{OK: true}
+}
+
+// repoDir := s.localRepoDir("core", "go-io")
+func (s *PrepSubsystem) localRepoDir(org, repo string) string {
+	basePath := s.codePath
+	if basePath == "" {
+		basePath = core.Env("CODE_PATH")
+	}
+	if basePath == "" {
+		basePath = core.JoinPath(HomeDir(), "Code")
+	}
+
+	normalisedRepo := core.Replace(repo, "\\", "/")
+	repoName := core.PathBase(normalisedRepo)
+	orgName := core.PathBase(core.Replace(org, "\\", "/"))
+	if orgName == "" {
+		parts := core.Split(normalisedRepo, "/")
+		if len(parts) > 1 {
+			orgName = parts[0]
+		}
+	}
+
+	candidates := []string{}
+	if orgName != "" {
+		candidates = append(candidates, core.JoinPath(basePath, orgName, repoName))
+	}
+	candidates = append(candidates, core.JoinPath(basePath, repoName))
+
+	for _, candidate := range candidates {
+		if fs.Exists(candidate) && !fs.IsFile(candidate) {
+			return candidate
+		}
+	}
+
+	if len(candidates) == 0 {
+		return ""
+	}
+	return candidates[0]
+}
+
+// branch := s.currentBranch("/srv/Code/core/go-io")
+func (s *PrepSubsystem) currentBranch(repoDir string) string {
+	ctx := context.Background()
+	result := s.Core().Process().RunIn(ctx, repoDir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	if !result.OK {
+		return ""
+	}
+	return core.Trim(result.Value.(string))
 }
