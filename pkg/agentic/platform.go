@@ -12,6 +12,16 @@ import (
 )
 
 // node := agentic.FleetNode{AgentID: "charon", Platform: "linux", Status: "online"}
+type ComputeBudget struct {
+	MaxDailyHours    float64  `json:"max_daily_hours,omitempty"`
+	MaxWeeklyCostUSD float64  `json:"max_weekly_cost_usd,omitempty"`
+	QuietStart       string   `json:"quiet_start,omitempty"`
+	QuietEnd         string   `json:"quiet_end,omitempty"`
+	PreferModels     []string `json:"prefer_models,omitempty"`
+	AvoidModels      []string `json:"avoid_models,omitempty"`
+}
+
+// node := agentic.FleetNode{AgentID: "charon", Platform: "linux", Status: "online"}
 type FleetNode struct {
 	ID              int            `json:"id"`
 	WorkspaceID     int            `json:"workspace_id,omitempty"`
@@ -20,7 +30,7 @@ type FleetNode struct {
 	Models          []string       `json:"models,omitempty"`
 	Capabilities    []string       `json:"capabilities,omitempty"`
 	Status          string         `json:"status"`
-	ComputeBudget   map[string]any `json:"compute_budget,omitempty"`
+	ComputeBudget   *ComputeBudget `json:"compute_budget,omitempty"`
 	CurrentTaskID   int            `json:"current_task_id,omitempty"`
 	LastHeartbeatAt string         `json:"last_heartbeat_at,omitempty"`
 	RegisteredAt    string         `json:"registered_at,omitempty"`
@@ -710,11 +720,75 @@ func parseFleetNode(values map[string]any) FleetNode {
 		Models:          listValue(values["models"]),
 		Capabilities:    listValue(values["capabilities"]),
 		Status:          stringValue(values["status"]),
-		ComputeBudget:   anyMapValue(values["compute_budget"]),
+		ComputeBudget:   computeBudgetFromValue(values["compute_budget"]),
 		CurrentTaskID:   intValue(values["current_task_id"]),
 		LastHeartbeatAt: stringValue(values["last_heartbeat_at"]),
 		RegisteredAt:    stringValue(values["registered_at"]),
 	}
+}
+
+func computeBudgetFromValue(value any) *ComputeBudget {
+	switch typed := value.(type) {
+	case *ComputeBudget:
+		if typed == nil || computeBudgetIsZero(*typed) {
+			return nil
+		}
+		return typed
+	case ComputeBudget:
+		if computeBudgetIsZero(typed) {
+			return nil
+		}
+		return &typed
+	case map[string]any:
+		return computeBudgetFromMap(typed)
+	case map[string]string:
+		values := make(map[string]any, len(typed))
+		for key, item := range typed {
+			values[key] = item
+		}
+		return computeBudgetFromMap(values)
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "{") {
+			var values map[string]any
+			if result := core.JSONUnmarshalString(trimmed, &values); result.OK {
+				return computeBudgetFromMap(values)
+			}
+		}
+	}
+	return nil
+}
+
+func computeBudgetFromMap(values map[string]any) *ComputeBudget {
+	if len(values) == 0 {
+		return nil
+	}
+
+	budget := &ComputeBudget{
+		MaxDailyHours:    floatValue(values["max_daily_hours"]),
+		MaxWeeklyCostUSD: floatValue(values["max_weekly_cost_usd"]),
+		QuietStart:       stringValue(values["quiet_start"]),
+		QuietEnd:         stringValue(values["quiet_end"]),
+		PreferModels:     listValue(values["prefer_models"]),
+		AvoidModels:      listValue(values["avoid_models"]),
+	}
+
+	if computeBudgetIsZero(*budget) {
+		return nil
+	}
+	return budget
+}
+
+func computeBudgetIsZero(budget ComputeBudget) bool {
+	return budget.MaxDailyHours == 0 &&
+		budget.MaxWeeklyCostUSD == 0 &&
+		core.Trim(budget.QuietStart) == "" &&
+		core.Trim(budget.QuietEnd) == "" &&
+		len(budget.PreferModels) == 0 &&
+		len(budget.AvoidModels) == 0
 }
 
 func parseFleetTask(values map[string]any) FleetTask {
@@ -1139,6 +1213,31 @@ func intValue(value any) int {
 	case string:
 		parsed := parseInt(typed)
 		if parsed != 0 || core.Trim(typed) == "0" {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func floatValue(value any) float64 {
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return 0
+		}
+		var parsed float64
+		if result := core.JSONUnmarshalString(core.Concat("{\"n\":", trimmed, "}"), &struct {
+			N *float64 `json:"n"`
+		}{N: &parsed}); result.OK {
 			return parsed
 		}
 	}

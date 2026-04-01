@@ -222,7 +222,7 @@ func (s *PrepSubsystem) fleetHeartbeatTool(ctx context.Context, _ *mcp.CallToolR
 	options := platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "status", Value: input.Status},
-		core.Option{Key: "compute_budget", Value: input.ComputeBudget},
+		core.Option{Key: "compute_budget", Value: computeBudgetMapValue(input.ComputeBudget)},
 	)
 	result := s.handleFleetHeartbeat(ctx, options)
 	if !result.OK {
@@ -233,6 +233,36 @@ func (s *PrepSubsystem) fleetHeartbeatTool(ctx context.Context, _ *mcp.CallToolR
 		return nil, FleetNode{}, core.E("agentic.fleet.heartbeat", "invalid fleet heartbeat output", nil)
 	}
 	return nil, output, nil
+}
+
+func computeBudgetMapValue(budget *ComputeBudget) map[string]any {
+	if budget == nil || computeBudgetIsZero(*budget) {
+		return nil
+	}
+
+	values := map[string]any{}
+	if budget.MaxDailyHours != 0 {
+		values["max_daily_hours"] = budget.MaxDailyHours
+	}
+	if budget.MaxWeeklyCostUSD != 0 {
+		values["max_weekly_cost_usd"] = budget.MaxWeeklyCostUSD
+	}
+	if trimmed := core.Trim(budget.QuietStart); trimmed != "" {
+		values["quiet_start"] = trimmed
+	}
+	if trimmed := core.Trim(budget.QuietEnd); trimmed != "" {
+		values["quiet_end"] = trimmed
+	}
+	if len(budget.PreferModels) > 0 {
+		values["prefer_models"] = cleanStrings(budget.PreferModels)
+	}
+	if len(budget.AvoidModels) > 0 {
+		values["avoid_models"] = cleanStrings(budget.AvoidModels)
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }
 
 func (s *PrepSubsystem) fleetDeregisterTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetDeregisterInput) (*mcp.CallToolResult, map[string]any, error) {

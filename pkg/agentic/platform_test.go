@@ -71,6 +71,50 @@ func TestPlatform_HandleFleetRegister_Good(t *testing.T) {
 	assert.Equal(t, []string{"go", "review"}, node.Capabilities)
 }
 
+func TestPlatform_HandleFleetHeartbeat_Good_ComputeBudget(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/fleet/heartbeat", r.URL.Path)
+		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+
+		budget, ok := payload["compute_budget"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, 2.5, budget["max_daily_hours"])
+		assert.Equal(t, 12.5, budget["max_weekly_cost_usd"])
+		assert.Equal(t, "22:00", budget["quiet_start"])
+		assert.Equal(t, "06:00", budget["quiet_end"])
+		assert.Equal(t, []any{"codex", "gpt-5.4"}, budget["prefer_models"])
+		assert.Equal(t, []any{"gpt-4.1"}, budget["avoid_models"])
+
+		_, _ = w.Write([]byte(`{"data":{"id":1,"agent_id":"charon","platform":"linux","status":"online","compute_budget":{"max_daily_hours":2.5,"max_weekly_cost_usd":12.5,"quiet_start":"22:00","quiet_end":"06:00","prefer_models":["codex","gpt-5.4"],"avoid_models":["gpt-4.1"]}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetHeartbeat(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+		core.Option{Key: "status", Value: "online"},
+		core.Option{Key: "compute_budget", Value: `{"max_daily_hours":2.5,"max_weekly_cost_usd":12.5,"quiet_start":"22:00","quiet_end":"06:00","prefer_models":["codex","gpt-5.4"],"avoid_models":["gpt-4.1"]}`},
+	))
+	require.True(t, result.OK)
+
+	node, ok := result.Value.(FleetNode)
+	require.True(t, ok)
+	require.NotNil(t, node.ComputeBudget)
+	assert.Equal(t, 2.5, node.ComputeBudget.MaxDailyHours)
+	assert.Equal(t, 12.5, node.ComputeBudget.MaxWeeklyCostUSD)
+	assert.Equal(t, "22:00", node.ComputeBudget.QuietStart)
+	assert.Equal(t, "06:00", node.ComputeBudget.QuietEnd)
+	assert.Equal(t, []string{"codex", "gpt-5.4"}, node.ComputeBudget.PreferModels)
+	assert.Equal(t, []string{"gpt-4.1"}, node.ComputeBudget.AvoidModels)
+}
+
 func TestPlatform_HandleFleetRegister_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 
@@ -291,7 +335,7 @@ func TestPlatform_HandleCreditsHistory_Good(t *testing.T) {
 
 func TestPlatform_HandleFleetNodes_Good_NestedEnvelope(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"data":{"nodes":[{"id":1,"workspace_id":7,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}}`))
+		_, _ = w.Write([]byte(`{"data":{"nodes":[{"id":1,"workspace_id":7,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online","compute_budget":{"max_daily_hours":3,"quiet_start":"22:00","prefer_models":["codex"]}}],"total":1}}`))
 	}))
 	defer server.Close()
 
@@ -304,6 +348,10 @@ func TestPlatform_HandleFleetNodes_Good_NestedEnvelope(t *testing.T) {
 	require.Len(t, output.Nodes, 1)
 	assert.Equal(t, 1, output.Total)
 	assert.Equal(t, 7, output.Nodes[0].WorkspaceID)
+	require.NotNil(t, output.Nodes[0].ComputeBudget)
+	assert.Equal(t, 3.0, output.Nodes[0].ComputeBudget.MaxDailyHours)
+	assert.Equal(t, "22:00", output.Nodes[0].ComputeBudget.QuietStart)
+	assert.Equal(t, []string{"codex"}, output.Nodes[0].ComputeBudget.PreferModels)
 }
 
 func TestPlatform_HandleCreditsHistory_Good_NestedEnvelope(t *testing.T) {
