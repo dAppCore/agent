@@ -181,6 +181,22 @@ type ListPRsOutput struct {
 	PRs     []PRInfo `json:"prs"`
 }
 
+// input := agentic.ClosePRInput{Org: "core", Repo: "go-io", Number: 12}
+type ClosePRInput struct {
+	Org    string `json:"org,omitempty"`
+	Repo   string `json:"repo"`
+	Number int    `json:"number"`
+}
+
+// out := agentic.ClosePROutput{Success: true, Repo: "go-io", Number: 12, State: "closed"}
+type ClosePROutput struct {
+	Success bool   `json:"success"`
+	Org     string `json:"org,omitempty"`
+	Repo    string `json:"repo"`
+	Number  int    `json:"number"`
+	State   string `json:"state,omitempty"`
+}
+
 // pr := agentic.PRInfo{Repo: "go-io", Number: 12, Title: "Migrate pkg/fs", Branch: "agent/migrate-fs"}
 type PRInfo struct {
 	Repo      string   `json:"repo"`
@@ -200,6 +216,13 @@ func (s *PrepSubsystem) registerListPRsTool(server *mcp.Server) {
 		Name:        "agentic_list_prs",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state (open/closed/all).",
 	}, s.listPRs)
+}
+
+func (s *PrepSubsystem) registerClosePRTool(server *mcp.Server) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_close_pr",
+		Description: "Close a pull request on Forge by repository and pull request number.",
+	}, s.closePR)
 }
 
 func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
@@ -250,6 +273,44 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 		Success: true,
 		Count:   len(allPullRequests),
 		PRs:     allPullRequests,
+	}, nil
+}
+
+func (s *PrepSubsystem) closePR(ctx context.Context, _ *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
+	if s.forgeToken == "" {
+		return nil, ClosePROutput{}, core.E("closePR", "no Forge token configured", nil)
+	}
+	if s.forge == nil {
+		return nil, ClosePROutput{}, core.E("closePR", "forge client is not configured", nil)
+	}
+	if input.Repo == "" || input.Number <= 0 {
+		return nil, ClosePROutput{}, core.E("closePR", "repo and number are required", nil)
+	}
+
+	org := input.Org
+	if org == "" {
+		org = "core"
+	}
+
+	var pr pullRequestView
+	err := s.forge.Client().Patch(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &forge_types.EditPullRequestOption{
+		State: "closed",
+	}, &pr)
+	if err != nil {
+		return nil, ClosePROutput{}, core.E("closePR", core.Concat("failed to close PR ", core.Sprint(input.Number)), err)
+	}
+
+	state := pr.State
+	if state == "" {
+		state = "closed"
+	}
+
+	return nil, ClosePROutput{
+		Success: true,
+		Org:     org,
+		Repo:    input.Repo,
+		Number:  input.Number,
+		State:   state,
 	}, nil
 }
 

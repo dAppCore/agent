@@ -371,17 +371,18 @@ func (s *PrepSubsystem) cmdPRClose(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRClose", "repo and number are required", nil), OK: false}
 	}
 
-	var pr pullRequestView
-	err := s.forge.Client().Patch(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &forge_types.EditPullRequestOption{
-		State: "closed",
-	}, &pr)
+	_, output, err := s.closePR(ctx, nil, ClosePRInput{
+		Org:    org,
+		Repo:   repo,
+		Number: int(num),
+	})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 
-	core.Print(nil, "closed %s/%s#%d", org, repo, num)
-	return core.Result{OK: true}
+	core.Print(nil, "closed %s/%s#%d", output.Org, output.Repo, output.Number)
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdRepoGet(options core.Options) core.Result {

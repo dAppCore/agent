@@ -348,6 +348,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerResumeTool(server)
 	s.registerCreatePRTool(server)
 	s.registerListPRsTool(server)
+	s.registerClosePRTool(server)
 	s.registerEpicTool(server)
 	s.registerMirrorTool(server)
 	s.registerRemoteDispatchTool(server)

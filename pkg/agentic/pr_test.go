@@ -63,11 +63,11 @@ func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prURL, prNum, err := s.forgeCreatePR(
@@ -90,11 +90,11 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, _, err := s.forgeCreatePR(
@@ -111,9 +111,9 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{})
@@ -124,9 +124,9 @@ func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{
@@ -142,9 +142,9 @@ func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{
@@ -174,9 +174,9 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.createPR(context.Background(), nil, CreatePRInput{
@@ -209,9 +209,9 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.createPR(context.Background(), nil, CreatePRInput{
@@ -223,14 +223,51 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	assert.Equal(t, "Custom PR title", out.Title)
 }
 
+func TestPr_ClosePR_Good_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/7", r.URL.Path)
+
+		bodyResult := core.ReadAll(r.Body)
+		assert.True(t, bodyResult.OK)
+		assert.Contains(t, bodyResult.Value.(string), `"state":"closed"`)
+
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"number": 7,
+			"state":  "closed",
+		})))
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.closePR(context.Background(), nil, ClosePRInput{
+		Repo:   "test-repo",
+		Number: 7,
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, "core", out.Org)
+	assert.Equal(t, "test-repo", out.Repo)
+	assert.Equal(t, 7, out.Number)
+	assert.Equal(t, "closed", out.State)
+}
+
 // --- listPRs ---
 
 func TestPr_ListPRs_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, _, err := s.listPRs(context.Background(), nil, ListPRsInput{})
@@ -252,11 +289,11 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	s.commentOnIssue(context.Background(), "core", "go-io", 42, "Test comment")
@@ -319,11 +356,11 @@ func TestPr_CommentOnIssue_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic even on server error
@@ -345,11 +382,11 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	longComment := strings.Repeat("This is a very long comment with details. ", 1000)
@@ -385,9 +422,9 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.createPR(context.Background(), nil, CreatePRInput{
@@ -418,11 +455,11 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// Should not panic — may return zero values for missing fields
@@ -453,11 +490,11 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, out, err := s.listPRs(context.Background(), nil, ListPRsInput{
@@ -474,11 +511,11 @@ func TestPr_ListRepoPRs_Good(t *testing.T) {
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prs, err := s.listRepoPRs(context.Background(), "core", "test-repo", "open")
@@ -496,11 +533,11 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, err := s.listRepoPRs(context.Background(), "core", "go-io", "open")
@@ -516,11 +553,11 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	prs, err := s.listRepoPRs(context.Background(), "core", "empty-repo", "open")
