@@ -158,29 +158,56 @@ class FleetController extends Controller
     {
         $validated = $request->validate([
             'agent_id' => 'required|string|max:255',
+            'limit' => 'nullable|integer|min:1',
+            'poll_interval_ms' => 'nullable|integer|min:100|max:5000',
         ]);
 
         $workspaceId = (int) $request->attributes->get('workspace_id');
         $agentId = $validated['agent_id'];
+        $limit = $validated['limit'] ?? 0;
+        $pollIntervalMs = $validated['poll_interval_ms'] ?? 1000;
 
-        return response()->stream(function () use ($workspaceId, $agentId): void {
-            echo "event: ready\n";
-            echo 'data: '.json_encode(['agent_id' => $agentId])."\n\n";
+        return response()->stream(function () use ($workspaceId, $agentId, $limit, $pollIntervalMs): void {
+            $emitted = 0;
 
-            $fleetTask = GetNextTask::run($workspaceId, $agentId, []);
-            if ($fleetTask instanceof FleetTask) {
-                echo "event: task.assigned\n";
-                echo 'data: '.json_encode($this->formatTask($fleetTask))."\n\n";
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $this->streamFleetEvent('ready', ['agent_id' => $agentId]);
+
+            while (! connection_aborted()) {
+                $fleetTask = GetNextTask::run($workspaceId, $agentId, []);
+                if ($fleetTask instanceof FleetTask) {
+                    $this->streamFleetEvent('task.assigned', $this->formatTask($fleetTask));
+                    $emitted++;
+
+                    if ($limit > 0 && $emitted >= $limit) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                usleep($pollIntervalMs * 1000);
             }
-
-            @ob_flush();
-            flush();
         }, 200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function streamFleetEvent(string $event, array $data): void
+    {
+        echo "event: {$event}\n";
+        echo 'data: '.json_encode($data)."\n\n";
+
+        @ob_flush();
+        flush();
     }
 
     public function stats(Request $request): JsonResponse
