@@ -159,6 +159,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agent.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
 
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
+	c.Action("agentic.dispatch.sync", s.handleDispatchSync).Description = "Dispatch a single task synchronously and block until it completes"
 	c.Action("agentic.prep", s.handlePrep).Description = "Clone repo and build agent prompt"
 	c.Action("agentic.status", s.handleStatus).Description = "List workspace states (running/completed/blocked)"
 	c.Action("agentic.resume", s.handleResume).Description = "Resume a blocked or completed workspace"

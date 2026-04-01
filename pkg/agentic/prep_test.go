@@ -468,6 +468,7 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("agentic.dispatch.sync").Exists())
 	assert.True(t, c.Action("plan.create").Exists())
 	assert.True(t, c.Action("plan.get").Exists())
 	assert.True(t, c.Action("plan.read").Exists())
@@ -654,6 +655,7 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "generate")
 	assert.Contains(t, c.Commands(), "agentic:generate")
 	assert.Contains(t, c.Commands(), "complete")
+	assert.Contains(t, c.Commands(), "dispatch/sync")
 	assert.Contains(t, c.Commands(), "agentic:plan")
 	assert.Contains(t, c.Commands(), "prep-workspace")
 	assert.Contains(t, c.Commands(), "brain/ingest")

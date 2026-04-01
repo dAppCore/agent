@@ -1168,6 +1168,15 @@ func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
+func TestCommands_CmdDispatchSync_Bad_MissingArgs(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.startupContext = ctx
+	r := s.cmdDispatchSync(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
 func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1264,6 +1273,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 
 	cmds := c.Commands()
 	assert.Contains(t, cmds, "run/task")
+	assert.Contains(t, cmds, "dispatch/sync")
 	assert.Contains(t, cmds, "run/orchestrator")
 	assert.Contains(t, cmds, "dispatch")
 	assert.Contains(t, cmds, "agentic:dispatch")

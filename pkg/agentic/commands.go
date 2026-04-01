@@ -18,6 +18,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	s.startupContext = ctx
 	c := s.Core()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
+	c.Command("dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
 	c.Command("agentic:dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
@@ -68,10 +69,14 @@ func (s *PrepSubsystem) commandContext() context.Context {
 }
 
 func (s *PrepSubsystem) cmdRunTask(options core.Options) core.Result {
-	return s.runTask(s.commandContext(), options)
+	return s.runDispatchSync(s.commandContext(), options, "run task", "agentic.runTask")
 }
 
-func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.Result {
+func (s *PrepSubsystem) cmdDispatchSync(options core.Options) core.Result {
+	return s.runDispatchSync(s.commandContext(), options, "dispatch sync", "agentic.runDispatchSync")
+}
+
+func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Options, commandLabel, errorName string) core.Result {
 	repo := options.String("repo")
 	agent := options.String("agent")
 	task := options.String("task")
@@ -79,8 +84,8 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 	org := options.String("org")
 
 	if repo == "" || task == "" {
-		core.Print(nil, "usage: core-agent run task --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]")
-		return core.Result{Value: core.E("agentic.runTask", "repo and task are required", nil), OK: false}
+		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]", commandLabel)
+		return core.Result{Value: core.E(errorName, "repo and task are required", nil), OK: false}
 	}
 	if agent == "" {
 		agent = "codex"
@@ -91,7 +96,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 
 	issue := parseIntString(issueValue)
 
-	core.Print(nil, "core-agent run task")
+	core.Print(nil, "core-agent %s", commandLabel)
 	core.Print(nil, "  repo:  %s/%s", org, repo)
 	core.Print(nil, "  agent: %s", agent)
 	if issue > 0 {
@@ -107,7 +112,7 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 	if !result.OK {
 		failureError := result.Error
 		if failureError == nil {
-			failureError = core.E("agentic.runTask", "dispatch failed", nil)
+			failureError = core.E(errorName, "dispatch failed", nil)
 		}
 		core.Print(nil, "FAILED: %v", failureError)
 		return core.Result{Value: failureError, OK: false}

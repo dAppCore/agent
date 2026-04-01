@@ -91,3 +91,28 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		}
 	}
 }
+
+// result := c.Action("agentic.dispatch.sync").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "task", Value: "Fix the failing tests"},
+//
+// ))
+func (s *PrepSubsystem) handleDispatchSync(ctx context.Context, options core.Options) core.Result {
+	input := dispatchSyncInputFromOptions(options)
+	result := s.DispatchSync(ctx, input)
+	if result.Error != nil {
+		return core.Result{Value: result.Error, OK: false}
+	}
+	return core.Result{Value: result, OK: result.OK}
+}
+
+func dispatchSyncInputFromOptions(options core.Options) DispatchSyncInput {
+	return DispatchSyncInput{
+		Org:   optionStringValue(options, "org"),
+		Repo:  optionStringValue(options, "repo", "_arg"),
+		Agent: optionStringValue(options, "agent"),
+		Task:  optionStringValue(options, "task"),
+		Issue: optionIntValue(options, "issue"),
+	}
+}
