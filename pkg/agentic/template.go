@@ -80,10 +80,11 @@ type TemplateCreatePlanOutput struct {
 
 // version := agentic.PlanTemplateVersion{Slug: "new-feature", Version: 1, ContentHash: "..." }
 type PlanTemplateVersion struct {
-	Slug        string `json:"slug"`
-	Version     int    `json:"version"`
-	Name        string `json:"name"`
-	ContentHash string `json:"content_hash"`
+	Slug        string                 `json:"slug"`
+	Version     int                    `json:"version"`
+	Name        string                 `json:"name"`
+	Content     planTemplateDefinition `json:"content,omitempty"`
+	ContentHash string                 `json:"content_hash"`
 }
 
 type planTemplateDefinition struct {
@@ -361,10 +362,21 @@ func templateVersionFromContent(slug, name, content string) PlanTemplateVersion 
 	sum := sha256.Sum256([]byte(content))
 	hash := hex.EncodeToString(sum[:])
 	version := templateVersionForHash(slug, hash)
+
+	var snapshot planTemplateDefinition
+	if err := yaml.Unmarshal([]byte(content), &snapshot); err != nil {
+		snapshot = planTemplateDefinition{}
+	}
+	snapshot.Slug = slug
+	if snapshot.Name == "" {
+		snapshot.Name = name
+	}
+
 	return PlanTemplateVersion{
 		Slug:        slug,
 		Version:     version,
 		Name:        name,
+		Content:     snapshot,
 		ContentHash: hash,
 	}
 }

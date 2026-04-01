@@ -31,6 +31,7 @@ func TestTemplate_HandleTemplateList_Good(t *testing.T) {
 		assert.Equal(t, "development", summary.Category)
 		assert.Equal(t, 1, summary.Version.Version)
 		assert.NotEmpty(t, summary.Version.ContentHash)
+		assert.NotEmpty(t, summary.Version.Content.Name)
 		if summary.Slug == "bug-fix" {
 			found = true
 			assert.Equal(t, "Bug Fix", summary.Name)
@@ -55,6 +56,8 @@ func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
 	assert.Equal(t, "new-feature", output.Template)
 	assert.Equal(t, 1, output.Version.Version)
 	assert.NotEmpty(t, output.Version.ContentHash)
+	assert.Equal(t, "new-feature", output.Version.Content.Slug)
+	assert.Equal(t, "New Feature", output.Version.Content.Name)
 	assert.Contains(t, output.Preview, "Authentication")
 	assert.Contains(t, output.Preview, "Phase 1")
 }
@@ -109,6 +112,8 @@ func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 	assert.Equal(t, "active", output.Plan.Status)
 	assert.Equal(t, 1, output.Version.Version)
 	assert.NotEmpty(t, output.Version.ContentHash)
+	assert.Equal(t, "new-feature", output.Version.Content.Slug)
+	assert.Equal(t, "New Feature", output.Version.Content.Name)
 
 	plan, err := readPlan(PlansRoot(), "auth-rollout")
 	require.NoError(t, err)
@@ -138,6 +143,7 @@ func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
 	assert.Equal(t, "draft", output.Plan.Status)
 	assert.Equal(t, 1, output.Version.Version)
 	assert.NotEmpty(t, output.Version.ContentHash)
+	assert.Equal(t, "api-consistency", output.Version.Content.Slug)
 
 	plan, err := readPlan(PlansRoot(), output.Plan.Slug)
 	require.NoError(t, err)
@@ -190,6 +196,8 @@ func TestTemplate_TemplateVersionFromContent_Good_ReusesExistingVersion(t *testi
 
 	assert.Equal(t, 3, version.Version)
 	assert.Equal(t, hash, version.ContentHash)
+	assert.Equal(t, "new-feature", version.Content.Slug)
+	assert.Equal(t, "New Feature", version.Content.Name)
 }
 
 func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *testing.T) {
@@ -218,6 +226,7 @@ func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *t
 
 	assert.Equal(t, 4, version.Version)
 	assert.NotEqual(t, hash, version.ContentHash)
+	assert.Equal(t, "new-feature", version.Content.Slug)
 }
 
 func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing.T) {
@@ -247,4 +256,5 @@ func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing
 	version := templateVersionFromContent("new-feature", "New Feature", "name: New Feature\nphases:\n  - name: Discovery\n")
 
 	assert.Equal(t, 4, version.Version)
+	assert.Equal(t, "new-feature", version.Content.Slug)
 }
