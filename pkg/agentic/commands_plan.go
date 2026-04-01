@@ -303,7 +303,7 @@ func (s *PrepSubsystem) cmdPlanDelete(options core.Options) core.Result {
 		return core.Result{Value: err, OK: false}
 	}
 
-	core.Print(nil, "deleted: %s", output.Deleted)
+	core.Print(nil, "archived: %s", output.Deleted)
 	return core.Result{Value: output, OK: true}
 }
 

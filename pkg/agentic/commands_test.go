@@ -1088,17 +1088,20 @@ func TestCommands_CmdPlanDelete_Good(t *testing.T) {
 	output := captureStdout(t, func() {
 		r := s.cmdPlanDelete(core.NewOptions(
 			core.Option{Key: "_arg", Value: created.ID},
+			core.Option{Key: "reason", Value: "RFC contract says soft delete"},
 		))
 		assert.True(t, r.OK)
 	})
 
-	assert.Contains(t, output, "deleted:")
+	assert.Contains(t, output, "archived:")
 
-	assert.False(t, fs.Exists(created.Path))
+	assert.True(t, fs.Exists(created.Path))
 
-	_, err = readPlan(PlansRoot(), created.ID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "archived", plan.Status)
+	assert.False(t, plan.ArchivedAt.IsZero())
+	assert.Contains(t, plan.Notes, "RFC contract says soft delete")
 }
 
 func TestCommands_CmdExtract_Good(t *testing.T) {

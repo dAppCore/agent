@@ -263,16 +263,21 @@ func TestPlan_PlanDelete_Good(t *testing.T) {
 		Title: "Delete Me", Objective: "Will be deleted",
 	})
 
-	_, delOut, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: createOut.ID})
+	_, delOut, err := s.planDelete(context.Background(), nil, PlanDeleteInput{
+		ID:     createOut.ID,
+		Reason: "No longer needed",
+	})
 	require.NoError(t, err)
 	assert.True(t, delOut.Success)
 	assert.Equal(t, createOut.ID, delOut.Deleted)
 
-	assert.False(t, fs.Exists(createOut.Path))
+	assert.True(t, fs.Exists(createOut.Path))
 
-	_, readErr := readPlan(PlansRoot(), createOut.ID)
-	require.Error(t, readErr)
-	assert.Contains(t, readErr.Error(), "not found")
+	archivedPlan, readErr := readPlan(PlansRoot(), createOut.ID)
+	require.NoError(t, readErr)
+	assert.Equal(t, "archived", archivedPlan.Status)
+	assert.False(t, archivedPlan.ArchivedAt.IsZero())
+	assert.Contains(t, archivedPlan.Notes, "No longer needed")
 }
 
 func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
