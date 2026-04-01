@@ -20,6 +20,9 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
+	c.Command("dispatch/start", core.Command{Description: "Start the dispatch queue runner", Action: s.cmdDispatchStart})
+	c.Command("dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown})
+	c.Command("dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
@@ -108,6 +111,49 @@ func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdDispatch(_ core.Options) core.Result {
 	return s.runDispatchLoop("dispatch")
+}
+
+func (s *PrepSubsystem) cmdDispatchStart(_ core.Options) core.Result {
+	_, output, err := s.dispatchStart(s.commandContext(), nil, ShutdownInput{})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.Message != "" {
+		core.Print(nil, "%s", output.Message)
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdDispatchShutdown(_ core.Options) core.Result {
+	_, output, err := s.shutdownGraceful(s.commandContext(), nil, ShutdownInput{})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.Message != "" {
+		core.Print(nil, "%s", output.Message)
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdDispatchShutdownNow(_ core.Options) core.Result {
+	_, output, err := s.shutdownNow(s.commandContext(), nil, ShutdownInput{})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.Message != "" {
+		core.Print(nil, "%s", output.Message)
+	}
+	if output.Running > 0 || output.Queued > 0 {
+		core.Print(nil, "running: %d", output.Running)
+		core.Print(nil, "queued:  %d", output.Queued)
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {

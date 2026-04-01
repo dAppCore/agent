@@ -1146,6 +1146,57 @@ func TestCommands_CmdDispatch_Good_CancelledCtx(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdDispatchStart_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	called := false
+	c.Action("runner.start", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		r := s.cmdDispatchStart(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.True(t, called)
+	assert.Contains(t, output, "dispatch started")
+}
+
+func TestCommands_CmdDispatchShutdown_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	called := false
+	c.Action("runner.stop", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		r := s.cmdDispatchShutdown(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.True(t, called)
+	assert.Contains(t, output, "queue frozen")
+}
+
+func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	called := false
+	c.Action("runner.kill", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		r := s.cmdDispatchShutdownNow(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.True(t, called)
+	assert.Contains(t, output, "killed all agents")
+}
+
 func TestCommands_ParseIntStr_Good(t *testing.T) {
 	assert.Equal(t, 42, parseIntString("42"))
 	assert.Equal(t, 123, parseIntString("issue-123"))
@@ -1166,6 +1217,9 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "run/task")
 	assert.Contains(t, cmds, "run/orchestrator")
 	assert.Contains(t, cmds, "dispatch")
+	assert.Contains(t, cmds, "dispatch/start")
+	assert.Contains(t, cmds, "dispatch/shutdown")
+	assert.Contains(t, cmds, "dispatch/shutdown-now")
 	assert.Contains(t, cmds, "prep")
 	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "scan")
