@@ -17,8 +17,76 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 
 	s.registerSessionCommands()
 
+	assert.Contains(t, c.Commands(), "session/handoff")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
+}
+
+func TestCommandsSession_CmdSessionHandoff_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	require.NoError(t, writeSessionCache(&Session{
+		SessionID: "ses-handoff",
+		AgentType: "codex",
+		Status:    "active",
+		WorkLog: []map[string]any{
+			{"type": "checkpoint", "message": "build passed"},
+			{"type": "decision", "message": "hand off for review"},
+		},
+	}))
+
+	result := s.cmdSessionHandoff(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-handoff"},
+		core.Option{Key: "summary", Value: "Ready for review"},
+		core.Option{Key: "next_steps", Value: []string{"Run the verifier", "Merge if clean"}},
+		core.Option{Key: "blockers", Value: []string{"Need final approval"}},
+		core.Option{Key: "context_for_next", Value: map[string]any{"repo": "go-io"}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionHandoffOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, "ses-handoff", output.HandoffContext["session_id"])
+	handoffNotes, ok := output.HandoffContext["handoff_notes"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Ready for review", handoffNotes["summary"])
+
+	cached, err := readSessionCache("ses-handoff")
+	require.NoError(t, err)
+	require.NotNil(t, cached)
+	assert.Equal(t, "paused", cached.Status)
+	assert.NotEmpty(t, cached.Handoff)
+}
+
+func TestCommandsSession_CmdSessionHandoff_Bad_MissingSummary(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdSessionHandoff(core.NewOptions(core.Option{Key: "session_id", Value: "ses-handoff"}))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "summary is required")
+}
+
+func TestCommandsSession_CmdSessionHandoff_Ugly_CorruptedCacheFallsBackToRemoteError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	require.True(t, fs.EnsureDir(sessionCacheRoot()).OK)
+	require.True(t, fs.WriteAtomic(sessionCachePath("ses-bad"), "{not-json").OK)
+
+	result := s.cmdSessionHandoff(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-bad"},
+		core.Option{Key: "summary", Value: "Ready for review"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "no platform API key configured")
 }
 
 func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {

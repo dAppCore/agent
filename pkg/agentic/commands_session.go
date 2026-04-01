@@ -8,8 +8,53 @@ import (
 
 func (s *PrepSubsystem) registerSessionCommands() {
 	c := s.Core()
+	c.Command("session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
 	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
+}
+
+// core-agent session handoff ses-abc123 --summary="Ready for review" --next-steps="Run the verifier"
+func (s *PrepSubsystem) cmdSessionHandoff(options core.Options) core.Result {
+	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
+	summary := optionStringValue(options, "summary")
+	if sessionID == "" {
+		core.Print(nil, "usage: core-agent session handoff <session-id> --summary=\"Ready for review\" [--next-steps=\"Run the verifier\"] [--blockers=\"Needs input\"]")
+		return core.Result{Value: core.E("agentic.cmdSessionHandoff", "session_id is required", nil), OK: false}
+	}
+	if summary == "" {
+		core.Print(nil, "usage: core-agent session handoff <session-id> --summary=\"Ready for review\" [--next-steps=\"Run the verifier\"] [--blockers=\"Needs input\"]")
+		return core.Result{Value: core.E("agentic.cmdSessionHandoff", "summary is required", nil), OK: false}
+	}
+
+	result := s.handleSessionHandoff(s.commandContext(), core.NewOptions(
+		core.Option{Key: "session_id", Value: sessionID},
+		core.Option{Key: "summary", Value: summary},
+		core.Option{Key: "next_steps", Value: optionStringSliceValue(options, "next_steps", "next-steps")},
+		core.Option{Key: "blockers", Value: optionStringSliceValue(options, "blockers")},
+		core.Option{Key: "context_for_next", Value: optionAnyMapValue(options, "context_for_next", "context-for-next")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionHandoff", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionHandoffOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionHandoff", "invalid session handoff output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", sessionID)
+	core.Print(nil, "summary: %s", summary)
+	if blockers, ok := output.HandoffContext["blockers"].([]string); ok && len(blockers) > 0 {
+		core.Print(nil, "blockers: %d", len(blockers))
+	}
+	if nextSteps, ok := output.HandoffContext["next_steps"].([]string); ok && len(nextSteps) > 0 {
+		core.Print(nil, "next steps: %d", len(nextSteps))
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdSessionResume(options core.Options) core.Result {
