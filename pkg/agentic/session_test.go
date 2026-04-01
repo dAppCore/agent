@@ -212,6 +212,73 @@ func TestSession_HandleSessionEnd_Good(t *testing.T) {
 	assert.Equal(t, "All green", output.Session.Summary)
 }
 
+func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions/ses_handoff/end", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "paused", payload["status"])
+		require.Equal(t, "Ready for review", payload["summary"])
+
+		handoffNotes, ok := payload["handoff_notes"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "Ready for review", handoffNotes["summary"])
+		assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
+		assert.Equal(t, []any{"Needs input"}, handoffNotes["blockers"])
+
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"paused","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSessionEnd(context.Background(), core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses_handoff"},
+		core.Option{Key: "status", Value: "paused"},
+		core.Option{Key: "summary", Value: "Ready for review"},
+		core.Option{Key: "handoff_notes", Value: `{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}`},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "paused", output.Session.Status)
+	assert.Equal(t, "Ready for review", output.Session.Summary)
+	require.NotNil(t, output.Session.Handoff)
+	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
+	assert.Equal(t, []any{"Run the verifier"}, output.Session.Handoff["next_steps"])
+	assert.Equal(t, []any{"Needs input"}, output.Session.Handoff["blockers"])
+}
+
+func TestSession_HandleSessionEnd_Bad_MissingSessionID(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleSessionEnd(context.Background(), core.NewOptions(
+		core.Option{Key: "status", Value: "completed"},
+		core.Option{Key: "summary", Value: "All green"},
+	))
+	assert.False(t, result.OK)
+}
+
+func TestSession_HandleSessionEnd_Ugly_InvalidResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleSessionEnd(context.Background(), core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses_abc123"},
+		core.Option{Key: "status", Value: "completed"},
+		core.Option{Key: "summary", Value: "All green"},
+	))
+	assert.False(t, result.OK)
+}
+
 func TestSession_HandleSessionLog_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	require.NoError(t, writeSessionCache(&Session{

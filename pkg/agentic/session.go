@@ -56,12 +56,13 @@ type SessionContinueInput struct {
 	Context   map[string]any   `json:"context,omitempty"`
 }
 
-// input := agentic.SessionEndInput{SessionID: "ses_abc123", Status: "completed"}
+// input := agentic.SessionEndInput{SessionID: "ses_abc123", Status: "completed", HandoffNotes: map[string]any{"summary": "Ready for review"}}
 type SessionEndInput struct {
-	SessionID string         `json:"session_id"`
-	Status    string         `json:"status,omitempty"`
-	Summary   string         `json:"summary,omitempty"`
-	Handoff   map[string]any `json:"handoff,omitempty"`
+	SessionID    string         `json:"session_id"`
+	Status       string         `json:"status,omitempty"`
+	Summary      string         `json:"summary,omitempty"`
+	Handoff      map[string]any `json:"handoff,omitempty"`
+	HandoffNotes map[string]any `json:"handoff_notes,omitempty"`
 }
 
 // out := agentic.SessionOutput{Success: true, Session: agentic.Session{SessionID: "ses_abc123"}}
@@ -206,10 +207,11 @@ func (s *PrepSubsystem) handleSessionContinue(ctx context.Context, options core.
 // result := c.Action("session.end").Run(ctx, core.NewOptions(core.Option{Key: "session_id", Value: "ses_abc123"}))
 func (s *PrepSubsystem) handleSessionEnd(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sessionEnd(ctx, nil, SessionEndInput{
-		SessionID: optionStringValue(options, "session_id", "id", "_arg"),
-		Status:    optionStringValue(options, "status"),
-		Summary:   optionStringValue(options, "summary"),
-		Handoff:   optionAnyMapValue(options, "handoff"),
+		SessionID:    optionStringValue(options, "session_id", "id", "_arg"),
+		Status:       optionStringValue(options, "status"),
+		Summary:      optionStringValue(options, "summary"),
+		Handoff:      optionAnyMapValue(options, "handoff"),
+		HandoffNotes: optionAnyMapValue(options, "handoff_notes", "handoff-notes"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -455,8 +457,10 @@ func (s *PrepSubsystem) sessionEnd(ctx context.Context, _ *mcp.CallToolRequest, 
 	if input.Summary != "" {
 		body["summary"] = input.Summary
 	}
-	if len(input.Handoff) > 0 {
-		body["handoff"] = input.Handoff
+	handoff := mergeSessionHandoff(input.Handoff, input.HandoffNotes)
+	if len(handoff) > 0 {
+		body["handoff"] = handoff
+		body["handoff_notes"] = handoff
 	}
 
 	path := core.Concat("/v1/sessions/", input.SessionID, "/end")
@@ -715,7 +719,10 @@ func sessionEndFromInput(session Session, input SessionEndInput) Session {
 		session.Summary = input.Summary
 	}
 	if len(session.Handoff) == 0 && len(input.Handoff) > 0 {
-		session.Handoff = input.Handoff
+		session.Handoff = mergeSessionHandoff(input.Handoff, input.HandoffNotes)
+	}
+	if len(session.Handoff) == 0 && len(input.HandoffNotes) > 0 {
+		session.Handoff = mergeSessionHandoff(input.HandoffNotes, nil)
 	}
 	if session.Status == "completed" || session.Status == "failed" || session.Status == "handed_off" {
 		if session.EndedAt == "" {
@@ -723,6 +730,25 @@ func sessionEndFromInput(session Session, input SessionEndInput) Session {
 		}
 	}
 	return session
+}
+
+func mergeSessionHandoff(primary, fallback map[string]any) map[string]any {
+	if len(primary) == 0 && len(fallback) == 0 {
+		return nil
+	}
+
+	merged := map[string]any{}
+	for key, value := range primary {
+		if value != nil {
+			merged[key] = value
+		}
+	}
+	for key, value := range fallback {
+		if value != nil {
+			merged[key] = value
+		}
+	}
+	return merged
 }
 
 func sessionCacheRoot() string {
