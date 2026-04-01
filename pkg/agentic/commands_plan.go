@@ -14,6 +14,7 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
 	c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive})
+	c.Command("plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete})
 }
 
 func (s *PrepSubsystem) cmdPlan(options core.Options) core.Result {
@@ -191,5 +192,34 @@ func (s *PrepSubsystem) cmdPlanArchive(options core.Options) core.Result {
 	}
 
 	core.Print(nil, "archived: %s", output.Archived)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdPlanDelete(options core.Options) core.Result {
+	ctx := s.commandContext()
+	id := optionStringValue(options, "id", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent plan delete <id> [--reason=\"...\"]")
+		return core.Result{Value: core.E("agentic.cmdPlanDelete", "id is required", nil), OK: false}
+	}
+
+	result := s.handlePlanDelete(ctx, core.NewOptions(
+		core.Option{Key: "id", Value: id},
+		core.Option{Key: "reason", Value: optionStringValue(options, "reason")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPlanDelete", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(PlanDeleteOutput)
+	if !ok {
+		err := core.E("agentic.cmdPlanDelete", "invalid plan delete output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "deleted: %s", output.Deleted)
 	return core.Result{Value: output, OK: true}
 }

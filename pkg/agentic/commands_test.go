@@ -961,6 +961,30 @@ func TestCommands_CmdPlanArchive_Good(t *testing.T) {
 	assert.False(t, plan.ArchivedAt.IsZero())
 }
 
+func TestCommands_CmdPlanDelete_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Delete Plan",
+		Objective: "Exercise delete command",
+	})
+	require.NoError(t, err)
+
+	output := captureStdout(t, func() {
+		r := s.cmdPlanDelete(core.NewOptions(
+			core.Option{Key: "_arg", Value: created.ID},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "deleted:")
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "archived", plan.Status)
+	assert.False(t, plan.ArchivedAt.IsZero())
+}
+
 func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := core.JoinPath(t.TempDir(), "extract-test")
@@ -1030,6 +1054,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "plan/show")
 	assert.Contains(t, cmds, "plan/status")
 	assert.Contains(t, cmds, "plan/archive")
+	assert.Contains(t, cmds, "plan/delete")
 	assert.Contains(t, cmds, "pr-manage")
 	assert.Contains(t, cmds, "task")
 	assert.Contains(t, cmds, "task/update")
