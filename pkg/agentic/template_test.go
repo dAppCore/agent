@@ -4,7 +4,10 @@ package agentic
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
+	"time"
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
@@ -159,4 +162,89 @@ func TestTemplate_HandleTemplateCreatePlan_Ugly_UnknownTemplate(t *testing.T) {
 		core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
 	))
 	assert.False(t, result.OK)
+}
+
+func TestTemplate_TemplateVersionFromContent_Good_ReusesExistingVersion(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	content := "name: New Feature\nphases:\n  - name: Setup\n"
+	sum := sha256.Sum256([]byte(content))
+	hash := hex.EncodeToString(sum[:])
+
+	require.True(t, writePlanResult(PlansRoot(), &Plan{
+		ID:     "plan-template-version-good",
+		Slug:   "existing-plan",
+		Title:  "Existing Plan",
+		Status: "draft",
+		TemplateVersion: PlanTemplateVersion{
+			Slug:        "new-feature",
+			Version:     3,
+			Name:        "New Feature",
+			ContentHash: hash,
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}).OK)
+
+	version := templateVersionFromContent("new-feature", "New Feature", content)
+
+	assert.Equal(t, 3, version.Version)
+	assert.Equal(t, hash, version.ContentHash)
+}
+
+func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	existingContent := "name: New Feature\nphases:\n  - name: Setup\n"
+	sum := sha256.Sum256([]byte(existingContent))
+	hash := hex.EncodeToString(sum[:])
+
+	require.True(t, writePlanResult(PlansRoot(), &Plan{
+		ID:     "plan-template-version-bad",
+		Slug:   "existing-plan",
+		Title:  "Existing Plan",
+		Status: "draft",
+		TemplateVersion: PlanTemplateVersion{
+			Slug:        "new-feature",
+			Version:     3,
+			Name:        "New Feature",
+			ContentHash: hash,
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}).OK)
+
+	version := templateVersionFromContent("new-feature", "New Feature", "name: New Feature\nphases:\n  - name: Discovery\n")
+
+	assert.Equal(t, 4, version.Version)
+	assert.NotEqual(t, hash, version.ContentHash)
+}
+
+func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	content := "name: New Feature\nphases:\n  - name: Setup\n"
+	sum := sha256.Sum256([]byte(content))
+	hash := hex.EncodeToString(sum[:])
+
+	require.True(t, writePlanResult(PlansRoot(), &Plan{
+		ID:     "plan-template-version-ugly",
+		Slug:   "existing-plan",
+		Title:  "Existing Plan",
+		Status: "draft",
+		TemplateVersion: PlanTemplateVersion{
+			Slug:        "new-feature",
+			Version:     3,
+			Name:        "New Feature",
+			ContentHash: hash,
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}).OK)
+
+	require.True(t, fs.Write(core.JoinPath(PlansRoot(), "broken.json"), "{").OK)
+
+	version := templateVersionFromContent("new-feature", "New Feature", "name: New Feature\nphases:\n  - name: Discovery\n")
+
+	assert.Equal(t, 4, version.Version)
 }

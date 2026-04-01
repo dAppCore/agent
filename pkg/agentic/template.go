@@ -359,12 +359,55 @@ func templateSummaryFromDefinition(definition planTemplateDefinition, version Pl
 
 func templateVersionFromContent(slug, name, content string) PlanTemplateVersion {
 	sum := sha256.Sum256([]byte(content))
+	hash := hex.EncodeToString(sum[:])
+	version := templateVersionForHash(slug, hash)
 	return PlanTemplateVersion{
 		Slug:        slug,
-		Version:     1,
+		Version:     version,
 		Name:        name,
-		ContentHash: hex.EncodeToString(sum[:]),
+		ContentHash: hash,
 	}
+}
+
+func templateVersionForHash(slug, contentHash string) int {
+	if core.Trim(slug) == "" {
+		return 1
+	}
+
+	version := 0
+	matchedVersion := 0
+	for _, path := range core.PathGlob(core.JoinPath(PlansRoot(), "*.json")) {
+		id := core.TrimSuffix(core.PathBase(path), ".json")
+		planResult := readPlanResult(PlansRoot(), id)
+		if !planResult.OK {
+			continue
+		}
+
+		plan, ok := planResult.Value.(*Plan)
+		if !ok || plan == nil {
+			continue
+		}
+		if plan.TemplateVersion.Slug != slug || plan.TemplateVersion.Version <= 0 {
+			continue
+		}
+
+		if plan.TemplateVersion.ContentHash == contentHash {
+			if plan.TemplateVersion.Version > matchedVersion {
+				matchedVersion = plan.TemplateVersion.Version
+			}
+		}
+		if plan.TemplateVersion.Version > version {
+			version = plan.TemplateVersion.Version
+		}
+	}
+
+	if matchedVersion > 0 {
+		return matchedVersion
+	}
+	if version > 0 {
+		return version + 1
+	}
+	return 1
 }
 
 func templateVariableList(definition planTemplateDefinition) []TemplateVariable {
