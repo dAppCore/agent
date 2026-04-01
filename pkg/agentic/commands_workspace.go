@@ -13,6 +13,9 @@ func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
 	c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
 	c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
+	c.Command("workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
+	c.Command("watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
+	c.Command("agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
 }
 
 func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
@@ -115,6 +118,27 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		core.Print(nil, "  pid:       %d", out.PID)
 	}
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdWorkspaceWatch(options core.Options) core.Result {
+	watchOptions := core.NewOptions(options.Items()...)
+	if watchOptions.String("workspace") == "" && len(optionStringSliceValue(watchOptions, "workspaces")) == 0 {
+		if workspace := optionStringValue(options, "_arg"); workspace != "" {
+			watchOptions.Set("workspace", workspace)
+		}
+	}
+	input := watchInputFromOptions(watchOptions)
+
+	_, output, err := s.watch(s.commandContext(), nil, input)
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "completed: %d", len(output.Completed))
+	core.Print(nil, "failed:    %d", len(output.Failed))
+	core.Print(nil, "duration:  %s", output.Duration)
+	return core.Result{Value: output, OK: output.Success}
 }
 
 func workspaceDispatchInputFromOptions(options core.Options) DispatchInput {

@@ -158,6 +158,38 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 	assert.False(t, r.OK)
 }
 
+func TestCommandsworkspace_CmdWorkspaceWatch_Good_ExplicitWorkspaceCompletes(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
+		Status: "ready-for-review",
+		Repo:   "go-io",
+		Agent:  "codex",
+		PRURL:  "https://forge.lthn.ai/core/go-io/pulls/42",
+	})
+
+	c := core.New()
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	r := s.cmdWorkspaceWatch(core.NewOptions(
+		core.Option{Key: "workspace", Value: "core/go-io/task-42"},
+		core.Option{Key: "poll_interval", Value: 1},
+		core.Option{Key: "timeout", Value: 2},
+	))
+	assert.True(t, r.OK)
+
+	output, ok := r.Value.(WatchOutput)
+	assert.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Len(t, output.Completed, 1)
+	assert.Equal(t, "core/go-io/task-42", output.Completed[0].Workspace)
+}
+
 func TestCommandsworkspace_WorkspaceDispatchInputFromOptions_Good_MapsFullContract(t *testing.T) {
 	input := workspaceDispatchInputFromOptions(core.NewOptions(
 		core.Option{Key: "_arg", Value: "go-io"},
