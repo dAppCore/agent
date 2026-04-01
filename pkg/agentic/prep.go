@@ -177,6 +177,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
 	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
 	c.Action("agentic.verify", s.handleVerify).Description = "Verify PR and auto-merge if clean"
+	c.Action("agentic.commit", s.handleCommit).Description = "Write the final dispatch record to the workspace journal"
 	c.Action("agentic.ingest", s.handleIngest).Description = "Create issues from agent findings"
 	c.Action("agentic.poke", s.handlePoke).Description = "Drain next queued task from the queue"
 	c.Action("agentic.mirror", s.handleMirror).Description = "Mirror agent branches to GitHub"
@@ -269,17 +270,18 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.persona", s.handlePersona).Description = "Read a persona by path"
 
 	c.Task("agent.completion", core.Task{
-		Description: "QA → PR → Verify → Ingest → Poke",
+		Description: "QA → PR → Verify → Commit → Ingest → Poke",
 		Steps: []core.Step{
 			{Action: "agentic.qa"},
 			{Action: "agentic.auto-pr"},
 			{Action: "agentic.verify"},
+			{Action: "agentic.commit", Async: true},
 			{Action: "agentic.ingest", Async: true},
 			{Action: "agentic.poke", Async: true},
 		},
 	})
 
-	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Ingest → Poke) in background"
+	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in background"
 
 	s.hydrateWorkspaces()
 	if planRetentionDays(core.NewOptions()) > 0 {
@@ -370,8 +372,9 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerResumeTool(server)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_complete",
-		Description: "Run the completion pipeline (QA → PR → Verify → Ingest → Poke) in the background.",
+		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
 	}, s.completeTool)
+	s.registerCommitTool(server)
 	s.registerCreatePRTool(server)
 	s.registerListPRsTool(server)
 	s.registerClosePRTool(server)

@@ -3,6 +3,8 @@
 package agentic
 
 import (
+	"context"
+
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 )
@@ -23,6 +25,9 @@ func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 		},
 		func(coreApp *core.Core, msg core.Message) core.Result {
 			return handleCompletionVerify(coreApp, msg)
+		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleCompletionCommit(coreApp, msg)
 		},
 		func(coreApp *core.Core, msg core.Message) core.Result {
 			return handleCompletionIngest(coreApp, msg)
@@ -112,6 +117,27 @@ func handleCompletionVerify(c *core.Core, msg core.Message) core.Result {
 	return core.Result{OK: true}
 }
 
+func handleCompletionCommit(c *core.Core, msg core.Message) core.Result {
+	switch ev := msg.(type) {
+	case messages.PRMerged:
+		workspaceDir := findWorkspaceByPR(ev.Repo, "")
+		if workspaceDir != "" {
+			if c.Action("agentic.commit").Exists() {
+				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+			}
+		}
+	case messages.PRNeedsReview:
+		workspaceDir := findWorkspaceByPR(ev.Repo, "")
+		if workspaceDir != "" {
+			if c.Action("agentic.commit").Exists() {
+				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+			}
+		}
+	}
+
+	return core.Result{OK: true}
+}
+
 func handleCompletionIngest(c *core.Core, msg core.Message) core.Result {
 	ev, ok := msg.(messages.AgentCompleted)
 	if !ok || c == nil || !c.Config().Enabled("auto-ingest") {
@@ -181,7 +207,13 @@ func findWorkspaceByPR(repo, branch string) string {
 		if !ok {
 			continue
 		}
-		if workspaceStatus.Repo == repo && workspaceStatus.Branch == branch {
+		if workspaceStatus.Repo != repo {
+			continue
+		}
+		if branch != "" && workspaceStatus.Branch != branch {
+			continue
+		}
+		if branch == "" || workspaceStatus.Branch == branch {
 			return workspaceDir
 		}
 	}

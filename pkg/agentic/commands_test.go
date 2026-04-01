@@ -1037,7 +1037,7 @@ func TestCommands_CmdComplete_Good(t *testing.T) {
 		return core.Result{OK: true}
 	})
 	c.Task("agent.completion", core.Task{
-		Description: "QA → PR → Verify → Ingest → Poke",
+		Description: "QA → PR → Verify → Commit → Ingest → Poke",
 		Steps: []core.Step{
 			{Action: "noop"},
 		},

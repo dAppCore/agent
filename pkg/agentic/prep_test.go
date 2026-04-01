@@ -550,6 +550,7 @@ func TestPrep_OnStartup_Good_RegistersForgeActions(t *testing.T) {
 	assert.True(t, c.Action("agentic.pr.list").Exists())
 	assert.True(t, c.Action("agentic.pr.merge").Exists())
 	assert.True(t, c.Action("agentic.pr.close").Exists())
+	assert.True(t, c.Action("agentic.commit").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
