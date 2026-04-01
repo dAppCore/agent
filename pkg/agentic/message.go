@@ -127,14 +127,26 @@ func (s *PrepSubsystem) registerMessageTools(server *mcp.Server) {
 		Name:        "agentic_message_send",
 		Description: "Send a direct message between two agents within a workspace.",
 	}, s.messageSend)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agent_send",
+		Description: "Send a direct message between two agents within a workspace.",
+	}, s.messageSend)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_message_inbox",
 		Description: "List messages delivered to an agent within a workspace.",
 	}, s.messageInbox)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agent_inbox",
+		Description: "List messages delivered to an agent within a workspace.",
+	}, s.messageInbox)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_message_conversation",
+		Description: "List the chronological conversation between two agents within a workspace.",
+	}, s.messageConversation)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agent_conversation",
 		Description: "List the chronological conversation between two agents within a workspace.",
 	}, s.messageConversation)
 }

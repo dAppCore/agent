@@ -659,8 +659,11 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agentic_prompt_version")
 	assert.Contains(t, toolNames, "session_complete")
 	assert.Contains(t, toolNames, "agentic_message_send")
+	assert.Contains(t, toolNames, "agent_send")
 	assert.Contains(t, toolNames, "agentic_message_inbox")
+	assert.Contains(t, toolNames, "agent_inbox")
 	assert.Contains(t, toolNames, "agentic_message_conversation")
+	assert.Contains(t, toolNames, "agent_conversation")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
