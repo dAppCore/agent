@@ -176,28 +176,8 @@ func (s *PrepSubsystem) planUpdateStatusCompat(ctx context.Context, _ *mcp.CallT
 }
 
 func (s *PrepSubsystem) planArchiveCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {
-	ref := planReference(input.ID, input.Slug)
-	if ref == "" {
-		return nil, PlanArchiveOutput{}, core.E("planArchiveCompat", "slug is required", nil)
-	}
-
-	plan, err := readPlan(PlansRoot(), ref)
+	plan, err := archivePlanResult(input, "slug is required", "planArchiveCompat")
 	if err != nil {
-		return nil, PlanArchiveOutput{}, err
-	}
-
-	now := time.Now()
-	plan.Status = "archived"
-	plan.ArchivedAt = now
-	plan.UpdatedAt = now
-	if notes := archiveReasonValue(input.Reason); notes != "" {
-		plan.Notes = appendPlanNote(plan.Notes, notes)
-	}
-	if result := writePlanResult(PlansRoot(), plan); !result.OK {
-		err, _ := result.Value.(error)
-		if err == nil {
-			err = core.E("planArchiveCompat", "failed to write plan", nil)
-		}
 		return nil, PlanArchiveOutput{}, err
 	}
 
@@ -311,4 +291,33 @@ func planCompatibilityOutputStatus(status string) string {
 	default:
 		return status
 	}
+}
+
+func archivePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
+	ref := planReference(input.ID, input.Slug)
+	if ref == "" {
+		return nil, core.E(op, missingMessage, nil)
+	}
+
+	plan, err := readPlan(PlansRoot(), ref)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	plan.Status = "archived"
+	plan.ArchivedAt = now
+	plan.UpdatedAt = now
+	if notes := archiveReasonValue(input.Reason); notes != "" {
+		plan.Notes = appendPlanNote(plan.Notes, notes)
+	}
+	if result := writePlanResult(PlansRoot(), plan); !result.OK {
+		err, _ := result.Value.(error)
+		if err == nil {
+			err = core.E(op, "failed to write plan", nil)
+		}
+		return nil, err
+	}
+
+	return plan, nil
 }

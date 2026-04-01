@@ -438,24 +438,9 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
-	ref := planReference(input.ID, input.Slug)
-	if ref == "" {
-		return nil, PlanDeleteOutput{}, core.E("planDelete", "id is required", nil)
-	}
-
-	plan, err := readPlan(PlansRoot(), ref)
+	plan, err := archivePlanResult(input, "id is required", "planDelete")
 	if err != nil {
 		return nil, PlanDeleteOutput{}, err
-	}
-
-	path := planPath(PlansRoot(), plan.ID)
-	if !fs.Exists(path) {
-		return nil, PlanDeleteOutput{}, core.E("planDelete", core.Concat("plan not found: ", ref), nil)
-	}
-
-	if r := fs.Delete(path); !r.OK {
-		err, _ := r.Value.(error)
-		return nil, PlanDeleteOutput{}, core.E("planDelete", "failed to delete plan", err)
 	}
 
 	return nil, PlanDeleteOutput{

@@ -185,7 +185,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("plan.update", s.handlePlanUpdate).Description = "Update plan status, phases, notes, or agent assignment"
 	c.Action("plan.update_status", s.handlePlanUpdateStatus).Description = "Update an implementation plan lifecycle status by slug"
 	c.Action("plan.archive", s.handlePlanArchive).Description = "Archive an implementation plan by slug"
-	c.Action("plan.delete", s.handlePlanDelete).Description = "Delete an implementation plan by ID"
+	c.Action("plan.delete", s.handlePlanDelete).Description = "Archive an implementation plan by ID"
 	c.Action("plan.list", s.handlePlanList).Description = "List implementation plans with optional filters"
 	c.Action("phase.get", s.handlePhaseGet).Description = "Read a plan phase by slug and order"
 	c.Action("phase.update_status", s.handlePhaseUpdateStatus).Description = "Update plan phase status by slug and order"
