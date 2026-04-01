@@ -19,6 +19,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c := s.Core()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
+	c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
@@ -101,13 +102,21 @@ func (s *PrepSubsystem) runTask(ctx context.Context, options core.Options) core.
 }
 
 func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
+	return s.runDispatchLoop("orchestrator")
+}
+
+func (s *PrepSubsystem) cmdDispatch(_ core.Options) core.Result {
+	return s.runDispatchLoop("dispatch")
+}
+
+func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {
 	ctx := s.commandContext()
-	core.Print(nil, "core-agent orchestrator running (pid %s)", core.Env("PID"))
+	core.Print(nil, "core-agent %s running (pid %s)", label, core.Env("PID"))
 	core.Print(nil, "  workspace: %s", WorkspaceRoot())
 	core.Print(nil, "  watching queue, draining on 30s tick + completion poke")
 
 	<-ctx.Done()
-	core.Print(nil, "orchestrator shutting down")
+	core.Print(nil, "%s shutting down", label)
 	return core.Result{OK: true}
 }
 

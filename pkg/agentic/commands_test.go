@@ -1137,6 +1137,15 @@ func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdDispatch_Good_CancelledCtx(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s.startupContext = ctx
+	r := s.cmdDispatch(core.NewOptions())
+	assert.True(t, r.OK)
+}
+
 func TestCommands_ParseIntStr_Good(t *testing.T) {
 	assert.Equal(t, 42, parseIntString("42"))
 	assert.Equal(t, 123, parseIntString("issue-123"))
@@ -1156,6 +1165,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	cmds := c.Commands()
 	assert.Contains(t, cmds, "run/task")
 	assert.Contains(t, cmds, "run/orchestrator")
+	assert.Contains(t, cmds, "dispatch")
 	assert.Contains(t, cmds, "prep")
 	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "scan")
