@@ -16,6 +16,8 @@ func (s *PrepSubsystem) registerSessionCommands() {
 	c.Command("agentic:session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd})
 	c.Command("session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
 	c.Command("agentic:session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
+	c.Command("session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact})
+	c.Command("agentic:session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact})
 	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
@@ -150,6 +152,51 @@ func (s *PrepSubsystem) cmdSessionLog(options core.Options) core.Result {
 	core.Print(nil, "session: %s", sessionID)
 	core.Print(nil, "type:    %s", entryType)
 	core.Print(nil, "logged:  %s", output.Logged)
+	return core.Result{Value: output, OK: true}
+}
+
+// core-agent session artifact ses-abc123 --path="pkg/agentic/session.go" --action=modified --description="Tracked session metadata"
+func (s *PrepSubsystem) cmdSessionArtifact(options core.Options) core.Result {
+	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
+	path := optionStringValue(options, "path")
+	action := optionStringValue(options, "action")
+	if sessionID == "" {
+		core.Print(nil, "usage: core-agent session artifact <session-id> --path=\"pkg/agentic/session.go\" --action=modified [--description=\"...\"] [--metadata='{\"key\":\"value\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionArtifact", "session_id is required", nil), OK: false}
+	}
+	if path == "" {
+		core.Print(nil, "usage: core-agent session artifact <session-id> --path=\"pkg/agentic/session.go\" --action=modified [--description=\"...\"] [--metadata='{\"key\":\"value\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionArtifact", "path is required", nil), OK: false}
+	}
+	if action == "" {
+		core.Print(nil, "usage: core-agent session artifact <session-id> --path=\"pkg/agentic/session.go\" --action=modified [--description=\"...\"] [--metadata='{\"key\":\"value\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionArtifact", "action is required", nil), OK: false}
+	}
+
+	result := s.handleSessionArtifact(s.commandContext(), core.NewOptions(
+		core.Option{Key: "session_id", Value: sessionID},
+		core.Option{Key: "path", Value: path},
+		core.Option{Key: "action", Value: action},
+		core.Option{Key: "metadata", Value: optionAnyMapValue(options, "metadata")},
+		core.Option{Key: "description", Value: optionStringValue(options, "description")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionArtifact", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionArtifactOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionArtifact", "invalid session artifact output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", sessionID)
+	core.Print(nil, "path:    %s", path)
+	core.Print(nil, "action:  %s", action)
+	core.Print(nil, "artifact: %s", output.Artifact)
 	return core.Result{Value: output, OK: true}
 }
 

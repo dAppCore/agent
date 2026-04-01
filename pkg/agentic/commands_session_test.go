@@ -27,6 +27,8 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "agentic:session/complete")
 	assert.Contains(t, c.Commands(), "session/log")
 	assert.Contains(t, c.Commands(), "agentic:session/log")
+	assert.Contains(t, c.Commands(), "session/artifact")
+	assert.Contains(t, c.Commands(), "agentic:session/artifact")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
@@ -224,6 +226,56 @@ func TestCommandsSession_CmdSessionLog_Ugly_CorruptedCacheFallsBackToRemoteError
 	assert.False(t, result.OK)
 	require.Error(t, result.Value.(error))
 	assert.Contains(t, result.Value.(error).Error(), "no platform API key configured")
+}
+
+func TestCommandsSession_CmdSessionArtifact_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	require.NoError(t, writeSessionCache(&Session{
+		SessionID: "ses-artifact",
+		AgentType: "codex",
+		Status:    "active",
+	}))
+
+	result := s.cmdSessionArtifact(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-artifact"},
+		core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+		core.Option{Key: "action", Value: "modified"},
+		core.Option{Key: "description", Value: "Tracked session metadata"},
+		core.Option{Key: "metadata", Value: map[string]any{"repo": "go-agent"}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionArtifactOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, "pkg/agentic/session.go", output.Artifact)
+
+	cached, err := readSessionCache("ses-artifact")
+	require.NoError(t, err)
+	require.NotNil(t, cached)
+	require.Len(t, cached.Artifacts, 1)
+	assert.Equal(t, "modified", cached.Artifacts[0]["action"])
+	assert.Equal(t, "pkg/agentic/session.go", cached.Artifacts[0]["path"])
+	metadata, ok := cached.Artifacts[0]["metadata"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Tracked session metadata", metadata["description"])
+	assert.Equal(t, "go-agent", metadata["repo"])
+}
+
+func TestCommandsSession_CmdSessionArtifact_Bad_MissingPath(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdSessionArtifact(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-artifact"},
+		core.Option{Key: "action", Value: "modified"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "path is required")
 }
 
 func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {
