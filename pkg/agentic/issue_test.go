@@ -78,6 +78,52 @@ func TestIssue_HandleIssueRecordGet_Good_IDAlias(t *testing.T) {
 	assert.Equal(t, "fix-auth", output.Issue.Slug)
 }
 
+func TestIssue_HandleIssueRecordList_Good_Filters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues", r.URL.Path)
+		require.Equal(t, "open", r.URL.Query().Get("status"))
+		require.Equal(t, "bug", r.URL.Query().Get("type"))
+		require.Equal(t, "high", r.URL.Query().Get("priority"))
+		require.Equal(t, "codex", r.URL.Query().Get("assignee"))
+		require.Equal(t, []string{"auth", "backend"}, r.URL.Query()["labels"])
+		_, _ = w.Write([]byte(`{"data":{"issues":[{"id":7,"workspace_id":3,"sprint_id":5,"slug":"fix-auth","title":"Fix auth","labels":["auth","backend"]}],"total":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleIssueRecordList(context.Background(), core.NewOptions(
+		core.Option{Key: "status", Value: "open"},
+		core.Option{Key: "type", Value: "bug"},
+		core.Option{Key: "priority", Value: "high"},
+		core.Option{Key: "assignee", Value: "codex"},
+		core.Option{Key: "labels", Value: []string{"auth", "backend"}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueListOutput)
+	require.True(t, ok)
+	assert.Len(t, output.Issues, 1)
+	assert.Equal(t, 1, output.Count)
+	assert.Equal(t, []string{"auth", "backend"}, output.Issues[0].Labels)
+}
+
+func TestIssue_HandleIssueRecordList_Bad_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"backend offline"}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleIssueRecordList(context.Background(), core.NewOptions(
+		core.Option{Key: "status", Value: "open"},
+	))
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "issue.list")
+}
+
 func TestIssue_HandleIssueRecordAssign_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)

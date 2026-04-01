@@ -56,13 +56,16 @@ type IssueGetInput struct {
 	Slug string `json:"slug,omitempty"`
 }
 
-// input := agentic.IssueListInput{Status: "open", Type: "bug"}
+// input := agentic.IssueListInput{Status: "open", Type: "bug", Priority: "high", Labels: []string{"auth"}}
 type IssueListInput struct {
-	Status     string `json:"status,omitempty"`
-	Type       string `json:"type,omitempty"`
-	SprintID   int    `json:"sprint_id,omitempty"`
-	SprintSlug string `json:"sprint_slug,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
+	Status     string   `json:"status,omitempty"`
+	Type       string   `json:"type,omitempty"`
+	Priority   string   `json:"priority,omitempty"`
+	Assignee   string   `json:"assignee,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
+	SprintID   int      `json:"sprint_id,omitempty"`
+	SprintSlug string   `json:"sprint_slug,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
 }
 
 // input := agentic.IssueUpdateInput{Slug: "fix-auth", Status: "in_progress"}
@@ -180,6 +183,9 @@ func (s *PrepSubsystem) handleIssueRecordList(ctx context.Context, options core.
 	_, output, err := s.issueList(ctx, nil, IssueListInput{
 		Status:     optionStringValue(options, "status"),
 		Type:       optionStringValue(options, "type"),
+		Priority:   optionStringValue(options, "priority"),
+		Assignee:   optionStringValue(options, "assignee", "agent", "agent_type"),
+		Labels:     optionStringSliceValue(options, "labels"),
 		SprintID:   optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug: optionStringValue(options, "sprint_slug", "sprint-slug"),
 		Limit:      optionIntValue(options, "limit"),
@@ -385,6 +391,9 @@ func (s *PrepSubsystem) issueList(ctx context.Context, _ *mcp.CallToolRequest, i
 	path := "/v1/issues"
 	path = appendQueryParam(path, "status", input.Status)
 	path = appendQueryParam(path, "type", input.Type)
+	path = appendQueryParam(path, "priority", input.Priority)
+	path = appendQueryParam(path, "assignee", input.Assignee)
+	path = appendQuerySlice(path, "labels", input.Labels)
 	if input.SprintID > 0 {
 		path = appendQueryParam(path, "sprint_id", core.Sprint(input.SprintID))
 	}
