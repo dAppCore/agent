@@ -366,5 +366,31 @@ func archivePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan,
 }
 
 func deletePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
-	return archivePlanResult(input, missingMessage, op)
+	ref := planReference(input.ID, input.Slug)
+	if ref == "" {
+		return nil, core.E(op, missingMessage, nil)
+	}
+
+	plan, err := readPlan(PlansRoot(), ref)
+	if err != nil {
+		return nil, err
+	}
+
+	planPath := planPath(PlansRoot(), plan.ID)
+	if deleteResult := fs.Delete(planPath); !deleteResult.OK {
+		deleteErr, _ := deleteResult.Value.(error)
+		return nil, core.E(op, "failed to delete plan", deleteErr)
+	}
+
+	if plan.Slug != "" {
+		stateFile := statePath(plan.Slug)
+		if fs.Exists(stateFile) {
+			if deleteResult := fs.Delete(stateFile); !deleteResult.OK {
+				deleteErr, _ := deleteResult.Value.(error)
+				return nil, core.E(op, "failed to delete plan state", deleteErr)
+			}
+		}
+	}
+
+	return plan, nil
 }
