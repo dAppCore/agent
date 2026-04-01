@@ -20,6 +20,7 @@ type Issue struct {
 	Type        string         `json:"type,omitempty"`
 	Status      string         `json:"status,omitempty"`
 	Priority    string         `json:"priority,omitempty"`
+	Assignee    string         `json:"assignee,omitempty"`
 	Labels      []string       `json:"labels,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 	CreatedAt   string         `json:"created_at,omitempty"`
@@ -43,6 +44,7 @@ type IssueCreateInput struct {
 	Type        string   `json:"type,omitempty"`
 	Status      string   `json:"status,omitempty"`
 	Priority    string   `json:"priority,omitempty"`
+	Assignee    string   `json:"assignee,omitempty"`
 	Labels      []string `json:"labels,omitempty"`
 	SprintID    int      `json:"sprint_id,omitempty"`
 	SprintSlug  string   `json:"sprint_slug,omitempty"`
@@ -72,9 +74,17 @@ type IssueUpdateInput struct {
 	Type        string   `json:"type,omitempty"`
 	Status      string   `json:"status,omitempty"`
 	Priority    string   `json:"priority,omitempty"`
+	Assignee    string   `json:"assignee,omitempty"`
 	Labels      []string `json:"labels,omitempty"`
 	SprintID    int      `json:"sprint_id,omitempty"`
 	SprintSlug  string   `json:"sprint_slug,omitempty"`
+}
+
+// input := agentic.IssueAssignInput{Slug: "fix-auth", Assignee: "codex"}
+type IssueAssignInput struct {
+	ID       string `json:"id,omitempty"`
+	Slug     string `json:"slug,omitempty"`
+	Assignee string `json:"assignee,omitempty"`
 }
 
 // input := agentic.IssueCommentInput{Slug: "fix-auth", Body: "Ready for review"}
@@ -126,6 +136,7 @@ func (s *PrepSubsystem) handleIssueRecordCreate(ctx context.Context, options cor
 		Type:        optionStringValue(options, "type"),
 		Status:      optionStringValue(options, "status"),
 		Priority:    optionStringValue(options, "priority"),
+		Assignee:    optionStringValue(options, "assignee"),
 		Labels:      optionStringSliceValue(options, "labels"),
 		SprintID:    optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug:  optionStringValue(options, "sprint_slug", "sprint-slug"),
@@ -173,9 +184,28 @@ func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options cor
 		Type:        optionStringValue(options, "type"),
 		Status:      optionStringValue(options, "status"),
 		Priority:    optionStringValue(options, "priority"),
+		Assignee:    optionStringValue(options, "assignee"),
 		Labels:      optionStringSliceValue(options, "labels"),
 		SprintID:    optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug:  optionStringValue(options, "sprint_slug", "sprint-slug"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("issue.assign").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "slug", Value: "fix-auth"},
+//	core.Option{Key: "assignee", Value: "codex"},
+//
+// ))
+func (s *PrepSubsystem) handleIssueRecordAssign(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.issueAssign(ctx, nil, IssueAssignInput{
+		ID:       optionStringValue(options, "id", "_arg"),
+		Slug:     optionStringValue(options, "slug"),
+		Assignee: optionStringValue(options, "assignee", "agent", "agent_type"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -233,6 +263,11 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 	}, s.issueUpdate)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "issue_assign",
+		Description: "Assign an agent or user to a tracked platform issue by slug.",
+	}, s.issueAssign)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_comment",
 		Description: "Add a comment to a tracked platform issue.",
 	}, s.issueComment)
@@ -262,6 +297,9 @@ func (s *PrepSubsystem) issueCreate(ctx context.Context, _ *mcp.CallToolRequest,
 	}
 	if input.Priority != "" {
 		body["priority"] = input.Priority
+	}
+	if input.Assignee != "" {
+		body["assignee"] = input.Assignee
 	}
 	if len(input.Labels) > 0 {
 		body["labels"] = input.Labels
@@ -343,6 +381,9 @@ func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest,
 	if input.Priority != "" {
 		body["priority"] = input.Priority
 	}
+	if input.Assignee != "" {
+		body["assignee"] = input.Assignee
+	}
 	if len(input.Labels) > 0 {
 		body["labels"] = input.Labels
 	}
@@ -365,6 +406,22 @@ func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest,
 		Success: true,
 		Issue:   parseIssue(payloadResourceMap(result.Value.(map[string]any), "issue")),
 	}, nil
+}
+
+func (s *PrepSubsystem) issueAssign(ctx context.Context, _ *mcp.CallToolRequest, input IssueAssignInput) (*mcp.CallToolResult, IssueOutput, error) {
+	identifier := issueRecordIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, IssueOutput{}, core.E("issueAssign", "id or slug is required", nil)
+	}
+	if input.Assignee == "" {
+		return nil, IssueOutput{}, core.E("issueAssign", "assignee is required", nil)
+	}
+
+	return s.issueUpdate(ctx, nil, IssueUpdateInput{
+		ID:       input.ID,
+		Slug:     input.Slug,
+		Assignee: input.Assignee,
+	})
 }
 
 func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest, input IssueCommentInput) (*mcp.CallToolResult, IssueCommentOutput, error) {
@@ -434,6 +491,7 @@ func parseIssue(values map[string]any) Issue {
 		Type:        stringValue(values["type"]),
 		Status:      stringValue(values["status"]),
 		Priority:    stringValue(values["priority"]),
+		Assignee:    stringValue(values["assignee"]),
 		Labels:      listValue(values["labels"]),
 		Metadata:    anyMapValue(values["metadata"]),
 		CreatedAt:   stringValue(values["created_at"]),

@@ -86,7 +86,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		}
 		switch action {
 		case "agentic.status", "agentic.scan", "agentic.watch",
-			"agentic.issue.get", "agentic.issue.list", "agentic.pr.get", "agentic.pr.list",
+			"agentic.issue.get", "agentic.issue.list", "agentic.issue.assign", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
 			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats", "agentic.fleet.events",
 			"agentic.credits.balance", "agentic.credits.history",
@@ -219,8 +219,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("issue.get", s.handleIssueRecordGet).Description = "Read a tracked platform issue by slug"
 	c.Action("issue.list", s.handleIssueRecordList).Description = "List tracked platform issues with optional filters"
 	c.Action("issue.update", s.handleIssueRecordUpdate).Description = "Update a tracked platform issue by slug"
+	c.Action("issue.assign", s.handleIssueRecordAssign).Description = "Assign an agent or user to a tracked platform issue"
 	c.Action("issue.comment", s.handleIssueRecordComment).Description = "Add a comment to a tracked platform issue"
 	c.Action("issue.archive", s.handleIssueRecordArchive).Description = "Archive a tracked platform issue by slug"
+	c.Action("agentic.issue.assign", s.handleIssueRecordAssign).Description = "Assign an agent or user to a tracked platform issue"
 	c.Action("sprint.create", s.handleSprintCreate).Description = "Create a tracked platform sprint"
 	c.Action("sprint.get", s.handleSprintGet).Description = "Read a tracked platform sprint by slug"
 	c.Action("sprint.list", s.handleSprintList).Description = "List tracked platform sprints with optional filters"
