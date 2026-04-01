@@ -28,6 +28,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Ingest → Poke)", Action: s.cmdComplete})
 	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
+	c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror})
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
@@ -310,6 +311,42 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 		}
 		core.Print(nil, "  %s#%d %s", issue.Repo, issue.Number, issue.Title)
 	}
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdMirror(options core.Options) core.Result {
+	result := s.handleMirror(s.commandContext(), core.NewOptions(
+		core.Option{Key: "repo", Value: optionStringValue(options, "repo", "_arg")},
+		core.Option{Key: "dry_run", Value: optionBoolValue(options, "dry_run", "dry-run")},
+		core.Option{Key: "max_files", Value: optionIntValue(options, "max_files", "max-files")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdMirror", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(MirrorOutput)
+	if !ok {
+		err := core.E("agentic.cmdMirror", "invalid mirror output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "count: %d", output.Count)
+	for _, item := range output.Synced {
+		core.Print(nil, "  %s commits=%d files=%d", item.Repo, item.CommitsAhead, item.FilesChanged)
+		if item.PRURL != "" {
+			core.Print(nil, "    pr: %s", item.PRURL)
+		}
+		if item.Skipped != "" {
+			core.Print(nil, "    %s", item.Skipped)
+		}
+	}
+	for _, skipped := range output.Skipped {
+		core.Print(nil, "skipped: %s", skipped)
+	}
+
 	return core.Result{Value: output, OK: true}
 }
 

@@ -1272,6 +1272,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "prep")
 	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "scan")
+	assert.Contains(t, cmds, "mirror")
 	assert.Contains(t, cmds, "status")
 	assert.Contains(t, cmds, "prompt")
 	assert.Contains(t, cmds, "extract")
@@ -1296,6 +1297,16 @@ func TestCommands_CmdPRManage_Good_NoCandidates(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRManage(core.NewOptions())
 	assert.True(t, r.OK)
+}
+
+func TestCommands_CmdMirror_Good_NoRepos(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	output := captureStdout(t, func() {
+		r := s.cmdMirror(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "count: 0")
 }
 
 // --- CmdExtract Bad/Ugly ---
