@@ -1351,6 +1351,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	cmds := c.Commands()
 	assert.Contains(t, cmds, "run/task")
 	assert.Contains(t, cmds, "run/flow")
+	assert.Contains(t, cmds, "flow/preview")
+	assert.Contains(t, cmds, "agentic:flow/preview")
 	assert.Contains(t, cmds, "dispatch/sync")
 	assert.Contains(t, cmds, "run/orchestrator")
 	assert.Contains(t, cmds, "dispatch")

@@ -733,6 +733,18 @@ func stringMapValue(value any) map[string]string {
 			}
 		}
 		return out
+	case []string:
+		out := make(map[string]string, len(typed))
+		for _, item := range typed {
+			mergeStringMapEntry(out, item)
+		}
+		return out
+	case []any:
+		out := make(map[string]string, len(typed))
+		for _, item := range typed {
+			mergeStringMapEntry(out, stringValue(item))
+		}
+		return out
 	case string:
 		trimmed := core.Trim(typed)
 		if trimmed == "" {
@@ -748,8 +760,35 @@ func stringMapValue(value any) map[string]string {
 				return stringMapValue(generic)
 			}
 		}
+		out := make(map[string]string)
+		for _, pair := range core.Split(trimmed, ",") {
+			mergeStringMapEntry(out, pair)
+		}
+		if len(out) > 0 {
+			return out
+		}
 	}
 	return nil
+}
+
+func mergeStringMapEntry(values map[string]string, entry string) {
+	trimmed := core.Trim(entry)
+	if trimmed == "" {
+		return
+	}
+
+	parts := core.SplitN(trimmed, "=", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	key := core.Trim(parts[0])
+	value := core.Trim(parts[1])
+	if key == "" || value == "" {
+		return
+	}
+
+	values[key] = value
 }
 
 func cleanStrings(values []string) []string {

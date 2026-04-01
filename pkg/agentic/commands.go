@@ -20,6 +20,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c := s.Core()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow})
+	c.Command("flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview})
+	c.Command("agentic:flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview})
 	c.Command("dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
@@ -81,13 +83,24 @@ func (s *PrepSubsystem) cmdRunTask(options core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdRunFlow(options core.Options) core.Result {
+	return s.runFlowCommand(options, "run flow")
+}
+
+func (s *PrepSubsystem) cmdFlowPreview(options core.Options) core.Result {
+	return s.runFlowCommand(options, "flow preview")
+}
+
+func (s *PrepSubsystem) runFlowCommand(options core.Options, commandLabel string) core.Result {
 	flowPath := optionStringValue(options, "_arg", "path", "slug")
 	if flowPath == "" {
-		core.Print(nil, "usage: core-agent run flow <path-or-slug>")
+		core.Print(nil, "usage: core-agent %s <path-or-slug> [--dry-run] [--var=key=value] [--vars='{\"key\":\"value\"}']", commandLabel)
 		return core.Result{Value: core.E("agentic.cmdRunFlow", "flow path or slug is required", nil), OK: false}
 	}
 
-	flowResult := readFlowDocument(flowPath)
+	dryRun := optionBoolValue(options, "dry_run", "dry-run")
+	variables := optionStringMapValue(options, "var", "vars")
+
+	flowResult := readFlowDocument(flowPath, variables)
 	if !flowResult.OK {
 		core.Print(nil, "error: %v", flowResult.Value)
 		return core.Result{Value: flowResult.Value, OK: false}
@@ -110,6 +123,12 @@ func (s *PrepSubsystem) cmdRunFlow(options core.Options) core.Result {
 	}
 
 	core.Print(nil, "flow:  %s", document.Source)
+	if dryRun {
+		core.Print(nil, "dry-run: true")
+	}
+	if len(variables) > 0 {
+		core.Print(nil, "vars: %d", len(variables))
+	}
 	if document.Parsed {
 		if document.Definition.Name != "" {
 			core.Print(nil, "name:  %s", document.Definition.Name)
@@ -842,9 +861,9 @@ type flowRunDocument struct {
 	Definition flowDefinition
 }
 
-func readFlowDocument(path string) core.Result {
+func readFlowDocument(path string, variables map[string]string) core.Result {
 	if readResult := fs.Read(path); readResult.OK {
-		content := readResult.Value.(string)
+		content := applyTemplateVariables(readResult.Value.(string), variables)
 		definition, err := parseFlowDefinition(content)
 		if err != nil {
 			if flowInputLooksYaml(path) {
@@ -872,7 +891,7 @@ func readFlowDocument(path string) core.Result {
 		return core.Result{Value: core.E("agentic.cmdRunFlow", core.Concat("flow not found: ", path), nil), OK: false}
 	}
 
-	content := flowResult.Value.(string)
+	content := applyTemplateVariables(flowResult.Value.(string), variables)
 	definition, err := parseFlowDefinition(content)
 	if err != nil {
 		return core.Result{Value: flowRunDocument{

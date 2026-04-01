@@ -694,6 +694,8 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "session/replay")
 	assert.Contains(t, c.Commands(), "review-queue")
 	assert.Contains(t, c.Commands(), "agentic:review-queue")
+	assert.Contains(t, c.Commands(), "flow/preview")
+	assert.Contains(t, c.Commands(), "agentic:flow/preview")
 	assert.Contains(t, c.Commands(), "prompt/version")
 	assert.Contains(t, c.Commands(), "agentic:prompt/version")
 	assert.True(t, c.Action("agentic.prompt.version").Exists())

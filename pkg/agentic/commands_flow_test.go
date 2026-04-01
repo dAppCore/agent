@@ -45,6 +45,42 @@ func TestCommandsFlow_CmdRunFlow_Good_ReadsYamlFlowFile(t *testing.T) {
 	assert.Contains(t, output, "verify: flow verify/go-qa.yaml")
 }
 
+func TestCommandsFlow_CmdRunFlow_Good_RendersVariablesAndDryRun(t *testing.T) {
+	dir := t.TempDir()
+	flowPath := core.JoinPath(dir, "pkg", "lib", "flow", "verify")
+	require.True(t, fs.EnsureDir(flowPath).OK)
+
+	filePath := core.JoinPath(flowPath, "go-qa.yaml")
+	require.True(t, fs.Write(filePath, core.Concat(
+		"name: Go QA\n",
+		"description: Build {{ repo }}\n",
+		"steps:\n",
+		"  - name: build\n",
+		"    run: go build ./...\n",
+	)).OK)
+
+	s := newTestPrep(t)
+	output := captureStdout(t, func() {
+		r := s.cmdRunFlow(core.NewOptions(
+			core.Option{Key: "_arg", Value: filePath},
+			core.Option{Key: "dry-run", Value: true},
+			core.Option{Key: "var", Value: "repo=core/go"},
+		))
+		require.True(t, r.OK)
+
+		flowOutput, ok := r.Value.(FlowRunOutput)
+		require.True(t, ok)
+		assert.True(t, flowOutput.Success)
+		assert.Equal(t, "Go QA", flowOutput.Name)
+		assert.Equal(t, "Build core/go", flowOutput.Description)
+		assert.Equal(t, 1, flowOutput.Steps)
+	})
+
+	assert.Contains(t, output, "dry-run: true")
+	assert.Contains(t, output, "vars: 1")
+	assert.Contains(t, output, "desc:  Build core/go")
+}
+
 func TestCommandsFlow_CmdRunFlow_Bad_MissingPath(t *testing.T) {
 	s := newTestPrep(t)
 
