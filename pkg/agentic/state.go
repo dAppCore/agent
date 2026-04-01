@@ -10,13 +10,16 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// state := agentic.PlanState{Key: "pattern", Value: "observer", Category: "general"}
-type PlanState struct {
+// state := agentic.WorkspaceState{Key: "pattern", Value: "observer", Category: "general"}
+type WorkspaceState struct {
 	Key       string `json:"key"`
 	Value     any    `json:"value"`
 	Category  string `json:"category,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
+
+// PlanState is kept as a compatibility alias for older callers.
+type PlanState = WorkspaceState
 
 // input := agentic.StateSetInput{PlanSlug: "ax-follow-up", Key: "pattern", Value: "observer"}
 type StateSetInput struct {
@@ -38,17 +41,17 @@ type StateListInput struct {
 	Category string `json:"category,omitempty"`
 }
 
-// out := agentic.StateOutput{Success: true, State: agentic.PlanState{Key: "pattern"}}
+// out := agentic.StateOutput{Success: true, State: agentic.WorkspaceState{Key: "pattern"}}
 type StateOutput struct {
-	Success bool      `json:"success"`
-	State   PlanState `json:"state"`
+	Success bool           `json:"success"`
+	State   WorkspaceState `json:"state"`
 }
 
-// out := agentic.StateListOutput{Success: true, Total: 1, States: []agentic.PlanState{{Key: "pattern"}}}
+// out := agentic.StateListOutput{Success: true, Total: 1, States: []agentic.WorkspaceState{{Key: "pattern"}}}
 type StateListOutput struct {
-	Success bool        `json:"success"`
-	Total   int         `json:"total"`
-	States  []PlanState `json:"states"`
+	Success bool             `json:"success"`
+	Total   int              `json:"total"`
+	States  []WorkspaceState `json:"states"`
 }
 
 // result := c.Action("state.set").Run(ctx, core.NewOptions(
@@ -134,7 +137,7 @@ func (s *PrepSubsystem) stateSet(_ context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	now := time.Now().Format(time.RFC3339)
-	state := PlanState{
+	state := WorkspaceState{
 		Key:       input.Key,
 		Value:     input.Value,
 		Category:  input.Category,
@@ -204,7 +207,7 @@ func (s *PrepSubsystem) stateList(_ context.Context, _ *mcp.CallToolRequest, inp
 		return nil, StateListOutput{}, err
 	}
 
-	filtered := make([]PlanState, 0, len(states))
+	filtered := make([]WorkspaceState, 0, len(states))
 	for _, state := range states {
 		if state.Category == "" {
 			state.Category = "general"
@@ -230,25 +233,25 @@ func statePath(planSlug string) string {
 	return core.JoinPath(stateRoot(), core.Concat(core.SanitisePath(planSlug), ".json"))
 }
 
-func readPlanStates(planSlug string) ([]PlanState, error) {
+func readPlanStates(planSlug string) ([]WorkspaceState, error) {
 	result := fs.Read(statePath(planSlug))
 	if !result.OK {
 		err, _ := result.Value.(error)
 		if err == nil {
-			return []PlanState{}, nil
+			return []WorkspaceState{}, nil
 		}
 		if core.Contains(err.Error(), "no such file") {
-			return []PlanState{}, nil
+			return []WorkspaceState{}, nil
 		}
 		return nil, core.E("readPlanStates", "failed to read state file", err)
 	}
 
 	content := core.Trim(result.Value.(string))
 	if content == "" {
-		return []PlanState{}, nil
+		return []WorkspaceState{}, nil
 	}
 
-	var states []PlanState
+	var states []WorkspaceState
 	if parseResult := core.JSONUnmarshalString(content, &states); !parseResult.OK {
 		err, _ := parseResult.Value.(error)
 		return nil, core.E("readPlanStates", "failed to parse state file", err)
@@ -257,7 +260,7 @@ func readPlanStates(planSlug string) ([]PlanState, error) {
 	return states, nil
 }
 
-func writePlanStates(planSlug string, states []PlanState) error {
+func writePlanStates(planSlug string, states []WorkspaceState) error {
 	if ensureDirResult := fs.EnsureDir(stateRoot()); !ensureDirResult.OK {
 		err, _ := ensureDirResult.Value.(error)
 		return core.E("writePlanStates", "failed to create state directory", err)

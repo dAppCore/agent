@@ -62,7 +62,7 @@ func TestState_HandleStateSet_Ugly_Upsert(t *testing.T) {
 
 func TestState_HandleStateGet_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writePlanStates("ax-follow-up", []PlanState{{
+	require.NoError(t, writePlanStates("ax-follow-up", []WorkspaceState{{
 		Key:      "pattern",
 		Value:    "observer",
 		Category: "general",
@@ -101,7 +101,7 @@ func TestState_HandleStateGet_Ugly_CorruptStateFile(t *testing.T) {
 
 func TestState_HandleStateList_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writePlanStates("ax-follow-up", []PlanState{
+	require.NoError(t, writePlanStates("ax-follow-up", []WorkspaceState{
 		{Key: "pattern", Value: "observer", Category: "general"},
 		{Key: "risk", Value: "auth", Category: "security"},
 	}))
