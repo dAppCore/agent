@@ -32,15 +32,16 @@ type Plan struct {
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
-	Number      int               `json:"number"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Status      string            `json:"status"`
-	Criteria    []string          `json:"criteria,omitempty"`
-	Tasks       []PlanTask        `json:"tasks,omitempty"`
-	Checkpoints []PhaseCheckpoint `json:"checkpoints,omitempty"`
-	Tests       int               `json:"tests,omitempty"`
-	Notes       string            `json:"notes,omitempty"`
+	Number       int               `json:"number"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description,omitempty"`
+	Status       string            `json:"status"`
+	Criteria     []string          `json:"criteria,omitempty"`
+	Dependencies []string          `json:"dependencies,omitempty"`
+	Tasks        []PlanTask        `json:"tasks,omitempty"`
+	Checkpoints  []PhaseCheckpoint `json:"checkpoints,omitempty"`
+	Tests        int               `json:"tests,omitempty"`
+	Notes        string            `json:"notes,omitempty"`
 }
 
 // task := agentic.PlanTask{ID: "1", Title: "Review imports", Status: "pending", File: "pkg/agentic/plan.go", Line: 46}
@@ -569,15 +570,16 @@ func phaseValue(value any) (Phase, bool) {
 		return typed, true
 	case map[string]any:
 		return Phase{
-			Number:      intValue(typed["number"]),
-			Name:        stringValue(typed["name"]),
-			Description: stringValue(typed["description"]),
-			Status:      stringValue(typed["status"]),
-			Criteria:    stringSliceValue(typed["criteria"]),
-			Tasks:       planTaskSliceValue(typed["tasks"]),
-			Checkpoints: phaseCheckpointSliceValue(typed["checkpoints"]),
-			Tests:       intValue(typed["tests"]),
-			Notes:       stringValue(typed["notes"]),
+			Number:       intValue(typed["number"]),
+			Name:         stringValue(typed["name"]),
+			Description:  stringValue(typed["description"]),
+			Status:       stringValue(typed["status"]),
+			Criteria:     stringSliceValue(typed["criteria"]),
+			Dependencies: phaseDependenciesValue(typed["dependencies"]),
+			Tasks:        planTaskSliceValue(typed["tasks"]),
+			Checkpoints:  phaseCheckpointSliceValue(typed["checkpoints"]),
+			Tests:        intValue(typed["tests"]),
+			Notes:        stringValue(typed["notes"]),
 		}, true
 	case map[string]string:
 		return phaseValue(anyMapValue(typed))
@@ -591,6 +593,43 @@ func phaseValue(value any) (Phase, bool) {
 		}
 	}
 	return Phase{}, false
+}
+
+func phaseDependenciesValue(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return cleanStrings(typed)
+	case []any:
+		dependencies := make([]string, 0, len(typed))
+		for _, item := range typed {
+			text, ok := item.(string)
+			if !ok {
+				return nil
+			}
+			if text = core.Trim(text); text != "" {
+				dependencies = append(dependencies, text)
+			}
+		}
+		return dependencies
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		if core.HasPrefix(trimmed, "[") {
+			var dependencies []string
+			if result := core.JSONUnmarshalString(trimmed, &dependencies); result.OK {
+				return cleanStrings(dependencies)
+			}
+			return nil
+		}
+		return cleanStrings(core.Split(trimmed, ","))
+	default:
+		if text := stringValue(value); text != "" {
+			return []string{text}
+		}
+	}
+	return nil
 }
 
 func planTaskSliceValue(value any) []PlanTask {
