@@ -10,6 +10,7 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c := s.Core()
 	c.Command("plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan})
 	c.Command("plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate})
+	c.Command("plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue})
 	c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList})
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
@@ -84,6 +85,32 @@ func (s *PrepSubsystem) cmdPlanCreate(options core.Options) core.Result {
 	}
 
 	core.Print(nil, "created: %s", output.ID)
+	core.Print(nil, "path:    %s", output.Path)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdPlanFromIssue(options core.Options) core.Result {
+	ctx := s.commandContext()
+	identifier := optionStringValue(options, "slug", "_arg")
+	if identifier == "" {
+		identifier = optionStringValue(options, "id")
+	}
+	if identifier == "" {
+		core.Print(nil, "usage: core-agent plan from-issue <slug> [--id=N]")
+		return core.Result{Value: core.E("agentic.cmdPlanFromIssue", "issue slug or id is required", nil), OK: false}
+	}
+
+	_, output, err := s.planFromIssue(ctx, nil, PlanFromIssueInput{
+		ID:   optionStringValue(options, "id", "_arg"),
+		Slug: optionStringValue(options, "slug"),
+	})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "created: %s", output.Plan.Slug)
+	core.Print(nil, "issue:   #%d %s", output.Issue.ID, output.Issue.Title)
 	core.Print(nil, "path:    %s", output.Path)
 	return core.Result{Value: output, OK: true}
 }
