@@ -9,8 +9,11 @@ import (
 func (s *PrepSubsystem) registerSessionCommands() {
 	c := s.Core()
 	c.Command("session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
+	c.Command("agentic:session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
 	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
+	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
+	c.Command("agentic:session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
 }
 
 // core-agent session handoff ses-abc123 --summary="Ready for review" --next-steps="Run the verifier"
