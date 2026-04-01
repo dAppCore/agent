@@ -94,12 +94,12 @@ func (s *PrepSubsystem) cmdFlowPreview(options core.Options) core.Result {
 func (s *PrepSubsystem) runFlowCommand(options core.Options, commandLabel string) core.Result {
 	flowPath := optionStringValue(options, "_arg", "path", "slug")
 	if flowPath == "" {
-		core.Print(nil, "usage: core-agent %s <path-or-slug> [--dry-run] [--var=key=value] [--vars='{\"key\":\"value\"}']", commandLabel)
+		core.Print(nil, "usage: core-agent %s <path-or-slug> [--dry-run] [--var=key=value] [--vars='{\"key\":\"value\"}'] [--variables='{\"key\":\"value\"}']", commandLabel)
 		return core.Result{Value: core.E("agentic.cmdRunFlow", "flow path or slug is required", nil), OK: false}
 	}
 
 	dryRun := optionBoolValue(options, "dry_run", "dry-run")
-	variables := optionStringMapValue(options, "var", "vars")
+	variables := optionStringMapValue(options, "var", "vars", "variables")
 
 	flowResult := readFlowDocument(flowPath, variables)
 	if !flowResult.OK {

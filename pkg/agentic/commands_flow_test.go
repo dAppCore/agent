@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"testing"
+	"time"
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
@@ -104,4 +105,63 @@ func TestCommandsFlow_CmdRunFlow_Ugly_InvalidYaml(t *testing.T) {
 	err, ok := r.Value.(error)
 	require.True(t, ok)
 	assert.Contains(t, err.Error(), "invalid flow definition")
+}
+
+func TestCommandsFlow_CmdFlowPreview_Good_VariablesAlias(t *testing.T) {
+	root := t.TempDir()
+	flowPath := core.JoinPath(root, "preview.yaml")
+	fs.Write(flowPath, ""+
+		"name: \"{{NAME}} deployment\"\n"+
+		"description: \"Preview flow\"\n"+
+		"steps:\n"+
+		"  - name: \"{{STEP}}\"\n"+
+		"    run: \"echo {{VALUE}}\"\n",
+	)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	output := captureStdout(t, func() {
+		r := s.cmdFlowPreview(core.NewOptions(
+			core.Option{Key: "_arg", Value: flowPath},
+			core.Option{Key: "variables", Value: map[string]any{
+				"NAME":  "release",
+				"STEP":  "lint",
+				"VALUE": "ok",
+			}},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "name:  release deployment")
+	assert.Contains(t, output, "1. lint")
+}
+
+func TestCommandsFlow_CmdFlowPreview_Bad_MissingPath(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	r := s.cmdFlowPreview(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCommandsFlow_CmdFlowPreview_Ugly_InvalidYaml(t *testing.T) {
+	root := t.TempDir()
+	flowPath := core.JoinPath(root, "broken.yaml")
+	fs.Write(flowPath, "name: [broken\nsteps:\n  - name: test\n")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	r := s.cmdFlowPreview(core.NewOptions(core.Option{Key: "_arg", Value: flowPath}))
+	assert.False(t, r.OK)
 }
