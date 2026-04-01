@@ -24,6 +24,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
+	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})

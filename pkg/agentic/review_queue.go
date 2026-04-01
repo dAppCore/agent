@@ -60,6 +60,39 @@ func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
 	}, s.reviewQueue)
 }
 
+// result := c.Command("pr-manage").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "limit", Value: 4},
+//
+// ))
+func (s *PrepSubsystem) cmdPRManage(options core.Options) core.Result {
+	ctx := s.commandContext()
+	input := ReviewQueueInput{
+		Limit:     optionIntValue(options, "limit"),
+		Reviewer:  optionStringValue(options, "reviewer"),
+		DryRun:    optionBoolValue(options, "dry-run"),
+		LocalOnly: optionBoolValue(options, "local-only"),
+	}
+
+	_, output, err := s.reviewQueue(ctx, nil, input)
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.RateLimit != nil && output.RateLimit.Message != "" {
+		core.Print(nil, "rate limit: %s", output.RateLimit.Message)
+	}
+	for _, item := range output.Processed {
+		core.Print(nil, "%s: %s (%s)", item.Repo, item.Verdict, item.Action)
+	}
+	for _, item := range output.Skipped {
+		core.Print(nil, "skipped: %s", item)
+	}
+
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
 	limit := input.Limit
 	if limit <= 0 {
