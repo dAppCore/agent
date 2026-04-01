@@ -681,6 +681,8 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "dispatch/sync")
 	assert.Contains(t, c.Commands(), "agentic:plan")
 	assert.Contains(t, c.Commands(), "prep-workspace")
+	assert.Contains(t, c.Commands(), "setup")
+	assert.Contains(t, c.Commands(), "agentic:setup")
 	assert.Contains(t, c.Commands(), "watch")
 	assert.Contains(t, c.Commands(), "workspace/watch")
 	assert.Contains(t, c.Commands(), "agentic:watch")
