@@ -37,6 +37,38 @@ func (s *PrepSubsystem) registerCreatePRTool(server *mcp.Server) {
 	}, s.createPR)
 }
 
+// input := agentic.PRGetInput{Org: "core", Repo: "go-io", Number: 42}
+type PRGetInput struct {
+	Org    string `json:"org,omitempty"`
+	Repo   string `json:"repo"`
+	Number int    `json:"number"`
+}
+
+// out := agentic.PRGetOutput{Success: true, PR: agentic.PRInfo{Repo: "go-io", Number: 42}}
+type PRGetOutput struct {
+	Success bool   `json:"success"`
+	PR      PRInfo `json:"pr"`
+}
+
+// input := agentic.PRMergeInput{Org: "core", Repo: "go-io", Number: 42, Method: "squash"}
+type PRMergeInput struct {
+	Org    string `json:"org,omitempty"`
+	Repo   string `json:"repo"`
+	Number int    `json:"number"`
+	Method string `json:"method,omitempty"`
+}
+
+// out := agentic.PRMergeOutput{Success: true, Repo: "go-io", Number: 42, State: "merged"}
+type PRMergeOutput struct {
+	Success bool   `json:"success"`
+	Org     string `json:"org,omitempty"`
+	Repo    string `json:"repo"`
+	Number  int    `json:"number"`
+	Method  string `json:"method,omitempty"`
+	State   string `json:"state,omitempty"`
+	PR      PRInfo `json:"pr,omitempty"`
+}
+
 func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
 	if input.Workspace == "" {
 		return nil, CreatePROutput{}, core.E("createPR", "workspace is required", nil)
@@ -130,6 +162,124 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		Repo:    workspaceStatus.Repo,
 		Pushed:  true,
 	}, nil
+}
+
+func (s *PrepSubsystem) registerPRTools(server *mcp.Server) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_pr_get",
+		Description: "Read a pull request from Forge by repository and pull request number.",
+	}, s.prGet)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "pr_get",
+		Description: "Read a pull request from Forge by repository and pull request number.",
+	}, s.prGet)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_pr_list",
+		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
+	}, s.prList)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "pr_list",
+		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
+	}, s.prList)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_pr_merge",
+		Description: "Merge a pull request on Forge by repository and pull request number.",
+	}, s.prMerge)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "pr_merge",
+		Description: "Merge a pull request on Forge by repository and pull request number.",
+	}, s.prMerge)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_pr_close",
+		Description: "Close a pull request on Forge by repository and pull request number.",
+	}, s.closePR)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "pr_close",
+		Description: "Close a pull request on Forge by repository and pull request number.",
+	}, s.closePR)
+}
+
+func (s *PrepSubsystem) prGet(ctx context.Context, _ *mcp.CallToolRequest, input PRGetInput) (*mcp.CallToolResult, PRGetOutput, error) {
+	if s.forgeToken == "" {
+		return nil, PRGetOutput{}, core.E("prGet", "no Forge token configured", nil)
+	}
+	if input.Repo == "" || input.Number <= 0 {
+		return nil, PRGetOutput{}, core.E("prGet", "repo and number are required", nil)
+	}
+
+	org := input.Org
+	if org == "" {
+		org = "core"
+	}
+
+	var pr pullRequestView
+	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &pr)
+	if err != nil {
+		return nil, PRGetOutput{}, core.E("prGet", core.Concat("failed to read PR ", core.Sprint(input.Number)), err)
+	}
+
+	return nil, PRGetOutput{
+		Success: true,
+		PR: PRInfo{
+			Repo:      input.Repo,
+			Number:    int(pullRequestNumber(pr)),
+			Title:     pr.Title,
+			State:     pr.State,
+			Author:    pullRequestAuthor(pr),
+			Branch:    pr.Head.Ref,
+			Base:      pr.Base.Ref,
+			Mergeable: pr.Mergeable,
+			URL:       pr.HTMLURL,
+		},
+	}, nil
+}
+
+func (s *PrepSubsystem) prList(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+	return s.listPRs(ctx, nil, input)
+}
+
+func (s *PrepSubsystem) prMerge(ctx context.Context, _ *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
+	if s.forgeToken == "" {
+		return nil, PRMergeOutput{}, core.E("prMerge", "no Forge token configured", nil)
+	}
+	if input.Repo == "" || input.Number <= 0 {
+		return nil, PRMergeOutput{}, core.E("prMerge", "repo and number are required", nil)
+	}
+
+	org := input.Org
+	if org == "" {
+		org = "core"
+	}
+	method := input.Method
+	if method == "" {
+		method = "merge"
+	}
+
+	if err := s.forge.Pulls.Merge(ctx, org, input.Repo, int64(input.Number), method); err != nil {
+		return nil, PRMergeOutput{}, core.E("prMerge", core.Concat("failed to merge PR ", core.Sprint(input.Number)), err)
+	}
+
+	output := PRMergeOutput{
+		Success: true,
+		Org:     org,
+		Repo:    input.Repo,
+		Number:  input.Number,
+		Method:  method,
+		State:   "merged",
+	}
+
+	if _, prOutput, err := s.prGet(ctx, nil, PRGetInput{Org: org, Repo: input.Repo, Number: input.Number}); err == nil {
+		output.PR = prOutput.PR
+	}
+
+	return nil, output, nil
 }
 
 func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {

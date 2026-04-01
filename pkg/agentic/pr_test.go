@@ -13,6 +13,7 @@ import (
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	forge_types "dappco.re/go/core/forge/types"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -258,6 +259,152 @@ func TestPr_ClosePR_Good_Success(t *testing.T) {
 	assert.Equal(t, "test-repo", out.Repo)
 	assert.Equal(t, 7, out.Number)
 	assert.Equal(t, "closed", out.State)
+}
+
+func TestPr_RegisterPRTools_Good_RegistersPRAliases(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
+		Capabilities: &mcpsdk.ServerCapabilities{
+			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
+		},
+	})
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	s.registerPRTools(server)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = serverSession.Close() })
+
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = clientSession.Close() })
+
+	result, err := clientSession.ListTools(context.Background(), nil)
+	require.NoError(t, err)
+
+	var toolNames []string
+	for _, tool := range result.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+
+	assert.Contains(t, toolNames, "agentic_pr_get")
+	assert.Contains(t, toolNames, "pr_get")
+	assert.Contains(t, toolNames, "agentic_pr_list")
+	assert.Contains(t, toolNames, "pr_list")
+	assert.Contains(t, toolNames, "agentic_pr_merge")
+	assert.Contains(t, toolNames, "pr_merge")
+	assert.Contains(t, toolNames, "agentic_pr_close")
+	assert.Contains(t, toolNames, "pr_close")
+}
+
+func TestPr_PRGet_Good_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/42", r.URL.Path)
+
+		_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"number":    42,
+			"title":     "Fix login",
+			"state":     "open",
+			"mergeable": true,
+			"html_url":  "https://forge.test/core/test-repo/pulls/42",
+			"head":      map[string]any{"ref": "agent/fix-login"},
+			"base":      map[string]any{"ref": "dev"},
+			"user":      map[string]any{"login": "codex"},
+		})))
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.prGet(context.Background(), nil, PRGetInput{
+		Repo:   "test-repo",
+		Number: 42,
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, "test-repo", out.PR.Repo)
+	assert.Equal(t, 42, out.PR.Number)
+	assert.Equal(t, "Fix login", out.PR.Title)
+	assert.Equal(t, "open", out.PR.State)
+	assert.Equal(t, "agent/fix-login", out.PR.Branch)
+}
+
+func TestPr_PRGet_Bad_NoToken(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forgeToken:     "",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, _, err := s.prGet(context.Background(), nil, PRGetInput{
+		Repo:   "test-repo",
+		Number: 42,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no Forge token")
+}
+
+func TestPr_PRMerge_Good_Success(t *testing.T) {
+	mergeCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/merge") {
+			mergeCalled = true
+			assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/42/merge", r.URL.Path)
+			_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
+				"number": 42,
+				"title":  "Fix login",
+				"state":  "closed",
+				"head":   map[string]any{"ref": "agent/fix-login"},
+				"base":   map[string]any{"ref": "dev"},
+			})))
+			return
+		}
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
+				"number": 42,
+				"title":  "Fix login",
+				"state":  "closed",
+				"head":   map[string]any{"ref": "agent/fix-login"},
+				"base":   map[string]any{"ref": "dev"},
+			})))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.prMerge(context.Background(), nil, PRMergeInput{
+		Repo:   "test-repo",
+		Number: 42,
+		Method: "merge",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.True(t, mergeCalled)
+	assert.Equal(t, "test-repo", out.Repo)
+	assert.Equal(t, 42, out.Number)
+	assert.Equal(t, "merged", out.State)
 }
 
 // --- listPRs ---

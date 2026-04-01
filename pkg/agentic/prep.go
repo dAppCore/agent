@@ -394,6 +394,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerIssueTools(server)
 	s.registerMessageTools(server)
 	s.registerSprintTools(server)
+	s.registerPRTools(server)
 	s.registerContentTools(server)
 	s.registerLanguageTools(server)
 
