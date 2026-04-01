@@ -25,6 +25,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
+	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a repository or workspace", Action: s.cmdLangDetect})
+	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
@@ -32,6 +34,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 	s.registerPlanCommands()
 	s.registerTaskCommands()
+	s.registerLanguageCommands()
 }
 
 // ctx := s.commandContext()
