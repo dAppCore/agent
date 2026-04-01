@@ -55,6 +55,11 @@ func (s *PrepSubsystem) promptVersion(_ context.Context, _ *mcp.CallToolRequest,
 
 func (s *PrepSubsystem) registerPromptTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "prompt_version",
+		Description: "Read the current prompt snapshot for a workspace.",
+	}, s.promptVersionTool)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
 	}, s.promptVersionTool)
