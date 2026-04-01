@@ -129,6 +129,61 @@ func TestIssue_HandleIssueRecordAssign_Ugly_MissingIdentifier(t *testing.T) {
 	assert.EqualError(t, result.Value.(error), "issueAssign: id or slug is required")
 }
 
+func TestIssue_HandleIssueRecordReport_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/fix-auth/comments", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		assert.Equal(t, "QA failed: build output changed", payload["body"])
+		assert.Equal(t, "codex", payload["author"])
+
+		_, _ = w.Write([]byte(`{"data":{"comment":{"id":88,"issue_id":42,"author":"codex","body":"QA failed: build output changed","metadata":{"source":"qa"}}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleIssueRecordReport(context.Background(), core.NewOptions(
+		core.Option{Key: "slug", Value: "fix-auth"},
+		core.Option{Key: "report", Value: "QA failed: build output changed"},
+		core.Option{Key: "author", Value: "codex"},
+		core.Option{Key: "metadata", Value: map[string]any{"source": "qa"}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueReportOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, 88, output.Comment.ID)
+	assert.Equal(t, "QA failed: build output changed", output.Comment.Body)
+	assert.Equal(t, "codex", output.Comment.Author)
+	assert.Equal(t, map[string]any{"source": "qa"}, output.Comment.Metadata)
+}
+
+func TestIssue_HandleIssueRecordReport_Bad_MissingReport(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.handleIssueRecordReport(context.Background(), core.NewOptions(
+		core.Option{Key: "slug", Value: "fix-auth"},
+	))
+	assert.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "issueReport: report is required")
+}
+
+func TestIssue_HandleIssueRecordReport_Ugly_MissingIdentifier(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.handleIssueRecordReport(context.Background(), core.NewOptions(
+		core.Option{Key: "report", Value: "QA failed: build output changed"},
+	))
+	assert.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "issueReport: issue_id, id, or slug is required")
+}
+
 func TestIssue_HandleIssueRecordList_Ugly_NestedEnvelope(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/issues", r.URL.Path)

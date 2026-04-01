@@ -122,6 +122,22 @@ type IssueCommentOutput struct {
 	Comment IssueComment `json:"comment"`
 }
 
+// input := agentic.IssueReportInput{Slug: "fix-auth", Report: map[string]any{"summary": "Build failed"}}
+type IssueReportInput struct {
+	ID       string         `json:"id,omitempty"`
+	IssueID  string         `json:"issue_id,omitempty"`
+	Slug     string         `json:"slug,omitempty"`
+	Report   any            `json:"report,omitempty"`
+	Author   string         `json:"author,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// out := agentic.IssueReportOutput{Success: true, Comment: agentic.IssueComment{Author: "codex"}}
+type IssueReportOutput struct {
+	Success bool         `json:"success"`
+	Comment IssueComment `json:"comment"`
+}
+
 // out := agentic.IssueArchiveOutput{Success: true, Archived: "fix-auth"}
 type IssueArchiveOutput struct {
 	Success  bool   `json:"success"`
@@ -229,6 +245,27 @@ func (s *PrepSubsystem) handleIssueRecordComment(ctx context.Context, options co
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Action("issue.report").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "slug", Value: "fix-auth"},
+//	core.Option{Key: "report", Value: map[string]any{"summary": "Build failed"}},
+//
+// ))
+func (s *PrepSubsystem) handleIssueRecordReport(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.issueReport(ctx, nil, IssueReportInput{
+		ID:       optionStringValue(options, "id", "_arg"),
+		IssueID:  optionStringValue(options, "issue_id", "issue-id"),
+		Slug:     optionStringValue(options, "slug"),
+		Report:   optionAnyValue(options, "report", "body"),
+		Author:   optionStringValue(options, "author"),
+		Metadata: optionAnyMapValue(options, "metadata"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 // result := c.Action("issue.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordArchive(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.issueArchive(ctx, nil, IssueArchiveInput{
@@ -271,6 +308,11 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 		Name:        "issue_comment",
 		Description: "Add a comment to a tracked platform issue.",
 	}, s.issueComment)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "issue_report",
+		Description: "Post a structured report comment to a tracked platform issue.",
+	}, s.issueReport)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_archive",
@@ -454,6 +496,38 @@ func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest
 	}, nil
 }
 
+func (s *PrepSubsystem) issueReport(ctx context.Context, _ *mcp.CallToolRequest, input IssueReportInput) (*mcp.CallToolResult, IssueReportOutput, error) {
+	identifier := issueRecordIdentifier(input.Slug, input.IssueID, input.ID)
+	if identifier == "" {
+		return nil, IssueReportOutput{}, core.E("issueReport", "issue_id, id, or slug is required", nil)
+	}
+
+	body, err := issueReportBody(input.Report)
+	if err != nil {
+		return nil, IssueReportOutput{}, err
+	}
+	if body == "" {
+		return nil, IssueReportOutput{}, core.E("issueReport", "report is required", nil)
+	}
+
+	_, commentOutput, err := s.issueComment(ctx, nil, IssueCommentInput{
+		ID:       input.ID,
+		IssueID:  input.IssueID,
+		Slug:     input.Slug,
+		Body:     body,
+		Author:   input.Author,
+		Metadata: input.Metadata,
+	})
+	if err != nil {
+		return nil, IssueReportOutput{}, err
+	}
+
+	return nil, IssueReportOutput{
+		Success: true,
+		Comment: commentOutput.Comment,
+	}, nil
+}
+
 func (s *PrepSubsystem) issueArchive(ctx context.Context, _ *mcp.CallToolRequest, input IssueArchiveInput) (*mcp.CallToolResult, IssueArchiveOutput, error) {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
@@ -517,6 +591,25 @@ func parseIssueComment(values map[string]any) IssueComment {
 		Metadata:  anyMapValue(values["metadata"]),
 		CreatedAt: stringValue(values["created_at"]),
 	}
+}
+
+func issueReportBody(report any) (string, error) {
+	switch value := report.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return core.Trim(value), nil
+	}
+
+	if text := stringValue(report); text != "" {
+		return text, nil
+	}
+
+	if jsonText := core.JSONMarshalString(report); core.Trim(jsonText) != "" {
+		return core.Concat("```json\n", jsonText, "\n```"), nil
+	}
+
+	return "", nil
 }
 
 func parseIssueListOutput(payload map[string]any) IssueListOutput {
