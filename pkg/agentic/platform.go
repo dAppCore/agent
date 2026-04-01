@@ -5,7 +5,6 @@ package agentic
 import (
 	"bufio"
 	"context"
-	"io"
 	"net/http"
 	"time"
 
@@ -811,7 +810,7 @@ func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
 	}
 }
 
-func readFleetEventBody(body io.ReadCloser) (string, error) {
+func readFleetEventBody(body interface{ Read([]byte) (int, error) }) (string, error) {
 	reader := bufio.NewReader(body)
 	rawLines := make([]string, 0, 4)
 	dataLines := make([]string, 0, 4)
@@ -830,7 +829,7 @@ func readFleetEventBody(body io.ReadCloser) (string, error) {
 			}
 		}
 
-		if err == io.EOF {
+		if err != nil && err.Error() == "EOF" {
 			if len(dataLines) > 0 {
 				return core.Join("\n", dataLines...), nil
 			}
