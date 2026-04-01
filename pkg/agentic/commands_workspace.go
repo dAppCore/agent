@@ -45,6 +45,10 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	if filter == "" {
 		filter = "all"
 	}
+	if !workspaceCleanFilterValid(filter) {
+		core.Print(nil, "usage: core-agent workspace clean [all|completed|failed|blocked]")
+		return core.Result{Value: core.E("agentic.cmdWorkspaceClean", core.Concat("unknown filter: ", filter), nil), OK: false}
+	}
 
 	statusFiles := WorkspaceStatusPaths()
 	var toRemove []string
@@ -91,6 +95,15 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 	}
 	core.Print(nil, "\n  %d workspaces removed", len(toRemove))
 	return core.Result{OK: true}
+}
+
+func workspaceCleanFilterValid(filter string) bool {
+	switch filter {
+	case "all", "completed", "failed", "blocked":
+		return true
+	default:
+		return false
+	}
 }
 
 // input := DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Issue: 12}

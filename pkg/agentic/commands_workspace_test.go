@@ -83,9 +83,12 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 		failCount:      make(map[string]int),
 	}
 
-	// Filter "unknown" matches no switch case — nothing gets removed
+	// Unknown filters now fail explicitly so agent callers can correct typos.
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "unknown"}))
-	assert.True(t, r.OK)
+	assert.False(t, r.OK)
+	err, ok := r.Value.(error)
+	assert.True(t, ok)
+	assert.Contains(t, err.Error(), "unknown filter: unknown")
 
 	// All workspaces should still exist
 	for _, name := range []string{"ws-done", "ws-fail", "ws-run"} {
