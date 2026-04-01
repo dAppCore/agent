@@ -91,13 +91,15 @@ func TestMessaging_Inbox_Good_WithMessages(t *testing.T) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"data": []any{
 				map[string]any{
-					"id":         float64(1),
-					"from":       "charon",
-					"to":         "cladius",
-					"subject":    "status",
-					"content":    "deploy done",
-					"read":       true,
-					"created_at": "2026-03-10T12:00:00Z",
+					"workspace_id": float64(3),
+					"id":           float64(1),
+					"from_agent":   "charon",
+					"to_agent":     "cladius",
+					"subject":      "status",
+					"content":      "deploy done",
+					"read":         true,
+					"read_at":      "2026-03-10T12:05:00Z",
+					"created_at":   "2026-03-10T12:00:00Z",
 				},
 				map[string]any{
 					"id":         float64(2),
@@ -118,9 +120,13 @@ func TestMessaging_Inbox_Good_WithMessages(t *testing.T) {
 	assert.True(t, out.Success)
 	require.Len(t, out.Messages, 2)
 	assert.Equal(t, 1, out.Messages[0].ID)
+	assert.Equal(t, 3, out.Messages[0].WorkspaceID)
 	assert.Equal(t, "charon", out.Messages[0].From)
+	assert.Equal(t, "charon", out.Messages[0].FromAgent)
+	assert.Equal(t, "cladius", out.Messages[0].ToAgent)
 	assert.Equal(t, "deploy done", out.Messages[0].Content)
 	assert.True(t, out.Messages[0].Read)
+	assert.Equal(t, "2026-03-10T12:05:00Z", out.Messages[0].ReadAt)
 	assert.Equal(t, 2, out.Messages[1].ID)
 	assert.False(t, out.Messages[1].Read)
 }
@@ -202,24 +208,28 @@ func TestMessaging_ParseMessages_Good(t *testing.T) {
 	result := map[string]any{
 		"data": []any{
 			map[string]any{
-				"id":         float64(5),
-				"from":       "alice",
-				"to":         "bob",
-				"subject":    "hello",
-				"content":    "hi there",
-				"read":       true,
-				"created_at": "2026-03-10T10:00:00Z",
+				"id":           float64(5),
+				"workspace_id": float64(8),
+				"from":         "alice",
+				"to":           "bob",
+				"subject":      "hello",
+				"content":      "hi there",
+				"read":         true,
+				"read_at":      "2026-03-10T10:01:00Z",
+				"created_at":   "2026-03-10T10:00:00Z",
 			},
 		},
 	}
 	msgs := parseMessages(result)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, 5, msgs[0].ID)
+	assert.Equal(t, 8, msgs[0].WorkspaceID)
 	assert.Equal(t, "alice", msgs[0].From)
 	assert.Equal(t, "bob", msgs[0].To)
 	assert.Equal(t, "hello", msgs[0].Subject)
 	assert.Equal(t, "hi there", msgs[0].Content)
 	assert.True(t, msgs[0].Read)
+	assert.Equal(t, "2026-03-10T10:01:00Z", msgs[0].ReadAt)
 	assert.Equal(t, "2026-03-10T10:00:00Z", msgs[0].CreatedAt)
 }
 
@@ -280,21 +290,22 @@ func TestMessaging_InboxOutput_Good_RoundTrip(t *testing.T) {
 	in := InboxOutput{
 		Success: true,
 		Messages: []MessageItem{
-			{ID: 1, From: "a", To: "b", Content: "hi", Read: false, CreatedAt: "2026-03-10T12:00:00Z"},
+			{ID: 1, WorkspaceID: 7, FromAgent: "a", ToAgent: "b", Content: "hi", Read: false, CreatedAt: "2026-03-10T12:00:00Z"},
 		},
 	}
 	var out InboxOutput
 	roundTrip(t, in, &out)
 	assert.Equal(t, in.Success, out.Success)
 	require.Len(t, out.Messages, 1)
-	assert.Equal(t, "a", out.Messages[0].From)
+	assert.Equal(t, 7, out.Messages[0].WorkspaceID)
+	assert.Equal(t, "a", out.Messages[0].FromAgent)
 }
 
 func TestMessaging_ConversationOutput_Good_RoundTrip(t *testing.T) {
 	in := ConversationOutput{
 		Success: true,
 		Messages: []MessageItem{
-			{ID: 10, From: "x", To: "y", Content: "thread", Read: true, CreatedAt: "2026-03-10T14:00:00Z"},
+			{ID: 10, From: "x", To: "y", Content: "thread", Read: true, ReadAt: "2026-03-10T14:01:00Z", CreatedAt: "2026-03-10T14:00:00Z"},
 		},
 	}
 	var out ConversationOutput

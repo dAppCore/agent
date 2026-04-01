@@ -48,18 +48,22 @@ type InboxInput struct {
 	Agent string `json:"agent,omitempty"`
 }
 
-// brain.MessageItem{ID: 7, From: "cladius", To: "charon", Content: "all green"}
+// brain.MessageItem{ID: 7, WorkspaceID: 1, FromAgent: "cladius", ToAgent: "charon", Content: "all green"}
 type MessageItem struct {
-	ID        int    `json:"id"`
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Subject   string `json:"subject,omitempty"`
-	Content   string `json:"content"`
-	Read      bool   `json:"read"`
-	CreatedAt string `json:"created_at"`
+	ID          int    `json:"id"`
+	WorkspaceID int    `json:"workspace_id,omitempty"`
+	From        string `json:"from,omitempty"`
+	FromAgent   string `json:"from_agent,omitempty"`
+	To          string `json:"to,omitempty"`
+	ToAgent     string `json:"to_agent,omitempty"`
+	Subject     string `json:"subject,omitempty"`
+	Content     string `json:"content"`
+	Read        bool   `json:"read"`
+	ReadAt      string `json:"read_at,omitempty"`
+	CreatedAt   string `json:"created_at"`
 }
 
-// brain.InboxOutput{Success: true, Messages: []brain.MessageItem{{ID: 1, From: "charon", To: "cladius"}}}
+// brain.InboxOutput{Success: true, Messages: []brain.MessageItem{{ID: 1, FromAgent: "charon", ToAgent: "cladius"}}}
 type InboxOutput struct {
 	Success  bool          `json:"success"`
 	Messages []MessageItem `json:"messages"`
@@ -70,7 +74,7 @@ type ConversationInput struct {
 	Agent string `json:"agent"`
 }
 
-// brain.ConversationOutput{Success: true, Messages: []brain.MessageItem{{ID: 10, From: "cladius", To: "charon"}}}
+// brain.ConversationOutput{Success: true, Messages: []brain.MessageItem{{ID: 10, FromAgent: "cladius", ToAgent: "charon"}}}
 type ConversationOutput struct {
 	Success  bool          `json:"success"`
 	Messages []MessageItem `json:"messages"`
@@ -142,17 +146,36 @@ func parseMessages(result map[string]any) []MessageItem {
 	data, _ := result["data"].([]any)
 	for _, m := range data {
 		mm, _ := m.(map[string]any)
+		from := stringFieldAny(mm, "from", "from_agent")
+		to := stringFieldAny(mm, "to", "to_agent")
 		messages = append(messages, MessageItem{
-			ID:        toInt(mm["id"]),
-			From:      stringField(mm, "from"),
-			To:        stringField(mm, "to"),
-			Subject:   stringField(mm, "subject"),
-			Content:   stringField(mm, "content"),
-			Read:      mm["read"] == true,
-			CreatedAt: stringField(mm, "created_at"),
+			ID:          toInt(mm["id"]),
+			WorkspaceID: toInt(mm["workspace_id"]),
+			From:        from,
+			FromAgent:   from,
+			To:          to,
+			ToAgent:     to,
+			Subject:     stringField(mm, "subject"),
+			Content:     stringField(mm, "content"),
+			Read:        mm["read"] == true,
+			ReadAt:      stringField(mm, "read_at"),
+			CreatedAt:   stringField(mm, "created_at"),
 		})
 	}
 	return messages
+}
+
+func stringFieldAny(values map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, exists := values[key]
+		if !exists {
+			continue
+		}
+		if text := core.Trim(core.Sprint(value)); text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func toInt(v any) int {
