@@ -23,6 +23,8 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "agentic:session/handoff")
 	assert.Contains(t, c.Commands(), "session/end")
 	assert.Contains(t, c.Commands(), "agentic:session/end")
+	assert.Contains(t, c.Commands(), "session/complete")
+	assert.Contains(t, c.Commands(), "agentic:session/complete")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
