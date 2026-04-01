@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"dappco.re/go/core/process"
@@ -111,12 +112,24 @@ func TestDispatch_TrackFailureRate_Good(t *testing.T) {
 }
 
 func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
+	c := core.New()
+	var captured []messages.RateLimitDetected
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.RateLimitDetected); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
 
 	// 3rd fast failure triggers backoff
 	triggered := s.trackFailureRate("codex", "failed", time.Now().Add(-10*time.Second))
 	assert.True(t, triggered)
 	assert.True(t, time.Now().Before(s.backoff["codex"]))
+	require.Len(t, captured, 1)
+	assert.Equal(t, "codex", captured[0].Pool)
+	assert.Equal(t, "30m0s", captured[0].Duration)
 }
 
 func TestDispatch_TrackFailureRate_Ugly(t *testing.T) {
