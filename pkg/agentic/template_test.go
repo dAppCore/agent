@@ -111,6 +111,9 @@ func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Authentication Rollout", plan.Title)
 	assert.Equal(t, "in_progress", plan.Status)
+	assert.Equal(t, 1, plan.TemplateVersion.Version)
+	assert.Equal(t, "new-feature", plan.TemplateVersion.Slug)
+	assert.NotEmpty(t, plan.TemplateVersion.ContentHash)
 	require.NotEmpty(t, plan.Phases)
 	require.NotEmpty(t, plan.Phases[0].Tasks)
 	assert.Equal(t, "pending", plan.Phases[0].Tasks[0].Status)
@@ -137,6 +140,8 @@ func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "api-consistency", stringValue(plan.Context["template"]))
 	assert.Empty(t, plan.Context["variables"])
+	assert.Equal(t, 1, plan.TemplateVersion.Version)
+	assert.Equal(t, "api-consistency", plan.TemplateVersion.Slug)
 }
 
 func TestTemplate_HandleTemplateCreatePlan_Bad(t *testing.T) {

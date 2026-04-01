@@ -46,13 +46,14 @@ type PlanCompatibilityListOutput struct {
 
 // view := agentic.PlanCompatibilityView{Slug: "my-plan-abc123", Title: "My Plan", Status: "active"}
 type PlanCompatibilityView struct {
-	Slug        string         `json:"slug"`
-	Title       string         `json:"title"`
-	Description string         `json:"description,omitempty"`
-	Status      string         `json:"status"`
-	Progress    PlanProgress   `json:"progress"`
-	Phases      []Phase        `json:"phases,omitempty"`
-	Context     map[string]any `json:"context,omitempty"`
+	Slug            string              `json:"slug"`
+	Title           string              `json:"title"`
+	Description     string              `json:"description,omitempty"`
+	Status          string              `json:"status"`
+	Progress        PlanProgress        `json:"progress"`
+	TemplateVersion PlanTemplateVersion `json:"template_version,omitempty"`
+	Phases          []Phase             `json:"phases,omitempty"`
+	Context         map[string]any      `json:"context,omitempty"`
 }
 
 // input := agentic.PlanStatusUpdateInput{Slug: "my-plan-abc123", Status: "active"}
@@ -208,13 +209,14 @@ func planCompatibilitySummary(plan Plan) PlanCompatibilitySummary {
 
 func planCompatibilityView(plan Plan) PlanCompatibilityView {
 	return PlanCompatibilityView{
-		Slug:        plan.Slug,
-		Title:       plan.Title,
-		Description: plan.Description,
-		Status:      planCompatibilityOutputStatus(plan.Status),
-		Progress:    planProgress(plan),
-		Phases:      plan.Phases,
-		Context:     plan.Context,
+		Slug:            plan.Slug,
+		Title:           plan.Title,
+		Description:     plan.Description,
+		Status:          planCompatibilityOutputStatus(plan.Status),
+		Progress:        planProgress(plan),
+		TemplateVersion: plan.TemplateVersion,
+		Phases:          plan.Phases,
+		Context:         plan.Context,
 	}
 }
 

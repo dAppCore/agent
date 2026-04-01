@@ -235,13 +235,14 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 	}
 
 	_, created, err := s.planCreate(ctx, nil, PlanCreateInput{
-		Title:       title,
-		Slug:        input.Slug,
-		Objective:   definition.Description,
-		Description: definition.Description,
-		Context:     contextData,
-		Phases:      templatePlanPhases(definition),
-		Notes:       templateGuidelinesNote(definition.Guidelines),
+		Title:           title,
+		Slug:            input.Slug,
+		Objective:       definition.Description,
+		Description:     definition.Description,
+		Context:         contextData,
+		TemplateVersion: version,
+		Phases:          templatePlanPhases(definition),
+		Notes:           templateGuidelinesNote(definition.Guidelines),
 	})
 	if err != nil {
 		return nil, TemplateCreatePlanOutput{}, err

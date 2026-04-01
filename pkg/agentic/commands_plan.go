@@ -130,6 +130,12 @@ func (s *PrepSubsystem) cmdPlanShow(options core.Options) core.Result {
 	core.Print(nil, "title:       %s", output.Plan.Title)
 	core.Print(nil, "status:      %s", output.Plan.Status)
 	core.Print(nil, "progress:    %d/%d (%d%%)", output.Plan.Progress.Completed, output.Plan.Progress.Total, output.Plan.Progress.Percentage)
+	if output.Plan.TemplateVersion.Slug != "" {
+		core.Print(nil, "template:    %s v%d", output.Plan.TemplateVersion.Slug, output.Plan.TemplateVersion.Version)
+		if output.Plan.TemplateVersion.ContentHash != "" {
+			core.Print(nil, "template id: %s", output.Plan.TemplateVersion.ContentHash)
+		}
+	}
 	if output.Plan.Description != "" {
 		core.Print(nil, "description: %s", output.Plan.Description)
 	}

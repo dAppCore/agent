@@ -13,21 +13,22 @@ import (
 // plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "Replace raw process calls with Core.Process()"}
 // r := writePlanResult(PlansRoot(), plan)
 type Plan struct {
-	ID          string         `json:"id"`
-	Slug        string         `json:"slug,omitempty"`
-	Title       string         `json:"title"`
-	Status      string         `json:"status"`
-	Repo        string         `json:"repo,omitempty"`
-	Org         string         `json:"org,omitempty"`
-	Objective   string         `json:"objective"`
-	Description string         `json:"description,omitempty"`
-	Context     map[string]any `json:"context,omitempty"`
-	Phases      []Phase        `json:"phases,omitempty"`
-	Notes       string         `json:"notes,omitempty"`
-	Agent       string         `json:"agent,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	ArchivedAt  time.Time      `json:"archived_at,omitempty"`
+	ID              string              `json:"id"`
+	Slug            string              `json:"slug,omitempty"`
+	Title           string              `json:"title"`
+	Status          string              `json:"status"`
+	Repo            string              `json:"repo,omitempty"`
+	Org             string              `json:"org,omitempty"`
+	Objective       string              `json:"objective"`
+	Description     string              `json:"description,omitempty"`
+	Context         map[string]any      `json:"context,omitempty"`
+	TemplateVersion PlanTemplateVersion `json:"template_version,omitempty"`
+	Phases          []Phase             `json:"phases,omitempty"`
+	Notes           string              `json:"notes,omitempty"`
+	Agent           string              `json:"agent,omitempty"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+	ArchivedAt      time.Time           `json:"archived_at,omitempty"`
 }
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
@@ -63,15 +64,16 @@ type PhaseCheckpoint struct {
 }
 
 type PlanCreateInput struct {
-	Title       string         `json:"title"`
-	Slug        string         `json:"slug,omitempty"`
-	Objective   string         `json:"objective,omitempty"`
-	Description string         `json:"description,omitempty"`
-	Context     map[string]any `json:"context,omitempty"`
-	Repo        string         `json:"repo,omitempty"`
-	Org         string         `json:"org,omitempty"`
-	Phases      []Phase        `json:"phases,omitempty"`
-	Notes       string         `json:"notes,omitempty"`
+	Title           string              `json:"title"`
+	Slug            string              `json:"slug,omitempty"`
+	Objective       string              `json:"objective,omitempty"`
+	Description     string              `json:"description,omitempty"`
+	Context         map[string]any      `json:"context,omitempty"`
+	TemplateVersion PlanTemplateVersion `json:"template_version,omitempty"`
+	Repo            string              `json:"repo,omitempty"`
+	Org             string              `json:"org,omitempty"`
+	Phases          []Phase             `json:"phases,omitempty"`
+	Notes           string              `json:"notes,omitempty"`
 }
 
 type PlanCreateOutput struct {
@@ -305,19 +307,20 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 
 	id := core.ID()
 	plan := Plan{
-		ID:          id,
-		Slug:        planSlugValue(input.Slug, input.Title, id),
-		Title:       input.Title,
-		Status:      "draft",
-		Repo:        input.Repo,
-		Org:         input.Org,
-		Objective:   objective,
-		Description: description,
-		Context:     input.Context,
-		Phases:      input.Phases,
-		Notes:       input.Notes,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:              id,
+		Slug:            planSlugValue(input.Slug, input.Title, id),
+		Title:           input.Title,
+		Status:          "draft",
+		Repo:            input.Repo,
+		Org:             input.Org,
+		Objective:       objective,
+		Description:     description,
+		Context:         input.Context,
+		TemplateVersion: input.TemplateVersion,
+		Phases:          input.Phases,
+		Notes:           input.Notes,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 	plan = normalisePlan(plan)
 
