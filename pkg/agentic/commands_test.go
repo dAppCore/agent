@@ -718,6 +718,9 @@ func TestCommands_CmdStatus_Good_DeepWorkspace(t *testing.T) {
 		assert.True(t, r.OK)
 	})
 
+	assert.Contains(t, output, "completed")
+	assert.Contains(t, output, "codex")
+	assert.Contains(t, output, "go-io")
 	assert.Contains(t, output, "core/go-io/task-5")
 }
 
@@ -738,7 +741,31 @@ func TestCommands_CmdStatus_Good_BranchWorkspace(t *testing.T) {
 		assert.True(t, r.OK)
 	})
 
+	assert.Contains(t, output, "completed")
 	assert.Contains(t, output, "core/go-io/feature/new-ui")
+}
+
+func TestCommands_CmdStatus_Good_BlockedQuestion(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	ws := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-9")
+	fs.EnsureDir(ws)
+	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status:   "blocked",
+		Repo:     "go-io",
+		Agent:    "gemini",
+		Question: "Which API version?",
+	}))
+
+	output := captureStdout(t, func() {
+		r := s.cmdStatus(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "blocked")
+	assert.Contains(t, output, "gemini")
+	assert.Contains(t, output, "go-io")
+	assert.Contains(t, output, "Which API version?")
 }
 
 func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {

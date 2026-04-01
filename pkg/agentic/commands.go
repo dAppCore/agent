@@ -316,7 +316,18 @@ func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
 	}
 
 	for _, sf := range statusFiles {
-		core.Print(nil, "  %s", WorkspaceName(core.PathDir(sf)))
+		workspaceDir := core.PathDir(sf)
+		workspaceName := WorkspaceName(workspaceDir)
+		result := ReadStatusResult(workspaceDir)
+		workspaceStatus, ok := workspaceStatusValue(result)
+		if !ok {
+			continue
+		}
+
+		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, workspaceName)
+		if workspaceStatus.Question != "" {
+			core.Print(nil, "    question: %s", workspaceStatus.Question)
+		}
 	}
 	return core.Result{OK: true}
 }
