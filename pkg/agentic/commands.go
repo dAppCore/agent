@@ -62,6 +62,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("agentic:status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
+	c.Command("prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
+	c.Command("agentic:prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})

@@ -1380,6 +1380,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "status")
 	assert.Contains(t, cmds, "agentic:status")
 	assert.Contains(t, cmds, "prompt")
+	assert.Contains(t, cmds, "prompt_version")
+	assert.Contains(t, cmds, "agentic:prompt_version")
 	assert.Contains(t, cmds, "prompt/version")
 	assert.Contains(t, cmds, "extract")
 	assert.Contains(t, cmds, "lang/detect")
