@@ -967,6 +967,29 @@ func TestCommands_CmdPrompt_Good_DefaultTask(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdPrompt_Good_PlanTemplateVariables(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home)
+
+	repoDir := core.JoinPath(home, "Code", "core", "go-io")
+	fs.EnsureDir(repoDir)
+	fs.Write(core.JoinPath(repoDir, "go.mod"), "module example.com/go-io\n\ngo 1.24\n")
+
+	s, _ := testPrepWithCore(t, nil)
+	output := captureStdout(t, func() {
+		r := s.cmdPrompt(core.NewOptions(
+			core.Option{Key: "_arg", Value: "go-io"},
+			core.Option{Key: "task", Value: "Add a login flow"},
+			core.Option{Key: "plan_template", Value: "new-feature"},
+			core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "PLAN:")
+	assert.Contains(t, output, "Authentication")
+}
+
 func TestCommands_CmdGenerate_Bad_MissingPrompt(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdGenerate(core.NewOptions())
@@ -1483,6 +1506,8 @@ func TestCommands_CmdPrep_Ugly_AllOptionalFields(t *testing.T) {
 		core.Option{Key: "tag", Value: "v1.0.0"},
 		core.Option{Key: "task", Value: "do stuff"},
 		core.Option{Key: "template", Value: "coding"},
+		core.Option{Key: "plan_template", Value: "new-feature"},
+		core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
 		core.Option{Key: "persona", Value: "engineering"},
 		core.Option{Key: "dry-run", Value: "true"},
 	))

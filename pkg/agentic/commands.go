@@ -277,31 +277,12 @@ func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {
 func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	repo := options.String("_arg")
 	if repo == "" {
-		core.Print(nil, "usage: core-agent prep <repo> --issue=N|--pr=N|--branch=X --task=\"...\"")
+		core.Print(nil, "usage: core-agent prep <repo> --issue=N|--pr=N|--branch=X --task=\"...\" [--plan-template=bug-fix] [--variables='{\"key\":\"value\"}']")
 		return core.Result{Value: core.E("agentic.cmdPrep", "repo is required", nil), OK: false}
 	}
 
-	prepInput := PrepInput{
-		Repo:     repo,
-		Org:      options.String("org"),
-		Task:     options.String("task"),
-		Template: options.String("template"),
-		Persona:  options.String("persona"),
-		DryRun:   options.Bool("dry-run"),
-	}
-
-	if value := options.String("issue"); value != "" {
-		prepInput.Issue = parseIntString(value)
-	}
-	if value := options.String("pr"); value != "" {
-		prepInput.PR = parseIntString(value)
-	}
-	if value := options.String("branch"); value != "" {
-		prepInput.Branch = value
-	}
-	if value := options.String("tag"); value != "" {
-		prepInput.Tag = value
-	}
+	prepInput := prepInputFromCommandOptions(options)
+	prepInput.Repo = repo
 
 	if prepInput.Issue == 0 && prepInput.PR == 0 && prepInput.Branch == "" && prepInput.Tag == "" {
 		prepInput.Branch = "dev"
@@ -715,28 +696,20 @@ func (s *PrepSubsystem) cmdStatus(options core.Options) core.Result {
 func (s *PrepSubsystem) cmdPrompt(options core.Options) core.Result {
 	repo := options.String("_arg")
 	if repo == "" {
-		core.Print(nil, "usage: core-agent prompt <repo> --task=\"...\"")
+		core.Print(nil, "usage: core-agent prompt <repo> --task=\"...\" [--plan-template=bug-fix] [--variables='{\"key\":\"value\"}']")
 		return core.Result{Value: core.E("agentic.cmdPrompt", "repo is required", nil), OK: false}
 	}
 
-	org := options.String("org")
-	if org == "" {
-		org = "core"
+	prepInput := prepInputFromCommandOptions(options)
+	prepInput.Repo = repo
+	if prepInput.Org == "" {
+		prepInput.Org = "core"
 	}
-	task := options.String("task")
-	if task == "" {
-		task = "Review and report findings"
+	if prepInput.Task == "" {
+		prepInput.Task = "Review and report findings"
 	}
 
-	repoPath := core.JoinPath(HomeDir(), "Code", org, repo)
-
-	prepInput := PrepInput{
-		Repo:     repo,
-		Org:      org,
-		Task:     task,
-		Template: options.String("template"),
-		Persona:  options.String("persona"),
-	}
+	repoPath := core.JoinPath(HomeDir(), "Code", prepInput.Org, prepInput.Repo)
 
 	prompt, memories, consumers := s.BuildPrompt(context.Background(), prepInput, "dev", repoPath)
 	core.Print(nil, "memories:  %d", memories)
@@ -744,6 +717,16 @@ func (s *PrepSubsystem) cmdPrompt(options core.Options) core.Result {
 	core.Print(nil, "")
 	core.Print(nil, "%s", prompt)
 	return core.Result{OK: true}
+}
+
+func prepInputFromCommandOptions(options core.Options) PrepInput {
+	commandOptions := core.NewOptions(options.Items()...)
+	if commandOptions.String("repo") == "" {
+		if repo := optionStringValue(options, "_arg"); repo != "" {
+			commandOptions.Set("repo", repo)
+		}
+	}
+	return prepInputFromOptions(commandOptions)
 }
 
 func (s *PrepSubsystem) cmdPromptVersion(options core.Options) core.Result {
