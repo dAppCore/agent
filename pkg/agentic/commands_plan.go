@@ -13,6 +13,7 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList})
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
+	c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive})
 }
 
 func (s *PrepSubsystem) cmdPlan(options core.Options) core.Result {
@@ -161,5 +162,34 @@ func (s *PrepSubsystem) cmdPlanStatus(options core.Options) core.Result {
 
 	core.Print(nil, "slug:   %s", output.Plan.Slug)
 	core.Print(nil, "status: %s", output.Plan.Status)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdPlanArchive(options core.Options) core.Result {
+	ctx := s.commandContext()
+	id := optionStringValue(options, "id", "slug", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent plan archive <slug> [--reason=\"...\"]")
+		return core.Result{Value: core.E("agentic.cmdPlanArchive", "slug or id is required", nil), OK: false}
+	}
+
+	result := s.handlePlanArchive(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: id},
+		core.Option{Key: "reason", Value: optionStringValue(options, "reason")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPlanArchive", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(PlanArchiveOutput)
+	if !ok {
+		err := core.E("agentic.cmdPlanArchive", "invalid plan archive output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "archived: %s", output.Archived)
 	return core.Result{Value: output, OK: true}
 }

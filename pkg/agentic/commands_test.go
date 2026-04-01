@@ -937,6 +937,30 @@ func TestCommands_CmdPlanStatus_Good_GetAndSet(t *testing.T) {
 	assert.Equal(t, "ready", plan.Status)
 }
 
+func TestCommands_CmdPlanArchive_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Archive Plan",
+		Objective: "Exercise archive command",
+	})
+	require.NoError(t, err)
+
+	output := captureStdout(t, func() {
+		r := s.cmdPlanArchive(core.NewOptions(
+			core.Option{Key: "_arg", Value: created.ID},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "archived:")
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "archived", plan.Status)
+	assert.False(t, plan.ArchivedAt.IsZero())
+}
+
 func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := core.JoinPath(t.TempDir(), "extract-test")
@@ -1003,6 +1027,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "plan/list")
 	assert.Contains(t, cmds, "plan/show")
 	assert.Contains(t, cmds, "plan/status")
+	assert.Contains(t, cmds, "plan/archive")
 	assert.Contains(t, cmds, "pr-manage")
 	assert.Contains(t, cmds, "task")
 	assert.Contains(t, cmds, "task/update")
