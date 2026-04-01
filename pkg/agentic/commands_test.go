@@ -754,6 +754,71 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	assert.Contains(t, output, "content:  Template draft")
 }
 
+func TestCommands_CmdScan_Good(t *testing.T) {
+	server := mockScanServer(t)
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(server.URL, "secret-token"),
+		forgeURL:       server.URL,
+		forgeToken:     "secret-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	output := captureStdout(t, func() {
+		r := s.cmdScan(core.NewOptions(
+			core.Option{Key: "org", Value: "core"},
+			core.Option{Key: "labels", Value: "agentic,bug"},
+			core.Option{Key: "limit", Value: 5},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "count:")
+	assert.Contains(t, output, "go-io#10")
+	assert.Contains(t, output, "Add missing tests")
+}
+
+func TestCommands_CmdScan_Bad_NoForgeToken(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	s.forgeToken = ""
+
+	r := s.cmdScan(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/orgs/core/repos":
+			_, _ = w.Write([]byte(core.JSONMarshalString([]map[string]any{
+				{"name": "go-io"},
+			})))
+		default:
+			_, _ = w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
+		}
+	}))
+	defer server.Close()
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(server.URL, "secret-token"),
+		forgeURL:       server.URL,
+		forgeToken:     "secret-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	output := captureStdout(t, func() {
+		r := s.cmdScan(core.NewOptions(
+			core.Option{Key: "org", Value: "core"},
+			core.Option{Key: "limit", Value: 1},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "count: 0")
+}
+
 func TestCommands_CmdPlanCreate_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
@@ -867,6 +932,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "run/task")
 	assert.Contains(t, cmds, "run/orchestrator")
 	assert.Contains(t, cmds, "prep")
+	assert.Contains(t, cmds, "scan")
 	assert.Contains(t, cmds, "status")
 	assert.Contains(t, cmds, "prompt")
 	assert.Contains(t, cmds, "extract")

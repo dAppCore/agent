@@ -21,6 +21,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
@@ -203,6 +204,36 @@ func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {
 	}
 
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
+	result := s.handleScan(s.commandContext(), core.NewOptions(
+		core.Option{Key: "org", Value: optionStringValue(options, "org")},
+		core.Option{Key: "labels", Value: optionStringSliceValue(options, "labels")},
+		core.Option{Key: "limit", Value: optionIntValue(options, "limit")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdScan", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(ScanOutput)
+	if !ok {
+		err := core.E("agentic.cmdScan", "invalid scan output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "count: %d", output.Count)
+	for _, issue := range output.Issues {
+		if len(issue.Labels) > 0 {
+			core.Print(nil, "  %s#%d %s [%s]", issue.Repo, issue.Number, issue.Title, core.Join(",", issue.Labels...))
+			continue
+		}
+		core.Print(nil, "  %s#%d %s", issue.Repo, issue.Number, issue.Title)
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
