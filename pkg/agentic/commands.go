@@ -21,6 +21,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
