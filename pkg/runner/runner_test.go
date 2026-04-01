@@ -339,6 +339,25 @@ func TestRunner_HandleIPCEvents_Good_UpdatesMatchingWorkspaceOnly(t *testing.T) 
 	assert.Equal(t, 222, second.PID)
 }
 
+func TestRunner_HandleIPCEvents_Good_EmitsQueueDrained(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+
+	var captured []messages.QueueDrained
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.QueueDrained); ok {
+			captured = append(captured, ev)
+		}
+		return core.Result{OK: true}
+	})
+
+	r := svc.HandleIPCEvents(c, messages.PokeQueue{})
+	assert.True(t, r.OK)
+	require.Len(t, captured, 1)
+	assert.Equal(t, 0, captured[0].Completed)
+}
+
 func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)

@@ -180,7 +180,7 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 		s.Poke()
 
 	case messages.PokeQueue:
-		s.drainQueue()
+		s.drainQueueAndNotify(coreApp)
 		_ = ev
 	}
 	return core.Result{OK: true}
@@ -340,7 +340,7 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 }
 
 func (s *Service) actionPoke(_ context.Context, _ core.Options) core.Result {
-	s.drainQueue()
+	s.drainQueueAndNotify(s.Core())
 	return core.Result{OK: true}
 }
 
@@ -362,10 +362,17 @@ func (s *Service) runLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			s.drainQueue()
+			s.drainQueueAndNotify(s.Core())
 		case <-s.pokeCh:
-			s.drainQueue()
+			s.drainQueueAndNotify(s.Core())
 		}
+	}
+}
+
+func (s *Service) drainQueueAndNotify(coreApp *core.Core) {
+	completed := s.drainQueue()
+	if coreApp != nil {
+		coreApp.ACTION(messages.QueueDrained{Completed: completed})
 	}
 }
 

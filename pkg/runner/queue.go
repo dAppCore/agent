@@ -187,15 +187,18 @@ func (s *Service) countRunningByModel(agent string) int {
 }
 
 // s.drainQueue()
-func (s *Service) drainQueue() {
+func (s *Service) drainQueue() int {
 	if s.frozen {
-		return
+		return 0
 	}
 	s.drainMu.Lock()
 	defer s.drainMu.Unlock()
 
+	completed := 0
 	for s.drainOne() {
+		completed++
 	}
+	return completed
 }
 
 func (s *Service) drainOne() bool {
