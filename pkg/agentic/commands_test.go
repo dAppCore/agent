@@ -754,6 +754,62 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	assert.Contains(t, output, "content:  Template draft")
 }
 
+func TestCommands_CmdPlanCreate_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	r := s.cmdPlanCreate(core.NewOptions(
+		core.Option{Key: "slug", Value: "migrate-core"},
+		core.Option{Key: "title", Value: "Migrate Core"},
+		core.Option{Key: "objective", Value: "Use Core.Process everywhere"},
+	))
+
+	assert.True(t, r.OK)
+
+	output, ok := r.Value.(PlanCreateOutput)
+	require.True(t, ok)
+	require.NotEmpty(t, output.ID)
+	require.NotEmpty(t, output.Path)
+	assert.True(t, fs.Exists(output.Path))
+
+	plan, err := readPlan(PlansRoot(), output.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Migrate Core", plan.Title)
+	assert.Equal(t, "Use Core.Process everywhere", plan.Objective)
+	assert.Equal(t, "draft", plan.Status)
+	assert.Equal(t, "migrate-core", plan.Slug)
+}
+
+func TestCommands_CmdPlanStatus_Good_GetAndSet(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Status Plan",
+		Objective: "Exercise plan status management",
+	})
+	require.NoError(t, err)
+
+	getOutput := captureStdout(t, func() {
+		r := s.cmdPlanStatus(core.NewOptions(core.Option{Key: "_arg", Value: created.ID}))
+		assert.True(t, r.OK)
+	})
+	assert.Contains(t, getOutput, "status:")
+	assert.Contains(t, getOutput, "draft")
+
+	setOutput := captureStdout(t, func() {
+		r := s.cmdPlanStatus(core.NewOptions(
+			core.Option{Key: "_arg", Value: created.ID},
+			core.Option{Key: "set", Value: "ready"},
+		))
+		assert.True(t, r.OK)
+	})
+	assert.Contains(t, setOutput, "status:")
+	assert.Contains(t, setOutput, "ready")
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "ready", plan.Status)
+}
+
 func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := core.JoinPath(t.TempDir(), "extract-test")
@@ -814,6 +870,11 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "status")
 	assert.Contains(t, cmds, "prompt")
 	assert.Contains(t, cmds, "extract")
+	assert.Contains(t, cmds, "plan")
+	assert.Contains(t, cmds, "plan/create")
+	assert.Contains(t, cmds, "plan/list")
+	assert.Contains(t, cmds, "plan/show")
+	assert.Contains(t, cmds, "plan/status")
 }
 
 // --- CmdExtract Bad/Ugly ---
