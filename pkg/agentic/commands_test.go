@@ -225,6 +225,15 @@ func TestCommandsforge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) 
 	assert.True(t, r.OK)
 }
 
+func TestCommands_RegisterCommands_Good_BrainRecall(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+
+	s.registerCommands(context.Background())
+
+	assert.Contains(t, c.Commands(), "brain/recall")
+	assert.Contains(t, c.Commands(), "brain:recall")
+}
+
 func TestCommands_CmdBrainList_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.list", func(_ context.Context, options core.Options) core.Result {
@@ -285,6 +294,74 @@ func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
 	err, ok := result.Value.(error)
 	require.True(t, ok)
 	assert.Contains(t, err.Error(), "invalid brain list output")
+}
+
+func TestCommands_CmdBrainRecall_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.recall", func(_ context.Context, options core.Options) core.Result {
+		assert.Equal(t, "workspace handoff context", options.String("query"))
+		assert.Equal(t, 3, options.Int("top_k"))
+		assert.Equal(t, "agent", options.String("project"))
+		assert.Equal(t, "architecture", options.String("type"))
+		assert.Equal(t, "virgil", options.String("agent_id"))
+		assert.Equal(t, "0.75", options.String("min_confidence"))
+		return core.Result{Value: map[string]any{
+			"success": true,
+			"count":   1,
+			"memories": []any{
+				map[string]any{
+					"id":         "mem-1",
+					"type":       "architecture",
+					"content":    "Use named actions.",
+					"project":    "agent",
+					"agent_id":   "virgil",
+					"confidence": 0.75,
+					"tags":       []any{"architecture", "convention"},
+				},
+			},
+		}, OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		result := s.cmdBrainRecall(core.NewOptions(
+			core.Option{Key: "_arg", Value: "workspace handoff context"},
+			core.Option{Key: "top_k", Value: 3},
+			core.Option{Key: "project", Value: "agent"},
+			core.Option{Key: "type", Value: "architecture"},
+			core.Option{Key: "agent", Value: "virgil"},
+			core.Option{Key: "min_confidence", Value: "0.75"},
+		))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "count: 1")
+	assert.Contains(t, output, "mem-1 architecture")
+	assert.Contains(t, output, "Use named actions.")
+}
+
+func TestCommands_CmdBrainRecall_Bad_MissingQuery(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	result := s.cmdBrainRecall(core.NewOptions())
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "query is required")
+}
+
+func TestCommands_CmdBrainRecall_Ugly_InvalidOutput(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.recall", func(_ context.Context, _ core.Options) core.Result {
+		return core.Result{Value: 123, OK: true}
+	})
+
+	result := s.cmdBrainRecall(core.NewOptions(core.Option{Key: "_arg", Value: "workspace handoff context"}))
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "invalid brain recall output")
 }
 
 func TestCommands_CmdBrainForget_Good(t *testing.T) {

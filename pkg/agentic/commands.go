@@ -39,6 +39,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror})
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain:ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
+	c.Command("brain/recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
+	c.Command("brain:recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain:seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
@@ -463,6 +465,59 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Command("brain/recall").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "query", Value: "workspace handoff context"},
+//
+// ))
+func (s *PrepSubsystem) cmdBrainRecall(options core.Options) core.Result {
+	query := optionStringValue(options, "query", "_arg")
+	if query == "" {
+		core.Print(nil, "usage: core-agent brain recall <query> [--top-k=10] [--project=agent] [--type=architecture] [--agent=virgil] [--min-confidence=0.7]")
+		return core.Result{Value: core.E("agentic.cmdBrainRecall", "query is required", nil), OK: false}
+	}
+
+	result := s.Core().Action("brain.recall").Run(s.commandContext(), core.NewOptions(
+		core.Option{Key: "query", Value: query},
+		core.Option{Key: "top_k", Value: optionIntValue(options, "top_k", "top-k")},
+		core.Option{Key: "project", Value: optionStringValue(options, "project")},
+		core.Option{Key: "type", Value: optionStringValue(options, "type")},
+		core.Option{Key: "agent_id", Value: optionStringValue(options, "agent_id", "agent")},
+		core.Option{Key: "min_confidence", Value: optionStringValue(options, "min_confidence", "min-confidence")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdBrainRecall", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := brainRecallOutputFromResult(result.Value)
+	if !ok {
+		err := core.E("agentic.cmdBrainRecall", "invalid brain recall output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "count: %d", output.Count)
+	if len(output.Memories) == 0 {
+		core.Print(nil, "no memories")
+		return core.Result{Value: output, OK: true}
+	}
+
+	for _, memory := range output.Memories {
+		if memory.Project != "" || memory.AgentID != "" || memory.Confidence != 0 {
+			core.Print(nil, "  %s %-12s %s %s %.2f", memory.ID, memory.Type, memory.Project, memory.AgentID, memory.Confidence)
+		} else {
+			core.Print(nil, "  %s %-12s", memory.ID, memory.Type)
+		}
+		if memory.Content != "" {
+			core.Print(nil, "    %s", memory.Content)
+		}
+	}
+
+	return core.Result{Value: output, OK: true}
+}
+
 // result := c.Command("brain/forget").Run(ctx, core.NewOptions(core.Option{Key: "_arg", Value: "mem-1"}))
 func (s *PrepSubsystem) cmdBrainForget(options core.Options) core.Result {
 	id := optionStringValue(options, "id", "_arg")
@@ -486,6 +541,43 @@ func (s *PrepSubsystem) cmdBrainForget(options core.Options) core.Result {
 		core.Print(nil, "reason:    %s", reason)
 	}
 	return core.Result{Value: result.Value, OK: true}
+}
+
+type brainRecallOutput struct {
+	Count    int                 `json:"count"`
+	Memories []brainRecallMemory `json:"memories"`
+}
+
+type brainRecallMemory struct {
+	ID         string   `json:"id"`
+	Type       string   `json:"type"`
+	Content    string   `json:"content"`
+	Project    string   `json:"project"`
+	AgentID    string   `json:"agent_id"`
+	Confidence float64  `json:"confidence"`
+	Tags       []string `json:"tags"`
+}
+
+func brainRecallOutputFromResult(value any) (brainRecallOutput, bool) {
+	switch typed := value.(type) {
+	case brainRecallOutput:
+		return typed, true
+	case *brainRecallOutput:
+		if typed == nil {
+			return brainRecallOutput{}, false
+		}
+		return *typed, true
+	default:
+		jsonResult := core.JSONMarshalString(value)
+		if jsonResult == "" {
+			return brainRecallOutput{}, false
+		}
+		var output brainRecallOutput
+		if parseResult := core.JSONUnmarshalString(jsonResult, &output); !parseResult.OK {
+			return brainRecallOutput{}, false
+		}
+		return output, true
+	}
 }
 
 func (s *PrepSubsystem) cmdStatus(options core.Options) core.Result {
