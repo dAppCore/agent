@@ -619,6 +619,7 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.Contains(t, c.Commands(), "generate")
+	assert.Contains(t, c.Commands(), "agentic:generate")
 	assert.Contains(t, c.Commands(), "complete")
 	assert.Contains(t, c.Commands(), "agentic:plan")
 	assert.Contains(t, c.Commands(), "prep-workspace")
