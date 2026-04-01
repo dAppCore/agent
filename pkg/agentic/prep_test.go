@@ -581,6 +581,7 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.Contains(t, c.Commands(), "generate")
+	assert.Contains(t, c.Commands(), "prep-workspace")
 	assert.Contains(t, c.Commands(), "brain/ingest")
 	assert.Contains(t, c.Commands(), "brain/seed-memory")
 	assert.Contains(t, c.Commands(), "brain/list")
