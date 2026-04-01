@@ -610,7 +610,7 @@ func (s *PrepSubsystem) sessionResume(ctx context.Context, _ *mcp.CallToolReques
 	return nil, SessionResumeOutput{
 		Success:        true,
 		Session:        session,
-		HandoffContext: session.Handoff,
+		HandoffContext: sessionHandoffContext(session),
 		RecentActions:  recentSessionActions(session.WorkLog, 20),
 		Artifacts:      session.Artifacts,
 	}, nil

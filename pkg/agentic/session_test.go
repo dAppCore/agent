@@ -360,7 +360,10 @@ func TestSession_HandleSessionResume_Good(t *testing.T) {
 	output, ok := result.Value.(SessionResumeOutput)
 	require.True(t, ok)
 	assert.Equal(t, "active", output.Session.Status)
-	assert.Equal(t, "Ready for review", output.HandoffContext["summary"])
+	assert.Equal(t, "ses_resume", output.HandoffContext["session_id"])
+	handoffNotes, ok := output.HandoffContext["handoff_notes"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Ready for review", handoffNotes["summary"])
 	require.Len(t, output.RecentActions, 1)
 }
 

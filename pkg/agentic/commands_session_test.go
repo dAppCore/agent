@@ -119,7 +119,10 @@ func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, "ses-abc123", output.Session.SessionID)
 	assert.Equal(t, "active", output.Session.Status)
-	assert.NotEmpty(t, output.HandoffContext)
+	assert.Equal(t, "ses-abc123", output.HandoffContext["session_id"])
+	handoffNotes, ok := output.HandoffContext["handoff_notes"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Ready for review", handoffNotes["summary"])
 	assert.Len(t, output.RecentActions, 2)
 	assert.Len(t, output.Artifacts, 1)
 }
