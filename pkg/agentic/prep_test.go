@@ -530,6 +530,7 @@ func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 	assert.True(t, c.Action("content.usage_stats").Exists())
 	assert.True(t, c.Action("content.from.plan").Exists())
 	assert.True(t, c.Action("content.from_plan").Exists())
+	assert.True(t, c.Action("content.schema.generate").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {

@@ -238,6 +238,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("content.usage_stats", s.handleContentUsageStats).Description = "Read content provider usage statistics"
 	c.Action("content.from.plan", s.handleContentFromPlan).Description = "Generate content from plan context"
 	c.Action("content.from_plan", s.handleContentFromPlan).Description = "Generate content from plan context"
+	c.Action("content.schema.generate", s.handleContentSchemaGenerate).Description = "Generate SEO schema JSON-LD for article, FAQ, or how-to content"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"

@@ -153,6 +153,42 @@ type ContentFromPlanOutput struct {
 	Result  ContentResult `json:"result"`
 }
 
+// input := agentic.ContentSchemaInput{Type: "article", Title: "Release notes", URL: "https://example.test/releases"}
+type ContentSchemaInput struct {
+	Type        string                  `json:"type,omitempty"`
+	Title       string                  `json:"title,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	URL         string                  `json:"url,omitempty"`
+	Author      string                  `json:"author,omitempty"`
+	PublishedAt string                  `json:"published_at,omitempty"`
+	ModifiedAt  string                  `json:"modified_at,omitempty"`
+	Language    string                  `json:"language,omitempty"`
+	Image       string                  `json:"image,omitempty"`
+	Questions   []ContentSchemaQuestion `json:"questions,omitempty"`
+	Steps       []ContentSchemaStep     `json:"steps,omitempty"`
+}
+
+// question := agentic.ContentSchemaQuestion{Question: "What changed?", Answer: "The release notes are now generated from plans."}
+type ContentSchemaQuestion struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+// step := agentic.ContentSchemaStep{Name: "Review", Text: "Check the draft for accuracy."}
+type ContentSchemaStep struct {
+	Name string `json:"name,omitempty"`
+	Text string `json:"text,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
+// out := agentic.ContentSchemaOutput{Success: true, SchemaType: "FAQPage"}
+type ContentSchemaOutput struct {
+	Success    bool           `json:"success"`
+	SchemaType string         `json:"schema_type"`
+	SchemaJSON string         `json:"schema_json"`
+	Schema     map[string]any `json:"schema"`
+}
+
 // result := c.Action("content.generate").Run(ctx, core.NewOptions(core.Option{Key: "prompt", Value: "Draft a release note"}))
 func (s *PrepSubsystem) handleContentGenerate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.contentGenerate(ctx, nil, ContentGenerateInput{
@@ -266,6 +302,38 @@ func (s *PrepSubsystem) handleContentFromPlan(ctx context.Context, options core.
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Action("content.schema.generate").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "type", Value: "howto"},
+//	core.Option{Key: "title", Value: "Set up the workspace"},
+//
+// ))
+func (s *PrepSubsystem) handleContentSchemaGenerate(_ context.Context, options core.Options) core.Result {
+	input := ContentSchemaInput{
+		Type:        optionStringValue(options, "schema_type", "schema-type", "type", "kind"),
+		Title:       optionStringValue(options, "title", "headline"),
+		Description: optionStringValue(options, "description"),
+		URL:         optionStringValue(options, "url", "link"),
+		Author:      optionStringValue(options, "author"),
+		PublishedAt: optionStringValue(options, "published_at", "published-at", "date_published"),
+		ModifiedAt:  optionStringValue(options, "modified_at", "modified-at", "date_modified"),
+		Language:    optionStringValue(options, "language", "in_language", "in-language"),
+		Image:       optionStringValue(options, "image", "image_url", "image-url"),
+	}
+	if value := optionAnyValue(options, "questions", "faq"); value != nil {
+		input.Questions = contentSchemaQuestionsValue(value)
+	}
+	if value := optionAnyValue(options, "steps"); value != nil {
+		input.Steps = contentSchemaStepsValue(value)
+	}
+
+	_, output, err := s.contentSchemaGenerate(context.Background(), nil, input)
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "content_generate",
@@ -311,6 +379,11 @@ func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 		Name:        "content_from_plan",
 		Description: "Generate content using stored plan context and an optional provider override.",
 	}, s.contentFromPlan)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "content_schema_generate",
+		Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content.",
+	}, s.contentSchemaGenerate)
 }
 
 func (s *PrepSubsystem) contentGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentGenerateInput) (*mcp.CallToolResult, ContentGenerateOutput, error) {
@@ -519,6 +592,82 @@ func (s *PrepSubsystem) contentFromPlan(ctx context.Context, _ *mcp.CallToolRequ
 	}, nil
 }
 
+func (s *PrepSubsystem) contentSchemaGenerate(_ context.Context, _ *mcp.CallToolRequest, input ContentSchemaInput) (*mcp.CallToolResult, ContentSchemaOutput, error) {
+	schemaType := contentSchemaType(input.Type)
+	if schemaType == "" {
+		return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "schema type is required", nil)
+	}
+	if core.Trim(input.Title) == "" {
+		return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "title is required", nil)
+	}
+
+	schema := map[string]any{
+		"@context": "https://schema.org",
+		"@type":    schemaType,
+		"name":     input.Title,
+		"headline": input.Title,
+	}
+	if input.Description != "" {
+		schema["description"] = input.Description
+	}
+	if input.URL != "" {
+		schema["url"] = input.URL
+		schema["mainEntityOfPage"] = input.URL
+	}
+	if input.Author != "" {
+		schema["author"] = map[string]any{
+			"@type": "Person",
+			"name":  input.Author,
+		}
+	}
+	if input.PublishedAt != "" {
+		schema["datePublished"] = input.PublishedAt
+	}
+	if input.ModifiedAt != "" {
+		schema["dateModified"] = input.ModifiedAt
+	}
+	if input.Language != "" {
+		schema["inLanguage"] = input.Language
+	}
+	if input.Image != "" {
+		schema["image"] = input.Image
+	}
+
+	switch schemaType {
+	case "FAQPage":
+		if len(input.Questions) == 0 {
+			return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "questions are required for FAQ schema", nil)
+		}
+		schema["mainEntity"] = contentSchemaFAQEntries(input.Questions)
+	case "HowTo":
+		if len(input.Steps) == 0 {
+			return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "steps are required for how-to schema", nil)
+		}
+		schema["step"] = contentSchemaHowToSteps(input.Steps)
+	case "BlogPosting", "TechArticle":
+		if len(input.Steps) > 0 {
+			schema["step"] = contentSchemaHowToSteps(input.Steps)
+		}
+		if len(input.Questions) > 0 {
+			schema["mainEntity"] = contentSchemaFAQEntries(input.Questions)
+		}
+	default:
+		if len(input.Questions) > 0 {
+			schema["mainEntity"] = contentSchemaFAQEntries(input.Questions)
+		}
+		if len(input.Steps) > 0 {
+			schema["step"] = contentSchemaHowToSteps(input.Steps)
+		}
+	}
+
+	return nil, ContentSchemaOutput{
+		Success:    true,
+		SchemaType: schemaType,
+		SchemaJSON: core.JSONMarshalString(schema),
+		Schema:     schema,
+	}, nil
+}
+
 func mergeContentPayload(target, extra map[string]any) map[string]any {
 	if len(target) == 0 {
 		target = map[string]any{}
@@ -600,4 +749,179 @@ func contentMapStringValue(values map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func contentSchemaType(value string) string {
+	switch core.Lower(core.Trim(value)) {
+	case "article", "blog", "blogpost", "blog-post", "blogposting":
+		return "BlogPosting"
+	case "tech", "techarticle", "tech-article":
+		return "TechArticle"
+	case "faq", "faqpage":
+		return "FAQPage"
+	case "howto", "how-to":
+		return "HowTo"
+	}
+	return ""
+}
+
+func contentSchemaQuestionsValue(value any) []ContentSchemaQuestion {
+	items := contentSchemaItemsValue(value)
+	if len(items) == 0 {
+		return nil
+	}
+	questions := make([]ContentSchemaQuestion, 0, len(items))
+	for _, item := range items {
+		question := contentMapStringValue(item, "question", "name", "title")
+		answer := contentMapStringValue(item, "answer", "text", "body", "content")
+		if question == "" || answer == "" {
+			continue
+		}
+		questions = append(questions, ContentSchemaQuestion{
+			Question: question,
+			Answer:   answer,
+		})
+	}
+	return questions
+}
+
+func contentSchemaStepsValue(value any) []ContentSchemaStep {
+	items := contentSchemaItemsValue(value)
+	if len(items) == 0 {
+		return nil
+	}
+	steps := make([]ContentSchemaStep, 0, len(items))
+	for _, item := range items {
+		text := contentMapStringValue(item, "text", "body", "content", "description")
+		name := contentMapStringValue(item, "name", "title", "label")
+		url := contentMapStringValue(item, "url", "link")
+		if name == "" && text == "" {
+			continue
+		}
+		steps = append(steps, ContentSchemaStep{
+			Name: name,
+			Text: text,
+			URL:  url,
+		})
+	}
+	return steps
+}
+
+func contentSchemaItemsValue(value any) []map[string]any {
+	switch typed := value.(type) {
+	case []ContentSchemaQuestion:
+		items := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, map[string]any{
+				"question": item.Question,
+				"answer":   item.Answer,
+			})
+		}
+		return items
+	case []ContentSchemaStep:
+		items := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, map[string]any{
+				"name": item.Name,
+				"text": item.Text,
+				"url":  item.URL,
+			})
+		}
+		return items
+	case []map[string]any:
+		return typed
+	case []any:
+		items := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			if parsed := contentSchemaItemMap(item); len(parsed) > 0 {
+				items = append(items, parsed)
+			}
+		}
+		return items
+	case map[string]any:
+		return []map[string]any{typed}
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		var generic []any
+		if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+			return contentSchemaItemsValue(generic)
+		}
+		var single map[string]any
+		if result := core.JSONUnmarshalString(trimmed, &single); result.OK {
+			return []map[string]any{single}
+		}
+	}
+	return nil
+}
+
+func contentSchemaItemMap(value any) map[string]any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed
+	case ContentSchemaQuestion:
+		return map[string]any{
+			"question": typed.Question,
+			"answer":   typed.Answer,
+		}
+	case ContentSchemaStep:
+		return map[string]any{
+			"name": typed.Name,
+			"text": typed.Text,
+			"url":  typed.URL,
+		}
+	case string:
+		trimmed := core.Trim(typed)
+		if trimmed == "" {
+			return nil
+		}
+		var generic map[string]any
+		if result := core.JSONUnmarshalString(trimmed, &generic); result.OK {
+			return generic
+		}
+	}
+	return nil
+}
+
+func contentSchemaFAQEntries(questions []ContentSchemaQuestion) []map[string]any {
+	entries := make([]map[string]any, 0, len(questions))
+	for _, question := range questions {
+		if core.Trim(question.Question) == "" || core.Trim(question.Answer) == "" {
+			continue
+		}
+		entries = append(entries, map[string]any{
+			"@type": "Question",
+			"name":  question.Question,
+			"acceptedAnswer": map[string]any{
+				"@type": "Answer",
+				"text":  question.Answer,
+			},
+		})
+	}
+	return entries
+}
+
+func contentSchemaHowToSteps(steps []ContentSchemaStep) []map[string]any {
+	entries := make([]map[string]any, 0, len(steps))
+	for _, step := range steps {
+		if core.Trim(step.Name) == "" && core.Trim(step.Text) == "" {
+			continue
+		}
+		entry := map[string]any{
+			"@type": "HowToStep",
+		}
+		if step.Name != "" {
+			entry["name"] = step.Name
+		}
+		if step.Text != "" {
+			entry["text"] = step.Text
+		}
+		if step.URL != "" {
+			entry["url"] = step.URL
+		}
+		entries = append(entries, entry)
+	}
+	return entries
 }

@@ -235,3 +235,92 @@ func TestContent_HandleContentFromPlan_Good(t *testing.T) {
 	assert.Equal(t, "completed", output.Result.Status)
 	assert.Equal(t, "Plan-driven draft", output.Result.Content)
 }
+
+func TestContent_HandleContentSchemaGenerate_Good_Article(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "type", Value: "article"},
+		core.Option{Key: "title", Value: "Release notes"},
+		core.Option{Key: "description", Value: "What changed in this release"},
+		core.Option{Key: "url", Value: "https://example.test/releases/1"},
+		core.Option{Key: "author", Value: "Virgil"},
+		core.Option{Key: "language", Value: "en-GB"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(ContentSchemaOutput)
+	require.True(t, ok)
+	assert.Equal(t, "BlogPosting", output.SchemaType)
+	assert.Equal(t, "Release notes", output.Schema["headline"])
+	assert.Equal(t, "What changed in this release", output.Schema["description"])
+	assert.Equal(t, "https://example.test/releases/1", output.Schema["url"])
+	assert.Equal(t, "en-GB", output.Schema["inLanguage"])
+
+	author, ok := output.Schema["author"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Virgil", author["name"])
+	assert.Contains(t, output.SchemaJSON, `"@type":"BlogPosting"`)
+}
+
+func TestContent_HandleContentSchemaGenerate_Good_FAQ(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "kind", Value: "faq"},
+		core.Option{Key: "title", Value: "Release notes FAQ"},
+		core.Option{Key: "questions", Value: `[{"question":"What changed?","answer":"We added schema generation."}]`},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(ContentSchemaOutput)
+	require.True(t, ok)
+	assert.Equal(t, "FAQPage", output.SchemaType)
+
+	entries, ok := output.Schema["mainEntity"].([]map[string]any)
+	require.True(t, ok)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "Question", entries[0]["@type"])
+	assert.Equal(t, "What changed?", entries[0]["name"])
+	answer, ok := entries[0]["acceptedAnswer"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Answer", answer["@type"])
+	assert.Equal(t, "We added schema generation.", answer["text"])
+}
+
+func TestContent_HandleContentSchemaGenerate_Good_HowTo(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "kind", Value: "howto"},
+		core.Option{Key: "title", Value: "Set up the workspace"},
+		core.Option{Key: "steps", Value: `[{"name":"Prepare","text":"Clone the repo"},{"name":"Run","text":"Start the agent"}]`},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(ContentSchemaOutput)
+	require.True(t, ok)
+	assert.Equal(t, "HowTo", output.SchemaType)
+
+	steps, ok := output.Schema["step"].([]map[string]any)
+	require.True(t, ok)
+	require.Len(t, steps, 2)
+	assert.Equal(t, "HowToStep", steps[0]["@type"])
+	assert.Equal(t, "Prepare", steps[0]["name"])
+	assert.Equal(t, "Clone the repo", steps[0]["text"])
+}
+
+func TestContent_HandleContentSchemaGenerate_Bad(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "type", Value: "article"},
+	))
+	assert.False(t, result.OK)
+}
+
+func TestContent_HandleContentSchemaGenerate_Ugly(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "kind", Value: "faq"},
+		core.Option{Key: "title", Value: "FAQ"},
+		core.Option{Key: "questions", Value: `[{"question":"What changed?"`},
+	))
+	assert.False(t, result.OK)
+}
