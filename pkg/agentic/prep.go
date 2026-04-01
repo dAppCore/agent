@@ -620,8 +620,18 @@ func (s *PrepSubsystem) PrepareWorkspace(ctx context.Context, input PrepInput) (
 	return s.prepWorkspace(ctx, nil, input)
 }
 
+// _, out, err := prep.TestPrepWorkspace(ctx, input)
+func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return s.prepWorkspace(ctx, nil, input)
+}
+
 // prompt, memories, consumers := prep.BuildPrompt(ctx, input, "dev", repoPath)
 func (s *PrepSubsystem) BuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
+	return s.buildPrompt(ctx, input, branch, repoPath)
+}
+
+// prompt, memories, consumers := prep.TestBuildPrompt(ctx, input, "dev", repoPath)
+func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
 	return s.buildPrompt(ctx, input, branch, repoPath)
 }
 

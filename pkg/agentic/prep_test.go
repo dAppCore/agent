@@ -988,3 +988,71 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	assert.NotEmpty(t, out.Branch)
 	assert.Contains(t, out.Branch, "agent/")
 }
+
+func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"number": 1,
+			"title":  "Fix tests",
+			"body":   "Tests are broken",
+		})))
+	}))
+	t.Cleanup(srv.Close)
+
+	srcRepo := core.JoinPath(root, "src", "core", "test-repo")
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
+	run := func(dir string, args ...string) {
+		t.Helper()
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
+	}
+	require.True(t, fs.EnsureDir(srcRepo).OK)
+	run(srcRepo, "git", "init", "-b", "main")
+	run(srcRepo, "git", "config", "user.name", "Test")
+	run(srcRepo, "git", "config", "user.email", "test@test.com")
+	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
+	run(srcRepo, "git", "add", "README.md")
+	run(srcRepo, "git", "commit", "-m", "initial commit")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		codePath:       core.JoinPath(root, "src"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+		Repo:  "test-repo",
+		Issue: 1,
+		Task:  "Fix tests",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.NotEmpty(t, out.WorkspaceDir)
+}
+
+func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: "."})
+	require.Error(t, err)
+}
+
+func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
+	require.Error(t, err)
+}

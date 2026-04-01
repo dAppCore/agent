@@ -360,6 +360,31 @@ func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 	assert.Equal(t, 0, consumers)
 }
 
+func TestPrep_TestBuildPrompt_Good_BasicFields(t *testing.T) {
+	dir := t.TempDir()
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "Fix the tests",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", dir)
+
+	assert.Contains(t, prompt, "TASK: Fix the tests")
+	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
+	assert.Contains(t, prompt, "LANGUAGE: go")
+	assert.Contains(t, prompt, "CONSTRAINTS:")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
 func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 	dir := t.TempDir()
 
@@ -389,6 +414,40 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 
 	assert.Contains(t, prompt, "ISSUE:")
 	assert.Contains(t, prompt, "Steps to reproduce")
+}
+
+func TestPrep_TestBuildPrompt_Bad_EmptyRepoPath(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "Add unit tests",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", "")
+
+	assert.Contains(t, prompt, "TASK: Add unit tests")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
+}
+
+func TestPrep_TestBuildPrompt_Ugly_StillBuildsPrompt(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{}, "", "")
+
+	assert.Contains(t, prompt, "TASK:")
+	assert.Equal(t, 0, memories)
+	assert.Equal(t, 0, consumers)
 }
 
 // --- buildPrompt (naming convention tests) ---
