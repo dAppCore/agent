@@ -6,12 +6,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Shutdown ---
@@ -113,6 +115,122 @@ func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 	list, count := s.findConsumersList("go")
 	assert.Equal(t, 0, count)
 	assert.Empty(t, list)
+}
+
+func writeFakeLanguageCommand(t *testing.T, dir, name, logPath string, exitCode int) {
+	t.Helper()
+
+	script := core.Concat(
+		"#!/bin/sh\n",
+		"printf '%s %s\\n' '",
+		name,
+		"' \"$*\" >> '",
+		logPath,
+		"'\n",
+		"exit ",
+		core.Sprint(exitCode),
+		"\n",
+	)
+	require.True(t, fs.WriteMode(core.JoinPath(dir, name), script, 0755).OK)
+}
+
+// --- runWorkspaceLanguagePrep ---
+
+func TestPrep_RunWorkspaceLanguagePrep_Good_Polyglot(t *testing.T) {
+	root := t.TempDir()
+	binDir := core.JoinPath(root, "bin")
+	require.True(t, fs.EnsureDir(binDir).OK)
+
+	logPath := core.JoinPath(root, "commands.log")
+	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
+	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
+	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
+
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
+
+	workspaceDir := core.JoinPath(root, "workspace")
+	repoDir := core.JoinPath(root, "repo")
+	require.True(t, fs.EnsureDir(workspaceDir).OK)
+	require.True(t, fs.EnsureDir(repoDir).OK)
+	require.True(t, fs.Write(core.JoinPath(repoDir, "go.mod"), "module example.com/test\n").OK)
+	require.True(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
+	require.True(t, fs.Write(core.JoinPath(repoDir, "package.json"), "{}").OK)
+	require.True(t, fs.Write(core.JoinPath(workspaceDir, "go.work"), "go 1.22\n").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
+	require.NoError(t, err)
+
+	logResult := fs.Read(logPath)
+	require.True(t, logResult.OK)
+	assert.Equal(t, "go mod download\ngo work sync\ncomposer install\nnpm install\n", logResult.Value.(string))
+}
+
+func TestPrep_RunWorkspaceLanguagePrep_Bad_NoLanguageManifests(t *testing.T) {
+	root := t.TempDir()
+	binDir := core.JoinPath(root, "bin")
+	require.True(t, fs.EnsureDir(binDir).OK)
+
+	logPath := core.JoinPath(root, "commands.log")
+	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
+	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
+	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
+
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
+
+	workspaceDir := core.JoinPath(root, "workspace")
+	repoDir := core.JoinPath(root, "repo")
+	require.True(t, fs.EnsureDir(workspaceDir).OK)
+	require.True(t, fs.EnsureDir(repoDir).OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
+	require.NoError(t, err)
+
+	logResult := fs.Read(logPath)
+	assert.False(t, logResult.OK)
+}
+
+func TestPrep_RunWorkspaceLanguagePrep_Ugly_CommandFailure(t *testing.T) {
+	root := t.TempDir()
+	binDir := core.JoinPath(root, "bin")
+	require.True(t, fs.EnsureDir(binDir).OK)
+
+	logPath := core.JoinPath(root, "commands.log")
+	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
+	writeFakeLanguageCommand(t, binDir, "composer", logPath, 1)
+	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
+
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
+
+	workspaceDir := core.JoinPath(root, "workspace")
+	repoDir := core.JoinPath(root, "repo")
+	require.True(t, fs.EnsureDir(workspaceDir).OK)
+	require.True(t, fs.EnsureDir(repoDir).OK)
+	require.True(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "composer install failed")
 }
 
 // --- pullWikiContent ---

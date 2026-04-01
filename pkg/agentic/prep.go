@@ -544,6 +544,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
+	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	docsDir := core.JoinPath(workspaceDir, ".core", "reference", "docs")
 	if !fs.IsDir(docsDir) {
@@ -694,6 +697,39 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	b.WriteString("- Run build and tests before committing\n")
 
 	return b.String(), memories, consumers
+}
+
+// runWorkspaceLanguagePrep installs repository dependencies before the agent starts.
+//
+//	_ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
+func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
+	process := s.Core().Process()
+
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
+		if result := process.RunIn(ctx, repoDir, "go", "mod", "download"); !result.OK {
+			return core.E("prepWorkspace", "go mod download failed", nil)
+		}
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")) || fs.IsFile(core.JoinPath(repoDir, "go.work"))) {
+		if result := process.RunIn(ctx, repoDir, "go", "work", "sync"); !result.OK {
+			return core.E("prepWorkspace", "go work sync failed", nil)
+		}
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
+		if result := process.RunIn(ctx, repoDir, "composer", "install"); !result.OK {
+			return core.E("prepWorkspace", "composer install failed", nil)
+		}
+	}
+
+	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
+		if result := process.RunIn(ctx, repoDir, "npm", "install"); !result.OK {
+			return core.E("prepWorkspace", "npm install failed", nil)
+		}
+	}
+
+	return nil
 }
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
