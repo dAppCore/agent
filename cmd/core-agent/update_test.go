@@ -43,8 +43,7 @@ func TestUpdate_UpdateChannelNumericSuffix_Ugly(t *testing.T) {
 	t.Cleanup(func() {
 		agentpkg.Version = ""
 	})
-	// Ends in '1' which is < 'a', so stable
-	assert.Equal(t, "stable", updateChannel())
+	assert.Equal(t, "prerelease", updateChannel())
 }
 
 func TestUpdate_ApplicationVersion_Good(t *testing.T) {

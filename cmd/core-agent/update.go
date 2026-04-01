@@ -2,7 +2,10 @@
 
 package main
 
-import agentpkg "dappco.re/go/agent"
+import (
+	agentpkg "dappco.re/go/agent"
+	core "dappco.re/go/core"
+)
 
 // agentpkg.Version = "0.15.0"
 // updateChannel() // "stable"
@@ -10,7 +13,7 @@ func updateChannel() string {
 	switch {
 	case agentpkg.Version == "" || agentpkg.Version == "dev":
 		return "dev"
-	case agentpkg.Version != "" && (agentpkg.Version[len(agentpkg.Version)-1] >= 'a'):
+	case core.Contains(agentpkg.Version, "-"):
 		return "prerelease"
 	default:
 		return "stable"
