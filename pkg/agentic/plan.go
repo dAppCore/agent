@@ -454,7 +454,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
-	plan, err := archivePlanResult(input, "id is required", "planDelete")
+	plan, err := deletePlanResult(input, "id is required", "planDelete")
 	if err != nil {
 		return nil, PlanDeleteOutput{}, err
 	}

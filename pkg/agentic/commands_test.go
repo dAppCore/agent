@@ -1094,10 +1094,11 @@ func TestCommands_CmdPlanDelete_Good(t *testing.T) {
 
 	assert.Contains(t, output, "deleted:")
 
-	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "archived", plan.Status)
-	assert.False(t, plan.ArchivedAt.IsZero())
+	assert.False(t, fs.Exists(created.Path))
+
+	_, err = readPlan(PlansRoot(), created.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestCommands_CmdExtract_Good(t *testing.T) {

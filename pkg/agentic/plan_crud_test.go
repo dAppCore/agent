@@ -268,12 +268,11 @@ func TestPlan_PlanDelete_Good(t *testing.T) {
 	assert.True(t, delOut.Success)
 	assert.Equal(t, createOut.ID, delOut.Deleted)
 
-	assert.True(t, fs.Exists(createOut.Path))
+	assert.False(t, fs.Exists(createOut.Path))
 
-	plan, readErr := readPlan(PlansRoot(), createOut.ID)
-	require.NoError(t, readErr)
-	assert.Equal(t, "archived", plan.Status)
-	assert.False(t, plan.ArchivedAt.IsZero())
+	_, readErr := readPlan(PlansRoot(), createOut.ID)
+	require.Error(t, readErr)
+	assert.Contains(t, readErr.Error(), "not found")
 }
 
 func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
