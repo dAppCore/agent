@@ -868,7 +868,7 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 }
 
 func (s *PrepSubsystem) renderPlan(templateSlug string, variables map[string]string, task string) string {
-	definition, err := loadPlanTemplateDefinition(templateSlug, variables)
+	definition, _, err := loadPlanTemplateDefinition(templateSlug, variables)
 	if err != nil {
 		return ""
 	}

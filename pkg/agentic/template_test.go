@@ -26,6 +26,8 @@ func TestTemplate_HandleTemplateList_Good(t *testing.T) {
 	found := false
 	for _, summary := range output.Templates {
 		assert.Equal(t, "development", summary.Category)
+		assert.Equal(t, 1, summary.Version.Version)
+		assert.NotEmpty(t, summary.Version.ContentHash)
 		if summary.Slug == "bug-fix" {
 			found = true
 			assert.Equal(t, "Bug Fix", summary.Name)
@@ -48,6 +50,8 @@ func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, output.Success)
 	assert.Equal(t, "new-feature", output.Template)
+	assert.Equal(t, 1, output.Version.Version)
+	assert.NotEmpty(t, output.Version.ContentHash)
 	assert.Contains(t, output.Preview, "Authentication")
 	assert.Contains(t, output.Preview, "Phase 1")
 }
@@ -100,6 +104,8 @@ func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, "auth-rollout", output.Plan.Slug)
 	assert.Equal(t, "active", output.Plan.Status)
+	assert.Equal(t, 1, output.Version.Version)
+	assert.NotEmpty(t, output.Version.ContentHash)
 
 	plan, err := readPlan(PlansRoot(), "auth-rollout")
 	require.NoError(t, err)
@@ -124,6 +130,8 @@ func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
 	assert.NotEmpty(t, output.Plan.Slug)
 	assert.Equal(t, "API Consistency Audit", output.Plan.Title)
 	assert.Equal(t, "draft", output.Plan.Status)
+	assert.Equal(t, 1, output.Version.Version)
+	assert.NotEmpty(t, output.Version.ContentHash)
 
 	plan, err := readPlan(PlansRoot(), output.Plan.Slug)
 	require.NoError(t, err)

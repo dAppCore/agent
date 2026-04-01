@@ -4,6 +4,8 @@ package agentic
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"sort"
 
 	"dappco.re/go/agent/pkg/lib"
@@ -21,12 +23,13 @@ type TemplateVariable struct {
 
 // summary := agentic.TemplateSummary{Slug: "bug-fix", Name: "Bug Fix", PhasesCount: 6}
 type TemplateSummary struct {
-	Slug        string             `json:"slug"`
-	Name        string             `json:"name"`
-	Description string             `json:"description,omitempty"`
-	Category    string             `json:"category,omitempty"`
-	PhasesCount int                `json:"phases_count"`
-	Variables   []TemplateVariable `json:"variables,omitempty"`
+	Slug        string              `json:"slug"`
+	Name        string              `json:"name"`
+	Description string              `json:"description,omitempty"`
+	Category    string              `json:"category,omitempty"`
+	PhasesCount int                 `json:"phases_count"`
+	Variables   []TemplateVariable  `json:"variables,omitempty"`
+	Version     PlanTemplateVersion `json:"version"`
 }
 
 // input := agentic.TemplateListInput{Category: "development"}
@@ -51,9 +54,10 @@ type TemplatePreviewInput struct {
 
 // out := agentic.TemplatePreviewOutput{Success: true, Template: "bug-fix"}
 type TemplatePreviewOutput struct {
-	Success  bool   `json:"success"`
-	Template string `json:"template"`
-	Preview  string `json:"preview"`
+	Success  bool                `json:"success"`
+	Template string              `json:"template"`
+	Version  PlanTemplateVersion `json:"version"`
+	Preview  string              `json:"preview"`
 }
 
 // input := agentic.TemplateCreatePlanInput{Template: "new-feature", Variables: map[string]string{"feature_name": "Auth"}}
@@ -70,7 +74,16 @@ type TemplateCreatePlanInput struct {
 type TemplateCreatePlanOutput struct {
 	Success  bool                     `json:"success"`
 	Plan     PlanCompatibilitySummary `json:"plan"`
+	Version  PlanTemplateVersion      `json:"version"`
 	Commands map[string]string        `json:"commands,omitempty"`
+}
+
+// version := agentic.PlanTemplateVersion{Slug: "new-feature", Version: 1, ContentHash: "..." }
+type PlanTemplateVersion struct {
+	Slug        string `json:"slug"`
+	Version     int    `json:"version"`
+	Name        string `json:"name"`
+	ContentHash string `json:"content_hash"`
 }
 
 type planTemplateDefinition struct {
@@ -154,14 +167,14 @@ func (s *PrepSubsystem) registerTemplateTools(server *mcp.Server) {
 func (s *PrepSubsystem) templateList(_ context.Context, _ *mcp.CallToolRequest, input TemplateListInput) (*mcp.CallToolResult, TemplateListOutput, error) {
 	templates := make([]TemplateSummary, 0, len(lib.ListTasks()))
 	for _, slug := range lib.ListTasks() {
-		definition, err := loadPlanTemplateDefinition(slug, nil)
+		definition, version, err := loadPlanTemplateDefinition(slug, nil)
 		if err != nil {
 			continue
 		}
 		if input.Category != "" && definition.Category != input.Category {
 			continue
 		}
-		templates = append(templates, templateSummaryFromDefinition(definition))
+		templates = append(templates, templateSummaryFromDefinition(definition, version))
 	}
 
 	sort.Slice(templates, func(i, j int) bool {
@@ -181,7 +194,7 @@ func (s *PrepSubsystem) templatePreview(_ context.Context, _ *mcp.CallToolReques
 		return nil, TemplatePreviewOutput{}, core.E("templatePreview", "template is required", nil)
 	}
 
-	definition, err := loadPlanTemplateDefinition(templateName, input.Variables)
+	definition, version, err := loadPlanTemplateDefinition(templateName, input.Variables)
 	if err != nil {
 		return nil, TemplatePreviewOutput{}, err
 	}
@@ -189,6 +202,7 @@ func (s *PrepSubsystem) templatePreview(_ context.Context, _ *mcp.CallToolReques
 	return nil, TemplatePreviewOutput{
 		Success:  true,
 		Template: definition.Slug,
+		Version:  version,
 		Preview:  renderPlanMarkdown(definition, ""),
 	}, nil
 }
@@ -199,7 +213,7 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 		return nil, TemplateCreatePlanOutput{}, core.E("templateCreatePlan", "template is required", nil)
 	}
 
-	definition, err := loadPlanTemplateDefinition(templateName, input.Variables)
+	definition, version, err := loadPlanTemplateDefinition(templateName, input.Variables)
 	if err != nil {
 		return nil, TemplateCreatePlanOutput{}, err
 	}
@@ -252,6 +266,7 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 	return nil, TemplateCreatePlanOutput{
 		Success: true,
 		Plan:    planCompatibilitySummary(*plan),
+		Version: version,
 	}, nil
 }
 
@@ -264,28 +279,29 @@ func templateNameValue(values ...string) string {
 	return ""
 }
 
-func loadPlanTemplateDefinition(slug string, variables map[string]string) (planTemplateDefinition, error) {
+func loadPlanTemplateDefinition(slug string, variables map[string]string) (planTemplateDefinition, PlanTemplateVersion, error) {
 	result := lib.Task(slug)
 	if !result.OK {
 		err, _ := result.Value.(error)
 		if err == nil {
 			err = core.E("loadPlanTemplateDefinition", core.Concat("template not found: ", slug), nil)
 		}
-		return planTemplateDefinition{}, err
+		return planTemplateDefinition{}, PlanTemplateVersion{}, err
 	}
 
-	content := applyTemplateVariables(result.Value.(string), variables)
+	rawContent := result.Value.(string)
+	content := applyTemplateVariables(rawContent, variables)
 
 	var definition planTemplateDefinition
 	if err := yaml.Unmarshal([]byte(content), &definition); err != nil {
-		return planTemplateDefinition{}, core.E("loadPlanTemplateDefinition", core.Concat("invalid plan template: ", slug), err)
+		return planTemplateDefinition{}, PlanTemplateVersion{}, core.E("loadPlanTemplateDefinition", core.Concat("invalid plan template: ", slug), err)
 	}
 	if definition.Name == "" || len(definition.Phases) == 0 {
-		return planTemplateDefinition{}, core.E("loadPlanTemplateDefinition", core.Concat("invalid plan template: ", slug), nil)
+		return planTemplateDefinition{}, PlanTemplateVersion{}, core.E("loadPlanTemplateDefinition", core.Concat("invalid plan template: ", slug), nil)
 	}
 
 	definition.Slug = slug
-	return definition, nil
+	return definition, templateVersionFromContent(slug, definition.Name, rawContent), nil
 }
 
 func applyTemplateVariables(content string, variables map[string]string) string {
@@ -328,7 +344,7 @@ func renderPlanMarkdown(definition planTemplateDefinition, task string) string {
 	return plan.String()
 }
 
-func templateSummaryFromDefinition(definition planTemplateDefinition) TemplateSummary {
+func templateSummaryFromDefinition(definition planTemplateDefinition, version PlanTemplateVersion) TemplateSummary {
 	return TemplateSummary{
 		Slug:        definition.Slug,
 		Name:        definition.Name,
@@ -336,6 +352,17 @@ func templateSummaryFromDefinition(definition planTemplateDefinition) TemplateSu
 		Category:    definition.Category,
 		PhasesCount: len(definition.Phases),
 		Variables:   templateVariableList(definition),
+		Version:     version,
+	}
+}
+
+func templateVersionFromContent(slug, name, content string) PlanTemplateVersion {
+	sum := sha256.Sum256([]byte(content))
+	return PlanTemplateVersion{
+		Slug:        slug,
+		Version:     1,
+		Name:        name,
+		ContentHash: hex.EncodeToString(sum[:]),
 	}
 }
 
