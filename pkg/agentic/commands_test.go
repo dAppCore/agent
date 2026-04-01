@@ -225,6 +225,68 @@ func TestCommandsforge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) 
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdBrainList_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.list", func(_ context.Context, options core.Options) core.Result {
+		assert.Equal(t, "agent", options.String("project"))
+		assert.Equal(t, "architecture", options.String("type"))
+		assert.Equal(t, "virgil", options.String("agent_id"))
+		return core.Result{Value: map[string]any{
+			"success": true,
+			"count":   1,
+			"memories": []any{
+				map[string]any{
+					"id":         "mem-1",
+					"type":       "architecture",
+					"content":    "Use named actions.",
+					"project":    "agent",
+					"agent_id":   "virgil",
+					"confidence": 0.9,
+					"tags":       []any{"architecture", "convention"},
+				},
+			},
+		}, OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		result := s.cmdBrainList(core.NewOptions(
+			core.Option{Key: "project", Value: "agent"},
+			core.Option{Key: "type", Value: "architecture"},
+			core.Option{Key: "agent", Value: "virgil"},
+		))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "count: 1")
+	assert.Contains(t, output, "mem-1 architecture")
+	assert.Contains(t, output, "Use named actions.")
+}
+
+func TestCommands_CmdBrainList_Bad_MissingAction(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	result := s.cmdBrainList(core.NewOptions())
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "action not registered")
+}
+
+func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.list", func(_ context.Context, _ core.Options) core.Result {
+		return core.Result{Value: 123, OK: true}
+	})
+
+	result := s.cmdBrainList(core.NewOptions())
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "invalid brain list output")
+}
+
 func TestCommandsforge_CmdIssueCreate_Bad_APIError(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

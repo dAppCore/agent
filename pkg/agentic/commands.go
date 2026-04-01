@@ -24,6 +24,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
+	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
@@ -236,6 +237,65 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
+func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
+	result := s.Core().Action("brain.list").Run(s.commandContext(), core.NewOptions(
+		core.Option{Key: "project", Value: optionStringValue(options, "project")},
+		core.Option{Key: "type", Value: optionStringValue(options, "type")},
+		core.Option{Key: "agent_id", Value: optionStringValue(options, "agent_id", "agent")},
+		core.Option{Key: "limit", Value: optionIntValue(options, "limit")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdBrainList", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	payload, ok := result.Value.(map[string]any)
+	if !ok {
+		jsonResult := core.JSONMarshalString(result.Value)
+		if jsonResult == "" {
+			err := core.E("agentic.cmdBrainList", "invalid brain list output", nil)
+			core.Print(nil, "error: %v", err)
+			return core.Result{Value: err, OK: false}
+		}
+		var decoded any
+		if parseResult := core.JSONUnmarshalString(jsonResult, &decoded); !parseResult.OK {
+			err, _ := parseResult.Value.(error)
+			if err == nil {
+				err = core.E("agentic.cmdBrainList", "invalid brain list output", nil)
+			}
+			core.Print(nil, "error: %v", err)
+			return core.Result{Value: err, OK: false}
+		}
+		payload, ok = decoded.(map[string]any)
+		if !ok {
+			err := core.E("agentic.cmdBrainList", "invalid brain list output", nil)
+			core.Print(nil, "error: %v", err)
+			return core.Result{Value: err, OK: false}
+		}
+	}
+
+	output := brainListOutputFromPayload(payload)
+	core.Print(nil, "count: %d", output.Count)
+	if len(output.Memories) == 0 {
+		core.Print(nil, "no memories")
+		return core.Result{Value: output, OK: true}
+	}
+
+	for _, memory := range output.Memories {
+		if memory.Project != "" || memory.AgentID != "" || memory.Confidence != 0 {
+			core.Print(nil, "  %s %-12s %s %s %.2f", memory.ID, memory.Type, memory.Project, memory.AgentID, memory.Confidence)
+		} else {
+			core.Print(nil, "  %s %-12s", memory.ID, memory.Type)
+		}
+		if memory.Content != "" {
+			core.Print(nil, "    %s", memory.Content)
+		}
+	}
+
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
 	workspaceRoot := WorkspaceRoot()
 	filesystem := s.Core().Fs()
@@ -340,4 +400,82 @@ func parseIntString(s string) int {
 		}
 	}
 	return n
+}
+
+type brainListOutput struct {
+	Count    int                    `json:"count"`
+	Memories []brainListOutputEntry `json:"memories"`
+}
+
+type brainListOutputEntry struct {
+	ID         string   `json:"id"`
+	Type       string   `json:"type"`
+	Content    string   `json:"content"`
+	Project    string   `json:"project"`
+	AgentID    string   `json:"agent_id"`
+	Confidence float64  `json:"confidence"`
+	Tags       []string `json:"tags"`
+}
+
+func brainListOutputFromPayload(payload map[string]any) brainListOutput {
+	output := brainListOutput{}
+	switch count := payload["count"].(type) {
+	case float64:
+		output.Count = int(count)
+	case int:
+		output.Count = count
+	}
+	if memories, ok := payload["memories"].([]any); ok {
+		for _, item := range memories {
+			entryMap, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			entry := brainListOutputEntry{
+				ID:      brainListStringValue(entryMap["id"]),
+				Type:    brainListStringValue(entryMap["type"]),
+				Content: brainListStringValue(entryMap["content"]),
+				Project: brainListStringValue(entryMap["project"]),
+				AgentID: brainListStringValue(entryMap["agent_id"]),
+			}
+			switch confidence := entryMap["confidence"].(type) {
+			case float64:
+				entry.Confidence = confidence
+			case int:
+				entry.Confidence = float64(confidence)
+			}
+			if entry.Confidence == 0 {
+				switch confidence := entryMap["score"].(type) {
+				case float64:
+					entry.Confidence = confidence
+				case int:
+					entry.Confidence = float64(confidence)
+				}
+			}
+			if tags, ok := entryMap["tags"].([]any); ok {
+				for _, tag := range tags {
+					entry.Tags = append(entry.Tags, brainListStringValue(tag))
+				}
+			}
+			output.Memories = append(output.Memories, entry)
+		}
+	}
+	if output.Count == 0 {
+		output.Count = len(output.Memories)
+	}
+	return output
+}
+
+func brainListStringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case int:
+		return core.Sprint(typed)
+	case int64:
+		return core.Sprint(typed)
+	case float64:
+		return core.Sprint(typed)
+	}
+	return ""
 }
