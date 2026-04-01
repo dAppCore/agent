@@ -768,6 +768,68 @@ func TestCommands_CmdStatus_Good_BlockedQuestion(t *testing.T) {
 	assert.Contains(t, output, "Which API version?")
 }
 
+func TestCommands_CmdStatus_Good_WorkspaceFilter(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	wsA := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-9")
+	fs.EnsureDir(wsA)
+	fs.Write(core.JoinPath(wsA, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "blocked",
+		Repo:   "go-io",
+		Agent:  "gemini",
+	}))
+
+	wsB := core.JoinPath(WorkspaceRoot(), "core", "go-log", "task-4")
+	fs.EnsureDir(wsB)
+	fs.Write(core.JoinPath(wsB, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-log",
+		Agent:  "codex",
+	}))
+
+	output := captureStdout(t, func() {
+		r := s.cmdStatus(core.NewOptions(core.Option{Key: "workspace", Value: "core/go-io/task-9"}))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "core/go-io/task-9")
+	assert.NotContains(t, output, "core/go-log/task-4")
+}
+
+func TestCommands_CmdStatus_Good_StatusFilterAndLimit(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	for _, workspace := range []struct {
+		name   string
+		status string
+		repo   string
+	}{
+		{name: "ws-1", status: "blocked", repo: "go-io"},
+		{name: "ws-2", status: "blocked", repo: "go-log"},
+		{name: "ws-3", status: "completed", repo: "go-scm"},
+	} {
+		ws := core.JoinPath(WorkspaceRoot(), workspace.name)
+		fs.EnsureDir(ws)
+		fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+			Status: workspace.status,
+			Repo:   workspace.repo,
+			Agent:  "codex",
+		}))
+	}
+
+	output := captureStdout(t, func() {
+		r := s.cmdStatus(core.NewOptions(
+			core.Option{Key: "status", Value: "blocked"},
+			core.Option{Key: "limit", Value: 1},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "ws-1")
+	assert.NotContains(t, output, "ws-2")
+	assert.NotContains(t, output, "ws-3")
+}
+
 func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions())

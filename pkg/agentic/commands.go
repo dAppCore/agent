@@ -300,7 +300,7 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
+func (s *PrepSubsystem) cmdStatus(options core.Options) core.Result {
 	workspaceRoot := WorkspaceRoot()
 	filesystem := s.Core().Fs()
 	listResult := filesystem.List(workspaceRoot)
@@ -315,18 +315,35 @@ func (s *PrepSubsystem) cmdStatus(_ core.Options) core.Result {
 		return core.Result{OK: true}
 	}
 
+	requestedWorkspace := optionStringValue(options, "workspace", "_arg")
+	requestedStatus := optionStringValue(options, "status")
+	limit := optionIntValue(options, "limit")
+	matched := 0
+
 	for _, sf := range statusFiles {
 		workspaceDir := core.PathDir(sf)
 		workspaceName := WorkspaceName(workspaceDir)
+		if !statusInputMatchesWorkspace(requestedWorkspace, workspaceDir, workspaceName) {
+			continue
+		}
+
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if !ok {
 			continue
 		}
 
+		if !statusInputMatchesStatus(requestedStatus, workspaceStatus.Status) {
+			continue
+		}
+
 		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, workspaceName)
 		if workspaceStatus.Question != "" {
 			core.Print(nil, "    question: %s", workspaceStatus.Question)
+		}
+		matched++
+		if limit > 0 && matched >= limit {
+			break
 		}
 	}
 	return core.Result{OK: true}
