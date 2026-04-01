@@ -92,22 +92,12 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 
 // input := DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Issue: 12}
 func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
-	repo := options.String("_arg")
-	if repo == "" {
-		core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex]")
+	input := workspaceDispatchInputFromOptions(options)
+	if input.Repo == "" {
+		core.Print(nil, "usage: core-agent workspace dispatch <repo> --task=\"...\" --issue=N|--pr=N|--branch=X [--agent=codex] [--template=coding] [--plan-template=bug-fix] [--persona=code/reviewer] [--tag=v0.8.0] [--dry-run]")
 		return core.Result{Value: core.E("agentic.cmdWorkspaceDispatch", "repo is required", nil), OK: false}
 	}
 
-	input := DispatchInput{
-		Repo:     repo,
-		Task:     options.String("task"),
-		Agent:    options.String("agent"),
-		Org:      options.String("org"),
-		Template: options.String("template"),
-		Branch:   options.String("branch"),
-		Issue:    parseIntString(options.String("issue")),
-		PR:       parseIntString(options.String("pr")),
-	}
 	_, out, err := s.dispatch(context.Background(), nil, input)
 	if err != nil {
 		core.Print(nil, "dispatch failed: %s", err.Error())
@@ -117,7 +107,7 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 	if agent == "" {
 		agent = "codex"
 	}
-	core.Print(nil, "dispatched %s to %s", agent, repo)
+	core.Print(nil, "dispatched %s to %s", agent, input.Repo)
 	if out.WorkspaceDir != "" {
 		core.Print(nil, "  workspace: %s", out.WorkspaceDir)
 	}
@@ -125,4 +115,14 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		core.Print(nil, "  pid:       %d", out.PID)
 	}
 	return core.Result{OK: true}
+}
+
+func workspaceDispatchInputFromOptions(options core.Options) DispatchInput {
+	dispatchOptions := core.NewOptions(options.Items()...)
+	if dispatchOptions.String("repo") == "" {
+		if repo := optionStringValue(options, "_arg", "repo"); repo != "" {
+			dispatchOptions.Set("repo", repo)
+		}
+	}
+	return dispatchInputFromOptions(dispatchOptions)
 }
