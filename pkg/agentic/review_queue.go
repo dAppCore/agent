@@ -72,12 +72,12 @@ func reviewQueueReviewers(reviewer string) []string {
 	}
 }
 
-// result := c.Command("pr-manage").Run(ctx, core.NewOptions(
+// result := c.Command("review-queue").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "limit", Value: 4},
 //
 // ))
-func (s *PrepSubsystem) cmdPRManage(options core.Options) core.Result {
+func (s *PrepSubsystem) cmdReviewQueue(options core.Options) core.Result {
 	ctx := s.commandContext()
 	input := ReviewQueueInput{
 		Limit:     optionIntValue(options, "limit"),
@@ -103,6 +103,15 @@ func (s *PrepSubsystem) cmdPRManage(options core.Options) core.Result {
 	}
 
 	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Command("pr-manage").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "limit", Value: 4},
+//
+// ))
+func (s *PrepSubsystem) cmdPRManage(options core.Options) core.Result {
+	return s.cmdReviewQueue(options)
 }
 
 func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
