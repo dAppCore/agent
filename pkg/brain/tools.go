@@ -78,6 +78,7 @@ type Memory struct {
 	Content      string   `json:"content"`
 	Tags         []string `json:"tags,omitempty"`
 	Project      string   `json:"project,omitempty"`
+	Source       string   `json:"source,omitempty"`
 	Confidence   float64  `json:"confidence"`
 	SupersedesID string   `json:"supersedes_id,omitempty"`
 	ExpiresAt    string   `json:"expires_at,omitempty"`

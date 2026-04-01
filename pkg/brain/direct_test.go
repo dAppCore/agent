@@ -298,6 +298,7 @@ func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 	assert.Equal(t, "decision", out.Memories[0].Type)
 	assert.Equal(t, "virgil", out.Memories[0].AgentID)
 	assert.Equal(t, 0.95, out.Memories[0].Confidence)
+	assert.Equal(t, "manual", out.Memories[0].Source)
 	assert.Contains(t, out.Memories[0].Tags, "source:manual")
 
 	assert.Equal(t, "mem-2", out.Memories[1].ID)
@@ -463,6 +464,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 	assert.Equal(t, "mem-list-1", out.Memories[0].ID)
 	assert.Equal(t, 0.73, out.Memories[0].Confidence)
 	assert.Equal(t, "mem-old", out.Memories[0].SupersedesID)
+	assert.Equal(t, "manual", out.Memories[0].Source)
 	assert.Equal(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)
 	assert.Equal(t, "2026-04-01T00:00:00Z", out.Memories[0].ExpiresAt)
 	assert.Contains(t, out.Memories[0].Tags, "queue")

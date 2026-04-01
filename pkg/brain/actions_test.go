@@ -48,6 +48,7 @@ func TestActions_HandleList_Good(t *testing.T) {
 					"type":       "decision",
 					"project":    "agent",
 					"agent_id":   "cladius",
+					"source":     "manual",
 					"confidence": 0.9,
 					"created_at": "2026-03-31T00:00:00Z",
 					"updated_at": "2026-03-31T00:00:00Z",
@@ -78,6 +79,7 @@ func TestActions_HandleList_Good(t *testing.T) {
 	assert.Equal(t, 1, output.Count)
 	require.Len(t, output.Memories, 1)
 	assert.Equal(t, "mem-1", output.Memories[0].ID)
+	assert.Equal(t, "manual", output.Memories[0].Source)
 }
 
 func TestActions_HandleList_Bad(t *testing.T) {

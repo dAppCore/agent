@@ -254,6 +254,7 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 				Type:      stringField(memoryMap, "type"),
 				Project:   stringField(memoryMap, "project"),
 				AgentID:   stringField(memoryMap, "agent_id"),
+				Source:    stringField(memoryMap, "source"),
 				CreatedAt: stringField(memoryMap, "created_at"),
 				UpdatedAt: stringField(memoryMap, "updated_at"),
 				ExpiresAt: stringField(memoryMap, "expires_at"),
@@ -276,6 +277,9 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 				}
 			}
 			if source, ok := memoryMap["source"].(string); ok {
+				if memory.Source == "" {
+					memory.Source = source
+				}
 				memory.Tags = append(memory.Tags, core.Concat("source:", source))
 			}
 			memories = append(memories, memory)
