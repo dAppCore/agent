@@ -25,6 +25,9 @@ func (s *DirectSubsystem) OnStartup(_ context.Context) core.Result {
 	c.Action("message.send", s.handleSend).Description = "Send a direct message to another agent"
 	c.Action("message.inbox", s.handleInbox).Description = "Read direct messages for an agent"
 	c.Action("message.conversation", s.handleConversation).Description = "Read the conversation thread with another agent"
+	c.Action("agent.send", s.handleSend).Description = "Send a direct message to another agent"
+	c.Action("agent.inbox", s.handleInbox).Description = "Read direct messages for an agent"
+	c.Action("agent.conversation", s.handleConversation).Description = "Read the conversation thread with another agent"
 	return core.Result{OK: true}
 }
 

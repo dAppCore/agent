@@ -28,6 +28,9 @@ func TestActions_OnStartup_Good(t *testing.T) {
 	assert.True(t, c.Action("message.send").Exists())
 	assert.True(t, c.Action("message.inbox").Exists())
 	assert.True(t, c.Action("message.conversation").Exists())
+	assert.True(t, c.Action("agent.send").Exists())
+	assert.True(t, c.Action("agent.inbox").Exists())
+	assert.True(t, c.Action("agent.conversation").Exists())
 }
 
 func TestActions_HandleList_Good(t *testing.T) {
