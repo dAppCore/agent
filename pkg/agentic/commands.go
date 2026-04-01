@@ -32,6 +32,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
+	c.Command("review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdPRManage})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})

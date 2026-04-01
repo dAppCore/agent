@@ -589,6 +589,7 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "lang/detect")
 	assert.Contains(t, c.Commands(), "lang/list")
 	assert.Contains(t, c.Commands(), "plan-cleanup")
+	assert.Contains(t, c.Commands(), "review-queue")
 	assert.Contains(t, c.Commands(), "task")
 	assert.Contains(t, c.Commands(), "task/create")
 	assert.Contains(t, c.Commands(), "task/update")
