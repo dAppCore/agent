@@ -357,6 +357,10 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerDispatchTool(server)
 	s.registerStatusTool(server)
 	s.registerResumeTool(server)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_complete",
+		Description: "Run the completion pipeline (QA → PR → Verify → Ingest → Poke) in the background.",
+	}, s.completeTool)
 	s.registerCreatePRTool(server)
 	s.registerListPRsTool(server)
 	s.registerClosePRTool(server)

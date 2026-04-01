@@ -12,6 +12,7 @@ import (
 
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -607,6 +608,38 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 	assert.Contains(t, c.Commands(), "subscription/budget/update")
 	assert.Contains(t, c.Commands(), "subscription/update-budget")
 	assert.Contains(t, c.Commands(), "fleet/events")
+}
+
+func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
+		Capabilities: &mcpsdk.ServerCapabilities{
+			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
+		},
+	})
+
+	subsystem := &PrepSubsystem{}
+	subsystem.RegisterTools(server)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = serverSession.Close() })
+
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = clientSession.Close() })
+
+	result, err := clientSession.ListTools(context.Background(), nil)
+	require.NoError(t, err)
+
+	var toolNames []string
+	for _, tool := range result.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+
+	assert.Contains(t, toolNames, "agentic_complete")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {

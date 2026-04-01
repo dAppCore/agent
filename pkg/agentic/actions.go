@@ -11,6 +11,7 @@ import (
 	"dappco.re/go/agent/pkg/lib"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
@@ -152,6 +153,33 @@ func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) c
 // ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
 	return s.Core().Task("agent.completion").Run(ctx, s.Core(), options)
+}
+
+// input := agentic.CompleteInput{Workspace: "/srv/.core/workspace/core/go-io/task-42"}
+type CompleteInput struct {
+	Workspace string `json:"workspace"`
+}
+
+// out := agentic.CompleteOutput{Success: true, Workspace: "core/go-io/task-42"}
+type CompleteOutput struct {
+	Success   bool   `json:"success"`
+	Workspace string `json:"workspace"`
+}
+
+func (s *PrepSubsystem) completeTool(ctx context.Context, _ *mcp.CallToolRequest, input CompleteInput) (*mcp.CallToolResult, CompleteOutput, error) {
+	if input.Workspace == "" {
+		return nil, CompleteOutput{}, core.E("agentic.complete", "workspace is required", nil)
+	}
+
+	result := s.handleComplete(ctx, core.NewOptions(core.Option{Key: "workspace", Value: input.Workspace}))
+	if !result.OK {
+		return nil, CompleteOutput{}, resultErrorValue("agentic.complete", result)
+	}
+
+	return nil, CompleteOutput{
+		Success:   true,
+		Workspace: input.Workspace,
+	}, nil
 }
 
 // result := c.Action("agentic.qa").Run(ctx, core.NewOptions(
