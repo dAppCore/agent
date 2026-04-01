@@ -19,6 +19,8 @@ type TaskUpdateInput struct {
 	Notes          string `json:"notes,omitempty"`
 	File           string `json:"file,omitempty"`
 	Line           int    `json:"line,omitempty"`
+	FileRef        string `json:"file_ref,omitempty"`
+	LineRef        int    `json:"line_ref,omitempty"`
 }
 
 // input := agentic.TaskToggleInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, TaskIdentifier: 1}
@@ -38,6 +40,8 @@ type TaskCreateInput struct {
 	Notes       string `json:"notes,omitempty"`
 	File        string `json:"file,omitempty"`
 	Line        int    `json:"line,omitempty"`
+	FileRef     string `json:"file_ref,omitempty"`
+	LineRef     int    `json:"line_ref,omitempty"`
 }
 
 // out := agentic.TaskOutput{Success: true, Task: agentic.PlanTask{ID: "1", Title: "Review imports", File: "pkg/agentic/task.go", Line: 128}}
@@ -69,6 +73,8 @@ func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Optio
 		Notes:       optionStringValue(options, "notes"),
 		File:        optionStringValue(options, "file"),
 		Line:        optionIntValue(options, "line"),
+		FileRef:     optionStringValue(options, "file_ref", "file-ref"),
+		LineRef:     optionIntValue(options, "line_ref", "line-ref"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -86,6 +92,8 @@ func (s *PrepSubsystem) handleTaskUpdate(ctx context.Context, options core.Optio
 		Notes:          optionStringValue(options, "notes"),
 		File:           optionStringValue(options, "file"),
 		Line:           optionIntValue(options, "line"),
+		FileRef:        optionStringValue(options, "file_ref", "file-ref"),
+		LineRef:        optionIntValue(options, "line_ref", "line-ref"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -144,9 +152,19 @@ func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	}
 	if file := core.Trim(input.File); file != "" {
 		plan.Phases[phaseIndex].Tasks[taskIndex].File = file
+		plan.Phases[phaseIndex].Tasks[taskIndex].FileRef = file
+	}
+	if fileRef := core.Trim(input.FileRef); fileRef != "" {
+		plan.Phases[phaseIndex].Tasks[taskIndex].FileRef = fileRef
+		plan.Phases[phaseIndex].Tasks[taskIndex].File = fileRef
 	}
 	if input.Line > 0 {
 		plan.Phases[phaseIndex].Tasks[taskIndex].Line = input.Line
+		plan.Phases[phaseIndex].Tasks[taskIndex].LineRef = input.Line
+	}
+	if input.LineRef > 0 {
+		plan.Phases[phaseIndex].Tasks[taskIndex].LineRef = input.LineRef
+		plan.Phases[phaseIndex].Tasks[taskIndex].Line = input.LineRef
 	}
 	plan.UpdatedAt = time.Now()
 
@@ -189,6 +207,8 @@ func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		Notes:       core.Trim(input.Notes),
 		File:        core.Trim(input.File),
 		Line:        input.Line,
+		FileRef:     core.Trim(input.FileRef),
+		LineRef:     input.LineRef,
 	}
 	newTask = normalisePlanTask(newTask, nextIndex)
 

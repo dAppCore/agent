@@ -54,6 +54,8 @@ type PlanTask struct {
 	Notes       string `json:"notes,omitempty"`
 	File        string `json:"file,omitempty"`
 	Line        int    `json:"line,omitempty"`
+	FileRef     string `json:"file_ref,omitempty"`
+	LineRef     int    `json:"line_ref,omitempty"`
 }
 
 // checkpoint := agentic.PhaseCheckpoint{Note: "Build passes", CreatedAt: "2026-03-31T00:00:00Z"}
@@ -706,14 +708,24 @@ func planTaskValue(value any) (PlanTask, bool) {
 		if title == "" {
 			title = stringValue(typed["name"])
 		}
+		file := stringValue(typed["file"])
+		if file == "" {
+			file = stringValue(typed["file_ref"])
+		}
+		line := intValue(typed["line"])
+		if line == 0 {
+			line = intValue(typed["line_ref"])
+		}
 		return PlanTask{
 			ID:          stringValue(typed["id"]),
 			Title:       title,
 			Description: stringValue(typed["description"]),
 			Status:      stringValue(typed["status"]),
 			Notes:       stringValue(typed["notes"]),
-			File:        stringValue(typed["file"]),
-			Line:        intValue(typed["line"]),
+			File:        file,
+			Line:        line,
+			FileRef:     file,
+			LineRef:     line,
 		}, title != ""
 	case map[string]string:
 		return planTaskValue(anyMapValue(typed))
@@ -935,6 +947,18 @@ func normalisePlanTask(task PlanTask, index int) PlanTask {
 	}
 	if task.Title == "" {
 		task.Title = task.Description
+	}
+	if task.File == "" {
+		task.File = task.FileRef
+	}
+	if task.FileRef == "" {
+		task.FileRef = task.File
+	}
+	if task.Line == 0 {
+		task.Line = task.LineRef
+	}
+	if task.LineRef == 0 {
+		task.LineRef = task.Line
 	}
 	return task
 }

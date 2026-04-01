@@ -94,6 +94,40 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 	assert.Equal(t, 153, output.Task.Line)
 }
 
+func TestCommands_TaskCommand_Good_CreateFileRefAliases(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Task Command File Ref",
+		Description: "Create task through CLI command with RFC aliases",
+		Phases: []Phase{
+			{Name: "Setup"},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	r := s.cmdTaskCreate(core.NewOptions(
+		core.Option{Key: "plan_slug", Value: plan.Slug},
+		core.Option{Key: "phase_order", Value: 1},
+		core.Option{Key: "title", Value: "Patch code"},
+		core.Option{Key: "file_ref", Value: "pkg/agentic/task.go"},
+		core.Option{Key: "line_ref", Value: 153},
+	))
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(TaskCreateOutput)
+	require.True(t, ok)
+	assert.Equal(t, "pkg/agentic/task.go", output.Task.FileRef)
+	assert.Equal(t, 153, output.Task.LineRef)
+	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
+	assert.Equal(t, 153, output.Task.Line)
+}
+
 func TestCommands_TaskCommand_Bad_MissingRequiredFields(t *testing.T) {
 	s := newTestPrep(t)
 

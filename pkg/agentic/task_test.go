@@ -163,3 +163,47 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 	assert.Empty(t, updated.Phases[0].Tasks[1].File)
 	assert.Zero(t, updated.Phases[0].Tasks[1].Line)
 }
+
+func TestTask_TaskFileRefAliases_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Task File Ref Aliases",
+		Description: "Accept RFC task file reference names",
+		Phases: []Phase{
+			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	_, createdOutput, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
+		PlanSlug:   plan.Slug,
+		PhaseOrder: 1,
+		Title:      "Patch code",
+		FileRef:    "pkg/agentic/task.go",
+		LineRef:    153,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "pkg/agentic/task.go", createdOutput.Task.FileRef)
+	assert.Equal(t, 153, createdOutput.Task.LineRef)
+	assert.Equal(t, "pkg/agentic/task.go", createdOutput.Task.File)
+	assert.Equal(t, 153, createdOutput.Task.Line)
+
+	_, updatedOutput, err := s.taskUpdate(context.Background(), nil, TaskUpdateInput{
+		PlanSlug:       plan.Slug,
+		PhaseOrder:     1,
+		TaskIdentifier: createdOutput.Task.ID,
+		FileRef:        "pkg/agentic/task.go",
+		LineRef:        171,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "pkg/agentic/task.go", updatedOutput.Task.FileRef)
+	assert.Equal(t, 171, updatedOutput.Task.LineRef)
+	assert.Equal(t, "pkg/agentic/task.go", updatedOutput.Task.File)
+	assert.Equal(t, 171, updatedOutput.Task.Line)
+}

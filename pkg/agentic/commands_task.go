@@ -25,13 +25,13 @@ func (s *PrepSubsystem) cmdTask(options core.Options) core.Result {
 	case "update":
 		return s.cmdTaskUpdate(options)
 	case "":
-		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go] [--line=42]")
-		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go] [--line=42]")
+		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
 		core.Print(nil, "       core-agent task toggle <plan> --phase=1 --task=1")
 		return core.Result{OK: true}
 	default:
-		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go] [--line=42]")
-		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go] [--line=42]")
+		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
 		core.Print(nil, "       core-agent task toggle <plan> --phase=1 --task=1")
 		return core.Result{Value: core.E("agentic.cmdTask", core.Concat("unknown task command: ", action), nil), OK: false}
 	}
@@ -56,6 +56,8 @@ func (s *PrepSubsystem) cmdTaskCreate(options core.Options) core.Result {
 		core.Option{Key: "notes", Value: optionStringValue(options, "notes")},
 		core.Option{Key: "file", Value: optionStringValue(options, "file")},
 		core.Option{Key: "line", Value: optionIntValue(options, "line")},
+		core.Option{Key: "file_ref", Value: optionStringValue(options, "file_ref", "file-ref")},
+		core.Option{Key: "line_ref", Value: optionIntValue(options, "line_ref", "line-ref")},
 	))
 	if !result.OK {
 		err := commandResultError("agentic.cmdTaskCreate", result)
@@ -99,6 +101,8 @@ func (s *PrepSubsystem) cmdTaskUpdate(options core.Options) core.Result {
 		core.Option{Key: "notes", Value: optionStringValue(options, "notes")},
 		core.Option{Key: "file", Value: optionStringValue(options, "file")},
 		core.Option{Key: "line", Value: optionIntValue(options, "line")},
+		core.Option{Key: "file_ref", Value: optionStringValue(options, "file_ref", "file-ref")},
+		core.Option{Key: "line_ref", Value: optionIntValue(options, "line_ref", "line-ref")},
 	))
 	if !result.OK {
 		err := commandResultError("agentic.cmdTaskUpdate", result)
