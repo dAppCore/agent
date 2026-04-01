@@ -154,13 +154,17 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {
 	prompt := optionStringValue(options, "prompt", "_arg")
-	if prompt == "" {
-		core.Print(nil, "usage: core-agent generate --prompt=\"Draft a release note\" [--provider=claude] [--config='{\"max_tokens\":4000}']")
-		return core.Result{Value: core.E("agentic.cmdGenerate", "prompt is required", nil), OK: false}
+	briefID := optionStringValue(options, "brief_id", "brief-id")
+	template := optionStringValue(options, "template")
+	if prompt == "" && (briefID == "" || template == "") {
+		core.Print(nil, "usage: core-agent generate --prompt=\"Draft a release note\" [--brief-id=brief_1 --template=help-article] [--provider=claude] [--config='{\"max_tokens\":4000}']")
+		return core.Result{Value: core.E("agentic.cmdGenerate", "prompt or brief-id/template is required", nil), OK: false}
 	}
 
 	result := s.handleContentGenerate(s.commandContext(), core.NewOptions(
 		core.Option{Key: "prompt", Value: prompt},
+		core.Option{Key: "brief_id", Value: briefID},
+		core.Option{Key: "template", Value: template},
 		core.Option{Key: "provider", Value: options.String("provider")},
 		core.Option{Key: "config", Value: options.String("config")},
 	))

@@ -53,6 +53,39 @@ func TestContent_HandleContentGenerate_Good(t *testing.T) {
 	assert.Equal(t, 48, output.Result.OutputTokens)
 }
 
+func TestContent_HandleContentGenerate_Good_BriefTemplate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/content/generate", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "brief_1", payload["brief_id"])
+		require.Equal(t, "help-article", payload["template"])
+		require.NotContains(t, payload, "prompt")
+
+		_, _ = w.Write([]byte(`{"data":{"result":{"id":"gen_2","provider":"claude","model":"claude-3.7-sonnet","content":"Template draft","status":"completed"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleContentGenerate(context.Background(), core.NewOptions(
+		core.Option{Key: "brief_id", Value: "brief_1"},
+		core.Option{Key: "template", Value: "help-article"},
+		core.Option{Key: "provider", Value: "claude"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(ContentGenerateOutput)
+	require.True(t, ok)
+	assert.Equal(t, "gen_2", output.Result.ID)
+	assert.Equal(t, "Template draft", output.Result.Content)
+}
+
 func TestContent_HandleContentGenerate_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 

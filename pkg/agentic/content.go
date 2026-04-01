@@ -41,9 +41,15 @@ type ContentBrief struct {
 	UpdatedAt string         `json:"updated_at,omitempty"`
 }
 
-// input := agentic.ContentGenerateInput{Prompt: "Draft a release note", Provider: "claude"}
+//	input := agentic.ContentGenerateInput{
+//	    BriefID:  "brief_1",
+//	    Template: "help-article",
+//	    Provider: "claude",
+//	}
 type ContentGenerateInput struct {
-	Prompt   string         `json:"prompt"`
+	Prompt   string         `json:"prompt,omitempty"`
+	BriefID  string         `json:"brief_id,omitempty"`
+	Template string         `json:"template,omitempty"`
 	Provider string         `json:"provider,omitempty"`
 	Config   map[string]any `json:"config,omitempty"`
 }
@@ -151,6 +157,8 @@ type ContentFromPlanOutput struct {
 func (s *PrepSubsystem) handleContentGenerate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.contentGenerate(ctx, nil, ContentGenerateInput{
 		Prompt:   optionStringValue(options, "prompt"),
+		BriefID:  optionStringValue(options, "brief_id", "brief-id"),
+		Template: optionStringValue(options, "template"),
 		Provider: optionStringValue(options, "provider"),
 		Config:   optionAnyMapValue(options, "config"),
 	})
@@ -261,7 +269,7 @@ func (s *PrepSubsystem) handleContentFromPlan(ctx context.Context, options core.
 func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "content_generate",
-		Description: "Generate content using the platform AI provider abstraction.",
+		Description: "Generate content from a prompt or a brief/template pair using the platform AI provider abstraction.",
 	}, s.contentGenerate)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -306,12 +314,22 @@ func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 }
 
 func (s *PrepSubsystem) contentGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentGenerateInput) (*mcp.CallToolResult, ContentGenerateOutput, error) {
-	if core.Trim(input.Prompt) == "" {
-		return nil, ContentGenerateOutput{}, core.E("contentGenerate", "prompt is required", nil)
+	hasPrompt := core.Trim(input.Prompt) != ""
+	hasBrief := core.Trim(input.BriefID) != ""
+	hasTemplate := core.Trim(input.Template) != ""
+	if !hasPrompt && !(hasBrief && hasTemplate) {
+		return nil, ContentGenerateOutput{}, core.E("contentGenerate", "prompt or brief_id plus template is required", nil)
 	}
 
-	body := map[string]any{
-		"prompt": input.Prompt,
+	body := map[string]any{}
+	if hasPrompt {
+		body["prompt"] = input.Prompt
+	}
+	if input.BriefID != "" {
+		body["brief_id"] = input.BriefID
+	}
+	if input.Template != "" {
+		body["template"] = input.Template
 	}
 	if input.Provider != "" {
 		body["provider"] = input.Provider

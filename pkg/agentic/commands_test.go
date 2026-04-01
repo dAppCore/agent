@@ -14,6 +14,7 @@ import (
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // testPrepWithCore creates a PrepSubsystem backed by a real Core + Forge mock.
@@ -717,6 +718,40 @@ func TestCommands_CmdGenerate_Good(t *testing.T) {
 	assert.Contains(t, output, "model:    claude-3.7-sonnet")
 	assert.Contains(t, output, "status:   completed")
 	assert.Contains(t, output, "content:  Release notes draft")
+}
+
+func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/content/generate", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		assert.Equal(t, "brief_1", payload["brief_id"])
+		assert.Equal(t, "help-article", payload["template"])
+
+		_, _ = w.Write([]byte(`{"data":{"id":"gen_2","provider":"claude","model":"claude-3.7-sonnet","content":"Template draft","status":"completed"}}`))
+	}))
+	defer server.Close()
+
+	s := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		r := s.cmdGenerate(core.NewOptions(
+			core.Option{Key: "brief_id", Value: "brief_1"},
+			core.Option{Key: "template", Value: "help-article"},
+			core.Option{Key: "provider", Value: "claude"},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "provider: claude")
+	assert.Contains(t, output, "model:    claude-3.7-sonnet")
+	assert.Contains(t, output, "status:   completed")
+	assert.Contains(t, output, "content:  Template draft")
 }
 
 func TestCommands_CmdExtract_Good(t *testing.T) {
