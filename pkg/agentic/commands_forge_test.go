@@ -188,6 +188,86 @@ func TestCommandsforge_CmdIssueUpdate_Bad_MissingSlug(t *testing.T) {
 	assert.EqualError(t, result.Value.(error), "agentic.cmdIssueUpdate: slug or id is required")
 }
 
+func TestCommandsforge_CmdIssueAssign_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)
+		require.Equal(t, http.MethodPatch, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "codex", payload["assignee"])
+
+		_, _ = w.Write([]byte(`{"data":{"issue":{"slug":"fix-auth","title":"Fix auth middleware","status":"open","assignee":"codex"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdIssueAssign(core.NewOptions(
+		core.Option{Key: "slug", Value: "fix-auth"},
+		core.Option{Key: "assignee", Value: "codex"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueOutput)
+	require.True(t, ok)
+	assert.Equal(t, "fix-auth", output.Issue.Slug)
+	assert.Equal(t, "codex", output.Issue.Assignee)
+}
+
+func TestCommandsforge_CmdIssueAssign_Bad_MissingAssignee(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.cmdIssueAssign(core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
+	assert.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "agentic.cmdIssueAssign: slug or id and assignee are required")
+}
+
+func TestCommandsforge_CmdIssueReport_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/issues/fix-auth/comments", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+
+		reportBody := core.JSONMarshalString(map[string]any{
+			"summary": "Build failed",
+		})
+		require.Equal(t, "codex", payload["author"])
+		require.Equal(t, core.Concat("```json\n", reportBody, "\n```"), payload["body"])
+
+		_, _ = w.Write([]byte("{\"data\":{\"comment\":{\"id\":7,\"author\":\"codex\",\"body\":\"report received\"}}}"))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdIssueReport(core.NewOptions(
+		core.Option{Key: "slug", Value: "fix-auth"},
+		core.Option{Key: "report", Value: map[string]any{"summary": "Build failed"}},
+		core.Option{Key: "author", Value: "codex"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(IssueReportOutput)
+	require.True(t, ok)
+	assert.Equal(t, 7, output.Comment.ID)
+	assert.Equal(t, "codex", output.Comment.Author)
+}
+
+func TestCommandsforge_CmdIssueReport_Bad_MissingSlug(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.cmdIssueReport(core.NewOptions())
+	assert.False(t, result.OK)
+	assert.EqualError(t, result.Value.(error), "agentic.cmdIssueReport: slug or id is required")
+}
+
 func TestCommandsforge_CmdIssueArchive_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)
@@ -321,6 +401,8 @@ func TestCommandsforge_RegisterForgeCommands_Good_RepoSyncRegistered(t *testing.
 	s, c := testPrepWithCore(t, nil)
 	s.registerForgeCommands()
 	assert.Contains(t, c.Commands(), "repo/sync")
+	assert.Contains(t, c.Commands(), "issue/assign")
+	assert.Contains(t, c.Commands(), "issue/report")
 	assert.Contains(t, c.Commands(), "issue/update")
 	assert.Contains(t, c.Commands(), "issue/archive")
 }

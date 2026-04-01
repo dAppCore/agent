@@ -100,6 +100,8 @@ func (s *PrepSubsystem) registerForgeCommands() {
 	c.Command("issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList})
 	c.Command("issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment})
 	c.Command("issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate})
+	c.Command("issue/assign", core.Command{Description: "Assign a Forge issue", Action: s.cmdIssueAssign})
+	c.Command("issue/report", core.Command{Description: "Post a structured report to a Forge issue", Action: s.cmdIssueReport})
 	c.Command("issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate})
 	c.Command("issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive})
 	c.Command("pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet})
@@ -265,6 +267,69 @@ func (s *PrepSubsystem) cmdIssueUpdate(options core.Options) core.Result {
 	core.Print(nil, "%s", output.Issue.Slug)
 	core.Print(nil, "  status: %s", output.Issue.Status)
 	core.Print(nil, "  title:  %s", output.Issue.Title)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdIssueAssign(options core.Options) core.Result {
+	ctx := context.Background()
+	id := optionStringValue(options, "id", "slug", "_arg")
+	if id == "" || optionStringValue(options, "assignee", "agent", "agent_type") == "" {
+		core.Print(nil, "usage: core-agent issue assign <slug> --assignee=codex [--org=core]")
+		return core.Result{Value: core.E("agentic.cmdIssueAssign", "slug or id and assignee are required", nil), OK: false}
+	}
+
+	result := s.handleIssueRecordAssign(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: id},
+		core.Option{Key: "assignee", Value: optionStringValue(options, "assignee", "agent", "agent_type")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdIssueAssign", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(IssueOutput)
+	if !ok {
+		err := core.E("agentic.cmdIssueAssign", "invalid issue assign output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "%s", output.Issue.Slug)
+	core.Print(nil, "  assignee: %s", output.Issue.Assignee)
+	core.Print(nil, "  status:   %s", output.Issue.Status)
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdIssueReport(options core.Options) core.Result {
+	ctx := context.Background()
+	id := optionStringValue(options, "id", "slug", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent issue report <slug> --report=\"...\" [--org=core]")
+		return core.Result{Value: core.E("agentic.cmdIssueReport", "slug or id is required", nil), OK: false}
+	}
+
+	result := s.handleIssueRecordReport(ctx, core.NewOptions(
+		core.Option{Key: "slug", Value: id},
+		core.Option{Key: "report", Value: optionAnyValue(options, "report", "body")},
+		core.Option{Key: "author", Value: options.String("author")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdIssueReport", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(IssueReportOutput)
+	if !ok {
+		err := core.E("agentic.cmdIssueReport", "invalid issue report output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "comment: %d", output.Comment.ID)
+	core.Print(nil, "  author: %s", output.Comment.Author)
+	core.Print(nil, "  body:   %s", output.Comment.Body)
 	return core.Result{Value: output, OK: true}
 }
 
