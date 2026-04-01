@@ -10,6 +10,7 @@ import (
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/agent/pkg/runner"
+	"dappco.re/go/agent/pkg/setup"
 	"dappco.re/go/core"
 	"forge.lthn.ai/core/mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,7 @@ func TestMain_NewCoreAgent_Good(t *testing.T) {
 	assert.Contains(t, c.Services(), "runner")
 	assert.Contains(t, c.Services(), "monitor")
 	assert.Contains(t, c.Services(), "brain")
+	assert.Contains(t, c.Services(), "setup")
 	assert.Contains(t, c.Services(), "mcp")
 	assert.Contains(t, c.Commands(), "version")
 	assert.Contains(t, c.Commands(), "check")
@@ -54,6 +56,9 @@ func TestMain_NewCoreAgent_Good(t *testing.T) {
 	service = c.Service("brain")
 	assert.True(t, service.OK)
 	assert.IsType(t, &brain.DirectSubsystem{}, service.Value)
+	service = c.Service("setup")
+	assert.True(t, service.OK)
+	assert.IsType(t, &setup.Service{}, service.Value)
 	service = c.Service("mcp")
 	assert.True(t, service.OK)
 	assert.IsType(t, &mcp.Service{}, service.Value)

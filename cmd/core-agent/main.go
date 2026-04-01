@@ -13,6 +13,7 @@ import (
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/agent/pkg/runner"
+	"dappco.re/go/agent/pkg/setup"
 )
 
 func main() {
@@ -33,6 +34,7 @@ func newCoreAgent() *core.Core {
 		core.WithService(runner.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
+		core.WithService(setup.Register),
 		core.WithService(registerMCPService),
 	)
 	coreApp.App().Version = applicationVersion()
