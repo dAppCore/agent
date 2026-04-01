@@ -56,8 +56,20 @@ func compileRetryAfterPattern() *regexp.Regexp {
 func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_review_queue",
-		Description: "Process the CodeRabbit review queue. Runs local CodeRabbit review on repos, auto-merges clean ones on GitHub, dispatches fix agents for findings. Respects rate limits.",
+		Description: "Process the review queue. Supports coderabbit, codex, or both reviewers, auto-merges clean ones on GitHub, dispatches fix agents for findings, and respects rate limits.",
 	}, s.reviewQueue)
+}
+
+// reviewers := reviewQueueReviewers("both")
+func reviewQueueReviewers(reviewer string) []string {
+	switch core.Lower(core.Trim(reviewer)) {
+	case "codex":
+		return []string{"codex"}
+	case "both":
+		return []string{"codex", "coderabbit"}
+	default:
+		return []string{"coderabbit"}
+	}
 }
 
 // result := c.Command("pr-manage").Run(ctx, core.NewOptions(
@@ -118,35 +130,35 @@ func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest,
 	var rateInfo *RateLimitInfo
 
 	for _, repo := range candidates {
-		if len(processed) >= limit {
-			skipped = append(skipped, core.Concat(repo, " (limit reached)"))
-			continue
-		}
-
-		if rateInfo != nil && rateInfo.Limited && time.Now().Before(rateInfo.RetryAt) {
-			skipped = append(skipped, core.Concat(repo, " (rate limited)"))
-			continue
-		}
-
 		repoDir := core.JoinPath(basePath, repo)
-		reviewer := input.Reviewer
-		if reviewer == "" {
-			reviewer = "coderabbit"
-		}
-		result := s.reviewRepo(ctx, repoDir, repo, reviewer, input.DryRun, input.LocalOnly)
-
-		if result.Verdict == "rate_limited" {
-			retryAfter := parseRetryAfter(result.Detail)
-			rateInfo = &RateLimitInfo{
-				Limited: true,
-				RetryAt: time.Now().Add(retryAfter),
-				Message: result.Detail,
+		for _, reviewer := range reviewQueueReviewers(input.Reviewer) {
+			if len(processed) >= limit {
+				skipped = append(skipped, core.Concat(repo, " (limit reached)"))
+				break
 			}
-			skipped = append(skipped, core.Concat(repo, " (rate limited: ", retryAfter.String(), ")"))
-			continue
-		}
 
-		processed = append(processed, result)
+			if reviewer == "coderabbit" && rateInfo != nil && rateInfo.Limited && time.Now().Before(rateInfo.RetryAt) {
+				skipped = append(skipped, core.Concat(repo, " (rate limited)"))
+				continue
+			}
+
+			result := s.reviewRepo(ctx, repoDir, repo, reviewer, input.DryRun, input.LocalOnly)
+
+			if result.Verdict == "rate_limited" {
+				if reviewer == "coderabbit" {
+					retryAfter := parseRetryAfter(result.Detail)
+					rateInfo = &RateLimitInfo{
+						Limited: true,
+						RetryAt: time.Now().Add(retryAfter),
+						Message: result.Detail,
+					}
+					skipped = append(skipped, core.Concat(repo, " (rate limited: ", retryAfter.String(), ")"))
+				}
+				continue
+			}
+
+			processed = append(processed, result)
+		}
 	}
 
 	if rateInfo != nil {
@@ -187,10 +199,12 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	result := ReviewResult{Repo: repo}
 	process := s.Core().Process()
 
-	if rl := s.loadRateLimitState(); rl != nil && rl.Limited && time.Now().Before(rl.RetryAt) {
-		result.Verdict = "rate_limited"
-		result.Detail = core.Sprintf("retry after %s", rl.RetryAt.Format(time.RFC3339))
-		return result
+	if reviewer != "codex" {
+		if rl := s.loadRateLimitState(); rl != nil && rl.Limited && time.Now().Before(rl.RetryAt) {
+			result.Verdict = "rate_limited"
+			result.Detail = core.Sprintf("retry after %s", rl.RetryAt.Format(time.RFC3339))
+			return result
+		}
 	}
 
 	if reviewer == "" {

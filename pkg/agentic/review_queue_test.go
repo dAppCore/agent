@@ -3,10 +3,15 @@
 package agentic
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- countFindings (extended beyond paths_test.go) ---
@@ -49,4 +54,37 @@ func TestReviewqueue_ParseRetryAfter_Good_SingleMinuteAndSeconds(t *testing.T) {
 func TestReviewqueue_ParseRetryAfter_Bad_EmptyMessage(t *testing.T) {
 	d := parseRetryAfter("")
 	assert.Equal(t, 5*time.Minute, d)
+}
+
+func TestReviewqueue_ReviewQueueReviewers_Good_Both(t *testing.T) {
+	assert.Equal(t, []string{"codex", "coderabbit"}, reviewQueueReviewers("both"))
+}
+
+func TestReviewqueue_ReviewRepo_Good_CodexBypassesCodeRabbitRateLimit(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home)
+
+	ratePath := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
+	fs.EnsureDir(filepath.Dir(ratePath))
+	fs.Write(ratePath, core.JSONMarshalString(&RateLimitInfo{
+		Limited: true,
+		RetryAt: time.Now().Add(time.Hour),
+		Message: "rate limited",
+	}))
+
+	binDir := t.TempDir()
+	scriptPath := filepath.Join(binDir, "codex")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\necho 'No findings'\n"), 0o755))
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	result := s.reviewRepo(context.Background(), t.TempDir(), "repo", "codex", true, true)
+
+	assert.Equal(t, "clean", result.Verdict)
+	assert.Equal(t, "skipped (dry run)", result.Action)
 }
