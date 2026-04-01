@@ -27,6 +27,7 @@ type Plan struct {
 	Agent       string         `json:"agent,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+	ArchivedAt  time.Time      `json:"archived_at,omitempty"`
 }
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}

@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"time"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -185,7 +186,10 @@ func (s *PrepSubsystem) planArchiveCompat(ctx context.Context, _ *mcp.CallToolRe
 		return nil, PlanArchiveOutput{}, err
 	}
 
+	now := time.Now()
 	plan.Status = "archived"
+	plan.ArchivedAt = now
+	plan.UpdatedAt = now
 	if notes := archiveReasonValue(input.Reason); notes != "" {
 		plan.Notes = appendPlanNote(plan.Notes, notes)
 	}

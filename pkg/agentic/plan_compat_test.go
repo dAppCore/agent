@@ -103,5 +103,6 @@ func TestPlancompat_PlanArchiveCompat_Good(t *testing.T) {
 	archivedPlan, err := readPlan(PlansRoot(), plan.Slug)
 	require.NoError(t, err)
 	assert.Equal(t, "archived", archivedPlan.Status)
+	assert.False(t, archivedPlan.ArchivedAt.IsZero())
 	assert.Contains(t, archivedPlan.Notes, "No longer needed")
 }
