@@ -13,6 +13,8 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate})
 	c.Command("plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue})
 	c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList})
+	c.Command("agentic:plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow})
+	c.Command("plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
 	c.Command("plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck})
