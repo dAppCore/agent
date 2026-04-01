@@ -3,6 +3,8 @@
 package agentic
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -19,6 +21,8 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 
 	assert.Contains(t, c.Commands(), "session/handoff")
 	assert.Contains(t, c.Commands(), "agentic:session/handoff")
+	assert.Contains(t, c.Commands(), "session/end")
+	assert.Contains(t, c.Commands(), "agentic:session/end")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
@@ -90,6 +94,69 @@ func TestCommandsSession_CmdSessionHandoff_Ugly_CorruptedCacheFallsBackToRemoteE
 	assert.False(t, result.OK)
 	require.Error(t, result.Value.(error))
 	assert.Contains(t, result.Value.(error).Error(), "no platform API key configured")
+}
+
+func TestCommandsSession_CmdSessionEnd_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions/ses-end/end", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "completed", payload["status"])
+		require.Equal(t, "Ready for review", payload["summary"])
+
+		handoffNotes, ok := payload["handoff_notes"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "Ready for review", handoffNotes["summary"])
+		assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
+
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-end","agent_type":"codex","status":"completed","summary":"Ready for review","handoff":{"summary":"Ready for review","next_steps":["Run the verifier"]},"ended_at":"2026-03-31T12:00:00Z"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionEnd(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-end"},
+		core.Option{Key: "summary", Value: "Ready for review"},
+		core.Option{Key: "handoff_notes", Value: `{"summary":"Ready for review","next_steps":["Run the verifier"]}`},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "completed", output.Session.Status)
+	assert.Equal(t, "Ready for review", output.Session.Summary)
+	require.NotNil(t, output.Session.Handoff)
+	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
+}
+
+func TestCommandsSession_CmdSessionEnd_Bad_MissingSummary(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+	result := subsystem.cmdSessionEnd(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-end"},
+	))
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "summary is required")
+}
+
+func TestCommandsSession_CmdSessionEnd_Ugly_InvalidResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionEnd(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-end"},
+		core.Option{Key: "summary", Value: "Ready for review"},
+	))
+	assert.False(t, result.OK)
 }
 
 func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {

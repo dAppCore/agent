@@ -10,6 +10,8 @@ func (s *PrepSubsystem) registerSessionCommands() {
 	c := s.Core()
 	c.Command("session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
 	c.Command("agentic:session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
+	c.Command("session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
+	c.Command("agentic:session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
 	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
@@ -56,6 +58,51 @@ func (s *PrepSubsystem) cmdSessionHandoff(options core.Options) core.Result {
 	}
 	if nextSteps, ok := output.HandoffContext["next_steps"].([]string); ok && len(nextSteps) > 0 {
 		core.Print(nil, "next steps: %d", len(nextSteps))
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// core-agent session end ses-abc123 --summary="Ready for review" --status=completed
+func (s *PrepSubsystem) cmdSessionEnd(options core.Options) core.Result {
+	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
+	summary := optionStringValue(options, "summary")
+	status := optionStringValue(options, "status")
+	if status == "" {
+		status = "completed"
+	}
+	if sessionID == "" {
+		core.Print(nil, "usage: core-agent session end <session-id> --summary=\"Ready for review\" [--status=completed] [--handoff-notes=\"...\"]")
+		return core.Result{Value: core.E("agentic.cmdSessionEnd", "session_id is required", nil), OK: false}
+	}
+	if summary == "" {
+		core.Print(nil, "usage: core-agent session end <session-id> --summary=\"Ready for review\" [--status=completed] [--handoff-notes=\"...\"]")
+		return core.Result{Value: core.E("agentic.cmdSessionEnd", "summary is required", nil), OK: false}
+	}
+
+	result := s.handleSessionEnd(s.commandContext(), core.NewOptions(
+		core.Option{Key: "session_id", Value: sessionID},
+		core.Option{Key: "status", Value: status},
+		core.Option{Key: "summary", Value: summary},
+		core.Option{Key: "handoff_notes", Value: optionAnyMapValue(options, "handoff_notes", "handoff-notes", "handoff")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionEnd", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionEnd", "invalid session end output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", output.Session.SessionID)
+	core.Print(nil, "status:  %s", output.Session.Status)
+	core.Print(nil, "summary: %s", output.Session.Summary)
+	if len(output.Session.Handoff) > 0 {
+		core.Print(nil, "handoff: %d item(s)", len(output.Session.Handoff))
 	}
 	return core.Result{Value: output, OK: true}
 }

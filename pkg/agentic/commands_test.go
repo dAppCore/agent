@@ -1389,6 +1389,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "plan/archive")
 	assert.Contains(t, cmds, "plan/delete")
 	assert.Contains(t, cmds, "agentic:plan-cleanup")
+	assert.Contains(t, cmds, "session/end")
+	assert.Contains(t, cmds, "agentic:session/end")
 	assert.Contains(t, cmds, "pr-manage")
 	assert.Contains(t, cmds, "agentic:pr-manage")
 	assert.Contains(t, cmds, "review-queue")

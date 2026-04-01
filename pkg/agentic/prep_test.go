@@ -688,6 +688,8 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "lang/list")
 	assert.Contains(t, c.Commands(), "plan-cleanup")
 	assert.Contains(t, c.Commands(), "plan/from-issue")
+	assert.Contains(t, c.Commands(), "session/end")
+	assert.Contains(t, c.Commands(), "agentic:session/end")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
 	assert.Contains(t, c.Commands(), "review-queue")
