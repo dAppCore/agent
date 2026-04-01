@@ -17,17 +17,23 @@ func TestState_HandleStateSet_Good(t *testing.T) {
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
 		core.Option{Key: "key", Value: "pattern"},
 		core.Option{Key: "value", Value: `{"name":"observer"}`},
+		core.Option{Key: "type", Value: "general"},
+		core.Option{Key: "description", Value: "Shared across sessions"},
 	))
 	require.True(t, result.OK)
 
 	output, ok := result.Value.(StateOutput)
 	require.True(t, ok)
 	assert.Equal(t, "pattern", output.State.Key)
+	assert.Equal(t, "general", output.State.Type)
+	assert.Equal(t, "Shared across sessions", output.State.Description)
 
 	states, err := readPlanStates("ax-follow-up")
 	require.NoError(t, err)
 	require.Len(t, states, 1)
 	assert.Equal(t, "observer", anyMapValue(states[0].Value)["name"])
+	assert.Equal(t, "general", states[0].Type)
+	assert.Equal(t, "Shared across sessions", states[0].Description)
 }
 
 func TestState_HandleStateSet_Bad(t *testing.T) {
@@ -63,9 +69,10 @@ func TestState_HandleStateSet_Ugly_Upsert(t *testing.T) {
 func TestState_HandleStateGet_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	require.NoError(t, writePlanStates("ax-follow-up", []WorkspaceState{{
-		Key:      "pattern",
-		Value:    "observer",
-		Category: "general",
+		Key:         "pattern",
+		Value:       "observer",
+		Type:        "general",
+		Description: "Shared across sessions",
 	}}))
 
 	result := subsystem.handleStateGet(context.Background(), core.NewOptions(
@@ -77,6 +84,8 @@ func TestState_HandleStateGet_Good(t *testing.T) {
 	output, ok := result.Value.(StateOutput)
 	require.True(t, ok)
 	assert.Equal(t, "observer", stringValue(output.State.Value))
+	assert.Equal(t, "general", output.State.Type)
+	assert.Equal(t, "Shared across sessions", output.State.Description)
 }
 
 func TestState_HandleStateGet_Bad(t *testing.T) {
@@ -102,13 +111,13 @@ func TestState_HandleStateGet_Ugly_CorruptStateFile(t *testing.T) {
 func TestState_HandleStateList_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	require.NoError(t, writePlanStates("ax-follow-up", []WorkspaceState{
-		{Key: "pattern", Value: "observer", Category: "general"},
-		{Key: "risk", Value: "auth", Category: "security"},
+		{Key: "pattern", Value: "observer", Type: "general"},
+		{Key: "risk", Value: "auth", Type: "security"},
 	}))
 
 	result := subsystem.handleStateList(context.Background(), core.NewOptions(
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
-		core.Option{Key: "category", Value: "security"},
+		core.Option{Key: "type", Value: "security"},
 	))
 	require.True(t, result.OK)
 
@@ -117,6 +126,7 @@ func TestState_HandleStateList_Good(t *testing.T) {
 	assert.Equal(t, 1, output.Total)
 	require.Len(t, output.States, 1)
 	assert.Equal(t, "risk", output.States[0].Key)
+	assert.Equal(t, "security", output.States[0].Type)
 }
 
 func TestState_HandleStateList_Bad(t *testing.T) {

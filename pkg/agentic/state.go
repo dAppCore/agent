@@ -10,23 +10,27 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// state := agentic.WorkspaceState{Key: "pattern", Value: "observer", Category: "general"}
+// state := agentic.WorkspaceState{Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"}
 type WorkspaceState struct {
-	Key       string `json:"key"`
-	Value     any    `json:"value"`
-	Category  string `json:"category,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	Key         string `json:"key"`
+	Value       any    `json:"value"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	Category    string `json:"category,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
 }
 
 // PlanState is kept as a compatibility alias for older callers.
 type PlanState = WorkspaceState
 
-// input := agentic.StateSetInput{PlanSlug: "ax-follow-up", Key: "pattern", Value: "observer"}
+// input := agentic.StateSetInput{PlanSlug: "ax-follow-up", Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"}
 type StateSetInput struct {
-	PlanSlug string `json:"plan_slug"`
-	Key      string `json:"key"`
-	Value    any    `json:"value"`
-	Category string `json:"category,omitempty"`
+	PlanSlug    string `json:"plan_slug"`
+	Key         string `json:"key"`
+	Value       any    `json:"value"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	Category    string `json:"category,omitempty"`
 }
 
 // input := agentic.StateGetInput{PlanSlug: "ax-follow-up", Key: "pattern"}
@@ -35,9 +39,10 @@ type StateGetInput struct {
 	Key      string `json:"key"`
 }
 
-// input := agentic.StateListInput{PlanSlug: "ax-follow-up", Category: "general"}
+// input := agentic.StateListInput{PlanSlug: "ax-follow-up", Type: "general"}
 type StateListInput struct {
 	PlanSlug string `json:"plan_slug"`
+	Type     string `json:"type,omitempty"`
 	Category string `json:"category,omitempty"`
 }
 
@@ -63,10 +68,12 @@ type StateListOutput struct {
 // ))
 func (s *PrepSubsystem) handleStateSet(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.stateSet(ctx, nil, StateSetInput{
-		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
-		Key:      optionStringValue(options, "key"),
-		Value:    optionAnyValue(options, "value"),
-		Category: optionStringValue(options, "category"),
+		PlanSlug:    optionStringValue(options, "plan_slug", "plan"),
+		Key:         optionStringValue(options, "key"),
+		Value:       optionAnyValue(options, "value"),
+		Type:        optionStringValue(options, "type"),
+		Description: optionStringValue(options, "description"),
+		Category:    optionStringValue(options, "category"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -95,6 +102,7 @@ func (s *PrepSubsystem) handleStateGet(ctx context.Context, options core.Options
 func (s *PrepSubsystem) handleStateList(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.stateList(ctx, nil, StateListInput{
 		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
+		Type:     optionStringValue(options, "type"),
 		Category: optionStringValue(options, "category"),
 	})
 	if err != nil {
@@ -106,7 +114,7 @@ func (s *PrepSubsystem) handleStateList(ctx context.Context, options core.Option
 func (s *PrepSubsystem) registerStateTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "state_set",
-		Description: "Set a workspace state value for a plan so later sessions can reuse shared context.",
+		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
 	}, s.stateSet)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -116,7 +124,7 @@ func (s *PrepSubsystem) registerStateTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "state_list",
-		Description: "List all stored workspace state values for a plan, with optional category filtering.",
+		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
 }
 
@@ -137,14 +145,20 @@ func (s *PrepSubsystem) stateSet(_ context.Context, _ *mcp.CallToolRequest, inpu
 	}
 
 	now := time.Now().Format(time.RFC3339)
-	state := WorkspaceState{
-		Key:       input.Key,
-		Value:     input.Value,
-		Category:  input.Category,
-		UpdatedAt: now,
+	stateType := core.Trim(input.Type)
+	if stateType == "" {
+		stateType = core.Trim(input.Category)
 	}
-	if state.Category == "" {
-		state.Category = "general"
+	if stateType == "" {
+		stateType = "general"
+	}
+	state := WorkspaceState{
+		Key:         input.Key,
+		Value:       input.Value,
+		Type:        stateType,
+		Description: core.Trim(input.Description),
+		Category:    stateType,
+		UpdatedAt:   now,
 	}
 
 	found := false
@@ -184,9 +198,7 @@ func (s *PrepSubsystem) stateGet(_ context.Context, _ *mcp.CallToolRequest, inpu
 
 	for _, state := range states {
 		if state.Key == input.Key {
-			if state.Category == "" {
-				state.Category = "general"
-			}
+			state = normaliseWorkspaceState(state)
 			return nil, StateOutput{
 				Success: true,
 				State:   state,
@@ -209,8 +221,9 @@ func (s *PrepSubsystem) stateList(_ context.Context, _ *mcp.CallToolRequest, inp
 
 	filtered := make([]WorkspaceState, 0, len(states))
 	for _, state := range states {
-		if state.Category == "" {
-			state.Category = "general"
+		state = normaliseWorkspaceState(state)
+		if input.Type != "" && state.Type != input.Type {
+			continue
 		}
 		if input.Category != "" && state.Category != input.Category {
 			continue
@@ -272,4 +285,23 @@ func writePlanStates(planSlug string, states []WorkspaceState) error {
 	}
 
 	return nil
+}
+
+func normaliseWorkspaceState(state WorkspaceState) WorkspaceState {
+	state.Type = core.Trim(state.Type)
+	state.Category = core.Trim(state.Category)
+	if state.Type == "" {
+		state.Type = state.Category
+	}
+	if state.Category == "" {
+		state.Category = state.Type
+	}
+	if state.Type == "" {
+		state.Type = "general"
+	}
+	if state.Category == "" {
+		state.Category = state.Type
+	}
+	state.Description = core.Trim(state.Description)
+	return state
 }
