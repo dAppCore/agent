@@ -210,6 +210,9 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	core.Print(nil, "workspace: %s", prepOutput.WorkspaceDir)
 	core.Print(nil, "repo:      %s", prepOutput.RepoDir)
 	core.Print(nil, "branch:    %s", prepOutput.Branch)
+	if prepOutput.PromptVersion != "" {
+		core.Print(nil, "prompt:    %s", prepOutput.PromptVersion)
+	}
 	core.Print(nil, "resumed:   %v", prepOutput.Resumed)
 	core.Print(nil, "memories:  %d", prepOutput.Memories)
 	core.Print(nil, "consumers: %d", prepOutput.Consumers)

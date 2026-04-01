@@ -1032,6 +1032,20 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	assert.NotEmpty(t, out.WorkspaceDir)
 	assert.NotEmpty(t, out.Branch)
 	assert.Contains(t, out.Branch, "agent/")
+	assert.NotEmpty(t, out.PromptVersion)
+
+	promptIndexPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-version.json")
+	require.True(t, fs.Exists(promptIndexPath))
+	promptIndexResult := fs.Read(promptIndexPath)
+	require.True(t, promptIndexResult.OK)
+
+	var promptSnapshot PromptVersionSnapshot
+	require.True(t, core.JSONUnmarshalString(promptIndexResult.Value.(string), &promptSnapshot).OK)
+	assert.Equal(t, out.PromptVersion, promptSnapshot.Hash)
+	assert.Contains(t, promptSnapshot.Content, "TASK: Fix tests")
+
+	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
+	require.True(t, fs.Exists(promptSnapshotPath))
 }
 
 func TestPrep_TestPrepWorkspace_Good(t *testing.T) {

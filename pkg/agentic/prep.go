@@ -5,7 +5,9 @@ package agentic
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"sync"
 	"time"
 
@@ -407,14 +409,15 @@ type PrepInput struct {
 
 // out := agentic.PrepOutput{Success: true, WorkspaceDir: ".core/workspace/core/go-io/task-15"}
 type PrepOutput struct {
-	Success      bool   `json:"success"`
-	WorkspaceDir string `json:"workspace_dir"`
-	RepoDir      string `json:"repo_dir"`
-	Branch       string `json:"branch"`
-	Prompt       string `json:"prompt,omitempty"`
-	Memories     int    `json:"memories"`
-	Consumers    int    `json:"consumers"`
-	Resumed      bool   `json:"resumed"`
+	Success       bool   `json:"success"`
+	WorkspaceDir  string `json:"workspace_dir"`
+	RepoDir       string `json:"repo_dir"`
+	Branch        string `json:"branch"`
+	Prompt        string `json:"prompt,omitempty"`
+	PromptVersion string `json:"prompt_version,omitempty"`
+	Memories      int    `json:"memories"`
+	Consumers     int    `json:"consumers"`
+	Resumed       bool   `json:"resumed"`
 }
 
 // dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
@@ -587,6 +590,15 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	s.copyRepoSpecs(workspaceDir, input.Repo)
 
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
+	if versionResult := writePromptSnapshot(workspaceDir, out.Prompt); !versionResult.OK {
+		err, _ := versionResult.Value.(error)
+		if err == nil {
+			err = core.E("prepWorkspace", "failed to write prompt snapshot", nil)
+		}
+		return nil, PrepOutput{}, err
+	} else if version, ok := versionResult.Value.(string); ok {
+		out.PromptVersion = version
+	}
 
 	out.Success = true
 	return nil, out, nil
@@ -735,6 +747,65 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	b.WriteString("- Run build and tests before committing\n")
 
 	return b.String(), memories, consumers
+}
+
+// writePromptSnapshot stores an immutable prompt snapshot for a workspace.
+//
+//	snapshot := writePromptSnapshot("/srv/.core/workspace/core/go-io/task-42", "TASK: Fix tests")
+func writePromptSnapshot(workspaceDir, prompt string) core.Result {
+	if workspaceDir == "" || core.Trim(prompt) == "" {
+		return core.Result{OK: true}
+	}
+
+	hash := promptSnapshotHash(prompt)
+	snapshot := PromptVersionSnapshot{
+		Hash:      hash,
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		Content:   prompt,
+	}
+
+	metaDir := WorkspaceMetaDir(workspaceDir)
+	snapshotDir := core.JoinPath(metaDir, "prompt-versions")
+	if r := fs.EnsureDir(snapshotDir); !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			err = core.E("prepWorkspace", "failed to create prompt snapshot directory", nil)
+		}
+		return core.Result{Value: err, OK: false}
+	}
+
+	snapshotPath := core.JoinPath(snapshotDir, core.Concat(hash, ".json"))
+	if !fs.Exists(snapshotPath) {
+		if r := fs.WriteAtomic(snapshotPath, core.JSONMarshalString(snapshot)); !r.OK {
+			err, _ := r.Value.(error)
+			if err == nil {
+				err = core.E("prepWorkspace", "failed to write prompt snapshot", nil)
+			}
+			return core.Result{Value: err, OK: false}
+		}
+	}
+
+	if r := fs.WriteAtomic(core.JoinPath(metaDir, "prompt-version.json"), core.JSONMarshalString(snapshot)); !r.OK {
+		err, _ := r.Value.(error)
+		if err == nil {
+			err = core.E("prepWorkspace", "failed to write prompt version index", nil)
+		}
+		return core.Result{Value: err, OK: false}
+	}
+
+	return core.Result{Value: hash, OK: true}
+}
+
+// snapshot := PromptVersionSnapshot{Hash: "f2c8...", Content: "TASK: Fix tests"}
+type PromptVersionSnapshot struct {
+	Hash      string `json:"hash"`
+	CreatedAt string `json:"created_at"`
+	Content   string `json:"content"`
+}
+
+func promptSnapshotHash(prompt string) string {
+	sum := sha256.Sum256([]byte(prompt))
+	return hex.EncodeToString(sum[:])
 }
 
 // runWorkspaceLanguagePrep installs repository dependencies before the agent starts.
