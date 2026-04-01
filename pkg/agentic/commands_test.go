@@ -287,6 +287,54 @@ func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid brain list output")
 }
 
+func TestCommands_CmdBrainForget_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.forget", func(_ context.Context, options core.Options) core.Result {
+		assert.Equal(t, "mem-1", options.String("id"))
+		assert.Equal(t, "superseded", options.String("reason"))
+		return core.Result{Value: map[string]any{
+			"success":   true,
+			"forgotten": "mem-1",
+		}, OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		result := s.cmdBrainForget(core.NewOptions(
+			core.Option{Key: "_arg", Value: "mem-1"},
+			core.Option{Key: "reason", Value: "superseded"},
+		))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "forgotten: mem-1")
+	assert.Contains(t, output, "reason:    superseded")
+}
+
+func TestCommands_CmdBrainForget_Bad_MissingID(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	result := s.cmdBrainForget(core.NewOptions())
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "memory id is required")
+}
+
+func TestCommands_CmdBrainForget_Ugly_ActionFailure(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.forget", func(_ context.Context, _ core.Options) core.Result {
+		return core.Result{Value: core.E("brain.forget", "failed to forget memory", nil), OK: false}
+	})
+
+	result := s.cmdBrainForget(core.NewOptions(core.Option{Key: "_arg", Value: "mem-1"}))
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "failed to forget memory")
+}
+
 func TestCommandsforge_CmdIssueCreate_Bad_APIError(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

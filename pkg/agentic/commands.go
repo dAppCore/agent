@@ -31,6 +31,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
+	c.Command("brain/forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget})
 	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a repository or workspace", Action: s.cmdLangDetect})
 	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
@@ -366,6 +367,31 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 	}
 
 	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Command("brain/forget").Run(ctx, core.NewOptions(core.Option{Key: "_arg", Value: "mem-1"}))
+func (s *PrepSubsystem) cmdBrainForget(options core.Options) core.Result {
+	id := optionStringValue(options, "id", "_arg")
+	if id == "" {
+		core.Print(nil, "usage: core-agent brain forget <memory-id> [--reason=\"superseded\"]")
+		return core.Result{Value: core.E("agentic.cmdBrainForget", "memory id is required", nil), OK: false}
+	}
+
+	result := s.Core().Action("brain.forget").Run(s.commandContext(), core.NewOptions(
+		core.Option{Key: "id", Value: id},
+		core.Option{Key: "reason", Value: optionStringValue(options, "reason")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdBrainForget", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "forgotten: %s", id)
+	if reason := optionStringValue(options, "reason"); reason != "" {
+		core.Print(nil, "reason:    %s", reason)
+	}
+	return core.Result{Value: result.Value, OK: true}
 }
 
 func (s *PrepSubsystem) cmdStatus(options core.Options) core.Result {
