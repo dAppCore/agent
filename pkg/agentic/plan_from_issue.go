@@ -66,6 +66,7 @@ func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolReques
 	if objective == "" {
 		objective = issueOutput.Issue.Title
 	}
+	tasks := planFromIssueTasks(description)
 
 	phaseTitle := core.Concat("Resolve issue: ", issueOutput.Issue.Title)
 	phaseCriteria := []string{"Issue is closed", "QA passes"}
@@ -93,6 +94,7 @@ func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolReques
 				Name:        phaseTitle,
 				Description: description,
 				Criteria:    phaseCriteria,
+				Tasks:       tasks,
 			},
 		},
 		Notes: core.Concat("Created from issue ", identifier),
@@ -120,6 +122,30 @@ func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolReques
 		Plan:    *plan,
 		Path:    createOutput.Path,
 	}, nil
+}
+
+func planFromIssueTasks(body string) []PlanTask {
+	var tasks []PlanTask
+	for _, line := range core.Split(body, "\n") {
+		trimmed := core.Trim(line)
+		if title, ok := planFromIssueTaskTitle(trimmed); ok {
+			tasks = append(tasks, PlanTask{Title: title})
+		}
+	}
+	return tasks
+}
+
+func planFromIssueTaskTitle(line string) (string, bool) {
+	for _, prefix := range []string{"- [ ] ", "- [x] ", "- [X] ", "* [ ] ", "* [x] ", "* [X] "} {
+		if core.HasPrefix(line, prefix) {
+			title := core.Trim(core.TrimPrefix(line, prefix))
+			if title != "" {
+				return title, true
+			}
+			return "", false
+		}
+	}
+	return "", false
 }
 
 // plan-from-issue fixtures should use issue slugs like `fix-auth`.
