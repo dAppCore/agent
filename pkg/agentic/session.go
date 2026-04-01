@@ -327,6 +327,11 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 	}, s.sessionEnd)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "session_complete",
+		Description: "Mark a session completed with status, summary, and optional handoff notes.",
+	}, s.sessionEnd)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_log",
 		Description: "Add a typed work log entry to a stored session.",
 	}, s.sessionLog)

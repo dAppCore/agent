@@ -501,6 +501,7 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("session.list").Exists())
 	assert.True(t, c.Action("session.continue").Exists())
 	assert.True(t, c.Action("session.end").Exists())
+	assert.True(t, c.Action("session.complete").Exists())
 	assert.True(t, c.Action("session.log").Exists())
 	assert.True(t, c.Action("session.artifact").Exists())
 	assert.True(t, c.Action("session.handoff").Exists())
@@ -653,6 +654,7 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	}
 
 	assert.Contains(t, toolNames, "agentic_complete")
+	assert.Contains(t, toolNames, "session_complete")
 	assert.Contains(t, toolNames, "agentic_message_send")
 	assert.Contains(t, toolNames, "agentic_message_inbox")
 	assert.Contains(t, toolNames, "agentic_message_conversation")

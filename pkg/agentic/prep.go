@@ -215,6 +215,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("session.list", s.handleSessionList).Description = "List sessions with optional plan or status filters"
 	c.Action("session.continue", s.handleSessionContinue).Description = "Continue a session from its latest saved context"
 	c.Action("session.end", s.handleSessionEnd).Description = "End a session with status and summary"
+	c.Action("session.complete", s.handleSessionEnd).Description = "Mark a session completed with status, summary, and handoff notes"
 	c.Action("session.log", s.handleSessionLog).Description = "Append a typed work-log entry to a stored session"
 	c.Action("session.artifact", s.handleSessionArtifact).Description = "Record a created, modified, deleted, or reviewed artifact for a session"
 	c.Action("session.handoff", s.handleSessionHandoff).Description = "Pause a session with handoff notes for the next agent"
