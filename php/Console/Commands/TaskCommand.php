@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Console\Commands;
@@ -10,8 +12,8 @@ use Illuminate\Console\Command;
 class TaskCommand extends Command
 {
     protected $signature = 'task
-        {action=list : Action: list, add, done, start, remove, show}
-        {--id= : Task ID for done/start/remove/show}
+        {action=list : Action: list, add, update, toggle, done, start, remove, show}
+        {--id= : Task ID for update/toggle/done/start/remove/show}
         {--title= : Task title for add}
         {--desc= : Task description}
         {--priority=normal : Priority: low, normal, high, urgent}
@@ -42,6 +44,8 @@ class TaskCommand extends Command
         return match ($action) {
             'list', 'ls' => $this->listTasks(),
             'add', 'new' => $this->addTask(),
+            'update', 'edit' => $this->updateTask(),
+            'toggle', 'flip' => $this->toggleTask(),
             'done', 'complete' => $this->completeTask(),
             'start', 'wip' => $this->startTask(),
             'remove', 'rm', 'delete' => $this->removeTask(),
@@ -157,6 +161,98 @@ class TaskCommand extends Command
         ]);
 
         $this->info("Created task #{$task->id}: {$task->title}");
+
+        return 0;
+    }
+
+    protected function updateTask(): int
+    {
+        $task = $this->findTask('update');
+
+        if (! $task) {
+            return 1;
+        }
+
+        $updates = [];
+
+        $title = $this->option('title');
+        if ($title !== null) {
+            $title = trim((string) $title);
+            if ($title === '') {
+                $this->error('Title cannot be empty');
+
+                return 1;
+            }
+
+            $updates['title'] = $title;
+        }
+
+        $description = $this->option('desc');
+        if ($description !== null) {
+            $updates['description'] = (string) $description;
+        }
+
+        $priority = $this->option('priority');
+        if ($this->input->hasParameterOption('--priority')) {
+            $allowed = ['low', 'normal', 'high', 'urgent'];
+            if (! in_array($priority, $allowed, true)) {
+                $this->error('Priority must be one of: low, normal, high, urgent');
+
+                return 1;
+            }
+
+            $updates['priority'] = $priority;
+        }
+
+        $category = $this->option('category');
+        if ($category !== null) {
+            $updates['category'] = (string) $category;
+        }
+
+        $file = $this->option('file');
+        if ($file !== null) {
+            $updates['file_ref'] = (string) $file;
+        }
+
+        $line = $this->option('line');
+        if ($line !== null) {
+            if (! is_numeric($line)) {
+                $this->error('Line must be a number');
+
+                return 1;
+            }
+
+            $updates['line_ref'] = (int) $line;
+        }
+
+        if ($updates === []) {
+            $this->error('Provide at least one field to update: --title, --desc, --priority, --category, --file, or --line');
+
+            return 1;
+        }
+
+        $task->update($updates);
+
+        $fresh = $task->fresh();
+        $this->info("Updated: {$fresh->title}");
+
+        return 0;
+    }
+
+    protected function toggleTask(): int
+    {
+        $task = $this->findTask('toggle');
+
+        if (! $task) {
+            return 1;
+        }
+
+        $currentStatus = $task->status;
+        $newStatus = $currentStatus === 'done' ? 'pending' : 'done';
+        $task->update(['status' => $newStatus]);
+
+        $fresh = $task->fresh();
+        $this->info("Toggled: {$fresh->title} {$currentStatus} → {$fresh->status}");
 
         return 0;
     }
@@ -278,6 +374,8 @@ class TaskCommand extends Command
         $this->line(' <comment>Usage:</comment>');
         $this->line('   php artisan task list                    List active tasks');
         $this->line('   php artisan task add --title="Fix bug"   Add a task');
+        $this->line('   php artisan task update --id=1 --desc="..."  Update task details');
+        $this->line('   php artisan task toggle --id=1          Toggle task completion');
         $this->line('   php artisan task start --id=1            Start working on task');
         $this->line('   php artisan task done --id=1             Complete a task');
         $this->line('   php artisan task show --id=1             Show task details');
