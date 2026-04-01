@@ -13,6 +13,12 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 	c.Command("sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus})
 	c.Command("auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision})
 	c.Command("auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
+	c.Command("message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
+	c.Command("messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
+	c.Command("message/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
+	c.Command("messages/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
+	c.Command("message/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
+	c.Command("messages/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
 
 	c.Command("fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister})
 	c.Command("fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat})

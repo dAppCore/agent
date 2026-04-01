@@ -94,7 +94,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
 			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats", "agentic.fleet.events",
 			"agentic.credits.balance", "agentic.credits.history",
-			"agentic.subscription.detect", "agentic.subscription.budget":
+			"agentic.subscription.detect", "agentic.subscription.budget",
+			"agentic.message.send", "agentic.message.inbox", "agentic.message.conversation":
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
 		if s.frozen {
@@ -157,6 +158,12 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agent.subscription.budget", s.handleSubscriptionBudget).Description = "Get the compute budget for a fleet node"
 	c.Action("agentic.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
 	c.Action("agent.subscription.budget.update", s.handleSubscriptionBudgetUpdate).Description = "Update the compute budget for a fleet node"
+	c.Action("agentic.message.send", s.handleMessageSend).Description = "Send a direct message between agents"
+	c.Action("agent.message.send", s.handleMessageSend).Description = "Send a direct message between agents"
+	c.Action("agentic.message.inbox", s.handleMessageInbox).Description = "List direct messages for an agent"
+	c.Action("agent.message.inbox", s.handleMessageInbox).Description = "List direct messages for an agent"
+	c.Action("agentic.message.conversation", s.handleMessageConversation).Description = "List a direct conversation between two agents"
+	c.Action("agent.message.conversation", s.handleMessageConversation).Description = "List a direct conversation between two agents"
 
 	c.Action("agentic.dispatch", s.handleDispatch).Description = "Prep workspace and spawn a subagent"
 	c.Action("agentic.dispatch.sync", s.handleDispatchSync).Description = "Dispatch a single task synchronously and block until it completes"
@@ -378,6 +385,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerTaskTools(server)
 	s.registerTemplateTools(server)
 	s.registerIssueTools(server)
+	s.registerMessageTools(server)
 	s.registerSprintTools(server)
 	s.registerContentTools(server)
 	s.registerLanguageTools(server)
