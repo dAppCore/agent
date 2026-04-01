@@ -20,6 +20,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
+	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
@@ -147,6 +148,50 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 		core.Print(nil, "--- prompt (%d chars) ---", len(prepOutput.Prompt))
 		core.Print(nil, "%s", prepOutput.Prompt)
 	}
+	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {
+	prompt := optionStringValue(options, "prompt", "_arg")
+	if prompt == "" {
+		core.Print(nil, "usage: core-agent generate --prompt=\"Draft a release note\" [--provider=claude] [--config='{\"max_tokens\":4000}']")
+		return core.Result{Value: core.E("agentic.cmdGenerate", "prompt is required", nil), OK: false}
+	}
+
+	result := s.handleContentGenerate(s.commandContext(), core.NewOptions(
+		core.Option{Key: "prompt", Value: prompt},
+		core.Option{Key: "provider", Value: options.String("provider")},
+		core.Option{Key: "config", Value: options.String("config")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdGenerate", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(ContentGenerateOutput)
+	if !ok {
+		err := core.E("agentic.cmdGenerate", "invalid content generate output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.Result.Provider != "" {
+		core.Print(nil, "provider: %s", output.Result.Provider)
+	}
+	if output.Result.Model != "" {
+		core.Print(nil, "model:    %s", output.Result.Model)
+	}
+	if output.Result.Status != "" {
+		core.Print(nil, "status:   %s", output.Result.Status)
+	}
+	if output.Result.Content != "" {
+		core.Print(nil, "content:  %s", output.Result.Content)
+	}
+	if output.Result.InputTokens > 0 || output.Result.OutputTokens > 0 {
+		core.Print(nil, "tokens:   %d in / %d out", output.Result.InputTokens, output.Result.OutputTokens)
+	}
+
 	return core.Result{OK: true}
 }
 

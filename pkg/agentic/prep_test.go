@@ -570,6 +570,18 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 	assert.Contains(t, c.Commands(), "fleet/events")
 }
 
+func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.Contains(t, c.Commands(), "generate")
+}
+
 func TestPrep_OnStartup_Bad(t *testing.T) {
 	// OnStartup with nil ServiceRuntime — panics because
 	// registerCommands calls s.Core().Command().

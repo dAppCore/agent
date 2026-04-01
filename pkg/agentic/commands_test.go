@@ -690,6 +690,35 @@ func TestCommands_CmdPrompt_Good_DefaultTask(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdGenerate_Bad_MissingPrompt(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdGenerate(core.NewOptions())
+	assert.False(t, r.OK)
+}
+
+func TestCommands_CmdGenerate_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/content/generate", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		_, _ = w.Write([]byte(`{"data":{"id":"gen_1","provider":"claude","model":"claude-3.7-sonnet","content":"Release notes draft","input_tokens":12,"output_tokens":48,"status":"completed"}}`))
+	}))
+	defer server.Close()
+
+	s := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		r := s.cmdGenerate(core.NewOptions(
+			core.Option{Key: "_arg", Value: "Draft a release note"},
+			core.Option{Key: "provider", Value: "claude"},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "provider: claude")
+	assert.Contains(t, output, "model:    claude-3.7-sonnet")
+	assert.Contains(t, output, "status:   completed")
+	assert.Contains(t, output, "content:  Release notes draft")
+}
+
 func TestCommands_CmdExtract_Good(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := core.JoinPath(t.TempDir(), "extract-test")
