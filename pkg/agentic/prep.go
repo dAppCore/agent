@@ -92,6 +92,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		case "agentic.status", "agentic.scan", "agentic.watch",
 			"agentic.issue.get", "agentic.issue.list", "agentic.issue.assign", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
+			"agentic.prompt.version",
 			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats", "agentic.fleet.events",
 			"agentic.credits.balance", "agentic.credits.history",
 			"agentic.subscription.detect", "agentic.subscription.budget",
@@ -385,6 +386,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerStateTools(server)
 	s.registerPhaseTools(server)
 	s.registerTaskTools(server)
+	s.registerPromptTools(server)
 	s.registerTemplateTools(server)
 	s.registerIssueTools(server)
 	s.registerMessageTools(server)

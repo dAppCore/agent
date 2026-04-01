@@ -16,6 +16,11 @@ type PromptVersionOutput struct {
 	Snapshot  PromptVersionSnapshot `json:"snapshot"`
 }
 
+// input := agentic.PromptVersionInput{Workspace: "/srv/.core/workspace/core/go-io/task-42"}
+type PromptVersionInput struct {
+	Workspace string `json:"workspace"`
+}
+
 // result := c.Action("agentic.prompt.version").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "/srv/.core/workspace/core/go-io/task-42"},
@@ -46,4 +51,19 @@ func (s *PrepSubsystem) promptVersion(_ context.Context, _ *mcp.CallToolRequest,
 		Workspace: workspace,
 		Snapshot:  snapshot,
 	}, nil
+}
+
+func (s *PrepSubsystem) registerPromptTools(server *mcp.Server) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_prompt_version",
+		Description: "Read the current prompt snapshot for a workspace.",
+	}, s.promptVersionTool)
+}
+
+func (s *PrepSubsystem) promptVersionTool(ctx context.Context, _ *mcp.CallToolRequest, input PromptVersionInput) (*mcp.CallToolResult, PromptVersionOutput, error) {
+	if core.Trim(input.Workspace) == "" {
+		return nil, PromptVersionOutput{}, core.E("promptVersion", "workspace is required", nil)
+	}
+
+	return s.promptVersion(ctx, nil, input.Workspace)
 }
