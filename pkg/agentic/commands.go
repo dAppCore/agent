@@ -28,6 +28,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("agentic:prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
+	c.Command("resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume})
+	c.Command("agentic:resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("agentic:generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Ingest → Poke)", Action: s.cmdComplete})
@@ -241,6 +243,40 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 		core.Print(nil, "%s", prepOutput.Prompt)
 	}
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdResume(options core.Options) core.Result {
+	workspace := optionStringValue(options, "workspace", "_arg")
+	if workspace == "" {
+		core.Print(nil, "usage: core-agent resume <workspace> [--answer=\"...\"] [--agent=codex] [--dry-run]")
+		return core.Result{Value: core.E("agentic.cmdResume", "workspace is required", nil), OK: false}
+	}
+
+	_, output, err := s.resume(s.commandContext(), nil, ResumeInput{
+		Workspace: workspace,
+		Answer:    optionStringValue(options, "answer"),
+		Agent:     optionStringValue(options, "agent"),
+		DryRun:    optionBoolValue(options, "dry_run", "dry-run"),
+	})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "workspace:  %s", output.Workspace)
+	core.Print(nil, "agent:      %s", output.Agent)
+	if output.PID > 0 {
+		core.Print(nil, "pid:        %d", output.PID)
+	}
+	if output.OutputFile != "" {
+		core.Print(nil, "output:     %s", output.OutputFile)
+	}
+	if output.Prompt != "" {
+		core.Print(nil, "")
+		core.Print(nil, "--- prompt (%d chars) ---", len(output.Prompt))
+		core.Print(nil, "%s", output.Prompt)
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {

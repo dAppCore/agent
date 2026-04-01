@@ -1282,6 +1282,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "dispatch/shutdown-now")
 	assert.Contains(t, cmds, "prep")
 	assert.Contains(t, cmds, "agentic:prep-workspace")
+	assert.Contains(t, cmds, "resume")
+	assert.Contains(t, cmds, "agentic:resume")
 	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "scan")
 	assert.Contains(t, cmds, "agentic:scan")
