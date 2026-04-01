@@ -122,6 +122,66 @@ rates:
 		"expected 120s or 15s, got %v", d)
 }
 
+func TestQueue_DelayForAgent_Good_MinDelayFloor(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	cfg := `version: 1
+rates:
+  codex:
+    reset_utc: "06:00"
+    min_delay: 90
+    sustained_delay: 30
+    burst_window: 0
+    burst_delay: 0`
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	d := s.delayForAgent("codex:gpt-5.4")
+	assert.Equal(t, 90*time.Second, d)
+}
+
+func TestQueue_CanDispatchAgent_Bad_DailyLimitReached(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
+
+	cfg := `version: 1
+rates:
+  codex:
+    reset_utc: "06:00"
+    daily_limit: 2
+    sustained_delay: 30`
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	eventsPath := core.JoinPath(root, "workspace", "events.jsonl")
+	require.True(t, fs.Write(eventsPath, core.Concat(
+		core.JSONMarshalString(CompletionEvent{Type: "agent_started", Agent: "codex:gpt-5.4", Timestamp: now}),
+		"\n",
+		core.JSONMarshalString(CompletionEvent{Type: "agent_started", Agent: "codex:gpt-5.4", Timestamp: now}),
+		"\n",
+	)).OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	assert.False(t, s.canDispatchAgent("codex:gpt-5.4"))
+	until, ok := s.backoff["codex"]
+	require.True(t, ok)
+	assert.True(t, until.After(time.Now()))
+}
+
 // --- countRunningByModel ---
 
 func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {

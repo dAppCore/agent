@@ -134,11 +134,17 @@ func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	nextReset := resetToday.AddDate(0, 0, 1)
 	hoursUntilReset := nextReset.Sub(now).Hours()
 
+	delay := time.Duration(rate.SustainedDelay) * time.Second
 	if rate.BurstWindow > 0 && hoursUntilReset <= float64(rate.BurstWindow) {
-		return time.Duration(rate.BurstDelay) * time.Second
+		delay = time.Duration(rate.BurstDelay) * time.Second
 	}
 
-	return time.Duration(rate.SustainedDelay) * time.Second
+	minDelay := time.Duration(rate.MinDelay) * time.Second
+	if minDelay > delay {
+		delay = minDelay
+	}
+
+	return delay
 }
 
 // n := s.countRunningByAgent("codex")
@@ -237,6 +243,14 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	base := baseAgent(agent)
 	limit, ok := concurrency[base]
 	if !ok || limit.Total <= 0 {
+		if blocked, until := s.dailyRateLimitBackoff(agent); blocked {
+			if s.backoff == nil {
+				s.backoff = make(map[string]time.Time)
+			}
+			s.backoff[baseAgent(agent)] = until
+			s.persistRuntimeState()
+			return false
+		}
 		return true
 	}
 
@@ -255,7 +269,92 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 		}
 	}
 
+	if blocked, until := s.dailyRateLimitBackoff(agent); blocked {
+		if s.backoff == nil {
+			s.backoff = make(map[string]time.Time)
+		}
+		s.backoff[base] = until
+		s.persistRuntimeState()
+		return false
+	}
+
 	return true
+}
+
+func (s *PrepSubsystem) dailyRateLimitBackoff(agent string) (bool, time.Time) {
+	rates := s.loadAgentsConfig().Rates
+	rate, ok := rates[baseAgent(agent)]
+	if !ok || rate.DailyLimit <= 0 {
+		return false, time.Time{}
+	}
+
+	if s.dailyDispatchCount(agent) < rate.DailyLimit {
+		return false, time.Time{}
+	}
+
+	resetHour, resetMin := 6, 0
+	parts := core.Split(rate.ResetUTC, ":")
+	if len(parts) >= 2 {
+		if hour, err := strconv.Atoi(core.Trim(parts[0])); err == nil {
+			resetHour = hour
+		}
+		if min, err := strconv.Atoi(core.Trim(parts[1])); err == nil {
+			resetMin = min
+		}
+	}
+
+	now := time.Now().UTC()
+	resetToday := time.Date(now.Year(), now.Month(), now.Day(), resetHour, resetMin, 0, 0, time.UTC)
+	if now.Before(resetToday) {
+		resetToday = resetToday.AddDate(0, 0, -1)
+	}
+	nextReset := resetToday.AddDate(0, 0, 1)
+	if nextReset.Before(now) {
+		nextReset = now
+	}
+	return true, nextReset
+}
+
+func (s *PrepSubsystem) dailyDispatchCount(agent string) int {
+	eventsPath := core.JoinPath(WorkspaceRoot(), "events.jsonl")
+	result := fs.Read(eventsPath)
+	if !result.OK {
+		return 0
+	}
+
+	targetDay := time.Now().UTC().Format("2006-01-02")
+	base := baseAgent(agent)
+	count := 0
+
+	for _, line := range core.Split(result.Value.(string), "\n") {
+		line = core.Trim(line)
+		if line == "" {
+			continue
+		}
+
+		var event CompletionEvent
+		if parseResult := core.JSONUnmarshalString(line, &event); !parseResult.OK {
+			continue
+		}
+		if event.Type != "agent_started" {
+			continue
+		}
+		if baseAgent(event.Agent) != base {
+			continue
+		}
+
+		timestamp, err := time.Parse(time.RFC3339, event.Timestamp)
+		if err != nil {
+			continue
+		}
+		if timestamp.UTC().Format("2006-01-02") != targetDay {
+			continue
+		}
+
+		count++
+	}
+
+	return count
 }
 
 // model := modelVariant("codex:gpt-5.4")
