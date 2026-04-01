@@ -347,7 +347,24 @@ func (s *PrepSubsystem) handleFleetCompleteTask(ctx context.Context, options cor
 		return result
 	}
 
-	return core.Result{Value: parseFleetTask(payloadResourceMap(result.Value.(map[string]any), "task")), OK: true}
+	task := parseFleetTask(payloadResourceMap(result.Value.(map[string]any), "task"))
+
+	awardOptions := core.NewOptions(
+		core.Option{Key: "agent_id", Value: agentID},
+		core.Option{Key: "task_type", Value: "fleet-task"},
+		core.Option{Key: "amount", Value: 2},
+		core.Option{Key: "description", Value: "Fleet task completed"},
+	)
+	if task.FleetNodeID > 0 {
+		awardOptions.Set("fleet_node_id", task.FleetNodeID)
+	}
+	if awardResult := s.handleCreditsAward(ctx, awardOptions); !awardResult.OK {
+		if s.Core() != nil {
+			core.Print(nil, "warning: %v", commandResultError("agentic.fleet.task.complete", awardResult))
+		}
+	}
+
+	return core.Result{Value: task, OK: true}
 }
 
 // result := c.Action("agentic.fleet.task.next").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))

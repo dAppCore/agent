@@ -289,6 +289,58 @@ func TestPlatform_HandleFleetEvents_Ugly(t *testing.T) {
 	assert.False(t, result.OK)
 }
 
+func TestPlatform_HandleFleetCompleteTask_Good_AwardsCredits(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/fleet/task/complete":
+			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
+
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			require.Equal(t, "charon", payload["agent_id"])
+			require.Equal(t, 9, int(payload["task_id"].(float64)))
+
+			_, _ = w.Write([]byte(`{"data":{"task":{"id":9,"fleet_node_id":4,"repo":"core/go-io","task":"Fix tests","status":"completed"}}}`))
+		case "/v1/credits/award":
+			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
+
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			assert.Equal(t, "charon", payload["agent_id"])
+			assert.Equal(t, "fleet-task", payload["task_type"])
+			assert.Equal(t, 2, int(payload["amount"].(float64)))
+			assert.Equal(t, 4, int(payload["fleet_node_id"].(float64)))
+			assert.Equal(t, "Fleet task completed", payload["description"])
+
+			_, _ = w.Write([]byte(`{"data":{"entry":{"id":7,"task_type":"fleet-task","amount":2,"balance_after":11}}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetCompleteTask(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+		core.Option{Key: "task_id", Value: 9},
+	))
+	require.True(t, result.OK)
+
+	task, ok := result.Value.(FleetTask)
+	require.True(t, ok)
+	assert.Equal(t, 9, task.ID)
+	assert.Equal(t, 4, task.FleetNodeID)
+	assert.Equal(t, "completed", task.Status)
+}
+
 func TestPlatform_HandleSyncStatus_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/agent/status", r.URL.Path)
