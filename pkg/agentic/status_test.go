@@ -184,6 +184,40 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 	assert.Equal(t, "Which interface should I implement?", read.Question)
 }
 
+func TestStatus_ReadStatus_Good_Wrapper(t *testing.T) {
+	dir := t.TempDir()
+
+	status := &WorkspaceStatus{
+		Status: "completed",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Task:   "add logging",
+	}
+
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(status)).OK)
+
+	read, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.NotNil(t, read)
+	assert.Equal(t, "completed", read.Status)
+	assert.Equal(t, "go-io", read.Repo)
+}
+
+func TestStatus_ReadStatus_Bad_NoFile_Wrapper(t *testing.T) {
+	read, err := ReadStatus(t.TempDir())
+	assert.Nil(t, read)
+	require.Error(t, err)
+}
+
+func TestStatus_ReadStatus_Ugly_InvalidJSON_Wrapper(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "not json{").OK)
+
+	read, err := ReadStatus(dir)
+	assert.Nil(t, read)
+	require.Error(t, err)
+}
+
 func TestStatus_WriteRead_Good_Roundtrip(t *testing.T) {
 	dir := t.TempDir()
 

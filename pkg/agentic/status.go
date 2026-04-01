@@ -91,6 +91,25 @@ func ReadStatusResult(workspaceDir string) core.Result {
 	return core.Result{Value: &workspaceStatus, OK: true}
 }
 
+// read, err := ReadStatus("/path/to/workspace")
+// if err == nil { core.Println(read.Status) }
+func ReadStatus(workspaceDir string) (*WorkspaceStatus, error) {
+	result := ReadStatusResult(workspaceDir)
+	if !result.OK {
+		err, _ := result.Value.(error)
+		if err == nil {
+			err = core.E("ReadStatus", "failed to read status", nil)
+		}
+		return nil, err
+	}
+
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if !ok {
+		return nil, core.E("ReadStatus", "invalid status payload", nil)
+	}
+	return workspaceStatus, nil
+}
+
 // result := ReadStatusResult("/path/to/workspace")
 // workspaceStatus, ok := workspaceStatusValue(result)
 func workspaceStatusValue(result core.Result) (*WorkspaceStatus, bool) {
