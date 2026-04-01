@@ -451,6 +451,7 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("phase.get").Exists())
 	assert.True(t, c.Action("phase.update_status").Exists())
 	assert.True(t, c.Action("phase.add_checkpoint").Exists())
+	assert.True(t, c.Action("task.create").Exists())
 	assert.True(t, c.Action("task.update").Exists())
 	assert.True(t, c.Action("task.toggle").Exists())
 }
@@ -584,6 +585,7 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "brain/seed-memory")
 	assert.Contains(t, c.Commands(), "plan-cleanup")
 	assert.Contains(t, c.Commands(), "task")
+	assert.Contains(t, c.Commands(), "task/create")
 	assert.Contains(t, c.Commands(), "task/update")
 	assert.Contains(t, c.Commands(), "task/toggle")
 }

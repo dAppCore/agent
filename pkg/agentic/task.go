@@ -26,10 +26,48 @@ type TaskToggleInput struct {
 	TaskIdentifier any    `json:"task_identifier"`
 }
 
+// input := agentic.TaskCreateInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, Title: "Review imports"}
+type TaskCreateInput struct {
+	PlanSlug    string `json:"plan_slug"`
+	PhaseOrder  int    `json:"phase_order"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Notes       string `json:"notes,omitempty"`
+}
+
 // out := agentic.TaskOutput{Success: true, Task: agentic.PlanTask{ID: "1", Title: "Review imports"}}
 type TaskOutput struct {
 	Success bool     `json:"success"`
 	Task    PlanTask `json:"task"`
+}
+
+// out := agentic.TaskCreateOutput{Success: true, Task: agentic.PlanTask{ID: "3", Title: "Review imports"}}
+type TaskCreateOutput struct {
+	Success bool     `json:"success"`
+	Task    PlanTask `json:"task"`
+}
+
+// result := c.Action("task.create").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "plan_slug", Value: "my-plan-abc123"},
+//	core.Option{Key: "phase_order", Value: 1},
+//	core.Option{Key: "title", Value: "Review imports"},
+//
+// ))
+func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.taskCreate(ctx, nil, TaskCreateInput{
+		PlanSlug:    optionStringValue(options, "plan_slug", "plan", "slug"),
+		PhaseOrder:  optionIntValue(options, "phase_order", "phase"),
+		Title:       optionStringValue(options, "title", "task", "_arg"),
+		Description: optionStringValue(options, "description"),
+		Status:      optionStringValue(options, "status"),
+		Notes:       optionStringValue(options, "notes"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 // result := c.Action("task.update").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "my-plan-abc123"}))
@@ -61,6 +99,11 @@ func (s *PrepSubsystem) handleTaskToggle(ctx context.Context, options core.Optio
 }
 
 func (s *PrepSubsystem) registerTaskTools(server *mcp.Server) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "task_create",
+		Description: "Create a plan task by plan slug and phase order.",
+	}, s.taskCreate)
+
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
@@ -104,6 +147,49 @@ func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	return nil, TaskOutput{
 		Success: true,
 		Task:    plan.Phases[phaseIndex].Tasks[taskIndex],
+	}, nil
+}
+
+func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
+	if core.Trim(input.Title) == "" {
+		return nil, TaskCreateOutput{}, core.E("taskCreate", "title is required", nil)
+	}
+	if input.Status != "" && !validTaskStatus(input.Status) {
+		return nil, TaskCreateOutput{}, core.E("taskCreate", core.Concat("invalid status: ", input.Status), nil)
+	}
+
+	plan, phaseIndex, err := planPhaseByOrder(PlansRoot(), input.PlanSlug, input.PhaseOrder)
+	if err != nil {
+		return nil, TaskCreateOutput{}, err
+	}
+
+	tasks := phaseTaskList(plan.Phases[phaseIndex])
+	plan.Phases[phaseIndex].Tasks = tasks
+
+	nextIndex := len(tasks) + 1
+	newTask := PlanTask{
+		ID:          core.Sprint(nextIndex),
+		Title:       core.Trim(input.Title),
+		Description: core.Trim(input.Description),
+		Status:      input.Status,
+		Notes:       core.Trim(input.Notes),
+	}
+	newTask = normalisePlanTask(newTask, nextIndex)
+
+	plan.Phases[phaseIndex].Tasks = append(plan.Phases[phaseIndex].Tasks, newTask)
+	plan.UpdatedAt = time.Now()
+
+	if result := writePlanResult(PlansRoot(), plan); !result.OK {
+		err, _ := result.Value.(error)
+		if err == nil {
+			err = core.E("taskCreate", "failed to write plan", nil)
+		}
+		return nil, TaskCreateOutput{}, err
+	}
+
+	return nil, TaskCreateOutput{
+		Success: true,
+		Task:    newTask,
 	}, nil
 }
 

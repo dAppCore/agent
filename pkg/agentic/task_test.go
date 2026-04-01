@@ -40,6 +40,49 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 	assert.Equal(t, "Done", output.Task.Notes)
 }
 
+func TestTask_TaskCreate_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Task Create",
+		Description: "Create task by phase",
+		Phases: []Phase{
+			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	_, output, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
+		PlanSlug:    plan.Slug,
+		PhaseOrder:  1,
+		Title:       "Patch code",
+		Description: "Update the implementation",
+		Status:      "pending",
+		Notes:       "Do this first",
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, "Patch code", output.Task.Title)
+	assert.Equal(t, "pending", output.Task.Status)
+	assert.Equal(t, "Do this first", output.Task.Notes)
+}
+
+func TestTask_TaskCreate_Bad_MissingTitle(t *testing.T) {
+	s := newTestPrep(t)
+
+	_, _, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
+		PlanSlug:   "my-plan",
+		PhaseOrder: 1,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "title is required")
+}
+
 func TestTask_TaskToggle_Bad_MissingIdentifier(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.taskToggle(context.Background(), nil, TaskToggleInput{
@@ -76,4 +119,37 @@ func TestTask_TaskToggle_Ugly_CriteriaFallback(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, "completed", output.Task.Status)
 	assert.Equal(t, "Review RFC", output.Task.Title)
+}
+
+func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Task Create Criteria",
+		Description: "Create task from criteria fallback",
+		Phases: []Phase{
+			{Name: "Setup", Criteria: []string{"Review RFC"}},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	_, output, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
+		PlanSlug:   plan.Slug,
+		PhaseOrder: 1,
+		Title:      "Patch code",
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, "Patch code", output.Task.Title)
+
+	updated, err := readPlan(PlansRoot(), plan.ID)
+	require.NoError(t, err)
+	require.Len(t, updated.Phases[0].Tasks, 2)
+	assert.Equal(t, "Review RFC", updated.Phases[0].Tasks[0].Title)
+	assert.Equal(t, "Patch code", updated.Phases[0].Tasks[1].Title)
 }

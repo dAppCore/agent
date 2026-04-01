@@ -190,6 +190,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("phase.get", s.handlePhaseGet).Description = "Read a plan phase by slug and order"
 	c.Action("phase.update_status", s.handlePhaseUpdateStatus).Description = "Update plan phase status by slug and order"
 	c.Action("phase.add_checkpoint", s.handlePhaseAddCheckpoint).Description = "Append a checkpoint note to a plan phase"
+	c.Action("task.create", s.handleTaskCreate).Description = "Create a plan task in a phase"
 	c.Action("task.update", s.handleTaskUpdate).Description = "Update a plan task by slug, phase, and identifier"
 	c.Action("task.toggle", s.handleTaskToggle).Description = "Toggle a plan task between pending and completed"
 	c.Action("session.start", s.handleSessionStart).Description = "Start an agent session for a plan"

@@ -43,6 +43,40 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 	assert.Equal(t, "Done", output.Task.Notes)
 }
 
+func TestCommands_TaskCommand_Good_Create(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Task Command Create",
+		Description: "Create task through CLI command",
+		Phases: []Phase{
+			{Name: "Setup"},
+		},
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	r := s.cmdTaskCreate(core.NewOptions(
+		core.Option{Key: "plan_slug", Value: plan.Slug},
+		core.Option{Key: "phase_order", Value: 1},
+		core.Option{Key: "title", Value: "Patch code"},
+		core.Option{Key: "description", Value: "Update the implementation"},
+		core.Option{Key: "status", Value: "pending"},
+		core.Option{Key: "notes", Value: "Do this first"},
+	))
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(TaskCreateOutput)
+	require.True(t, ok)
+	assert.Equal(t, "Patch code", output.Task.Title)
+	assert.Equal(t, "pending", output.Task.Status)
+	assert.Equal(t, "Do this first", output.Task.Notes)
+}
+
 func TestCommands_TaskCommand_Bad_MissingRequiredFields(t *testing.T) {
 	s := newTestPrep(t)
 
@@ -83,4 +117,16 @@ func TestCommands_TaskCommand_Ugly_ToggleCriteriaFallback(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "completed", output.Task.Status)
 	assert.Equal(t, "Review RFC", output.Task.Title)
+}
+
+func TestCommands_TaskCommand_Bad_CreateMissingTitle(t *testing.T) {
+	s := newTestPrep(t)
+
+	r := s.cmdTaskCreate(core.NewOptions(
+		core.Option{Key: "plan_slug", Value: "my-plan"},
+		core.Option{Key: "phase_order", Value: 1},
+	))
+
+	assert.False(t, r.OK)
+	assert.Contains(t, r.Value.(error).Error(), "required")
 }
