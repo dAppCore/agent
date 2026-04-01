@@ -20,10 +20,24 @@ import (
 //
 // ))
 func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options) core.Result {
+	if s.Core() != nil {
+		entitlement := s.Core().Entitled("agentic.concurrency", 1)
+		if !entitlement.Allowed {
+			reason := core.Trim(entitlement.Reason)
+			if reason == "" {
+				reason = "dispatch concurrency not available"
+			}
+			return core.Result{Value: core.E("agentic.dispatch", reason, nil), OK: false}
+		}
+	}
+
 	input := dispatchInputFromOptions(options)
 	_, out, err := s.dispatch(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
+	}
+	if s.Core() != nil {
+		s.Core().RecordUsage("agentic.dispatch")
 	}
 	return core.Result{Value: out, OK: true}
 }

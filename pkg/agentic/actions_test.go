@@ -4,10 +4,14 @@ package agentic
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
+	"dappco.re/go/core/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,6 +24,88 @@ func TestActions_HandleDispatch_Good(t *testing.T) {
 	))
 	// Will fail (no local clone) but exercises the handler path
 	assert.False(t, r.OK)
+}
+
+func TestActions_HandleDispatch_Bad_EntitlementDenied(t *testing.T) {
+	c := core.New(core.WithService(ProcessRegister))
+	c.ServiceStartup(context.Background(), nil)
+	c.SetEntitlementChecker(func(action string, _ int, _ context.Context) core.Entitlement {
+		if action == "agentic.concurrency" {
+			return core.Entitlement{Allowed: false, Reason: "dispatch limit reached"}
+		}
+		return core.Entitlement{Allowed: true, Unlimited: true}
+	})
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	r := s.handleDispatch(context.Background(), core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "task", Value: "fix tests"},
+	))
+
+	assert.False(t, r.OK)
+	err, ok := r.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "dispatch limit reached")
+}
+
+func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	t.Setenv("CORE_BRAIN_KEY", "")
+
+	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"title": "Issue",
+			"body":  "Fix",
+		})))
+	}))
+	t.Cleanup(forgeSrv.Close)
+
+	s := newPrepWithProcess()
+	s.Core().SetEntitlementChecker(func(_ string, _ int, _ context.Context) core.Entitlement {
+		return core.Entitlement{Allowed: true, Unlimited: true}
+	})
+
+	srcRepo := core.JoinPath(t.TempDir(), "core", "go-io")
+	require.True(t, fs.EnsureDir(srcRepo).OK)
+	process := s.Core().Process()
+	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "init", "-b", "main").OK)
+	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.name", "Test").OK)
+	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.email", "test@test.com").OK)
+	require.True(t, fs.Write(core.JoinPath(srcRepo, "go.mod"), "module test\ngo 1.22\n").OK)
+	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "hello\n").OK)
+	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "add", ".").OK)
+	require.True(t, process.RunIn(
+		context.Background(),
+		srcRepo,
+		"git",
+		"commit",
+		"-m", "initial commit",
+	).OK)
+
+	recorded := 0
+	s.Core().SetUsageRecorder(func(action string, qty int, _ context.Context) {
+		if action == "agentic.dispatch" && qty == 1 {
+			recorded++
+		}
+	})
+
+	s.forge = forge.NewForge(forgeSrv.URL, "tok")
+	s.codePath = core.PathDir(core.PathDir(srcRepo))
+
+	r := s.handleDispatch(context.Background(), core.NewOptions(
+		core.Option{Key: "repo", Value: "go-io"},
+		core.Option{Key: "issue", Value: 42},
+		core.Option{Key: "task", Value: "fix tests"},
+		core.Option{Key: "dry-run", Value: true},
+	))
+
+	require.Truef(t, r.OK, "dispatch failed: %#v", r.Value)
+	assert.Equal(t, 1, recorded)
 }
 
 func TestActions_HandleStatus_Good(t *testing.T) {
