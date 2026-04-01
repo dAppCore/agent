@@ -84,6 +84,8 @@ class AgentSession extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_HANDED_OFF = 'handed_off';
+
     // Agent types
     public const AGENT_OPUS = 'opus';
 
@@ -151,7 +153,7 @@ class AgentSession extends Model
 
     public function isEnded(): bool
     {
-        return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_FAILED]);
+        return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_FAILED, self::STATUS_HANDED_OFF], true);
     }
 
     // Actions
@@ -243,9 +245,9 @@ class AgentSession extends Model
      */
     public function end(string $status, ?string $summary = null): self
     {
-        $validStatuses = [self::STATUS_COMPLETED, self::STATUS_FAILED];
+        $validStatuses = [self::STATUS_COMPLETED, self::STATUS_FAILED, self::STATUS_HANDED_OFF];
 
-        if (! in_array($status, $validStatuses)) {
+        if (! in_array($status, $validStatuses, true)) {
             $status = self::STATUS_COMPLETED;
         }
 

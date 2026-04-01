@@ -74,8 +74,8 @@ class AgentSessionService
             return null;
         }
 
-        // Only resume if paused or was handed off
-        if ($session->status === AgentSession::STATUS_PAUSED) {
+        // Resume paused or handed-off sessions back into the active state.
+        if (in_array($session->status, [AgentSession::STATUS_PAUSED, AgentSession::STATUS_HANDED_OFF], true)) {
             $session->resume();
         }
 

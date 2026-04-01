@@ -37,7 +37,7 @@ class ListSessions
     public function handle(int $workspaceId, ?string $status = null, ?string $planSlug = null, ?int $limit = null): Collection
     {
         if ($status !== null) {
-            $valid = ['active', 'paused', 'completed', 'failed'];
+            $valid = ['active', 'paused', 'completed', 'failed', 'handed_off'];
             if (! in_array($status, $valid, true)) {
                 throw new \InvalidArgumentException(
                     sprintf('status must be one of: %s', implode(', ', $valid))

@@ -6,6 +6,7 @@ namespace Core\Mod\Agentic\Tests\Feature;
 
 use Core\Mod\Agentic\Models\AgentPlan;
 use Core\Mod\Agentic\Models\AgentSession;
+use Core\Mod\Agentic\Services\AgentSessionService;
 use Core\Tenant\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -90,6 +91,21 @@ class AgentSessionTest extends TestCase
         $this->assertNotNull($fresh->last_active_at);
     }
 
+    public function test_it_can_resume_a_handed_off_session(): void
+    {
+        $session = AgentSession::factory()->create([
+            'workspace_id' => $this->workspace->id,
+            'status' => AgentSession::STATUS_HANDED_OFF,
+            'last_active_at' => now()->subHour(),
+        ]);
+
+        $resumed = app(AgentSessionService::class)->resume($session->session_id);
+
+        $this->assertNotNull($resumed);
+        $this->assertTrue($resumed->isActive());
+        $this->assertGreaterThan($session->last_active_at, $resumed->fresh()->last_active_at);
+    }
+
     public function test_it_can_be_completed_with_summary(): void
     {
         $session = AgentSession::factory()->active()->create([
@@ -116,6 +132,21 @@ class AgentSessionTest extends TestCase
         $this->assertEquals(AgentSession::STATUS_FAILED, $fresh->status);
         $this->assertEquals('Error occurred', $fresh->final_summary);
         $this->assertNotNull($fresh->ended_at);
+    }
+
+    public function test_it_can_be_marked_as_handed_off(): void
+    {
+        $session = AgentSession::factory()->active()->create([
+            'workspace_id' => $this->workspace->id,
+        ]);
+
+        $session->end(AgentSession::STATUS_HANDED_OFF, 'Handed off to another agent');
+
+        $fresh = $session->fresh();
+        $this->assertEquals(AgentSession::STATUS_HANDED_OFF, $fresh->status);
+        $this->assertEquals('Handed off to another agent', $fresh->final_summary);
+        $this->assertNotNull($fresh->ended_at);
+        $this->assertTrue($fresh->isEnded());
     }
 
     public function test_it_logs_actions(): void

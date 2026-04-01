@@ -34,7 +34,7 @@ class SessionList extends AgentTool
                 'status' => [
                     'type' => 'string',
                     'description' => 'Filter by status',
-                    'enum' => ['active', 'paused', 'completed', 'failed'],
+                    'enum' => ['active', 'paused', 'completed', 'failed', 'handed_off'],
                 ],
                 'plan_slug' => [
                     'type' => 'string',
