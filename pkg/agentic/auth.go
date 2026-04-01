@@ -8,8 +8,8 @@ import (
 	core "dappco.re/go/core"
 )
 
-// key := agentic.AgentAPIKey{ID: 7, Name: "codex local", Prefix: "ak_abcd", RateLimit: 60}
-type AgentAPIKey struct {
+// key := agentic.AgentApiKey{ID: 7, Name: "codex local", Prefix: "ak_abcd", RateLimit: 60}
+type AgentApiKey struct {
 	ID          int      `json:"id"`
 	WorkspaceID int      `json:"workspace_id,omitempty"`
 	Name        string   `json:"name,omitempty"`
@@ -33,10 +33,10 @@ type AuthProvisionInput struct {
 	ExpiresAt   string   `json:"expires_at,omitempty"`
 }
 
-// out := agentic.AuthProvisionOutput{Success: true, Key: agentic.AgentAPIKey{Prefix: "ak_abcd"}}
+// out := agentic.AuthProvisionOutput{Success: true, Key: agentic.AgentApiKey{Prefix: "ak_abcd"}}
 type AuthProvisionOutput struct {
 	Success bool        `json:"success"`
-	Key     AgentAPIKey `json:"key"`
+	Key     AgentApiKey `json:"key"`
 }
 
 // input := agentic.AuthRevokeInput{KeyID: "7"}
@@ -92,7 +92,7 @@ func (s *PrepSubsystem) handleAuthProvision(ctx context.Context, options core.Op
 
 	return core.Result{Value: AuthProvisionOutput{
 		Success: true,
-		Key:     parseAgentAPIKey(payloadResourceMap(result.Value.(map[string]any), "key", "api_key", "agent_api_key")),
+		Key:     parseAgentApiKey(payloadResourceMap(result.Value.(map[string]any), "key", "api_key", "agent_api_key")),
 	}, OK: true}
 }
 
@@ -143,8 +143,8 @@ func (s *PrepSubsystem) handleAuthRevoke(ctx context.Context, options core.Optio
 	return core.Result{Value: output, OK: true}
 }
 
-func parseAgentAPIKey(values map[string]any) AgentAPIKey {
-	return AgentAPIKey{
+func parseAgentApiKey(values map[string]any) AgentApiKey {
+	return AgentApiKey{
 		ID:          intValue(values["id"]),
 		WorkspaceID: intValue(values["workspace_id"]),
 		Name:        stringValue(values["name"]),

@@ -4,8 +4,8 @@ package agentic
 
 import "fmt"
 
-func Example_parseAgentAPIKey() {
-	key := parseAgentAPIKey(map[string]any{
+func Example_parseAgentApiKey() {
+	key := parseAgentApiKey(map[string]any{
 		"id":          7,
 		"name":        "codex local",
 		"prefix":      "ak_live",
