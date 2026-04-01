@@ -875,6 +875,9 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "plan/list")
 	assert.Contains(t, cmds, "plan/show")
 	assert.Contains(t, cmds, "plan/status")
+	assert.Contains(t, cmds, "task")
+	assert.Contains(t, cmds, "task/update")
+	assert.Contains(t, cmds, "task/toggle")
 }
 
 // --- CmdExtract Bad/Ugly ---

@@ -28,6 +28,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 	s.registerPlanCommands()
+	s.registerTaskCommands()
 }
 
 // ctx := s.commandContext()
