@@ -47,6 +47,15 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 	assert.Equal(t, 128, output.Task.Line)
 }
 
+func TestCommands_TaskCommand_Good_SpecAliasRegistered(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
+
+	s.registerTaskCommands()
+
+	assert.Contains(t, c.Commands(), "agentic:task")
+}
+
 func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)

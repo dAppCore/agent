@@ -9,6 +9,7 @@ import (
 func (s *PrepSubsystem) registerTaskCommands() {
 	c := s.Core()
 	c.Command("task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
+	c.Command("agentic:task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
 	c.Command("task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate})
 	c.Command("task/update", core.Command{Description: "Update a plan task status or notes", Action: s.cmdTaskUpdate})
 	c.Command("task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle})
