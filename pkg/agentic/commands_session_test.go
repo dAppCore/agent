@@ -25,6 +25,8 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "agentic:session/end")
 	assert.Contains(t, c.Commands(), "session/complete")
 	assert.Contains(t, c.Commands(), "agentic:session/complete")
+	assert.Contains(t, c.Commands(), "session/log")
+	assert.Contains(t, c.Commands(), "agentic:session/log")
 	assert.Contains(t, c.Commands(), "session/resume")
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
@@ -159,6 +161,69 @@ func TestCommandsSession_CmdSessionEnd_Ugly_InvalidResponse(t *testing.T) {
 		core.Option{Key: "summary", Value: "Ready for review"},
 	))
 	assert.False(t, result.OK)
+}
+
+func TestCommandsSession_CmdSessionLog_Good(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	require.NoError(t, writeSessionCache(&Session{
+		SessionID: "ses-log",
+		AgentType: "codex",
+		Status:    "active",
+		WorkLog: []map[string]any{
+			{"type": "checkpoint", "message": "build passed"},
+		},
+	}))
+
+	result := s.cmdSessionLog(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-log"},
+		core.Option{Key: "message", Value: "Checked build"},
+		core.Option{Key: "type", Value: "checkpoint"},
+		core.Option{Key: "data", Value: map[string]any{"repo": "go-io"}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionLogOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, "Checked build", output.Logged)
+
+	cached, err := readSessionCache("ses-log")
+	require.NoError(t, err)
+	require.NotNil(t, cached)
+	require.Len(t, cached.WorkLog, 2)
+	assert.Equal(t, "checkpoint", cached.WorkLog[1]["type"])
+	assert.Equal(t, "Checked build", cached.WorkLog[1]["message"])
+}
+
+func TestCommandsSession_CmdSessionLog_Bad_MissingMessage(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdSessionLog(core.NewOptions(core.Option{Key: "session_id", Value: "ses-log"}))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "message is required")
+}
+
+func TestCommandsSession_CmdSessionLog_Ugly_CorruptedCacheFallsBackToRemoteError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	require.True(t, fs.EnsureDir(sessionCacheRoot()).OK)
+	require.True(t, fs.WriteAtomic(sessionCachePath("ses-bad"), "{not-json").OK)
+
+	result := s.cmdSessionLog(core.NewOptions(
+		core.Option{Key: "session_id", Value: "ses-bad"},
+		core.Option{Key: "message", Value: "Checked build"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "no platform API key configured")
 }
 
 func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {

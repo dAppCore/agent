@@ -14,6 +14,8 @@ func (s *PrepSubsystem) registerSessionCommands() {
 	c.Command("agentic:session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
 	c.Command("session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd})
 	c.Command("agentic:session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd})
+	c.Command("session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
+	c.Command("agentic:session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
 	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
@@ -106,6 +108,48 @@ func (s *PrepSubsystem) cmdSessionEnd(options core.Options) core.Result {
 	if len(output.Session.Handoff) > 0 {
 		core.Print(nil, "handoff: %d item(s)", len(output.Session.Handoff))
 	}
+	return core.Result{Value: output, OK: true}
+}
+
+// core-agent session log ses-abc123 --message="Checked build" --type=checkpoint
+func (s *PrepSubsystem) cmdSessionLog(options core.Options) core.Result {
+	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
+	message := optionStringValue(options, "message")
+	entryType := optionStringValue(options, "type")
+	if entryType == "" {
+		entryType = "info"
+	}
+	if sessionID == "" {
+		core.Print(nil, "usage: core-agent session log <session-id> --message=\"Checked build\" [--type=checkpoint] [--data='{\"key\":\"value\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionLog", "session_id is required", nil), OK: false}
+	}
+	if message == "" {
+		core.Print(nil, "usage: core-agent session log <session-id> --message=\"Checked build\" [--type=checkpoint] [--data='{\"key\":\"value\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionLog", "message is required", nil), OK: false}
+	}
+
+	result := s.handleSessionLog(s.commandContext(), core.NewOptions(
+		core.Option{Key: "session_id", Value: sessionID},
+		core.Option{Key: "message", Value: message},
+		core.Option{Key: "type", Value: entryType},
+		core.Option{Key: "data", Value: optionAnyMapValue(options, "data")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionLog", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionLogOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionLog", "invalid session log output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", sessionID)
+	core.Print(nil, "type:    %s", entryType)
+	core.Print(nil, "logged:  %s", output.Logged)
 	return core.Result{Value: output, OK: true}
 }
 
