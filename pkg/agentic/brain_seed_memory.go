@@ -43,6 +43,20 @@ type brainSeedMemorySection struct {
 //
 // ))
 func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
+	return s.cmdBrainSeedMemoryLike(options, "brain seed-memory", "agentic.cmdBrainSeedMemory")
+}
+
+// result := c.Command("brain/ingest").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "workspace", Value: "1"},
+//	core.Option{Key: "path", Value: "/Users/snider/.claude/projects/*/memory/"},
+//
+// ))
+func (s *PrepSubsystem) cmdBrainIngest(options core.Options) core.Result {
+	return s.cmdBrainSeedMemoryLike(options, "brain ingest", "agentic.cmdBrainIngest")
+}
+
+func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName string, errorLabel string) core.Result {
 	input := BrainSeedMemoryInput{
 		WorkspaceID: parseIntString(optionStringValue(options, "workspace", "workspace_id", "workspace-id", "_arg")),
 		AgentID:     optionStringValue(options, "agent", "agent_id", "agent-id"),
@@ -50,8 +64,8 @@ func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
 		DryRun:      optionBoolValue(options, "dry-run"),
 	}
 	if input.WorkspaceID == 0 {
-		core.Print(nil, "usage: core-agent brain seed-memory --workspace=1 [--agent=virgil] [--path=~/.claude/projects/*/memory/] [--dry-run]")
-		return core.Result{Value: core.E("agentic.cmdBrainSeedMemory", "workspace is required", nil), OK: false}
+		core.Print(nil, "usage: core-agent %s --workspace=1 [--agent=virgil] [--path=~/.claude/projects/*/memory/] [--dry-run]", commandName)
+		return core.Result{Value: core.E(errorLabel, "workspace is required", nil), OK: false}
 	}
 	if input.AgentID == "" {
 		input.AgentID = brainSeedMemoryDefaultAgent
@@ -62,14 +76,14 @@ func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
 
 	result := s.brainSeedMemory(s.commandContext(), input)
 	if !result.OK {
-		err := commandResultError("agentic.cmdBrainSeedMemory", result)
+		err := commandResultError(errorLabel, result)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
 
 	output, ok := result.Value.(BrainSeedMemoryOutput)
 	if !ok {
-		err := core.E("agentic.cmdBrainSeedMemory", "invalid brain seed memory output", nil)
+		err := core.E(errorLabel, "invalid brain seed memory output", nil)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}

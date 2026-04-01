@@ -70,10 +70,65 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 	assert.Equal(t, []any{"notes", "memory-import"}, bodies[2]["tags"])
 }
 
+func TestBrainSeedMemory_CmdBrainIngest_Good(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home)
+
+	memoryDir := core.JoinPath(home, ".claude", "projects", "-Users-snider-Code-eaas", "memory")
+	require.True(t, fs.EnsureDir(memoryDir).OK)
+	require.True(t, fs.Write(core.JoinPath(memoryDir, "MEMORY.md"), "# Memory\n\n## Architecture\nUse Core.Process().").OK)
+
+	var bodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/brain/remember", r.URL.Path)
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+		var payload map[string]any
+		require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+		bodies = append(bodies, payload)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"memory":{"id":"mem-1"}}`))
+	}))
+	defer srv.Close()
+
+	subsystem := &PrepSubsystem{
+		brainURL: srv.URL,
+		brainKey: "brain-key",
+	}
+
+	result := subsystem.cmdBrainIngest(core.NewOptions(
+		core.Option{Key: "workspace", Value: "42"},
+		core.Option{Key: "path", Value: memoryDir},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(BrainSeedMemoryOutput)
+	require.True(t, ok)
+	assert.Equal(t, 1, output.Files)
+	assert.Equal(t, 1, output.Imported)
+	assert.Equal(t, 0, output.Skipped)
+	require.Len(t, bodies, 1)
+	assert.Equal(t, float64(42), bodies[0]["workspace_id"])
+	assert.Equal(t, "architecture", bodies[0]["type"])
+}
+
 func TestBrainSeedMemory_CmdBrainSeedMemory_Bad_MissingWorkspace(t *testing.T) {
 	subsystem := &PrepSubsystem{brainURL: "https://example.com", brainKey: "brain-key"}
 
 	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
+		core.Option{Key: "path", Value: "/tmp/memory"},
+	))
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "workspace is required")
+}
+
+func TestBrainSeedMemory_CmdBrainIngest_Bad_MissingWorkspace(t *testing.T) {
+	subsystem := &PrepSubsystem{brainURL: "https://example.com", brainKey: "brain-key"}
+
+	result := subsystem.cmdBrainIngest(core.NewOptions(
 		core.Option{Key: "path", Value: "/tmp/memory"},
 	))
 
