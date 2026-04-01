@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"sort"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 )
 
 const planRetentionDefaultDays = 90
+const planRetentionScheduleInterval = 24 * time.Hour
 
 type PlanCleanupOutput struct {
 	Success  bool   `json:"success"`
@@ -53,6 +55,26 @@ func (s *PrepSubsystem) cmdPlanCleanup(options core.Options) core.Result {
 
 	core.Print(nil, "Permanently deleted %d archived plan(s) archived before %s.", output.Deleted, output.Cutoff)
 	return core.Result{Value: output, OK: true}
+}
+
+// ctx, cancel := context.WithCancel(context.Background())
+// go s.runPlanCleanupLoop(ctx, time.Minute)
+func (s *PrepSubsystem) runPlanCleanupLoop(ctx context.Context, interval time.Duration) {
+	if ctx == nil || interval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.planCleanup(core.NewOptions())
+		}
+	}
 }
 
 func (s *PrepSubsystem) planCleanup(options core.Options) core.Result {

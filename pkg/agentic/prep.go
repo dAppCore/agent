@@ -257,6 +257,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Ingest → Poke) in background"
 
 	s.hydrateWorkspaces()
+	if planRetentionDays(core.NewOptions()) > 0 {
+		go s.runPlanCleanupLoop(ctx, planRetentionScheduleInterval)
+	}
 
 	c.RegisterQuery(s.handleWorkspaceQuery)
 

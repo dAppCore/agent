@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -140,4 +141,44 @@ func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testin
 
 	_, ok := stat.Value.(interface{ ModTime() time.Time })
 	assert.True(t, ok)
+}
+
+func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+
+	plan := &Plan{
+		ID:         "scheduled-plan-abc123",
+		Title:      "Scheduled Plan",
+		Status:     "archived",
+		Objective:  "Remove me on the next retention pass",
+		ArchivedAt: time.Now().AddDate(0, 0, -100),
+	}
+
+	_, err := writePlan(PlansRoot(), plan)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		s.runPlanCleanupLoop(ctx, time.Millisecond)
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		return !fs.Exists(core.JoinPath(PlansRoot(), "scheduled-plan-abc123.json"))
+	}, time.Second, 5*time.Millisecond)
+
+	cancel()
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 5*time.Millisecond)
 }
