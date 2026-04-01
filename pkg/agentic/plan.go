@@ -292,6 +292,11 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Name:        "plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
 	}, s.planArchiveCompat)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "plan_from_issue",
+		Description: "Create an implementation plan from a tracked issue slug or ID.",
+	}, s.planFromIssue)
 }
 
 func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
