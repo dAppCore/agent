@@ -56,7 +56,12 @@ func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
 
 func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("data: {\"event\":\"task.assigned\",\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\"}\n\n"))
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			_, _ = w.Write([]byte("data: {\"event\":\"task.assigned\",\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\"}\n\n"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -68,6 +73,32 @@ func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
 
 	assert.Contains(t, output, "event:       task.assigned")
 	assert.Contains(t, output, "agent:       charon")
+	assert.Contains(t, output, "repo:        core/go-io")
+}
+
+func TestCommandsplatform_CmdFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+		case "/v1/fleet/task/next":
+			_, _ = w.Write([]byte(`{"data":{"id":11,"repo":"core/go-io","branch":"dev","task":"Fix tests","template":"coding","agent_model":"codex","status":"assigned"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		result := subsystem.cmdFleetEvents(core.NewOptions(core.Option{Key: "_arg", Value: "charon"}))
+		assert.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "event:       task.assigned")
+	assert.Contains(t, output, "agent:       charon")
+	assert.Contains(t, output, "task id:     11")
 	assert.Contains(t, output, "repo:        core/go-io")
 }
 

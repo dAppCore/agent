@@ -174,10 +174,47 @@ func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
 	assert.Equal(t, "dev", output.Event.Branch)
 }
 
-func TestPlatform_HandleFleetEvents_Bad(t *testing.T) {
+func TestPlatform_HandleFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+		case "/v1/fleet/task/next":
+			require.Equal(t, "charon", r.URL.Query().Get("agent_id"))
+			_, _ = w.Write([]byte(`{"data":{"id":12,"repo":"core/go-io","branch":"dev","task":"Fix tests","template":"coding","agent_model":"codex","status":"assigned"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetEvents(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(FleetEventOutput)
+	require.True(t, ok)
+	assert.Equal(t, "task.assigned", output.Event.Event)
+	assert.Equal(t, "charon", output.Event.AgentID)
+	assert.Equal(t, 12, output.Event.TaskID)
+	assert.Equal(t, "core/go-io", output.Event.Repo)
+	assert.Equal(t, "dev", output.Event.Branch)
+}
+
+func TestPlatform_HandleFleetEvents_Bad_NoTaskAvailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+		case "/v1/fleet/task/next":
+			_, _ = w.Write([]byte(`{"data":null}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -190,7 +227,14 @@ func TestPlatform_HandleFleetEvents_Bad(t *testing.T) {
 
 func TestPlatform_HandleFleetEvents_Ugly(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("data: not-json\n\n"))
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			_, _ = w.Write([]byte("data: not-json\n\n"))
+		case "/v1/fleet/task/next":
+			_, _ = w.Write([]byte(`{"data":null}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 

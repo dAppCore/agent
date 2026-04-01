@@ -383,16 +383,36 @@ func (s *PrepSubsystem) handleFleetEvents(ctx context.Context, options core.Opti
 	path = appendQueryParam(path, "agent_id", agentID)
 
 	result := s.platformEventPayload(ctx, "agentic.fleet.events", path)
-	if !result.OK {
-		return result
+	if result.OK {
+		output, err := parseFleetEventOutput(result.Value.(map[string]any))
+		if err == nil {
+			return core.Result{Value: output, OK: true}
+		}
 	}
 
-	output, err := parseFleetEventOutput(result.Value.(map[string]any))
-	if err != nil {
-		return core.Result{Value: err, OK: false}
+	fallbackResult := s.handleFleetNextTask(ctx, core.NewOptions(
+		core.Option{Key: "agent_id", Value: agentID},
+		core.Option{Key: "capabilities", Value: optionStringSliceValue(options, "capabilities")},
+	))
+	if !fallbackResult.OK {
+		if result.OK {
+			return result
+		}
+		return fallbackResult
 	}
 
-	return core.Result{Value: output, OK: true}
+	task, ok := fallbackResult.Value.(*FleetTask)
+	if !ok {
+		return core.Result{Value: core.E("agentic.fleet.events", "invalid fleet task output", nil), OK: false}
+	}
+	if task == nil {
+		if result.OK {
+			return core.Result{Value: core.E("agentic.fleet.events", "no fleet event payload returned", nil), OK: false}
+		}
+		return core.Result{Value: core.E("agentic.fleet.events", "no fleet task available", nil), OK: false}
+	}
+
+	return core.Result{Value: fleetEventOutputFromTask(agentID, task), OK: true}
 }
 
 // result := c.Action("agentic.credits.award").Run(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
@@ -856,6 +876,35 @@ func parseFleetEvent(values map[string]any) FleetEvent {
 	}
 
 	return event
+}
+
+func fleetEventOutputFromTask(agentID string, task *FleetTask) FleetEventOutput {
+	payload := map[string]any{
+		"task_id":       task.ID,
+		"repo":          task.Repo,
+		"branch":        task.Branch,
+		"task":          task.Task,
+		"template":      task.Template,
+		"agent_model":   task.AgentModel,
+		"status":        task.Status,
+		"source":        "polling",
+		"fleet_node_id": task.FleetNodeID,
+	}
+
+	return FleetEventOutput{
+		Success: true,
+		Event: FleetEvent{
+			Type:    "task.assigned",
+			Event:   "task.assigned",
+			AgentID: agentID,
+			TaskID:  task.ID,
+			Repo:    task.Repo,
+			Branch:  task.Branch,
+			Status:  "assigned",
+			Payload: payload,
+		},
+		Raw: "polling fallback",
+	}
 }
 
 func parseCreditEntry(values map[string]any) CreditEntry {

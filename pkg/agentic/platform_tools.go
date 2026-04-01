@@ -107,7 +107,7 @@ func (s *PrepSubsystem) registerPlatformTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_fleet_events",
-		Description: "Read the next fleet event from the platform SSE stream.",
+		Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed.",
 	}, s.fleetEventsTool)
 
 	mcp.AddTool(server, &mcp.Tool{
