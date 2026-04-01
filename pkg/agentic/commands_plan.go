@@ -13,6 +13,7 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList})
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
+	c.Command("plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck})
 	c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive})
 	c.Command("plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete})
 }
@@ -166,6 +167,46 @@ func (s *PrepSubsystem) cmdPlanStatus(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
+func (s *PrepSubsystem) cmdPlanCheck(options core.Options) core.Result {
+	ctx := s.commandContext()
+	slug := optionStringValue(options, "slug", "_arg")
+	if slug == "" {
+		core.Print(nil, "usage: core-agent plan check <slug> [--phase=1]")
+		return core.Result{Value: core.E("agentic.cmdPlanCheck", "slug is required", nil), OK: false}
+	}
+
+	phaseOrder := optionIntValue(options, "phase", "phase_order")
+	_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: slug})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	check := planCheckOutput(output.Plan, phaseOrder)
+	core.Print(nil, "slug:     %s", check.Plan.Slug)
+	core.Print(nil, "status:   %s", check.Plan.Status)
+	core.Print(nil, "progress: %d/%d (%d%%)", check.Plan.Progress.Completed, check.Plan.Progress.Total, check.Plan.Progress.Percentage)
+	if check.Phase > 0 {
+		core.Print(nil, "phase:    %d %s", check.Phase, check.PhaseName)
+	}
+	if len(check.Pending) > 0 {
+		core.Print(nil, "pending:")
+		for _, item := range check.Pending {
+			core.Print(nil, "  - %s", item)
+		}
+	}
+	if check.Complete {
+		core.Print(nil, "complete")
+	} else {
+		core.Print(nil, "incomplete")
+	}
+
+	if !check.Complete {
+		return core.Result{Value: check, OK: false}
+	}
+	return core.Result{Value: check, OK: true}
+}
+
 func (s *PrepSubsystem) cmdPlanArchive(options core.Options) core.Result {
 	ctx := s.commandContext()
 	id := optionStringValue(options, "id", "slug", "_arg")
@@ -222,4 +263,73 @@ func (s *PrepSubsystem) cmdPlanDelete(options core.Options) core.Result {
 
 	core.Print(nil, "deleted: %s", output.Deleted)
 	return core.Result{Value: output, OK: true}
+}
+
+func planCheckOutput(plan PlanCompatibilityView, phaseOrder int) PlanCheckOutput {
+	output := PlanCheckOutput{
+		Success: true,
+		Plan:    plan,
+	}
+
+	if phaseOrder <= 0 {
+		output.Complete, output.Pending = planCompleteOutput(plan.Phases)
+		return output
+	}
+
+	for _, phase := range plan.Phases {
+		if phase.Number != phaseOrder {
+			continue
+		}
+		output.Phase = phase.Number
+		output.PhaseName = phase.Name
+		output.Complete, output.Pending = phaseCompleteOutput(phase)
+		return output
+	}
+
+	output.Complete = false
+	output.Pending = []string{core.Concat("phase ", core.Sprint(phaseOrder), " not found")}
+	return output
+}
+
+func planCompleteOutput(phases []Phase) (bool, []string) {
+	var pending []string
+	for _, phase := range phases {
+		phaseComplete, phasePending := phaseCompleteOutput(phase)
+		if phaseComplete {
+			continue
+		}
+		if len(phasePending) == 0 {
+			pending = append(pending, core.Concat("phase ", core.Sprint(phase.Number), ": ", phase.Name))
+			continue
+		}
+		for _, item := range phasePending {
+			pending = append(pending, core.Concat("phase ", core.Sprint(phase.Number), ": ", item))
+		}
+	}
+	return len(pending) == 0, pending
+}
+
+func phaseCompleteOutput(phase Phase) (bool, []string) {
+	tasks := phaseTaskList(phase)
+	if len(tasks) == 0 {
+		switch phase.Status {
+		case "completed", "done", "approved":
+			return true, nil
+		default:
+			return false, []string{phase.Name}
+		}
+	}
+
+	var pending []string
+	for _, task := range tasks {
+		if task.Status == "completed" {
+			continue
+		}
+		label := task.Title
+		if label == "" {
+			label = task.ID
+		}
+		pending = append(pending, label)
+	}
+	return len(pending) == 0, pending
 }

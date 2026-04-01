@@ -1233,6 +1233,7 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "plan/list")
 	assert.Contains(t, cmds, "plan/show")
 	assert.Contains(t, cmds, "plan/status")
+	assert.Contains(t, cmds, "plan/check")
 	assert.Contains(t, cmds, "plan/archive")
 	assert.Contains(t, cmds, "plan/delete")
 	assert.Contains(t, cmds, "pr-manage")

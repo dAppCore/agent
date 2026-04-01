@@ -67,6 +67,16 @@ type PlanArchiveOutput struct {
 	Archived string `json:"archived"`
 }
 
+// out := agentic.PlanCheckOutput{Success: true, Complete: true}
+type PlanCheckOutput struct {
+	Success   bool                  `json:"success"`
+	Complete  bool                  `json:"complete"`
+	Plan      PlanCompatibilityView `json:"plan"`
+	Phase     int                   `json:"phase,omitempty"`
+	PhaseName string                `json:"phase_name,omitempty"`
+	Pending   []string              `json:"pending,omitempty"`
+}
+
 // result := c.Action("plan.get").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handlePlanGet(ctx context.Context, options core.Options) core.Result {
 	return s.handlePlanRead(ctx, options)
