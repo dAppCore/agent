@@ -30,6 +30,15 @@ type SyncPullOutput struct {
 	Context []map[string]any `json:"context"`
 }
 
+// record := agentic.SyncRecord{AgentID: "codex", Direction: "push", ItemsCount: 3, PayloadSize: 512, SyncedAt: "2026-03-31T12:00:00Z"}
+type SyncRecord struct {
+	AgentID     string `json:"agent_id"`
+	Direction   string `json:"direction"`
+	PayloadSize int    `json:"payload_size"`
+	ItemsCount  int    `json:"items_count"`
+	SyncedAt    string `json:"synced_at"`
+}
+
 type syncQueuedPush struct {
 	AgentID    string           `json:"agent_id"`
 	Dispatches []map[string]any `json:"dispatches"`
@@ -108,6 +117,10 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		}
 		synced += len(queued.Dispatches)
 		recordSyncPush(time.Now())
+		recordSyncHistory("push", queued.AgentID, len(core.JSONMarshalString(map[string]any{
+			"agent_id":   queued.AgentID,
+			"dispatches": queued.Dispatches,
+		})), len(queued.Dispatches), time.Now())
 	}
 
 	writeSyncQueue(nil)
@@ -148,6 +161,7 @@ func (s *PrepSubsystem) syncPullInput(ctx context.Context, input SyncPullInput) 
 	contextData := syncContextPayload(response)
 	writeSyncContext(contextData)
 	recordSyncPull(time.Now())
+	recordSyncHistory("pull", agentID, len(result.Value.(string)), len(contextData), time.Now())
 
 	return SyncPullOutput{
 		Success: true,
@@ -350,6 +364,52 @@ func readSyncStatusState() syncStatusState {
 func writeSyncStatusState(state syncStatusState) {
 	fs.EnsureDir(syncStateDir())
 	fs.WriteAtomic(syncStatusPath(), core.JSONMarshalString(state))
+}
+
+func syncRecordsPath() string {
+	return core.JoinPath(syncStateDir(), "records.json")
+}
+
+func readSyncRecords() []SyncRecord {
+	var records []SyncRecord
+	result := fs.Read(syncRecordsPath())
+	if !result.OK {
+		return records
+	}
+
+	parseResult := core.JSONUnmarshalString(result.Value.(string), &records)
+	if !parseResult.OK {
+		return []SyncRecord{}
+	}
+
+	return records
+}
+
+func writeSyncRecords(records []SyncRecord) {
+	fs.EnsureDir(syncStateDir())
+	fs.WriteAtomic(syncRecordsPath(), core.JSONMarshalString(records))
+}
+
+func recordSyncHistory(direction, agentID string, payloadSize, itemsCount int, at time.Time) {
+	direction = core.Trim(direction)
+	if direction == "" {
+		return
+	}
+
+	record := SyncRecord{
+		AgentID:     core.Trim(agentID),
+		Direction:   direction,
+		PayloadSize: payloadSize,
+		ItemsCount:  itemsCount,
+		SyncedAt:    at.UTC().Format(time.RFC3339),
+	}
+
+	records := readSyncRecords()
+	records = append(records, record)
+	if len(records) > 100 {
+		records = records[len(records)-100:]
+	}
+	writeSyncRecords(records)
 }
 
 func recordSyncPush(at time.Time) {

@@ -257,6 +257,44 @@ func TestSync_HandleSyncPull_Good_SinceQuery(t *testing.T) {
 	assert.Equal(t, "mem-2", output.Context[0]["id"])
 }
 
+func TestSync_RecordSyncHistory_Good(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
+	recordSyncHistory("push", "codex", 256, 3, now)
+	recordSyncHistory("pull", "codex", 128, 1, now.Add(5*time.Minute))
+
+	records := readSyncRecords()
+	require.Len(t, records, 2)
+	assert.Equal(t, "codex", records[0].AgentID)
+	assert.Equal(t, "push", records[0].Direction)
+	assert.Equal(t, 256, records[0].PayloadSize)
+	assert.Equal(t, 3, records[0].ItemsCount)
+	assert.Equal(t, "2026-03-31T12:00:00Z", records[0].SyncedAt)
+	assert.Equal(t, "pull", records[1].Direction)
+	assert.Equal(t, 1, records[1].ItemsCount)
+}
+
+func TestSync_RecordSyncHistory_Bad_MissingFile(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	records := readSyncRecords()
+	require.Empty(t, records)
+
+	recordSyncHistory("", "codex", 64, 1, time.Now())
+	records = readSyncRecords()
+	require.Empty(t, records)
+}
+
+func TestSync_RecordSyncHistory_Ugly_CorruptFile(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	require.True(t, fs.WriteAtomic(syncRecordsPath(), "{not-json").OK)
+
+	records := readSyncRecords()
+	require.Empty(t, records)
+}
+
 func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
