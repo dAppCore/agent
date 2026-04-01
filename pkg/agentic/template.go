@@ -432,6 +432,8 @@ func templatePlanTask(item any, number int) PlanTask {
 			Description: stringValue(value["description"]),
 			Status:      status,
 			Notes:       stringValue(value["notes"]),
+			File:        stringValue(value["file"]),
+			Line:        intValue(value["line"]),
 		}
 	}
 	return PlanTask{}

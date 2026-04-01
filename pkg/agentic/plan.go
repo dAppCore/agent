@@ -43,13 +43,15 @@ type Phase struct {
 	Notes       string            `json:"notes,omitempty"`
 }
 
-// task := agentic.PlanTask{ID: "1", Title: "Review imports", Status: "pending"}
+// task := agentic.PlanTask{ID: "1", Title: "Review imports", Status: "pending", File: "pkg/agentic/plan.go", Line: 46}
 type PlanTask struct {
 	ID          string `json:"id,omitempty"`
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
 	Status      string `json:"status,omitempty"`
 	Notes       string `json:"notes,omitempty"`
+	File        string `json:"file,omitempty"`
+	Line        int    `json:"line,omitempty"`
 }
 
 // checkpoint := agentic.PhaseCheckpoint{Note: "Build passes", CreatedAt: "2026-03-31T00:00:00Z"}
@@ -658,6 +660,8 @@ func planTaskValue(value any) (PlanTask, bool) {
 			Description: stringValue(typed["description"]),
 			Status:      stringValue(typed["status"]),
 			Notes:       stringValue(typed["notes"]),
+			File:        stringValue(typed["file"]),
+			Line:        intValue(typed["line"]),
 		}, title != ""
 	case map[string]string:
 		return planTaskValue(anyMapValue(typed))

@@ -10,13 +10,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// input := agentic.TaskUpdateInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, TaskIdentifier: "1"}
+// input := agentic.TaskUpdateInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, TaskIdentifier: "1", File: "pkg/agentic/task.go", Line: 128}
 type TaskUpdateInput struct {
 	PlanSlug       string `json:"plan_slug"`
 	PhaseOrder     int    `json:"phase_order"`
 	TaskIdentifier any    `json:"task_identifier"`
 	Status         string `json:"status,omitempty"`
 	Notes          string `json:"notes,omitempty"`
+	File           string `json:"file,omitempty"`
+	Line           int    `json:"line,omitempty"`
 }
 
 // input := agentic.TaskToggleInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, TaskIdentifier: 1}
@@ -26,7 +28,7 @@ type TaskToggleInput struct {
 	TaskIdentifier any    `json:"task_identifier"`
 }
 
-// input := agentic.TaskCreateInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, Title: "Review imports"}
+// input := agentic.TaskCreateInput{PlanSlug: "my-plan-abc123", PhaseOrder: 1, Title: "Review imports", File: "pkg/agentic/task.go", Line: 153}
 type TaskCreateInput struct {
 	PlanSlug    string `json:"plan_slug"`
 	PhaseOrder  int    `json:"phase_order"`
@@ -34,15 +36,17 @@ type TaskCreateInput struct {
 	Description string `json:"description,omitempty"`
 	Status      string `json:"status,omitempty"`
 	Notes       string `json:"notes,omitempty"`
+	File        string `json:"file,omitempty"`
+	Line        int    `json:"line,omitempty"`
 }
 
-// out := agentic.TaskOutput{Success: true, Task: agentic.PlanTask{ID: "1", Title: "Review imports"}}
+// out := agentic.TaskOutput{Success: true, Task: agentic.PlanTask{ID: "1", Title: "Review imports", File: "pkg/agentic/task.go", Line: 128}}
 type TaskOutput struct {
 	Success bool     `json:"success"`
 	Task    PlanTask `json:"task"`
 }
 
-// out := agentic.TaskCreateOutput{Success: true, Task: agentic.PlanTask{ID: "3", Title: "Review imports"}}
+// out := agentic.TaskCreateOutput{Success: true, Task: agentic.PlanTask{ID: "3", Title: "Review imports", File: "pkg/agentic/task.go", Line: 153}}
 type TaskCreateOutput struct {
 	Success bool     `json:"success"`
 	Task    PlanTask `json:"task"`
@@ -63,6 +67,8 @@ func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Optio
 		Description: optionStringValue(options, "description"),
 		Status:      optionStringValue(options, "status"),
 		Notes:       optionStringValue(options, "notes"),
+		File:        optionStringValue(options, "file"),
+		Line:        optionIntValue(options, "line"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -78,6 +84,8 @@ func (s *PrepSubsystem) handleTaskUpdate(ctx context.Context, options core.Optio
 		TaskIdentifier: optionAnyValue(options, "task_identifier", "task"),
 		Status:         optionStringValue(options, "status"),
 		Notes:          optionStringValue(options, "notes"),
+		File:           optionStringValue(options, "file"),
+		Line:           optionIntValue(options, "line"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -134,6 +142,12 @@ func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	if notes := core.Trim(input.Notes); notes != "" {
 		plan.Phases[phaseIndex].Tasks[taskIndex].Notes = notes
 	}
+	if file := core.Trim(input.File); file != "" {
+		plan.Phases[phaseIndex].Tasks[taskIndex].File = file
+	}
+	if input.Line > 0 {
+		plan.Phases[phaseIndex].Tasks[taskIndex].Line = input.Line
+	}
 	plan.UpdatedAt = time.Now()
 
 	if result := writePlanResult(PlansRoot(), plan); !result.OK {
@@ -173,6 +187,8 @@ func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		Description: core.Trim(input.Description),
 		Status:      input.Status,
 		Notes:       core.Trim(input.Notes),
+		File:        core.Trim(input.File),
+		Line:        input.Line,
 	}
 	newTask = normalisePlanTask(newTask, nextIndex)
 

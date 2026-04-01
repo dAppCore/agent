@@ -70,6 +70,20 @@ func TestTemplate_HandleTemplatePreview_Ugly_MissingVariables(t *testing.T) {
 	assert.Contains(t, output.Preview, "{{ feature_name }}")
 }
 
+func TestTemplate_TemplatePlanTask_Good_FileLineReference(t *testing.T) {
+	task := templatePlanTask(map[string]any{
+		"title":  "Review RFC",
+		"status": "pending",
+		"file":   "pkg/agentic/template.go",
+		"line":   411,
+	}, 1)
+
+	assert.Equal(t, "Review RFC", task.Title)
+	assert.Equal(t, "pending", task.Status)
+	assert.Equal(t, "pkg/agentic/template.go", task.File)
+	assert.Equal(t, 411, task.Line)
+}
+
 func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(

@@ -33,11 +33,15 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 		TaskIdentifier: "1",
 		Status:         "completed",
 		Notes:          "Done",
+		File:           "pkg/agentic/task.go",
+		Line:           128,
 	})
 	require.NoError(t, err)
 	assert.True(t, output.Success)
 	assert.Equal(t, "completed", output.Task.Status)
 	assert.Equal(t, "Done", output.Task.Notes)
+	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
+	assert.Equal(t, 128, output.Task.Line)
 }
 
 func TestTask_TaskCreate_Good(t *testing.T) {
@@ -64,12 +68,16 @@ func TestTask_TaskCreate_Good(t *testing.T) {
 		Description: "Update the implementation",
 		Status:      "pending",
 		Notes:       "Do this first",
+		File:        "pkg/agentic/task.go",
+		Line:        153,
 	})
 	require.NoError(t, err)
 	assert.True(t, output.Success)
 	assert.Equal(t, "Patch code", output.Task.Title)
 	assert.Equal(t, "pending", output.Task.Status)
 	assert.Equal(t, "Do this first", output.Task.Notes)
+	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
+	assert.Equal(t, 153, output.Task.Line)
 }
 
 func TestTask_TaskCreate_Bad_MissingTitle(t *testing.T) {
@@ -152,4 +160,6 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 	require.Len(t, updated.Phases[0].Tasks, 2)
 	assert.Equal(t, "Review RFC", updated.Phases[0].Tasks[0].Title)
 	assert.Equal(t, "Patch code", updated.Phases[0].Tasks[1].Title)
+	assert.Empty(t, updated.Phases[0].Tasks[1].File)
+	assert.Zero(t, updated.Phases[0].Tasks[1].Line)
 }

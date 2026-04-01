@@ -70,7 +70,7 @@ func TestPlan_ReadPlan_Good(t *testing.T) {
 		Org:       "core",
 		Objective: "Verify plan reading works",
 		Phases: []Phase{
-			{Number: 1, Name: "Setup", Status: "done"},
+			{Number: 1, Name: "Setup", Status: "done", Tasks: []PlanTask{{ID: "1", Title: "Review imports", File: "pkg/agentic/plan.go", Line: 46}}},
 			{Number: 2, Name: "Implement", Status: "pending"},
 		},
 		Notes: "Some notes",
@@ -92,6 +92,10 @@ func TestPlan_ReadPlan_Good(t *testing.T) {
 	assert.Len(t, read.Phases, 2)
 	assert.Equal(t, "Setup", read.Phases[0].Name)
 	assert.Equal(t, "done", read.Phases[0].Status)
+	require.Len(t, read.Phases[0].Tasks, 1)
+	assert.Equal(t, "Review imports", read.Phases[0].Tasks[0].Title)
+	assert.Equal(t, "pkg/agentic/plan.go", read.Phases[0].Tasks[0].File)
+	assert.Equal(t, 46, read.Phases[0].Tasks[0].Line)
 	assert.Equal(t, "Implement", read.Phases[1].Name)
 	assert.Equal(t, "pending", read.Phases[1].Status)
 	assert.Equal(t, "Some notes", read.Notes)
@@ -123,7 +127,7 @@ func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 		Org:       "core",
 		Objective: "Ensure write-read roundtrip works",
 		Phases: []Phase{
-			{Number: 1, Name: "Phase One", Status: "done", Criteria: []string{"tests pass", "coverage > 80%"}, Tests: 5},
+			{Number: 1, Name: "Phase One", Status: "done", Criteria: []string{"tests pass", "coverage > 80%"}, Tests: 5, Tasks: []PlanTask{{ID: "1", Title: "tests pass", File: "pkg/agentic/plan_test.go", Line: 100}}},
 			{Number: 2, Name: "Phase Two", Status: "in_progress", Notes: "Working on it"},
 			{Number: 3, Name: "Phase Three", Status: "pending"},
 		},
@@ -142,6 +146,9 @@ func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 	assert.Len(t, read.Phases, 3)
 	assert.Equal(t, []string{"tests pass", "coverage > 80%"}, read.Phases[0].Criteria)
 	assert.Equal(t, 5, read.Phases[0].Tests)
+	require.Len(t, read.Phases[0].Tasks, 1)
+	assert.Equal(t, "pkg/agentic/plan_test.go", read.Phases[0].Tasks[0].File)
+	assert.Equal(t, 100, read.Phases[0].Tasks[0].Line)
 	assert.Equal(t, "Working on it", read.Phases[1].Notes)
 }
 
