@@ -57,6 +57,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdReviewQueue})
 	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
 	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
+	c.Command("prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
+	c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 	s.registerPlanCommands()
 	s.registerSessionCommands()
@@ -661,6 +663,38 @@ func (s *PrepSubsystem) cmdPrompt(options core.Options) core.Result {
 	core.Print(nil, "")
 	core.Print(nil, "%s", prompt)
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdPromptVersion(options core.Options) core.Result {
+	workspace := optionStringValue(options, "workspace", "_arg")
+	if workspace == "" {
+		core.Print(nil, "usage: core-agent prompt version <workspace>")
+		return core.Result{Value: core.E("agentic.cmdPromptVersion", "workspace is required", nil), OK: false}
+	}
+
+	result := s.handlePromptVersion(s.commandContext(), core.NewOptions(
+		core.Option{Key: "workspace", Value: workspace},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPromptVersion", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(PromptVersionOutput)
+	if !ok {
+		err := core.E("agentic.cmdPromptVersion", "invalid prompt version output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "workspace: %s", output.Workspace)
+	core.Print(nil, "hash:      %s", output.Snapshot.Hash)
+	if output.Snapshot.CreatedAt != "" {
+		core.Print(nil, "created:   %s", output.Snapshot.CreatedAt)
+	}
+	core.Print(nil, "chars:     %d", len(output.Snapshot.Content))
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {

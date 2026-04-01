@@ -261,6 +261,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("content.schema.generate", s.handleContentSchemaGenerate).Description = "Generate SEO schema JSON-LD for article, FAQ, or how-to content"
 
 	c.Action("agentic.prompt", s.handlePrompt).Description = "Read a system prompt by slug"
+	c.Action("agentic.prompt.version", s.handlePromptVersion).Description = "Read the current prompt snapshot for a workspace"
 	c.Action("agentic.task", s.handleTask).Description = "Read a task plan by slug"
 	c.Action("agentic.flow", s.handleFlow).Description = "Read a build/release flow by slug"
 	c.Action("agentic.persona", s.handlePersona).Description = "Read a persona by path"
@@ -807,6 +808,30 @@ func writePromptSnapshot(workspaceDir, prompt string) core.Result {
 	}
 
 	return core.Result{Value: hash, OK: true}
+}
+
+// snapshot := readPromptSnapshot("/srv/.core/workspace/core/go-io/task-42")
+func readPromptSnapshot(workspaceDir string) (PromptVersionSnapshot, error) {
+	if workspaceDir == "" {
+		return PromptVersionSnapshot{}, core.E("readPromptSnapshot", "workspace is required", nil)
+	}
+
+	snapshotPath := core.JoinPath(WorkspaceMetaDir(workspaceDir), "prompt-version.json")
+	result := fs.Read(snapshotPath)
+	if !result.OK {
+		err, _ := result.Value.(error)
+		if err == nil {
+			err = core.E("readPromptSnapshot", "prompt snapshot not found", nil)
+		}
+		return PromptVersionSnapshot{}, err
+	}
+
+	var snapshot PromptVersionSnapshot
+	if parseResult := core.JSONUnmarshalString(result.Value.(string), &snapshot); !parseResult.OK {
+		err, _ := parseResult.Value.(error)
+		return PromptVersionSnapshot{}, core.E("readPromptSnapshot", "failed to parse prompt snapshot", err)
+	}
+	return snapshot, nil
 }
 
 // snapshot := PromptVersionSnapshot{Hash: "f2c8...", Content: "TASK: Fix tests"}
