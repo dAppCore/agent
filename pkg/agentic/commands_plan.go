@@ -9,6 +9,7 @@ import (
 func (s *PrepSubsystem) registerPlanCommands() {
 	c := s.Core()
 	c.Command("plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan})
+	c.Command("agentic:plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan})
 	c.Command("plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate})
 	c.Command("plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue})
 	c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList})

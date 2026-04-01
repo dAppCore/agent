@@ -125,3 +125,13 @@ func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 	assert.True(t, output.Complete)
 	assert.Equal(t, plan.Slug, output.Plan.Slug)
 }
+
+func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
+
+	s.registerPlanCommands()
+
+	assert.Contains(t, c.Commands(), "agentic:plan")
+	assert.Contains(t, c.Commands(), "plan")
+}
