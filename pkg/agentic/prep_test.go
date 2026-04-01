@@ -208,6 +208,33 @@ func TestPrep_Subsystem_Good_Name(t *testing.T) {
 	assert.Equal(t, "agentic", s.Name())
 }
 
+func TestPrep_Subsystem_SetCore_Good_WiresServiceRuntime(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+
+	s.SetCore(c)
+
+	require.NotNil(t, s.ServiceRuntime)
+	assert.Equal(t, c, s.Core())
+}
+
+func TestPrep_Subsystem_SetCore_Bad_NilCoreDoesNothing(t *testing.T) {
+	s := &PrepSubsystem{}
+
+	s.SetCore(nil)
+
+	assert.Nil(t, s.ServiceRuntime)
+}
+
+func TestPrep_Subsystem_SetCore_Ugly_NilReceiverDoesNotPanic(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+
+	assert.NotPanics(t, func() {
+		var s *PrepSubsystem
+		s.SetCore(c)
+	})
+}
+
 // --- sanitiseBranchSlug Bad/Ugly ---
 
 func TestSanitise_SanitiseBranchSlug_Bad_EmptyString(t *testing.T) {

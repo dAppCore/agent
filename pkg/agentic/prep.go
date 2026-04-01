@@ -327,6 +327,15 @@ func envOr(key, fallback string) string {
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
 // subsystem := agentic.NewPrep()
+// subsystem.SetCore(core.New(core.WithOption("name", "core-agent")))
+func (s *PrepSubsystem) SetCore(c *core.Core) {
+	if s == nil || c == nil {
+		return
+	}
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+}
+
+// subsystem := agentic.NewPrep()
 // subsystem.RegisterTools(server)
 func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{

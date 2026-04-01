@@ -15,7 +15,7 @@ import (
 // prep := c.Service("agentic")
 func Register(c *core.Core) core.Result {
 	subsystem := NewPrep()
-	subsystem.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+	subsystem.SetCore(c)
 
 	config := subsystem.loadAgentsConfig()
 	c.Config().Set("agents.concurrency", config.Concurrency)
