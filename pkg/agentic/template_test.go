@@ -111,6 +111,26 @@ func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 	assert.Equal(t, "new-feature", stringValue(plan.Context["template"]))
 }
 
+func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(
+		core.Option{Key: "template", Value: "api-consistency"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(TemplateCreatePlanOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.NotEmpty(t, output.Plan.Slug)
+	assert.Equal(t, "API Consistency Audit", output.Plan.Title)
+	assert.Equal(t, "draft", output.Plan.Status)
+
+	plan, err := readPlan(PlansRoot(), output.Plan.Slug)
+	require.NoError(t, err)
+	assert.Equal(t, "api-consistency", stringValue(plan.Context["template"]))
+	assert.Empty(t, plan.Context["variables"])
+}
+
 func TestTemplate_HandleTemplateCreatePlan_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(

@@ -198,9 +198,6 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 	if templateName == "" {
 		return nil, TemplateCreatePlanOutput{}, core.E("templateCreatePlan", "template is required", nil)
 	}
-	if input.Variables == nil {
-		return nil, TemplateCreatePlanOutput{}, core.E("templateCreatePlan", "variables are required", nil)
-	}
 
 	definition, err := loadPlanTemplateDefinition(templateName, input.Variables)
 	if err != nil {
