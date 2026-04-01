@@ -206,6 +206,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("state.set", s.handleStateSet).Description = "Store shared plan state for later sessions"
 	c.Action("state.get", s.handleStateGet).Description = "Read shared plan state by key"
 	c.Action("state.list", s.handleStateList).Description = "List shared plan state for a plan"
+	c.Action("state.delete", s.handleStateDelete).Description = "Delete shared plan state by key"
 	c.Action("template.list", s.handleTemplateList).Description = "List available YAML plan templates"
 	c.Action("template.preview", s.handleTemplatePreview).Description = "Preview a YAML plan template with variable substitution"
 	c.Action("template.create_plan", s.handleTemplateCreatePlan).Description = "Create a stored plan from a YAML template"

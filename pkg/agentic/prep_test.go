@@ -478,6 +478,7 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("state.set").Exists())
 	assert.True(t, c.Action("state.get").Exists())
 	assert.True(t, c.Action("state.list").Exists())
+	assert.True(t, c.Action("state.delete").Exists())
 	assert.True(t, c.Action("issue.create").Exists())
 	assert.True(t, c.Action("issue.get").Exists())
 	assert.True(t, c.Action("issue.list").Exists())

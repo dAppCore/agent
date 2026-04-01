@@ -46,6 +46,12 @@ type StateListInput struct {
 	Category string `json:"category,omitempty"`
 }
 
+// input := agentic.StateDeleteInput{PlanSlug: "ax-follow-up", Key: "pattern"}
+type StateDeleteInput struct {
+	PlanSlug string `json:"plan_slug"`
+	Key      string `json:"key"`
+}
+
 // out := agentic.StateOutput{Success: true, State: agentic.WorkspaceState{Key: "pattern"}}
 type StateOutput struct {
 	Success bool           `json:"success"`
@@ -57,6 +63,12 @@ type StateListOutput struct {
 	Success bool             `json:"success"`
 	Total   int              `json:"total"`
 	States  []WorkspaceState `json:"states"`
+}
+
+// out := agentic.StateDeleteOutput{Success: true, Deleted: agentic.WorkspaceState{Key: "pattern"}}
+type StateDeleteOutput struct {
+	Success bool           `json:"success"`
+	Deleted WorkspaceState `json:"deleted"`
 }
 
 // result := c.Action("state.set").Run(ctx, core.NewOptions(
@@ -111,6 +123,23 @@ func (s *PrepSubsystem) handleStateList(ctx context.Context, options core.Option
 	return core.Result{Value: output, OK: true}
 }
 
+// result := c.Action("state.delete").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+//	core.Option{Key: "key", Value: "pattern"},
+//
+// ))
+func (s *PrepSubsystem) handleStateDelete(ctx context.Context, options core.Options) core.Result {
+	_, output, err := s.stateDelete(ctx, nil, StateDeleteInput{
+		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
+		Key:      optionStringValue(options, "key"),
+	})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) registerStateTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "state_set",
@@ -126,6 +155,11 @@ func (s *PrepSubsystem) registerStateTools(server *mcp.Server) {
 		Name:        "state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "state_delete",
+		Description: "Delete a stored workspace state value for a plan by key.",
+	}, s.stateDelete)
 }
 
 func (s *PrepSubsystem) stateSet(_ context.Context, _ *mcp.CallToolRequest, input StateSetInput) (*mcp.CallToolResult, StateOutput, error) {
@@ -235,6 +269,51 @@ func (s *PrepSubsystem) stateList(_ context.Context, _ *mcp.CallToolRequest, inp
 		Success: true,
 		Total:   len(filtered),
 		States:  filtered,
+	}, nil
+}
+
+func (s *PrepSubsystem) stateDelete(_ context.Context, _ *mcp.CallToolRequest, input StateDeleteInput) (*mcp.CallToolResult, StateDeleteOutput, error) {
+	if input.PlanSlug == "" {
+		return nil, StateDeleteOutput{}, core.E("stateDelete", "plan_slug is required", nil)
+	}
+	if input.Key == "" {
+		return nil, StateDeleteOutput{}, core.E("stateDelete", "key is required", nil)
+	}
+
+	states, err := readPlanStates(input.PlanSlug)
+	if err != nil {
+		return nil, StateDeleteOutput{}, err
+	}
+
+	filtered := make([]WorkspaceState, 0, len(states))
+	deleted := WorkspaceState{}
+	found := false
+	for _, state := range states {
+		if state.Key == input.Key {
+			deleted = normaliseWorkspaceState(state)
+			found = true
+			continue
+		}
+		filtered = append(filtered, state)
+	}
+
+	if !found {
+		return nil, StateDeleteOutput{}, core.E("stateDelete", core.Concat("state not found: ", input.Key), nil)
+	}
+
+	path := statePath(input.PlanSlug)
+	if len(filtered) == 0 {
+		if deleteResult := fs.Delete(path); !deleteResult.OK {
+			err, _ := deleteResult.Value.(error)
+			return nil, StateDeleteOutput{}, core.E("stateDelete", "failed to delete empty state file", err)
+		}
+	} else if err := writePlanStates(input.PlanSlug, filtered); err != nil {
+		return nil, StateDeleteOutput{}, err
+	}
+
+	return nil, StateDeleteOutput{
+		Success: true,
+		Deleted: deleted,
 	}, nil
 }
 

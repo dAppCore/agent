@@ -145,3 +145,54 @@ func TestState_HandleStateList_Ugly_CorruptStateFile(t *testing.T) {
 	))
 	assert.False(t, result.OK)
 }
+
+func TestState_HandleStateDelete_Good(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	require.NoError(t, writePlanStates("ax-follow-up", []WorkspaceState{
+		{Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"},
+		{Key: "risk", Value: "auth", Type: "security"},
+	}))
+
+	result := subsystem.handleStateDelete(context.Background(), core.NewOptions(
+		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+		core.Option{Key: "key", Value: "pattern"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(StateDeleteOutput)
+	require.True(t, ok)
+	assert.Equal(t, "pattern", output.Deleted.Key)
+	assert.Equal(t, "general", output.Deleted.Type)
+	assert.Equal(t, "Shared across sessions", output.Deleted.Description)
+
+	states, err := readPlanStates("ax-follow-up")
+	require.NoError(t, err)
+	require.Len(t, states, 1)
+	assert.Equal(t, "risk", states[0].Key)
+
+	require.True(t, subsystem.handleStateDelete(context.Background(), core.NewOptions(
+		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+		core.Option{Key: "key", Value: "risk"},
+	)).OK)
+	assert.False(t, fs.Exists(statePath("ax-follow-up")))
+}
+
+func TestState_HandleStateDelete_Bad(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	result := subsystem.handleStateDelete(context.Background(), core.NewOptions(
+		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+	))
+	assert.False(t, result.OK)
+}
+
+func TestState_HandleStateDelete_Ugly_CorruptStateFile(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	require.True(t, fs.EnsureDir(stateRoot()).OK)
+	require.True(t, fs.Write(statePath("ax-follow-up"), `{broken`).OK)
+
+	result := subsystem.handleStateDelete(context.Background(), core.NewOptions(
+		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+		core.Option{Key: "key", Value: "pattern"},
+	))
+	assert.False(t, result.OK)
+}
