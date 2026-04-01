@@ -226,6 +226,62 @@ func TestRunner_ActionStop_Good(t *testing.T) {
 	assert.True(t, svc.IsFrozen())
 }
 
+func TestRunner_ActionKill_Good_ClearsQueuedWorkspaces(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := core.JoinPath(root, "workspace")
+
+	queuedDir := core.JoinPath(wsRoot, "task-queued")
+	runningDir := core.JoinPath(wsRoot, "task-running")
+	require.True(t, fs.EnsureDir(queuedDir).OK)
+	require.True(t, fs.EnsureDir(runningDir).OK)
+
+	require.True(t, WriteStatus(queuedDir, &WorkspaceStatus{
+		Status: "queued",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Task:   "Queued work",
+	}).OK)
+	require.True(t, WriteStatus(runningDir, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "claude",
+		Repo:   "go-log",
+		Task:   "Running work",
+	}).OK)
+
+	svc := New()
+	result := svc.actionKill(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+	assert.Contains(t, result.Value.(string), "cleared 1 queued")
+
+	assert.False(t, fs.Read(core.JoinPath(queuedDir, "status.json")).OK, "queued workspace should be deleted")
+	running := mustReadStatus(t, runningDir)
+	assert.Equal(t, "failed", running.Status)
+	assert.Equal(t, 0, running.PID)
+}
+
+func TestRunner_ActionKill_Bad_EmptyWorkspaceRoot(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", "")
+	svc := New()
+	result := svc.actionKill(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+	assert.Contains(t, result.Value.(string), "cleared 0 queued")
+}
+
+func TestRunner_ActionKill_Ugly_InvalidStatusFile(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	wsRoot := core.JoinPath(root, "workspace")
+	wsDir := core.JoinPath(wsRoot, "task-bad")
+	require.True(t, fs.EnsureDir(wsDir).OK)
+	require.True(t, fs.Write(core.JoinPath(wsDir, "status.json"), "{not-json").OK)
+
+	svc := New()
+	result := svc.actionKill(context.Background(), core.NewOptions())
+	require.True(t, result.OK)
+	assert.Contains(t, result.Value.(string), "cleared 0 queued")
+}
+
 func TestRunner_ActionDispatch_Bad_Frozen(t *testing.T) {
 	svc := New()
 	svc.frozen = true

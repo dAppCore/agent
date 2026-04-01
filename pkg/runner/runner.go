@@ -324,19 +324,46 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 		runtime = s.Core()
 	}
 	killed := 0
-	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
-		if workspaceStatus.Status == "running" && workspaceStatus.PID > 0 {
-			if agentic.ProcessTerminate(runtime, "", workspaceStatus.PID) {
+	cleared := 0
+	seenQueued := make(map[string]bool)
+
+	for _, statusPath := range agentic.WorkspaceStatusPaths() {
+		workspaceDir := core.PathDir(statusPath)
+		statusResult := ReadStatusResult(workspaceDir)
+		workspaceStatus, ok := statusResult.Value.(*WorkspaceStatus)
+		if !ok || workspaceStatus == nil {
+			continue
+		}
+
+		switch workspaceStatus.Status {
+		case "running":
+			if workspaceStatus.PID > 0 && agentic.ProcessTerminate(runtime, "", workspaceStatus.PID) {
 				killed++
 			}
 			workspaceStatus.Status = "failed"
 			workspaceStatus.PID = 0
+			_ = WriteStatus(workspaceDir, workspaceStatus)
+			if s.workspaces != nil {
+				s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
+			}
+		case "queued":
+			workspaceName := agentic.WorkspaceName(workspaceDir)
+			if seenQueued[workspaceName] {
+				continue
+			}
+			seenQueued[workspaceName] = true
+			if deleteResult := fs.DeleteAll(workspaceDir); !deleteResult.OK {
+				core.Warn("runner.actionKill: failed to delete queued workspace", "workspace", workspaceName, "reason", core.Sprint(deleteResult.Value))
+				continue
+			}
+			cleared++
+			if s.workspaces != nil {
+				s.workspaces.Delete(workspaceName)
+			}
 		}
-		if workspaceStatus.Status == "queued" {
-			workspaceStatus.Status = "failed"
-		}
-	})
-	return core.Result{Value: core.Sprintf("killed %d agents", killed), OK: true}
+	}
+
+	return core.Result{Value: core.Sprintf("killed %d agents, cleared %d queued", killed, cleared), OK: true}
 }
 
 func (s *Service) actionPoke(_ context.Context, _ core.Options) core.Result {
