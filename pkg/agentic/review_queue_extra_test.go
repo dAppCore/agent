@@ -87,6 +87,32 @@ func TestReviewqueue_StoreReviewOutput_Good(t *testing.T) {
 	})
 }
 
+func TestReviewqueue_RunPRManageLoop_Good_StopsOnCancel(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		s.runPRManageLoop(ctx, time.Hour)
+		close(done)
+	}()
+
+	cancel()
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 5*time.Millisecond)
+}
+
 // --- reviewQueue ---
 
 func TestReviewqueue_NoCandidates_Good(t *testing.T) {

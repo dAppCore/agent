@@ -290,6 +290,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	if planRetentionDays(core.NewOptions()) > 0 {
 		go s.runPlanCleanupLoop(ctx, planRetentionScheduleInterval)
 	}
+	if s.forgeToken != "" {
+		go s.runPRManageLoop(ctx, prManageScheduleInterval)
+	}
 
 	c.RegisterQuery(s.handleWorkspaceQuery)
 

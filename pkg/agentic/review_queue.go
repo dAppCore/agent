@@ -45,6 +45,8 @@ type RateLimitInfo struct {
 
 var retryAfterPattern = compileRetryAfterPattern()
 
+const prManageScheduleInterval = 5 * time.Minute
+
 func compileRetryAfterPattern() *regexp.Regexp {
 	pattern, err := regexp.Compile(`(\d+)\s*minutes?\s*(?:and\s*)?(\d+)?\s*seconds?`)
 	if err != nil {
@@ -112,6 +114,28 @@ func (s *PrepSubsystem) cmdReviewQueue(options core.Options) core.Result {
 // ))
 func (s *PrepSubsystem) cmdPRManage(options core.Options) core.Result {
 	return s.cmdReviewQueue(options)
+}
+
+// ctx, cancel := context.WithCancel(context.Background())
+// go s.runPRManageLoop(ctx, 5*time.Minute)
+func (s *PrepSubsystem) runPRManageLoop(ctx context.Context, interval time.Duration) {
+	if ctx == nil || interval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if result := s.cmdPRManage(core.NewOptions()); !result.OK {
+				core.Warn("pr-manage scheduled run failed", "error", result.Value)
+			}
+		}
+	}
 }
 
 func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
