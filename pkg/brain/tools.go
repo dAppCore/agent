@@ -86,6 +86,9 @@ type Memory struct {
 	UpdatedAt    string   `json:"updated_at"`
 }
 
+// BrainMemory is the RFC-named alias for Memory.
+type BrainMemory = Memory
+
 //	input := brain.ForgetInput{
 //	    ID:     "mem_123",
 //	    Reason: "superseded",

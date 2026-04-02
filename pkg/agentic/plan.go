@@ -31,6 +31,9 @@ type Plan struct {
 	ArchivedAt      time.Time           `json:"archived_at,omitempty"`
 }
 
+// AgentPlan is the RFC-named alias for Plan.
+type AgentPlan = Plan
+
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
 	Number       int               `json:"number"`
