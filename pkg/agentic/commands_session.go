@@ -8,6 +8,10 @@ import (
 
 func (s *PrepSubsystem) registerSessionCommands() {
 	c := s.Core()
+	c.Command("session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart})
+	c.Command("agentic:session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart})
+	c.Command("session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue})
+	c.Command("agentic:session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue})
 	c.Command("session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
 	c.Command("agentic:session/handoff", core.Command{Description: "Pause a stored session with handoff context", Action: s.cmdSessionHandoff})
 	c.Command("session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
@@ -22,6 +26,81 @@ func (s *PrepSubsystem) registerSessionCommands() {
 	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
 	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
 	c.Command("agentic:session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
+}
+
+// core-agent session start ax-follow-up --agent-type=codex
+func (s *PrepSubsystem) cmdSessionStart(options core.Options) core.Result {
+	planSlug := optionStringValue(options, "plan_slug", "plan", "_arg")
+	agentType := optionStringValue(options, "agent_type", "agent")
+	if planSlug == "" {
+		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=codex [--context='{\"repo\":\"go-io\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionStart", "plan_slug is required", nil), OK: false}
+	}
+	if agentType == "" {
+		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=codex [--context='{\"repo\":\"go-io\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionStart", "agent_type is required", nil), OK: false}
+	}
+
+	result := s.handleSessionStart(s.commandContext(), core.NewOptions(
+		core.Option{Key: "plan_slug", Value: planSlug},
+		core.Option{Key: "agent_type", Value: agentType},
+		core.Option{Key: "context", Value: optionAnyMapValue(options, "context")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionStart", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionStart", "invalid session start output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", output.Session.SessionID)
+	core.Print(nil, "plan:    %s", output.Session.PlanSlug)
+	core.Print(nil, "agent:   %s", output.Session.AgentType)
+	core.Print(nil, "status:  %s", output.Session.Status)
+	return core.Result{Value: output, OK: true}
+}
+
+// core-agent session continue ses-abc123 --agent-type=codex
+func (s *PrepSubsystem) cmdSessionContinue(options core.Options) core.Result {
+	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
+	agentType := optionStringValue(options, "agent_type", "agent")
+	if sessionID == "" {
+		core.Print(nil, "usage: core-agent session continue <session-id> [--agent-type=codex] [--work-log='[{\"type\":\"checkpoint\",\"message\":\"...\"}]'] [--context='{\"repo\":\"go-io\"}']")
+		return core.Result{Value: core.E("agentic.cmdSessionContinue", "session_id is required", nil), OK: false}
+	}
+
+	result := s.handleSessionContinue(s.commandContext(), core.NewOptions(
+		core.Option{Key: "session_id", Value: sessionID},
+		core.Option{Key: "agent_type", Value: agentType},
+		core.Option{Key: "work_log", Value: optionAnyMapSliceValue(options, "work_log")},
+		core.Option{Key: "context", Value: optionAnyMapValue(options, "context")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdSessionContinue", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(SessionOutput)
+	if !ok {
+		err := core.E("agentic.cmdSessionContinue", "invalid session continue output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "session: %s", output.Session.SessionID)
+	core.Print(nil, "agent:   %s", output.Session.AgentType)
+	core.Print(nil, "status:  %s", output.Session.Status)
+	if len(output.Session.WorkLog) > 0 {
+		core.Print(nil, "work log: %d item(s)", len(output.Session.WorkLog))
+	}
+	return core.Result{Value: output, OK: true}
 }
 
 // core-agent session handoff ses-abc123 --summary="Ready for review" --next-steps="Run the verifier"

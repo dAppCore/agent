@@ -21,6 +21,10 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 
 	assert.Contains(t, c.Commands(), "session/handoff")
 	assert.Contains(t, c.Commands(), "agentic:session/handoff")
+	assert.Contains(t, c.Commands(), "session/start")
+	assert.Contains(t, c.Commands(), "agentic:session/start")
+	assert.Contains(t, c.Commands(), "session/continue")
+	assert.Contains(t, c.Commands(), "agentic:session/continue")
 	assert.Contains(t, c.Commands(), "session/end")
 	assert.Contains(t, c.Commands(), "agentic:session/end")
 	assert.Contains(t, c.Commands(), "session/complete")
@@ -33,6 +37,118 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
 	assert.Contains(t, c.Commands(), "agentic:session/replay")
+}
+
+func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		assert.Equal(t, "codex", payload["agent_type"])
+		assert.Equal(t, "ax-follow-up", payload["plan_slug"])
+
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-start","plan_slug":"ax-follow-up","agent_type":"codex","status":"active"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionStart(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ax-follow-up"},
+		core.Option{Key: "agent_type", Value: "codex"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "ses-start", output.Session.SessionID)
+	assert.Equal(t, "ax-follow-up", output.Session.PlanSlug)
+	assert.Equal(t, "codex", output.Session.AgentType)
+}
+
+func TestCommandsSession_CmdSessionStart_Bad_MissingPlanSlug(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.cmdSessionStart(core.NewOptions(core.Option{Key: "agent_type", Value: "codex"}))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "plan_slug is required")
+}
+
+func TestCommandsSession_CmdSessionStart_Ugly_InvalidResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionStart(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ax-follow-up"},
+		core.Option{Key: "agent_type", Value: "codex"},
+	))
+	assert.False(t, result.OK)
+}
+
+func TestCommandsSession_CmdSessionContinue_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions/ses-continue/continue", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		assert.Equal(t, "codex", payload["agent_type"])
+
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-continue","agent_type":"codex","status":"active","work_log":[{"type":"checkpoint","message":"continue"}]}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionContinue(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ses-continue"},
+		core.Option{Key: "agent_type", Value: "codex"},
+		core.Option{Key: "work_log", Value: []map[string]any{{"type": "checkpoint", "message": "continue"}}},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "ses-continue", output.Session.SessionID)
+	assert.Equal(t, "codex", output.Session.AgentType)
+	require.Len(t, output.Session.WorkLog, 1)
+}
+
+func TestCommandsSession_CmdSessionContinue_Bad_MissingSessionID(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.cmdSessionContinue(core.NewOptions(core.Option{Key: "agent_type", Value: "codex"}))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "session_id is required")
+}
+
+func TestCommandsSession_CmdSessionContinue_Ugly_InvalidResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionContinue(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ses-continue"},
+		core.Option{Key: "agent_type", Value: "codex"},
+	))
+	assert.False(t, result.OK)
 }
 
 func TestCommandsSession_CmdSessionHandoff_Good(t *testing.T) {
