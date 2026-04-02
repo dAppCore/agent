@@ -59,6 +59,40 @@ func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T
 	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "active-plan-abc123.json")))
 }
 
+func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+
+	plan := &Plan{
+		ID:        "completed-plan-abc123",
+		Title:     "Completed Plan",
+		Status:    "approved",
+		Objective: "Archive me",
+		UpdatedAt: time.Now().AddDate(0, 0, -100),
+	}
+
+	_, err := writePlan(PlansRoot(), plan)
+	require.NoError(t, err)
+
+	result := s.planCleanup(core.NewOptions(core.Option{Key: "days", Value: 90}))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(PlanCleanupOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, 1, output.Archived)
+	assert.Equal(t, 0, output.Deleted)
+	assert.Equal(t, 1, output.Matched)
+
+	updated, err := readPlan(PlansRoot(), plan.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "archived", updated.Status)
+	assert.False(t, updated.ArchivedAt.IsZero())
+	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "completed-plan-abc123.json")))
+}
+
 func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)

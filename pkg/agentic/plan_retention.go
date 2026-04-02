@@ -17,6 +17,7 @@ type PlanCleanupOutput struct {
 	Success  bool   `json:"success"`
 	Disabled bool   `json:"disabled,omitempty"`
 	DryRun   bool   `json:"dry_run,omitempty"`
+	Archived int    `json:"archived,omitempty"`
 	Deleted  int    `json:"deleted,omitempty"`
 	Matched  int    `json:"matched,omitempty"`
 	Cutoff   string `json:"cutoff,omitempty"`
@@ -44,16 +45,25 @@ func (s *PrepSubsystem) cmdPlanCleanup(options core.Options) core.Result {
 	}
 
 	if output.Matched == 0 {
-		core.Print(nil, "No archived plans found past the retention period.")
+		core.Print(nil, "No plans found past the retention period.")
 		return core.Result{Value: output, OK: true}
 	}
 
 	if output.DryRun {
-		core.Print(nil, "DRY RUN: %d archived plan(s) would be permanently deleted (archived before %s).", output.Matched, output.Cutoff)
+		core.Print(nil, "DRY RUN: %d plan(s) would be archived or deleted (cutoff %s).", output.Matched, output.Cutoff)
 		return core.Result{Value: output, OK: true}
 	}
 
-	core.Print(nil, "Permanently deleted %d archived plan(s) archived before %s.", output.Deleted, output.Cutoff)
+	if output.Archived > 0 && output.Deleted > 0 {
+		core.Print(nil, "Archived %d plan(s) and permanently deleted %d stale archive(s) before %s.", output.Archived, output.Deleted, output.Cutoff)
+		return core.Result{Value: output, OK: true}
+	}
+	if output.Archived > 0 {
+		core.Print(nil, "Archived %d plan(s) before %s.", output.Archived, output.Cutoff)
+		return core.Result{Value: output, OK: true}
+	}
+
+	core.Print(nil, "Permanently deleted %d stale archive(s) before %s.", output.Deleted, output.Cutoff)
 	return core.Result{Value: output, OK: true}
 }
 
@@ -97,12 +107,31 @@ func (s *PrepSubsystem) planCleanup(options core.Options) core.Result {
 		return core.Result{Value: output, OK: true}
 	}
 
+	archived := 0
 	if output.DryRun {
+		for _, candidate := range candidates {
+			if planRetentionShouldArchive(candidate.plan.Status) {
+				archived++
+			}
+		}
+		output.Archived = archived
 		return core.Result{Value: output, OK: true}
 	}
 
 	deleted := 0
 	for _, candidate := range candidates {
+		if planRetentionShouldArchive(candidate.plan.Status) {
+			_, archiveErr := archivePlanResult(PlanDeleteInput{
+				ID:     candidate.plan.ID,
+				Reason: "plan retention cleanup",
+			}, "id is required", "planCleanup")
+			if archiveErr != nil {
+				return core.Result{Value: archiveErr, OK: false}
+			}
+			archived++
+			continue
+		}
+
 		if r := fs.Delete(candidate.path); !r.OK {
 			err, _ := r.Value.(error)
 			if err == nil {
@@ -113,13 +142,15 @@ func (s *PrepSubsystem) planCleanup(options core.Options) core.Result {
 		deleted++
 	}
 
+	output.Archived = archived
 	output.Deleted = deleted
 	return core.Result{Value: output, OK: true}
 }
 
 type planRetentionCandidate struct {
 	path       string
-	archivedAt time.Time
+	plan       *Plan
+	retainedAt time.Time
 }
 
 func planRetentionCandidates(dir string, cutoff time.Time) []planRetentionCandidate {
@@ -138,22 +169,46 @@ func planRetentionCandidates(dir string, cutoff time.Time) []planRetentionCandid
 		if !ok || plan == nil {
 			continue
 		}
-		if plan.Status != "archived" {
+		if !planRetentionShouldArchive(plan.Status) && plan.Status != "archived" {
 			continue
 		}
 
-		archivedAt := planArchivedAt(path, plan)
-		if archivedAt.IsZero() || !archivedAt.Before(cutoff) {
+		retainedAt := planRetentionAt(path, plan)
+		if retainedAt.IsZero() || !retainedAt.Before(cutoff) {
 			continue
 		}
 
 		candidates = append(candidates, planRetentionCandidate{
 			path:       path,
-			archivedAt: archivedAt,
+			plan:       plan,
+			retainedAt: retainedAt,
 		})
 	}
 
 	return candidates
+}
+
+func planRetentionShouldArchive(status string) bool {
+	switch status {
+	case "approved", "completed":
+		return true
+	default:
+		return false
+	}
+}
+
+func planRetentionAt(path string, plan *Plan) time.Time {
+	if plan == nil {
+		return time.Time{}
+	}
+
+	if !plan.ArchivedAt.IsZero() {
+		return plan.ArchivedAt
+	}
+	if !plan.UpdatedAt.IsZero() {
+		return plan.UpdatedAt
+	}
+	return planArchivedAt(path, plan)
 }
 
 func planArchivedAt(path string, plan *Plan) time.Time {
