@@ -89,7 +89,7 @@ type Memory struct {
 	UpdatedAt       string   `json:"updated_at"`
 }
 
-// BrainMemory is the RFC-named alias for Memory.
+// memory := brain.BrainMemory{ID: "mem_123", Type: "convention", Content: "Use core.Trim for clean input."}
 type BrainMemory = Memory
 
 //	input := brain.ForgetInput{

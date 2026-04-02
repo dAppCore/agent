@@ -38,7 +38,7 @@ type PhaseOutput struct {
 	Phase   Phase `json:"phase"`
 }
 
-// AgentPhase is the RFC-named alias for Phase.
+// phase := agentic.AgentPhase{Number: 1, Name: "Build", Status: "in_progress"}
 type AgentPhase = Phase
 
 // result := c.Action("phase.get").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "my-plan-abc123"}))

@@ -31,7 +31,7 @@ type Session struct {
 	EndedAt        string           `json:"ended_at,omitempty"`
 }
 
-// AgentSession is the RFC-named alias for Session.
+// session := agentic.AgentSession{SessionID: "ses_abc123", AgentType: "codex", Status: "active"}
 type AgentSession = Session
 
 // input := agentic.SessionStartInput{AgentType: "codex", PlanSlug: "ax-follow-up"}

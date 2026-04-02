@@ -21,7 +21,7 @@ type WorkspaceState struct {
 	UpdatedAt   string `json:"updated_at,omitempty"`
 }
 
-// PlanState is kept as a compatibility alias for older callers.
+// state := agentic.PlanState{Key: "pattern", Value: "observer", Type: "general"}
 type PlanState = WorkspaceState
 
 // input := agentic.StateSetInput{PlanSlug: "ax-follow-up", Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"}
