@@ -285,6 +285,19 @@ func TestProvider_Describe_Ugly_ReturnSliceIsDetached(t *testing.T) {
 	assert.Equal(t, "/remember", NewProvider(nil, nil).Describe()[0].Path)
 }
 
+func TestProvider_Describe_Good_BrainFields(t *testing.T) {
+	descriptions := NewProvider(nil, nil).Describe()
+
+	rememberProps := descriptions[0].RequestBody["properties"].(map[string]any)
+	assert.Contains(t, rememberProps, "supersedes")
+	assert.Contains(t, rememberProps, "expires_in")
+
+	recallProps := descriptions[1].RequestBody["properties"].(map[string]any)
+	filterProps := recallProps["filter"].(map[string]any)["properties"].(map[string]any)
+	assert.Contains(t, filterProps, "agent_id")
+	assert.Contains(t, filterProps, "min_confidence")
+}
+
 func TestProvider_Status_Good(t *testing.T) {
 	bridge, _, cleanup := connectedBridge(t)
 	defer cleanup()

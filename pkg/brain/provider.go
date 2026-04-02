@@ -94,6 +94,8 @@ func (p *BrainProvider) Describe() []api.RouteDescription {
 					"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 					"project":    map[string]any{"type": "string"},
 					"confidence": map[string]any{"type": "number"},
+					"supersedes": map[string]any{"type": "string"},
+					"expires_in": map[string]any{"type": "integer"},
 				},
 				"required": []string{"content", "type"},
 			},
@@ -120,8 +122,10 @@ func (p *BrainProvider) Describe() []api.RouteDescription {
 					"filter": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
-							"project": map[string]any{"type": "string"},
-							"type":    map[string]any{"type": "string"},
+							"project":        map[string]any{"type": "string"},
+							"type":           map[string]any{"type": "string"},
+							"agent_id":       map[string]any{"type": "string"},
+							"min_confidence": map[string]any{"type": "number"},
 						},
 					},
 				},
