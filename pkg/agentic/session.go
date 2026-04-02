@@ -476,7 +476,11 @@ func (s *PrepSubsystem) sessionEnd(ctx context.Context, _ *mcp.CallToolRequest, 
 
 	return nil, SessionOutput{
 		Success: true,
-		Session: s.storeSession(sessionEndFromInput(parseSession(sessionDataMap(result.Value.(map[string]any))), input)),
+		Session: func() Session {
+			session := s.storeSession(sessionEndFromInput(parseSession(sessionDataMap(result.Value.(map[string]any))), input))
+			s.persistSessionHandoffMemory(ctx, session)
+			return session
+		}(),
 	}, nil
 }
 
@@ -590,6 +594,7 @@ func (s *PrepSubsystem) sessionHandoff(ctx context.Context, _ *mcp.CallToolReque
 	if err := writeSessionCache(&session); err != nil {
 		return nil, SessionHandoffOutput{}, err
 	}
+	s.persistSessionHandoffMemory(ctx, session)
 
 	return nil, SessionHandoffOutput{
 		Success:        true,
@@ -735,6 +740,93 @@ func sessionEndFromInput(session Session, input SessionEndInput) Session {
 		}
 	}
 	return session
+}
+
+func (s *PrepSubsystem) persistSessionHandoffMemory(ctx context.Context, session Session) {
+	if s == nil || s.brainKey == "" || session.SessionID == "" {
+		return
+	}
+	if len(session.Handoff) == 0 {
+		return
+	}
+
+	summary := stringValue(session.Handoff["summary"])
+	nextSteps := stringSliceValue(session.Handoff["next_steps"])
+	blockers := stringSliceValue(session.Handoff["blockers"])
+	contextForNext := anyMapValue(session.Handoff["context_for_next"])
+
+	if summary == "" && len(nextSteps) == 0 && len(blockers) == 0 && len(contextForNext) == 0 {
+		return
+	}
+
+	body := map[string]any{
+		"content":    sessionHandoffMemoryContent(session, summary, nextSteps, blockers, contextForNext),
+		"agent_id":   session.AgentType,
+		"type":       "observation",
+		"tags":       sessionHandoffMemoryTags(session),
+		"confidence": 0.7,
+	}
+	if project := sessionBrainProject(session, contextForNext); project != "" {
+		body["project"] = project
+	}
+
+	result := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/remember"), core.JSONMarshalString(body), s.brainKey, "Bearer")
+	if !result.OK {
+		core.Warn("session handoff memory persist failed", "session_id", session.SessionID, "reason", result.Value)
+	}
+}
+
+func sessionHandoffMemoryContent(session Session, summary string, nextSteps, blockers []string, contextForNext map[string]any) string {
+	builder := core.NewBuilder()
+	builder.WriteString(core.Concat("Session handoff: ", session.SessionID, "\n"))
+	if session.PlanSlug != "" {
+		builder.WriteString(core.Concat("Plan: ", session.PlanSlug, "\n"))
+	}
+	if session.AgentType != "" {
+		builder.WriteString(core.Concat("Agent: ", session.AgentType, "\n"))
+	}
+	if session.Status != "" {
+		builder.WriteString(core.Concat("Status: ", session.Status, "\n"))
+	}
+
+	if summary != "" {
+		builder.WriteString("\nSummary:\n")
+		builder.WriteString(summary)
+		builder.WriteString("\n")
+	}
+	if len(nextSteps) > 0 {
+		builder.WriteString("\nNext steps:\n")
+		for _, nextStep := range nextSteps {
+			builder.WriteString(core.Concat("- ", nextStep, "\n"))
+		}
+	}
+	if len(blockers) > 0 {
+		builder.WriteString("\nBlockers:\n")
+		for _, blocker := range blockers {
+			builder.WriteString(core.Concat("- ", blocker, "\n"))
+		}
+	}
+	if len(contextForNext) > 0 {
+		builder.WriteString("\nContext for next:\n")
+		builder.WriteString(core.JSONMarshalString(contextForNext))
+		builder.WriteString("\n")
+	}
+
+	return core.Trim(builder.String())
+}
+
+func sessionHandoffMemoryTags(session Session) []string {
+	return cleanStrings([]string{"session", "handoff", session.AgentType, sessionPlanSlug(session)})
+}
+
+func sessionBrainProject(session Session, contextForNext map[string]any) string {
+	if project := stringValue(session.ContextSummary["repo"]); project != "" {
+		return project
+	}
+	if project := stringValue(contextForNext["repo"]); project != "" {
+		return project
+	}
+	return ""
 }
 
 func mergeSessionHandoff(primary, fallback map[string]any) map[string]any {

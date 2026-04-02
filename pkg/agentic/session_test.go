@@ -213,26 +213,52 @@ func TestSession_HandleSessionEnd_Good(t *testing.T) {
 }
 
 func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
+	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions/ses_handoff/end", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		callCount++
+		switch r.URL.Path {
+		case "/v1/sessions/ses_handoff/end":
+			require.Equal(t, http.MethodPost, r.Method)
 
-		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
 
-		var payload map[string]any
-		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "paused", payload["status"])
-		require.Equal(t, "Ready for review", payload["summary"])
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			require.Equal(t, "paused", payload["status"])
+			require.Equal(t, "Ready for review", payload["summary"])
 
-		handoffNotes, ok := payload["handoff_notes"].(map[string]any)
-		require.True(t, ok)
-		assert.Equal(t, "Ready for review", handoffNotes["summary"])
-		assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
-		assert.Equal(t, []any{"Needs input"}, handoffNotes["blockers"])
+			handoffNotes, ok := payload["handoff_notes"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "Ready for review", handoffNotes["summary"])
+			assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
+			assert.Equal(t, []any{"Needs input"}, handoffNotes["blockers"])
 
-		_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"paused","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
+			_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"paused","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
+		case "/v1/brain/remember":
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
+
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			assert.Equal(t, "observation", payload["type"])
+			assert.Equal(t, "codex", payload["agent_id"])
+
+			content, _ := payload["content"].(string)
+			assert.Contains(t, content, "Session handoff: ses_handoff")
+			assert.Contains(t, content, "Ready for review")
+			assert.Contains(t, content, "Run the verifier")
+			assert.Contains(t, content, "Needs input")
+
+			_, _ = w.Write([]byte(`{"data":{"id":"mem_handoff"}}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
 	}))
 	defer server.Close()
 
@@ -253,6 +279,7 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
 	assert.Equal(t, []any{"Run the verifier"}, output.Session.Handoff["next_steps"])
 	assert.Equal(t, []any{"Needs input"}, output.Session.Handoff["blockers"])
+	assert.Equal(t, 2, callCount)
 }
 
 func TestSession_HandleSessionEnd_Bad_MissingSessionID(t *testing.T) {

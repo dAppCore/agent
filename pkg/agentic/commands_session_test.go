@@ -271,25 +271,50 @@ func TestCommandsSession_CmdSessionHandoff_Ugly_CorruptedCacheFallsBackToRemoteE
 }
 
 func TestCommandsSession_CmdSessionEnd_Good(t *testing.T) {
+	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions/ses-end/end", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		callCount++
+		switch r.URL.Path {
+		case "/v1/sessions/ses-end/end":
+			require.Equal(t, http.MethodPost, r.Method)
 
-		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
 
-		var payload map[string]any
-		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "completed", payload["status"])
-		require.Equal(t, "Ready for review", payload["summary"])
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			require.Equal(t, "completed", payload["status"])
+			require.Equal(t, "Ready for review", payload["summary"])
 
-		handoffNotes, ok := payload["handoff_notes"].(map[string]any)
-		require.True(t, ok)
-		assert.Equal(t, "Ready for review", handoffNotes["summary"])
-		assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
+			handoffNotes, ok := payload["handoff_notes"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "Ready for review", handoffNotes["summary"])
+			assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
 
-		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-end","agent_type":"codex","status":"completed","summary":"Ready for review","handoff":{"summary":"Ready for review","next_steps":["Run the verifier"]},"ended_at":"2026-03-31T12:00:00Z"}}`))
+			_, _ = w.Write([]byte(`{"data":{"session_id":"ses-end","agent_type":"codex","status":"completed","summary":"Ready for review","handoff":{"summary":"Ready for review","next_steps":["Run the verifier"]},"ended_at":"2026-03-31T12:00:00Z"}}`))
+		case "/v1/brain/remember":
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+			bodyResult := core.ReadAll(r.Body)
+			require.True(t, bodyResult.OK)
+
+			var payload map[string]any
+			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+			require.True(t, parseResult.OK)
+			assert.Equal(t, "observation", payload["type"])
+			assert.Equal(t, "codex", payload["agent_id"])
+
+			content, _ := payload["content"].(string)
+			assert.Contains(t, content, "Session handoff: ses-end")
+			assert.Contains(t, content, "Ready for review")
+			assert.Contains(t, content, "Run the verifier")
+
+			_, _ = w.Write([]byte(`{"data":{"id":"mem_end"}}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
 	}))
 	defer server.Close()
 
@@ -307,6 +332,7 @@ func TestCommandsSession_CmdSessionEnd_Good(t *testing.T) {
 	assert.Equal(t, "Ready for review", output.Session.Summary)
 	require.NotNil(t, output.Session.Handoff)
 	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
+	assert.Equal(t, 2, callCount)
 }
 
 func TestCommandsSession_CmdSessionEnd_Bad_MissingSummary(t *testing.T) {
