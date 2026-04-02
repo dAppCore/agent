@@ -62,7 +62,7 @@ func (c RemoteClient) Call(ctx context.Context, sessionID string, body []byte) (
 	return response, nil
 }
 
-// body := client.ToolCallBody("agentic_status", map[string]any{})
+// body := client.ToolCallBody(1, "agentic_dispatch", map[string]any{"repo": "go-io", "task": "Fix tests"})
 func (c RemoteClient) ToolCallBody(id int, name string, arguments map[string]any) []byte {
 	request := map[string]any{
 		"jsonrpc": "2.0",
