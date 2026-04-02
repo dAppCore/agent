@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// service := monitor.New(monitor.Options{Interval: 30 * time.Second})
+// service := monitor.New(monitor.MonitorOptions{Interval: 30 * time.Second})
 // service.RegisterTools(server)
 package monitor
 
@@ -110,14 +110,17 @@ func (m *Subsystem) HandleIPCEvents(_ *core.Core, msg core.Message) core.Result 
 	return core.Result{OK: true}
 }
 
-// options := monitor.Options{Interval: 30 * time.Second}
+// options := monitor.MonitorOptions{Interval: 30 * time.Second}
 // service := monitor.New(options)
-type Options struct {
+type MonitorOptions struct {
 	Interval time.Duration
 }
 
-// service := monitor.New(monitor.Options{Interval: 30 * time.Second})
-func New(options ...Options) *Subsystem {
+// Options is kept as a compatibility alias for older callers.
+type Options = MonitorOptions
+
+// service := monitor.New(monitor.MonitorOptions{Interval: 30 * time.Second})
+func New(options ...MonitorOptions) *Subsystem {
 	interval := 2 * time.Minute
 	if len(options) > 0 && options[0].Interval > 0 {
 		interval = options[0].Interval

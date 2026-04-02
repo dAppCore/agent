@@ -8,20 +8,23 @@ import (
 	core "dappco.re/go/core"
 )
 
-// options := setup.RuntimeOptions{}
-type RuntimeOptions struct{}
+// options := setup.SetupOptions{}
+type SetupOptions struct{}
+
+// RuntimeOptions is kept as a compatibility alias for older callers.
+type RuntimeOptions = SetupOptions
 
 // c := core.New(core.WithService(setup.Register))
 // service := c.Service("setup")
 type Service struct {
-	*core.ServiceRuntime[RuntimeOptions]
+	*core.ServiceRuntime[SetupOptions]
 }
 
 // c := core.New(core.WithService(setup.Register))
 // service := c.Service("setup")
 func Register(c *core.Core) core.Result {
 	service := &Service{
-		ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{}),
+		ServiceRuntime: core.NewServiceRuntime(c, SetupOptions{}),
 	}
 	return core.Result{Value: service, OK: true}
 }
