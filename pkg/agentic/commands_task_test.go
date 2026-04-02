@@ -58,6 +58,9 @@ func TestCommands_TaskCommand_Good_SpecAliasRegistered(t *testing.T) {
 	s.registerTaskCommands()
 
 	assert.Contains(t, c.Commands(), "agentic:task")
+	assert.Contains(t, c.Commands(), "agentic:task/create")
+	assert.Contains(t, c.Commands(), "agentic:task/update")
+	assert.Contains(t, c.Commands(), "agentic:task/toggle")
 }
 
 func TestCommands_TaskCommand_Good_Create(t *testing.T) {

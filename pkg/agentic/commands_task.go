@@ -11,12 +11,15 @@ func (s *PrepSubsystem) registerTaskCommands() {
 	c.Command("task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
 	c.Command("agentic:task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
 	c.Command("task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate})
+	c.Command("agentic:task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate})
 	c.Command("task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate})
+	c.Command("agentic:task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate})
 	c.Command("task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle})
+	c.Command("agentic:task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle})
 }
 
 func (s *PrepSubsystem) cmdTask(options core.Options) core.Result {
-	action := optionStringValue(options, "action")
+	action := optionStringValue(options, "action", "_arg")
 	switch action {
 	case "create":
 		return s.cmdTaskCreate(options)

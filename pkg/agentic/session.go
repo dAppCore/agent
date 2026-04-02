@@ -408,12 +408,13 @@ func (s *PrepSubsystem) sessionStart(ctx context.Context, _ *mcp.CallToolRequest
 	if input.AgentType == "" {
 		return nil, SessionOutput{}, core.E("sessionStart", "agent_type is required", nil)
 	}
-	if !validSessionAgentType(input.AgentType) {
-		return nil, SessionOutput{}, core.E("sessionStart", "agent_type must be opus, sonnet, or haiku", nil)
+	normalisedAgentType, ok := normaliseSessionAgentType(input.AgentType)
+	if !ok {
+		return nil, SessionOutput{}, core.E("sessionStart", "agent_type must be opus, sonnet, haiku, or claude:opus|claude:sonnet|claude:haiku", nil)
 	}
 
 	body := map[string]any{
-		"agent_type": input.AgentType,
+		"agent_type": normalisedAgentType,
 	}
 	if input.PlanSlug != "" {
 		body["plan_slug"] = input.PlanSlug
@@ -453,7 +454,11 @@ func (s *PrepSubsystem) sessionGet(ctx context.Context, _ *mcp.CallToolRequest, 
 func (s *PrepSubsystem) sessionList(ctx context.Context, _ *mcp.CallToolRequest, input SessionListInput) (*mcp.CallToolResult, SessionListOutput, error) {
 	path := "/v1/sessions"
 	path = appendQueryParam(path, "plan_slug", input.PlanSlug)
-	path = appendQueryParam(path, "agent_type", input.AgentType)
+	if agentType, ok := normaliseSessionAgentType(input.AgentType); ok {
+		path = appendQueryParam(path, "agent_type", agentType)
+	} else {
+		path = appendQueryParam(path, "agent_type", input.AgentType)
+	}
 	path = appendQueryParam(path, "status", input.Status)
 	if input.Limit > 0 {
 		path = appendQueryParam(path, "limit", core.Sprint(input.Limit))
@@ -478,7 +483,9 @@ func (s *PrepSubsystem) sessionContinue(ctx context.Context, _ *mcp.CallToolRequ
 	}
 
 	body := map[string]any{}
-	if input.AgentType != "" {
+	if agentType, ok := normaliseSessionAgentType(input.AgentType); ok {
+		body["agent_type"] = agentType
+	} else if input.AgentType != "" {
 		body["agent_type"] = input.AgentType
 	}
 	if len(input.WorkLog) > 0 {
@@ -1186,10 +1193,38 @@ func resultErrorValue(action string, result core.Result) error {
 }
 
 func validSessionAgentType(agentType string) bool {
-	switch core.Lower(core.Trim(agentType)) {
+	_, ok := normaliseSessionAgentType(agentType)
+	return ok
+}
+
+func normaliseSessionAgentType(agentType string) (string, bool) {
+	trimmed := core.Lower(core.Trim(agentType))
+	if trimmed == "" {
+		return "", false
+	}
+
+	switch trimmed {
+	case "claude":
+		return "opus", true
 	case "opus", "sonnet", "haiku":
-		return true
+		return trimmed, true
+	}
+
+	parts := core.SplitN(trimmed, ":", 2)
+	if len(parts) != 2 {
+		return "", false
+	}
+	if parts[0] != "claude" {
+		return "", false
+	}
+	switch core.Lower(core.Trim(agentType)) {
+	case "claude:opus":
+		return "opus", true
+	case "claude:sonnet":
+		return "sonnet", true
+	case "claude:haiku":
+		return "haiku", true
 	default:
-		return false
+		return "", false
 	}
 }

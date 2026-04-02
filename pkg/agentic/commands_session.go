@@ -123,16 +123,16 @@ func (s *PrepSubsystem) cmdSessionList(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-// core-agent session start ax-follow-up --agent-type=codex
+// core-agent session start ax-follow-up --agent-type=claude:opus
 func (s *PrepSubsystem) cmdSessionStart(options core.Options) core.Result {
 	planSlug := optionStringValue(options, "plan_slug", "plan", "_arg")
 	agentType := optionStringValue(options, "agent_type", "agent")
 	if planSlug == "" {
-		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=codex [--context='{\"repo\":\"go-io\"}']")
+		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=claude:opus [--context='{\"repo\":\"go-io\"}']")
 		return core.Result{Value: core.E("agentic.cmdSessionStart", "plan_slug is required", nil), OK: false}
 	}
 	if agentType == "" {
-		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=codex [--context='{\"repo\":\"go-io\"}']")
+		core.Print(nil, "usage: core-agent session start <plan-slug> --agent-type=claude:opus [--context='{\"repo\":\"go-io\"}']")
 		return core.Result{Value: core.E("agentic.cmdSessionStart", "agent_type is required", nil), OK: false}
 	}
 

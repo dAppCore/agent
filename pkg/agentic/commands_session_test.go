@@ -123,6 +123,37 @@ func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
 	assert.Equal(t, "opus", output.Session.AgentType)
 }
 
+func TestCommandsSession_CmdSessionStart_Good_CanonicalAlias(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		assert.Equal(t, "opus", payload["agent_type"])
+
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-start","plan_slug":"ax-follow-up","agent_type":"opus","status":"active"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.cmdSessionStart(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ax-follow-up"},
+		core.Option{Key: "agent_type", Value: "claude:opus"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(SessionOutput)
+	require.True(t, ok)
+	assert.Equal(t, "ses-start", output.Session.SessionID)
+	assert.Equal(t, "ax-follow-up", output.Session.PlanSlug)
+	assert.Equal(t, "opus", output.Session.AgentType)
+}
+
 func TestCommandsSession_CmdSessionStart_Bad_MissingPlanSlug(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
@@ -143,7 +174,7 @@ func TestCommandsSession_CmdSessionStart_Bad_InvalidAgentType(t *testing.T) {
 
 	assert.False(t, result.OK)
 	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "opus, sonnet, or haiku")
+	assert.Contains(t, result.Value.(error).Error(), "claude:opus")
 }
 
 func TestCommandsSession_CmdSessionStart_Ugly_InvalidResponse(t *testing.T) {
