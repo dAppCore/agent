@@ -14,10 +14,10 @@ import (
 // )
 // prep := c.Service("agentic")
 func Register(c *core.Core) core.Result {
-	subsystem := NewPrep()
-	subsystem.SetCore(c)
+	prep := NewPrep()
+	prep.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	config := subsystem.loadAgentsConfig()
+	config := prep.loadAgentsConfig()
 	c.Config().Set("agents.concurrency", config.Concurrency)
 	c.Config().Set("agents.rates", config.Rates)
 	c.Config().Set("agents.dispatch", config.Dispatch)
@@ -30,7 +30,7 @@ func Register(c *core.Core) core.Result {
 	c.Config().Enable("auto-pr")
 	c.Config().Enable("auto-merge")
 	c.Config().Enable("auto-ingest")
-	RegisterHandlers(c, subsystem)
+	RegisterHandlers(c, prep)
 
-	return core.Result{Value: subsystem, OK: true}
+	return core.Result{Value: prep, OK: true}
 }
