@@ -164,6 +164,37 @@ func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 	assert.Equal(t, plan.Slug, output.Plan.Slug)
 }
 
+func TestCommandsPlan_CmdPlanTemplates_Good(t *testing.T) {
+	s := testPrepWithPlatformServer(t, nil, "")
+
+	r := s.cmdPlanTemplates(core.NewOptions(
+		core.Option{Key: "category", Value: "development"},
+	))
+
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(TemplateListOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.NotZero(t, output.Total)
+}
+
+func TestCommandsPlan_CmdPlanTemplates_Ugly_NoMatchingCategory(t *testing.T) {
+	s := testPrepWithPlatformServer(t, nil, "")
+
+	r := s.cmdPlanTemplates(core.NewOptions(
+		core.Option{Key: "category", Value: "does-not-exist"},
+	))
+
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(TemplateListOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Zero(t, output.Total)
+	assert.Empty(t, output.Templates)
+}
+
 func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
@@ -172,6 +203,8 @@ func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T
 
 	assert.Contains(t, c.Commands(), "agentic:plan")
 	assert.Contains(t, c.Commands(), "plan")
+	assert.Contains(t, c.Commands(), "agentic:plan/templates")
+	assert.Contains(t, c.Commands(), "plan/templates")
 	assert.Contains(t, c.Commands(), "agentic:plan/create")
 	assert.Contains(t, c.Commands(), "agentic:plan/get")
 	assert.Contains(t, c.Commands(), "plan/get")

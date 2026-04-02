@@ -10,6 +10,8 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c := s.Core()
 	c.Command("plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan})
 	c.Command("agentic:plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan})
+	c.Command("plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates})
+	c.Command("agentic:plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates})
 	c.Command("plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate})
 	c.Command("agentic:plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate})
 	c.Command("plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue})
@@ -37,7 +39,47 @@ func (s *PrepSubsystem) registerPlanCommands() {
 }
 
 func (s *PrepSubsystem) cmdPlan(options core.Options) core.Result {
+	if action := optionStringValue(options, "action", "_arg"); action == "templates" {
+		return s.cmdPlanTemplates(options)
+	}
+
 	return s.cmdPlanList(options)
+}
+
+func (s *PrepSubsystem) cmdPlanTemplates(options core.Options) core.Result {
+	ctx := s.commandContext()
+	result := s.handleTemplateList(ctx, core.NewOptions(
+		core.Option{Key: "category", Value: optionStringValue(options, "category")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPlanTemplates", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(TemplateListOutput)
+	if !ok {
+		err := core.E("agentic.cmdPlanTemplates", "invalid template list output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	if output.Total == 0 {
+		core.Print(nil, "no templates")
+		return core.Result{Value: output, OK: true}
+	}
+
+	for _, template := range output.Templates {
+		core.Print(nil, "  %-24s %-24s %d phase(s)", template.Slug, template.Name, template.PhasesCount)
+		if template.Category != "" {
+			core.Print(nil, "    category: %s", template.Category)
+		}
+		if len(template.Variables) > 0 {
+			core.Print(nil, "    variables: %d", len(template.Variables))
+		}
+	}
+	core.Print(nil, "%d template(s)", output.Total)
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdPlanCreate(options core.Options) core.Result {
