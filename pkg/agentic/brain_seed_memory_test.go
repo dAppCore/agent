@@ -68,6 +68,52 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 	assert.Equal(t, []any{"memory-import"}, bodies[1]["tags"])
 }
 
+func TestBrainSeedMemory_CmdBrainSeedMemory_Good_GlobPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home)
+
+	projectsDir := core.JoinPath(home, ".claude", "projects")
+	firstMemoryDir := core.JoinPath(projectsDir, "-Users-snider-Code-eaas", "memory")
+	secondMemoryDir := core.JoinPath(projectsDir, "-Users-snider-Code-agent", "memory")
+	require.True(t, fs.EnsureDir(firstMemoryDir).OK)
+	require.True(t, fs.EnsureDir(secondMemoryDir).OK)
+	require.True(t, fs.Write(core.JoinPath(firstMemoryDir, "MEMORY.md"), "# Memory\n\n## Architecture\nUse Core.Process().").OK)
+	require.True(t, fs.Write(core.JoinPath(secondMemoryDir, "MEMORY.md"), "# Memory\n\n## Decision\nPrefer named actions.").OK)
+
+	var bodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/brain/remember", r.URL.Path)
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+		var payload map[string]any
+		require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+		bodies = append(bodies, payload)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"memory":{"id":"mem-1"}}`))
+	}))
+	defer srv.Close()
+
+	subsystem := &PrepSubsystem{
+		brainURL: srv.URL,
+		brainKey: "brain-key",
+	}
+
+	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
+		core.Option{Key: "workspace", Value: "42"},
+		core.Option{Key: "path", Value: core.JoinPath(projectsDir, "*", "memory")},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(BrainSeedMemoryOutput)
+	require.True(t, ok)
+	assert.Equal(t, 2, output.Files)
+	assert.Equal(t, 2, output.Imported)
+	assert.Equal(t, 0, output.Skipped)
+	assert.Equal(t, core.JoinPath(projectsDir, "*", "memory"), output.Path)
+	require.Len(t, bodies, 2)
+	assert.ElementsMatch(t, []any{"architecture", "decision"}, []any{bodies[0]["type"], bodies[1]["type"]})
+}
+
 func TestBrainSeedMemory_CmdBrainIngest_Good(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CORE_HOME", home)

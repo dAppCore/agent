@@ -12,7 +12,7 @@ import (
 
 const brainSeedMemoryDefaultAgent = "virgil"
 
-const brainSeedMemoryDefaultPath = "~/.claude/projects"
+const brainSeedMemoryDefaultPath = "~/.claude/projects/*/memory/"
 
 type BrainSeedMemoryInput struct {
 	WorkspaceID int
@@ -192,17 +192,35 @@ func brainSeedMemoryFiles(scanPath string) []string {
 	if scanPath == "" {
 		return nil
 	}
-	if fs.IsFile(scanPath) {
-		if core.PathBase(scanPath) == "MEMORY.md" {
-			return []string{scanPath}
-		}
-		return nil
-	}
 
 	var files []string
+	seen := map[string]struct{}{}
+
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		if _, ok := seen[path]; ok {
+			return
+		}
+		seen[path] = struct{}{}
+		files = append(files, path)
+	}
+
 	var walk func(string)
 
 	walk = func(dir string) {
+		if fs.IsFile(dir) {
+			if core.PathBase(dir) == "MEMORY.md" {
+				add(dir)
+			}
+			return
+		}
+
+		if !fs.IsDir(dir) {
+			return
+		}
+
 		r := fs.List(dir)
 		if !r.OK {
 			return
@@ -220,14 +238,24 @@ func brainSeedMemoryFiles(scanPath string) []string {
 				continue
 			}
 			if core.PathBase(next) == "MEMORY.md" {
-				files = append(files, next)
+				add(next)
 			}
 		}
 	}
 
-	walk(scanPath)
+	if brainSeedMemoryHasGlobMeta(scanPath) {
+		for _, path := range core.PathGlob(scanPath) {
+			walk(path)
+		}
+	} else {
+		walk(scanPath)
+	}
 	sort.Strings(files)
 	return files
+}
+
+func brainSeedMemoryHasGlobMeta(path string) bool {
+	return core.Contains(path, "*") || core.Contains(path, "?") || core.Contains(path, "[")
 }
 
 func brainSeedMemorySections(content string) []brainSeedMemorySection {
