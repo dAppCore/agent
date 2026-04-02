@@ -24,6 +24,6 @@ func ExamplePrepSubsystem_cmdAuthProvision() {
 	result := s.cmdAuthProvision(core.NewOptions())
 	core.Println(result.OK)
 	// Output:
-	// usage: core-agent auth provision <oauth-user-id> [--name=codex] [--permissions=plans:read,plans:write] [--rate-limit=60] [--expires-at=2026-04-01T00:00:00Z]
+	// usage: core-agent auth provision <oauth-user-id> [--name=codex] [--permissions=plans:read,plans:write] [--ip-restrictions=10.0.0.0/8,192.168.0.0/16] [--rate-limit=60] [--expires-at=2026-04-01T00:00:00Z]
 	// false
 }

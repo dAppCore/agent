@@ -162,6 +162,7 @@ func (s *PrepSubsystem) cmdPlanCreate(options core.Options) core.Result {
 		Objective:   objective,
 		Description: description,
 		Context:     optionAnyMapValue(options, "context"),
+		AgentType:   optionStringValue(options, "agent_type", "agent"),
 		Repo:        optionStringValue(options, "repo"),
 		Org:         optionStringValue(options, "org"),
 		Phases:      planPhasesValue(options, "phases"),

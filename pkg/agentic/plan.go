@@ -13,22 +13,25 @@ import (
 // plan := &Plan{ID: "id-1-a3f2b1", Title: "Migrate Core", Status: "draft", Objective: "Replace raw process calls with Core.Process()"}
 // r := writePlanResult(PlansRoot(), plan)
 type Plan struct {
-	ID              string              `json:"id"`
-	Slug            string              `json:"slug,omitempty"`
-	Title           string              `json:"title"`
-	Status          string              `json:"status"`
-	Repo            string              `json:"repo,omitempty"`
-	Org             string              `json:"org,omitempty"`
-	Objective       string              `json:"objective"`
-	Description     string              `json:"description,omitempty"`
-	Context         map[string]any      `json:"context,omitempty"`
-	TemplateVersion PlanTemplateVersion `json:"template_version,omitempty"`
-	Phases          []Phase             `json:"phases,omitempty"`
-	Notes           string              `json:"notes,omitempty"`
-	Agent           string              `json:"agent,omitempty"`
-	CreatedAt       time.Time           `json:"created_at"`
-	UpdatedAt       time.Time           `json:"updated_at"`
-	ArchivedAt      time.Time           `json:"archived_at,omitempty"`
+	ID                string              `json:"id"`
+	WorkspaceID       int                 `json:"workspace_id,omitempty"`
+	Slug              string              `json:"slug,omitempty"`
+	Title             string              `json:"title"`
+	Status            string              `json:"status"`
+	Repo              string              `json:"repo,omitempty"`
+	Org               string              `json:"org,omitempty"`
+	Objective         string              `json:"objective"`
+	Description       string              `json:"description,omitempty"`
+	AgentType         string              `json:"agent_type,omitempty"`
+	Context           map[string]any      `json:"context,omitempty"`
+	TemplateVersionID int                 `json:"template_version_id,omitempty"`
+	TemplateVersion   PlanTemplateVersion `json:"template_version,omitempty"`
+	Phases            []Phase             `json:"phases,omitempty"`
+	Notes             string              `json:"notes,omitempty"`
+	Agent             string              `json:"agent,omitempty"`
+	CreatedAt         time.Time           `json:"created_at"`
+	UpdatedAt         time.Time           `json:"updated_at"`
+	ArchivedAt        time.Time           `json:"archived_at,omitempty"`
 }
 
 // AgentPlan is the RFC-named alias for Plan.
@@ -36,6 +39,7 @@ type AgentPlan = Plan
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
+	AgentPlanID        int               `json:"agent_plan_id,omitempty"`
 	Number             int               `json:"number"`
 	Name               string            `json:"name"`
 	Description        string            `json:"description,omitempty"`
@@ -80,6 +84,7 @@ type PlanCreateInput struct {
 	Objective       string              `json:"objective,omitempty"`
 	Description     string              `json:"description,omitempty"`
 	Context         map[string]any      `json:"context,omitempty"`
+	AgentType       string              `json:"agent_type,omitempty"`
 	TemplateVersion PlanTemplateVersion `json:"template_version,omitempty"`
 	Repo            string              `json:"repo,omitempty"`
 	Org             string              `json:"org,omitempty"`
@@ -114,6 +119,7 @@ type PlanUpdateInput struct {
 	Phases      []Phase        `json:"phases,omitempty"`
 	Notes       string         `json:"notes,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
+	AgentType   string         `json:"agent_type,omitempty"`
 }
 
 type PlanUpdateOutput struct {
@@ -159,6 +165,7 @@ func (s *PrepSubsystem) handlePlanCreate(ctx context.Context, options core.Optio
 		Objective:   optionStringValue(options, "objective"),
 		Description: optionStringValue(options, "description"),
 		Context:     optionAnyMapValue(options, "context"),
+		AgentType:   optionStringValue(options, "agent_type", "agent"),
 		Repo:        optionStringValue(options, "repo"),
 		Org:         optionStringValue(options, "org"),
 		Phases:      planPhasesValue(options, "phases"),
@@ -200,6 +207,7 @@ func (s *PrepSubsystem) handlePlanUpdate(ctx context.Context, options core.Optio
 		Phases:      planPhasesValue(options, "phases"),
 		Notes:       optionStringValue(options, "notes"),
 		Agent:       optionStringValue(options, "agent"),
+		AgentType:   optionStringValue(options, "agent_type", "agent-type"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -356,12 +364,16 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		Org:             input.Org,
 		Objective:       objective,
 		Description:     description,
+		AgentType:       core.Trim(input.AgentType),
 		Context:         input.Context,
 		TemplateVersion: input.TemplateVersion,
 		Phases:          input.Phases,
 		Notes:           input.Notes,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
+	}
+	if plan.AgentType == "" {
+		plan.AgentType = core.Trim(plan.Agent)
 	}
 	plan = normalisePlan(plan)
 
@@ -464,6 +476,9 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	}
 	if input.Agent != "" {
 		plan.Agent = input.Agent
+	}
+	if input.AgentType != "" {
+		plan.AgentType = input.AgentType
 	}
 
 	*plan = normalisePlan(*plan)
@@ -993,6 +1008,12 @@ func normalisePlan(plan Plan) Plan {
 	}
 	if plan.Objective == "" {
 		plan.Objective = plan.Description
+	}
+	if plan.AgentType == "" {
+		plan.AgentType = plan.Agent
+	}
+	if plan.Agent == "" {
+		plan.Agent = plan.AgentType
 	}
 	for i := range plan.Phases {
 		plan.Phases[i] = normalisePhase(plan.Phases[i], i+1)

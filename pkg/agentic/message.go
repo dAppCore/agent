@@ -14,23 +14,25 @@ import (
 
 // message := agentic.AgentMessage{Workspace: "core/go-io/task-5", FromAgent: "codex", ToAgent: "claude", Subject: "Review", Content: "Please check the prompt."}
 type AgentMessage struct {
-	ID        string `json:"id"`
-	Workspace string `json:"workspace"`
-	FromAgent string `json:"from_agent"`
-	ToAgent   string `json:"to_agent"`
-	Subject   string `json:"subject,omitempty"`
-	Content   string `json:"content"`
-	ReadAt    string `json:"read_at,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
+	ID          string `json:"id"`
+	WorkspaceID int    `json:"workspace_id,omitempty"`
+	Workspace   string `json:"workspace"`
+	FromAgent   string `json:"from_agent"`
+	ToAgent     string `json:"to_agent"`
+	Subject     string `json:"subject,omitempty"`
+	Content     string `json:"content"`
+	ReadAt      string `json:"read_at,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
 }
 
 // input := agentic.MessageSendInput{Workspace: "core/go-io/task-5", FromAgent: "codex", ToAgent: "claude", Subject: "Review", Content: "Please check the prompt."}
 type MessageSendInput struct {
-	Workspace string `json:"workspace"`
-	FromAgent string `json:"from_agent"`
-	ToAgent   string `json:"to_agent"`
-	Subject   string `json:"subject,omitempty"`
-	Content   string `json:"content"`
+	WorkspaceID int    `json:"workspace_id,omitempty"`
+	Workspace   string `json:"workspace"`
+	FromAgent   string `json:"from_agent"`
+	ToAgent     string `json:"to_agent"`
+	Subject     string `json:"subject,omitempty"`
+	Content     string `json:"content"`
 }
 
 // input := agentic.MessageInboxInput{Workspace: "core/go-io/task-5", Agent: "claude"}
@@ -71,11 +73,12 @@ type MessageListOutput struct {
 // ))
 func (s *PrepSubsystem) handleMessageSend(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.messageSend(ctx, nil, MessageSendInput{
-		Workspace: optionStringValue(options, "workspace", "_arg"),
-		FromAgent: optionStringValue(options, "from_agent", "from"),
-		ToAgent:   optionStringValue(options, "to_agent", "to"),
-		Subject:   optionStringValue(options, "subject"),
-		Content:   optionStringValue(options, "content", "body"),
+		WorkspaceID: optionIntValue(options, "workspace_id", "workspace-id"),
+		Workspace:   optionStringValue(options, "workspace", "_arg"),
+		FromAgent:   optionStringValue(options, "from_agent", "from"),
+		ToAgent:     optionStringValue(options, "to_agent", "to"),
+		Subject:     optionStringValue(options, "subject"),
+		Content:     optionStringValue(options, "content", "body"),
 	})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
@@ -196,13 +199,14 @@ func messageStoreSend(input MessageSendInput) (AgentMessage, error) {
 
 	now := time.Now().Format(time.RFC3339)
 	message := AgentMessage{
-		ID:        messageID(),
-		Workspace: core.Trim(input.Workspace),
-		FromAgent: core.Trim(input.FromAgent),
-		ToAgent:   core.Trim(input.ToAgent),
-		Subject:   core.Trim(input.Subject),
-		Content:   input.Content,
-		CreatedAt: now,
+		ID:          messageID(),
+		WorkspaceID: input.WorkspaceID,
+		Workspace:   core.Trim(input.Workspace),
+		FromAgent:   core.Trim(input.FromAgent),
+		ToAgent:     core.Trim(input.ToAgent),
+		Subject:     core.Trim(input.Subject),
+		Content:     input.Content,
+		CreatedAt:   now,
 	}
 	messages = append(messages, message)
 

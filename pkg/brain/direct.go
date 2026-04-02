@@ -250,15 +250,16 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 			}
 
 			memory := Memory{
-				Content:   stringField(memoryMap, "content"),
-				Type:      stringField(memoryMap, "type"),
-				Project:   stringField(memoryMap, "project"),
-				AgentID:   stringField(memoryMap, "agent_id"),
-				Source:    stringField(memoryMap, "source"),
-				CreatedAt: stringField(memoryMap, "created_at"),
-				UpdatedAt: stringField(memoryMap, "updated_at"),
-				ExpiresAt: stringField(memoryMap, "expires_at"),
-				DeletedAt: stringField(memoryMap, "deleted_at"),
+				Content:     stringField(memoryMap, "content"),
+				Type:        stringField(memoryMap, "type"),
+				Project:     stringField(memoryMap, "project"),
+				WorkspaceID: stringField(memoryMap, "workspace_id"),
+				AgentID:     stringField(memoryMap, "agent_id"),
+				Source:      stringField(memoryMap, "source"),
+				CreatedAt:   stringField(memoryMap, "created_at"),
+				UpdatedAt:   stringField(memoryMap, "updated_at"),
+				ExpiresAt:   stringField(memoryMap, "expires_at"),
+				DeletedAt:   stringField(memoryMap, "deleted_at"),
 			}
 			if id, ok := memoryMap["id"].(string); ok {
 				memory.ID = id

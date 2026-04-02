@@ -12,6 +12,7 @@ import (
 
 // state := agentic.WorkspaceState{Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"}
 type WorkspaceState struct {
+	AgentPlanID int    `json:"agent_plan_id,omitempty"`
 	Key         string `json:"key"`
 	Value       any    `json:"value"`
 	Type        string `json:"type,omitempty"`

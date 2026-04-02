@@ -13,6 +13,9 @@ import (
 // session := agentic.Session{SessionID: "ses_abc123", AgentType: "codex", Status: "active"}
 type Session struct {
 	ID             int              `json:"id"`
+	WorkspaceID    int              `json:"workspace_id,omitempty"`
+	AgentPlanID    int              `json:"agent_plan_id,omitempty"`
+	AgentAPIKeyID  int              `json:"agent_api_key_id,omitempty"`
 	SessionID      string           `json:"session_id"`
 	Plan           string           `json:"plan,omitempty"`
 	PlanSlug       string           `json:"plan_slug,omitempty"`
@@ -719,6 +722,9 @@ func parseSession(values map[string]any) Session {
 
 	return Session{
 		ID:             intValue(values["id"]),
+		WorkspaceID:    intValue(values["workspace_id"]),
+		AgentPlanID:    intValue(values["agent_plan_id"]),
+		AgentAPIKeyID:  intValue(values["agent_api_key_id"]),
 		SessionID:      stringValue(values["session_id"]),
 		Plan:           stringValue(values["plan"]),
 		PlanSlug:       planSlug,
@@ -970,6 +976,15 @@ func mergeSessionCache(session Session) (Session, error) {
 	if err == nil && existing != nil {
 		if session.ID == 0 {
 			session.ID = existing.ID
+		}
+		if session.WorkspaceID == 0 {
+			session.WorkspaceID = existing.WorkspaceID
+		}
+		if session.AgentPlanID == 0 {
+			session.AgentPlanID = existing.AgentPlanID
+		}
+		if session.AgentAPIKeyID == 0 {
+			session.AgentAPIKeyID = existing.AgentAPIKeyID
 		}
 		if session.Plan == "" {
 			session.Plan = existing.Plan
