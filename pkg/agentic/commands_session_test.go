@@ -19,6 +19,10 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 
 	s.registerSessionCommands()
 
+	assert.Contains(t, c.Commands(), "session/get")
+	assert.Contains(t, c.Commands(), "agentic:session/get")
+	assert.Contains(t, c.Commands(), "session/list")
+	assert.Contains(t, c.Commands(), "agentic:session/list")
 	assert.Contains(t, c.Commands(), "session/handoff")
 	assert.Contains(t, c.Commands(), "agentic:session/handoff")
 	assert.Contains(t, c.Commands(), "session/start")
@@ -37,6 +41,54 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "agentic:session/resume")
 	assert.Contains(t, c.Commands(), "session/replay")
 	assert.Contains(t, c.Commands(), "agentic:session/replay")
+}
+
+func TestCommandsSession_CmdSessionGet_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions/ses-get", r.URL.Path)
+		require.Equal(t, http.MethodGet, r.Method)
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-get","plan_slug":"ax-follow-up","agent_type":"codex","status":"active","summary":"Working","created_at":"2026-03-31T12:00:00Z","updated_at":"2026-03-31T12:30:00Z","work_log":[{"type":"checkpoint","message":"started"}],"artifacts":[{"path":"pkg/agentic/session.go","action":"modified"}]}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+
+	output := captureStdout(t, func() {
+		result := subsystem.cmdSessionGet(core.NewOptions(core.Option{Key: "_arg", Value: "ses-get"}))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "session: ses-get")
+	assert.Contains(t, output, "plan:    ax-follow-up")
+	assert.Contains(t, output, "work log: 1 item(s)")
+	assert.Contains(t, output, "artifacts: 1 item(s)")
+}
+
+func TestCommandsSession_CmdSessionList_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sessions", r.URL.Path)
+		require.Equal(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
+		require.Equal(t, "codex", r.URL.Query().Get("agent_type"))
+		require.Equal(t, "active", r.URL.Query().Get("status"))
+		require.Equal(t, "5", r.URL.Query().Get("limit"))
+		_, _ = w.Write([]byte(`{"data":[{"session_id":"ses-1","plan_slug":"ax-follow-up","agent_type":"codex","status":"active"},{"session_id":"ses-2","agent_type":"claude","status":"paused"}],"count":2}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+
+	output := captureStdout(t, func() {
+		result := subsystem.cmdSessionList(core.NewOptions(
+			core.Option{Key: "plan_slug", Value: "ax-follow-up"},
+			core.Option{Key: "agent_type", Value: "codex"},
+			core.Option{Key: "status", Value: "active"},
+			core.Option{Key: "limit", Value: 5},
+		))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "ses-1")
+	assert.Contains(t, output, "2 session(s)")
 }
 
 func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
