@@ -37,6 +37,7 @@ type PrepSubsystem struct {
 	frozen         bool
 	backoff        map[string]time.Time
 	failCount      map[string]int
+	providers      *ProviderManager
 	workspaces     *core.Registry[*WorkspaceStatus]
 }
 

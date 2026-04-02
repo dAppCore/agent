@@ -204,6 +204,59 @@ func (s *PrepSubsystem) handleContentGenerate(ctx context.Context, options core.
 	return core.Result{Value: output, OK: true}
 }
 
+func (s *PrepSubsystem) contentGenerateResult(ctx context.Context, input ContentGenerateInput) (ContentResult, error) {
+	if err := s.validateContentProvider(input.Provider); err != nil {
+		return ContentResult{}, err
+	}
+
+	hasPrompt := core.Trim(input.Prompt) != ""
+	hasBrief := core.Trim(input.BriefID) != ""
+	hasTemplate := core.Trim(input.Template) != ""
+	if !hasPrompt && !(hasBrief && hasTemplate) {
+		return ContentResult{}, core.E("contentGenerate", "prompt or brief_id plus template is required", nil)
+	}
+
+	body := map[string]any{}
+	if hasPrompt {
+		body["prompt"] = input.Prompt
+	}
+	if input.BriefID != "" {
+		body["brief_id"] = input.BriefID
+	}
+	if input.Template != "" {
+		body["template"] = input.Template
+	}
+	if input.Provider != "" {
+		body["provider"] = input.Provider
+	}
+	if len(input.Config) > 0 {
+		body["config"] = input.Config
+	}
+
+	result := s.platformPayload(ctx, "content.generate", "POST", "/v1/content/generate", body)
+	if !result.OK {
+		return ContentResult{}, resultErrorValue("content.generate", result)
+	}
+
+	return parseContentResult(payloadResourceMap(result.Value.(map[string]any), "result", "content", "generation")), nil
+}
+
+func (s *PrepSubsystem) validateContentProvider(providerName string) error {
+	if core.Trim(providerName) == "" {
+		return nil
+	}
+
+	provider, ok := s.providerManager().Provider(providerName)
+	if !ok {
+		return core.E("contentGenerate", core.Concat("unknown provider: ", providerName), nil)
+	}
+	if !provider.IsAvailable() {
+		return core.E("contentGenerate", core.Concat("provider unavailable: ", providerName), nil)
+	}
+
+	return nil
+}
+
 // result := c.Action("content.batch.generate").Run(ctx, core.NewOptions(core.Option{Key: "batch_id", Value: "batch_123"}))
 func (s *PrepSubsystem) handleContentBatchGenerate(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.contentBatchGenerate(ctx, nil, ContentBatchGenerateInput{
@@ -387,44 +440,22 @@ func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
 }
 
 func (s *PrepSubsystem) contentGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentGenerateInput) (*mcp.CallToolResult, ContentGenerateOutput, error) {
-	hasPrompt := core.Trim(input.Prompt) != ""
-	hasBrief := core.Trim(input.BriefID) != ""
-	hasTemplate := core.Trim(input.Template) != ""
-	if !hasPrompt && !(hasBrief && hasTemplate) {
-		return nil, ContentGenerateOutput{}, core.E("contentGenerate", "prompt or brief_id plus template is required", nil)
+	content, err := s.contentGenerateResult(ctx, input)
+	if err != nil {
+		return nil, ContentGenerateOutput{}, err
 	}
-
-	body := map[string]any{}
-	if hasPrompt {
-		body["prompt"] = input.Prompt
-	}
-	if input.BriefID != "" {
-		body["brief_id"] = input.BriefID
-	}
-	if input.Template != "" {
-		body["template"] = input.Template
-	}
-	if input.Provider != "" {
-		body["provider"] = input.Provider
-	}
-	if len(input.Config) > 0 {
-		body["config"] = input.Config
-	}
-
-	result := s.platformPayload(ctx, "content.generate", "POST", "/v1/content/generate", body)
-	if !result.OK {
-		return nil, ContentGenerateOutput{}, resultErrorValue("content.generate", result)
-	}
-
 	return nil, ContentGenerateOutput{
 		Success: true,
-		Result:  parseContentResult(payloadResourceMap(result.Value.(map[string]any), "result", "content", "generation")),
+		Result:  content,
 	}, nil
 }
 
 func (s *PrepSubsystem) contentBatchGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentBatchGenerateInput) (*mcp.CallToolResult, ContentBatchOutput, error) {
 	if core.Trim(input.BatchID) == "" {
 		return nil, ContentBatchOutput{}, core.E("contentBatchGenerate", "batch_id is required", nil)
+	}
+	if err := s.validateContentProvider(input.Provider); err != nil {
+		return nil, ContentBatchOutput{}, err
 	}
 
 	body := map[string]any{
@@ -562,6 +593,9 @@ func (s *PrepSubsystem) contentUsageStats(ctx context.Context, _ *mcp.CallToolRe
 func (s *PrepSubsystem) contentFromPlan(ctx context.Context, _ *mcp.CallToolRequest, input ContentFromPlanInput) (*mcp.CallToolResult, ContentFromPlanOutput, error) {
 	if core.Trim(input.PlanSlug) == "" {
 		return nil, ContentFromPlanOutput{}, core.E("contentFromPlan", "plan_slug is required", nil)
+	}
+	if err := s.validateContentProvider(input.Provider); err != nil {
+		return nil, ContentFromPlanOutput{}, err
 	}
 
 	body := map[string]any{
