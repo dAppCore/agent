@@ -16,6 +16,32 @@ type PromptVersionOutput struct {
 	Snapshot  PromptVersionSnapshot `json:"snapshot"`
 }
 
+// prompt := agentic.Prompt{Name: "coding", Category: "workspace"}
+type Prompt struct {
+	ID           int            `json:"id"`
+	Name         string         `json:"name"`
+	Category     string         `json:"category,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	SystemPrompt string         `json:"system_prompt,omitempty"`
+	UserTemplate string         `json:"user_template,omitempty"`
+	Variables    map[string]any `json:"variables,omitempty"`
+	Model        string         `json:"model,omitempty"`
+	ModelConfig  map[string]any `json:"model_config,omitempty"`
+	IsActive     bool           `json:"is_active,omitempty"`
+}
+
+// version := agentic.PromptVersion{Name: "coding", Version: 3}
+type PromptVersion struct {
+	ID           int            `json:"id"`
+	PromptID     int            `json:"prompt_id"`
+	Version      int            `json:"version"`
+	SystemPrompt string         `json:"system_prompt,omitempty"`
+	UserTemplate string         `json:"user_template,omitempty"`
+	Variables    map[string]any `json:"variables,omitempty"`
+	CreatedBy    string         `json:"created_by,omitempty"`
+	CreatedAt    string         `json:"created_at,omitempty"`
+}
+
 // input := agentic.PromptVersionInput{Workspace: "/srv/.core/workspace/core/go-io/task-42"}
 type PromptVersionInput struct {
 	Workspace string `json:"workspace"`

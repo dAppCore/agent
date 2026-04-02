@@ -64,6 +64,9 @@ type PlanTask struct {
 	LineRef     int    `json:"line_ref,omitempty"`
 }
 
+// task := agentic.Task{ID: "1", Title: "Review imports"}
+type Task = PlanTask
+
 // checkpoint := agentic.PhaseCheckpoint{Note: "Build passes", CreatedAt: "2026-03-31T00:00:00Z"}
 type PhaseCheckpoint struct {
 	Note      string         `json:"note"`
