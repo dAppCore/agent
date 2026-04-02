@@ -123,7 +123,7 @@ class GenerateCommand extends Command
         GenerateContentJob::dispatch($brief, $this->option('mode'));
 
         $this->comment('Queued for generation.');
-        $this->line('Monitor with: php artisan generate status');
+        $this->line('Monitor with: php artisan agentic:generate status');
 
         return 0;
     }
@@ -357,12 +357,12 @@ class GenerateCommand extends Command
         $this->line(' <info>Content Generation CLI</info>');
         $this->newLine();
         $this->line(' <comment>Usage:</comment>');
-        $this->line('   php artisan generate status                   Show pipeline status');
-        $this->line('   php artisan generate brief --title="Topic"    Create and queue a brief');
-        $this->line('   php artisan generate brief --title="Topic" --sync  Generate immediately');
-        $this->line('   php artisan generate batch --limit=10         Process queued briefs');
-        $this->line('   php artisan generate plan --id=1              Generate from plan tasks');
-        $this->line('   php artisan generate stats                    Show queue statistics');
+        $this->line('   php artisan agentic:generate status                 Show pipeline status');
+        $this->line('   php artisan agentic:generate brief --title="Topic"   Create and queue a brief');
+        $this->line('   php artisan agentic:generate brief --title="Topic" --sync  Generate immediately');
+        $this->line('   php artisan agentic:generate batch --limit=10        Process queued briefs');
+        $this->line('   php artisan agentic:generate plan --id=1             Generate from plan tasks');
+        $this->line('   php artisan agentic:generate stats                   Show queue statistics');
         $this->newLine();
         $this->line(' <comment>Options:</comment>');
         $this->line('   --type=help_article|blog_post|landing_page|social_post');

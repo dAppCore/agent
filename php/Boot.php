@@ -177,6 +177,7 @@ class Boot extends ServiceProvider
 
         $event->command(Console\Commands\TaskCommand::class);
         $event->command(Console\Commands\PlanCommand::class);
+        $event->command(Console\Commands\AgenticGenerateCommand::class);
         $event->command(Console\Commands\GenerateCommand::class);
         $event->command(Console\Commands\PlanRetentionCommand::class);
         $event->command(Console\Commands\BrainSeedMemoryCommand::class);
