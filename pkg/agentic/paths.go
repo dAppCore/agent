@@ -15,12 +15,21 @@ import (
 // if r.OK { core.Print(nil, "%s", r.Value.(string)) }
 var fs = (&core.Fs{}).NewUnrestricted()
 
+var workspaceRootOverride string
+
+func setWorkspaceRootOverride(root string) {
+	workspaceRootOverride = core.Trim(root)
+}
+
 // f := agentic.LocalFs()
 // r := f.Read("/tmp/agent-status.json")
 func LocalFs() *core.Fs { return fs }
 
 // workspaceDir := core.JoinPath(agentic.WorkspaceRoot(), "core", "go-io", "task-42")
 func WorkspaceRoot() string {
+	if root := core.Trim(workspaceRootOverride); root != "" {
+		return root
+	}
 	return core.JoinPath(CoreRoot(), "workspace")
 }
 

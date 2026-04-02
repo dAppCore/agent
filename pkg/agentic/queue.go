@@ -84,9 +84,11 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 		if err := yaml.Unmarshal([]byte(readResult.Value.(string)), &config); err != nil {
 			continue
 		}
+		setWorkspaceRootOverride(config.Dispatch.WorkspaceRoot)
 		return &config
 	}
 
+	setWorkspaceRootOverride("")
 	return &AgentsConfig{
 		Dispatch: DispatchConfig{
 			DefaultAgent:    "claude",

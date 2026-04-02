@@ -30,6 +30,27 @@ func TestQueue_DispatchConfig_Good_Defaults(t *testing.T) {
 	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
 }
 
+func TestQueue_DispatchConfig_Good_WorkspaceRootOverride(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+	customRoot := core.JoinPath(root, "agent-workspaces")
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+		"version: 1\n",
+		"dispatch:\n",
+		"  workspace_root: ", customRoot, "\n",
+	)).OK)
+
+	t.Cleanup(func() {
+		setWorkspaceRootOverride("")
+	})
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, customRoot, cfg.Dispatch.WorkspaceRoot)
+	assert.Equal(t, customRoot, WorkspaceRoot())
+}
+
 func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	// With no running workspaces and default config, should be able to dispatch
 	root := t.TempDir()
