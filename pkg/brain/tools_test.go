@@ -23,3 +23,9 @@ func TestTools_RecallInput_Good(t *testing.T) {
 	input := RecallInput{Query: "error handling", TopK: 10}
 	assert.Equal(t, 10, input.TopK)
 }
+
+func TestTools_Memory_Good(t *testing.T) {
+	memory := Memory{DeletedAt: "2026-04-01T00:00:00Z"}
+
+	assert.Equal(t, "2026-04-01T00:00:00Z", memory.DeletedAt)
+}

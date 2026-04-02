@@ -429,6 +429,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 						"agent_id":         "codex",
 						"confidence":       0.73,
 						"supersedes_count": 2,
+						"deleted_at":       "2026-03-31T12:30:00Z",
 						"tags":             []any{"queue", "review"},
 						"updated_at":       "2026-03-30T10:00:00Z",
 						"created_at":       "2026-03-30T09:00:00Z",
@@ -469,6 +470,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 	assert.Equal(t, "manual", out.Memories[0].Source)
 	assert.Equal(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)
 	assert.Equal(t, "2026-04-01T00:00:00Z", out.Memories[0].ExpiresAt)
+	assert.Equal(t, "2026-03-31T12:30:00Z", out.Memories[0].DeletedAt)
 	assert.Contains(t, out.Memories[0].Tags, "queue")
 	assert.Contains(t, out.Memories[0].Tags, "source:manual")
 

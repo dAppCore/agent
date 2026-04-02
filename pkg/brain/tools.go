@@ -83,6 +83,7 @@ type Memory struct {
 	SupersedesID    string   `json:"supersedes_id,omitempty"`
 	SupersedesCount int      `json:"supersedes_count,omitempty"`
 	ExpiresAt       string   `json:"expires_at,omitempty"`
+	DeletedAt       string   `json:"deleted_at,omitempty"`
 	CreatedAt       string   `json:"created_at"`
 	UpdatedAt       string   `json:"updated_at"`
 }

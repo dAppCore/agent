@@ -547,6 +547,9 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 		if memory.SupersedesCount > 0 {
 			core.Print(nil, "    supersedes: %d", memory.SupersedesCount)
 		}
+		if memory.DeletedAt != "" {
+			core.Print(nil, "    deleted_at: %s", memory.DeletedAt)
+		}
 		if memory.Content != "" {
 			core.Print(nil, "    %s", memory.Content)
 		}
@@ -698,6 +701,7 @@ type brainRecallMemory struct {
 	Project    string   `json:"project"`
 	AgentID    string   `json:"agent_id"`
 	Confidence float64  `json:"confidence"`
+	DeletedAt  string   `json:"deleted_at,omitempty"`
 	Tags       []string `json:"tags"`
 }
 
@@ -1134,6 +1138,7 @@ type brainListOutputEntry struct {
 	AgentID         string   `json:"agent_id"`
 	Confidence      float64  `json:"confidence"`
 	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	DeletedAt       string   `json:"deleted_at,omitempty"`
 	Tags            []string `json:"tags"`
 }
 
@@ -1178,6 +1183,7 @@ func brainListOutputFromPayload(payload map[string]any) brainListOutput {
 			case int:
 				entry.SupersedesCount = supersedesCount
 			}
+			entry.DeletedAt = brainListStringValue(entryMap["deleted_at"])
 			if tags, ok := entryMap["tags"].([]any); ok {
 				for _, tag := range tags {
 					entry.Tags = append(entry.Tags, brainListStringValue(tag))

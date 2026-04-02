@@ -254,6 +254,7 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 					"agent_id":         "virgil",
 					"confidence":       0.9,
 					"supersedes_count": 3,
+					"deleted_at":       "2026-03-31T12:30:00Z",
 					"tags":             []any{"architecture", "convention"},
 				},
 			},
@@ -272,6 +273,7 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 	assert.Contains(t, output, "count: 1")
 	assert.Contains(t, output, "mem-1 architecture")
 	assert.Contains(t, output, "supersedes: 3")
+	assert.Contains(t, output, "deleted_at: 2026-03-31T12:30:00Z")
 	assert.Contains(t, output, "Use named actions.")
 }
 

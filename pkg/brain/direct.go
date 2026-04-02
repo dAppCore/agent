@@ -258,6 +258,7 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 				CreatedAt: stringField(memoryMap, "created_at"),
 				UpdatedAt: stringField(memoryMap, "updated_at"),
 				ExpiresAt: stringField(memoryMap, "expires_at"),
+				DeletedAt: stringField(memoryMap, "deleted_at"),
 			}
 			if id, ok := memoryMap["id"].(string); ok {
 				memory.ID = id
