@@ -26,6 +26,8 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("agentic:plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
 	c.Command("agentic:plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
+	c.Command("plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
+	c.Command("agentic:plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
 	c.Command("plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck})
 	c.Command("agentic:plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck})
 	c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive})

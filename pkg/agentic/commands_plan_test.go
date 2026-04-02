@@ -184,6 +184,8 @@ func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T
 	assert.Contains(t, c.Commands(), "plan/update")
 	assert.Contains(t, c.Commands(), "agentic:plan/update")
 	assert.Contains(t, c.Commands(), "plan/status")
+	assert.Contains(t, c.Commands(), "plan/update_status")
+	assert.Contains(t, c.Commands(), "agentic:plan/update_status")
 	assert.Contains(t, c.Commands(), "agentic:plan/check")
 	assert.Contains(t, c.Commands(), "plan/check")
 	assert.Contains(t, c.Commands(), "agentic:plan/archive")
