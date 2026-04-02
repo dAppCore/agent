@@ -228,6 +228,7 @@ func (s *PrepSubsystem) authProvisionTool(ctx context.Context, _ *mcp.CallToolRe
 		core.Option{Key: "oauth_user_id", Value: input.OAuthUserID},
 		core.Option{Key: "name", Value: input.Name},
 		core.Option{Key: "permissions", Value: input.Permissions},
+		core.Option{Key: "ip_restrictions", Value: input.IPRestrictions},
 		core.Option{Key: "rate_limit", Value: input.RateLimit},
 		core.Option{Key: "expires_at", Value: input.ExpiresAt},
 	)

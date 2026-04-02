@@ -23,6 +23,40 @@ func TestCommandsplatform_CmdAuthProvision_Bad(t *testing.T) {
 	assert.False(t, result.OK)
 }
 
+func TestCommandsplatform_CmdAuthProvision_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/agent/auth/provision", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		bodyResult := core.ReadAll(r.Body)
+		assert.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		assert.True(t, parseResult.OK)
+		assert.Equal(t, []any{"10.0.0.0/8", "192.168.0.0/16"}, payload["ip_restrictions"])
+
+		_, _ = w.Write([]byte(`{"data":{"id":7,"workspace_id":3,"name":"codex local","key":"ak_live_secret","prefix":"ak_live","permissions":["plans:read","plans:write"],"ip_restrictions":["10.0.0.0/8","192.168.0.0/16"],"rate_limit":60,"call_count":2,"expires_at":"2026-04-01T00:00:00Z"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	output := captureStdout(t, func() {
+		result := subsystem.cmdAuthProvision(core.NewOptions(
+			core.Option{Key: "_arg", Value: "user-42"},
+			core.Option{Key: "name", Value: "codex local"},
+			core.Option{Key: "permissions", Value: "plans:read,plans:write"},
+			core.Option{Key: "ip_restrictions", Value: "10.0.0.0/8,192.168.0.0/16"},
+			core.Option{Key: "rate_limit", Value: 60},
+			core.Option{Key: "expires_at", Value: "2026-04-01T00:00:00Z"},
+		))
+		assert.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "ip restrictions: 10.0.0.0/8,192.168.0.0/16")
+	assert.Contains(t, output, "prefix:      ak_live")
+}
+
 func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"key_id":"7","revoked":true}}`))

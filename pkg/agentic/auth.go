@@ -8,29 +8,31 @@ import (
 	core "dappco.re/go/core"
 )
 
-// key := agentic.AgentApiKey{ID: 7, Name: "codex local", Prefix: "ak_abcd", RateLimit: 60}
+// key := agentic.AgentApiKey{ID: 7, Name: "codex local", Prefix: "ak_abcd", IPRestrictions: []string{"10.0.0.0/8"}, RateLimit: 60}
 type AgentApiKey struct {
-	ID          int      `json:"id"`
-	WorkspaceID int      `json:"workspace_id,omitempty"`
-	Name        string   `json:"name,omitempty"`
-	Key         string   `json:"key,omitempty"`
-	Prefix      string   `json:"prefix,omitempty"`
-	Permissions []string `json:"permissions,omitempty"`
-	RateLimit   int      `json:"rate_limit,omitempty"`
-	CallCount   int      `json:"call_count,omitempty"`
-	LastUsedAt  string   `json:"last_used_at,omitempty"`
-	ExpiresAt   string   `json:"expires_at,omitempty"`
-	RevokedAt   string   `json:"revoked_at,omitempty"`
-	CreatedAt   string   `json:"created_at,omitempty"`
+	ID             int      `json:"id"`
+	WorkspaceID    int      `json:"workspace_id,omitempty"`
+	Name           string   `json:"name,omitempty"`
+	Key            string   `json:"key,omitempty"`
+	Prefix         string   `json:"prefix,omitempty"`
+	Permissions    []string `json:"permissions,omitempty"`
+	IPRestrictions []string `json:"ip_restrictions,omitempty"`
+	RateLimit      int      `json:"rate_limit,omitempty"`
+	CallCount      int      `json:"call_count,omitempty"`
+	LastUsedAt     string   `json:"last_used_at,omitempty"`
+	ExpiresAt      string   `json:"expires_at,omitempty"`
+	RevokedAt      string   `json:"revoked_at,omitempty"`
+	CreatedAt      string   `json:"created_at,omitempty"`
 }
 
-// input := agentic.AuthProvisionInput{OAuthUserID: "user-42", Permissions: []string{"plans:read"}}
+// input := agentic.AuthProvisionInput{OAuthUserID: "user-42", Permissions: []string{"plans:read"}, IPRestrictions: []string{"10.0.0.0/8"}}
 type AuthProvisionInput struct {
-	OAuthUserID string   `json:"oauth_user_id"`
-	Name        string   `json:"name,omitempty"`
-	Permissions []string `json:"permissions,omitempty"`
-	RateLimit   int      `json:"rate_limit,omitempty"`
-	ExpiresAt   string   `json:"expires_at,omitempty"`
+	OAuthUserID    string   `json:"oauth_user_id"`
+	Name           string   `json:"name,omitempty"`
+	Permissions    []string `json:"permissions,omitempty"`
+	IPRestrictions []string `json:"ip_restrictions,omitempty"`
+	RateLimit      int      `json:"rate_limit,omitempty"`
+	ExpiresAt      string   `json:"expires_at,omitempty"`
 }
 
 // out := agentic.AuthProvisionOutput{Success: true, Key: agentic.AgentApiKey{Prefix: "ak_abcd"}}
@@ -59,11 +61,12 @@ type AuthRevokeOutput struct {
 // ))
 func (s *PrepSubsystem) handleAuthProvision(ctx context.Context, options core.Options) core.Result {
 	input := AuthProvisionInput{
-		OAuthUserID: optionStringValue(options, "oauth_user_id", "oauth-user-id", "user_id", "user-id", "_arg"),
-		Name:        optionStringValue(options, "name"),
-		Permissions: optionStringSliceValue(options, "permissions"),
-		RateLimit:   optionIntValue(options, "rate_limit", "rate-limit"),
-		ExpiresAt:   optionStringValue(options, "expires_at", "expires-at"),
+		OAuthUserID:    optionStringValue(options, "oauth_user_id", "oauth-user-id", "user_id", "user-id", "_arg"),
+		Name:           optionStringValue(options, "name"),
+		Permissions:    optionStringSliceValue(options, "permissions"),
+		IPRestrictions: optionStringSliceValue(options, "ip_restrictions", "ip-restrictions", "allowed_ips", "allowed-ips"),
+		RateLimit:      optionIntValue(options, "rate_limit", "rate-limit"),
+		ExpiresAt:      optionStringValue(options, "expires_at", "expires-at"),
 	}
 	if input.OAuthUserID == "" {
 		return core.Result{Value: core.E("agentic.auth.provision", "oauth_user_id is required", nil), OK: false}
@@ -77,6 +80,9 @@ func (s *PrepSubsystem) handleAuthProvision(ctx context.Context, options core.Op
 	}
 	if len(input.Permissions) > 0 {
 		body["permissions"] = input.Permissions
+	}
+	if len(input.IPRestrictions) > 0 {
+		body["ip_restrictions"] = input.IPRestrictions
 	}
 	if input.RateLimit > 0 {
 		body["rate_limit"] = input.RateLimit
@@ -145,18 +151,19 @@ func (s *PrepSubsystem) handleAuthRevoke(ctx context.Context, options core.Optio
 
 func parseAgentApiKey(values map[string]any) AgentApiKey {
 	return AgentApiKey{
-		ID:          intValue(values["id"]),
-		WorkspaceID: intValue(values["workspace_id"]),
-		Name:        stringValue(values["name"]),
-		Key:         stringValue(values["key"]),
-		Prefix:      stringValue(values["prefix"]),
-		Permissions: listValue(values["permissions"]),
-		RateLimit:   intValue(values["rate_limit"]),
-		CallCount:   intValue(values["call_count"]),
-		LastUsedAt:  stringValue(values["last_used_at"]),
-		ExpiresAt:   stringValue(values["expires_at"]),
-		RevokedAt:   stringValue(values["revoked_at"]),
-		CreatedAt:   stringValue(values["created_at"]),
+		ID:             intValue(values["id"]),
+		WorkspaceID:    intValue(values["workspace_id"]),
+		Name:           stringValue(values["name"]),
+		Key:            stringValue(values["key"]),
+		Prefix:         stringValue(values["prefix"]),
+		Permissions:    listValue(values["permissions"]),
+		IPRestrictions: listValue(values["ip_restrictions"]),
+		RateLimit:      intValue(values["rate_limit"]),
+		CallCount:      intValue(values["call_count"]),
+		LastUsedAt:     stringValue(values["last_used_at"]),
+		ExpiresAt:      stringValue(values["expires_at"]),
+		RevokedAt:      stringValue(values["revoked_at"]),
+		CreatedAt:      stringValue(values["created_at"]),
 	}
 }
 

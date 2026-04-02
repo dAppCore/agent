@@ -34,7 +34,11 @@ func TestAuth_HandleAuthProvision_Good(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, []any{"plans:read", "plans:write"}, permissions)
 
-		_, _ = w.Write([]byte(`{"data":{"id":7,"workspace_id":3,"name":"codex local","key":"ak_live_secret","prefix":"ak_live","permissions":["plans:read","plans:write"],"rate_limit":60,"call_count":2,"expires_at":"2026-04-01T00:00:00Z"}}`))
+		ipRestrictions, ok := payload["ip_restrictions"].([]any)
+		require.True(t, ok)
+		require.Equal(t, []any{"10.0.0.0/8", "192.168.0.0/16"}, ipRestrictions)
+
+		_, _ = w.Write([]byte(`{"data":{"id":7,"workspace_id":3,"name":"codex local","key":"ak_live_secret","prefix":"ak_live","permissions":["plans:read","plans:write"],"ip_restrictions":["10.0.0.0/8","192.168.0.0/16"],"rate_limit":60,"call_count":2,"expires_at":"2026-04-01T00:00:00Z"}}`))
 	}))
 	defer server.Close()
 
@@ -43,6 +47,7 @@ func TestAuth_HandleAuthProvision_Good(t *testing.T) {
 		core.Option{Key: "oauth_user_id", Value: "user-42"},
 		core.Option{Key: "name", Value: "codex local"},
 		core.Option{Key: "permissions", Value: "plans:read,plans:write"},
+		core.Option{Key: "ip_restrictions", Value: "10.0.0.0/8,192.168.0.0/16"},
 		core.Option{Key: "rate_limit", Value: 60},
 		core.Option{Key: "expires_at", Value: "2026-04-01T00:00:00Z"},
 	))
@@ -57,6 +62,7 @@ func TestAuth_HandleAuthProvision_Good(t *testing.T) {
 	assert.Equal(t, "ak_live_secret", output.Key.Key)
 	assert.Equal(t, "ak_live", output.Key.Prefix)
 	assert.Equal(t, []string{"plans:read", "plans:write"}, output.Key.Permissions)
+	assert.Equal(t, []string{"10.0.0.0/8", "192.168.0.0/16"}, output.Key.IPRestrictions)
 	assert.Equal(t, 60, output.Key.RateLimit)
 	assert.Equal(t, 2, output.Key.CallCount)
 }

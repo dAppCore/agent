@@ -69,7 +69,7 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 
 func (s *PrepSubsystem) cmdAuthProvision(options core.Options) core.Result {
 	if optionStringValue(options, "oauth_user_id", "oauth-user-id", "user_id", "user-id", "_arg") == "" {
-		core.Print(nil, "usage: core-agent auth provision <oauth-user-id> [--name=codex] [--permissions=plans:read,plans:write] [--rate-limit=60] [--expires-at=2026-04-01T00:00:00Z]")
+		core.Print(nil, "usage: core-agent auth provision <oauth-user-id> [--name=codex] [--permissions=plans:read,plans:write] [--ip-restrictions=10.0.0.0/8,192.168.0.0/16] [--rate-limit=60] [--expires-at=2026-04-01T00:00:00Z]")
 		return core.Result{Value: core.E("agentic.cmdAuthProvision", "oauth_user_id is required", nil), OK: false}
 	}
 
@@ -95,6 +95,9 @@ func (s *PrepSubsystem) cmdAuthProvision(options core.Options) core.Result {
 	}
 	if len(output.Key.Permissions) > 0 {
 		core.Print(nil, "permissions: %s", core.Join(",", output.Key.Permissions...))
+	}
+	if len(output.Key.IPRestrictions) > 0 {
+		core.Print(nil, "ip restrictions: %s", core.Join(",", output.Key.IPRestrictions...))
 	}
 	if output.Key.ExpiresAt != "" {
 		core.Print(nil, "expires:     %s", output.Key.ExpiresAt)
