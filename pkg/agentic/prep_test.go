@@ -709,6 +709,8 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "epic")
 	assert.Contains(t, c.Commands(), "agentic:epic")
 	assert.Contains(t, c.Commands(), "plan-cleanup")
+	assert.Contains(t, c.Commands(), "commit")
+	assert.Contains(t, c.Commands(), "agentic:commit")
 	assert.Contains(t, c.Commands(), "plan/from-issue")
 	assert.Contains(t, c.Commands(), "session/end")
 	assert.Contains(t, c.Commands(), "agentic:session/end")

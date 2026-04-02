@@ -72,6 +72,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
 	s.registerPlanCommands()
+	s.registerCommitCommands()
 	s.registerSessionCommands()
 	s.registerTaskCommands()
 	s.registerStateCommands()
