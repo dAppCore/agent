@@ -1364,6 +1364,39 @@ func TestCommands_CmdExtract_Good(t *testing.T) {
 	assert.True(t, r.OK)
 }
 
+func TestCommands_CmdExtract_Good_FromAgentOutput(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	dir := t.TempDir()
+	source := core.JoinPath(dir, "agent-output.md")
+	target := core.JoinPath(dir, "extracted.json")
+	require.True(t, fs.Write(source, "Agent run complete.\n\n```json\n{\"summary\":\"done\",\"findings\":2}\n```\n").OK)
+
+	output := captureStdout(t, func() {
+		r := s.cmdExtract(core.NewOptions(
+			core.Option{Key: "source", Value: source},
+			core.Option{Key: "target", Value: target},
+		))
+		assert.True(t, r.OK)
+		assert.Equal(t, "{\"summary\":\"done\",\"findings\":2}", r.Value)
+	})
+
+	assert.Contains(t, output, "written: ")
+	assert.True(t, fs.Exists(target))
+	written := fs.Read(target)
+	require.True(t, written.OK)
+	assert.Equal(t, "{\"summary\":\"done\",\"findings\":2}", written.Value)
+}
+
+func TestCommands_CmdExtract_Bad_NoExtractableContent(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	dir := t.TempDir()
+	source := core.JoinPath(dir, "agent-output.md")
+	require.True(t, fs.Write(source, "Agent run complete.\nNothing structured here.\n").OK)
+
+	r := s.cmdExtract(core.NewOptions(core.Option{Key: "source", Value: source}))
+	assert.False(t, r.OK)
+}
+
 func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())

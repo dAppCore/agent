@@ -81,7 +81,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
 	c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
-	c.Command("extract", core.Command{Description: "Extract a workspace template to a directory", Action: s.cmdExtract})
+	c.Command("extract", core.Command{Description: "Extract data from agent output or scaffold a workspace template", Action: s.cmdExtract})
 	s.registerPlanCommands()
 	s.registerCommitCommands()
 	s.registerSessionCommands()
@@ -887,11 +887,53 @@ func (s *PrepSubsystem) cmdPromptVersion(options core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
+	sourcePath := optionStringValue(options, "source", "input", "file")
 	templateName := options.String("_arg")
 	if templateName == "" {
 		templateName = "default"
 	}
 	target := options.String("target")
+
+	if sourcePath == "" && fs.Exists(templateName) && fs.IsFile(templateName) {
+		sourcePath = templateName
+		templateName = ""
+	}
+
+	if sourcePath != "" {
+		readResult := fs.Read(sourcePath)
+		if !readResult.OK {
+			err, _ := readResult.Value.(error)
+			if err == nil {
+				err = core.E("agentic.cmdExtract", core.Concat("read agent output ", sourcePath), nil)
+			}
+			core.Print(nil, "error: %v", err)
+			return core.Result{Value: err, OK: false}
+		}
+
+		extracted := extractAgentOutputContent(readResult.Value.(string))
+		if extracted == "" {
+			err := core.E("agentic.cmdExtract", "agent output did not contain extractable content", nil)
+			core.Print(nil, "error: %v", err)
+			return core.Result{Value: err, OK: false}
+		}
+
+		if target != "" {
+			if writeResult := fs.WriteMode(target, extracted, 0644); !writeResult.OK {
+				err, _ := writeResult.Value.(error)
+				if err == nil {
+					err = core.E("agentic.cmdExtract", core.Concat("write extracted output ", target), nil)
+				}
+				core.Print(nil, "error: %v", err)
+				return core.Result{Value: err, OK: false}
+			}
+			core.Print(nil, "written: %s", target)
+		} else {
+			core.Print(nil, "%s", extracted)
+		}
+
+		return core.Result{Value: extracted, OK: true}
+	}
+
 	if target == "" {
 		target = core.JoinPath(WorkspaceRoot(), "test-extract")
 	}
@@ -924,6 +966,41 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 
 	core.Print(nil, "done")
 	return core.Result{OK: true}
+}
+
+func extractAgentOutputContent(content string) string {
+	trimmed := core.Trim(content)
+	if trimmed == "" {
+		return ""
+	}
+
+	if core.HasPrefix(trimmed, "{") || core.HasPrefix(trimmed, "[") {
+		return trimmed
+	}
+
+	blocks := core.Split(content, "```")
+	for index := 1; index < len(blocks); index += 2 {
+		block := core.Trim(blocks[index])
+		if block == "" {
+			continue
+		}
+
+		lines := core.SplitN(block, "\n", 2)
+		if len(lines) == 2 {
+			language := core.Trim(lines[0])
+			body := core.Trim(lines[1])
+			if language != "" && !core.Contains(language, " ") && body != "" {
+				block = body
+			}
+		}
+
+		block = core.Trim(block)
+		if block != "" {
+			return block
+		}
+	}
+
+	return ""
 }
 
 // parseIntString("issue-42") // 42
