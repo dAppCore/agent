@@ -1423,6 +1423,23 @@ func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
 	assert.Contains(t, output, "killed all agents")
 }
 
+func TestCommands_CmdPoke_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	called := false
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		r := s.cmdPoke(core.NewOptions())
+		assert.True(t, r.OK)
+	})
+
+	assert.True(t, called)
+	assert.Contains(t, output, "queue poke requested")
+}
+
 func TestCommands_ParseIntStr_Good(t *testing.T) {
 	assert.Equal(t, 42, parseIntString("42"))
 	assert.Equal(t, 123, parseIntString("issue-123"))
@@ -1454,6 +1471,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "agentic:dispatch/shutdown")
 	assert.Contains(t, cmds, "dispatch/shutdown-now")
 	assert.Contains(t, cmds, "agentic:dispatch/shutdown-now")
+	assert.Contains(t, cmds, "poke")
+	assert.Contains(t, cmds, "agentic:poke")
 	assert.Contains(t, cmds, "prep")
 	assert.Contains(t, cmds, "agentic:prep-workspace")
 	assert.Contains(t, cmds, "resume")

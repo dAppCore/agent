@@ -32,6 +32,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown})
 	c.Command("dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow})
 	c.Command("agentic:dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow})
+	c.Command("poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke})
+	c.Command("agentic:poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke})
 	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
 	c.Command("agentic:prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
@@ -275,6 +277,12 @@ func (s *PrepSubsystem) cmdDispatchShutdownNow(_ core.Options) core.Result {
 		core.Print(nil, "queued:  %d", output.Queued)
 	}
 	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdPoke(_ core.Options) core.Result {
+	s.Poke()
+	core.Print(nil, "queue poke requested")
+	return core.Result{OK: true}
 }
 
 func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {
