@@ -46,6 +46,8 @@ func TestPlanFromIssue_PlanFromIssue_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, output.Plan.Slug, plan.Slug)
 	assert.Equal(t, output.Issue.Slug, plan.Context["source_issue_slug"])
+	assert.Equal(t, output.Issue.Status, plan.Context["source_issue_status"])
+	assert.Equal(t, output.Issue.Metadata, plan.Context["source_issue_metadata"])
 	require.Len(t, plan.Phases, 1)
 	require.Len(t, plan.Phases[0].Tasks, 1)
 	assert.Equal(t, "Keep CLI output stable", plan.Phases[0].Tasks[0].Title)

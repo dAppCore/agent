@@ -80,13 +80,15 @@ func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolReques
 		Objective:   objective,
 		Description: description,
 		Context: map[string]any{
-			"source_issue":        issueOutput.Issue,
-			"source_issue_id":     issueOutput.Issue.ID,
-			"source_issue_slug":   issueOutput.Issue.Slug,
-			"source_issue_type":   issueOutput.Issue.Type,
-			"source_issue_labels": issueOutput.Issue.Labels,
-			"source_issue_state":  issueOutput.Issue.Status,
-			"source_issue_meta":   issueOutput.Issue.Metadata,
+			"source_issue":          issueOutput.Issue,
+			"source_issue_id":       issueOutput.Issue.ID,
+			"source_issue_slug":     issueOutput.Issue.Slug,
+			"source_issue_type":     issueOutput.Issue.Type,
+			"source_issue_labels":   issueOutput.Issue.Labels,
+			"source_issue_status":   issueOutput.Issue.Status,
+			"source_issue_metadata": issueOutput.Issue.Metadata,
+			"source_issue_state":    issueOutput.Issue.Status,
+			"source_issue_meta":     issueOutput.Issue.Metadata,
 		},
 		Phases: []Phase{
 			{
