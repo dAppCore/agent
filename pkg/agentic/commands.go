@@ -53,6 +53,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("brain:forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget})
 	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a repository or workspace", Action: s.cmdLangDetect})
 	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
+	c.Command("epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic})
+	c.Command("agentic:epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic})
 	c.Command("plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("agentic:plan-cleanup", core.Command{Description: "Permanently delete archived plans past the retention period", Action: s.cmdPlanCleanup})
 	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})

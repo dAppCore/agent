@@ -423,6 +423,17 @@ func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
+// result := c.Command("epic").Run(core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "title", Value: "Stabilise agent dispatch"},
+//	core.Option{Key: "tasks", Value: []string{"Fix the queue race", "Add regression tests"}},
+//
+// ))
+func (s *PrepSubsystem) cmdEpic(options core.Options) core.Result {
+	return s.handleEpic(s.commandContext(), options)
+}
+
 func dispatchInputFromOptions(options core.Options) DispatchInput {
 	return DispatchInput{
 		Repo:         optionStringValue(options, "repo"),

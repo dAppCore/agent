@@ -1409,6 +1409,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "extract")
 	assert.Contains(t, cmds, "lang/detect")
 	assert.Contains(t, cmds, "lang/list")
+	assert.Contains(t, cmds, "epic")
+	assert.Contains(t, cmds, "agentic:epic")
 	assert.Contains(t, cmds, "plan")
 	assert.Contains(t, cmds, "plan/create")
 	assert.Contains(t, cmds, "plan/list")
