@@ -34,6 +34,8 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 		core.Option{Key: "task_identifier", Value: "1"},
 		core.Option{Key: "status", Value: "completed"},
 		core.Option{Key: "notes", Value: "Done"},
+		core.Option{Key: "priority", Value: "high"},
+		core.Option{Key: "category", Value: "security"},
 		core.Option{Key: "file", Value: "pkg/agentic/task.go"},
 		core.Option{Key: "line", Value: 128},
 	))
@@ -43,6 +45,8 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "completed", output.Task.Status)
 	assert.Equal(t, "Done", output.Task.Notes)
+	assert.Equal(t, "high", output.Task.Priority)
+	assert.Equal(t, "security", output.Task.Category)
 	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
 	assert.Equal(t, 128, output.Task.Line)
 }
@@ -80,6 +84,8 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 		core.Option{Key: "description", Value: "Update the implementation"},
 		core.Option{Key: "status", Value: "pending"},
 		core.Option{Key: "notes", Value: "Do this first"},
+		core.Option{Key: "priority", Value: "high"},
+		core.Option{Key: "category", Value: "implementation"},
 		core.Option{Key: "file", Value: "pkg/agentic/task.go"},
 		core.Option{Key: "line", Value: 153},
 	))
@@ -90,6 +96,8 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 	assert.Equal(t, "Patch code", output.Task.Title)
 	assert.Equal(t, "pending", output.Task.Status)
 	assert.Equal(t, "Do this first", output.Task.Notes)
+	assert.Equal(t, "high", output.Task.Priority)
+	assert.Equal(t, "implementation", output.Task.Category)
 	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
 	assert.Equal(t, 153, output.Task.Line)
 }

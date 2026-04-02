@@ -17,6 +17,8 @@ type TaskUpdateInput struct {
 	TaskIdentifier any    `json:"task_identifier"`
 	Status         string `json:"status,omitempty"`
 	Notes          string `json:"notes,omitempty"`
+	Priority       string `json:"priority,omitempty"`
+	Category       string `json:"category,omitempty"`
 	File           string `json:"file,omitempty"`
 	Line           int    `json:"line,omitempty"`
 	FileRef        string `json:"file_ref,omitempty"`
@@ -38,6 +40,8 @@ type TaskCreateInput struct {
 	Description string `json:"description,omitempty"`
 	Status      string `json:"status,omitempty"`
 	Notes       string `json:"notes,omitempty"`
+	Priority    string `json:"priority,omitempty"`
+	Category    string `json:"category,omitempty"`
 	File        string `json:"file,omitempty"`
 	Line        int    `json:"line,omitempty"`
 	FileRef     string `json:"file_ref,omitempty"`
@@ -71,6 +75,8 @@ func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Optio
 		Description: optionStringValue(options, "description"),
 		Status:      optionStringValue(options, "status"),
 		Notes:       optionStringValue(options, "notes"),
+		Priority:    optionStringValue(options, "priority"),
+		Category:    optionStringValue(options, "category"),
 		File:        optionStringValue(options, "file"),
 		Line:        optionIntValue(options, "line"),
 		FileRef:     optionStringValue(options, "file_ref", "file-ref"),
@@ -90,6 +96,8 @@ func (s *PrepSubsystem) handleTaskUpdate(ctx context.Context, options core.Optio
 		TaskIdentifier: optionAnyValue(options, "task_identifier", "task"),
 		Status:         optionStringValue(options, "status"),
 		Notes:          optionStringValue(options, "notes"),
+		Priority:       optionStringValue(options, "priority"),
+		Category:       optionStringValue(options, "category"),
 		File:           optionStringValue(options, "file"),
 		Line:           optionIntValue(options, "line"),
 		FileRef:        optionStringValue(options, "file_ref", "file-ref"),
@@ -150,6 +158,12 @@ func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	if notes := core.Trim(input.Notes); notes != "" {
 		plan.Phases[phaseIndex].Tasks[taskIndex].Notes = notes
 	}
+	if priority := core.Trim(input.Priority); priority != "" {
+		plan.Phases[phaseIndex].Tasks[taskIndex].Priority = priority
+	}
+	if category := core.Trim(input.Category); category != "" {
+		plan.Phases[phaseIndex].Tasks[taskIndex].Category = category
+	}
 	if file := core.Trim(input.File); file != "" {
 		plan.Phases[phaseIndex].Tasks[taskIndex].File = file
 		plan.Phases[phaseIndex].Tasks[taskIndex].FileRef = file
@@ -203,6 +217,8 @@ func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		ID:          core.Sprint(nextIndex),
 		Title:       core.Trim(input.Title),
 		Description: core.Trim(input.Description),
+		Priority:    core.Trim(input.Priority),
+		Category:    core.Trim(input.Category),
 		Status:      input.Status,
 		Notes:       core.Trim(input.Notes),
 		File:        core.Trim(input.File),

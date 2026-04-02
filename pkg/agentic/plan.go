@@ -50,6 +50,8 @@ type PlanTask struct {
 	ID          string `json:"id,omitempty"`
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
+	Priority    string `json:"priority,omitempty"`
+	Category    string `json:"category,omitempty"`
 	Status      string `json:"status,omitempty"`
 	Notes       string `json:"notes,omitempty"`
 	File        string `json:"file,omitempty"`
@@ -720,6 +722,8 @@ func planTaskValue(value any) (PlanTask, bool) {
 			ID:          stringValue(typed["id"]),
 			Title:       title,
 			Description: stringValue(typed["description"]),
+			Priority:    stringValue(typed["priority"]),
+			Category:    stringValue(typed["category"]),
 			Status:      stringValue(typed["status"]),
 			Notes:       stringValue(typed["notes"]),
 			File:        file,
@@ -948,6 +952,8 @@ func normalisePlanTask(task PlanTask, index int) PlanTask {
 	if task.Title == "" {
 		task.Title = task.Description
 	}
+	task.Priority = core.Trim(task.Priority)
+	task.Category = core.Trim(task.Category)
 	if task.File == "" {
 		task.File = task.FileRef
 	}

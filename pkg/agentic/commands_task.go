@@ -11,7 +11,7 @@ func (s *PrepSubsystem) registerTaskCommands() {
 	c.Command("task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
 	c.Command("agentic:task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask})
 	c.Command("task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate})
-	c.Command("task/update", core.Command{Description: "Update a plan task status or notes", Action: s.cmdTaskUpdate})
+	c.Command("task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate})
 	c.Command("task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle})
 }
 
@@ -25,13 +25,13 @@ func (s *PrepSubsystem) cmdTask(options core.Options) core.Result {
 	case "update":
 		return s.cmdTaskUpdate(options)
 	case "":
-		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
-		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
 		core.Print(nil, "       core-agent task toggle <plan> --phase=1 --task=1")
 		return core.Result{OK: true}
 	default:
-		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
-		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
+		core.Print(nil, "       core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go|--file-ref=pkg/agentic/task.go] [--line=42|--line-ref=42]")
 		core.Print(nil, "       core-agent task toggle <plan> --phase=1 --task=1")
 		return core.Result{Value: core.E("agentic.cmdTask", core.Concat("unknown task command: ", action), nil), OK: false}
 	}
@@ -43,7 +43,7 @@ func (s *PrepSubsystem) cmdTaskCreate(options core.Options) core.Result {
 	title := optionStringValue(options, "title", "task")
 
 	if planSlug == "" || phaseOrder == 0 || title == "" {
-		core.Print(nil, "usage: core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--file=pkg/agentic/task.go] [--line=42]")
+		core.Print(nil, "usage: core-agent task create <plan> --phase=1 --title=\"Review RFC\" [--description=\"...\"] [--status=pending] [--notes=\"...\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go] [--line=42]")
 		return core.Result{Value: core.E("agentic.cmdTaskCreate", "plan_slug, phase_order, and title are required", nil), OK: false}
 	}
 
@@ -54,6 +54,8 @@ func (s *PrepSubsystem) cmdTaskCreate(options core.Options) core.Result {
 		core.Option{Key: "description", Value: optionStringValue(options, "description")},
 		core.Option{Key: "status", Value: optionStringValue(options, "status")},
 		core.Option{Key: "notes", Value: optionStringValue(options, "notes")},
+		core.Option{Key: "priority", Value: optionStringValue(options, "priority")},
+		core.Option{Key: "category", Value: optionStringValue(options, "category")},
 		core.Option{Key: "file", Value: optionStringValue(options, "file")},
 		core.Option{Key: "line", Value: optionIntValue(options, "line")},
 		core.Option{Key: "file_ref", Value: optionStringValue(options, "file_ref", "file-ref")},
@@ -74,6 +76,12 @@ func (s *PrepSubsystem) cmdTaskCreate(options core.Options) core.Result {
 
 	core.Print(nil, "task:   %s", output.Task.Title)
 	core.Print(nil, "status: %s", output.Task.Status)
+	if output.Task.Priority != "" {
+		core.Print(nil, "priority: %s", output.Task.Priority)
+	}
+	if output.Task.Category != "" {
+		core.Print(nil, "category: %s", output.Task.Category)
+	}
 	if output.Task.File != "" {
 		core.Print(nil, "file:   %s", output.Task.File)
 	}
@@ -89,7 +97,7 @@ func (s *PrepSubsystem) cmdTaskUpdate(options core.Options) core.Result {
 	taskIdentifier := optionAnyValue(options, "task_identifier", "task")
 
 	if planSlug == "" || phaseOrder == 0 || taskIdentifierValue(taskIdentifier) == "" {
-		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--file=pkg/agentic/task.go] [--line=42]")
+		core.Print(nil, "usage: core-agent task update <plan> --phase=1 --task=1 [--status=completed] [--notes=\"Done\"] [--priority=high] [--category=security] [--file=pkg/agentic/task.go] [--line=42]")
 		return core.Result{Value: core.E("agentic.cmdTaskUpdate", "plan_slug, phase_order, and task_identifier are required", nil), OK: false}
 	}
 
@@ -99,6 +107,8 @@ func (s *PrepSubsystem) cmdTaskUpdate(options core.Options) core.Result {
 		core.Option{Key: "task_identifier", Value: taskIdentifier},
 		core.Option{Key: "status", Value: optionStringValue(options, "status")},
 		core.Option{Key: "notes", Value: optionStringValue(options, "notes")},
+		core.Option{Key: "priority", Value: optionStringValue(options, "priority")},
+		core.Option{Key: "category", Value: optionStringValue(options, "category")},
 		core.Option{Key: "file", Value: optionStringValue(options, "file")},
 		core.Option{Key: "line", Value: optionIntValue(options, "line")},
 		core.Option{Key: "file_ref", Value: optionStringValue(options, "file_ref", "file-ref")},
@@ -121,6 +131,12 @@ func (s *PrepSubsystem) cmdTaskUpdate(options core.Options) core.Result {
 	core.Print(nil, "status: %s", output.Task.Status)
 	if output.Task.Notes != "" {
 		core.Print(nil, "notes:  %s", output.Task.Notes)
+	}
+	if output.Task.Priority != "" {
+		core.Print(nil, "priority: %s", output.Task.Priority)
+	}
+	if output.Task.Category != "" {
+		core.Print(nil, "category: %s", output.Task.Category)
 	}
 	if output.Task.File != "" {
 		core.Print(nil, "file:   %s", output.Task.File)

@@ -33,6 +33,8 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 		TaskIdentifier: "1",
 		Status:         "completed",
 		Notes:          "Done",
+		Priority:       "high",
+		Category:       "security",
 		File:           "pkg/agentic/task.go",
 		Line:           128,
 	})
@@ -40,6 +42,8 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, "completed", output.Task.Status)
 	assert.Equal(t, "Done", output.Task.Notes)
+	assert.Equal(t, "high", output.Task.Priority)
+	assert.Equal(t, "security", output.Task.Category)
 	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
 	assert.Equal(t, 128, output.Task.Line)
 }
@@ -68,6 +72,8 @@ func TestTask_TaskCreate_Good(t *testing.T) {
 		Description: "Update the implementation",
 		Status:      "pending",
 		Notes:       "Do this first",
+		Priority:    "high",
+		Category:    "implementation",
 		File:        "pkg/agentic/task.go",
 		Line:        153,
 	})
@@ -76,6 +82,8 @@ func TestTask_TaskCreate_Good(t *testing.T) {
 	assert.Equal(t, "Patch code", output.Task.Title)
 	assert.Equal(t, "pending", output.Task.Status)
 	assert.Equal(t, "Do this first", output.Task.Notes)
+	assert.Equal(t, "high", output.Task.Priority)
+	assert.Equal(t, "implementation", output.Task.Category)
 	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
 	assert.Equal(t, 153, output.Task.Line)
 }
@@ -150,10 +158,14 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 		PlanSlug:   plan.Slug,
 		PhaseOrder: 1,
 		Title:      "Patch code",
+		Priority:   "medium",
+		Category:   "research",
 	})
 	require.NoError(t, err)
 	assert.True(t, output.Success)
 	assert.Equal(t, "Patch code", output.Task.Title)
+	assert.Equal(t, "medium", output.Task.Priority)
+	assert.Equal(t, "research", output.Task.Category)
 
 	updated, err := readPlan(PlansRoot(), plan.ID)
 	require.NoError(t, err)
