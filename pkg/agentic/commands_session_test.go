@@ -102,17 +102,17 @@ func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
 		require.True(t, parseResult.OK)
-		assert.Equal(t, "codex", payload["agent_type"])
+		assert.Equal(t, "opus", payload["agent_type"])
 		assert.Equal(t, "ax-follow-up", payload["plan_slug"])
 
-		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-start","plan_slug":"ax-follow-up","agent_type":"codex","status":"active"}}`))
+		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-start","plan_slug":"ax-follow-up","agent_type":"opus","status":"active"}}`))
 	}))
 	defer server.Close()
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.cmdSessionStart(core.NewOptions(
 		core.Option{Key: "_arg", Value: "ax-follow-up"},
-		core.Option{Key: "agent_type", Value: "codex"},
+		core.Option{Key: "agent_type", Value: "opus"},
 	))
 	require.True(t, result.OK)
 
@@ -120,17 +120,30 @@ func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "ses-start", output.Session.SessionID)
 	assert.Equal(t, "ax-follow-up", output.Session.PlanSlug)
-	assert.Equal(t, "codex", output.Session.AgentType)
+	assert.Equal(t, "opus", output.Session.AgentType)
 }
 
 func TestCommandsSession_CmdSessionStart_Bad_MissingPlanSlug(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
-	result := subsystem.cmdSessionStart(core.NewOptions(core.Option{Key: "agent_type", Value: "codex"}))
+	result := subsystem.cmdSessionStart(core.NewOptions(core.Option{Key: "agent_type", Value: "opus"}))
 
 	assert.False(t, result.OK)
 	require.Error(t, result.Value.(error))
 	assert.Contains(t, result.Value.(error).Error(), "plan_slug is required")
+}
+
+func TestCommandsSession_CmdSessionStart_Bad_InvalidAgentType(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.cmdSessionStart(core.NewOptions(
+		core.Option{Key: "_arg", Value: "ax-follow-up"},
+		core.Option{Key: "agent_type", Value: "codex"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "opus, sonnet, or haiku")
 }
 
 func TestCommandsSession_CmdSessionStart_Ugly_InvalidResponse(t *testing.T) {

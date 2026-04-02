@@ -25,16 +25,16 @@ func TestSession_HandleSessionStart_Good(t *testing.T) {
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
 		require.True(t, parseResult.OK)
-		require.Equal(t, "codex", payload["agent_type"])
+		require.Equal(t, "opus", payload["agent_type"])
 		require.Equal(t, "ax-follow-up", payload["plan_slug"])
 
-		_, _ = w.Write([]byte(`{"data":{"id":1,"session_id":"ses_abc123","plan_slug":"ax-follow-up","agent_type":"codex","status":"active","context_summary":{"repo":"core/go"}}}`))
+		_, _ = w.Write([]byte(`{"data":{"id":1,"session_id":"ses_abc123","plan_slug":"ax-follow-up","agent_type":"opus","status":"active","context_summary":{"repo":"core/go"}}}`))
 	}))
 	defer server.Close()
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions(
-		core.Option{Key: "agent_type", Value: "codex"},
+		core.Option{Key: "agent_type", Value: "opus"},
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
 		core.Option{Key: "context", Value: `{"repo":"core/go"}`},
 	))
@@ -44,7 +44,7 @@ func TestSession_HandleSessionStart_Good(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "ses_abc123", output.Session.SessionID)
 	assert.Equal(t, "active", output.Session.Status)
-	assert.Equal(t, "codex", output.Session.AgentType)
+	assert.Equal(t, "opus", output.Session.AgentType)
 }
 
 func TestSession_HandleSessionStart_Bad(t *testing.T) {
@@ -52,6 +52,16 @@ func TestSession_HandleSessionStart_Bad(t *testing.T) {
 
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions())
 	assert.False(t, result.OK)
+}
+
+func TestSession_HandleSessionStart_Bad_InvalidAgentType(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	result := subsystem.handleSessionStart(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_type", Value: "codex"},
+	))
+	assert.False(t, result.OK)
+	require.Contains(t, result.Value.(error).Error(), "opus, sonnet, or haiku")
 }
 
 func TestSession_HandleSessionStart_Ugly(t *testing.T) {

@@ -364,6 +364,9 @@ func (s *PrepSubsystem) sessionStart(ctx context.Context, _ *mcp.CallToolRequest
 	if input.AgentType == "" {
 		return nil, SessionOutput{}, core.E("sessionStart", "agent_type is required", nil)
 	}
+	if !validSessionAgentType(input.AgentType) {
+		return nil, SessionOutput{}, core.E("sessionStart", "agent_type must be opus, sonnet, or haiku", nil)
+	}
 
 	body := map[string]any{
 		"agent_type": input.AgentType,
@@ -1136,4 +1139,13 @@ func resultErrorValue(action string, result core.Result) error {
 	}
 
 	return core.E(action, "request failed", nil)
+}
+
+func validSessionAgentType(agentType string) bool {
+	switch core.Lower(core.Trim(agentType)) {
+	case "opus", "sonnet", "haiku":
+		return true
+	default:
+		return false
+	}
 }
