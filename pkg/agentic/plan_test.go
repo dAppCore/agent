@@ -3,10 +3,12 @@
 package agentic
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	core "dappco.re/go/core"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,4 +198,40 @@ func TestPlan_ReadPlan_Ugly_EmptyFile(t *testing.T) {
 
 	_, err := readPlan(dir, "empty")
 	assert.Error(t, err)
+}
+
+func TestPlan_RegisterPlanTools_Good_RegistersAgenticCompatibilityAliases(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
+		Capabilities: &mcpsdk.ServerCapabilities{
+			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
+		},
+	})
+
+	subsystem := &PrepSubsystem{}
+	subsystem.RegisterTools(server)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = serverSession.Close() })
+
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = clientSession.Close() })
+
+	result, err := clientSession.ListTools(context.Background(), nil)
+	require.NoError(t, err)
+
+	var toolNames []string
+	for _, tool := range result.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+
+	assert.Contains(t, toolNames, "agentic_plan_get")
+	assert.Contains(t, toolNames, "agentic_plan_check")
+	assert.Contains(t, toolNames, "agentic_plan_update_status")
+	assert.Contains(t, toolNames, "agentic_plan_archive")
+	assert.Contains(t, toolNames, "agentic_plan_from_issue")
 }

@@ -240,6 +240,10 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Name:        "agentic_plan_read",
 		Description: "Read an implementation plan by ID. Returns the full plan with all phases, criteria, and status.",
 	}, s.planRead)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_plan_get",
+		Description: "Read an implementation plan by slug with progress details and full phases.",
+	}, s.planGetCompat)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_plan_update",
@@ -280,6 +284,10 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Name:        "plan_check",
 		Description: "Check whether a plan or phase is complete using the compatibility surface.",
 	}, s.planCheck)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_plan_check",
+		Description: "Check whether a plan or phase is complete using the compatibility surface.",
+	}, s.planCheck)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_update",
@@ -288,6 +296,10 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_update_status",
+		Description: "Update a plan lifecycle status by slug.",
+	}, s.planUpdateStatusCompat)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
 	}, s.planUpdateStatusCompat)
 
@@ -300,9 +312,17 @@ func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
 		Name:        "plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
 	}, s.planArchiveCompat)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_plan_archive",
+		Description: "Archive a plan by slug without deleting the local record.",
+	}, s.planArchiveCompat)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "plan_from_issue",
+		Description: "Create an implementation plan from a tracked issue slug or ID.",
+	}, s.planFromIssue)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_plan_from_issue",
 		Description: "Create an implementation plan from a tracked issue slug or ID.",
 	}, s.planFromIssue)
 }
