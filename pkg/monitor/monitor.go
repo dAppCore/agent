@@ -21,10 +21,6 @@ import (
 // if text, ok := resultString(readResult); ok { _ = core.JSONUnmarshalString(text, &workspaceStatus) }
 var fs = agentic.LocalFs()
 
-type channelSender interface {
-	ChannelSend(ctx context.Context, channel string, data any)
-}
-
 func brainKeyPath(home string) string {
 	return core.JoinPath(home, ".claude", "brain.key")
 }
@@ -460,17 +456,6 @@ func (m *Subsystem) checkInbox() string {
 			New:   len(inboxMessages),
 			Total: unread,
 		})
-		if notifierResult := m.Core().Service("mcp"); notifierResult.OK {
-			if notifier, ok := notifierResult.Value.(channelSender); ok {
-				for _, inboxMessage := range inboxMessages {
-					notifier.ChannelSend(context.Background(), "inbox.message", map[string]any{
-						"from":    inboxMessage.From,
-						"subject": inboxMessage.Subject,
-						"content": inboxMessage.Content,
-					})
-				}
-			}
-		}
 	}
 
 	return core.Sprintf("%d unread message(s) in inbox", unread)

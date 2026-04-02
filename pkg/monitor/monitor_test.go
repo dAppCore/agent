@@ -30,19 +30,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-type capturedChannelEvent struct {
-	Channel string
-	Data    any
-}
-
-type captureNotifier struct {
-	events []capturedChannelEvent
-}
-
-func (n *captureNotifier) ChannelSend(_ context.Context, channel string, data any) {
-	n.events = append(n.events, capturedChannelEvent{Channel: channel, Data: data})
-}
-
 // setupBrainKey creates a ~/.claude/brain.key file for API auth tests.
 func setupBrainKey(t *testing.T, key string) {
 	t.Helper()
@@ -590,10 +577,15 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	t.Setenv("CORE_API_URL", srv.URL)
 	t.Setenv("AGENT_NAME", "test-agent")
 
-	// Create Core with an MCP notifier to capture channel events.
+	// Create Core with an IPC handler to capture inbox notifications.
 	c := core.New()
-	notifier := &captureNotifier{}
-	require.True(t, c.RegisterService("mcp", notifier).OK)
+	var inboxEvents []messages.InboxMessage
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.InboxMessage); ok {
+			inboxEvents = append(inboxEvents, ev)
+		}
+		return core.Result{OK: true}
+	})
 
 	mon := New()
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -602,11 +594,9 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "2 unread message(s) in inbox")
 
-	// 3 new messages (ids 1,2,3 all > prevMaxID=0), but only 2 unread.
-	// Monitor sends one channel notification per new message.
-	require.Len(t, notifier.events, 3)
-	data := notifier.events[0].Data.(map[string]any)
-	assert.Equal(t, "clotho", data["from"])
+	require.Len(t, inboxEvents, 1)
+	assert.Equal(t, 3, inboxEvents[0].New)
+	assert.Equal(t, 2, inboxEvents[0].Total)
 }
 
 func TestMonitor_CheckInbox_Good_EncodesAgentQuery(t *testing.T) {
@@ -725,10 +715,15 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 
 	setupAPIEnv(t, srv.URL)
 
-	// Create Core with an MCP notifier to capture channel events.
+	// Create Core with an IPC handler to capture inbox notifications.
 	c := core.New()
-	notifier := &captureNotifier{}
-	require.True(t, c.RegisterService("mcp", notifier).OK)
+	var inboxEvents []messages.InboxMessage
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if ev, ok := msg.(messages.InboxMessage); ok {
+			inboxEvents = append(inboxEvents, ev)
+		}
+		return core.Result{OK: true}
+	})
 
 	mon := New()
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -737,7 +732,9 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	msg := mon.checkInbox()
 	assert.Contains(t, msg, "3 unread message(s)")
 
-	require.True(t, len(notifier.events) > 0, "should capture at least one channel event")
+	require.Len(t, inboxEvents, 1)
+	assert.Equal(t, 3, inboxEvents[0].New)
+	assert.Equal(t, 3, inboxEvents[0].Total)
 }
 
 // --- check (integration of sub-checks) ---
