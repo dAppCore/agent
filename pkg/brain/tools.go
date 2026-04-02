@@ -31,7 +31,7 @@ type RememberInput struct {
 //	}
 type RememberOutput struct {
 	Success   bool      `json:"success"`
-	MemoryID  string    `json:"memoryId,omitempty"`
+	MemoryID  string    `json:"memory_id,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 }
 

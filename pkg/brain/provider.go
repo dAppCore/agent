@@ -103,7 +103,7 @@ func (p *BrainProvider) Describe() []api.RouteDescription {
 				"type": "object",
 				"properties": map[string]any{
 					"success":   map[string]any{"type": "boolean"},
-					"memoryId":  map[string]any{"type": "string"},
+					"memory_id": map[string]any{"type": "string"},
 					"timestamp": map[string]any{"type": "string", "format": "date-time"},
 				},
 			},

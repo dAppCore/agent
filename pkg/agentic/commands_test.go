@@ -289,7 +289,7 @@ func TestCommands_CmdBrainRemember_Good(t *testing.T) {
 		assert.Equal(t, 24, options.Int("expires_in"))
 		return core.Result{Value: map[string]any{
 			"success":   true,
-			"memoryId":  "mem-1",
+			"memory_id": "mem-1",
 			"timestamp": "2026-03-31T12:00:00Z",
 		}, OK: true}
 	})
