@@ -78,7 +78,7 @@ func NewPrep() *PrepSubsystem {
 }
 
 // c.Action("agentic.dispatch").Run(ctx, options)
-// c.Actions() // ["agentic.dispatch", "agentic.prep", "agentic.status", "agentic.verify"]
+// core.Println(c.Actions()) // inspect the registered action names at startup
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 

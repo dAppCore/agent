@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go/core"
 )
 
-type directOptions struct{}
+type DirectOptions struct{}
 
 // subsystem := brain.NewDirect()
 // _ = subsystem.OnStartup(context.Background())

@@ -16,7 +16,7 @@ import (
 // subsystem := brain.NewDirect()
 // core.Println(subsystem.Name()) // "brain"
 type DirectSubsystem struct {
-	*core.ServiceRuntime[directOptions]
+	*core.ServiceRuntime[DirectOptions]
 	apiURL string
 	apiKey string
 }
