@@ -151,8 +151,10 @@ func (s *PrepSubsystem) runFlowCommand(options core.Options, commandLabel string
 		}
 
 		core.Print(nil, "steps: %d", len(document.Definition.Steps))
-		for index, step := range document.Definition.Steps {
-			core.Print(nil, "  %d. %s", index+1, flowStepSummary(step))
+		resolvedSteps := s.printFlowSteps(document, "", variables, map[string]bool{document.Source: true})
+		output.ResolvedSteps = resolvedSteps
+		if resolvedSteps != len(document.Definition.Steps) {
+			core.Print(nil, "resolved steps: %d", resolvedSteps)
 		}
 		return core.Result{Value: output, OK: true}
 	}
@@ -871,12 +873,13 @@ func parseIntString(s string) int {
 }
 
 type FlowRunOutput struct {
-	Success     bool   `json:"success"`
-	Source      string `json:"source,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	Steps       int    `json:"steps,omitempty"`
-	Parsed      bool   `json:"parsed,omitempty"`
+	Success       bool   `json:"success"`
+	Source        string `json:"source,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Description   string `json:"description,omitempty"`
+	Steps         int    `json:"steps,omitempty"`
+	ResolvedSteps int    `json:"resolved_steps,omitempty"`
+	Parsed        bool   `json:"parsed,omitempty"`
 }
 
 type flowDefinition struct {
@@ -1003,6 +1006,100 @@ func flowStepSummary(step flowDefinitionStep) string {
 	default:
 		return label
 	}
+}
+
+func (s *PrepSubsystem) printFlowSteps(document flowRunDocument, indent string, variables map[string]string, visited map[string]bool) int {
+	total := 0
+	for index, step := range document.Definition.Steps {
+		core.Print(nil, "%s%d. %s", indent, index+1, flowStepSummary(step))
+		total++
+
+		if step.Flow != "" {
+			resolved := s.resolveFlowReference(document.Source, step.Flow, variables)
+			if !resolved.OK {
+				continue
+			}
+
+			nested, ok := resolved.Value.(flowRunDocument)
+			if !ok || nested.Source == "" {
+				continue
+			}
+			if visited[nested.Source] {
+				core.Print(nil, "%s  cycle: %s", indent, nested.Source)
+				continue
+			}
+
+			core.Print(nil, "%s  resolved: %s", indent, nested.Source)
+			visited[nested.Source] = true
+			total += s.printFlowSteps(nested, core.Concat(indent, "  "), variables, visited)
+			delete(visited, nested.Source)
+		}
+
+		if len(step.Parallel) > 0 {
+			core.Print(nil, "%s  parallel:", indent)
+			for parallelIndex, parallelStep := range step.Parallel {
+				core.Print(nil, "%s    %d. %s", indent, parallelIndex+1, flowStepSummary(parallelStep))
+			}
+		}
+	}
+
+	return total
+}
+
+func (s *PrepSubsystem) resolveFlowReference(baseSource, reference string, variables map[string]string) core.Result {
+	trimmedReference := core.Trim(reference)
+	if trimmedReference == "" {
+		return core.Result{Value: core.E("agentic.resolveFlowReference", "flow reference is required", nil), OK: false}
+	}
+
+	candidates := []string{trimmedReference}
+
+	if root := flowRootPath(baseSource); root != "" {
+		candidate := core.JoinPath(root, trimmedReference)
+		if candidate != trimmedReference {
+			candidates = append(candidates, candidate)
+		}
+	}
+
+	repoCandidate := core.JoinPath("pkg", "lib", "flow", trimmedReference)
+	if repoCandidate != trimmedReference {
+		candidates = append(candidates, repoCandidate)
+	}
+
+	for _, candidate := range candidates {
+		result := readFlowDocument(candidate, variables)
+		if result.OK {
+			return result
+		}
+
+		err, ok := result.Value.(error)
+		if !ok || !core.Contains(err.Error(), "flow not found:") {
+			return result
+		}
+	}
+
+	return core.Result{Value: core.E("agentic.resolveFlowReference", core.Concat("flow not found: ", trimmedReference), nil), OK: false}
+}
+
+func flowRootPath(source string) string {
+	trimmed := core.Trim(core.Replace(source, "\\", "/"))
+	if trimmed == "" {
+		return ""
+	}
+
+	segments := core.Split(trimmed, "/")
+	for index := 0; index+2 < len(segments); index++ {
+		if segments[index] == "pkg" && segments[index+1] == "lib" && segments[index+2] == "flow" {
+			return core.JoinPath(segments[:index+3]...)
+		}
+	}
+
+	dir := core.PathDir(trimmed)
+	if dir != "" {
+		return dir
+	}
+
+	return ""
 }
 
 type brainListOutput struct {

@@ -82,6 +82,45 @@ func TestCommandsFlow_CmdRunFlow_Good_RendersVariablesAndDryRun(t *testing.T) {
 	assert.Contains(t, output, "desc:  Build core/go")
 }
 
+func TestCommandsFlow_CmdRunFlow_Good_ResolvesNestedFlowReferences(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	require.True(t, fs.EnsureDir(core.JoinPath(flowRoot, "verify")).OK)
+
+	rootPath := core.JoinPath(flowRoot, "root.yaml")
+	require.True(t, fs.Write(rootPath, core.Concat(
+		"name: Root Flow\n",
+		"description: Resolve nested flow references\n",
+		"steps:\n",
+		"  - name: child\n",
+		"    flow: verify/go-qa.yaml\n",
+	)).OK)
+
+	childPath := core.JoinPath(flowRoot, "verify", "go-qa.yaml")
+	require.True(t, fs.Write(childPath, core.Concat(
+		"name: Child Flow\n",
+		"description: Nested flow body\n",
+		"steps:\n",
+		"  - name: child-run\n",
+		"    run: echo child\n",
+	)).OK)
+
+	s := newTestPrep(t)
+	output := captureStdout(t, func() {
+		r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+		require.True(t, r.OK)
+
+		flowOutput, ok := r.Value.(FlowRunOutput)
+		require.True(t, ok)
+		assert.True(t, flowOutput.Success)
+		assert.Equal(t, 1, flowOutput.Steps)
+		assert.Equal(t, 2, flowOutput.ResolvedSteps)
+	})
+
+	assert.Contains(t, output, "resolved:")
+	assert.Contains(t, output, "child-run: run echo child")
+}
+
 func TestCommandsFlow_CmdRunFlow_Bad_MissingPath(t *testing.T) {
 	s := newTestPrep(t)
 
