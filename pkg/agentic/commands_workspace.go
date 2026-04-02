@@ -11,9 +11,13 @@ import (
 func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c := s.Core()
 	c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
+	c.Command("agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
 	c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
+	c.Command("agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
 	c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
+	c.Command("agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 	c.Command("workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
+	c.Command("agentic:workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
 	c.Command("watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
 	c.Command("agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
 }

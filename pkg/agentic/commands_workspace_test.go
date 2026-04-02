@@ -10,6 +10,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestCommandsworkspace_RegisterWorkspaceCommands_Good_Aliases(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+
+	s.registerWorkspaceCommands()
+
+	assert.Contains(t, c.Commands(), "workspace/list")
+	assert.Contains(t, c.Commands(), "agentic:workspace/list")
+	assert.Contains(t, c.Commands(), "workspace/clean")
+	assert.Contains(t, c.Commands(), "agentic:workspace/clean")
+	assert.Contains(t, c.Commands(), "workspace/dispatch")
+	assert.Contains(t, c.Commands(), "agentic:workspace/dispatch")
+	assert.Contains(t, c.Commands(), "workspace/watch")
+	assert.Contains(t, c.Commands(), "agentic:workspace/watch")
+}
+
 // --- CmdWorkspaceList Bad/Ugly ---
 
 func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T) {
