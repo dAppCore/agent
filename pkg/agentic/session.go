@@ -308,9 +308,17 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_start",
 		Description: "Start a new agent session for a plan and capture the initial context summary.",
 	}, s.sessionStart)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_start",
+		Description: "Start a new agent session for a plan and capture the initial context summary.",
+	}, s.sessionStart)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_get",
+		Description: "Read a session by session ID, including saved context, work log, and artifacts.",
+	}, s.sessionGet)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_get",
 		Description: "Read a session by session ID, including saved context, work log, and artifacts.",
 	}, s.sessionGet)
 
@@ -318,9 +326,17 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_list",
 		Description: "List sessions with optional plan and status filters.",
 	}, s.sessionList)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_list",
+		Description: "List sessions with optional plan and status filters.",
+	}, s.sessionList)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_continue",
+		Description: "Continue an existing session from its latest saved state.",
+	}, s.sessionContinue)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_continue",
 		Description: "Continue an existing session from its latest saved state.",
 	}, s.sessionContinue)
 
@@ -328,9 +344,17 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_end",
 		Description: "End a session with status, summary, and optional handoff notes.",
 	}, s.sessionEnd)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_end",
+		Description: "End a session with status, summary, and optional handoff notes.",
+	}, s.sessionEnd)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_complete",
+		Description: "Mark a session completed with status, summary, and optional handoff notes.",
+	}, s.sessionEnd)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_complete",
 		Description: "Mark a session completed with status, summary, and optional handoff notes.",
 	}, s.sessionEnd)
 
@@ -338,9 +362,17 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_log",
 		Description: "Add a typed work log entry to a stored session.",
 	}, s.sessionLog)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_log",
+		Description: "Add a typed work log entry to a stored session.",
+	}, s.sessionLog)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_artifact",
+		Description: "Record a created, modified, deleted, or reviewed artifact for a stored session.",
+	}, s.sessionArtifact)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_artifact",
 		Description: "Record a created, modified, deleted, or reviewed artifact for a stored session.",
 	}, s.sessionArtifact)
 
@@ -348,14 +380,26 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 		Name:        "session_handoff",
 		Description: "Prepare a stored session for handoff and mark it handed_off with summary, blockers, and next-step context.",
 	}, s.sessionHandoff)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_handoff",
+		Description: "Prepare a stored session for handoff and mark it handed_off with summary, blockers, and next-step context.",
+	}, s.sessionHandoff)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_resume",
 		Description: "Resume a paused or handed-off stored session and return handoff context.",
 	}, s.sessionResume)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_resume",
+		Description: "Resume a paused or handed-off stored session and return handoff context.",
+	}, s.sessionResume)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_replay",
+		Description: "Build replay context for a stored session from its work log, checkpoints, errors, and artifacts.",
+	}, s.sessionReplay)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_session_replay",
 		Description: "Build replay context for a stored session from its work log, checkpoints, errors, and artifacts.",
 	}, s.sessionReplay)
 }

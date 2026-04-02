@@ -127,14 +127,26 @@ func (s *PrepSubsystem) registerTaskTools(server *mcp.Server) {
 		Name:        "task_create",
 		Description: "Create a plan task by plan slug and phase order.",
 	}, s.taskCreate)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_task_create",
+		Description: "Create a plan task by plan slug and phase order.",
+	}, s.taskCreate)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
 	}, s.taskUpdate)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_task_update",
+		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
+	}, s.taskUpdate)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "task_toggle",
+		Description: "Toggle a plan task between pending and completed.",
+	}, s.taskToggle)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_task_toggle",
 		Description: "Toggle a plan task between pending and completed.",
 	}, s.taskToggle)
 }

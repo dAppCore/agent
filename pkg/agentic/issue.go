@@ -289,9 +289,17 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 		Name:        "issue_create",
 		Description: "Create a tracked platform issue with title, type, priority, labels, and optional sprint assignment.",
 	}, s.issueCreate)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_create",
+		Description: "Create a tracked platform issue with title, type, priority, labels, and optional sprint assignment.",
+	}, s.issueCreate)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_get",
+		Description: "Read a tracked platform issue by slug.",
+	}, s.issueGet)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_get",
 		Description: "Read a tracked platform issue by slug.",
 	}, s.issueGet)
 
@@ -299,9 +307,17 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 		Name:        "issue_list",
 		Description: "List tracked platform issues with optional status, type, sprint, and limit filters.",
 	}, s.issueList)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_list",
+		Description: "List tracked platform issues with optional status, type, sprint, and limit filters.",
+	}, s.issueList)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_update",
+		Description: "Update fields on a tracked platform issue by slug.",
+	}, s.issueUpdate)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_update",
 		Description: "Update fields on a tracked platform issue by slug.",
 	}, s.issueUpdate)
 
@@ -309,9 +325,17 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 		Name:        "issue_assign",
 		Description: "Assign an agent or user to a tracked platform issue by slug.",
 	}, s.issueAssign)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_assign",
+		Description: "Assign an agent or user to a tracked platform issue by slug.",
+	}, s.issueAssign)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_comment",
+		Description: "Add a comment to a tracked platform issue.",
+	}, s.issueComment)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_comment",
 		Description: "Add a comment to a tracked platform issue.",
 	}, s.issueComment)
 
@@ -319,9 +343,17 @@ func (s *PrepSubsystem) registerIssueTools(server *mcp.Server) {
 		Name:        "issue_report",
 		Description: "Post a structured report comment to a tracked platform issue.",
 	}, s.issueReport)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_report",
+		Description: "Post a structured report comment to a tracked platform issue.",
+	}, s.issueReport)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "issue_archive",
+		Description: "Archive a tracked platform issue by slug.",
+	}, s.issueArchive)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "agentic_issue_archive",
 		Description: "Archive a tracked platform issue by slug.",
 	}, s.issueArchive)
 }
