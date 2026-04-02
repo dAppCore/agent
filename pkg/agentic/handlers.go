@@ -9,7 +9,8 @@ import (
 	core "dappco.re/go/core"
 )
 
-// RegisterHandlers(c, subsystem)
+// c := core.New(core.WithService(agentic.ProcessRegister))
+// agentic.RegisterHandlers(c, agentic.NewPrep())
 // c.ACTION(messages.AgentCompleted{Workspace: "core/go-io/task-5", Repo: "go-io", Status: "completed"})
 func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 	if c == nil || s == nil {
