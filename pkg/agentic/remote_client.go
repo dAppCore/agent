@@ -19,6 +19,7 @@ type RemoteClient struct {
 
 // client := agentic.NewRemoteClient("charon")
 func NewRemoteClient(host string) RemoteClient {
+	host = core.Trim(host)
 	address := resolveHost(host)
 	return RemoteClient{
 		Host:    host,

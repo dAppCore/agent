@@ -22,6 +22,11 @@ func TestRemote_ResolveHost_Good_CustomHost(t *testing.T) {
 	assert.Equal(t, "192.168.1.100:8080", resolveHost("192.168.1.100:8080"))
 }
 
+func TestRemote_ResolveHost_Good_TrimmedInput(t *testing.T) {
+	assert.Equal(t, "10.69.69.165:9101", resolveHost("  charon  "))
+	assert.Equal(t, "my-server:9101", resolveHost("  my-server  "))
+}
+
 // --- remoteToken ---
 
 func TestRemote_RemoteToken_Good_FromEnv(t *testing.T) {
@@ -42,6 +47,12 @@ func TestRemote_RemoteToken_Good_EnvPrecedence(t *testing.T) {
 	t.Setenv("MCP_AUTH_TOKEN", "generic-token")
 	token := remoteToken("PRIO")
 	assert.Equal(t, "specific-token", token, "host-specific env should take precedence")
+}
+
+func TestRemote_RemoteToken_Good_TrimmedInput(t *testing.T) {
+	t.Setenv("AGENT_TOKEN_CHARON", "trimmed-token")
+	token := remoteToken("  charon  ")
+	assert.Equal(t, "trimmed-token", token)
 }
 
 // --- resolveHost Bad/Ugly ---

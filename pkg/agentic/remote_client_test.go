@@ -297,6 +297,17 @@ func TestRemoteClient_NewRemoteClient_Good(t *testing.T) {
 	assert.Equal(t, "http://10.69.69.165:9101/mcp", client.URL)
 }
 
+func TestRemoteClient_NewRemoteClient_Good_TrimmedInput(t *testing.T) {
+	t.Setenv("AGENT_TOKEN_CHARON", "token-123")
+
+	client := NewRemoteClient("  charon  ")
+
+	assert.Equal(t, "charon", client.Host)
+	assert.Equal(t, "10.69.69.165:9101", client.Address)
+	assert.Equal(t, "token-123", client.Token)
+	assert.Equal(t, "http://10.69.69.165:9101/mcp", client.URL)
+}
+
 func TestRemoteClient_ToolCallBody_Good(t *testing.T) {
 	client := NewRemoteClient("local")
 

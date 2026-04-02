@@ -124,6 +124,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 
 // addr := resolveHost("charon") // "10.69.69.165:9101"
 func resolveHost(host string) string {
+	host = core.Trim(host)
 	aliases := map[string]string{
 		"charon":  "10.69.69.165:9101",
 		"cladius": "127.0.0.1:9101",
@@ -143,6 +144,7 @@ func resolveHost(host string) string {
 
 // token := remoteToken("charon")
 func remoteToken(host string) string {
+	host = core.Trim(host)
 	envKey := core.Sprintf("AGENT_TOKEN_%s", core.Upper(host))
 	if token := core.Env(envKey); token != "" {
 		return token
