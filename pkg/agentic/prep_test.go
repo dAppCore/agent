@@ -668,16 +668,27 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.Contains(t, c.Commands(), "auth/provision")
+	assert.Contains(t, c.Commands(), "agentic:auth/provision")
 	assert.Contains(t, c.Commands(), "auth/revoke")
+	assert.Contains(t, c.Commands(), "agentic:auth/revoke")
 	assert.Contains(t, c.Commands(), "message/send")
 	assert.Contains(t, c.Commands(), "messages/send")
+	assert.Contains(t, c.Commands(), "agentic:message/send")
+	assert.Contains(t, c.Commands(), "agentic:messages/send")
 	assert.Contains(t, c.Commands(), "message/inbox")
 	assert.Contains(t, c.Commands(), "messages/inbox")
+	assert.Contains(t, c.Commands(), "agentic:message/inbox")
+	assert.Contains(t, c.Commands(), "agentic:messages/inbox")
 	assert.Contains(t, c.Commands(), "message/conversation")
 	assert.Contains(t, c.Commands(), "messages/conversation")
+	assert.Contains(t, c.Commands(), "agentic:message/conversation")
+	assert.Contains(t, c.Commands(), "agentic:messages/conversation")
 	assert.Contains(t, c.Commands(), "subscription/budget/update")
 	assert.Contains(t, c.Commands(), "subscription/update-budget")
+	assert.Contains(t, c.Commands(), "agentic:subscription/budget/update")
+	assert.Contains(t, c.Commands(), "agentic:subscription/update-budget")
 	assert.Contains(t, c.Commands(), "fleet/events")
+	assert.Contains(t, c.Commands(), "agentic:fleet/events")
 }
 
 func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
