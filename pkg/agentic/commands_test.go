@@ -1523,6 +1523,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "task")
 	assert.Contains(t, cmds, "task/update")
 	assert.Contains(t, cmds, "task/toggle")
+	assert.Contains(t, cmds, "sprint")
+	assert.Contains(t, cmds, "sprint/create")
 }
 
 func TestCommands_CmdPRManage_Good_NoCandidates(t *testing.T) {
