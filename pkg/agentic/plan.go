@@ -36,16 +36,17 @@ type AgentPlan = Plan
 
 // phase := agentic.Phase{Number: 1, Name: "Migrate strings", Status: "in_progress"}
 type Phase struct {
-	Number       int               `json:"number"`
-	Name         string            `json:"name"`
-	Description  string            `json:"description,omitempty"`
-	Status       string            `json:"status"`
-	Criteria     []string          `json:"criteria,omitempty"`
-	Dependencies []string          `json:"dependencies,omitempty"`
-	Tasks        []PlanTask        `json:"tasks,omitempty"`
-	Checkpoints  []PhaseCheckpoint `json:"checkpoints,omitempty"`
-	Tests        int               `json:"tests,omitempty"`
-	Notes        string            `json:"notes,omitempty"`
+	Number             int               `json:"number"`
+	Name               string            `json:"name"`
+	Description        string            `json:"description,omitempty"`
+	Status             string            `json:"status"`
+	Criteria           []string          `json:"criteria,omitempty"`
+	CompletionCriteria []string          `json:"completion_criteria,omitempty"`
+	Dependencies       []string          `json:"dependencies,omitempty"`
+	Tasks              []PlanTask        `json:"tasks,omitempty"`
+	Checkpoints        []PhaseCheckpoint `json:"checkpoints,omitempty"`
+	Tests              int               `json:"tests,omitempty"`
+	Notes              string            `json:"notes,omitempty"`
 }
 
 // task := agentic.PlanTask{ID: "1", Title: "Review imports", Status: "pending", File: "pkg/agentic/plan.go", Line: 46}
@@ -589,17 +590,26 @@ func phaseValue(value any) (Phase, bool) {
 	case Phase:
 		return typed, true
 	case map[string]any:
+		criteria := stringSliceValue(typed["criteria"])
+		completionCriteria := phaseCriteriaValue(typed["completion_criteria"], typed["completion-criteria"])
+		if len(criteria) == 0 {
+			criteria = completionCriteria
+		}
+		if len(completionCriteria) == 0 {
+			completionCriteria = criteria
+		}
 		return Phase{
-			Number:       intValue(typed["number"]),
-			Name:         stringValue(typed["name"]),
-			Description:  stringValue(typed["description"]),
-			Status:       stringValue(typed["status"]),
-			Criteria:     stringSliceValue(typed["criteria"]),
-			Dependencies: phaseDependenciesValue(typed["dependencies"]),
-			Tasks:        planTaskSliceValue(typed["tasks"]),
-			Checkpoints:  phaseCheckpointSliceValue(typed["checkpoints"]),
-			Tests:        intValue(typed["tests"]),
-			Notes:        stringValue(typed["notes"]),
+			Number:             intValue(typed["number"]),
+			Name:               stringValue(typed["name"]),
+			Description:        stringValue(typed["description"]),
+			Status:             stringValue(typed["status"]),
+			Criteria:           criteria,
+			CompletionCriteria: completionCriteria,
+			Dependencies:       phaseDependenciesValue(typed["dependencies"]),
+			Tasks:              planTaskSliceValue(typed["tasks"]),
+			Checkpoints:        phaseCheckpointSliceValue(typed["checkpoints"]),
+			Tests:              intValue(typed["tests"]),
+			Notes:              stringValue(typed["notes"]),
 		}, true
 	case map[string]string:
 		return phaseValue(anyMapValue(typed))
@@ -647,6 +657,16 @@ func phaseDependenciesValue(value any) []string {
 	default:
 		if text := stringValue(value); text != "" {
 			return []string{text}
+		}
+	}
+	return nil
+}
+
+func phaseCriteriaValue(values ...any) []string {
+	for _, value := range values {
+		criteria := stringSliceValue(value)
+		if len(criteria) > 0 {
+			return criteria
 		}
 	}
 	return nil
@@ -821,6 +841,36 @@ func phaseCheckpointValue(value any) (PhaseCheckpoint, bool) {
 	return PhaseCheckpoint{}, false
 }
 
+func phaseCriteriaList(phase Phase) []string {
+	criteria := cleanStrings(phase.Criteria)
+	completionCriteria := cleanStrings(phase.CompletionCriteria)
+
+	if len(criteria) == 0 {
+		return completionCriteria
+	}
+	if len(completionCriteria) == 0 {
+		return criteria
+	}
+
+	merged := make([]string, 0, len(criteria)+len(completionCriteria))
+	seen := map[string]bool{}
+	for _, value := range criteria {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		merged = append(merged, value)
+	}
+	for _, value := range completionCriteria {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		merged = append(merged, value)
+	}
+	return merged
+}
+
 // result := readPlanResult(PlansRoot(), "plan-id")
 // if result.OK { plan := result.Value.(*Plan) }
 func readPlanResult(dir, id string) core.Result {
@@ -934,6 +984,9 @@ func normalisePhase(phase Phase, number int) Phase {
 	if phase.Status == "" {
 		phase.Status = "pending"
 	}
+	criteria := phaseCriteriaList(phase)
+	phase.Criteria = criteria
+	phase.CompletionCriteria = criteria
 	for i := range phase.Tasks {
 		phase.Tasks[i] = normalisePlanTask(phase.Tasks[i], i+1)
 	}

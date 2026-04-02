@@ -303,12 +303,13 @@ func phaseTaskList(phase Phase) []PlanTask {
 		return tasks
 	}
 
-	if len(phase.Criteria) == 0 {
+	criteria := phaseCriteriaList(phase)
+	if len(criteria) == 0 {
 		return nil
 	}
 
-	tasks := make([]PlanTask, 0, len(phase.Criteria))
-	for index, criterion := range cleanStrings(phase.Criteria) {
+	tasks := make([]PlanTask, 0, len(criteria))
+	for index, criterion := range criteria {
 		tasks = append(tasks, normalisePlanTask(PlanTask{Title: criterion}, index+1))
 	}
 	return tasks

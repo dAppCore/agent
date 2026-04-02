@@ -173,3 +173,23 @@ func TestPlan_ReadPlan_Ugly_EmptyFileLogic(t *testing.T) {
 	_, err := readPlan(dir, "empty")
 	assert.Error(t, err)
 }
+
+func TestPlan_PhaseValue_Good_CompletionCriteriaAlias(t *testing.T) {
+	phase, ok := phaseValue(map[string]any{
+		"name":                "Setup",
+		"completion_criteria": []any{"repo cloned", "dependencies installed"},
+	})
+
+	require.True(t, ok)
+	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, phase.Criteria)
+	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, phase.CompletionCriteria)
+
+	normalised := normalisePhase(phase, 1)
+	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, normalised.Criteria)
+	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, normalised.CompletionCriteria)
+
+	tasks := phaseTaskList(normalised)
+	require.Len(t, tasks, 2)
+	assert.Equal(t, "repo cloned", tasks[0].Title)
+	assert.Equal(t, "dependencies installed", tasks[1].Title)
+}
