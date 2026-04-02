@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -63,4 +64,24 @@ func TestCommandsSetup_CmdSetup_Ugly_DryRunDoesNotWrite(t *testing.T) {
 	require.True(t, result.OK)
 	assert.False(t, fs.Exists(core.JoinPath(dir, ".core")))
 	assert.False(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
+}
+
+func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
+	dir := t.TempDir()
+	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+
+	c := core.New(core.WithService(setup.Register))
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	result := s.handleSetup(context.Background(), core.NewOptions(core.Option{Key: "path", Value: dir}))
+	require.True(t, result.OK)
+
+	createdPath, ok := result.Value.(string)
+	require.True(t, ok)
+	assert.Equal(t, dir, createdPath)
+	assert.True(t, fs.Exists(core.JoinPath(dir, ".core", "build.yaml")))
 }

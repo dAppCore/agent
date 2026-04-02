@@ -92,7 +92,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		case "agentic.status", "agentic.scan", "agentic.watch",
 			"agentic.issue.get", "agentic.issue.list", "agentic.issue.assign", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
-			"agentic.prompt.version",
+			"agentic.prompt.version", "agentic.setup",
 			"agentic.sync.status", "agentic.fleet.nodes", "agentic.fleet.stats", "agentic.fleet.events",
 			"agentic.credits.balance", "agentic.credits.history",
 			"agentic.subscription.detect", "agentic.subscription.budget",
@@ -184,6 +184,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.ingest", s.handleIngest).Description = "Create issues from agent findings"
 	c.Action("agentic.poke", s.handlePoke).Description = "Drain next queued task from the queue"
 	c.Action("agentic.mirror", s.handleMirror).Description = "Mirror agent branches to GitHub"
+	c.Action("agentic.setup", s.handleSetup).Description = "Scaffold a workspace with .core config files and optional templates"
 
 	c.Action("agentic.issue.get", s.handleIssueGet).Description = "Get a Forge issue by number"
 	c.Action("agentic.issue.list", s.handleIssueList).Description = "List Forge issues for a repo"
@@ -454,6 +455,7 @@ func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
 	s.registerPRTools(server)
 	s.registerContentTools(server)
 	s.registerLanguageTools(server)
+	s.registerSetupTool(server)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_scan",
