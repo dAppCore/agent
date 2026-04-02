@@ -17,6 +17,7 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CORE_HOME", home)
 
+	projectsDir := core.JoinPath(home, ".claude", "projects")
 	memoryDir := core.JoinPath(home, ".claude", "projects", "-Users-snider-Code-eaas", "memory")
 	require.True(t, fs.EnsureDir(memoryDir).OK)
 	require.True(t, fs.Write(core.JoinPath(memoryDir, "MEMORY.md"), "# Memory\n\n## Architecture\nUse Core.Process().\n\n## Decision\nPrefer named actions.").OK)
@@ -42,19 +43,19 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 
 	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
 		core.Option{Key: "workspace", Value: "42"},
-		core.Option{Key: "path", Value: memoryDir},
+		core.Option{Key: "path", Value: projectsDir},
 		core.Option{Key: "agent", Value: "virgil"},
 	))
 
 	require.True(t, result.OK)
 	output, ok := result.Value.(BrainSeedMemoryOutput)
 	require.True(t, ok)
-	assert.Equal(t, 2, output.Files)
-	assert.Equal(t, 3, output.Imported)
+	assert.Equal(t, 1, output.Files)
+	assert.Equal(t, 2, output.Imported)
 	assert.Equal(t, 0, output.Skipped)
 	assert.Equal(t, false, output.DryRun)
-	assert.Equal(t, core.JoinPath(memoryDir, "*.md"), output.Path)
-	require.Len(t, bodies, 3)
+	assert.Equal(t, projectsDir, output.Path)
+	require.Len(t, bodies, 2)
 
 	assert.Equal(t, float64(42), bodies[0]["workspace_id"])
 	assert.Equal(t, "virgil", bodies[0]["agent_id"])
@@ -65,9 +66,6 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 
 	assert.Equal(t, "decision", bodies[1]["type"])
 	assert.Equal(t, []any{"memory-import"}, bodies[1]["tags"])
-
-	assert.Equal(t, "convention", bodies[2]["type"])
-	assert.Equal(t, []any{"notes", "memory-import"}, bodies[2]["tags"])
 }
 
 func TestBrainSeedMemory_CmdBrainIngest_Good(t *testing.T) {

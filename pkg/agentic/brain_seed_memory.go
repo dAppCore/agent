@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	iofs "io/fs"
 	"sort"
 
 	core "dappco.re/go/core"
@@ -11,7 +12,7 @@ import (
 
 const brainSeedMemoryDefaultAgent = "virgil"
 
-const brainSeedMemoryDefaultPath = "~/.claude/projects/*/memory/"
+const brainSeedMemoryDefaultPath = "~/.claude/projects"
 
 type BrainSeedMemoryInput struct {
 	WorkspaceID int
@@ -89,7 +90,7 @@ func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName
 	}
 
 	if output.Files == 0 {
-		core.Print(nil, "No markdown files found in: %s", output.Path)
+		core.Print(nil, "No MEMORY.md files found in: %s", output.Path)
 		return core.Result{Value: output, OK: true}
 	}
 
@@ -174,10 +175,10 @@ func brainSeedMemoryScanPath(path string) string {
 	if trimmed == "" {
 		return brainSeedMemoryExpandHome(brainSeedMemoryDefaultPath)
 	}
-	if fs.IsFile(trimmed) || core.HasSuffix(trimmed, ".md") {
+	if fs.IsFile(trimmed) {
 		return trimmed
 	}
-	return core.JoinPath(trimmed, "*.md")
+	return trimmed
 }
 
 func brainSeedMemoryExpandHome(path string) string {
@@ -192,10 +193,39 @@ func brainSeedMemoryFiles(scanPath string) []string {
 		return nil
 	}
 	if fs.IsFile(scanPath) {
-		return []string{scanPath}
+		if core.PathBase(scanPath) == "MEMORY.md" {
+			return []string{scanPath}
+		}
+		return nil
 	}
 
-	files := core.PathGlob(scanPath)
+	var files []string
+	var walk func(string)
+
+	walk = func(dir string) {
+		r := fs.List(dir)
+		if !r.OK {
+			return
+		}
+
+		entries, ok := r.Value.([]iofs.DirEntry)
+		if !ok {
+			return
+		}
+
+		for _, entry := range entries {
+			next := core.JoinPath(dir, entry.Name())
+			if entry.IsDir() {
+				walk(next)
+				continue
+			}
+			if core.PathBase(next) == "MEMORY.md" {
+				files = append(files, next)
+			}
+		}
+	}
+
+	walk(scanPath)
 	sort.Strings(files)
 	return files
 }
