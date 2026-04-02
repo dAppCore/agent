@@ -54,10 +54,7 @@ func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest,
 	start := time.Now()
 	deadline := start.Add(timeout)
 
-	workspaceNames := input.Workspaces
-	if len(workspaceNames) == 0 {
-		workspaceNames = s.findActiveWorkspaces()
-	}
+	workspaceNames := s.watchWorkspaceNames(input.Workspaces)
 
 	if len(workspaceNames) == 0 {
 		return nil, WatchOutput{
@@ -178,6 +175,66 @@ func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest,
 		Failed:    failed,
 		Duration:  time.Since(start).Round(time.Second).String(),
 	}, nil
+}
+
+func (s *PrepSubsystem) watchWorkspaceNames(workspaces []string) []string {
+	if len(workspaces) == 0 {
+		return s.findActiveWorkspaces()
+	}
+
+	statusPaths := WorkspaceStatusPaths()
+	if len(statusPaths) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	add := func(names []string, workspaceName string) []string {
+		if workspaceName == "" || seen[workspaceName] {
+			return names
+		}
+		seen[workspaceName] = true
+		return append(names, workspaceName)
+	}
+
+	var workspaceNames []string
+	for _, rawWorkspace := range workspaces {
+		requested := core.Trim(rawWorkspace)
+		if requested == "" {
+			continue
+		}
+
+		requested = core.TrimSuffix(requested, "/")
+		matched := false
+
+		for _, statusPath := range statusPaths {
+			workspaceDir := core.PathDir(statusPath)
+			workspaceName := WorkspaceName(workspaceDir)
+			if workspaceName == requested || workspaceDir == requested {
+				workspaceNames = add(workspaceNames, workspaceName)
+				matched = true
+			}
+		}
+
+		prefix := requested
+		if !core.HasSuffix(prefix, "/") {
+			prefix = core.Concat(prefix, "/")
+		}
+
+		for _, statusPath := range statusPaths {
+			workspaceDir := core.PathDir(statusPath)
+			workspaceName := WorkspaceName(workspaceDir)
+			if core.HasPrefix(workspaceName, prefix) || core.HasPrefix(workspaceDir, prefix) {
+				workspaceNames = add(workspaceNames, workspaceName)
+				matched = true
+			}
+		}
+
+		if !matched {
+			workspaceNames = add(workspaceNames, requested)
+		}
+	}
+
+	return workspaceNames
 }
 
 // active := s.findActiveWorkspaces()

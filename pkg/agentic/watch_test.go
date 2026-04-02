@@ -220,6 +220,52 @@ func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
 	assert.Equal(t, "https://forge.lthn.ai/core/go-io/pulls/42", out.Completed[0].PRURL)
 }
 
+func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	writeWatchStatus(root, "core/go-io/task-41", WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})
+	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
+		Status: "running",
+		Repo:   "go-io",
+		Agent:  "codex",
+	})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		writeWatchStatus(root, "core/go-io/task-41", WorkspaceStatus{
+			Status: "completed",
+			Repo:   "go-io",
+			Agent:  "codex",
+		})
+		time.Sleep(50 * time.Millisecond)
+		writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
+			Status: "completed",
+			Repo:   "go-io",
+			Agent:  "codex",
+		})
+	}()
+
+	s := newPrepWithProcess()
+	_, out, err := s.watch(context.Background(), nil, WatchInput{
+		Workspaces:   []string{"core/go-io"},
+		PollInterval: 1,
+		Timeout:      2,
+	})
+	assert.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Empty(t, out.Failed)
+	assert.Len(t, out.Completed, 2)
+	assert.ElementsMatch(t, []string{"core/go-io/task-41", "core/go-io/task-42"}, []string{
+		out.Completed[0].Workspace,
+		out.Completed[1].Workspace,
+	})
+}
+
 func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
