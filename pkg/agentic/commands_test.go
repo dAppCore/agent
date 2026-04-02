@@ -1123,6 +1123,41 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	assert.Contains(t, output, "content:  Template draft")
 }
 
+func TestCommands_CmdContentSchemaGenerate_Good(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	output := captureStdout(t, func() {
+		r := s.cmdContentSchemaGenerate(core.NewOptions(
+			core.Option{Key: "type", Value: "howto"},
+			core.Option{Key: "title", Value: "Set up the workspace"},
+			core.Option{Key: "description", Value: "Prepare a fresh workspace for an agent."},
+			core.Option{Key: "url", Value: "https://example.test/workspace"},
+			core.Option{Key: "steps", Value: `[{"name":"Clone","text":"Clone the repository."},{"name":"Prepare","text":"Build the prompt."}]`},
+		))
+		assert.True(t, r.OK)
+	})
+
+	assert.Contains(t, output, "schema type: HowTo")
+	assert.Contains(t, output, `"@type":"HowTo"`)
+	assert.Contains(t, output, `"name":"Set up the workspace"`)
+}
+
+func TestCommands_CmdContentSchemaGenerate_Bad_MissingTitle(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdContentSchemaGenerate(core.NewOptions(
+		core.Option{Key: "type", Value: "howto"},
+	))
+	assert.False(t, r.OK)
+}
+
+func TestCommands_CmdContentSchemaGenerate_Ugly_InvalidSchemaType(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	r := s.cmdContentSchemaGenerate(core.NewOptions(
+		core.Option{Key: "type", Value: "toast"},
+		core.Option{Key: "title", Value: "Set up the workspace"},
+	))
+	assert.False(t, r.OK)
+}
+
 func TestCommands_CmdComplete_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
@@ -1481,6 +1516,8 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	assert.Contains(t, cmds, "agentic:resume")
 	assert.Contains(t, cmds, "content/generate")
 	assert.Contains(t, cmds, "agentic:content/generate")
+	assert.Contains(t, cmds, "content/schema/generate")
+	assert.Contains(t, cmds, "agentic:content/schema/generate")
 	assert.Contains(t, cmds, "complete")
 	assert.Contains(t, cmds, "agentic:complete")
 	assert.Contains(t, cmds, "scan")

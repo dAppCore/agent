@@ -43,6 +43,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("agentic:content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate})
+	c.Command("agentic:content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate})
 	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete})
 	c.Command("agentic:complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete})
 	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
@@ -415,6 +417,45 @@ func (s *PrepSubsystem) cmdGenerate(options core.Options) core.Result {
 	}
 
 	return core.Result{OK: true}
+}
+
+func (s *PrepSubsystem) cmdContentSchemaGenerate(options core.Options) core.Result {
+	schemaType := optionStringValue(options, "schema_type", "schema-type", "type", "kind")
+	title := optionStringValue(options, "title", "headline")
+	if schemaType == "" || title == "" {
+		core.Print(nil, "usage: core-agent content schema generate --type=howto --title=\"Set up the workspace\" [--description=\"...\"] [--url=\"https://example.test/setup\"] [--author=\"Virgil\"] [--questions='[{\"question\":\"...\",\"answer\":\"...\"}]'] [--steps='[{\"name\":\"...\",\"text\":\"...\"}]']")
+		return core.Result{Value: core.E("agentic.cmdContentSchemaGenerate", "schema type and title are required", nil), OK: false}
+	}
+
+	result := s.handleContentSchemaGenerate(s.commandContext(), core.NewOptions(
+		core.Option{Key: "schema_type", Value: schemaType},
+		core.Option{Key: "title", Value: title},
+		core.Option{Key: "description", Value: optionStringValue(options, "description")},
+		core.Option{Key: "url", Value: optionStringValue(options, "url", "link")},
+		core.Option{Key: "author", Value: optionStringValue(options, "author")},
+		core.Option{Key: "published_at", Value: optionStringValue(options, "published_at", "published-at", "date_published")},
+		core.Option{Key: "modified_at", Value: optionStringValue(options, "modified_at", "modified-at", "date_modified")},
+		core.Option{Key: "language", Value: optionStringValue(options, "language", "in_language", "in-language")},
+		core.Option{Key: "image", Value: optionStringValue(options, "image", "image_url", "image-url")},
+		core.Option{Key: "questions", Value: optionAnyValue(options, "questions", "faq")},
+		core.Option{Key: "steps", Value: optionAnyValue(options, "steps")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdContentSchemaGenerate", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(ContentSchemaOutput)
+	if !ok {
+		err := core.E("agentic.cmdContentSchemaGenerate", "invalid content schema output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "schema type: %s", output.SchemaType)
+	core.Print(nil, "schema json: %s", output.SchemaJSON)
+	return core.Result{Value: output, OK: true}
 }
 
 func (s *PrepSubsystem) cmdComplete(options core.Options) core.Result {
