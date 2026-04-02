@@ -540,6 +540,7 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("agentic.message.conversation").Exists())
 	assert.True(t, c.Action("agent.message.conversation").Exists())
 	assert.True(t, c.Action("agentic.issue.update").Exists())
+	assert.True(t, c.Action("agentic.issue.create").Exists())
 	assert.True(t, c.Action("agentic.issue.assign").Exists())
 	assert.True(t, c.Action("agentic.issue.comment").Exists())
 	assert.True(t, c.Action("agentic.issue.report").Exists())
