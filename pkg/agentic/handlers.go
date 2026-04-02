@@ -158,7 +158,8 @@ func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
 		return core.Result{OK: true}
 	}
 
-	if performAsyncIfRegistered(c, "runner.poke", core.NewOptions()).OK {
+	if c != nil && c.Action("runner.poke").Exists() {
+		c.ACTION(messages.PokeQueue{})
 		return core.Result{OK: true}
 	}
 	performAsyncIfRegistered(c, "agentic.poke", core.NewOptions())

@@ -53,13 +53,16 @@ func TestHandlers_PokeOnCompletion_Good(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	poked := make(chan struct{}, 1)
-	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
-		select {
-		case poked <- struct{}{}:
-		default:
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if _, ok := msg.(messages.PokeQueue); ok {
+			select {
+			case poked <- struct{}{}:
+			default:
+			}
 		}
 		return core.Result{OK: true}
 	})
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
 
 	c.ACTION(messages.AgentCompleted{
 		Workspace: "ws-test", Repo: "go-io", Status: "completed",
@@ -177,10 +180,13 @@ func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 		}
 		return core.Result{OK: true}
 	})
-	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
-		mark("poke")
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if _, ok := msg.(messages.PokeQueue); ok {
+			mark("poke")
+		}
 		return core.Result{OK: true}
 	})
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
 
 	c.ACTION(messages.AgentCompleted{
 		Workspace: workspaceName,
