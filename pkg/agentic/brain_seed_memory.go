@@ -54,10 +54,14 @@ func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
 //
 // ))
 func (s *PrepSubsystem) cmdBrainIngest(options core.Options) core.Result {
-	return s.cmdBrainSeedMemoryLike(options, "brain ingest", "agentic.cmdBrainIngest")
+	return s.cmdBrainSeedMemoryLikeMode(options, "brain ingest", "agentic.cmdBrainIngest", false)
 }
 
 func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName string, errorLabel string) core.Result {
+	return s.cmdBrainSeedMemoryLikeMode(options, commandName, errorLabel, true)
+}
+
+func (s *PrepSubsystem) cmdBrainSeedMemoryLikeMode(options core.Options, commandName string, errorLabel string, memoryFilesOnly bool) core.Result {
 	input := BrainSeedMemoryInput{
 		WorkspaceID: parseIntString(optionStringValue(options, "workspace", "workspace_id", "workspace-id", "_arg")),
 		AgentID:     optionStringValue(options, "agent", "agent_id", "agent-id"),
@@ -75,7 +79,7 @@ func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName
 		input.Path = brainSeedMemoryDefaultPath
 	}
 
-	result := s.brainSeedMemory(s.commandContext(), input)
+	result := s.brainSeedMemory(s.commandContext(), input, memoryFilesOnly)
 	if !result.OK {
 		err := commandResultError(errorLabel, result)
 		core.Print(nil, "error: %v", err)
@@ -102,13 +106,13 @@ func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) brainSeedMemory(ctx context.Context, input BrainSeedMemoryInput) core.Result {
+func (s *PrepSubsystem) brainSeedMemory(ctx context.Context, input BrainSeedMemoryInput, memoryFilesOnly bool) core.Result {
 	if s.brainKey == "" {
 		return core.Result{Value: core.E("agentic.brainSeedMemory", "no brain API key configured", nil), OK: false}
 	}
 
 	scanPath := brainSeedMemoryScanPath(input.Path)
-	files := brainSeedMemoryFiles(scanPath)
+	files := brainSeedMemoryFiles(scanPath, memoryFilesOnly)
 	output := BrainSeedMemoryOutput{
 		Success:     true,
 		WorkspaceID: input.WorkspaceID,
@@ -188,7 +192,7 @@ func brainSeedMemoryExpandHome(path string) string {
 	return path
 }
 
-func brainSeedMemoryFiles(scanPath string) []string {
+func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 	if scanPath == "" {
 		return nil
 	}
@@ -211,7 +215,7 @@ func brainSeedMemoryFiles(scanPath string) []string {
 
 	walk = func(dir string) {
 		if fs.IsFile(dir) {
-			if core.PathBase(dir) == "MEMORY.md" {
+			if brainSeedMemoryFile(dir, memoryFilesOnly) {
 				add(dir)
 			}
 			return
@@ -237,14 +241,14 @@ func brainSeedMemoryFiles(scanPath string) []string {
 				walk(next)
 				continue
 			}
-			if brainSeedMemoryFile(next) {
+			if brainSeedMemoryFile(next, memoryFilesOnly) {
 				add(next)
 			}
 		}
 	}
 
 	if fs.IsFile(scanPath) {
-		if brainSeedMemoryFile(scanPath) {
+		if brainSeedMemoryFile(scanPath, memoryFilesOnly) {
 			add(scanPath)
 		}
 		sort.Strings(files)
@@ -254,7 +258,7 @@ func brainSeedMemoryFiles(scanPath string) []string {
 	if brainSeedMemoryHasGlobMeta(scanPath) {
 		for _, path := range core.PathGlob(scanPath) {
 			if fs.IsFile(path) {
-				if brainSeedMemoryFile(path) {
+				if brainSeedMemoryFile(path, memoryFilesOnly) {
 					add(path)
 				}
 				continue
@@ -272,8 +276,11 @@ func brainSeedMemoryHasGlobMeta(path string) bool {
 	return core.Contains(path, "*") || core.Contains(path, "?") || core.Contains(path, "[")
 }
 
-func brainSeedMemoryFile(path string) bool {
-	return core.PathBase(path) == "MEMORY.md" || core.Lower(core.PathExt(path)) == ".md"
+func brainSeedMemoryFile(path string, memoryFilesOnly bool) bool {
+	if memoryFilesOnly {
+		return core.PathBase(path) == "MEMORY.md"
+	}
+	return core.Lower(core.PathExt(path)) == ".md"
 }
 
 func brainSeedMemorySections(content string) []brainSeedMemorySection {
