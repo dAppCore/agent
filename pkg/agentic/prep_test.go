@@ -711,6 +711,11 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	assert.Contains(t, c.Commands(), "task/create")
 	assert.Contains(t, c.Commands(), "task/update")
 	assert.Contains(t, c.Commands(), "task/toggle")
+	assert.Contains(t, c.Commands(), "state")
+	assert.Contains(t, c.Commands(), "state/set")
+	assert.Contains(t, c.Commands(), "state/get")
+	assert.Contains(t, c.Commands(), "state/list")
+	assert.Contains(t, c.Commands(), "state/delete")
 }
 
 func TestPrep_OnStartup_Bad(t *testing.T) {
