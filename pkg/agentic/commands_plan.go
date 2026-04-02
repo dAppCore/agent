@@ -18,6 +18,8 @@ func (s *PrepSubsystem) registerPlanCommands() {
 	c.Command("agentic:plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow})
 	c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow})
+	c.Command("plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate})
+	c.Command("agentic:plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate})
 	c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus})
 	c.Command("plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck})
 	c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive})
@@ -170,6 +172,54 @@ func (s *PrepSubsystem) cmdPlanShow(options core.Options) core.Result {
 	}
 	if output.Plan.Description != "" {
 		core.Print(nil, "description: %s", output.Plan.Description)
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+func (s *PrepSubsystem) cmdPlanUpdate(options core.Options) core.Result {
+	ctx := s.commandContext()
+	id := optionStringValue(options, "id", "_arg")
+	slug := optionStringValue(options, "slug")
+	hasChanges := options.Has("status") || options.Has("title") || options.Has("objective") || options.Has("description") || options.Has("notes") || options.Has("agent") || options.Has("context") || options.Has("phases")
+	if id == "" && slug == "" {
+		core.Print(nil, "usage: core-agent plan update <id-or-slug> [--status=ready] [--title=\"...\"] [--objective=\"...\"] [--description=\"...\"] [--notes=\"...\"] [--agent=codex] [--context='{\"repo\":\"go-io\"}'] [--phases='[...]']")
+		return core.Result{Value: core.E("agentic.cmdPlanUpdate", "id or slug is required", nil), OK: false}
+	}
+	if !hasChanges {
+		core.Print(nil, "usage: core-agent plan update <id-or-slug> [--status=ready] [--title=\"...\"] [--objective=\"...\"] [--description=\"...\"] [--notes=\"...\"] [--agent=codex] [--context='{\"repo\":\"go-io\"}'] [--phases='[...]']")
+		return core.Result{Value: core.E("agentic.cmdPlanUpdate", "at least one update field is required", nil), OK: false}
+	}
+
+	result := s.handlePlanUpdate(ctx, core.NewOptions(
+		core.Option{Key: "id", Value: id},
+		core.Option{Key: "slug", Value: slug},
+		core.Option{Key: "status", Value: optionStringValue(options, "status")},
+		core.Option{Key: "title", Value: optionStringValue(options, "title")},
+		core.Option{Key: "objective", Value: optionStringValue(options, "objective")},
+		core.Option{Key: "description", Value: optionStringValue(options, "description")},
+		core.Option{Key: "context", Value: optionAnyMapValue(options, "context")},
+		core.Option{Key: "phases", Value: planPhasesValue(options, "phases")},
+		core.Option{Key: "notes", Value: optionStringValue(options, "notes")},
+		core.Option{Key: "agent", Value: optionStringValue(options, "agent")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdPlanUpdate", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(PlanUpdateOutput)
+	if !ok {
+		err := core.E("agentic.cmdPlanUpdate", "invalid plan update output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "slug:   %s", output.Plan.Slug)
+	core.Print(nil, "title:  %s", output.Plan.Title)
+	core.Print(nil, "status: %s", output.Plan.Status)
+	if output.Plan.Agent != "" {
+		core.Print(nil, "agent:  %s", output.Plan.Agent)
 	}
 	return core.Result{Value: output, OK: true}
 }

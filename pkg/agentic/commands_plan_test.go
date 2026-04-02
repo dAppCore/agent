@@ -92,6 +92,44 @@ func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 	assert.Equal(t, []string{"Patch code"}, output.Pending)
 }
 
+func TestCommandsPlan_CmdPlanUpdate_Good_StatusAndAgent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Update Command",
+		Objective: "Verify the plan update command",
+	})
+	require.NoError(t, err)
+
+	r := s.cmdPlanUpdate(core.NewOptions(
+		core.Option{Key: "_arg", Value: created.ID},
+		core.Option{Key: "status", Value: "ready"},
+		core.Option{Key: "agent", Value: "codex"},
+	))
+	require.True(t, r.OK)
+
+	output, ok := r.Value.(PlanUpdateOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, created.ID, output.Plan.ID)
+	assert.Equal(t, "ready", output.Plan.Status)
+	assert.Equal(t, "codex", output.Plan.Agent)
+}
+
+func TestCommandsPlan_CmdPlanUpdate_Bad_MissingFields(t *testing.T) {
+	s := newTestPrep(t)
+
+	r := s.cmdPlanUpdate(core.NewOptions(
+		core.Option{Key: "_arg", Value: "plan-123"},
+	))
+
+	assert.False(t, r.OK)
+	require.Error(t, r.Value.(error))
+	assert.Contains(t, r.Value.(error).Error(), "at least one update field is required")
+}
+
 func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
@@ -139,4 +177,6 @@ func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T
 	assert.Contains(t, c.Commands(), "agentic:plan/read")
 	assert.Contains(t, c.Commands(), "plan/read")
 	assert.Contains(t, c.Commands(), "plan/show")
+	assert.Contains(t, c.Commands(), "plan/update")
+	assert.Contains(t, c.Commands(), "agentic:plan/update")
 }
