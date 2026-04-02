@@ -38,6 +38,25 @@ func TestProcessRegister_ProcessRegister_Ugly_DoubleRegister(t *testing.T) {
 	assert.True(t, r2.OK, "second ProcessRegister call should not fail")
 }
 
+func TestProcessRegister_ProcessRegister_Ugly_PreRegisteredService(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	c := core.New()
+	factory := process.NewService(process.Options{})
+	instance, err := factory(c)
+	require.NoError(t, err)
+
+	service, ok := instance.(*process.Service)
+	require.True(t, ok)
+	require.True(t, c.RegisterService("process", service).OK)
+
+	result := ProcessRegister(c)
+	require.True(t, result.OK)
+	assert.True(t, c.Action("process.run").Exists(), "existing process service should still register actions")
+	assert.True(t, c.Action("process.start").Exists(), "existing process service should still register actions")
+	assert.True(t, c.Action("process.kill").Exists(), "existing process service should still register actions")
+}
+
 func TestProcessRegister_HandleRun_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 

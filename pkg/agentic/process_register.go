@@ -19,21 +19,28 @@ func ProcessRegister(c *core.Core) core.Result {
 	if c == nil {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "core is required", nil), OK: false}
 	}
-	if result := c.Service("process"); result.OK {
-		return core.Result{OK: true}
-	}
 
-	factory := process.NewService(process.Options{})
-	instance, err := factory(c)
-	if err != nil {
-		return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", err), OK: false}
-	}
-	service, ok := instance.(*process.Service)
-	if !ok {
-		return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
-	}
-	if registerResult := c.RegisterService("process", service); !registerResult.OK {
-		return registerResult
+	var service *process.Service
+	if result := c.Service("process"); result.OK {
+		existing, ok := result.Value.(*process.Service)
+		if !ok || existing == nil {
+			return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
+		}
+		service = existing
+	} else {
+		factory := process.NewService(process.Options{})
+		instance, err := factory(c)
+		if err != nil {
+			return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", err), OK: false}
+		}
+		created, ok := instance.(*process.Service)
+		if !ok {
+			return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
+		}
+		service = created
+		if registerResult := c.RegisterService("process", service); !registerResult.OK {
+			return registerResult
+		}
 	}
 
 	handlers := &processActionHandlers{service: service}
