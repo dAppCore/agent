@@ -247,13 +247,14 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 			"count":   1,
 			"memories": []any{
 				map[string]any{
-					"id":         "mem-1",
-					"type":       "architecture",
-					"content":    "Use named actions.",
-					"project":    "agent",
-					"agent_id":   "virgil",
-					"confidence": 0.9,
-					"tags":       []any{"architecture", "convention"},
+					"id":               "mem-1",
+					"type":             "architecture",
+					"content":          "Use named actions.",
+					"project":          "agent",
+					"agent_id":         "virgil",
+					"confidence":       0.9,
+					"supersedes_count": 3,
+					"tags":             []any{"architecture", "convention"},
 				},
 			},
 		}, OK: true}
@@ -270,6 +271,7 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 
 	assert.Contains(t, output, "count: 1")
 	assert.Contains(t, output, "mem-1 architecture")
+	assert.Contains(t, output, "supersedes: 3")
 	assert.Contains(t, output, "Use named actions.")
 }
 

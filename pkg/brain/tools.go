@@ -72,18 +72,19 @@ type RecallOutput struct {
 //	    Content: "Use core.Env for system paths.",
 //	}
 type Memory struct {
-	ID           string   `json:"id"`
-	AgentID      string   `json:"agent_id"`
-	Type         string   `json:"type"`
-	Content      string   `json:"content"`
-	Tags         []string `json:"tags,omitempty"`
-	Project      string   `json:"project,omitempty"`
-	Source       string   `json:"source,omitempty"`
-	Confidence   float64  `json:"confidence"`
-	SupersedesID string   `json:"supersedes_id,omitempty"`
-	ExpiresAt    string   `json:"expires_at,omitempty"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
+	ID              string   `json:"id"`
+	AgentID         string   `json:"agent_id"`
+	Type            string   `json:"type"`
+	Content         string   `json:"content"`
+	Tags            []string `json:"tags,omitempty"`
+	Project         string   `json:"project,omitempty"`
+	Source          string   `json:"source,omitempty"`
+	Confidence      float64  `json:"confidence"`
+	SupersedesID    string   `json:"supersedes_id,omitempty"`
+	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	ExpiresAt       string   `json:"expires_at,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
 }
 
 // BrainMemory is the RFC-named alias for Memory.

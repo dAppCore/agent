@@ -271,6 +271,12 @@ func memoriesFromPayload(payload map[string]any) []Memory {
 			if supersedesID, ok := memoryMap["supersedes_id"].(string); ok {
 				memory.SupersedesID = supersedesID
 			}
+			if supersedesCount, ok := memoryMap["supersedes_count"].(float64); ok {
+				memory.SupersedesCount = int(supersedesCount)
+			}
+			if supersedesCount, ok := memoryMap["supersedes_count"].(int); ok {
+				memory.SupersedesCount = supersedesCount
+			}
 			if tags, ok := memoryMap["tags"].([]any); ok {
 				for _, tag := range tags {
 					memory.Tags = append(memory.Tags, core.Sprint(tag))

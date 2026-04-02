@@ -422,18 +422,19 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 			"data": map[string]any{
 				"memories": []any{
 					map[string]any{
-						"id":            "mem-list-1",
-						"content":       "Use the review queue for completed workspaces",
-						"type":          "decision",
-						"project":       "agent",
-						"agent_id":      "codex",
-						"confidence":    0.73,
-						"tags":          []any{"queue", "review"},
-						"updated_at":    "2026-03-30T10:00:00Z",
-						"created_at":    "2026-03-30T09:00:00Z",
-						"expires_at":    "2026-04-01T00:00:00Z",
-						"source":        "manual",
-						"supersedes_id": "mem-old",
+						"id":               "mem-list-1",
+						"content":          "Use the review queue for completed workspaces",
+						"type":             "decision",
+						"project":          "agent",
+						"agent_id":         "codex",
+						"confidence":       0.73,
+						"supersedes_count": 2,
+						"tags":             []any{"queue", "review"},
+						"updated_at":       "2026-03-30T10:00:00Z",
+						"created_at":       "2026-03-30T09:00:00Z",
+						"expires_at":       "2026-04-01T00:00:00Z",
+						"source":           "manual",
+						"supersedes_id":    "mem-old",
 					},
 					map[string]any{
 						"id":         "mem-list-2",
@@ -463,6 +464,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 
 	assert.Equal(t, "mem-list-1", out.Memories[0].ID)
 	assert.Equal(t, 0.73, out.Memories[0].Confidence)
+	assert.Equal(t, 2, out.Memories[0].SupersedesCount)
 	assert.Equal(t, "mem-old", out.Memories[0].SupersedesID)
 	assert.Equal(t, "manual", out.Memories[0].Source)
 	assert.Equal(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)

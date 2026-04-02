@@ -528,6 +528,9 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 		} else {
 			core.Print(nil, "  %s %-12s", memory.ID, memory.Type)
 		}
+		if memory.SupersedesCount > 0 {
+			core.Print(nil, "    supersedes: %d", memory.SupersedesCount)
+		}
 		if memory.Content != "" {
 			core.Print(nil, "    %s", memory.Content)
 		}
@@ -1108,13 +1111,14 @@ type brainListOutput struct {
 }
 
 type brainListOutputEntry struct {
-	ID         string   `json:"id"`
-	Type       string   `json:"type"`
-	Content    string   `json:"content"`
-	Project    string   `json:"project"`
-	AgentID    string   `json:"agent_id"`
-	Confidence float64  `json:"confidence"`
-	Tags       []string `json:"tags"`
+	ID              string   `json:"id"`
+	Type            string   `json:"type"`
+	Content         string   `json:"content"`
+	Project         string   `json:"project"`
+	AgentID         string   `json:"agent_id"`
+	Confidence      float64  `json:"confidence"`
+	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	Tags            []string `json:"tags"`
 }
 
 func brainListOutputFromPayload(payload map[string]any) brainListOutput {
@@ -1151,6 +1155,12 @@ func brainListOutputFromPayload(payload map[string]any) brainListOutput {
 				case int:
 					entry.Confidence = float64(confidence)
 				}
+			}
+			switch supersedesCount := entryMap["supersedes_count"].(type) {
+			case float64:
+				entry.SupersedesCount = int(supersedesCount)
+			case int:
+				entry.SupersedesCount = supersedesCount
 			}
 			if tags, ok := entryMap["tags"].([]any); ok {
 				for _, tag := range tags {
