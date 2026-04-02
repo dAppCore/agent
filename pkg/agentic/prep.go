@@ -251,6 +251,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("sprint.update", s.handleSprintUpdate).Description = "Update a tracked platform sprint by slug"
 	c.Action("sprint.archive", s.handleSprintArchive).Description = "Archive a tracked platform sprint by slug"
 	c.Action("content.generate", s.handleContentGenerate).Description = "Generate content using the platform content pipeline"
+	c.Action("agentic.generate", s.handleContentGenerate).Description = "Generate content using the platform content pipeline"
 	c.Action("content.batch", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("content.batch.generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("content.batch_generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"

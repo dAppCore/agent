@@ -578,6 +578,7 @@ func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 
 	require.True(t, s.OnStartup(context.Background()).OK)
 	assert.True(t, c.Action("content.generate").Exists())
+	assert.True(t, c.Action("agentic.generate").Exists())
 	assert.True(t, c.Action("content.batch").Exists())
 	assert.True(t, c.Action("content.batch.generate").Exists())
 	assert.True(t, c.Action("content.batch_generate").Exists())
