@@ -84,6 +84,17 @@ func TestCommandsforge_ParseForgeArgs_Ugly_NegativeNumber(t *testing.T) {
 	assert.Equal(t, int64(-5), num, "negative numbers parse but are semantically invalid")
 }
 
+func TestCommandsforge_ParseForgeArgs_Ugly_InvalidNames(t *testing.T) {
+	opts := core.NewOptions(
+		core.Option{Key: "org", Value: "bad/org"},
+		core.Option{Key: "_arg", Value: "repo/with/slashes"},
+	)
+	org, repo, num := parseForgeArgs(opts)
+	assert.Empty(t, org)
+	assert.Empty(t, repo)
+	assert.Equal(t, int64(0), num)
+}
+
 // --- formatIndex Bad/Ugly ---
 
 func TestCommandsforge_FormatIndex_Bad_Negative(t *testing.T) {
