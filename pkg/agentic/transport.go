@@ -20,6 +20,8 @@ type httpStream struct {
 	response []byte
 }
 
+// stream := &httpStream{client: defaultClient, url: "https://api.lthn.sh/v1/health", method: "POST"}
+// _ = stream.Send([]byte(`{"ping":1}`))
 func (s *httpStream) Send(data []byte) error {
 	request, err := http.NewRequestWithContext(context.Background(), s.method, s.url, core.NewReader(string(data)))
 	if err != nil {
@@ -35,6 +37,7 @@ func (s *httpStream) Send(data []byte) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
@@ -45,10 +48,14 @@ func (s *httpStream) Send(data []byte) error {
 	return nil
 }
 
+// stream := &httpStream{}
+// response, err := stream.Receive()
 func (s *httpStream) Receive() ([]byte, error) {
 	return s.response, nil
 }
 
+// stream := &httpStream{}
+// _ = stream.Close()
 func (s *httpStream) Close() error {
 	return nil
 }
@@ -155,6 +162,7 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 	if requestErr != nil {
 		return core.Result{Value: core.E("httpDo", "request failed", requestErr), OK: false}
 	}
+	defer response.Body.Close()
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
