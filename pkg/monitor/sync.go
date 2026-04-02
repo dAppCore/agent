@@ -127,7 +127,9 @@ func (m *Subsystem) syncWorkspacePush(repo, branch, org string) bool {
 
 	currentBranch := m.detectBranch(repoDir)
 	if currentBranch != "" && currentBranch != targetBranch {
-		return true
+		if !m.gitOK(repoDir, "checkout", "-B", targetBranch, core.Concat("origin/", targetBranch)) {
+			return false
+		}
 	}
 
 	return m.gitOK(repoDir, "reset", "--hard", core.Concat("origin/", targetBranch))
