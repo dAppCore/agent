@@ -29,3 +29,16 @@ func TestAlias_AgentSession_Good(t *testing.T) {
 		t.Fatalf("expected AgentSession alias to behave like Session")
 	}
 }
+
+func TestAlias_AgentPhase_Good(t *testing.T) {
+	var phase AgentPhase
+	phase.Number = 1
+	phase.Name = "Setup"
+
+	if phase.Number != 1 {
+		t.Fatalf("expected AgentPhase alias to behave like Phase")
+	}
+	if phase.Name != "Setup" {
+		t.Fatalf("expected AgentPhase alias to behave like Phase")
+	}
+}
