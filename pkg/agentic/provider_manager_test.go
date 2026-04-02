@@ -5,7 +5,9 @@ package agentic
 import (
 	"context"
 	"testing"
+	"time"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,4 +44,37 @@ func TestProviderManager_ContentProvider_Ugly_NoGeneratorReturnsError(t *testing
 	_, err := provider.Generate(context.Background(), "Draft a release note", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "provider not configured")
+}
+
+func TestProviderManager_ContentProvider_Good_RetriesWithExponentialBackoff(t *testing.T) {
+	originalSleep := providerSleep
+	originalDelay := providerRetryBaseDelay
+	defer func() {
+		providerSleep = originalSleep
+		providerRetryBaseDelay = originalDelay
+	}()
+
+	var delays []time.Duration
+	providerSleep = func(delay time.Duration) {
+		delays = append(delays, delay)
+	}
+	providerRetryBaseDelay = 50 * time.Millisecond
+
+	attempts := 0
+	provider := newContentProvider("claude", "claude-3.7-sonnet", true, func(_ context.Context, _ string, options map[string]any) (string, error) {
+		attempts++
+		if attempts < 3 {
+			return "", core.E("test.generate", "transient failure", nil)
+		}
+
+		assert.Equal(t, "claude", options["provider"])
+		assert.Equal(t, "claude-3.7-sonnet", options["model"])
+		return "Draft ready", nil
+	})
+
+	text, err := provider.Generate(context.Background(), "Write a release note", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "Draft ready", text)
+	assert.Equal(t, 3, attempts)
+	assert.Equal(t, []time.Duration{50 * time.Millisecond, 100 * time.Millisecond}, delays)
 }

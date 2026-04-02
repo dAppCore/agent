@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	"sort"
+	"time"
 
 	core "dappco.re/go/core"
 )
@@ -25,6 +26,11 @@ type AgenticProviderInterface interface {
 type ProviderManager struct {
 	providers map[string]AgenticProviderInterface
 }
+
+var providerRetryBaseDelay = 100 * time.Millisecond
+var providerSleep = time.Sleep
+
+const providerRetryAttempts = 3
 
 // manager := s.providerManager()
 // core.Println(manager.Names()) // ["claude", "gemini", "openai"]
@@ -125,18 +131,44 @@ func (p *contentProvider) Generate(ctx context.Context, prompt string, options m
 		return "", core.E("provider.generate", core.Concat("provider not configured: ", p.name), nil)
 	}
 
-	optionsCopy := map[string]any{}
-	for key, value := range options {
-		optionsCopy[key] = value
-	}
-	if optionsCopy["provider"] == nil {
-		optionsCopy["provider"] = p.name
-	}
-	if optionsCopy["model"] == nil && p.defaultModel != "" {
-		optionsCopy["model"] = p.defaultModel
+	var lastErr error
+	delay := providerRetryBaseDelay
+	for attempt := 1; attempt <= providerRetryAttempts; attempt++ {
+		optionsCopy := map[string]any{}
+		for key, value := range options {
+			optionsCopy[key] = value
+		}
+		if optionsCopy["provider"] == nil {
+			optionsCopy["provider"] = p.name
+		}
+		if optionsCopy["model"] == nil && p.defaultModel != "" {
+			optionsCopy["model"] = p.defaultModel
+		}
+
+		content, err := p.generate(ctx, prompt, optionsCopy)
+		if err == nil {
+			return content, nil
+		}
+		lastErr = err
+		if attempt == providerRetryAttempts {
+			break
+		}
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			default:
+			}
+		}
+		if delay > 0 {
+			providerSleep(delay)
+			delay *= 2
+			continue
+		}
+		delay *= 2
 	}
 
-	return p.generate(ctx, prompt, optionsCopy)
+	return "", lastErr
 }
 
 func (p *contentProvider) Stream(ctx context.Context, prompt string, options map[string]any, onToken func(string)) error {
