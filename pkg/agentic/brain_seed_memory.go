@@ -90,7 +90,7 @@ func (s *PrepSubsystem) cmdBrainSeedMemoryLike(options core.Options, commandName
 	}
 
 	if output.Files == 0 {
-		core.Print(nil, "No MEMORY.md files found in: %s", output.Path)
+		core.Print(nil, "No markdown memory files found in: %s", output.Path)
 		return core.Result{Value: output, OK: true}
 	}
 
@@ -243,8 +243,22 @@ func brainSeedMemoryFiles(scanPath string) []string {
 		}
 	}
 
+	if fs.IsFile(scanPath) {
+		if brainSeedMemoryFile(scanPath) {
+			add(scanPath)
+		}
+		sort.Strings(files)
+		return files
+	}
+
 	if brainSeedMemoryHasGlobMeta(scanPath) {
 		for _, path := range core.PathGlob(scanPath) {
+			if fs.IsFile(path) {
+				if brainSeedMemoryFile(path) {
+					add(path)
+				}
+				continue
+			}
 			walk(path)
 		}
 	} else {
@@ -256,6 +270,10 @@ func brainSeedMemoryFiles(scanPath string) []string {
 
 func brainSeedMemoryHasGlobMeta(path string) bool {
 	return core.Contains(path, "*") || core.Contains(path, "?") || core.Contains(path, "[")
+}
+
+func brainSeedMemoryFile(path string) bool {
+	return core.PathBase(path) == "MEMORY.md" || core.Lower(core.PathExt(path)) == ".md"
 }
 
 func brainSeedMemorySections(content string) []brainSeedMemorySection {
