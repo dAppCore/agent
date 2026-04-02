@@ -755,79 +755,79 @@ func (s *PrepSubsystem) TestBuildPrompt(ctx context.Context, input PrepInput, br
 	return s.buildPrompt(ctx, input, branch, repoPath)
 }
 
-// prompt, memories, consumers := prep.buildPrompt(ctx, input, "dev", "/srv/repos/go-io")
+// prompt, memoryCount, consumerCount := prep.buildPrompt(ctx, input, "dev", "/srv/repos/go-io")
 func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch, repoPath string) (string, int, int) {
-	b := core.NewBuilder()
-	memories := 0
-	consumers := 0
+	promptBuilder := core.NewBuilder()
+	memoryCount := 0
+	consumerCount := 0
 
-	b.WriteString("TASK: ")
-	b.WriteString(input.Task)
-	b.WriteString("\n\n")
+	promptBuilder.WriteString("TASK: ")
+	promptBuilder.WriteString(input.Task)
+	promptBuilder.WriteString("\n\n")
 
-	b.WriteString(core.Sprintf("REPO: %s/%s on branch %s\n", input.Org, input.Repo, branch))
-	b.WriteString(core.Sprintf("LANGUAGE: %s\n", detectLanguage(repoPath)))
-	b.WriteString(core.Sprintf("BUILD: %s\n", detectBuildCmd(repoPath)))
-	b.WriteString(core.Sprintf("TEST: %s\n\n", detectTestCmd(repoPath)))
+	promptBuilder.WriteString(core.Sprintf("REPO: %s/%s on branch %s\n", input.Org, input.Repo, branch))
+	promptBuilder.WriteString(core.Sprintf("LANGUAGE: %s\n", detectLanguage(repoPath)))
+	promptBuilder.WriteString(core.Sprintf("BUILD: %s\n", detectBuildCmd(repoPath)))
+	promptBuilder.WriteString(core.Sprintf("TEST: %s\n\n", detectTestCmd(repoPath)))
 
 	if input.Persona != "" {
-		if r := lib.Persona(input.Persona); r.OK {
-			b.WriteString("PERSONA:\n")
-			b.WriteString(r.Value.(string))
-			b.WriteString("\n\n")
+		if personaResult := lib.Persona(input.Persona); personaResult.OK {
+			promptBuilder.WriteString("PERSONA:\n")
+			promptBuilder.WriteString(personaResult.Value.(string))
+			promptBuilder.WriteString("\n\n")
 		}
 	}
 
-	if r := lib.Flow(detectLanguage(repoPath)); r.OK {
-		b.WriteString("WORKFLOW:\n")
-		b.WriteString(r.Value.(string))
-		b.WriteString("\n\n")
+	if workflowResult := lib.Flow(detectLanguage(repoPath)); workflowResult.OK {
+		promptBuilder.WriteString("WORKFLOW:\n")
+		promptBuilder.WriteString(workflowResult.Value.(string))
+		promptBuilder.WriteString("\n\n")
 	}
 
 	if input.Issue > 0 {
-		if body := s.getIssueBody(ctx, input.Org, input.Repo, input.Issue); body != "" {
-			b.WriteString("ISSUE:\n")
-			b.WriteString(body)
-			b.WriteString("\n\n")
+		if issueBody := s.getIssueBody(ctx, input.Org, input.Repo, input.Issue); issueBody != "" {
+			promptBuilder.WriteString("ISSUE:\n")
+			promptBuilder.WriteString(issueBody)
+			promptBuilder.WriteString("\n\n")
 		}
 	}
 
-	if recall, count := s.brainRecall(ctx, input.Repo); recall != "" {
-		b.WriteString("CONTEXT (from OpenBrain):\n")
-		b.WriteString(recall)
-		b.WriteString("\n\n")
-		memories = count
+	if brainContext, count := s.brainRecall(ctx, input.Repo); brainContext != "" {
+		promptBuilder.WriteString("CONTEXT (from OpenBrain):\n")
+		promptBuilder.WriteString(brainContext)
+		promptBuilder.WriteString("\n\n")
+		memoryCount = count
 	}
 
-	if list, count := s.findConsumersList(input.Repo); list != "" {
-		b.WriteString("CONSUMERS (modules that import this repo):\n")
-		b.WriteString(list)
-		b.WriteString("\n\n")
-		consumers = count
+	if consumerList, count := s.findConsumersList(input.Repo); consumerList != "" {
+		promptBuilder.WriteString("CONSUMERS (modules that import this repo):\n")
+		promptBuilder.WriteString(consumerList)
+		promptBuilder.WriteString("\n\n")
+		consumerCount = count
 	}
 
-	if log := s.getGitLog(repoPath); log != "" {
-		b.WriteString("RECENT CHANGES:\n```\n")
-		b.WriteString(log)
-		b.WriteString("```\n\n")
+	if gitLog := s.getGitLog(repoPath); gitLog != "" {
+		promptBuilder.WriteString("RECENT CHANGES:\n```\n")
+		promptBuilder.WriteString(gitLog)
+		promptBuilder.WriteString("```\n\n")
 	}
 
 	if input.PlanTemplate != "" {
-		if plan := s.renderPlan(input.PlanTemplate, input.Variables, input.Task); plan != "" {
-			b.WriteString("PLAN:\n")
-			b.WriteString(plan)
-			b.WriteString("\n\n")
+		if planText := s.renderPlan(input.PlanTemplate, input.Variables, input.Task); planText != "" {
+			promptBuilder.WriteString("PLAN:\n")
+			promptBuilder.WriteString(planText)
+			promptBuilder.WriteString("\n\n")
 		}
 	}
 
-	b.WriteString("CONSTRAINTS:\n")
-	b.WriteString("- Read CODEX.md for coding conventions (if it exists)\n")
-	b.WriteString("- Read CLAUDE.md for project-specific instructions (if it exists)\n")
-	b.WriteString("- Commit with conventional commit format: type(scope): description\n")
-	b.WriteString("- Co-Authored-By: Virgil <virgil@lethean.io>\n")
-	b.WriteString("- Run build and tests before committing\n")
+	promptBuilder.WriteString("CONSTRAINTS:\n")
+	promptBuilder.WriteString("- Read CODEX.md for coding conventions (if it exists)\n")
+	promptBuilder.WriteString("- Read CLAUDE.md for project-specific instructions (if it exists)\n")
+	promptBuilder.WriteString("- Commit with conventional commit format: type(scope): description\n")
+	promptBuilder.WriteString("- Co-Authored-By: Virgil <virgil@lethean.io>\n")
+	promptBuilder.WriteString("- Run build and tests before committing\n")
 
-	return b.String(), memories, consumers
+	return promptBuilder.String(), memoryCount, consumerCount
 }
 
 // writePromptSnapshot stores an immutable prompt snapshot for a workspace.
@@ -913,9 +913,7 @@ func promptSnapshotHash(prompt string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// runWorkspaceLanguagePrep installs repository dependencies before the agent starts.
-//
-//	_ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
+// _ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
 func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
