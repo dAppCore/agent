@@ -35,7 +35,9 @@ type LanguageListInput struct{}
 func (s *PrepSubsystem) registerLanguageCommands() {
 	c := s.Core()
 	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect})
+	c.Command("agentic:lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect})
 	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
+	c.Command("agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
 }
 
 // result := c.Command("lang/detect").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}))
