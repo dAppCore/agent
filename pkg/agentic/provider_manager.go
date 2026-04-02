@@ -26,10 +26,8 @@ type ProviderManager struct {
 	providers map[string]AgenticProviderInterface
 }
 
-// providerManager returns the lazily initialised provider registry for content generation.
-//
-//	manager := s.providerManager()
-//	core.Println(manager.Names())
+// manager := s.providerManager()
+// core.Println(manager.Names()) // ["claude", "gemini", "openai"]
 func (s *PrepSubsystem) providerManager() *ProviderManager {
 	if s == nil {
 		return NewProviderManager(nil)
@@ -67,11 +65,11 @@ func (s *PrepSubsystem) providerManager() *ProviderManager {
 	return s.providers
 }
 
-// NewProviderManager registers the built-in content providers.
-//
 //	manager := agentic.NewProviderManager(func(ctx context.Context, prompt string, options map[string]any) (string, error) {
 //	    return "Draft ready", nil
 //	})
+//
+// core.Println(manager.Names()) // ["claude", "gemini", "openai"]
 func NewProviderManager(generate ProviderGenerateFunc) *ProviderManager {
 	manager := &ProviderManager{
 		providers: make(map[string]AgenticProviderInterface),
@@ -84,10 +82,8 @@ func NewProviderManager(generate ProviderGenerateFunc) *ProviderManager {
 	return manager
 }
 
-// Generate returns the generated text from a registered provider.
-//
-//	provider, _ := manager.Provider("claude")
-//	text, _ := provider.Generate(ctx, "Draft a release note", map[string]any{"temperature": 0.2})
+// provider, _ := manager.Provider("claude")
+// text, _ := provider.Generate(ctx, "Draft a release note", map[string]any{"temperature": 0.2})
 type ProviderGenerateFunc func(context.Context, string, map[string]any) (string, error)
 
 // Stream sends provider output to the callback as it arrives.
