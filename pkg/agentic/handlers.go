@@ -120,14 +120,14 @@ func handleCompletionVerify(c *core.Core, msg core.Message) core.Result {
 func handleCompletionCommit(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.PRMerged:
-		workspaceDir := findWorkspaceByPR(ev.Repo, "")
+		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
 				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
 			}
 		}
 	case messages.PRNeedsReview:
-		workspaceDir := findWorkspaceByPR(ev.Repo, "")
+		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
 				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
@@ -200,6 +200,10 @@ func resolveWorkspace(name string) string {
 }
 
 func findWorkspaceByPR(repo, branch string) string {
+	return findWorkspaceByPRWithInfo(repo, branch, 0, "")
+}
+
+func findWorkspaceByPRWithInfo(repo, branch string, prNum int, prURL string) string {
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)
 		statusResult := ReadStatusResult(workspaceDir)
@@ -211,6 +215,15 @@ func findWorkspaceByPR(repo, branch string) string {
 			continue
 		}
 		if branch != "" && workspaceStatus.Branch != branch {
+			continue
+		}
+		if prNum > 0 {
+			if workspaceStatus.PRURL != "" && extractPullRequestNumber(workspaceStatus.PRURL) == prNum {
+				return workspaceDir
+			}
+			if prURL != "" && workspaceStatus.PRURL == prURL {
+				return workspaceDir
+			}
 			continue
 		}
 		if branch == "" || workspaceStatus.Branch == branch {

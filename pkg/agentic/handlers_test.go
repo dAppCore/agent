@@ -193,6 +193,32 @@ func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
+func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", root)
+
+	firstWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-1")
+	secondWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-2")
+	require.True(t, fs.EnsureDir(firstWorkspace).OK)
+	require.True(t, fs.EnsureDir(secondWorkspace).OK)
+
+	require.NoError(t, writeStatus(firstWorkspace, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Branch: "agent/first",
+		PRURL:  "https://forge.lthn.ai/core/go-io/pulls/12",
+	}))
+	require.NoError(t, writeStatus(secondWorkspace, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Branch: "agent/second",
+		PRURL:  "https://forge.lthn.ai/core/go-io/pulls/13",
+	}))
+
+	result := findWorkspaceByPRWithInfo("go-io", "", 13, "https://forge.lthn.ai/core/go-io/pulls/13")
+	assert.Equal(t, secondWorkspace, result)
+}
+
 func TestHandlers_IngestDisabled_Bad(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", root)
