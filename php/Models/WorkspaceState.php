@@ -92,18 +92,20 @@ class WorkspaceState extends Model
     }
 
     public static function getOrCreate(
-        AgentPlan $plan,
+        AgentPlan|int $plan,
         string $key,
         mixed $default = null,
         string $type = self::TYPE_JSON
     ): self {
+        $planId = static::planId($plan);
+
         return static::firstOrCreate(
-            ['agent_plan_id' => $plan->id, 'key' => $key],
+            ['agent_plan_id' => $planId, 'key' => $key],
             ['value' => $default, 'type' => $type]
         );
     }
 
-    public static function getValue(AgentPlan $plan, string $key, mixed $default = null): mixed
+    public static function getValue(AgentPlan|int $plan, string $key, mixed $default = null): mixed
     {
         $state = static::forPlan($plan)->where('key', $key)->first();
 
@@ -111,15 +113,35 @@ class WorkspaceState extends Model
     }
 
     public static function setValue(
-        AgentPlan $plan,
+        AgentPlan|int $plan,
         string $key,
         mixed $value,
         string $type = self::TYPE_JSON
     ): self {
+        $planId = static::planId($plan);
+
         return static::updateOrCreate(
-            ['agent_plan_id' => $plan->id, 'key' => $key],
+            ['agent_plan_id' => $planId, 'key' => $key],
             ['value' => $value, 'type' => $type]
         );
+    }
+
+    /**
+     * WorkspaceState::set($plan->id, 'discovered_pattern', 'observer');
+     * WorkspaceState::get($plan->id, 'discovered_pattern');
+     */
+    public static function set(
+        AgentPlan|int $plan,
+        string $key,
+        mixed $value,
+        string $type = self::TYPE_JSON
+    ): self {
+        return static::setValue($plan, $key, $value, $type);
+    }
+
+    public static function get(AgentPlan|int $plan, string $key, mixed $default = null): mixed
+    {
+        return static::getValue($plan, $key, $default);
     }
 
     public function setTypedValue(mixed $value): void
@@ -142,5 +164,10 @@ class WorkspaceState extends Model
             'value' => $this->value,
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    private static function planId(AgentPlan|int $plan): int
+    {
+        return $plan instanceof AgentPlan ? $plan->id : $plan;
     }
 }

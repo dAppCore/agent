@@ -236,6 +236,26 @@ class WorkspaceStateTest extends TestCase
         $this->assertEquals(['n' => 2], WorkspaceState::getValue($this->plan, 'counter'));
     }
 
+    public function test_set_alias_creates_new_state(): void
+    {
+        $state = WorkspaceState::set($this->plan->id, 'discovered_pattern', 'observer');
+
+        $this->assertDatabaseHas('agent_workspace_states', [
+            'agent_plan_id' => $this->plan->id,
+            'key' => 'discovered_pattern',
+        ]);
+        $this->assertEquals('observer', $state->value);
+    }
+
+    public function test_get_alias_returns_stored_value(): void
+    {
+        WorkspaceState::set($this->plan->id, 'discovered_pattern', 'observer');
+
+        $value = WorkspaceState::get($this->plan->id, 'discovered_pattern');
+
+        $this->assertEquals('observer', $value);
+    }
+
     // =========================================================================
     // MCP output
     // =========================================================================
