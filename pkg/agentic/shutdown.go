@@ -35,6 +35,33 @@ func (s *PrepSubsystem) registerShutdownTools(server *mcp.Server) {
 	}, s.shutdownNow)
 }
 
+// result := c.Action("agentic.dispatch.start").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handleDispatchStart(ctx context.Context, _ core.Options) core.Result {
+	_, output, err := s.dispatchStart(ctx, nil, ShutdownInput{})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("agentic.dispatch.shutdown").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handleDispatchShutdown(ctx context.Context, _ core.Options) core.Result {
+	_, output, err := s.shutdownGraceful(ctx, nil, ShutdownInput{})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Action("agentic.dispatch.shutdown_now").Run(ctx, core.NewOptions())
+func (s *PrepSubsystem) handleDispatchShutdownNow(ctx context.Context, _ core.Options) core.Result {
+	_, output, err := s.shutdownNow(ctx, nil, ShutdownInput{})
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: output, OK: true}
+}
+
 func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.start").Run(ctx, core.NewOptions())

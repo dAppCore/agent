@@ -487,6 +487,20 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	assert.True(t, c.Action("task.toggle").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersDispatchControlActions(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("agentic.dispatch.start").Exists())
+	assert.True(t, c.Action("agentic.dispatch.shutdown").Exists())
+	assert.True(t, c.Action("agentic.dispatch.shutdown_now").Exists())
+}
+
 func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
