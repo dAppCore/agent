@@ -226,7 +226,7 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 			var payload map[string]any
 			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
 			require.True(t, parseResult.OK)
-			require.Equal(t, "paused", payload["status"])
+			require.Equal(t, "handed_off", payload["status"])
 			require.Equal(t, "Ready for review", payload["summary"])
 
 			handoffNotes, ok := payload["handoff_notes"].(map[string]any)
@@ -235,7 +235,7 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 			assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
 			assert.Equal(t, []any{"Needs input"}, handoffNotes["blockers"])
 
-			_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"paused","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
+			_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"handed_off","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
 		case "/v1/brain/remember":
 			require.Equal(t, http.MethodPost, r.Method)
 			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
@@ -265,7 +265,7 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.handleSessionEnd(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_handoff"},
-		core.Option{Key: "status", Value: "paused"},
+		core.Option{Key: "status", Value: "handed_off"},
 		core.Option{Key: "summary", Value: "Ready for review"},
 		core.Option{Key: "handoff_notes", Value: `{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}`},
 	))
@@ -273,7 +273,7 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 
 	output, ok := result.Value.(SessionOutput)
 	require.True(t, ok)
-	assert.Equal(t, "paused", output.Session.Status)
+	assert.Equal(t, "handed_off", output.Session.Status)
 	assert.Equal(t, "Ready for review", output.Session.Summary)
 	require.NotNil(t, output.Session.Handoff)
 	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
@@ -408,7 +408,7 @@ func TestSession_HandleSessionHandoff_Good(t *testing.T) {
 
 	session, err := readSessionCache("ses_handoff")
 	require.NoError(t, err)
-	assert.Equal(t, "paused", session.Status)
+	assert.Equal(t, "handed_off", session.Status)
 	assert.Equal(t, "Ready for review", session.Handoff["summary"])
 }
 
@@ -434,7 +434,7 @@ func TestSession_HandleSessionResume_Good(t *testing.T) {
 	require.NoError(t, writeSessionCache(&Session{
 		SessionID: "ses_resume",
 		AgentType: "codex",
-		Status:    "paused",
+		Status:    "handed_off",
 		Handoff: map[string]any{
 			"summary": "Ready for review",
 		},

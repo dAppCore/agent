@@ -220,7 +220,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("session.complete", s.handleSessionEnd).Description = "Mark a session completed with status, summary, and handoff notes"
 	c.Action("session.log", s.handleSessionLog).Description = "Append a typed work-log entry to a stored session"
 	c.Action("session.artifact", s.handleSessionArtifact).Description = "Record a created, modified, deleted, or reviewed artifact for a session"
-	c.Action("session.handoff", s.handleSessionHandoff).Description = "Pause a session with handoff notes for the next agent"
+	c.Action("session.handoff", s.handleSessionHandoff).Description = "Hand off a session with notes for the next agent"
 	c.Action("session.resume", s.handleSessionResume).Description = "Resume a paused or handed-off session from local cache"
 	c.Action("session.replay", s.handleSessionReplay).Description = "Build replay context for a session from work logs and artifacts"
 	c.Action("state.set", s.handleStateSet).Description = "Store shared plan state for later sessions"

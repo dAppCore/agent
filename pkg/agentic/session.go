@@ -343,7 +343,7 @@ func (s *PrepSubsystem) registerSessionTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_handoff",
-		Description: "Prepare a stored session for handoff and pause it with summary, blockers, and next-step context.",
+		Description: "Prepare a stored session for handoff and mark it handed_off with summary, blockers, and next-step context.",
 	}, s.sessionHandoff)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -588,7 +588,7 @@ func (s *PrepSubsystem) sessionHandoff(ctx context.Context, _ *mcp.CallToolReque
 		"blockers":         cleanStrings(input.Blockers),
 		"context_for_next": input.ContextForNext,
 	}
-	session.Status = "paused"
+	session.Status = "handed_off"
 	session.UpdatedAt = time.Now().Format(time.RFC3339)
 
 	if err := writeSessionCache(&session); err != nil {

@@ -238,7 +238,7 @@ func TestCommandsSession_CmdSessionHandoff_Good(t *testing.T) {
 	cached, err := readSessionCache("ses-handoff")
 	require.NoError(t, err)
 	require.NotNil(t, cached)
-	assert.Equal(t, "paused", cached.Status)
+	assert.Equal(t, "handed_off", cached.Status)
 	assert.NotEmpty(t, cached.Handoff)
 }
 
