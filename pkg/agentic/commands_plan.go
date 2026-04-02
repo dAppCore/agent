@@ -39,11 +39,40 @@ func (s *PrepSubsystem) registerPlanCommands() {
 }
 
 func (s *PrepSubsystem) cmdPlan(options core.Options) core.Result {
-	if action := optionStringValue(options, "action", "_arg"); action == "templates" {
+	switch action := optionStringValue(options, "action", "_arg"); action {
+	case "", "list":
+		return s.cmdPlanList(options)
+	case "templates":
 		return s.cmdPlanTemplates(options)
+	case "create":
+		return s.cmdPlanCreate(options)
+	case "from-issue", "from_issue", "fromissue":
+		return s.cmdPlanFromIssue(options)
+	case "get", "read", "show":
+		return s.cmdPlanShow(options)
+	case "update":
+		return s.cmdPlanUpdate(options)
+	case "status":
+		return s.cmdPlanStatus(options)
+	case "check":
+		return s.cmdPlanCheck(options)
+	case "archive":
+		return s.cmdPlanArchive(options)
+	case "delete":
+		return s.cmdPlanDelete(options)
+	default:
+		core.Print(nil, "usage: core-agent plan list [--status=ready] [--repo=go-io] [--limit=20]")
+		core.Print(nil, "       core-agent plan templates [--category=development]")
+		core.Print(nil, "       core-agent plan create <slug> --title=\"My Plan\" [--objective=\"...\"] [--description=\"...\"] [--import=bug-fix] [--activate]")
+		core.Print(nil, "       core-agent plan from-issue <slug> [--id=N]")
+		core.Print(nil, "       core-agent plan show <slug>")
+		core.Print(nil, "       core-agent plan update <id-or-slug> [--status=ready] [--title=\"...\"] [--objective=\"...\"] [--description=\"...\"] [--notes=\"...\"] [--agent=codex] [--context='{\"repo\":\"go-io\"}'] [--phases='[...]']")
+		core.Print(nil, "       core-agent plan status <slug> [--set=ready]")
+		core.Print(nil, "       core-agent plan check <slug> [--phase=1]")
+		core.Print(nil, "       core-agent plan archive <slug> [--reason=\"...\"]")
+		core.Print(nil, "       core-agent plan delete <id> [--reason=\"...\"]")
+		return core.Result{Value: core.E("agentic.cmdPlan", core.Concat("unknown plan command: ", action), nil), OK: false}
 	}
-
-	return s.cmdPlanList(options)
 }
 
 func (s *PrepSubsystem) cmdPlanTemplates(options core.Options) core.Result {

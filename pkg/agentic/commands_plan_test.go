@@ -92,6 +92,65 @@ func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 	assert.Equal(t, []string{"Patch code"}, output.Pending)
 }
 
+func TestCommandsPlan_CmdPlan_Good_RoutesCreate(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+
+	r := s.cmdPlan(core.NewOptions(
+		core.Option{Key: "action", Value: "create"},
+		core.Option{Key: "slug", Value: "root-route-plan"},
+		core.Option{Key: "title", Value: "Root Route Plan"},
+		core.Option{Key: "objective", Value: "Exercise the root plan router"},
+	))
+
+	require.True(t, r.OK)
+	output, ok := r.Value.(PlanCreateOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.NotEmpty(t, output.ID)
+	assert.NotEmpty(t, output.Path)
+}
+
+func TestCommandsPlan_CmdPlan_Good_RoutesStatus(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", dir)
+
+	s := newTestPrep(t)
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:       "Status Route Plan",
+		Description: "Exercise the root plan router status action",
+	})
+	require.NoError(t, err)
+
+	plan, err := readPlan(PlansRoot(), created.ID)
+	require.NoError(t, err)
+
+	r := s.cmdPlan(core.NewOptions(
+		core.Option{Key: "action", Value: "status"},
+		core.Option{Key: "slug", Value: plan.Slug},
+	))
+
+	require.True(t, r.OK)
+	output, ok := r.Value.(PlanCompatibilityGetOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, plan.Slug, output.Plan.Slug)
+}
+
+func TestCommandsPlan_CmdPlan_Bad_UnknownAction(t *testing.T) {
+	s := newTestPrep(t)
+
+	r := s.cmdPlan(core.NewOptions(
+		core.Option{Key: "action", Value: "does-not-exist"},
+	))
+
+	require.False(t, r.OK)
+	require.Error(t, r.Value.(error))
+	assert.Contains(t, r.Value.(error).Error(), "unknown plan command")
+}
+
 func TestCommandsPlan_CmdPlanUpdate_Good_StatusAndAgent(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", dir)
