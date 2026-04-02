@@ -552,6 +552,25 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	assert.True(t, c.Action("sprint.archive").Exists())
 }
 
+func TestPrep_OnStartup_Good_RegistersNamespacedActionAliases(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	require.True(t, s.OnStartup(context.Background()).OK)
+	assert.True(t, c.Action("agentic.plan.create").Exists())
+	assert.True(t, c.Action("agentic.plan.read").Exists())
+	assert.True(t, c.Action("agentic.phase.get").Exists())
+	assert.True(t, c.Action("agentic.task.create").Exists())
+	assert.True(t, c.Action("agentic.session.start").Exists())
+	assert.True(t, c.Action("agentic.state.set").Exists())
+	assert.True(t, c.Action("agentic.content.generate").Exists())
+	assert.True(t, c.Action("agentic.content.schema.generate").Exists())
+}
+
 func TestPrep_OnStartup_Good_RegistersForgeActions(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	t.Setenv("CORE_AGENT_DISPATCH", "")
@@ -592,6 +611,9 @@ func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 	assert.True(t, c.Action("content.from.plan").Exists())
 	assert.True(t, c.Action("content.from_plan").Exists())
 	assert.True(t, c.Action("content.schema.generate").Exists())
+	assert.True(t, c.Action("agentic.content.generate").Exists())
+	assert.True(t, c.Action("agentic.content.batch").Exists())
+	assert.True(t, c.Action("agentic.content.schema.generate").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersTemplateActions(t *testing.T) {
