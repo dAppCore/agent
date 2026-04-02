@@ -16,10 +16,11 @@ use Core\Mod\Agentic\Models\AgentSession;
 use Core\Mod\Agentic\Services\AgentSessionService;
 
 /**
- * End an agent session with a final status and optional summary.
+ * End an agent session with a final status, summary, and optional handoff notes.
  *
  * Usage:
  *   $session = EndSession::run('ses_abc123', 'completed', 'All phases done');
+ *   $session = EndSession::run('ses_abc123', 'handed_off', 'Ready for review', ['summary' => 'Ready for review']);
  */
 class EndSession
 {
@@ -32,7 +33,12 @@ class EndSession
     /**
      * @throws \InvalidArgumentException
      */
-    public function handle(string $sessionId, string $status, ?string $summary = null): AgentSession
+    public function handle(
+        string $sessionId,
+        string $status,
+        ?string $summary = null,
+        ?array $handoffNotes = null,
+    ): AgentSession
     {
         if ($sessionId === '') {
             throw new \InvalidArgumentException('session_id is required');
@@ -45,7 +51,7 @@ class EndSession
             );
         }
 
-        $session = $this->sessionService->end($sessionId, $status, $summary);
+        $session = $this->sessionService->end($sessionId, $status, $summary, $handoffNotes);
 
         if (! $session) {
             throw new \InvalidArgumentException("Session not found: {$sessionId}");

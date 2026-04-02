@@ -122,16 +122,24 @@ class SessionController extends Controller
         $validated = $request->validate([
             'status' => 'required|string|in:completed,handed_off,paused,failed',
             'summary' => 'nullable|string|max:10000',
+            'handoff_notes' => 'nullable|array',
         ]);
 
         try {
-            $session = EndSession::run($id, $validated['status'], $validated['summary'] ?? null);
+            $session = EndSession::run(
+                $id,
+                $validated['status'],
+                $validated['summary'] ?? null,
+                $validated['handoff_notes'] ?? null,
+            );
 
             return response()->json([
                 'data' => [
                     'session_id' => $session->session_id,
                     'status' => $session->status,
                     'duration' => $session->getDurationFormatted(),
+                    'final_summary' => $session->final_summary,
+                    'handoff_notes' => $session->handoff_notes,
                 ],
             ]);
         } catch (\InvalidArgumentException $e) {

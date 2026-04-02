@@ -243,7 +243,7 @@ class AgentSession extends Model
     /**
      * End the session with a status.
      */
-    public function end(string $status, ?string $summary = null): self
+    public function end(string $status, ?string $summary = null, ?array $handoffNotes = null): self
     {
         $validStatuses = [self::STATUS_COMPLETED, self::STATUS_FAILED, self::STATUS_HANDED_OFF];
 
@@ -254,6 +254,7 @@ class AgentSession extends Model
         $this->update([
             'status' => $status,
             'final_summary' => $summary,
+            'handoff_notes' => $handoffNotes ?? $this->handoff_notes,
             'ended_at' => now(),
         ]);
 

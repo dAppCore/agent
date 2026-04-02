@@ -40,6 +40,10 @@ class SessionEnd extends AgentTool
                     'type' => 'string',
                     'description' => 'Final summary',
                 ],
+                'handoff_notes' => [
+                    'type' => 'object',
+                    'description' => 'Optional handoff details for the next agent',
+                ],
             ],
             'required' => ['status'],
         ];
@@ -57,6 +61,7 @@ class SessionEnd extends AgentTool
                 $sessionId,
                 $args['status'] ?? '',
                 $args['summary'] ?? null,
+                $args['handoff_notes'] ?? null,
             );
 
             return $this->success([

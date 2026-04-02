@@ -125,7 +125,12 @@ class AgentSessionService
     /**
      * End a session.
      */
-    public function end(string $sessionId, string $status = AgentSession::STATUS_COMPLETED, ?string $summary = null): ?AgentSession
+    public function end(
+        string $sessionId,
+        string $status = AgentSession::STATUS_COMPLETED,
+        ?string $summary = null,
+        ?array $handoffNotes = null
+    ): ?AgentSession
     {
         $session = $this->get($sessionId);
 
@@ -133,7 +138,7 @@ class AgentSessionService
             return null;
         }
 
-        $session->end($status, $summary);
+        $session->end($status, $summary, $handoffNotes);
 
         // Remove from active cache
         $this->clearCachedSession($session);
