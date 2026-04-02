@@ -892,27 +892,48 @@ func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
 		return nil
 	}
 
-	if core.HasPrefix(trimmed, "data: ") {
-		trimmed = core.Trim(core.TrimPrefix(trimmed, "data: "))
-	}
-
-	var payload map[string]any
-	if parseResult := core.JSONUnmarshalString(trimmed, &payload); parseResult.OK {
-		if payload != nil {
-			payload["raw"] = trimmed
-		}
-		return payload
-	}
-
-	return map[string]any{
+	payload := map[string]any{
 		"raw": trimmed,
 	}
+
+	lines := core.Split(trimmed, "\n")
+	dataLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = core.Trim(line)
+		if line == "" {
+			continue
+		}
+
+		switch {
+		case core.HasPrefix(line, "event:"):
+			eventName := core.Trim(core.TrimPrefix(line, "event:"))
+			if eventName != "" {
+				payload["event"] = eventName
+				payload["type"] = eventName
+			}
+		case core.HasPrefix(line, "data:"):
+			dataLines = append(dataLines, core.Trim(core.TrimPrefix(line, "data:")))
+		}
+	}
+
+	dataBody := core.Join("\n", dataLines...)
+	if dataBody != "" {
+		var dataPayload map[string]any
+		if parseResult := core.JSONUnmarshalString(dataBody, &dataPayload); parseResult.OK {
+			for key, value := range dataPayload {
+				payload[key] = value
+			}
+			return payload
+		}
+		payload["data"] = dataBody
+	}
+
+	return payload
 }
 
 func readFleetEventBody(body interface{ Read([]byte) (int, error) }) (string, error) {
 	reader := bufio.NewReader(body)
 	rawLines := make([]string, 0, 4)
-	dataLines := make([]string, 0, 4)
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -920,19 +941,16 @@ func readFleetEventBody(body interface{ Read([]byte) (int, error) }) (string, er
 			trimmed := core.Trim(line)
 			if trimmed != "" {
 				rawLines = append(rawLines, trimmed)
-				if core.HasPrefix(trimmed, "data:") {
-					dataLines = append(dataLines, core.Trim(core.TrimPrefix(trimmed, "data:")))
-				}
-			} else if len(dataLines) > 0 {
-				return core.Join("\n", dataLines...), nil
+			} else if len(rawLines) > 0 {
+				return core.Join("\n", rawLines...), nil
 			}
 		}
 
 		if err != nil && err.Error() == "EOF" {
-			if len(dataLines) > 0 {
-				return core.Join("\n", dataLines...), nil
+			if len(rawLines) > 0 {
+				return core.Join("\n", rawLines...), nil
 			}
-			return core.Join("\n", rawLines...), nil
+			return "", nil
 		}
 		if err != nil {
 			return "", err

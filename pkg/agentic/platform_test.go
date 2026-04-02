@@ -233,7 +233,7 @@ func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
 		require.Equal(t, "/v1/fleet/events", r.URL.Path)
 		require.Equal(t, "charon", r.URL.Query().Get("agent_id"))
 		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
-		_, _ = w.Write([]byte("data: {\"event\":\"task.assigned\",\"type\":\"task.assigned\",\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\",\"status\":\"assigned\"}\n\n"))
+		_, _ = w.Write([]byte("event: task.assigned\ndata: {\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\",\"branch\":\"dev\",\"status\":\"assigned\"}\n\n"))
 	}))
 	defer server.Close()
 
@@ -250,6 +250,38 @@ func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
 	assert.Equal(t, 9, output.Event.TaskID)
 	assert.Equal(t, "core/go-io", output.Event.Repo)
 	assert.Equal(t, "dev", output.Event.Branch)
+}
+
+func TestPlatform_EventPayloadValue_Good_EventAndData(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	payload := subsystem.eventPayloadValue("event: task.assigned\ndata: {\"agent_id\":\"charon\",\"task_id\":9,\"repo\":\"core/go-io\"}")
+
+	require.NotNil(t, payload)
+	assert.Equal(t, "task.assigned", payload["event"])
+	assert.Equal(t, "task.assigned", payload["type"])
+	assert.Equal(t, "charon", payload["agent_id"])
+	assert.Equal(t, 9.0, payload["task_id"])
+	assert.Equal(t, "core/go-io", payload["repo"])
+}
+
+func TestPlatform_EventPayloadValue_Bad_Empty(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	payload := subsystem.eventPayloadValue("")
+
+	assert.Nil(t, payload)
+}
+
+func TestPlatform_EventPayloadValue_Ugly_InvalidData(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
+
+	payload := subsystem.eventPayloadValue("event: task.assigned\ndata: not-json")
+
+	require.NotNil(t, payload)
+	assert.Equal(t, "task.assigned", payload["event"])
+	assert.Equal(t, "task.assigned", payload["type"])
+	assert.Equal(t, "not-json", payload["data"])
 }
 
 func TestPlatform_HandleFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
