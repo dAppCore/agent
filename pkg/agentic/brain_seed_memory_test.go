@@ -50,12 +50,12 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 	require.True(t, result.OK)
 	output, ok := result.Value.(BrainSeedMemoryOutput)
 	require.True(t, ok)
-	assert.Equal(t, 1, output.Files)
-	assert.Equal(t, 2, output.Imported)
+	assert.Equal(t, 2, output.Files)
+	assert.Equal(t, 3, output.Imported)
 	assert.Equal(t, 0, output.Skipped)
 	assert.Equal(t, false, output.DryRun)
 	assert.Equal(t, projectsDir, output.Path)
-	require.Len(t, bodies, 2)
+	require.Len(t, bodies, 3)
 
 	assert.Equal(t, float64(42), bodies[0]["workspace_id"])
 	assert.Equal(t, "virgil", bodies[0]["agent_id"])
@@ -66,6 +66,8 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 
 	assert.Equal(t, "decision", bodies[1]["type"])
 	assert.Equal(t, []any{"memory-import"}, bodies[1]["tags"])
+	assert.Equal(t, "convention", bodies[2]["type"])
+	assert.Equal(t, []any{"notes", "memory-import"}, bodies[2]["tags"])
 }
 
 func TestBrainSeedMemory_CmdBrainSeedMemory_Good_GlobPath(t *testing.T) {

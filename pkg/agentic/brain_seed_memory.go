@@ -237,7 +237,7 @@ func brainSeedMemoryFiles(scanPath string) []string {
 				walk(next)
 				continue
 			}
-			if core.PathBase(next) == "MEMORY.md" {
+			if brainSeedMemoryFile(next) {
 				add(next)
 			}
 		}
