@@ -522,19 +522,17 @@ func workspaceDir(org, repo string, input PrepInput) (string, error) {
 // r := workspaceDirResult("core", "go-io", PrepInput{Issue: 15})
 // if r.OK { workspaceDir := r.Value.(string) }
 func workspaceDirResult(org, repo string, input PrepInput) core.Result {
-	orgName := core.ValidateName(org)
-	if !orgName.OK {
-		err, _ := orgName.Value.(error)
-		return core.Result{Value: core.E("workspaceDir", "invalid org name", err), OK: false}
+	orgName, ok := validateName(org)
+	if !ok {
+		return core.Result{Value: core.E("workspaceDir", "invalid org name", nil), OK: false}
 	}
 
-	repoName := core.ValidateName(repo)
-	if !repoName.OK {
-		err, _ := repoName.Value.(error)
-		return core.Result{Value: core.E("workspaceDir", "invalid repo name", err), OK: false}
+	repoName, ok := validateName(repo)
+	if !ok {
+		return core.Result{Value: core.E("workspaceDir", "invalid repo name", nil), OK: false}
 	}
 
-	base := core.JoinPath(WorkspaceRoot(), orgName.Value.(string), repoName.Value.(string))
+	base := core.JoinPath(WorkspaceRoot(), orgName, repoName)
 	switch {
 	case input.PR > 0:
 		return core.Result{Value: core.JoinPath(base, core.Sprintf("pr-%d", input.PR)), OK: true}

@@ -916,7 +916,7 @@ func sessionCacheRoot() string {
 }
 
 func sessionCachePath(sessionID string) string {
-	return core.JoinPath(sessionCacheRoot(), core.Concat(core.SanitisePath(sessionID), ".json"))
+	return core.JoinPath(sessionCacheRoot(), core.Concat(pathKey(sessionID), ".json"))
 }
 
 func readSessionCache(sessionID string) (*Session, error) {

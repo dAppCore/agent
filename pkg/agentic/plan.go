@@ -4,6 +4,10 @@ package agentic
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	core "dappco.re/go/core"
@@ -151,6 +155,8 @@ type PlanListOutput struct {
 }
 
 const planListDefaultLimit = 20
+
+var planIDCounter atomic.Uint64
 
 // result := c.Action("plan.create").Run(ctx, core.NewOptions(
 //
@@ -354,7 +360,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 		return nil, PlanCreateOutput{}, core.E("planCreate", "objective is required", nil)
 	}
 
-	id := core.ID()
+	id := planID()
 	plan := Plan{
 		ID:              id,
 		Slug:            planSlugValue(input.Slug, input.Title, id),
@@ -558,8 +564,7 @@ func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, inpu
 }
 
 func planPath(dir, id string) string {
-	safe := core.SanitisePath(id)
-	return core.JoinPath(dir, core.Concat(safe, ".json"))
+	return core.JoinPath(dir, core.Concat(pathKey(id), ".json"))
 }
 
 func planPhasesValue(options core.Options, keys ...string) []Phase {
@@ -708,6 +713,20 @@ func phaseCriteriaValue(values ...any) []string {
 		}
 	}
 	return nil
+}
+
+func planID() string {
+	counter := planIDCounter.Add(1)
+	suffix := planRandomHex()
+	return core.Concat("id-", strconv.FormatUint(counter, 10), "-", suffix)
+}
+
+func planRandomHex() string {
+	bytes := make([]byte, 3)
+	if _, err := rand.Read(bytes); err != nil {
+		return "000000"
+	}
+	return hex.EncodeToString(bytes)
 }
 
 func planTaskSliceValue(value any) []PlanTask {

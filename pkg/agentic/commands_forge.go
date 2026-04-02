@@ -88,14 +88,14 @@ func parseForgeArgs(options core.Options) (org, repo string, num int64) {
 		num, _ = strconv.ParseInt(v, 10, 64)
 	}
 
-	if orgResult := core.ValidateName(org); orgResult.OK {
-		org = orgResult.Value.(string)
+	if validatedOrg, ok := validateName(org); ok {
+		org = validatedOrg
 	} else {
 		org = ""
 	}
 
-	if repoResult := core.ValidateName(repo); repoResult.OK {
-		repo = repoResult.Value.(string)
+	if validatedRepo, ok := validateName(repo); ok {
+		repo = validatedRepo
 	} else {
 		repo = ""
 	}
@@ -504,13 +504,12 @@ func (s *PrepSubsystem) cmdRepoList(options core.Options) core.Result {
 	if org == "" {
 		org = "core"
 	}
-	orgResult := core.ValidateName(org)
-	if !orgResult.OK {
-		err, _ := orgResult.Value.(error)
+	validatedOrg, ok := validateName(org)
+	if !ok {
 		core.Print(nil, "usage: core-agent repo list [--org=core]")
-		return core.Result{Value: core.E("agentic.cmdRepoList", "invalid org name", err), OK: false}
+		return core.Result{Value: core.E("agentic.cmdRepoList", "invalid org name", nil), OK: false}
 	}
-	org = orgResult.Value.(string)
+	org = validatedOrg
 	repos, err := s.forge.Repos.ListOrgRepos(ctx, org)
 	if err != nil {
 		core.Print(nil, "error: %v", err)

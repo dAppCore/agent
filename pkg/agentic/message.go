@@ -316,7 +316,7 @@ func messageRoot() string {
 }
 
 func messagePath(workspace string) string {
-	return core.JoinPath(messageRoot(), core.Concat(core.SanitisePath(workspace), ".json"))
+	return core.JoinPath(messageRoot(), core.Concat(pathKey(workspace), ".json"))
 }
 
 func readWorkspaceMessages(workspace string) ([]AgentMessage, error) {

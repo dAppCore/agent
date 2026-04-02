@@ -339,7 +339,7 @@ func stateRoot() string {
 }
 
 func statePath(planSlug string) string {
-	return core.JoinPath(stateRoot(), core.Concat(core.SanitisePath(planSlug), ".json"))
+	return core.JoinPath(stateRoot(), core.Concat(pathKey(planSlug), ".json"))
 }
 
 func readPlanStates(planSlug string) ([]WorkspaceState, error) {

@@ -2,6 +2,27 @@
 
 package agentic
 
+import core "dappco.re/go/core"
+
+func validateName(text string) (string, bool) {
+	name := core.Trim(text)
+	if name == "" || name == "." || name == ".." {
+		return "", false
+	}
+	if core.Contains(name, "/") || core.Contains(name, "\\") {
+		return "", false
+	}
+	return name, true
+}
+
+func pathKey(text string) string {
+	safe := core.PathBase(core.Trim(text))
+	if safe == "." || safe == ".." || safe == "" {
+		return "invalid"
+	}
+	return safe
+}
+
 func sanitiseBranchSlug(text string, max int) string {
 	out := make([]rune, 0, len(text))
 	for _, r := range text {
