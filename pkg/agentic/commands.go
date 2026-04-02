@@ -36,6 +36,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("agentic:resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume})
 	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("agentic:generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
+	c.Command("agentic:content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
 	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete})
 	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
 	c.Command("agentic:scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
