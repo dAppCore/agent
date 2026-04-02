@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Models;
@@ -165,7 +167,7 @@ class BrainMemory extends Model
         $maxDepth = 50;
 
         while ($current->supersedes_id !== null && $depth < $maxDepth) {
-            $current = $current->supersedes;
+            $current = self::withTrashed()->find($current->supersedes_id);
 
             if ($current === null) {
                 break;
@@ -185,13 +187,15 @@ class BrainMemory extends Model
             'agent_id' => $this->agent_id,
             'type' => $this->type,
             'content' => $this->content,
-            'tags' => $this->tags,
+            'tags' => $this->tags ?? [],
             'project' => $this->project,
             'confidence' => $this->confidence,
             'score' => round($score, 4),
             'source' => $this->source ?? 'manual',
             'supersedes_id' => $this->supersedes_id,
+            'supersedes_count' => $this->getSupersessionDepth(),
             'expires_at' => $this->expires_at?->toIso8601String(),
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
