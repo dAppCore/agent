@@ -90,7 +90,7 @@ func parseForgeArgs(options core.Options) (org, repo string, num int64) {
 	return
 }
 
-func fmtIndex(n int64) string { return strconv.FormatInt(n, 10) }
+func formatIndex(n int64) string { return strconv.FormatInt(n, 10) }
 
 // c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
 // c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})

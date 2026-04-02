@@ -308,7 +308,7 @@ func (s *PrepSubsystem) handleContentFromPlan(ctx context.Context, options core.
 //	core.Option{Key: "title", Value: "Set up the workspace"},
 //
 // ))
-func (s *PrepSubsystem) handleContentSchemaGenerate(_ context.Context, options core.Options) core.Result {
+func (s *PrepSubsystem) handleContentSchemaGenerate(ctx context.Context, options core.Options) core.Result {
 	input := ContentSchemaInput{
 		Type:        optionStringValue(options, "schema_type", "schema-type", "type", "kind"),
 		Title:       optionStringValue(options, "title", "headline"),
@@ -327,7 +327,7 @@ func (s *PrepSubsystem) handleContentSchemaGenerate(_ context.Context, options c
 		input.Steps = contentSchemaStepsValue(value)
 	}
 
-	_, output, err := s.contentSchemaGenerate(context.Background(), nil, input)
+	_, output, err := s.contentSchemaGenerate(ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}

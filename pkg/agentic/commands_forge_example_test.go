@@ -13,7 +13,7 @@ func Example_parseForgeArgs() {
 	// Output: core go-io 42
 }
 
-func Example_fmtIndex() {
-	core.Println(fmtIndex(42))
+func Example_formatIndex() {
+	core.Println(formatIndex(42))
 	// Output: 42
 }

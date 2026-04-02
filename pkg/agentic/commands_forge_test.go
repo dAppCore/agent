@@ -54,13 +54,13 @@ func TestCommandsforge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 	assert.Equal(t, int64(0), num, "invalid number should parse as 0")
 }
 
-// --- fmtIndex ---
+// --- formatIndex ---
 
-func TestCommandsforge_FmtIndex_Good(t *testing.T) {
-	assert.Equal(t, "1", fmtIndex(1))
-	assert.Equal(t, "42", fmtIndex(42))
-	assert.Equal(t, "0", fmtIndex(0))
-	assert.Equal(t, "999999", fmtIndex(999999))
+func TestCommandsforge_FormatIndex_Good(t *testing.T) {
+	assert.Equal(t, "1", formatIndex(1))
+	assert.Equal(t, "42", formatIndex(42))
+	assert.Equal(t, "0", formatIndex(0))
+	assert.Equal(t, "999999", formatIndex(999999))
 }
 
 // --- parseForgeArgs Ugly ---
@@ -84,20 +84,20 @@ func TestCommandsforge_ParseForgeArgs_Ugly_NegativeNumber(t *testing.T) {
 	assert.Equal(t, int64(-5), num, "negative numbers parse but are semantically invalid")
 }
 
-// --- fmtIndex Bad/Ugly ---
+// --- formatIndex Bad/Ugly ---
 
-func TestCommandsforge_FmtIndex_Bad_Negative(t *testing.T) {
-	result := fmtIndex(-1)
+func TestCommandsforge_FormatIndex_Bad_Negative(t *testing.T) {
+	result := formatIndex(-1)
 	assert.Equal(t, "-1", result, "negative should format as negative string")
 }
 
-func TestCommandsforge_FmtIndex_Ugly_VeryLarge(t *testing.T) {
-	result := fmtIndex(9999999999)
+func TestCommandsforge_FormatIndex_Ugly_VeryLarge(t *testing.T) {
+	result := formatIndex(9999999999)
 	assert.Equal(t, "9999999999", result)
 }
 
-func TestCommandsforge_FmtIndex_Ugly_MaxInt64(t *testing.T) {
-	result := fmtIndex(9223372036854775807) // math.MaxInt64
+func TestCommandsforge_FormatIndex_Ugly_MaxInt64(t *testing.T) {
+	result := formatIndex(9223372036854775807) // math.MaxInt64
 	assert.NotEmpty(t, result)
 	assert.Equal(t, "9223372036854775807", result)
 }
