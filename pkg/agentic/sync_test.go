@@ -261,12 +261,13 @@ func TestSync_RecordSyncHistory_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
-	recordSyncHistory("push", "codex", 256, 3, now)
-	recordSyncHistory("pull", "codex", 128, 1, now.Add(5*time.Minute))
+	recordSyncHistory("push", "codex", 7, 256, 3, now)
+	recordSyncHistory("pull", "codex", 7, 128, 1, now.Add(5*time.Minute))
 
 	records := readSyncRecords()
 	require.Len(t, records, 2)
 	assert.Equal(t, "codex", records[0].AgentID)
+	assert.Equal(t, 7, records[0].FleetNodeID)
 	assert.Equal(t, "push", records[0].Direction)
 	assert.Equal(t, 256, records[0].PayloadSize)
 	assert.Equal(t, 3, records[0].ItemsCount)
@@ -275,13 +276,25 @@ func TestSync_RecordSyncHistory_Good(t *testing.T) {
 	assert.Equal(t, 1, records[1].ItemsCount)
 }
 
+func TestSync_RecordSyncHistory_Good_FleetNodeID(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
+	recordSyncHistory("push", "charon", 42, 512, 2, now)
+
+	records := readSyncRecords()
+	require.Len(t, records, 1)
+	assert.Equal(t, 42, records[0].FleetNodeID)
+	assert.Equal(t, "charon", records[0].AgentID)
+}
+
 func TestSync_RecordSyncHistory_Bad_MissingFile(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	records := readSyncRecords()
 	require.Empty(t, records)
 
-	recordSyncHistory("", "codex", 64, 1, time.Now())
+	recordSyncHistory("", "codex", 0, 64, 1, time.Now())
 	records = readSyncRecords()
 	require.Empty(t, records)
 }
