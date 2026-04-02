@@ -282,6 +282,36 @@ func TestPlatform_HandleFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
 	assert.Equal(t, "dev", output.Event.Branch)
 }
 
+func TestPlatform_FleetEventsTool_Good_ForwardsCapabilities(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/fleet/events":
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"event stream unavailable"}`))
+		case "/v1/fleet/task/next":
+			require.Equal(t, "charon", r.URL.Query().Get("agent_id"))
+			require.Equal(t, []string{"go", "review"}, r.URL.Query()["capabilities[]"])
+			_, _ = w.Write([]byte(`{"data":{"id":13,"repo":"core/go-io","branch":"dev","task":"Fix tests","template":"coding","agent_model":"codex","status":"assigned"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	_, output, err := subsystem.fleetEventsTool(context.Background(), nil, FleetEventsInput{
+		AgentID:      "charon",
+		Capabilities: []string{"go", "review"},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "task.assigned", output.Event.Event)
+	assert.Equal(t, "charon", output.Event.AgentID)
+	assert.Equal(t, 13, output.Event.TaskID)
+	assert.Equal(t, "core/go-io", output.Event.Repo)
+	assert.Equal(t, "dev", output.Event.Branch)
+}
+
 func TestPlatform_HandleFleetEvents_Bad_NoTaskAvailable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

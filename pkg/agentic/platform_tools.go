@@ -39,6 +39,12 @@ type FleetTaskCompleteInput struct {
 	Report   map[string]any   `json:"report,omitempty"`
 }
 
+// input := agentic.FleetEventsInput{AgentID: "charon", Capabilities: []string{"go", "review"}}
+type FleetEventsInput struct {
+	AgentID      string   `json:"agent_id,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+}
+
 func (s *PrepSubsystem) registerPlatformTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_sync_push",
@@ -364,10 +370,11 @@ func (s *PrepSubsystem) fleetStatsTool(ctx context.Context, _ *mcp.CallToolReque
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID string `json:"agent_id,omitempty"`
-}) (*mcp.CallToolResult, FleetEventOutput, error) {
-	result := s.handleFleetEvents(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
+func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetEventsInput) (*mcp.CallToolResult, FleetEventOutput, error) {
+	result := s.handleFleetEvents(ctx, platformOptions(
+		core.Option{Key: "agent_id", Value: input.AgentID},
+		core.Option{Key: "capabilities", Value: input.Capabilities},
+	))
 	if !result.OK {
 		return nil, FleetEventOutput{}, resultErrorValue("agentic.fleet.events", result)
 	}
