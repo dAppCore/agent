@@ -5,6 +5,7 @@ package agentic
 import (
 	"bufio"
 	"context"
+	"io"
 	"net/http"
 	"time"
 
@@ -946,7 +947,7 @@ func readFleetEventBody(body interface{ Read([]byte) (int, error) }) (string, er
 			}
 		}
 
-		if err != nil && err.Error() == "EOF" {
+		if err == io.EOF {
 			if len(rawLines) > 0 {
 				return core.Join("\n", rawLines...), nil
 			}
