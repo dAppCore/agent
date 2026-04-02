@@ -40,7 +40,7 @@ class BrainSeedMemoryCommand extends Command
         $scanPath = $this->option('path')
             ?? $this->expandHome('~/.claude/projects/*/memory/');
 
-        $files = glob($scanPath.'*.md');
+        $files = $this->discoverMarkdownFiles($scanPath);
         if (empty($files)) {
             $this->info("No markdown files found in: {$scanPath}");
 
@@ -226,5 +226,101 @@ class BrainSeedMemoryCommand extends Command
         }
 
         return $path;
+    }
+
+    /**
+     * Discover markdown files from a file path, directory, or glob.
+     *
+     * The command accepts a directory path like
+     * `--path=/root/.claude/projects/workspace/memory/` as well as a single
+     * file path like `--path=/root/.claude/projects/foo/memory/MEMORY.md`.
+     *
+     * @return array<string>
+     */
+    private function discoverMarkdownFiles(string $scanPath): array
+    {
+        $expandedPath = $this->expandHome($scanPath);
+        if ($expandedPath === '') {
+            return [];
+        }
+
+        $files = [];
+        foreach ($this->expandScanTargets($expandedPath) as $target) {
+            $files = array_merge($files, $this->collectMarkdownFiles($target));
+        }
+
+        $files = array_values(array_unique($files));
+        sort($files);
+
+        return $files;
+    }
+
+    /**
+     * Expand a directory path or glob pattern into concrete scan targets.
+     *
+     * @return array<string>
+     */
+    private function expandScanTargets(string $scanPath): array
+    {
+        if ($this->hasGlobMeta($scanPath)) {
+            return glob($scanPath) ?: [];
+        }
+
+        return [$scanPath];
+    }
+
+    /**
+     * Collect markdown files from a file or directory.
+     *
+     * @return array<string>
+     */
+    private function collectMarkdownFiles(string $path): array
+    {
+        if (! file_exists($path)) {
+            return [];
+        }
+
+        if (is_file($path)) {
+            return $this->isMarkdownFile($path) ? [$path] : [];
+        }
+
+        if (! is_dir($path)) {
+            return [];
+        }
+
+        $files = [];
+        $entries = scandir($path);
+        if ($entries === false) {
+            return [];
+        }
+
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $childPath = $path.'/'.$entry;
+            if (is_dir($childPath)) {
+                $files = array_merge($files, $this->collectMarkdownFiles($childPath));
+
+                continue;
+            }
+
+            if ($this->isMarkdownFile($childPath)) {
+                $files[] = $childPath;
+            }
+        }
+
+        return $files;
+    }
+
+    private function hasGlobMeta(string $path): bool
+    {
+        return str_contains($path, '*') || str_contains($path, '?') || str_contains($path, '[');
+    }
+
+    private function isMarkdownFile(string $path): bool
+    {
+        return strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'md';
     }
 }
