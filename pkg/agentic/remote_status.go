@@ -31,64 +31,27 @@ func (s *PrepSubsystem) statusRemote(ctx context.Context, _ *mcp.CallToolRequest
 		return nil, RemoteStatusOutput{}, core.E("statusRemote", "host is required", nil)
 	}
 
-	addr := resolveHost(input.Host)
-	token := remoteToken(input.Host)
-	url := core.Concat("http://", addr, "/mcp")
-
-	sessionResult := mcpInitializeResult(ctx, url, token)
-	if !sessionResult.OK {
-		err, _ := sessionResult.Value.(error)
-		if err == nil {
-			err = core.E("statusRemote", "MCP initialize failed", nil)
-		}
-		return nil, RemoteStatusOutput{
-			Host:  input.Host,
-			Error: core.Concat("unreachable: ", err.Error()),
-		}, nil
-	}
-	sessionID, ok := sessionResult.Value.(string)
-	if !ok || sessionID == "" {
-		err := core.E("statusRemote", "invalid session id", nil)
-		return nil, RemoteStatusOutput{
-			Host:  input.Host,
-			Error: core.Concat("unreachable: ", err.Error()),
-		}, nil
-	}
-
-	rpcRequest := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      2,
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      "agentic_status",
-			"arguments": map[string]any{},
-		},
-	}
-	body := []byte(core.JSONMarshalString(rpcRequest))
-
-	callResult := mcpCallResult(ctx, url, token, sessionID, body)
-	if !callResult.OK {
-		err, _ := callResult.Value.(error)
-		if err == nil {
-			err = core.E("statusRemote", "tool call failed", nil)
-		}
-		return nil, RemoteStatusOutput{
-			Host:  input.Host,
-			Error: core.Concat("call failed: ", err.Error()),
-		}, nil
-	}
-	result, ok := callResult.Value.([]byte)
-	if !ok {
-		err := core.E("statusRemote", "invalid tool response", nil)
-		return nil, RemoteStatusOutput{
-			Host:  input.Host,
-			Error: core.Concat("call failed: ", err.Error()),
-		}, nil
-	}
-
 	output := RemoteStatusOutput{
 		Success: true,
 		Host:    input.Host,
+	}
+
+	client := NewRemoteClient(input.Host)
+
+	sessionID, err := client.Initialize(ctx)
+	if err != nil {
+		return nil, RemoteStatusOutput{
+			Host:  input.Host,
+			Error: core.Concat("unreachable: ", err.Error()),
+		}, nil
+	}
+
+	result, err := client.Call(ctx, sessionID, client.ToolCallBody(2, "agentic_status", map[string]any{}))
+	if err != nil {
+		return nil, RemoteStatusOutput{
+			Host:  input.Host,
+			Error: core.Concat("call failed: ", err.Error()),
+		}, nil
 	}
 
 	var rpcResponse struct {

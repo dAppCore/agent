@@ -283,3 +283,55 @@ func TestRemoteclient_DrainSSE_Ugly_VeryLargeResponse(t *testing.T) {
 	// Should drain all lines without panic
 	assert.NotPanics(t, func() { drainSSE(resp) })
 }
+
+// --- RemoteClient ---
+
+func TestRemoteClient_NewRemoteClient_Good(t *testing.T) {
+	t.Setenv("AGENT_TOKEN_CHARON", "token-123")
+
+	client := NewRemoteClient("charon")
+
+	assert.Equal(t, "charon", client.Host)
+	assert.Equal(t, "10.69.69.165:9101", client.Address)
+	assert.Equal(t, "token-123", client.Token)
+	assert.Equal(t, "http://10.69.69.165:9101/mcp", client.URL)
+}
+
+func TestRemoteClient_ToolCallBody_Good(t *testing.T) {
+	client := NewRemoteClient("local")
+
+	body := client.ToolCallBody(7, "agentic_status", map[string]any{
+		"workspace": "core/go-io/task-5",
+	})
+
+	var payload map[string]any
+	result := core.JSONUnmarshal(body, &payload)
+	require.True(t, result.OK)
+	assert.Equal(t, "2.0", payload["jsonrpc"])
+	assert.Equal(t, float64(7), payload["id"])
+	assert.Equal(t, "tools/call", payload["method"])
+	params, ok := payload["params"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "agentic_status", params["name"])
+}
+
+func TestRemoteClient_NewRemoteClient_Bad(t *testing.T) {
+	client := NewRemoteClient("")
+
+	assert.Equal(t, ":9101", client.Address)
+	assert.Equal(t, "http://:9101/mcp", client.URL)
+}
+
+func TestRemoteClient_ToolCallBody_Ugly(t *testing.T) {
+	client := NewRemoteClient("my-host.local")
+
+	body := client.ToolCallBody(0, "", nil)
+
+	var payload map[string]any
+	result := core.JSONUnmarshal(body, &payload)
+	require.True(t, result.OK)
+	params, ok := payload["params"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "", params["name"])
+	assert.Nil(t, params["arguments"])
+}

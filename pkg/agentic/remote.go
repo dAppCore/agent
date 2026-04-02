@@ -49,9 +49,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "task is required", nil)
 	}
 
-	addr := resolveHost(input.Host)
-
-	token := remoteToken(input.Host)
+	client := NewRemoteClient(input.Host)
 
 	callParams := map[string]any{
 		"repo": input.Repo,
@@ -73,64 +71,27 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		callParams["variables"] = input.Variables
 	}
 
-	rpcRequest := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      "agentic_dispatch",
-			"arguments": callParams,
-		},
-	}
-	body := []byte(core.JSONMarshalString(rpcRequest))
-
-	url := core.Sprintf("http://%s/mcp", addr)
-
-	sessionResult := mcpInitializeResult(ctx, url, token)
-	if !sessionResult.OK {
-		err, _ := sessionResult.Value.(error)
-		if err == nil {
-			err = core.E("dispatchRemote", "MCP initialize failed", nil)
-		}
-		return nil, RemoteDispatchOutput{
-			Host:  input.Host,
-			Error: core.Sprintf("init failed: %v", err),
-		}, core.E("dispatchRemote", "MCP initialize failed", err)
-	}
-	sessionID, ok := sessionResult.Value.(string)
-	if !ok || sessionID == "" {
-		err := core.E("dispatchRemote", "invalid session id", nil)
-		return nil, RemoteDispatchOutput{
-			Host:  input.Host,
-			Error: core.Sprintf("init failed: %v", err),
-		}, err
-	}
-
-	callResult := mcpCallResult(ctx, url, token, sessionID, body)
-	if !callResult.OK {
-		err, _ := callResult.Value.(error)
-		if err == nil {
-			err = core.E("dispatchRemote", "tool call failed", nil)
-		}
-		return nil, RemoteDispatchOutput{
-			Host:  input.Host,
-			Error: core.Sprintf("call failed: %v", err),
-		}, core.E("dispatchRemote", "tool call failed", err)
-	}
-	result, ok := callResult.Value.([]byte)
-	if !ok {
-		err := core.E("dispatchRemote", "invalid tool response", nil)
-		return nil, RemoteDispatchOutput{
-			Host:  input.Host,
-			Error: core.Sprintf("call failed: %v", err),
-		}, err
-	}
-
 	output := RemoteDispatchOutput{
 		Success: true,
 		Host:    input.Host,
 		Repo:    input.Repo,
 		Agent:   input.Agent,
+	}
+
+	sessionID, err := client.Initialize(ctx)
+	if err != nil {
+		return nil, RemoteDispatchOutput{
+			Host:  input.Host,
+			Error: core.Sprintf("init failed: %v", err),
+		}, core.E("dispatchRemote", "MCP initialize failed", err)
+	}
+
+	result, err := client.Call(ctx, sessionID, client.ToolCallBody(1, "agentic_dispatch", callParams))
+	if err != nil {
+		return nil, RemoteDispatchOutput{
+			Host:  input.Host,
+			Error: core.Sprintf("call failed: %v", err),
+		}, core.E("dispatchRemote", "tool call failed", err)
 	}
 
 	var rpcResponse struct {
