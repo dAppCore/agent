@@ -31,7 +31,7 @@ type FleetNode struct {
 	Capabilities    []string       `json:"capabilities,omitempty"`
 	Status          string         `json:"status"`
 	ComputeBudget   *ComputeBudget `json:"compute_budget,omitempty"`
-	CurrentTaskID   int            `json:"current_task_id,omitempty"`
+	CurrentTaskID   *int           `json:"current_task_id,omitempty"`
 	LastHeartbeatAt string         `json:"last_heartbeat_at,omitempty"`
 	RegisteredAt    string         `json:"registered_at,omitempty"`
 }
@@ -738,10 +738,18 @@ func parseFleetNode(values map[string]any) FleetNode {
 		Capabilities:    listValue(values["capabilities"]),
 		Status:          stringValue(values["status"]),
 		ComputeBudget:   computeBudgetFromValue(values["compute_budget"]),
-		CurrentTaskID:   intValue(values["current_task_id"]),
+		CurrentTaskID:   intPointerValue(values["current_task_id"]),
 		LastHeartbeatAt: stringValue(values["last_heartbeat_at"]),
 		RegisteredAt:    stringValue(values["registered_at"]),
 	}
+}
+
+func intPointerValue(value any) *int {
+	number, ok := intValueOK(value)
+	if !ok {
+		return nil
+	}
+	return &number
 }
 
 func computeBudgetFromValue(value any) *ComputeBudget {

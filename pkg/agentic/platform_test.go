@@ -69,6 +69,7 @@ func TestPlatform_HandleFleetRegister_Good(t *testing.T) {
 	assert.Equal(t, "linux", node.Platform)
 	assert.Equal(t, []string{"codex"}, node.Models)
 	assert.Equal(t, []string{"go", "review"}, node.Capabilities)
+	assert.Nil(t, node.CurrentTaskID)
 }
 
 func TestPlatform_HandleFleetHeartbeat_Good_ComputeBudget(t *testing.T) {
@@ -192,6 +193,39 @@ func TestPlatform_HandleFleetNextTask_Ugly(t *testing.T) {
 	task, ok := result.Value.(*FleetTask)
 	require.True(t, ok)
 	assert.Nil(t, task)
+}
+
+func TestPlatform_ParseFleetNode_Good_CurrentTaskID(t *testing.T) {
+	node := parseFleetNode(map[string]any{
+		"agent_id":        "charon",
+		"platform":        "linux",
+		"status":          "online",
+		"current_task_id": 17,
+	})
+
+	require.NotNil(t, node.CurrentTaskID)
+	assert.Equal(t, 17, *node.CurrentTaskID)
+}
+
+func TestPlatform_ParseFleetNode_Bad_CurrentTaskIDMissing(t *testing.T) {
+	node := parseFleetNode(map[string]any{
+		"agent_id": "charon",
+		"platform": "linux",
+		"status":   "online",
+	})
+
+	assert.Nil(t, node.CurrentTaskID)
+}
+
+func TestPlatform_ParseFleetNode_Ugly_CurrentTaskIDNull(t *testing.T) {
+	node := parseFleetNode(map[string]any{
+		"agent_id":        "charon",
+		"platform":        "linux",
+		"status":          "online",
+		"current_task_id": nil,
+	})
+
+	assert.Nil(t, node.CurrentTaskID)
 }
 
 func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
