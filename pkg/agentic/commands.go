@@ -45,6 +45,8 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	c.Command("brain:ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
 	c.Command("brain/recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
 	c.Command("brain:recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
+	c.Command("brain/remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember})
+	c.Command("brain:remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember})
 	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain:seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory directory", Action: s.cmdBrainSeedMemory})
 	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
@@ -530,6 +532,59 @@ func (s *PrepSubsystem) cmdBrainList(options core.Options) core.Result {
 	}
 
 	return core.Result{Value: output, OK: true}
+}
+
+// result := c.Command("brain/remember").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "content", Value: "Use named actions."},
+//	core.Option{Key: "type", Value: "convention"},
+//
+// ))
+func (s *PrepSubsystem) cmdBrainRemember(options core.Options) core.Result {
+	content := optionStringValue(options, "content", "_arg")
+	memoryType := optionStringValue(options, "type")
+	if core.Trim(content) == "" || memoryType == "" {
+		core.Print(nil, "usage: core-agent brain remember <content> --type=observation [--tags=architecture,convention] [--project=agent] [--confidence=0.8] [--supersedes=mem-123] [--expires-in=24]")
+		return core.Result{Value: core.E("agentic.cmdBrainRemember", "content and type are required", nil), OK: false}
+	}
+
+	result := s.Core().Action("brain.remember").Run(s.commandContext(), core.NewOptions(
+		core.Option{Key: "content", Value: content},
+		core.Option{Key: "type", Value: memoryType},
+		core.Option{Key: "tags", Value: optionStringSliceValue(options, "tags")},
+		core.Option{Key: "project", Value: optionStringValue(options, "project")},
+		core.Option{Key: "confidence", Value: optionStringValue(options, "confidence")},
+		core.Option{Key: "supersedes", Value: optionStringValue(options, "supersedes")},
+		core.Option{Key: "expires_in", Value: optionIntValue(options, "expires_in", "expires-in")},
+	))
+	if !result.OK {
+		err := commandResultError("agentic.cmdBrainRemember", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	jsonResult := core.JSONMarshalString(result.Value)
+	if jsonResult == "" {
+		err := core.E("agentic.cmdBrainRemember", "invalid brain remember output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+	var decoded map[string]any
+	if parseResult := core.JSONUnmarshalString(jsonResult, &decoded); !parseResult.OK {
+		err := core.E("agentic.cmdBrainRemember", "invalid brain remember output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	memoryID := stringValue(decoded["memoryId"])
+	if memoryID == "" {
+		memoryID = stringValue(decoded["memory_id"])
+	}
+	core.Print(nil, "remembered: %s", memoryID)
+	if timestamp := stringValue(decoded["timestamp"]); timestamp != "" {
+		core.Print(nil, "timestamp:  %s", timestamp)
+	}
+	return core.Result{Value: decoded, OK: true}
 }
 
 // result := c.Command("brain/recall").Run(ctx, core.NewOptions(

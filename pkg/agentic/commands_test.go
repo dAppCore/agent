@@ -232,6 +232,8 @@ func TestCommands_RegisterCommands_Good_BrainRecall(t *testing.T) {
 
 	assert.Contains(t, c.Commands(), "brain/recall")
 	assert.Contains(t, c.Commands(), "brain:recall")
+	assert.Contains(t, c.Commands(), "brain/remember")
+	assert.Contains(t, c.Commands(), "brain:remember")
 }
 
 func TestCommands_CmdBrainList_Good(t *testing.T) {
@@ -269,6 +271,70 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 	assert.Contains(t, output, "count: 1")
 	assert.Contains(t, output, "mem-1 architecture")
 	assert.Contains(t, output, "Use named actions.")
+}
+
+func TestCommands_CmdBrainRemember_Good(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.remember", func(_ context.Context, options core.Options) core.Result {
+		assert.Equal(t, "Use named actions.", options.String("content"))
+		assert.Equal(t, "convention", options.String("type"))
+		assert.Equal(t, []string{"architecture", "history"}, optionStringSliceValue(options, "tags"))
+		assert.Equal(t, "agent", options.String("project"))
+		assert.Equal(t, "0.9", options.String("confidence"))
+		assert.Equal(t, "mem-1", options.String("supersedes"))
+		assert.Equal(t, 24, options.Int("expires_in"))
+		return core.Result{Value: map[string]any{
+			"success":   true,
+			"memoryId":  "mem-1",
+			"timestamp": "2026-03-31T12:00:00Z",
+		}, OK: true}
+	})
+
+	output := captureStdout(t, func() {
+		result := s.cmdBrainRemember(core.NewOptions(
+			core.Option{Key: "_arg", Value: "Use named actions."},
+			core.Option{Key: "type", Value: "convention"},
+			core.Option{Key: "tags", Value: []string{"architecture", "history"}},
+			core.Option{Key: "project", Value: "agent"},
+			core.Option{Key: "confidence", Value: "0.9"},
+			core.Option{Key: "supersedes", Value: "mem-1"},
+			core.Option{Key: "expires_in", Value: 24},
+		))
+		require.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "remembered: mem-1")
+	assert.Contains(t, output, "timestamp:  2026-03-31T12:00:00Z")
+}
+
+func TestCommands_CmdBrainRemember_Bad_MissingContent(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	result := s.cmdBrainRemember(core.NewOptions(
+		core.Option{Key: "type", Value: "convention"},
+	))
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "content and type are required")
+}
+
+func TestCommands_CmdBrainRemember_Ugly_InvalidOutput(t *testing.T) {
+	s, c := testPrepWithCore(t, nil)
+	c.Action("brain.remember", func(_ context.Context, _ core.Options) core.Result {
+		return core.Result{Value: 123, OK: true}
+	})
+
+	result := s.cmdBrainRemember(core.NewOptions(
+		core.Option{Key: "_arg", Value: "Use named actions."},
+		core.Option{Key: "type", Value: "convention"},
+	))
+
+	require.False(t, result.OK)
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "invalid brain remember output")
 }
 
 func TestCommands_CmdBrainList_Bad_MissingAction(t *testing.T) {
