@@ -45,6 +45,54 @@ type FleetEventsInput struct {
 	Capabilities []string `json:"capabilities,omitempty"`
 }
 
+// input := agentic.FleetNodesInput{Status: "online", Platform: "linux"}
+type FleetNodesInput struct {
+	Status   string `json:"status,omitempty"`
+	Platform string `json:"platform,omitempty"`
+}
+
+// input := agentic.FleetTaskNextInput{AgentID: "charon", Capabilities: []string{"go", "review"}}
+type FleetTaskNextInput struct {
+	AgentID      string   `json:"agent_id"`
+	Capabilities []string `json:"capabilities,omitempty"`
+}
+
+// input := agentic.CreditsAwardInput{AgentID: "charon", TaskType: "fleet-task", Amount: 2}
+type CreditsAwardInput struct {
+	AgentID     string `json:"agent_id"`
+	TaskType    string `json:"task_type"`
+	Amount      int    `json:"amount"`
+	FleetNodeID int    `json:"fleet_node_id,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// input := agentic.CreditsBalanceInput{AgentID: "charon"}
+type CreditsBalanceInput struct {
+	AgentID string `json:"agent_id"`
+}
+
+// input := agentic.CreditsHistoryInput{AgentID: "charon", Limit: 50}
+type CreditsHistoryInput struct {
+	AgentID string `json:"agent_id"`
+	Limit   int    `json:"limit,omitempty"`
+}
+
+// input := agentic.SubscriptionDetectInput{APIKeys: map[string]string{"openai": "sk-..."}}
+type SubscriptionDetectInput struct {
+	APIKeys map[string]string `json:"api_keys,omitempty"`
+}
+
+// input := agentic.SubscriptionBudgetInput{AgentID: "charon"}
+type SubscriptionBudgetInput struct {
+	AgentID string `json:"agent_id"`
+}
+
+// input := agentic.SubscriptionBudgetUpdateInput{AgentID: "charon", Limits: map[string]any{"max_daily_hours": 2}}
+type SubscriptionBudgetUpdateInput struct {
+	AgentID string         `json:"agent_id"`
+	Limits  map[string]any `json:"limits"`
+}
+
 func (s *PrepSubsystem) registerPlatformTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "agentic_sync_push",
@@ -283,10 +331,7 @@ func (s *PrepSubsystem) fleetDeregisterTool(ctx context.Context, _ *mcp.CallTool
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) fleetNodesTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	Status   string `json:"status,omitempty"`
-	Platform string `json:"platform,omitempty"`
-}) (*mcp.CallToolResult, FleetNodesOutput, error) {
+func (s *PrepSubsystem) fleetNodesTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetNodesInput) (*mcp.CallToolResult, FleetNodesOutput, error) {
 	result := s.handleFleetNodes(ctx, platformOptions(
 		core.Option{Key: "status", Value: input.Status},
 		core.Option{Key: "platform", Value: input.Platform},
@@ -340,10 +385,7 @@ func (s *PrepSubsystem) fleetTaskCompleteTool(ctx context.Context, _ *mcp.CallTo
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) fleetTaskNextTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID      string   `json:"agent_id"`
-	Capabilities []string `json:"capabilities,omitempty"`
-}) (*mcp.CallToolResult, *FleetTask, error) {
+func (s *PrepSubsystem) fleetTaskNextTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetTaskNextInput) (*mcp.CallToolResult, *FleetTask, error) {
 	result := s.handleFleetNextTask(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "capabilities", Value: input.Capabilities},
@@ -385,13 +427,7 @@ func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, _ *mcp.CallToolRequ
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) creditsAwardTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID     string `json:"agent_id"`
-	TaskType    string `json:"task_type"`
-	Amount      int    `json:"amount"`
-	FleetNodeID int    `json:"fleet_node_id,omitempty"`
-	Description string `json:"description,omitempty"`
-}) (*mcp.CallToolResult, CreditEntry, error) {
+func (s *PrepSubsystem) creditsAwardTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsAwardInput) (*mcp.CallToolResult, CreditEntry, error) {
 	result := s.handleCreditsAward(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "task_type", Value: input.TaskType},
@@ -409,9 +445,7 @@ func (s *PrepSubsystem) creditsAwardTool(ctx context.Context, _ *mcp.CallToolReq
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) creditsBalanceTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID string `json:"agent_id"`
-}) (*mcp.CallToolResult, CreditBalance, error) {
+func (s *PrepSubsystem) creditsBalanceTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsBalanceInput) (*mcp.CallToolResult, CreditBalance, error) {
 	result := s.handleCreditsBalance(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
 	if !result.OK {
 		return nil, CreditBalance{}, resultErrorValue("agentic.credits.balance", result)
@@ -423,10 +457,7 @@ func (s *PrepSubsystem) creditsBalanceTool(ctx context.Context, _ *mcp.CallToolR
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) creditsHistoryTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID string `json:"agent_id"`
-	Limit   int    `json:"limit,omitempty"`
-}) (*mcp.CallToolResult, CreditsHistoryOutput, error) {
+func (s *PrepSubsystem) creditsHistoryTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsHistoryInput) (*mcp.CallToolResult, CreditsHistoryOutput, error) {
 	result := s.handleCreditsHistory(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "limit", Value: input.Limit},
@@ -441,9 +472,7 @@ func (s *PrepSubsystem) creditsHistoryTool(ctx context.Context, _ *mcp.CallToolR
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) subscriptionDetectTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	APIKeys map[string]string `json:"api_keys,omitempty"`
-}) (*mcp.CallToolResult, SubscriptionCapabilities, error) {
+func (s *PrepSubsystem) subscriptionDetectTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionDetectInput) (*mcp.CallToolResult, SubscriptionCapabilities, error) {
 	result := s.handleSubscriptionDetect(ctx, platformOptions(core.Option{Key: "api_keys", Value: input.APIKeys}))
 	if !result.OK {
 		return nil, SubscriptionCapabilities{}, resultErrorValue("agentic.subscription.detect", result)
@@ -455,9 +484,7 @@ func (s *PrepSubsystem) subscriptionDetectTool(ctx context.Context, _ *mcp.CallT
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) subscriptionBudgetTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID string `json:"agent_id"`
-}) (*mcp.CallToolResult, map[string]any, error) {
+func (s *PrepSubsystem) subscriptionBudgetTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionBudgetInput) (*mcp.CallToolResult, map[string]any, error) {
 	result := s.handleSubscriptionBudget(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
 	if !result.OK {
 		return nil, nil, resultErrorValue("agentic.subscription.budget", result)
@@ -469,10 +496,7 @@ func (s *PrepSubsystem) subscriptionBudgetTool(ctx context.Context, _ *mcp.CallT
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) subscriptionBudgetUpdateTool(ctx context.Context, _ *mcp.CallToolRequest, input struct {
-	AgentID string         `json:"agent_id"`
-	Limits  map[string]any `json:"limits"`
-}) (*mcp.CallToolResult, map[string]any, error) {
+func (s *PrepSubsystem) subscriptionBudgetUpdateTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionBudgetUpdateInput) (*mcp.CallToolResult, map[string]any, error) {
 	result := s.handleSubscriptionBudgetUpdate(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "limits", Value: input.Limits},
