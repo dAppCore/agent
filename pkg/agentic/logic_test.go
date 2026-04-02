@@ -101,6 +101,11 @@ func TestDispatch_AgentCommand_Good_LocalWithModel(t *testing.T) {
 	assert.Contains(t, args[1], "mistral-nemo")
 }
 
+func TestDispatch_LocalAgentCommandScript_Good_ShellQuoting(t *testing.T) {
+	script := localAgentCommandScript("devstral-24b", "can't break quoting")
+	assert.Contains(t, script, "'can'\\''t break quoting'")
+}
+
 func TestDispatch_AgentCommand_Bad_Unknown(t *testing.T) {
 	cmd, args, err := agentCommand("robot-from-the-future", "take over")
 	assert.Error(t, err)

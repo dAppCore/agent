@@ -134,14 +134,26 @@ func agentCommandResult(agent, prompt string) core.Result {
 		if localModel == "" {
 			localModel = "devstral-24b"
 		}
-		script := core.Sprintf(
-			`socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5 && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m %s -o ../.meta/agent-codex.log %q`,
-			localModel, prompt,
-		)
+		script := localAgentCommandScript(localModel, prompt)
 		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
 	default:
 		return core.Result{Value: core.E("agentCommand", core.Concat("unknown agent: ", agent), nil), OK: false}
 	}
+}
+
+// localAgentCommandScript("devstral-24b", "Review the last 2 commits")
+func localAgentCommandScript(model, prompt string) string {
+	builder := core.NewBuilder()
+	builder.WriteString("socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5")
+	builder.WriteString(" && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m ")
+	builder.WriteString(shellQuote(model))
+	builder.WriteString(" -o ../.meta/agent-codex.log ")
+	builder.WriteString(shellQuote(prompt))
+	return builder.String()
+}
+
+func shellQuote(value string) string {
+	return core.Concat("'", core.Replace(value, "'", "'\\''"), "'")
 }
 
 const defaultDockerImage = "core-dev"
