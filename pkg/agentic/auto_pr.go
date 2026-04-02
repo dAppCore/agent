@@ -79,6 +79,8 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 		return
 	}
 
+	s.cleanupForgeBranch(ctx, repoDir, forgeRemote, workspaceStatus.Branch)
+
 	if result := ReadStatusResult(workspaceDir); result.OK {
 		workspaceStatusUpdate, ok := workspaceStatusValue(result)
 		if !ok {
@@ -104,6 +106,21 @@ func (s *PrepSubsystem) buildAutoPRBody(workspaceStatus *WorkspaceStatus, commit
 	b.WriteString("Auto-created by core-agent dispatch system.\n")
 	b.WriteString("Co-Authored-By: Virgil <virgil@lethean.io>\n")
 	return b.String()
+}
+
+// cleanupForgeBranch removes an agent branch from the Forge remote after the PR is published.
+//
+//	s.cleanupForgeBranch(context.Background(), "/workspace/repo", "ssh://git@forge.lthn.ai:2223/core/go-io.git", "agent/fix-tests")
+func (s *PrepSubsystem) cleanupForgeBranch(ctx context.Context, repoDir, remote, branch string) bool {
+	if repoDir == "" || remote == "" || branch == "" {
+		return false
+	}
+	if s == nil || s.ServiceRuntime == nil {
+		return false
+	}
+
+	result := s.Core().Process().RunIn(ctx, repoDir, "git", "push", remote, "--delete", branch)
+	return result.OK
 }
 
 func truncate(s string, max int) string {

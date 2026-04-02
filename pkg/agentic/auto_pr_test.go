@@ -9,6 +9,7 @@ import (
 
 	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAutopr_AutoCreatePR_Good(t *testing.T) {
@@ -21,8 +22,8 @@ func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// No status file → early return (no panic)
@@ -83,12 +84,36 @@ func TestAutopr_AutoCreatePR_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		backoff:   make(map[string]time.Time),
-		failCount: make(map[string]int),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	// git log origin/dev..HEAD will fail (no origin remote) → early return
 	assert.NotPanics(t, func() {
 		s.autoCreatePR(wsDir)
 	})
+}
+
+func TestAutopr_CleanupForgeBranch_Good_DeletesRemoteBranch(t *testing.T) {
+	remoteDir := core.JoinPath(t.TempDir(), "remote.git")
+	require.True(t, testCore.Process().Run(context.Background(), "git", "init", "--bare", remoteDir).OK)
+
+	repoDir := core.JoinPath(t.TempDir(), "repo")
+	require.True(t, testCore.Process().Run(context.Background(), "git", "clone", remoteDir, repoDir).OK)
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test").OK)
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@example.com").OK)
+
+	branch := "agent/fix-branch"
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "checkout", "-b", branch).OK)
+	fs.Write(core.JoinPath(repoDir, "README.md"), "# test")
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "add", ".").OK)
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init").OK)
+	require.True(t, testCore.Process().RunIn(context.Background(), repoDir, "git", "push", "-u", "origin", branch).OK)
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	assert.True(t, s.cleanupForgeBranch(context.Background(), repoDir, remoteDir, branch))
+
+	remoteHeads := testCore.Process().RunIn(context.Background(), repoDir, "git", "ls-remote", "--heads", remoteDir, branch)
+	require.True(t, remoteHeads.OK)
+	assert.NotContains(t, remoteHeads.Value.(string), branch)
 }

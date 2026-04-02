@@ -147,6 +147,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	workspaceStatus.PRURL = pullRequestURL
 	writeStatusResult(workspaceDir, workspaceStatus)
+	s.cleanupForgeBranch(ctx, repoDir, forgeRemote, workspaceStatus.Branch)
 
 	if workspaceStatus.Issue > 0 {
 		comment := core.Sprintf("Pull request created: %s", pullRequestURL)

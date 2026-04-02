@@ -96,6 +96,8 @@ func (s *PrepSubsystem) attemptVerifyAndMerge(repoDir, org, repo, branch string,
 
 	comment := core.Sprintf("## Auto-Verified & Merged\n\n**Tests:** `%s` — PASS\n\nAuto-merged by core-agent dispatch system.", testResult.testCmd)
 	s.commentOnIssue(context.Background(), org, repo, pullRequestNumber, comment)
+	forgeRemote := core.Sprintf("ssh://git@forge.lthn.ai:2223/%s/%s.git", org, repo)
+	s.cleanupForgeBranch(ctx, repoDir, forgeRemote, branch)
 	return mergeSuccess
 }
 
