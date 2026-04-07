@@ -7,6 +7,7 @@ import (
 
 	"dappco.re/go/agent/pkg/setup"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -53,8 +54,8 @@ func (s *PrepSubsystem) handleSetup(_ context.Context, options core.Options) cor
 	return result
 }
 
-func (s *PrepSubsystem) registerSetupTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerSetupTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_setup",
 		Description: "Scaffold a workspace with .core config files and optional templates.",
 	}, s.setupTool)

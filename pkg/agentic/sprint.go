@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -153,48 +154,48 @@ func (s *PrepSubsystem) handleSprintArchive(ctx context.Context, options core.Op
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerSprintTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerSprintTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)

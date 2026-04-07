@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -34,8 +35,8 @@ type WatchResult struct {
 	PRURL     string `json:"pr_url,omitempty"`
 }
 
-func (s *PrepSubsystem) registerWatchTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerWatchTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_watch",
 		Description: "Watch running/queued agent workspaces until they all complete. Sends progress notifications as each agent finishes. Returns summary when all are done.",
 	}, s.watch)

@@ -56,7 +56,7 @@ func resultString(result core.Result) (string, bool) {
 // service.Start(context.Background())
 type Subsystem struct {
 	*core.ServiceRuntime[Options]
-	server   *mcp.Server
+	svc      *coremcp.Service
 	interval time.Duration
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -145,11 +145,11 @@ func (m *Subsystem) debug(msg string) {
 // name := service.Name() // "monitor"
 func (m *Subsystem) Name() string { return "monitor" }
 
-// service.RegisterTools(server)
-func (m *Subsystem) RegisterTools(server *mcp.Server) {
-	m.server = server
+// service.RegisterTools(svc)
+func (m *Subsystem) RegisterTools(svc *coremcp.Service) {
+	m.svc = svc
 
-	server.AddResource(&mcp.Resource{
+	svc.Server().AddResource(&mcp.Resource{
 		Name:        "Agent Status",
 		URI:         "status://agents",
 		Description: "Current status of all agent workspaces",
@@ -297,8 +297,8 @@ func (m *Subsystem) check(ctx context.Context) {
 	combinedMessage := core.Join("\n", statusMessages...)
 	m.notify(ctx, combinedMessage)
 
-	if m.server != nil {
-		m.server.ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
+	if m.svc != nil {
+		m.svc.Server().ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
 			URI: "status://agents",
 		})
 	}
@@ -465,11 +465,11 @@ func (m *Subsystem) checkInbox() string {
 }
 
 func (m *Subsystem) notify(ctx context.Context, message string) {
-	if m.server == nil {
+	if m.svc == nil {
 		return
 	}
 
-	for session := range m.server.Sessions() {
+	for session := range m.svc.Server().Sessions() {
 		session.Log(ctx, &mcp.LoggingMessageParams{
 			Level:  "info",
 			Logger: "monitor",

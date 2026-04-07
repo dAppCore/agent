@@ -10,6 +10,7 @@ import (
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
@@ -148,18 +149,18 @@ func (s *PrepSubsystem) handleTemplateCreatePlan(ctx context.Context, options co
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerTemplateTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerTemplateTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "template_list",
 		Description: "List available plan templates with variables, category, and phase counts.",
 	}, s.templateList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "template_preview",
 		Description: "Preview a plan template with variable substitution before creating a stored plan.",
 	}, s.templatePreview)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "template_create_plan",
 		Description: "Create a stored plan from an embedded YAML template, with optional activation.",
 	}, s.templateCreatePlan)

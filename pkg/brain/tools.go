@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -132,23 +133,23 @@ type ListOutput struct {
 	Memories []Memory `json:"memories"`
 }
 
-func (s *Subsystem) registerBrainTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *Subsystem) registerBrainTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in the shared OpenBrain knowledge store. Persists decisions, observations, conventions, research, plans, bugs, or architecture knowledge for other agents.",
 	}, s.brainRemember)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across the shared OpenBrain knowledge store. Returns memories ranked by similarity to your query, with optional filtering.",
 	}, s.brainRecall)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from the shared OpenBrain knowledge store. Permanently deletes from both database and vector index.",
 	}, s.brainForget)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.",
 	}, s.brainList)

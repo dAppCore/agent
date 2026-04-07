@@ -9,6 +9,7 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -125,30 +126,30 @@ func (s *PrepSubsystem) handleMessageConversation(ctx context.Context, options c
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerMessageTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerMessageTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_message_send",
 		Description: "Send a direct message between two agents within a workspace.",
 	}, s.messageSend)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a direct message between two agents within a workspace.",
 	}, s.messageSend)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_message_inbox",
 		Description: "List messages delivered to an agent within a workspace.",
 	}, s.messageInbox)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "List messages delivered to an agent within a workspace.",
 	}, s.messageInbox)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_message_conversation",
 		Description: "List the chronological conversation between two agents within a workspace.",
 	}, s.messageConversation)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "List the chronological conversation between two agents within a workspace.",
 	}, s.messageConversation)

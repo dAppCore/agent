@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -37,8 +38,8 @@ func (s *PrepSubsystem) handleCommit(_ context.Context, options core.Options) co
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerCommitTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerCommitTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_commit",
 		Description: "Write the final workspace dispatch record to the local journal after verify completes.",
 	}, s.commitTool)

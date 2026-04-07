@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -145,8 +146,8 @@ type BlockedInfo struct {
 	Question string `json:"question"`
 }
 
-func (s *PrepSubsystem) registerStatusTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerStatusTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_status",
 		Description: "List agent workspaces and their status (running, completed, blocked, failed). Supports workspace, status, and limit filters. Shows blocked agents with their questions.",
 	}, s.status)

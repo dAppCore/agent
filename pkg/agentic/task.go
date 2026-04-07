@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -122,30 +123,30 @@ func (s *PrepSubsystem) handleTaskToggle(ctx context.Context, options core.Optio
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerTaskTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerTaskTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "task_create",
 		Description: "Create a plan task by plan slug and phase order.",
 	}, s.taskCreate)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_task_create",
 		Description: "Create a plan task by plan slug and phase order.",
 	}, s.taskCreate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
 	}, s.taskUpdate)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
 	}, s.taskUpdate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "task_toggle",
 		Description: "Toggle a plan task between pending and completed.",
 	}, s.taskToggle)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_task_toggle",
 		Description: "Toggle a plan task between pending and completed.",
 	}, s.taskToggle)

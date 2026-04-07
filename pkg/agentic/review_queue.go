@@ -8,6 +8,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -55,8 +56,8 @@ func compileRetryAfterPattern() *regexp.Regexp {
 	return pattern
 }
 
-func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerReviewQueueTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_review_queue",
 		Description: "Process the review queue. Supports coderabbit, codex, or both reviewers, auto-merges clean ones on GitHub, dispatches fix agents for findings, and respects rate limits.",
 	}, s.reviewQueue)

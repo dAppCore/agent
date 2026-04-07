@@ -9,8 +9,8 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // keyPath := core.JoinPath(home, ".claude", "brain.key")
@@ -43,9 +43,9 @@ func New(bridge *ide.Bridge) *Subsystem {
 func (s *Subsystem) Name() string { return "brain" }
 
 // subsystem := brain.New(nil)
-// subsystem.RegisterTools(server)
-func (s *Subsystem) RegisterTools(server *mcp.Server) {
-	s.registerBrainTools(server)
+// subsystem.RegisterTools(svc)
+func (s *Subsystem) RegisterTools(svc *coremcp.Service) {
+	s.registerBrainTools(svc)
 }
 
 // _ = subsystem.Shutdown(context.Background())

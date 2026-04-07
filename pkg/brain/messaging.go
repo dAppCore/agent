@@ -7,23 +7,24 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // subsystem := brain.NewDirect()
-// subsystem.RegisterMessagingTools(server)
-func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+// subsystem.RegisterMessagingTools(svc)
+func (s *DirectSubsystem) RegisterMessagingTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a message to another agent. Direct, chronological, not semantic.",
 	}, s.sendMessage)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "Check your inbox — latest messages sent to you.",
 	}, s.inbox)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "View conversation thread with a specific agent.",
 	}, s.conversation)

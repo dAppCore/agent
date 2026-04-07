@@ -13,6 +13,7 @@ import (
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
 	forge_types "dappco.re/go/core/forge/types"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -262,15 +263,13 @@ func TestPr_ClosePR_Good_Success(t *testing.T) {
 }
 
 func TestPr_RegisterPRTools_Good_RegistersPRAliases(t *testing.T) {
-	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
-		Capabilities: &mcpsdk.ServerCapabilities{
-			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
-		},
-	})
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	s.registerPRTools(server)
+	s.registerPRTools(svc)
 
+	server := svc.Server()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 

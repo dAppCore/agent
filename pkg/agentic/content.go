@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -387,53 +388,53 @@ func (s *PrepSubsystem) handleContentSchemaGenerate(ctx context.Context, options
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerContentTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerContentTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_generate",
 		Description: "Generate content from a prompt or a brief/template pair using the platform AI provider abstraction.",
 	}, s.contentGenerate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_batch_generate",
 		Description: "Generate content for a stored batch specification.",
 	}, s.contentBatchGenerate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_batch",
 		Description: "Generate content for a stored batch specification using the legacy MCP alias.",
 	}, s.contentBatchGenerate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_brief_create",
 		Description: "Create a reusable content brief for later generation work.",
 	}, s.contentBriefCreate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_brief_get",
 		Description: "Read a reusable content brief by ID or slug.",
 	}, s.contentBriefGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_brief_list",
 		Description: "List reusable content briefs with optional category and product filters.",
 	}, s.contentBriefList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_status",
 		Description: "Read batch content generation status by batch ID.",
 	}, s.contentStatus)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_usage_stats",
 		Description: "Read AI usage statistics for the content pipeline.",
 	}, s.contentUsageStats)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_from_plan",
 		Description: "Generate content using stored plan context and an optional provider override.",
 	}, s.contentFromPlan)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "content_schema_generate",
 		Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content.",
 	}, s.contentSchemaGenerate)

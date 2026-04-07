@@ -12,9 +12,9 @@ import (
 
 	core "dappco.re/go/core"
 	providerws "dappco.re/go/core/ws"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
-	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,16 +64,18 @@ func testBridge(t *testing.T) *ide.Bridge {
 
 func TestBrain_RegisterTools_Good(t *testing.T) {
 	sub := New(nil)
-	srv := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
-	sub.RegisterTools(srv)
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
+	sub.RegisterTools(svc)
 }
 
 func TestDirect_RegisterTools_Good(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "http://localhost")
 	t.Setenv("CORE_BRAIN_KEY", "test-key")
 	sub := NewDirect()
-	srv := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
-	sub.RegisterTools(srv)
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
+	sub.RegisterTools(svc)
 }
 
 // --- Subsystem with connected bridge ---

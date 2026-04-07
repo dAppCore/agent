@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -81,18 +82,18 @@ func (s *PrepSubsystem) handlePhaseAddCheckpoint(ctx context.Context, options co
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerPhaseTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerPhaseTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "phase_get",
 		Description: "Get a phase by plan slug and phase order.",
 	}, s.phaseGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "phase_update_status",
 		Description: "Update a phase status by plan slug and phase order.",
 	}, s.phaseUpdateStatus)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "phase_add_checkpoint",
 		Description: "Append a checkpoint note to a phase.",
 	}, s.phaseAddCheckpoint)

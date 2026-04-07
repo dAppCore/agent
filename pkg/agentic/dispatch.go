@@ -9,6 +9,7 @@ import (
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/process"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -44,8 +45,8 @@ type DispatchOutput struct {
 	OutputFile   string `json:"output_file,omitempty"`
 }
 
-func (s *PrepSubsystem) registerDispatchTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerDispatchTool(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_dispatch",
 		Description: "Dispatch a subagent (Gemini, Codex, or Claude) to work on a task. Preps a sandboxed workspace first, then spawns the agent inside it. Templates: conventions, security, coding.",
 	}, s.dispatch)

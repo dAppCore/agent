@@ -419,52 +419,52 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 }
 
 // subsystem := agentic.NewPrep()
-// subsystem.RegisterTools(server)
-func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+// subsystem.RegisterTools(svc)
+func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
 
-	s.registerDispatchTool(server)
-	s.registerStatusTool(server)
-	s.registerResumeTool(server)
-	mcp.AddTool(server, &mcp.Tool{
+	s.registerDispatchTool(svc)
+	s.registerStatusTool(svc)
+	s.registerResumeTool(svc)
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_complete",
 		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
 	}, s.completeTool)
-	s.registerCommitTool(server)
-	s.registerCreatePRTool(server)
-	s.registerListPRsTool(server)
-	s.registerClosePRTool(server)
-	s.registerEpicTool(server)
-	s.registerMirrorTool(server)
-	s.registerRemoteDispatchTool(server)
-	s.registerRemoteStatusTool(server)
-	s.registerReviewQueueTool(server)
-	s.registerPlatformTools(server)
-	s.registerShutdownTools(server)
-	s.registerSessionTools(server)
-	s.registerStateTools(server)
-	s.registerPhaseTools(server)
-	s.registerTaskTools(server)
-	s.registerPromptTools(server)
-	s.registerTemplateTools(server)
-	s.registerIssueTools(server)
-	s.registerMessageTools(server)
-	s.registerSprintTools(server)
-	s.registerPRTools(server)
-	s.registerContentTools(server)
-	s.registerLanguageTools(server)
-	s.registerSetupTool(server)
+	s.registerCommitTool(svc)
+	s.registerCreatePRTool(svc)
+	s.registerListPRsTool(svc)
+	s.registerClosePRTool(svc)
+	s.registerEpicTool(svc)
+	s.registerMirrorTool(svc)
+	s.registerRemoteDispatchTool(svc)
+	s.registerRemoteStatusTool(svc)
+	s.registerReviewQueueTool(svc)
+	s.registerPlatformTools(svc)
+	s.registerShutdownTools(svc)
+	s.registerSessionTools(svc)
+	s.registerStateTools(svc)
+	s.registerPhaseTools(svc)
+	s.registerTaskTools(svc)
+	s.registerPromptTools(svc)
+	s.registerTemplateTools(svc)
+	s.registerIssueTools(svc)
+	s.registerMessageTools(svc)
+	s.registerSprintTools(svc)
+	s.registerPRTools(svc)
+	s.registerContentTools(svc)
+	s.registerLanguageTools(svc)
+	s.registerSetupTool(svc)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
 	}, s.scan)
 
-	s.registerPlanTools(server)
-	s.registerWatchTool(server)
+	s.registerPlanTools(svc)
+	s.registerWatchTool(svc)
 }
 
 // subsystem := agentic.NewPrep()
