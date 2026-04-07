@@ -9,7 +9,7 @@ import (
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

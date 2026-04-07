@@ -7,8 +7,8 @@ import (
 
 	"dappco.re/go/core/api"
 	"dappco.re/go/core/api/pkg/provider"
-	"forge.lthn.ai/core/go-ws"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	"dappco.re/go/core/ws"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 )
 

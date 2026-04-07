@@ -12,7 +12,7 @@ import (
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
 	"dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 )
 

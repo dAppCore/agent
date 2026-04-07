@@ -4,7 +4,7 @@ package main
 
 import (
 	core "dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp"
 )
 
 // c := core.New(core.WithService(registerMCPService))

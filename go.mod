@@ -4,9 +4,11 @@ go 1.26.0
 
 require (
 	dappco.re/go/core v0.8.0-alpha.1
-	dappco.re/go/core/api v0.2.0
-	dappco.re/go/core/process v0.3.0
-	dappco.re/go/core/mcp v0.4.8
+	dappco.re/go/core/api v0.3.0
+	dappco.re/go/core/forge v0.3.1
+	dappco.re/go/core/process v0.5.0
+	dappco.re/go/core/ws v0.4.0
+	dappco.re/go/mcp v0.5.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.4.1
@@ -15,21 +17,11 @@ require (
 )
 
 require (
-	dappco.re/go/core/forge v0.2.0
-	dappco.re/go/core/ws v0.2.5
-)
-
-require (
-	dappco.re/go/core/io v0.2.0 // indirect
-	dappco.re/go/core/log v0.1.0 // indirect
-	dappco.re/go/core/api v0.1.5 // indirect
-	dappco.re/go/core v0.3.3 // indirect
-	dappco.re/go/core/ai v0.1.12 // indirect
-	dappco.re/go/core/io v0.1.7 // indirect
-	dappco.re/go/core/log v0.0.4 // indirect
-	dappco.re/go/core/process v0.2.9 // indirect
-	dappco.re/go/core/rag v0.1.11 // indirect
-	dappco.re/go/core/webview v0.1.6 // indirect
+	dappco.re/go/core/ai v0.2.2 // indirect
+	dappco.re/go/core/io v0.4.1 // indirect
+	dappco.re/go/core/log v0.1.2 // indirect
+	dappco.re/go/core/rag v0.1.13 // indirect
+	dappco.re/go/core/webview v0.2.1 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
@@ -80,6 +72,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect

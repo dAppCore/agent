@@ -14,7 +14,7 @@ import (
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
 	"dappco.re/go/core/forge"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -990,7 +990,7 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	goWorkPath := core.JoinPath(s.codePath, "go.work")
-	modulePath := core.Concat("forge.lthn.ai/core/", repo)
+	modulePath := core.Concat("dappco.re/go/core/", repo)
 
 	r := fs.Read(goWorkPath)
 	if !r.OK {
