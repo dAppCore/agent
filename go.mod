@@ -6,7 +6,7 @@ require (
 	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/core/api v0.3.0
 	dappco.re/go/core/forge v0.3.1
-	dappco.re/go/core/process v0.5.0
+	dappco.re/go/core/process v0.5.1
 	dappco.re/go/core/ws v0.4.0
 	dappco.re/go/mcp v0.5.1
 	github.com/gin-gonic/gin v1.12.0
@@ -126,3 +126,5 @@ require (
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace dappco.re/go/mcp => ../mcp

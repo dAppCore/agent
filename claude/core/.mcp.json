@@ -1,12 +1,11 @@
 {
-  "mcpServers": {
-    "agent": {
-      "type": "stdio",
-      "command": "core-agent",
-      "args": ["mcp"],
-      "env": {
-        "MONITOR_INTERVAL": "15s"
-      }
+  "core": {
+    "type": "stdio",
+    "command": "core-agent",
+    "args": ["mcp"],
+    "env": {
+      "MONITOR_INTERVAL": "10s",
+      "CORE_AGENT_DISPATCH": "1"
     }
   }
 }

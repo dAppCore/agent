@@ -693,6 +693,7 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 }
 
 func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
+	t.Setenv("CORE_MCP_FULL", "1")
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
 	require.NoError(t, err)
 

@@ -11,7 +11,7 @@ arguments:
     description: Filter by type (decision, plan, convention, architecture, observation, fact)
 ---
 
-Use the `mcp__core__brain_recall` tool with:
+Use the `mcp__plugin_agent_agent__brain_recall` tool with:
 - query: $ARGUMENTS.query
 - top_k: 5
 - filter with project and type if provided
