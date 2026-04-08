@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "core": {
+    "agent": {
       "type": "stdio",
       "command": "core-agent",
       "args": ["mcp"],
