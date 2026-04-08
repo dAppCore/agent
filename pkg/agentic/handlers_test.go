@@ -19,7 +19,7 @@ import (
 func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 	t.Helper()
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		codePath:   t.TempDir(),
@@ -120,7 +120,7 @@ func TestHandlers_PokeQueue_Good(t *testing.T) {
 
 func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	workspaceName := "core/go-io/task-5"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
@@ -201,7 +201,7 @@ func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	firstWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-1")
 	secondWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-2")
@@ -227,7 +227,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 
 func TestHandlers_IngestDisabled_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		pokeCh:     make(chan struct{}, 1),
@@ -251,7 +251,7 @@ func TestHandlers_IngestDisabled_Bad(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "core", "go-io", "task-15")
@@ -263,7 +263,7 @@ func TestHandlers_ResolveWorkspace_Good(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("nonexistent")
 	assert.Empty(t, result)
@@ -271,7 +271,7 @@ func TestHandlers_ResolveWorkspace_Bad(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-test")
@@ -285,7 +285,7 @@ func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Deep layout: org/repo/task
@@ -302,7 +302,7 @@ func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
 
 func TestHandlers_Commandsforge_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),
@@ -314,7 +314,7 @@ func TestHandlers_Commandsforge_Good(t *testing.T) {
 
 func TestHandlers_Commandsworkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{}),

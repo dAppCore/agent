@@ -12,7 +12,7 @@ import (
 
 func TestPlancompat_PlanCreateCompat_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, output, err := s.planCreateCompat(context.Background(), nil, PlanCreateInput{
@@ -31,7 +31,7 @@ func TestPlancompat_PlanCreateCompat_Good(t *testing.T) {
 
 func TestPlancompat_PlanGetCompat_Good_BySlug(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -57,7 +57,7 @@ func TestPlancompat_PlanGetCompat_Good_BySlug(t *testing.T) {
 
 func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -80,7 +80,7 @@ func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
 
 func TestPlancompat_PlanArchiveCompat_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

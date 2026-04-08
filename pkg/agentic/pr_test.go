@@ -140,7 +140,7 @@ func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 
 func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -158,7 +158,7 @@ func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 
 func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create workspace with repo/.git
 	wsDir := core.JoinPath(root, "workspace", "test-ws")
@@ -194,7 +194,7 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 
 func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-2")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -545,7 +545,7 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 func TestPr_CreatePR_Ugly(t *testing.T) {
 	// Workspace with no branch in status (auto-detect from git)
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-ugly")
 	repoDir := core.JoinPath(wsDir, "repo")

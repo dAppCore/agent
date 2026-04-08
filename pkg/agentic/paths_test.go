@@ -14,18 +14,18 @@ import (
 )
 
 func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	assert.Equal(t, "/tmp/test-core", CoreRoot())
 }
 
 func TestPaths_CoreRoot_Good_Fallback(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "")
+	setTestWorkspace(t, "")
 	home := HomeDir()
 	assert.Equal(t, home+"/Code/.core", CoreRoot())
 }
 
 func TestPaths_CoreRoot_Good_CoreHome(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "")
+	setTestWorkspace(t, "")
 	t.Setenv("CORE_HOME", "/tmp/core-home")
 	assert.Equal(t, "/tmp/core-home/Code/.core", CoreRoot())
 }
@@ -45,12 +45,12 @@ func TestPaths_HomeDir_Good_HomeFallback(t *testing.T) {
 }
 
 func TestPaths_WorkspaceRoot_Good(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	assert.Equal(t, "/tmp/test-core/workspace", WorkspaceRoot())
 }
 
 func TestPaths_WorkspaceHelpers_Good(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
 	metaDir := WorkspaceMetaDir(wsDir)
 
@@ -67,7 +67,7 @@ func TestPaths_WorkspaceHelpers_Good(t *testing.T) {
 }
 
 func TestPaths_WorkspaceHelpers_Good_BranchNameWithSlash(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "feature", "new-ui")
 
 	require.True(t, fs.EnsureDir(WorkspaceRepoDir(wsDir)).OK)
@@ -79,7 +79,7 @@ func TestPaths_WorkspaceHelpers_Good_BranchNameWithSlash(t *testing.T) {
 }
 
 func TestPaths_PlansRoot_Good(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	assert.Equal(t, "/tmp/test-core/plans", PlansRoot())
 }
 
@@ -163,14 +163,14 @@ func TestPaths_LocalFs_Ugly_EmptyPath(t *testing.T) {
 // --- WorkspaceRoot Bad/Ugly ---
 
 func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "")
+	setTestWorkspace(t, "")
 	home := HomeDir()
 	// Should fall back to ~/Code/.core/workspace
 	assert.Equal(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
 
 func TestPaths_WorkspaceHelpers_Bad(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core")
+	setTestWorkspace(t, "/tmp/test-core")
 	assert.Equal(t, "/status.json", WorkspaceStatusPath(""))
 	assert.Equal(t, "/repo", WorkspaceRepoDir(""))
 	assert.Equal(t, "/.meta", WorkspaceMetaDir(""))
@@ -179,7 +179,7 @@ func TestPaths_WorkspaceHelpers_Bad(t *testing.T) {
 }
 
 func TestPaths_WorkspaceRoot_Ugly_TrailingSlash(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/test-core/")
+	setTestWorkspace(t, "/tmp/test-core/")
 	// Verify it still constructs a valid path (JoinPath handles trailing slash)
 	ws := WorkspaceRoot()
 	assert.NotEmpty(t, ws)
@@ -188,7 +188,7 @@ func TestPaths_WorkspaceRoot_Ugly_TrailingSlash(t *testing.T) {
 
 func TestPaths_WorkspaceHelpers_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := WorkspaceRoot()
 
 	shallow := core.JoinPath(wsRoot, "ws-flat")
@@ -211,14 +211,14 @@ func TestPaths_WorkspaceHelpers_Ugly(t *testing.T) {
 // --- CoreRoot Bad/Ugly ---
 
 func TestPaths_CoreRoot_Bad_WhitespaceEnv(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "   ")
+	setTestWorkspace(t, "   ")
 	// Non-empty string (whitespace) will be used as-is
 	root := CoreRoot()
 	assert.Equal(t, "   ", root)
 }
 
 func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/tmp/\u00e9\u00e0\u00fc")
+	setTestWorkspace(t, "/tmp/\u00e9\u00e0\u00fc")
 	assert.NotPanics(t, func() {
 		root := CoreRoot()
 		assert.Equal(t, "/tmp/\u00e9\u00e0\u00fc", root)
@@ -228,13 +228,13 @@ func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
 // --- PlansRoot Bad/Ugly ---
 
 func TestPaths_PlansRoot_Bad_EmptyEnv(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "")
+	setTestWorkspace(t, "")
 	home := HomeDir()
 	assert.Equal(t, home+"/Code/.core/plans", PlansRoot())
 }
 
 func TestPaths_PlansRoot_Ugly_NestedPath(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/a/b/c/d/e/f")
+	setTestWorkspace(t, "/a/b/c/d/e/f")
 	assert.Equal(t, "/a/b/c/d/e/f/plans", PlansRoot())
 }
 

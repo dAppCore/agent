@@ -15,7 +15,7 @@ import (
 
 func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -69,7 +69,7 @@ func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 
 func TestMessage_MessageInbox_Good_MarksReadAndEmitsCounts(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	c := core.New()
 	var inboxEvents []messages.InboxMessage
@@ -138,7 +138,7 @@ func TestMessage_MessageSend_Bad_MissingRequiredFields(t *testing.T) {
 
 func TestMessage_MessageInbox_Ugly_CorruptStore(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.True(t, fs.EnsureDir(messageRoot()).OK)

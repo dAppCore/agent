@@ -13,7 +13,7 @@ import (
 
 func TestRuntimeState_PersistLoad_Good_RoundTrip(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	expectedBackoff := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
 	subsystem := &PrepSubsystem{
@@ -40,7 +40,7 @@ func TestRuntimeState_PersistLoad_Good_RoundTrip(t *testing.T) {
 
 func TestRuntimeState_Read_Bad_InvalidJSON(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	require.True(t, fs.EnsureDir(runtimeStateDir()).OK)
 	require.True(t, fs.WriteAtomic(runtimeStatePath(), "{not-json").OK)
@@ -51,7 +51,7 @@ func TestRuntimeState_Read_Bad_InvalidJSON(t *testing.T) {
 
 func TestRuntimeState_Persist_Ugly_EmptyStateDeletesFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	require.True(t, fs.EnsureDir(runtimeStateDir()).OK)
 	require.True(t, fs.WriteAtomic(runtimeStatePath(), core.JSONMarshalString(runtimeState{

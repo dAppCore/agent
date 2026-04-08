@@ -16,7 +16,7 @@ import (
 
 func TestResume_Resume_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsRoot := WorkspaceRoot()
 	ws := core.JoinPath(wsRoot, "ws-blocked")
@@ -61,7 +61,7 @@ func TestResume_Resume_Good(t *testing.T) {
 
 func TestResume_Resume_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
@@ -89,7 +89,7 @@ func TestResume_Resume_Bad(t *testing.T) {
 
 func TestResume_Resume_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Workspace exists but no status.json
 	ws := core.JoinPath(WorkspaceRoot(), "ws-nostatus")

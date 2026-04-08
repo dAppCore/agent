@@ -13,7 +13,7 @@ import (
 
 func TestCommandsPlan_CmdPlanCheck_Good_CompletePlan(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -56,7 +56,7 @@ func TestCommandsPlan_CmdPlanCheck_Bad_MissingSlug(t *testing.T) {
 
 func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -94,7 +94,7 @@ func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 
 func TestCommandsPlan_CmdPlan_Good_RoutesCreate(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -115,7 +115,7 @@ func TestCommandsPlan_CmdPlan_Good_RoutesCreate(t *testing.T) {
 
 func TestCommandsPlan_CmdPlan_Good_RoutesStatus(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -153,7 +153,7 @@ func TestCommandsPlan_CmdPlan_Bad_UnknownAction(t *testing.T) {
 
 func TestCommandsPlan_CmdPlanUpdate_Good_StatusAndAgent(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -191,7 +191,7 @@ func TestCommandsPlan_CmdPlanUpdate_Bad_MissingFields(t *testing.T) {
 
 func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

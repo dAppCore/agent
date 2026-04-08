@@ -29,7 +29,7 @@ func TestCommandsworkspace_RegisterWorkspaceCommands_Good_Aliases(t *testing.T) 
 
 func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Don't create "workspace" subdir — WorkspaceRoot() returns root+"/workspace" which won't exist
 
 	c := core.New()
@@ -45,7 +45,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T)
 
 func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 	fs.EnsureDir(wsRoot)
 
@@ -77,7 +77,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 
 func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with various statuses
@@ -113,7 +113,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with statuses including merged and ready-for-review
@@ -154,7 +154,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	c := core.New()
 	s := &PrepSubsystem{
@@ -178,7 +178,7 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 
 func TestCommandsworkspace_CmdWorkspaceWatch_Good_ExplicitWorkspaceCompletes(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
 		Status: "ready-for-review",

@@ -13,7 +13,7 @@ import (
 
 func TestCommit_HandleCommit_Good_WritesJournal(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	workspaceName := "core/go-io/task-42"
 	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)
@@ -62,7 +62,7 @@ func TestCommit_HandleCommit_Bad_MissingWorkspace(t *testing.T) {
 
 func TestCommit_HandleCommit_Ugly_Idempotent(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	workspaceName := "core/go-io/task-43"
 	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)

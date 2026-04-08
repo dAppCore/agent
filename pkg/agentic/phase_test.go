@@ -12,7 +12,7 @@ import (
 
 func TestPhase_PhaseGet_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -47,7 +47,7 @@ func TestPhase_PhaseUpdateStatus_Bad_InvalidStatus(t *testing.T) {
 
 func TestPhase_PhaseAddCheckpoint_Ugly_AppendsCheckpoint(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

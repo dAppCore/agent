@@ -40,8 +40,6 @@ func TestMain_NewCoreAgent_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "version")
 	assert.Contains(t, c.Commands(), "check")
 	assert.Contains(t, c.Commands(), "env")
-	assert.Contains(t, c.Commands(), "mcp")
-	assert.Contains(t, c.Commands(), "serve")
 	assert.Contains(t, c.Actions(), "process.run")
 
 	service := c.Service("agentic")

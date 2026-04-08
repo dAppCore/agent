@@ -97,7 +97,7 @@ concurrency:
 
 func TestQueue_DelayForAgent_Good_SustainedMode(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	cfg := `version: 1
 concurrency:
@@ -124,7 +124,7 @@ rates:
 
 func TestQueue_DelayForAgent_Good_MinDelayFloor(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	cfg := `version: 1
 rates:
@@ -149,7 +149,7 @@ rates:
 
 func TestQueue_CanDispatchAgent_Bad_DailyLimitReached(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	cfg := `version: 1
@@ -186,7 +186,7 @@ rates:
 
 func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
@@ -201,7 +201,7 @@ func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 
 func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
@@ -215,7 +215,7 @@ func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 
 func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	s := &PrepSubsystem{
@@ -229,7 +229,7 @@ func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 
 func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-done")
@@ -248,7 +248,7 @@ func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 
 func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-queued")
@@ -271,7 +271,7 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 
 func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	c := core.New()
@@ -298,7 +298,7 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 
 func TestQueue_DrainQueue_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	c := core.New()
@@ -317,7 +317,7 @@ func TestQueue_DrainQueue_Ugly(t *testing.T) {
 
 func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	c := core.New(core.WithService(ProcessRegister))
@@ -354,7 +354,7 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 
 func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a running workspace for a different agent type
@@ -382,7 +382,7 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 
 func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a workspace with corrupt status.json
@@ -404,7 +404,7 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 
 func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-1")
@@ -431,7 +431,7 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 
 func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Two workspaces, different models of same agent
@@ -464,7 +464,7 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 
 func TestQueue_DelayForAgent_Bad_ZeroSustainedDelay(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	cfg := `version: 1
 rates:
@@ -489,7 +489,7 @@ rates:
 
 func TestQueue_DelayForAgent_Ugly_MalformedResetUTC(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	cfg := `version: 1
 rates:
@@ -518,7 +518,7 @@ rates:
 
 func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a running workspace backed by a managed process.
@@ -558,7 +558,7 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 
 func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a queued workspace
@@ -618,7 +618,7 @@ func TestQueue_UnmarshalYAML_Ugly(t *testing.T) {
 
 func TestQueue_LoadAgentsConfig_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	cfg := `version: 1
 concurrency:
@@ -646,7 +646,7 @@ rates:
 
 func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Corrupt YAML file
 	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "{{{not yaml!!!").OK)
@@ -666,7 +666,7 @@ func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 
 func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// No agents.yaml file at all — should return defaults
 
 	s := &PrepSubsystem{
@@ -687,7 +687,7 @@ func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
 
 func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a queued workspace that would normally be drained

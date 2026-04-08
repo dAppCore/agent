@@ -12,7 +12,7 @@ import (
 
 func TestTask_TaskUpdate_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -50,7 +50,7 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 
 func TestTask_TaskCreate_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -111,7 +111,7 @@ func TestTask_TaskToggle_Bad_MissingIdentifier(t *testing.T) {
 
 func TestTask_TaskToggle_Ugly_CriteriaFallback(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -139,7 +139,7 @@ func TestTask_TaskToggle_Ugly_CriteriaFallback(t *testing.T) {
 
 func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -178,7 +178,7 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 
 func TestTask_TaskFileRefAliases_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

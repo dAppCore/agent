@@ -1,0 +1,9 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - task -d recall test
+      - task -d remember test
+      - task -d forget test
+      - task -d list test

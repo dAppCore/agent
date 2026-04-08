@@ -32,7 +32,7 @@ func TestQueue_DispatchConfig_Good_Defaults(t *testing.T) {
 
 func TestQueue_DispatchConfig_Good_WorkspaceRootOverride(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	customRoot := core.JoinPath(root, "agent-workspaces")
 	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
 		"version: 1\n",
@@ -54,7 +54,7 @@ func TestQueue_DispatchConfig_Good_WorkspaceRootOverride(t *testing.T) {
 func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 	// With no running workspaces and default config, should be able to dispatch
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
@@ -64,7 +64,7 @@ func TestQueue_CanDispatchAgent_Good_NoConfig(t *testing.T) {
 func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 	// Unknown agent has no limit, so always allowed
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
@@ -73,7 +73,7 @@ func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 
 func TestQueue_CountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
@@ -83,7 +83,7 @@ func TestQueue_CountRunningByAgent_Good_EmptyWorkspace(t *testing.T) {
 
 func TestQueue_CountRunningByAgent_Good_NoRunning(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create a workspace with completed status under workspace/
 	ws := core.JoinPath(root, "workspace", "test-ws")

@@ -18,7 +18,7 @@ func TestAutopr_AutoCreatePR_Good(t *testing.T) {
 
 func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -56,7 +56,7 @@ func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
 
 func TestAutopr_AutoCreatePR_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Set up a real git repo with no commits ahead of origin/dev
 	wsDir := core.JoinPath(root, "ws-no-ahead")

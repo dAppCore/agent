@@ -16,7 +16,7 @@ import (
 
 func TestQueue_CountRunningByModel_Good_Empty(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	assert.Equal(t, 0, s.countRunningByModel("claude:opus"))
@@ -24,7 +24,7 @@ func TestQueue_CountRunningByModel_Good_Empty(t *testing.T) {
 
 func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Completed workspace — must not be counted
 	ws := core.JoinPath(root, "workspace", "test-ws")
@@ -41,7 +41,7 @@ func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 
 func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	ws := core.JoinPath(root, "workspace", "model-ws")
 	require.True(t, fs.EnsureDir(ws).OK)
@@ -58,7 +58,7 @@ func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 
 func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Deep layout: workspace/org/repo/task-N/status.json
 	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-1")
@@ -77,7 +77,7 @@ func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 
 func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: true, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// Must not panic and must not block
@@ -88,7 +88,7 @@ func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 
 func TestQueue_DrainQueue_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// No workspaces — must return without error/panic
@@ -136,7 +136,7 @@ func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
 	// StartRunner is now a no-op — queue drain is owned by pkg/runner.Service.
 	// Verify it does not panic and does not set pokeCh.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
@@ -150,7 +150,7 @@ func TestRunner_StartRunner_Good_FrozenByDefault(t *testing.T) {
 	// StartRunner is now a no-op — frozen state is owned by pkg/runner.Service.
 	// Verify it does not panic; frozen state is not managed here.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
@@ -161,7 +161,7 @@ func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
 	// StartRunner is now a no-op — env var handling is in pkg/runner.Service.
 	// Verify the no-op does not panic.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
 
 	s := NewPrep()
@@ -192,7 +192,7 @@ func TestRunner_StartRunner_Bad(t *testing.T) {
 	// StartRunner is now a no-op — frozen state and pokeCh are owned by pkg/runner.Service.
 	// Verify the no-op does not panic and does not modify state.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
@@ -203,7 +203,7 @@ func TestRunner_StartRunner_Bad(t *testing.T) {
 func TestRunner_StartRunner_Ugly(t *testing.T) {
 	// StartRunner is now a no-op — calling it multiple times must not panic.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
 
 	s := NewPrep()

@@ -16,7 +16,7 @@ import (
 
 func TestSync_HandleSyncPush_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
@@ -64,7 +64,7 @@ func TestSync_HandleSyncPush_Good(t *testing.T) {
 
 func TestSync_HandleSyncPush_Good_UsesProvidedDispatches(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +109,7 @@ func TestSync_HandleSyncPush_Good_UsesProvidedDispatches(t *testing.T) {
 
 func TestSync_HandleSyncPush_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "")
 
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
@@ -137,7 +137,7 @@ func TestSync_HandleSyncPush_Bad(t *testing.T) {
 
 func TestSync_HandleSyncPush_Bad_QueuesProvidedDispatchesWhenOffline(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "")
 
 	subsystem := &PrepSubsystem{
@@ -162,7 +162,7 @@ func TestSync_HandleSyncPush_Bad_QueuesProvidedDispatchesWhenOffline(t *testing.
 
 func TestSync_HandleSyncPush_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
@@ -202,7 +202,7 @@ func TestSync_HandleSyncPush_Ugly(t *testing.T) {
 
 func TestSync_HandleSyncPull_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -231,7 +231,7 @@ func TestSync_HandleSyncPull_Good(t *testing.T) {
 
 func TestSync_HandleSyncPull_Good_SinceQuery(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +301,7 @@ func TestSync_RecordSyncHistory_Bad_MissingFile(t *testing.T) {
 
 func TestSync_RecordSyncHistory_Ugly_CorruptFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.WriteAtomic(syncRecordsPath(), "{not-json").OK)
 
 	records := readSyncRecords()
@@ -310,7 +310,7 @@ func TestSync_RecordSyncHistory_Ugly_CorruptFile(t *testing.T) {
 
 func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
@@ -369,7 +369,7 @@ func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {
 
 func TestSync_HandleSyncPull_Good_NestedEnvelope(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -391,7 +391,7 @@ func TestSync_HandleSyncPull_Good_NestedEnvelope(t *testing.T) {
 
 func TestSync_HandleSyncPull_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 	writeSyncContext([]map[string]any{
 		{"id": "cached-1", "content": "Cached context"},
@@ -418,7 +418,7 @@ func TestSync_HandleSyncPull_Bad(t *testing.T) {
 
 func TestSync_HandleSyncPull_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 	writeSyncContext([]map[string]any{
 		{"id": "cached-2", "content": "Fallback context"},

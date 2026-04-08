@@ -27,7 +27,7 @@ func newTestPrep(t *testing.T) *PrepSubsystem {
 
 func TestPlan_PlanCreate_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -51,7 +51,7 @@ func TestPlan_PlanCreate_Good(t *testing.T) {
 
 func TestPlan_PlanCreate_Good_UniqueIDs(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, first, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -90,7 +90,7 @@ func TestPlan_PlanCreate_Bad_MissingObjective(t *testing.T) {
 
 func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -112,7 +112,7 @@ func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 
 func TestPlan_PlanRead_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -138,7 +138,7 @@ func TestPlan_PlanRead_Bad_MissingID(t *testing.T) {
 
 func TestPlan_PlanRead_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "nonexistent"})
@@ -150,7 +150,7 @@ func TestPlan_PlanRead_Bad_NotFound(t *testing.T) {
 
 func TestPlan_PlanUpdate_Good_Status(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -169,7 +169,7 @@ func TestPlan_PlanUpdate_Good_Status(t *testing.T) {
 
 func TestPlan_PlanUpdate_Good_PartialUpdate(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -192,7 +192,7 @@ func TestPlan_PlanUpdate_Good_PartialUpdate(t *testing.T) {
 
 func TestPlan_PlanUpdate_Good_AllStatusTransitions(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -211,7 +211,7 @@ func TestPlan_PlanUpdate_Good_AllStatusTransitions(t *testing.T) {
 
 func TestPlan_PlanUpdate_Bad_InvalidStatus(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -234,7 +234,7 @@ func TestPlan_PlanUpdate_Bad_MissingID(t *testing.T) {
 
 func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -256,7 +256,7 @@ func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
 
 func TestPlan_PlanDelete_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -294,7 +294,7 @@ func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
 
 func TestPlan_PlanDelete_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "nonexistent"})
@@ -306,7 +306,7 @@ func TestPlan_PlanDelete_Bad_NotFound(t *testing.T) {
 
 func TestPlan_PlanList_Good_Empty(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
@@ -317,7 +317,7 @@ func TestPlan_PlanList_Good_Empty(t *testing.T) {
 
 func TestPlan_PlanList_Good_Multiple(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "A", Objective: "A", Repo: "go-io"})
@@ -331,7 +331,7 @@ func TestPlan_PlanList_Good_Multiple(t *testing.T) {
 
 func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "A", Objective: "A", Repo: "go-io"})
@@ -345,7 +345,7 @@ func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 
 func TestPlan_HandlePlanCreate_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	result := s.handlePlanCreate(context.Background(), core.NewOptions(
@@ -377,7 +377,7 @@ func TestPlan_HandlePlanCreate_Good(t *testing.T) {
 
 func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -406,7 +406,7 @@ func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
 
 func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "Draft", Objective: "D"})
@@ -421,7 +421,7 @@ func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
 
 func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "Real", Objective: "Real plan"})
@@ -437,7 +437,7 @@ func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 
 func TestPlan_PlanList_Good_DefaultLimit(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	for i := 0; i < 21; i++ {
@@ -471,7 +471,7 @@ func TestPlan_PlanPath_Bad_Dot(t *testing.T) {
 
 func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	longTitle := strings.Repeat("Long Title With Many Words ", 20)
@@ -487,7 +487,7 @@ func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
 
 func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -506,7 +506,7 @@ func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 
 func TestPlan_PlanRead_Ugly_SpecialCharsInID(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	// Try to read with special chars — should safely not find it
@@ -517,7 +517,7 @@ func TestPlan_PlanRead_Ugly_SpecialCharsInID(t *testing.T) {
 
 func TestPlan_PlanRead_Ugly_UnicodeID(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "\u00e9\u00e0\u00fc-plan"})
@@ -528,7 +528,7 @@ func TestPlan_PlanRead_Ugly_UnicodeID(t *testing.T) {
 
 func TestPlan_PlanUpdate_Ugly_EmptyPhasesArray(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -549,7 +549,7 @@ func TestPlan_PlanUpdate_Ugly_EmptyPhasesArray(t *testing.T) {
 
 func TestPlan_PlanUpdate_Ugly_UnicodeNotes(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, createOut, _ := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -569,7 +569,7 @@ func TestPlan_PlanUpdate_Ugly_UnicodeNotes(t *testing.T) {
 
 func TestPlan_PlanDelete_Ugly_PathTraversalAttempt(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	// Path traversal attempt should be sanitised and not find anything
@@ -580,7 +580,7 @@ func TestPlan_PlanDelete_Ugly_PathTraversalAttempt(t *testing.T) {
 
 func TestPlan_PlanDelete_Ugly_UnicodeID(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "\u00e9\u00e0\u00fc-to-delete"})
@@ -625,7 +625,7 @@ func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
 func TestPlan_PlanList_Bad(t *testing.T) {
 	// Plans dir doesn't exist yet — should create it
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
@@ -637,7 +637,7 @@ func TestPlan_PlanList_Bad(t *testing.T) {
 func TestPlan_PlanList_Ugly(t *testing.T) {
 	// Plans dir has corrupt JSON files
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	// Create a real plan

@@ -21,7 +21,7 @@ import (
 func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core.Core) {
 	t.Helper()
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	c := core.New()
 
@@ -1793,7 +1793,7 @@ func TestCommands_CommandContext_Ugly_CancelledStartupContext(t *testing.T) {
 
 func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Don't create workspace dir — WorkspaceRoot() returns root+"/workspace" which won't exist
 
 	c := core.New()

@@ -54,7 +54,7 @@ func TestActions_HandleDispatch_Bad_EntitlementDenied(t *testing.T) {
 
 func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_BRAIN_KEY", "")
 
 	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

@@ -216,7 +216,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 
 func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	fs.EnsureDir(wsDir)
@@ -244,7 +244,7 @@ func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
 
 func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	fs.EnsureDir(wsDir)
@@ -271,7 +271,7 @@ func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 
 func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-monitor")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -326,7 +326,7 @@ func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
 
 func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-blocked")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -367,7 +367,7 @@ func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-test")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -393,7 +393,7 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-fail")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -414,7 +414,7 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-blocked")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -499,7 +499,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 
 func TestDispatch_Dispatch_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"title": "Issue", "body": "Fix"})))
@@ -543,7 +543,7 @@ func TestDispatch_Dispatch_Bad(t *testing.T) {
 
 func TestDispatch_Dispatch_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Prep fails (no local clone)
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -558,7 +558,7 @@ func TestDispatch_Dispatch_Ugly(t *testing.T) {
 
 func TestDispatch_WorkspaceDir_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	dir, err := workspaceDir("core", "go-io", PrepInput{Issue: 42})
 	require.NoError(t, err)
@@ -582,7 +582,7 @@ func TestDispatch_WorkspaceDir_Bad(t *testing.T) {
 
 func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// PR takes precedence when multiple set (first match)
 	dir, err := workspaceDir("core", "go-io", PrepInput{PR: 3, Issue: 5})

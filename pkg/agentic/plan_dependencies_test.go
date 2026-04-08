@@ -12,7 +12,7 @@ import (
 
 func TestPlanDependencies_PlanCreate_Good_PreservesPhaseDependencies(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

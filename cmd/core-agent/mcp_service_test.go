@@ -14,31 +14,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMCP_RegisterMCPService_Good(t *testing.T) {
-	result := registerMCPService(core.New(core.WithOption("name", "core-agent")))
+func TestMCP_Register_Good(t *testing.T) {
+	c := core.New(
+		core.WithOption("name", "core-agent"),
+		core.WithService(mcp.Register),
+	)
+
+	result := c.Service("mcp")
 
 	require.True(t, result.OK)
 	_, ok := result.Value.(*mcp.Service)
 	assert.True(t, ok)
 }
 
-func TestMCP_RegisterMCPService_Bad(t *testing.T) {
-	result := registerMCPService(nil)
+func TestMCP_Register_Bad(t *testing.T) {
+	c := core.New(core.WithOption("name", "core-agent"))
 
-	require.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "main.registerMCPService: core is required")
+	result := c.Service("mcp")
+
+	assert.False(t, result.OK)
 }
 
-func TestMCP_RegisterMCPService_Ugly(t *testing.T) {
+func TestMCP_Register_Ugly(t *testing.T) {
 	c := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
+		core.WithService(mcp.Register),
 	)
 
-	result := registerMCPService(c)
+	result := c.Service("mcp")
 
 	require.True(t, result.OK)
 	service := result.Value.(*mcp.Service)

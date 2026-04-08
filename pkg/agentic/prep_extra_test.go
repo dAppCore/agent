@@ -55,9 +55,9 @@ use (
 		path    string
 		content string
 	}{
-		{"core/go", "module forge.lthn.ai/core/go\n\ngo 1.22\n"},
-		{"core/agent", "module forge.lthn.ai/core/agent\n\nrequire forge.lthn.ai/core/go v0.7.0\n"},
-		{"core/mcp", "module forge.lthn.ai/core/mcp\n\nrequire forge.lthn.ai/core/go v0.7.0\n"},
+		{"core/go", "module dappco.re/go/core/go\n\ngo 1.22\n"},
+		{"core/agent", "module dappco.re/go/core/agent\n\nrequire dappco.re/go/core/go v0.7.0\n"},
+		{"core/mcp", "module dappco.re/go/core/mcp\n\nrequire dappco.re/go/core/go v0.7.0\n"},
 	} {
 		modDir := core.JoinPath(dir, mod.path)
 		fs.EnsureDir(modDir)
@@ -686,7 +686,7 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

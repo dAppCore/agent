@@ -18,7 +18,7 @@ func testPrepWithPlatformServer(t *testing.T, srv *httptest.Server, token string
 	t.Helper()
 
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", token)
 	t.Setenv("CORE_BRAIN_KEY", "")
 
@@ -568,7 +568,7 @@ func TestPlatform_HandleSubscriptionDetect_Good_ProvidersOnly(t *testing.T) {
 
 func TestPlatform_HandleSyncStatus_Good_LocalStateFallback(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "")
 	t.Setenv("CORE_BRAIN_KEY", "")
 	recordSyncPush(time.Date(2026, 3, 31, 8, 0, 0, 0, time.UTC))

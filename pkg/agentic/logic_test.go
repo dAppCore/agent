@@ -272,7 +272,7 @@ func TestAutopr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_completed", "codex", "core/go-io/task-5", "completed")
@@ -290,7 +290,7 @@ func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "claude", "core/agent/task-1", "running")
@@ -311,7 +311,7 @@ func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "codex", "core/go-io/task-1", "running")
@@ -332,7 +332,7 @@ func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("gemini", "core/go-log/task-3")
@@ -346,7 +346,7 @@ func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_CompletionHelper(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("claude", "core/agent/task-7", "failed")
@@ -362,7 +362,7 @@ func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 	// CORE_WORKSPACE points to a directory that doesn't allow writing events.jsonl
 	// because workspace/ subdir doesn't exist. Should not panic.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Do NOT create workspace/ subdir — emitEvent must handle this gracefully
 	assert.NotPanics(t, func() {
 		emitEvent("agent_completed", "codex", "test", "completed")
@@ -371,7 +371,7 @@ func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 
 func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	// Should not panic with all empty fields
@@ -384,7 +384,7 @@ func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 
 func TestEvents_EmitStartEvent_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("codex", "core/go-io/task-10")
@@ -401,7 +401,7 @@ func TestEvents_EmitStartEvent_Good(t *testing.T) {
 func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 	// Empty agent name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -418,7 +418,7 @@ func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 	// Very long workspace name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	longName := strings.Repeat("very-long-workspace-name-", 50)
@@ -434,7 +434,7 @@ func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 
 func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("gemini", "core/go-log/task-5", "completed")
@@ -451,7 +451,7 @@ func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 	// Empty status
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -467,7 +467,7 @@ func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 func TestEvents_EmitCompletionEvent_Ugly(t *testing.T) {
 	// Unicode in agent name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -594,7 +594,7 @@ func TestQueue_BaseAgent_Ugly_JustColon(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create the workspace directory structure
 	workspaceName := "core/go-io/task-5"
@@ -607,7 +607,7 @@ func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	workspaceName := "core/agent/pr-42"
 	workspaceDir := core.JoinPath(root, "workspace", workspaceName)
@@ -619,7 +619,7 @@ func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("core/go-io/task-999")
 	assert.Equal(t, "", result)
@@ -627,7 +627,7 @@ func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad_EmptyName(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Empty name resolves to the workspace root itself — which is a dir but not a workspace
 	// The function returns "" if the path is not a directory, and the workspace root *is*
@@ -639,7 +639,7 @@ func TestHandlers_ResolveWorkspace_Bad_EmptyName(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Path traversal attempt should return "" (parent of workspace root won't be a workspace)
 	result := resolveWorkspace("../../etc")
@@ -650,7 +650,7 @@ func TestHandlers_ResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-10")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -666,7 +666,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "core", "go-io", "task-15")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -682,7 +682,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-99")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -698,7 +698,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// No workspaces at all
 	result := findWorkspaceByPR("go-io", "agent/any-branch")
 	assert.Equal(t, "", result)
@@ -706,7 +706,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-5")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -723,7 +723,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "corrupt-ws")
 	require.True(t, fs.EnsureDir(wsDir).OK)

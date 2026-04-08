@@ -15,7 +15,7 @@ import (
 
 func TestPlanFromIssue_PlanFromIssue_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func TestPlanFromIssue_PlanFromIssue_Bad_MissingIdentifier(t *testing.T) {
 
 func TestPlanFromIssue_PlanFromIssue_Ugly_FallsBackToTitleObjective(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func TestPlanFromIssue_PlanFromIssue_Ugly_FallsBackToTitleObjective(t *testing.T
 
 func TestPlanFromIssue_PlanFromIssue_Good_NoChecklistKeepsTasksEmpty(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +114,7 @@ func TestPlanFromIssue_PlanFromIssue_Good_NoChecklistKeepsTasksEmpty(t *testing.
 
 func TestPlanFromIssue_CmdPlanFromIssue_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

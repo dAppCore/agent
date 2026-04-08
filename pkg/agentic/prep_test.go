@@ -957,7 +957,7 @@ func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
 
 func TestPrep_PrepareWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -991,7 +991,7 @@ func TestPrep_PrepareWorkspace_Bad(t *testing.T) {
 
 func TestPrep_PrepareWorkspace_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -1159,7 +1159,7 @@ func TestPrep_GetGitLog_Ugly(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Mock Forge API for issue body
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1223,7 +1223,7 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 
 func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{

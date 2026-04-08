@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../../cmd/core-agent
+
+          output="$(mktemp)"
+          run_capture_all 1 "$output" ./bin/core-agent message/inbox
+          assert_contains "usage:" "$output"
+          assert_contains "workspace" "$output"
+          assert_contains "agent" "$output"
+          EOF
