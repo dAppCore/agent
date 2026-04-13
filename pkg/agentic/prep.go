@@ -420,11 +420,10 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 // subsystem := agentic.NewPrep()
 // subsystem.RegisterTools(svc)
 func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
-	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+	mcp.AddTool(svc.Server(), &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
-
 	s.registerDispatchTool(svc)
 	s.registerStatusTool(svc)
 	s.registerResumeTool(svc)
@@ -436,23 +435,34 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerCreatePRTool(svc)
 	s.registerListPRsTool(svc)
 	s.registerClosePRTool(svc)
-	s.registerEpicTool(svc)
 	s.registerMirrorTool(svc)
+	s.registerShutdownTools(svc)
+	s.registerPlanTools(svc)
+	s.registerWatchTool(svc)
+	s.registerIssueTools(svc)
+	s.registerPRTools(svc)
+	mcp.AddTool(svc.Server(), &mcp.Tool{
+		Name:        "agentic_scan",
+		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
+	}, s.scan)
+
+	// Extended tools — only when CORE_MCP_FULL=1
+	if core.Env("CORE_MCP_FULL") != "1" {
+		return
+	}
+	s.registerEpicTool(svc)
 	s.registerRemoteDispatchTool(svc)
 	s.registerRemoteStatusTool(svc)
 	s.registerReviewQueueTool(svc)
 	s.registerPlatformTools(svc)
-	s.registerShutdownTools(svc)
 	s.registerSessionTools(svc)
 	s.registerStateTools(svc)
 	s.registerPhaseTools(svc)
 	s.registerTaskTools(svc)
 	s.registerPromptTools(svc)
 	s.registerTemplateTools(svc)
-	s.registerIssueTools(svc)
 	s.registerMessageTools(svc)
 	s.registerSprintTools(svc)
-	s.registerPRTools(svc)
 	s.registerContentTools(svc)
 	s.registerLanguageTools(svc)
 	s.registerSetupTool(svc)

@@ -106,6 +106,68 @@ func TestDispatch_LocalAgentCommandScript_Good_ShellQuoting(t *testing.T) {
 	assert.Contains(t, script, "'can'\\''t break quoting'")
 }
 
+func TestDispatch_AgentCommand_Good_CodexLEMProfile(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemmy", "implement the scorer")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemmy")
+	assert.NotContains(t, args, "--model")
+}
+
+func TestDispatch_AgentCommand_Good_CodexLemer(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemer", "add docs")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemer")
+}
+
+func TestDispatch_AgentCommand_Good_CodexLemrd(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemrd", "review code")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemrd")
+}
+
+func TestDispatch_IsLEMProfile_Good(t *testing.T) {
+	assert.True(t, isLEMProfile("lemer"))
+	assert.True(t, isLEMProfile("lemma"))
+	assert.True(t, isLEMProfile("lemmy"))
+	assert.True(t, isLEMProfile("lemrd"))
+}
+
+func TestDispatch_IsLEMProfile_Bad(t *testing.T) {
+	assert.False(t, isLEMProfile("gpt-5.4"))
+	assert.False(t, isLEMProfile("gemini-2.5-flash"))
+	assert.False(t, isLEMProfile(""))
+}
+
+func TestDispatch_IsLEMProfile_Ugly(t *testing.T) {
+	assert.False(t, isLEMProfile("Lemmy"))
+	assert.False(t, isLEMProfile("LEMRD"))
+	assert.False(t, isLEMProfile("lem"))
+}
+
+func TestDispatch_IsNativeAgent_Good(t *testing.T) {
+	assert.True(t, isNativeAgent("claude"))
+	assert.True(t, isNativeAgent("claude:opus"))
+	assert.True(t, isNativeAgent("claude:haiku"))
+}
+
+func TestDispatch_IsNativeAgent_Bad(t *testing.T) {
+	assert.False(t, isNativeAgent("codex"))
+	assert.False(t, isNativeAgent("codex:gpt-5.4"))
+	assert.False(t, isNativeAgent("gemini"))
+}
+
+func TestDispatch_IsNativeAgent_Ugly(t *testing.T) {
+	assert.False(t, isNativeAgent(""))
+	assert.False(t, isNativeAgent("codex:lemmy"))
+	assert.False(t, isNativeAgent("local:mistral"))
+}
+
 func TestDispatch_AgentCommand_Bad_Unknown(t *testing.T) {
 	cmd, args, err := agentCommand("robot-from-the-future", "take over")
 	assert.Error(t, err)

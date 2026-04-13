@@ -48,7 +48,7 @@ Output a task list with: task name, persona, template, estimated complexity.
 
 For each task from Stage 1, dispatch an agent. Prefer MCP tools if available:
 ```
-mcp__core__agentic_dispatch(repo, task, agent, template, persona)
+mcp__plugin_agent_agent__agentic_dispatch(repo, task, agent, template, persona)
 ```
 
 If MCP is unavailable, dispatch locally:

@@ -5,7 +5,8 @@
       "command": "core-agent",
       "args": ["mcp"],
       "env": {
-        "MONITOR_INTERVAL": "15s"
+        "MONITOR_INTERVAL": "15s",
+        "CORE_AGENT_DISPATCH": "1"
       }
     }
   }

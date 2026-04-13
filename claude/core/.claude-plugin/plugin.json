@@ -1,7 +1,7 @@
 {
-  "name": "core",
+  "name": "agent",
   "description": "Core agent platform — dispatch (local + remote), verify+merge, CodeRabbit/Codex review queue, GitHub mirror, cross-agent messaging, OpenBrain integration, inbox notifications",
-  "version": "0.15.0",
+  "version": "0.18.0",
   "author": {
     "name": "Lethean Community",
     "email": "hello@lethean.io"

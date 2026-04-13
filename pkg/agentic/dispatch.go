@@ -119,7 +119,11 @@ func agentCommandResult(agent, prompt string) core.Result {
 			"-o", "../.meta/agent-codex.log",
 		}
 		if model != "" {
-			args = append(args, "--model", model)
+			if isLEMProfile(model) {
+				args = append(args, "--profile", model)
+			} else {
+				args = append(args, "--model", model)
+			}
 		}
 		args = append(args, prompt)
 		return core.Result{Value: agentCommandResultValue{command: "codex", args: args}, OK: true}
@@ -156,11 +160,41 @@ func agentCommandResult(agent, prompt string) core.Result {
 	}
 }
 
+// isNativeAgent returns true if the agent should run natively (not in Docker).
+// Claude agents need direct filesystem access, MCP tools, and native binary execution.
+//
+//	isNativeAgent("claude")       // true
+//	isNativeAgent("claude:opus")  // true
+//	isNativeAgent("codex")        // false (runs in Docker)
+func isNativeAgent(agent string) bool {
+	parts := core.SplitN(agent, ":", 2)
+	return parts[0] == "claude"
+}
+
+// isLEMProfile returns true if the model name is a known LEM profile
+// (lemer, lemma, lemmy, lemrd) configured in codex config.toml.
+//
+//	isLEMProfile("lemmy")      // true
+//	isLEMProfile("gpt-5.4")   // false
+func isLEMProfile(model string) bool {
+	switch model {
+	case "lemer", "lemma", "lemmy", "lemrd":
+		return true
+	default:
+		return false
+	}
+}
+
 // localAgentCommandScript("devstral-24b", "Review the last 2 commits")
 func localAgentCommandScript(model, prompt string) string {
 	builder := core.NewBuilder()
 	builder.WriteString("socat TCP-LISTEN:11434,fork,reuseaddr TCP:host.docker.internal:11434 & sleep 0.5")
-	builder.WriteString(" && codex exec --dangerously-bypass-approvals-and-sandbox --oss --local-provider ollama -m ")
+	builder.WriteString(" && codex exec --dangerously-bypass-approvals-and-sandbox")
+	if isLEMProfile(model) {
+		builder.WriteString(" --profile ")
+	} else {
+		builder.WriteString(" --oss --local-provider ollama -m ")
+	}
 	builder.WriteString(shellQuote(model))
 	builder.WriteString(" -o ../.meta/agent-codex.log ")
 	builder.WriteString(shellQuote(prompt))
@@ -403,8 +437,6 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
-	// Native agents (claude, coderabbit) run directly on the host — no Docker.
-	// Docker agents (codex, gemini, local) get containerised for isolation.
 	if !isNativeAgent(agent) {
 		command, args = containerCommand(command, args, workspaceDir, metaDir)
 	}
