@@ -143,38 +143,38 @@ func (s *PrepSubsystem) handleStateDelete(ctx context.Context, options core.Opti
 }
 
 func (s *PrepSubsystem) registerStateTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
 	}, s.stateSet)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
 	}, s.stateSet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_get",
 		Description: "Get a workspace state value for a plan by key.",
 	}, s.stateGet)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_get",
 		Description: "Get a workspace state value for a plan by key.",
 	}, s.stateGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
 	}, s.stateDelete)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
 	}, s.stateDelete)

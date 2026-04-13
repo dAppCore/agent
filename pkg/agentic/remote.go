@@ -33,7 +33,7 @@ type RemoteDispatchOutput struct {
 }
 
 func (s *PrepSubsystem) registerRemoteDispatchTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_remote",
 		Description: "Dispatch a task to a remote core-agent (e.g. Charon). The remote agent preps a workspace and spawns the task locally on its hardware.",
 	}, s.dispatchRemote)

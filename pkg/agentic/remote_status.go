@@ -21,7 +21,7 @@ type RemoteStatusOutput struct {
 }
 
 func (s *PrepSubsystem) registerRemoteStatusTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_status_remote",
 		Description: "Check workspace status on a remote core-agent (e.g. Charon). Shows running, completed, blocked, and failed agents.",
 	}, s.statusRemote)

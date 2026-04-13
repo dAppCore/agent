@@ -83,17 +83,17 @@ func (s *PrepSubsystem) handlePhaseAddCheckpoint(ctx context.Context, options co
 }
 
 func (s *PrepSubsystem) registerPhaseTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_get",
 		Description: "Get a phase by plan slug and phase order.",
 	}, s.phaseGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_update_status",
 		Description: "Update a phase status by plan slug and phase order.",
 	}, s.phaseUpdateStatus)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_add_checkpoint",
 		Description: "Append a checkpoint note to a phase.",
 	}, s.phaseAddCheckpoint)

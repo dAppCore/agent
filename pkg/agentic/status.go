@@ -147,7 +147,7 @@ type BlockedInfo struct {
 }
 
 func (s *PrepSubsystem) registerStatusTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_status",
 		Description: "List agent workspaces and their status (running, completed, blocked, failed). Supports workspace, status, and limit filters. Shows blocked agents with their questions.",
 	}, s.status)

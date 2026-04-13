@@ -4,7 +4,7 @@ package agentic
 
 import (
 	"context"
-	"sort"
+	"slices"
 	"time"
 
 	core "dappco.re/go/core"
@@ -155,7 +155,7 @@ type planRetentionCandidate struct {
 
 func planRetentionCandidates(dir string, cutoff time.Time) []planRetentionCandidate {
 	jsonFiles := core.PathGlob(core.JoinPath(dir, "*.json"))
-	sort.Strings(jsonFiles)
+	slices.Sort(jsonFiles)
 
 	var candidates []planRetentionCandidate
 	for _, path := range jsonFiles {

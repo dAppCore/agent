@@ -32,7 +32,7 @@ type CreatePROutput struct {
 }
 
 func (s *PrepSubsystem) registerCreatePRTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_create_pr",
 		Description: "Create a pull request from an agent workspace. Pushes the branch to Forge and opens a PR. Links to the source issue if one was tracked.",
 	}, s.createPR)
@@ -167,42 +167,42 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *PrepSubsystem) registerPRTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
 	}, s.prGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
 	}, s.prGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
 	}, s.prList)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
 	}, s.prList)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
 	}, s.prMerge)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
 	}, s.prMerge)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)
@@ -364,14 +364,14 @@ type PRInfo struct {
 }
 
 func (s *PrepSubsystem) registerListPRsTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_list_prs",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state (open/closed/all).",
 	}, s.listPRs)
 }
 
 func (s *PrepSubsystem) registerClosePRTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_close_pr",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)

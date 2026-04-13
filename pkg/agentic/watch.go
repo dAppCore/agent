@@ -36,7 +36,7 @@ type WatchResult struct {
 }
 
 func (s *PrepSubsystem) registerWatchTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_watch",
 		Description: "Watch running/queued agent workspaces until they all complete. Sends progress notifications as each agent finishes. Returns summary when all are done.",
 	}, s.watch)

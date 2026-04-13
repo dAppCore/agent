@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
@@ -31,8 +30,7 @@ type PrepSubsystem struct {
 	brainKey       string
 	codePath       string
 	startupContext context.Context
-	dispatchMu     sync.Mutex
-	drainMu        sync.Mutex
+	drainCh        chan struct{}
 	pokeCh         chan struct{}
 	frozen         bool
 	backoff        map[string]time.Time
@@ -69,6 +67,7 @@ func NewPrep() *PrepSubsystem {
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
 		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
+		drainCh:    make(chan struct{}, 1),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 		workspaces: core.NewRegistry[*WorkspaceStatus](),
@@ -421,7 +420,7 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 // subsystem := agentic.NewPrep()
 // subsystem.RegisterTools(svc)
 func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
@@ -429,7 +428,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerDispatchTool(svc)
 	s.registerStatusTool(svc)
 	s.registerResumeTool(svc)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_complete",
 		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
 	}, s.completeTool)
@@ -458,7 +457,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerLanguageTools(svc)
 	s.registerSetupTool(svc)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
 	}, s.scan)
@@ -915,14 +914,23 @@ func promptSnapshotHash(prompt string) string {
 func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
+	goEnv := []string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=url.https://forge.lthn.ai/.insteadOf",
+		"GIT_CONFIG_VALUE_0=ssh://git@forge.lthn.ai:2223/",
+		"GONOSUMCHECK=forge.lthn.ai/*,dappco.re/*",
+		"GOPRIVATE=forge.lthn.ai/*,dappco.re/*",
+		"GOFLAGS=-mod=mod",
+	}
+
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
-		if result := process.RunIn(ctx, repoDir, "go", "mod", "download"); !result.OK {
+		if result := process.RunWithEnv(ctx, repoDir, goEnv, "go", "mod", "download"); !result.OK {
 			return core.E("prepWorkspace", "go mod download failed", nil)
 		}
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")) || fs.IsFile(core.JoinPath(repoDir, "go.work"))) {
-		if result := process.RunIn(ctx, repoDir, "go", "work", "sync"); !result.OK {
+		if result := process.RunWithEnv(ctx, repoDir, goEnv, "go", "work", "sync"); !result.OK {
 			return core.E("prepWorkspace", "go work sync failed", nil)
 		}
 	}

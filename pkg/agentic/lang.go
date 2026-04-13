@@ -76,12 +76,12 @@ func (s *PrepSubsystem) cmdLangList(_ core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) registerLanguageTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_detect",
 		Description: "Detect the primary language for a workspace or repository path.",
 	}, s.langDetect)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_list",
 		Description: "List supported language identifiers.",
 	}, s.langList)

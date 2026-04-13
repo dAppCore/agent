@@ -4,8 +4,7 @@ package agentic
 
 import (
 	"context"
-	iofs "io/fs"
-	"sort"
+	"slices"
 
 	core "dappco.re/go/core"
 )
@@ -230,12 +229,7 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 			return
 		}
 
-		entries, ok := r.Value.([]iofs.DirEntry)
-		if !ok {
-			return
-		}
-
-		for _, entry := range entries {
+		for _, entry := range listDirEntries(r) {
 			next := core.JoinPath(dir, entry.Name())
 			if entry.IsDir() {
 				walk(next)
@@ -251,7 +245,7 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 		if brainSeedMemoryFile(scanPath, memoryFilesOnly) {
 			add(scanPath)
 		}
-		sort.Strings(files)
+		slices.Sort(files)
 		return files
 	}
 
@@ -268,7 +262,7 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 	} else {
 		walk(scanPath)
 	}
-	sort.Strings(files)
+	slices.Sort(files)
 	return files
 }
 

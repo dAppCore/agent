@@ -4,7 +4,7 @@ package agentic
 
 import (
 	"context"
-	"sort"
+	"slices"
 	"time"
 
 	core "dappco.re/go/core"
@@ -226,7 +226,7 @@ func (m *ProviderManager) Names() []string {
 	for name := range m.providers {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 

@@ -155,47 +155,47 @@ func (s *PrepSubsystem) handleSprintArchive(ctx context.Context, options core.Op
 }
 
 func (s *PrepSubsystem) registerSprintTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)

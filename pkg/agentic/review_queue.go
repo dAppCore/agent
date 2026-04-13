@@ -57,7 +57,7 @@ func compileRetryAfterPattern() *regexp.Regexp {
 }
 
 func (s *PrepSubsystem) registerReviewQueueTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_review_queue",
 		Description: "Process the review queue. Supports coderabbit, codex, or both reviewers, auto-merges clean ones on GitHub, dispatches fix agents for findings, and respects rate limits.",
 	}, s.reviewQueue)

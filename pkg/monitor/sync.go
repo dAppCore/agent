@@ -40,9 +40,9 @@ func (m *Subsystem) syncRepos() string {
 	}
 
 	if len(checkin.Changed) == 0 {
-		m.mu.Lock()
+		unlock := m.monitorLock()
 		m.lastSyncTimestamp = checkin.Timestamp
-		m.mu.Unlock()
+		unlock()
 		return ""
 	}
 
@@ -88,9 +88,9 @@ func (m *Subsystem) syncRepos() string {
 
 	skipped := len(checkin.Changed) - len(pulled)
 	if skipped == 0 {
-		m.mu.Lock()
+		unlock := m.monitorLock()
 		m.lastSyncTimestamp = checkin.Timestamp
-		m.mu.Unlock()
+		unlock()
 	}
 
 	if len(pulled) == 0 {
@@ -168,9 +168,9 @@ func localRepoDir(org, repo string) string {
 }
 
 func (m *Subsystem) initSyncTimestamp() {
-	m.mu.Lock()
+	unlock := m.monitorLock()
 	if m.lastSyncTimestamp == 0 {
 		m.lastSyncTimestamp = time.Now().Unix()
 	}
-	m.mu.Unlock()
+	unlock()
 }

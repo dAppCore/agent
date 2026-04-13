@@ -33,7 +33,7 @@ type MirrorSync struct {
 }
 
 func (s *PrepSubsystem) registerMirrorTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_mirror",
 		Description: "Sync Forge repos to GitHub mirrors. Pushes Forge main to GitHub dev branch and creates a PR. Respects file count limits for CodeRabbit review.",
 	}, s.mirror)

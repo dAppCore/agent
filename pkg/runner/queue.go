@@ -191,8 +191,8 @@ func (s *Service) drainQueue() int {
 	if s.frozen {
 		return 0
 	}
-	s.drainMu.Lock()
-	defer s.drainMu.Unlock()
+	unlock := s.lock("runner.drain", s.drainLock)
+	defer unlock()
 
 	completed := 0
 	for s.drainOne() {

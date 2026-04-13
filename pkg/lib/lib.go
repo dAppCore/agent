@@ -10,7 +10,7 @@ package lib
 
 import (
 	"embed"
-	"sync"
+	"sync/atomic"
 
 	core "dappco.re/go/core"
 )
@@ -38,7 +38,7 @@ var (
 	workspaceFS *core.Embed
 	data        *core.Data
 
-	mountOnce   sync.Once
+	mountDone   atomic.Bool
 	mountResult core.Result
 )
 
@@ -59,35 +59,38 @@ func MountData(c *core.Core) {
 }
 
 func ensureMounted() core.Result {
-	mountOnce.Do(func() {
-		mountedData := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
+	if mountDone.Load() {
+		return mountResult
+	}
 
-		for _, item := range []struct {
-			name       string
-			filesystem embed.FS
-			baseDir    string
-			assign     func(*core.Embed)
-		}{
-			{name: "prompt", filesystem: promptFiles, baseDir: "prompt", assign: func(emb *core.Embed) { promptFS = emb }},
-			{name: "task", filesystem: taskFiles, baseDir: "task", assign: func(emb *core.Embed) { taskFS = emb }},
-			{name: "flow", filesystem: flowFiles, baseDir: "flow", assign: func(emb *core.Embed) { flowFS = emb }},
-			{name: "persona", filesystem: personaFiles, baseDir: "persona", assign: func(emb *core.Embed) { personaFS = emb }},
-			{name: "workspace", filesystem: workspaceFiles, baseDir: "workspace", assign: func(emb *core.Embed) { workspaceFS = emb }},
-		} {
-			mounted := mountEmbed(item.filesystem, item.baseDir)
-			if !mounted.OK {
-				mountResult = mounted
-				return
-			}
+	mountedData := &core.Data{Registry: core.NewRegistry[*core.Embed]()}
 
-			emb := mounted.Value.(*core.Embed)
-			item.assign(emb)
-			mountedData.Set(item.name, emb)
+	for _, item := range []struct {
+		name       string
+		filesystem embed.FS
+		baseDir    string
+		assign     func(*core.Embed)
+	}{
+		{name: "prompt", filesystem: promptFiles, baseDir: "prompt", assign: func(emb *core.Embed) { promptFS = emb }},
+		{name: "task", filesystem: taskFiles, baseDir: "task", assign: func(emb *core.Embed) { taskFS = emb }},
+		{name: "flow", filesystem: flowFiles, baseDir: "flow", assign: func(emb *core.Embed) { flowFS = emb }},
+		{name: "persona", filesystem: personaFiles, baseDir: "persona", assign: func(emb *core.Embed) { personaFS = emb }},
+		{name: "workspace", filesystem: workspaceFiles, baseDir: "workspace", assign: func(emb *core.Embed) { workspaceFS = emb }},
+	} {
+		mounted := mountEmbed(item.filesystem, item.baseDir)
+		if !mounted.OK {
+			mountResult = mounted
+			return mountResult
 		}
 
-		data = mountedData
-		mountResult = core.Result{Value: mountedData, OK: true}
-	})
+		emb := mounted.Value.(*core.Embed)
+		item.assign(emb)
+		mountedData.Set(item.name, emb)
+	}
+
+	data = mountedData
+	mountResult = core.Result{Value: mountedData, OK: true}
+	mountDone.Store(true)
 
 	return mountResult
 }

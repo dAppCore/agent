@@ -39,7 +39,7 @@ func (s *PrepSubsystem) handleCommit(_ context.Context, options core.Options) co
 }
 
 func (s *PrepSubsystem) registerCommitTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_commit",
 		Description: "Write the final workspace dispatch record to the local journal after verify completes.",
 	}, s.commitTool)

@@ -6,12 +6,12 @@ require (
 	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/core/api v0.3.0
 	dappco.re/go/core/forge v0.3.1
-	dappco.re/go/core/process v0.5.0
+	dappco.re/go/core/process v0.5.1
 	dappco.re/go/core/ws v0.4.0
-	dappco.re/go/mcp v0.5.1
+	dappco.re/go/mcp v0.5.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/modelcontextprotocol/go-sdk v1.4.1
+	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -72,7 +72,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect

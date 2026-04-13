@@ -29,7 +29,7 @@ type ResumeOutput struct {
 }
 
 func (s *PrepSubsystem) registerResumeTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_resume",
 		Description: "Resume a blocked agent workspace. Writes ANSWER.md if an answer is provided, then relaunches the agent with instructions to read it and continue.",
 	}, s.resume)

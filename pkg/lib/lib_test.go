@@ -5,7 +5,6 @@ package lib
 import (
 	"embed"
 	"runtime"
-	"sync"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -18,7 +17,7 @@ func breakLibMountForTest(t *testing.T) {
 
 	originalPromptFiles := promptFiles
 	promptFiles = embed.FS{}
-	mountOnce = sync.Once{}
+	mountDone.Store(false)
 	mountResult = core.Result{}
 	data = nil
 	promptFS = nil
@@ -29,7 +28,7 @@ func breakLibMountForTest(t *testing.T) {
 
 	t.Cleanup(func() {
 		promptFiles = originalPromptFiles
-		mountOnce = sync.Once{}
+		mountDone.Store(false)
 		mountResult = core.Result{}
 		data = nil
 		promptFS = nil
@@ -47,7 +46,7 @@ func corruptLibMountForTest(t *testing.T) {
 	data = nil
 
 	t.Cleanup(func() {
-		mountOnce = sync.Once{}
+		mountDone.Store(false)
 		mountResult = core.Result{}
 		data = nil
 	})

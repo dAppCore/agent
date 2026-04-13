@@ -377,9 +377,9 @@ func (s *PrepSubsystem) drainQueue() {
 	if s.ServiceRuntime != nil {
 		s.Core().Lock("drain").Mutex.Lock()
 		defer s.Core().Lock("drain").Mutex.Unlock()
-	} else {
-		s.drainMu.Lock()
-		defer s.drainMu.Unlock()
+	} else if s.drainCh != nil {
+		s.drainCh <- struct{}{}
+		defer func() { <-s.drainCh }()
 	}
 
 	for s.drainOne() {

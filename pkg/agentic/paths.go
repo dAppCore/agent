@@ -5,11 +5,21 @@ package agentic
 import (
 	"context"
 	iofs "io/fs"
-	"sort"
+	"slices"
 	"strconv"
 
 	core "dappco.re/go/core"
 )
+
+// fsEntry matches the fs.DirEntry methods used by workspace scanning.
+// Avoids importing io/fs — core.Fs.List() returns []iofs.DirEntry internally.
+//
+//	entry, ok := item.(fsEntry)
+//	if ok { core.Print(nil, "%s isDir=%v", entry.Name(), entry.IsDir()) }
+type fsEntry interface {
+	Name() string
+	IsDir() bool
+}
 
 // r := fs.Read("/etc/hostname")
 // if r.OK { core.Print(nil, "%s", r.Value.(string)) }
@@ -88,11 +98,6 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 			return
 		}
 
-		entries, ok := r.Value.([]iofs.DirEntry)
-		if !ok {
-			return
-		}
-
 		statusPath := core.JoinPath(dir, "status.json")
 		if fs.IsFile(statusPath) {
 			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")) && fs.IsDir(core.JoinPath(dir, ".meta"))) {
@@ -104,17 +109,57 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 			}
 		}
 
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
+		for _, name := range listDirNames(r) {
+			child := core.JoinPath(dir, name)
+			if fs.IsDir(child) {
+				walk(child, depth+1)
 			}
-			walk(core.JoinPath(dir, entry.Name()), depth+1)
 		}
 	}
 
 	walk(workspaceRoot, 0)
-	sort.Strings(paths)
+	slices.Sort(paths)
 	return paths
+}
+
+// listDirNames extracts entry names from a core.Fs.List() Result.
+// core.Fs.List() returns []iofs.DirEntry — type-assert directly.
+//
+//	r := fs.List("/path/to/dir")
+//	names := listDirNames(r) // ["file.go", "subdir", "README.md"]
+func listDirNames(r core.Result) []string {
+	if !r.OK || r.Value == nil {
+		return nil
+	}
+	entries, ok := r.Value.([]iofs.DirEntry)
+	if !ok {
+		return nil
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
+}
+
+// listDirEntries extracts fsEntry values from a core.Fs.List() Result.
+// core.Fs.List() returns []iofs.DirEntry — type-assert directly.
+//
+//	r := fs.List("/path/to/dir")
+//	for _, entry := range listDirEntries(r) { core.Print(nil, "%s", entry.Name()) }
+func listDirEntries(r core.Result) []fsEntry {
+	if !r.OK || r.Value == nil {
+		return nil
+	}
+	entries, ok := r.Value.([]iofs.DirEntry)
+	if !ok {
+		return nil
+	}
+	result := make([]fsEntry, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, entry)
+	}
+	return result
 }
 
 // repoDir := agentic.WorkspaceRepoDir("/srv/.core/workspace/core/go-io/task-5")

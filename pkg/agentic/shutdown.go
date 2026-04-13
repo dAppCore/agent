@@ -20,17 +20,17 @@ type ShutdownOutput struct {
 }
 
 func (s *PrepSubsystem) registerShutdownTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_start",
 		Description: "Start the dispatch queue runner. Unfreezes the queue and begins draining.",
 	}, s.dispatchStart)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown",
 		Description: "Graceful shutdown: stop accepting new jobs, let running agents finish. Queue is frozen.",
 	}, s.shutdownGraceful)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown_now",
 		Description: "Hard shutdown: kill all running agents immediately. Queue is cleared.",
 	}, s.shutdownNow)

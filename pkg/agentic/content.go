@@ -389,52 +389,52 @@ func (s *PrepSubsystem) handleContentSchemaGenerate(ctx context.Context, options
 }
 
 func (s *PrepSubsystem) registerContentTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_generate",
 		Description: "Generate content from a prompt or a brief/template pair using the platform AI provider abstraction.",
 	}, s.contentGenerate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_batch_generate",
 		Description: "Generate content for a stored batch specification.",
 	}, s.contentBatchGenerate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_batch",
 		Description: "Generate content for a stored batch specification using the legacy MCP alias.",
 	}, s.contentBatchGenerate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_create",
 		Description: "Create a reusable content brief for later generation work.",
 	}, s.contentBriefCreate)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_get",
 		Description: "Read a reusable content brief by ID or slug.",
 	}, s.contentBriefGet)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_list",
 		Description: "List reusable content briefs with optional category and product filters.",
 	}, s.contentBriefList)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_status",
 		Description: "Read batch content generation status by batch ID.",
 	}, s.contentStatus)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_usage_stats",
 		Description: "Read AI usage statistics for the content pipeline.",
 	}, s.contentUsageStats)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_from_plan",
 		Description: "Generate content using stored plan context and an optional provider override.",
 	}, s.contentFromPlan)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_schema_generate",
 		Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content.",
 	}, s.contentSchemaGenerate)

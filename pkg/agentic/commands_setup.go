@@ -55,7 +55,7 @@ func (s *PrepSubsystem) handleSetup(_ context.Context, options core.Options) cor
 }
 
 func (s *PrepSubsystem) registerSetupTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_setup",
 		Description: "Scaffold a workspace with .core config files and optional templates.",
 	}, s.setupTool)

@@ -46,10 +46,24 @@ type DispatchOutput struct {
 }
 
 func (s *PrepSubsystem) registerDispatchTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch",
 		Description: "Dispatch a subagent (Gemini, Codex, or Claude) to work on a task. Preps a sandboxed workspace first, then spawns the agent inside it. Templates: conventions, security, coding.",
 	}, s.dispatch)
+}
+
+// isNativeAgent returns true for agents that run directly on the host (no Docker).
+//
+//	isNativeAgent("claude")      // true
+//	isNativeAgent("coderabbit")  // true
+//	isNativeAgent("codex")       // false — runs in Docker
+//	isNativeAgent("codex:gpt-5.4-mini") // false
+func isNativeAgent(agent string) bool {
+	base := agent
+	if parts := core.SplitN(agent, ":", 2); len(parts) > 0 {
+		base = parts[0]
+	}
+	return base == "claude" || base == "coderabbit"
 }
 
 // command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
@@ -315,6 +329,14 @@ func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 		s.Core().ACTION(messages.AgentStarted{
 			Agent: agent, Repo: repo, Workspace: workspaceName,
 		})
+		// Push to MCP channel so Claude Code receives the notification
+		s.Core().ACTION(coremcp.ChannelPush{
+			Channel: coremcp.ChannelAgentStatus,
+			Data: map[string]any{
+				"agent": agent, "repo": repo,
+				"workspace": workspaceName, "status": "running",
+			},
+		})
 	}
 	emitStartEvent(agent, workspaceName)
 }
@@ -332,6 +354,14 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 		s.Core().ACTION(messages.AgentCompleted{
 			Agent: agent, Repo: repo,
 			Workspace: workspaceName, Status: finalStatus,
+		})
+		// Push to MCP channel so Claude Code receives the notification
+		s.Core().ACTION(coremcp.ChannelPush{
+			Channel: coremcp.ChannelAgentComplete,
+			Data: map[string]any{
+				"agent": agent, "repo": repo,
+				"workspace": workspaceName, "status": finalStatus,
+			},
 		})
 	}
 }
@@ -373,7 +403,11 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
-	command, args = containerCommand(command, args, workspaceDir, metaDir)
+	// Native agents (claude, coderabbit) run directly on the host — no Docker.
+	// Docker agents (codex, gemini, local) get containerised for isolation.
+	if !isNativeAgent(agent) {
+		command, args = containerCommand(command, args, workspaceDir, metaDir)
+	}
 
 	processResult := s.Core().Service("process")
 	if !processResult.OK {
@@ -383,10 +417,17 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	if !ok {
 		return 0, "", "", core.E("dispatch.spawnAgent", "process service has unexpected type", nil)
 	}
+	// Native agents run in repo/ (the git checkout).
+	// Docker agents run in workspaceDir (container maps it to /workspace).
+	runDir := workspaceDir
+	if isNativeAgent(agent) {
+		runDir = WorkspaceRepoDir(workspaceDir)
+	}
+
 	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
 		Command: command,
 		Args:    args,
-		Dir:     workspaceDir,
+		Dir:     runDir,
 		Detach:  true,
 	})
 	if err != nil {

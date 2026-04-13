@@ -37,7 +37,7 @@ type ChildRef struct {
 }
 
 func (s *PrepSubsystem) registerEpicTool(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_create_epic",
 		Description: "Create an epic issue with child issues on Forge. Each task becomes a child issue linked via checklist. Optionally auto-dispatch agents to work each child.",
 	}, s.createEpic)

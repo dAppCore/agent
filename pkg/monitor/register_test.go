@@ -56,8 +56,8 @@ func TestRegister_Register_Good_TracksStartedIPC(t *testing.T) {
 
 	c.ACTION(messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "ws-reg"})
 
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	unlock := svc.monitorLock()
+	defer unlock()
 	assert.True(t, svc.seenRunning["ws-reg"])
 }
 
@@ -74,7 +74,7 @@ func TestRegister_Register_Good_TracksCompletedIPC(t *testing.T) {
 
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-done", Status: "completed"})
 
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	unlock := svc.monitorLock()
+	defer unlock()
 	assert.True(t, svc.seenCompleted["ws-done"])
 }

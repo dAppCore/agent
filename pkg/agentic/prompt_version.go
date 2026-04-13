@@ -81,12 +81,12 @@ func (s *PrepSubsystem) promptVersion(_ context.Context, _ *mcp.CallToolRequest,
 }
 
 func (s *PrepSubsystem) registerPromptTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
 	}, s.promptVersionTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
 	}, s.promptVersionTool)

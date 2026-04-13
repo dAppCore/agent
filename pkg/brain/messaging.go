@@ -14,17 +14,17 @@ import (
 // subsystem := brain.NewDirect()
 // subsystem.RegisterMessagingTools(svc)
 func (s *DirectSubsystem) RegisterMessagingTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a message to another agent. Direct, chronological, not semantic.",
 	}, s.sendMessage)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "Check your inbox — latest messages sent to you.",
 	}, s.inbox)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "View conversation thread with a specific agent.",
 	}, s.conversation)
@@ -84,6 +84,27 @@ type ConversationOutput struct {
 func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	if input.To == "" || input.Content == "" {
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
+	}
+
+	// "self" target: push via notifications/claude/channel directly.
+	// Claude Code expects: { content: string, meta: Record<string, string> }
+	if input.To == "self" {
+		if s.Core() != nil {
+			if mcpResult := s.Core().Service("mcp"); mcpResult.OK {
+				if mcpSvc, ok := mcpResult.Value.(*coremcp.Service); ok {
+					for session := range mcpSvc.Sessions() {
+						coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
+							"content": input.Content,
+							"meta": map[string]string{
+								"from":    agentic.AgentName(),
+								"subject": input.Subject,
+							},
+						})
+					}
+				}
+			}
+		}
+		return nil, SendOutput{Success: true, ID: 0, To: "self"}, nil
 	}
 
 	result := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{

@@ -95,102 +95,102 @@ type SubscriptionBudgetUpdateInput struct {
 }
 
 func (s *PrepSubsystem) registerPlatformTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_push",
 		Description: "Push completed dispatch state to the platform API for fleet-wide context sharing.",
 	}, s.syncPushTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_pull",
 		Description: "Pull fleet-wide context from the platform API into the local cache.",
 	}, s.syncPullTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_status",
 		Description: "Read platform sync status for an agent, including queued items and last push/pull times.",
 	}, s.syncStatusTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_auth_provision",
 		Description: "Provision a platform API key for an authenticated agent user.",
 	}, s.authProvisionTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_auth_revoke",
 		Description: "Revoke a platform API key by key ID.",
 	}, s.authRevokeTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_register",
 		Description: "Register a fleet node with models, capabilities, and platform metadata.",
 	}, s.fleetRegisterTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_heartbeat",
 		Description: "Send a fleet heartbeat update with status and optional compute budget.",
 	}, s.fleetHeartbeatTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_deregister",
 		Description: "Deregister a fleet node from the platform API.",
 	}, s.fleetDeregisterTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_nodes",
 		Description: "List registered fleet nodes with optional status and platform filters.",
 	}, s.fleetNodesTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_assign",
 		Description: "Assign a task to a fleet node.",
 	}, s.fleetTaskAssignTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_complete",
 		Description: "Complete a fleet task and report result, findings, changes, and report data.",
 	}, s.fleetTaskCompleteTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_next",
 		Description: "Ask the platform for the next available fleet task for an agent.",
 	}, s.fleetTaskNextTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_stats",
 		Description: "Read aggregate fleet activity statistics.",
 	}, s.fleetStatsTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_events",
 		Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed.",
 	}, s.fleetEventsTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_award",
 		Description: "Award credits to a fleet node for completed work.",
 	}, s.creditsAwardTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_balance",
 		Description: "Read the current credit balance for a fleet node.",
 	}, s.creditsBalanceTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_history",
 		Description: "List credit history entries for a fleet node.",
 	}, s.creditsHistoryTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_detect",
 		Description: "Detect provider capabilities available to a fleet node.",
 	}, s.subscriptionDetectTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_budget",
 		Description: "Read the current compute budget for a fleet node.",
 	}, s.subscriptionBudgetTool)
 
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_budget_update",
 		Description: "Update the compute budget limits for a fleet node.",
 	}, s.subscriptionBudgetUpdateTool)
