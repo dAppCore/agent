@@ -13,6 +13,10 @@ type SyncPushInput struct {
 	AgentID     string           `json:"agent_id,omitempty"`
 	FleetNodeID int              `json:"fleet_node_id,omitempty"`
 	Dispatches  []map[string]any `json:"dispatches,omitempty"`
+	// QueueOnly skips the collectSyncDispatches() scan so the caller only
+	// drains entries already queued. Used by the flush loop to avoid
+	// re-adding the same completed workspaces on every tick.
+	QueueOnly bool `json:"-"`
 }
 
 type SyncPushOutput struct {
@@ -47,11 +51,69 @@ type syncQueuedPush struct {
 	FleetNodeID int              `json:"fleet_node_id,omitempty"`
 	Dispatches  []map[string]any `json:"dispatches"`
 	QueuedAt    time.Time        `json:"queued_at"`
+	Attempts    int              `json:"attempts,omitempty"`
+	NextAttempt time.Time        `json:"next_attempt,omitempty"`
 }
 
 type syncStatusState struct {
 	LastPushAt time.Time `json:"last_push_at,omitempty"`
 	LastPullAt time.Time `json:"last_pull_at,omitempty"`
+}
+
+// syncBackoffSchedule implements RFC §16.5 — 1s → 5s → 15s → 60s → 5min max.
+// schedule := syncBackoffSchedule(2) // 15s
+// next := time.Now().Add(schedule)
+func syncBackoffSchedule(attempts int) time.Duration {
+	switch {
+	case attempts <= 0:
+		return 0
+	case attempts == 1:
+		return time.Second
+	case attempts == 2:
+		return 5 * time.Second
+	case attempts == 3:
+		return 15 * time.Second
+	case attempts == 4:
+		return 60 * time.Second
+	default:
+		return 5 * time.Minute
+	}
+}
+
+// syncFlushScheduleInterval is the cadence at which queued pushes are retried
+// when the agent has been unable to reach the platform. Per RFC §16.5 the
+// retry window max is 5 minutes, so the scheduler wakes at that cadence and
+// each queued entry enforces its own NextAttempt gate.
+const syncFlushScheduleInterval = time.Minute
+
+// ctx, cancel := context.WithCancel(context.Background())
+// go s.runSyncFlushLoop(ctx, time.Minute)
+func (s *PrepSubsystem) runSyncFlushLoop(ctx context.Context, interval time.Duration) {
+	if ctx == nil || interval <= 0 {
+		return
+	}
+	if s == nil || s.syncToken() == "" {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if len(readSyncQueue()) == 0 {
+				continue
+			}
+			// QueueOnly keeps syncPushInput from re-scanning workspaces — the
+			// flush loop only drains entries already queued.
+			if _, err := s.syncPushInput(ctx, SyncPushInput{QueueOnly: true}); err != nil {
+				core.Warn("sync flush loop failed", "error", err)
+			}
+		}
+	}
 }
 
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
@@ -90,7 +152,7 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		agentID = AgentName()
 	}
 	dispatches := input.Dispatches
-	if len(dispatches) == 0 {
+	if len(dispatches) == 0 && !input.QueueOnly {
 		dispatches = collectSyncDispatches()
 	}
 	token := s.syncToken()
@@ -114,15 +176,25 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 	}
 
 	synced := 0
+	now := time.Now()
 	for i, queued := range queuedPushes {
 		if len(queued.Dispatches) == 0 {
 			continue
 		}
-		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
+		if !queued.NextAttempt.IsZero() && queued.NextAttempt.After(now) {
+			// Respect backoff — persist remaining tail so queue survives restart.
 			writeSyncQueue(queuedPushes[i:])
 			return SyncPushOutput{Success: true, Count: synced}, nil
 		}
+		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
+			remaining := append([]syncQueuedPush(nil), queuedPushes[i:]...)
+			remaining[0].Attempts = queued.Attempts + 1
+			remaining[0].NextAttempt = time.Now().Add(syncBackoffSchedule(remaining[0].Attempts))
+			writeSyncQueue(remaining)
+			return SyncPushOutput{Success: true, Count: synced}, nil
+		}
 		synced += len(queued.Dispatches)
+		markDispatchesSynced(queued.Dispatches)
 		recordSyncPush(time.Now())
 		recordSyncHistory("push", queued.AgentID, queued.FleetNodeID, len(core.JSONMarshalString(map[string]any{
 			"agent_id":   queued.AgentID,
@@ -201,6 +273,7 @@ func (s *PrepSubsystem) syncToken() string {
 }
 
 func collectSyncDispatches() []map[string]any {
+	ledger := readSyncLedger()
 	var dispatches []map[string]any
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)
@@ -212,9 +285,100 @@ func collectSyncDispatches() []map[string]any {
 		if !shouldSyncStatus(workspaceStatus.Status) {
 			continue
 		}
-		dispatches = append(dispatches, syncDispatchRecord(workspaceDir, workspaceStatus))
+		dispatchID := syncDispatchID(workspaceDir, workspaceStatus)
+		if synced, ok := ledger[dispatchID]; ok && synced == syncDispatchFingerprint(workspaceStatus) {
+			continue
+		}
+		record := syncDispatchRecord(workspaceDir, workspaceStatus)
+		record["id"] = dispatchID
+		dispatches = append(dispatches, record)
 	}
 	return dispatches
+}
+
+// id := syncDispatchID(workspaceDir, workspaceStatus) // "core/go-io/task-5"
+func syncDispatchID(workspaceDir string, workspaceStatus *WorkspaceStatus) string {
+	if workspaceStatus == nil {
+		return WorkspaceName(workspaceDir)
+	}
+	return WorkspaceName(workspaceDir)
+}
+
+// fingerprint := syncDispatchFingerprint(workspaceStatus) // "2026-04-14T12:00:00Z#3"
+// A dispatch is considered unchanged when (updated_at, runs) matches.
+// Any new activity (re-dispatch, status change) generates a fresh fingerprint.
+func syncDispatchFingerprint(workspaceStatus *WorkspaceStatus) string {
+	if workspaceStatus == nil {
+		return ""
+	}
+	return core.Concat(workspaceStatus.UpdatedAt.UTC().Format(time.RFC3339), "#", core.Sprintf("%d", workspaceStatus.Runs))
+}
+
+// ledger := readSyncLedger() // map[dispatchID]fingerprint of last push
+func readSyncLedger() map[string]string {
+	ledger := map[string]string{}
+	result := fs.Read(syncLedgerPath())
+	if !result.OK {
+		return ledger
+	}
+	content := core.Trim(result.Value.(string))
+	if content == "" {
+		return ledger
+	}
+	if parseResult := core.JSONUnmarshalString(content, &ledger); !parseResult.OK {
+		return map[string]string{}
+	}
+	return ledger
+}
+
+// writeSyncLedger persists the dispatched fingerprints so the next scan
+// can skip workspaces that have already been pushed.
+func writeSyncLedger(ledger map[string]string) {
+	if len(ledger) == 0 {
+		fs.Delete(syncLedgerPath())
+		return
+	}
+	fs.EnsureDir(syncStateDir())
+	fs.WriteAtomic(syncLedgerPath(), core.JSONMarshalString(ledger))
+}
+
+// markDispatchesSynced records which dispatches were successfully pushed so
+// collectSyncDispatches skips them on the next scan.
+func markDispatchesSynced(dispatches []map[string]any) {
+	if len(dispatches) == 0 {
+		return
+	}
+	ledger := readSyncLedger()
+	changed := false
+	for _, record := range dispatches {
+		id := stringValue(record["id"])
+		if id == "" {
+			id = stringValue(record["workspace"])
+		}
+		if id == "" {
+			continue
+		}
+		updatedAt := ""
+		switch v := record["updated_at"].(type) {
+		case time.Time:
+			updatedAt = v.UTC().Format(time.RFC3339)
+		case string:
+			updatedAt = v
+		}
+		runs := 0
+		if v, ok := record["runs"].(int); ok {
+			runs = v
+		}
+		ledger[id] = core.Concat(updatedAt, "#", core.Sprintf("%d", runs))
+		changed = true
+	}
+	if changed {
+		writeSyncLedger(ledger)
+	}
+}
+
+func syncLedgerPath() string {
+	return core.JoinPath(syncStateDir(), "ledger.json")
 }
 
 func shouldSyncStatus(status string) bool {

@@ -442,3 +442,210 @@ func TestSync_HandleSyncPull_Ugly(t *testing.T) {
 	require.Len(t, output.Context, 1)
 	assert.Equal(t, "cached-2", output.Context[0]["id"])
 }
+
+// schedule := syncBackoffSchedule(3) // 15s
+func TestSync_SyncBackoffSchedule_Good(t *testing.T) {
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(0))
+	assert.Equal(t, time.Second, syncBackoffSchedule(1))
+	assert.Equal(t, 5*time.Second, syncBackoffSchedule(2))
+	assert.Equal(t, 15*time.Second, syncBackoffSchedule(3))
+	assert.Equal(t, 60*time.Second, syncBackoffSchedule(4))
+	assert.Equal(t, 5*time.Minute, syncBackoffSchedule(5))
+	assert.Equal(t, 5*time.Minute, syncBackoffSchedule(100))
+}
+
+func TestSync_SyncBackoffSchedule_Bad_NegativeAttempts(t *testing.T) {
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(-1))
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(-5))
+}
+
+func TestSync_HandleSyncPush_Ugly_IncrementsBackoffOnFailure(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+
+	// First failure — attempt 1, backoff 1s
+	_, err := subsystem.syncPushInput(context.Background(), SyncPushInput{
+		AgentID:    "charon",
+		Dispatches: []map[string]any{{"workspace": "w-1", "status": "completed"}},
+	})
+	require.NoError(t, err)
+	queued := readSyncQueue()
+	require.Len(t, queued, 1)
+	assert.Equal(t, 1, queued[0].Attempts)
+	assert.False(t, queued[0].NextAttempt.IsZero())
+	assert.True(t, queued[0].NextAttempt.After(time.Now()))
+	assert.True(t, queued[0].NextAttempt.Before(time.Now().Add(2*time.Second)))
+}
+
+func TestSync_RunSyncFlushLoop_Good_DrainsQueuedPushes(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	writeSyncQueue([]syncQueuedPush{{
+		AgentID:    "charon",
+		Dispatches: []map[string]any{{"workspace": "w-1", "status": "completed"}},
+		QueuedAt:   time.Now().Add(-1 * time.Minute),
+	}})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/agent/sync", r.URL.Path)
+		_, _ = w.Write([]byte(`{"data":{"synced":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go subsystem.runSyncFlushLoop(ctx, 10*time.Millisecond)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(readSyncQueue()) == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("sync flush loop did not drain queue: %v", readSyncQueue())
+}
+
+func TestSync_CollectSyncDispatches_Good_SkipsAlreadySynced(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	fs.EnsureDir(workspaceDir)
+	updatedAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
+	writeStatusResult(workspaceDir, &WorkspaceStatus{
+		Status:    "completed",
+		Repo:      "go-io",
+		Org:       "core",
+		Runs:      1,
+		UpdatedAt: updatedAt,
+	})
+
+	// First scan picks it up.
+	first := collectSyncDispatches()
+	require.Len(t, first, 1)
+
+	// Mark as synced — next scan skips it.
+	markDispatchesSynced(first)
+	second := collectSyncDispatches()
+	assert.Empty(t, second)
+
+	// When the workspace gets a new run, fingerprint changes → rescan.
+	writeStatusResult(workspaceDir, &WorkspaceStatus{
+		Status:    "completed",
+		Repo:      "go-io",
+		Org:       "core",
+		Runs:      2,
+		UpdatedAt: updatedAt.Add(time.Hour),
+	})
+	third := collectSyncDispatches()
+	assert.Len(t, third, 1)
+}
+
+func TestSync_SyncPushInput_Good_QueueOnlySkipsWorkspaceScan(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	// Seed a completed workspace that would normally be picked up by scan.
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	fs.EnsureDir(workspaceDir)
+	writeStatusResult(workspaceDir, &WorkspaceStatus{
+		Status:    "completed",
+		Agent:     "codex",
+		Repo:      "go-io",
+		Org:       "core",
+		Task:      "Fix tests",
+		Branch:    "agent/fix-tests",
+		StartedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	called := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		_, _ = w.Write([]byte(`{"data":{"synced":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+
+	// With an empty queue and no scan, nothing to push.
+	output, err := subsystem.syncPushInput(context.Background(), SyncPushInput{QueueOnly: true})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 0, output.Count)
+	assert.Equal(t, 0, called)
+	assert.Empty(t, readSyncQueue())
+}
+
+func TestSync_RunSyncFlushLoop_Bad_NoopWithoutToken(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_AGENT_API_KEY", "")
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	// Should return immediately, no goroutine leak.
+	subsystem.runSyncFlushLoop(ctx, 10*time.Millisecond)
+}
+
+func TestSync_HandleSyncPush_Ugly_RespectsBackoffWindow(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
+
+	// Prime queue with a push that's still inside its backoff window
+	writeSyncQueue([]syncQueuedPush{{
+		AgentID:     "charon",
+		Dispatches:  []map[string]any{{"workspace": "w-1", "status": "completed"}},
+		QueuedAt:    time.Now().Add(-2 * time.Minute),
+		Attempts:    3,
+		NextAttempt: time.Now().Add(5 * time.Minute),
+	}})
+
+	called := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		_, _ = w.Write([]byte(`{"data":{"synced":1}}`))
+	}))
+	defer server.Close()
+
+	subsystem := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		brainURL:       server.URL,
+	}
+	output, err := subsystem.syncPush(context.Background(), "")
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 0, output.Count)
+	assert.Equal(t, 0, called, "backoff must skip the HTTP call")
+
+	queued := readSyncQueue()
+	require.Len(t, queued, 1)
+	assert.Equal(t, 3, queued[0].Attempts)
+}

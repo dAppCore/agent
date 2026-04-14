@@ -347,6 +347,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	if s.forgeToken != "" {
 		go s.runPRManageLoop(ctx, prManageScheduleInterval)
 	}
+	if s.syncToken() != "" {
+		go s.runSyncFlushLoop(ctx, syncFlushScheduleInterval)
+	}
 
 	c.RegisterQuery(s.handleWorkspaceQuery)
 
