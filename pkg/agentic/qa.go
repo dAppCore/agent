@@ -70,19 +70,67 @@ type QAReport struct {
 // human reviewers and downstream tooling (Uptelligence, Poindexter) can read
 // the cycle without re-scanning the buffer.
 //
+// Per RFC §7 Post-Run Analysis, the report contrasts the current cycle with
+// previous journal entries for the same workspace to surface what changed:
+// `New` lists findings absent from the previous cycle, `Resolved` lists
+// findings the previous cycle had that this cycle cleared, and `Persistent`
+// lists findings that appear across the last `persistentThreshold` cycles.
+// When the journal has no history the diff lists are left nil so the first
+// cycle behaves like a fresh baseline.
+//
 // Usage example: `report := DispatchReport{Summary: map[string]any{"finding": 12, "tool_run": 3}, Findings: findings, Tools: tools, BuildPassed: true, TestPassed: true}`
 type DispatchReport struct {
-	Workspace   string         `json:"workspace"`
-	Commit      string         `json:"commit,omitempty"`
-	Summary     map[string]any `json:"summary"`
-	Findings    []QAFinding    `json:"findings,omitempty"`
-	Tools       []QAToolRun    `json:"tools,omitempty"`
-	BuildPassed bool           `json:"build_passed"`
-	TestPassed  bool           `json:"test_passed"`
-	LintPassed  bool           `json:"lint_passed"`
-	Passed      bool           `json:"passed"`
-	GeneratedAt time.Time      `json:"generated_at"`
+	Workspace   string              `json:"workspace"`
+	Commit      string              `json:"commit,omitempty"`
+	Summary     map[string]any      `json:"summary"`
+	Findings    []QAFinding         `json:"findings,omitempty"`
+	Tools       []QAToolRun         `json:"tools,omitempty"`
+	BuildPassed bool                `json:"build_passed"`
+	TestPassed  bool                `json:"test_passed"`
+	LintPassed  bool                `json:"lint_passed"`
+	Passed      bool                `json:"passed"`
+	GeneratedAt time.Time           `json:"generated_at"`
+	New         []map[string]any    `json:"new,omitempty"`
+	Resolved    []map[string]any    `json:"resolved,omitempty"`
+	Persistent  []map[string]any    `json:"persistent,omitempty"`
+	Clusters    []DispatchCluster   `json:"clusters,omitempty"`
 }
+
+// DispatchCluster groups similar findings together so human reviewers can see
+// recurring problem shapes without scanning every raw finding. A cluster keys
+// by (tool, severity, category, rule_id) and counts how many findings fell
+// into that bucket in the current cycle, with representative samples.
+//
+// Usage example: `cluster := DispatchCluster{Tool: "gosec", Severity: "error", Category: "security", Count: 3, RuleID: "G101"}`
+type DispatchCluster struct {
+	Tool     string         `json:"tool,omitempty"`
+	Severity string         `json:"severity,omitempty"`
+	Category string         `json:"category,omitempty"`
+	RuleID   string         `json:"rule_id,omitempty"`
+	Count    int            `json:"count"`
+	Samples  []DispatchClusterSample `json:"samples,omitempty"`
+}
+
+// DispatchClusterSample is a minimal projection of a finding inside a
+// DispatchCluster so reviewers can jump to the file/line without
+// re-scanning the full findings list.
+//
+// Usage example: `sample := DispatchClusterSample{File: "main.go", Line: 42, Message: "hardcoded secret"}`
+type DispatchClusterSample struct {
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// persistentThreshold matches RFC §7 — findings that appear in this many
+// consecutive cycles for the same workspace are classed as persistent and
+// surfaced separately so Uptelligence can flag chronic issues.
+const persistentThreshold = 5
+
+// clusterSampleLimit caps how many representative findings accompany a
+// DispatchCluster so the `.meta/report.json` payload stays bounded even when
+// a single rule fires hundreds of times.
+const clusterSampleLimit = 3
 
 // qaWorkspaceName returns the buffer name used to accumulate a single QA cycle.
 // Mirrors RFC §7 — workspaces are namespaced `qa-<workspace-name>` so multiple
@@ -233,8 +281,11 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 	buildPassed, testPassed := s.runBuildAndTest(ctx, workspace, repoDir)
 	lintPassed := report.Summary.Errors == 0
 
+	workspaceName := WorkspaceName(workspaceDir)
+	previousCycles := readPreviousJournalCycles(storeInstance, workspaceName, persistentThreshold)
+
 	dispatchReport := DispatchReport{
-		Workspace:   WorkspaceName(workspaceDir),
+		Workspace:   workspaceName,
 		Summary:     workspace.Aggregate(),
 		Findings:    report.Findings,
 		Tools:       report.Tools,
@@ -243,9 +294,19 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 		LintPassed:  lintPassed,
 		Passed:      buildPassed && testPassed,
 		GeneratedAt: time.Now().UTC(),
+		Clusters:    clusterFindings(report.Findings),
 	}
 
+	dispatchReport.New, dispatchReport.Resolved, dispatchReport.Persistent = diffFindingsAgainstJournal(report.Findings, previousCycles)
+
 	writeDispatchReport(workspaceDir, dispatchReport)
+
+	// Publish the full dispatch report to the journal (keyed by workspace name)
+	// so the next cycle's readPreviousJournalCycles can diff against a
+	// findings-level payload rather than only the aggregated counts produced
+	// by workspace.Commit(). Matches RFC §7 "the intelligence survives in the
+	// report and the journal".
+	publishDispatchReport(storeInstance, workspaceName, dispatchReport)
 
 	commitResult := workspace.Commit()
 	if !commitResult.OK {
@@ -254,6 +315,48 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 	}
 
 	return dispatchReport.Passed
+}
+
+// publishDispatchReport writes the dispatch report's findings, tools, and
+// per-kind summary to the journal using Store.CommitToJournal. The measurement
+// is the workspace name so later reads can filter by workspace, and the tags
+// let Uptelligence group cycles across repos.
+//
+// Usage example: `publishDispatchReport(store, "core/go-io/task-5", dispatchReport)`
+func publishDispatchReport(storeInstance *store.Store, workspaceName string, dispatchReport DispatchReport) {
+	if storeInstance == nil || workspaceName == "" {
+		return
+	}
+
+	findings := make([]map[string]any, 0, len(dispatchReport.Findings))
+	for _, finding := range dispatchReport.Findings {
+		findings = append(findings, findingToMap(finding))
+	}
+
+	tools := make([]map[string]any, 0, len(dispatchReport.Tools))
+	for _, tool := range dispatchReport.Tools {
+		tools = append(tools, map[string]any{
+			"name":     tool.Name,
+			"version":  tool.Version,
+			"status":   tool.Status,
+			"duration": tool.Duration,
+			"findings": tool.Findings,
+		})
+	}
+
+	fields := map[string]any{
+		"passed":       dispatchReport.Passed,
+		"build_passed": dispatchReport.BuildPassed,
+		"test_passed":  dispatchReport.TestPassed,
+		"lint_passed":  dispatchReport.LintPassed,
+		"summary":      dispatchReport.Summary,
+		"findings":     findings,
+		"tools":        tools,
+		"generated_at": dispatchReport.GeneratedAt.Format(time.RFC3339Nano),
+	}
+	tags := map[string]string{"workspace": workspaceName}
+
+	storeInstance.CommitToJournal(workspaceName, fields, tags)
 }
 
 // runBuildAndTest executes the language-specific build/test cycle, recording
@@ -381,3 +484,280 @@ func stringOutput(result core.Result) string {
 	}
 	return ""
 }
+
+// findingFingerprint returns a stable key for a single lint finding so the
+// diff and cluster helpers can compare current and previous cycles without
+// confusing "two G101 hits in the same file" with "two identical findings".
+// The fingerprint mirrors what human reviewers use to recognise the same
+// issue across cycles — tool, file, line, rule/code.
+//
+// Usage example: `key := findingFingerprint(QAFinding{Tool: "gosec", File: "main.go", Line: 42, Code: "G101"})`
+func findingFingerprint(finding QAFinding) string {
+	return core.Sprintf("%s|%s|%d|%s", finding.Tool, finding.File, finding.Line, firstNonEmpty(finding.Code, finding.RuleID))
+}
+
+// findingFingerprintFromMap extracts a fingerprint from a journal-restored
+// finding (which is a `map[string]any` rather than a typed struct). Keeps the
+// diff helpers agnostic to how the finding was stored.
+//
+// Usage example: `key := findingFingerprintFromMap(map[string]any{"tool": "gosec", "file": "main.go", "line": 42, "code": "G101"})`
+func findingFingerprintFromMap(entry map[string]any) string {
+	return core.Sprintf(
+		"%s|%s|%d|%s",
+		stringValue(entry["tool"]),
+		stringValue(entry["file"]),
+		intValue(entry["line"]),
+		firstNonEmpty(stringValue(entry["code"]), stringValue(entry["rule_id"])),
+	)
+}
+
+// firstNonEmpty returns the first non-empty value in the arguments, or the
+// empty string if all are empty. Lets fingerprint helpers fall back from
+// `code` to `rule_id` without nested conditionals.
+//
+// Usage example: `value := firstNonEmpty(finding.Code, finding.RuleID)`
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// findingToMap turns a QAFinding into the map shape used by the diff output
+// so journal-backed previous findings and current typed findings share a
+// single representation in `.meta/report.json`.
+//
+// Usage example: `entry := findingToMap(QAFinding{Tool: "gosec", File: "main.go"})`
+func findingToMap(finding QAFinding) map[string]any {
+	entry := map[string]any{
+		"tool":     finding.Tool,
+		"file":     finding.File,
+		"line":     finding.Line,
+		"severity": finding.Severity,
+		"code":     finding.Code,
+		"message":  finding.Message,
+		"category": finding.Category,
+	}
+	if finding.Column != 0 {
+		entry["column"] = finding.Column
+	}
+	if finding.RuleID != "" {
+		entry["rule_id"] = finding.RuleID
+	}
+	if finding.Title != "" {
+		entry["title"] = finding.Title
+	}
+	return entry
+}
+
+// diffFindingsAgainstJournal compares the current cycle's findings with the
+// previous cycles captured in the journal and returns the three RFC §7 lists
+// (New, Resolved, Persistent). Empty journal history produces nil slices so
+// the first cycle acts like a baseline rather than flagging every finding
+// as new.
+//
+// Usage example: `newList, resolvedList, persistentList := diffFindingsAgainstJournal(current, previous)`
+func diffFindingsAgainstJournal(current []QAFinding, previous [][]map[string]any) (newList, resolvedList, persistentList []map[string]any) {
+	if len(previous) == 0 {
+		return nil, nil, nil
+	}
+
+	currentByKey := make(map[string]QAFinding, len(current))
+	for _, finding := range current {
+		currentByKey[findingFingerprint(finding)] = finding
+	}
+
+	lastCycle := previous[len(previous)-1]
+	lastCycleByKey := make(map[string]map[string]any, len(lastCycle))
+	for _, entry := range lastCycle {
+		lastCycleByKey[findingFingerprintFromMap(entry)] = entry
+	}
+
+	for key, finding := range currentByKey {
+		if _, ok := lastCycleByKey[key]; !ok {
+			newList = append(newList, findingToMap(finding))
+		}
+	}
+
+	for key, entry := range lastCycleByKey {
+		if _, ok := currentByKey[key]; !ok {
+			resolvedList = append(resolvedList, entry)
+		}
+	}
+
+	// Persistent findings must appear in every one of the last
+	// `persistentThreshold` cycles AND in the current cycle. We slice from the
+	// tail so shorter histories still participate — as the journal grows past
+	// the threshold the list becomes stricter.
+	window := previous
+	if len(window) > persistentThreshold-1 {
+		window = window[len(window)-(persistentThreshold-1):]
+	}
+	if len(window) == persistentThreshold-1 {
+		counts := make(map[string]int, len(currentByKey))
+		for _, cycle := range window {
+			seen := make(map[string]bool, len(cycle))
+			for _, entry := range cycle {
+				key := findingFingerprintFromMap(entry)
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				counts[key]++
+			}
+		}
+		for key, finding := range currentByKey {
+			if counts[key] == len(window) {
+				persistentList = append(persistentList, findingToMap(finding))
+			}
+		}
+	}
+
+	return newList, resolvedList, persistentList
+}
+
+// readPreviousJournalCycles fetches the findings from the most recent `limit`
+// journal commits for this workspace. Each cycle is returned as the slice of
+// finding maps that ws.Put("finding", ...) recorded, so the diff helpers can
+// treat journal entries the same way as in-memory findings.
+//
+// Usage example: `cycles := readPreviousJournalCycles(store, "core/go-io/task-5", 5)`
+func readPreviousJournalCycles(storeInstance *store.Store, workspaceName string, limit int) [][]map[string]any {
+	if storeInstance == nil || workspaceName == "" || limit <= 0 {
+		return nil
+	}
+
+	queryString := core.Sprintf(
+		`SELECT fields_json FROM journal_entries WHERE measurement = '%s' ORDER BY committed_at DESC, entry_id DESC LIMIT %d`,
+		escapeJournalLiteral(workspaceName),
+		limit,
+	)
+	result := storeInstance.QueryJournal(queryString)
+	if !result.OK || result.Value == nil {
+		return nil
+	}
+
+	rows, ok := result.Value.([]map[string]any)
+	if !ok {
+		return nil
+	}
+
+	cycles := make([][]map[string]any, 0, len(rows))
+	for i := len(rows) - 1; i >= 0; i-- {
+		raw := stringValue(rows[i]["fields_json"])
+		if raw == "" {
+			continue
+		}
+		var payload map[string]any
+		if parseResult := core.JSONUnmarshalString(raw, &payload); !parseResult.OK {
+			continue
+		}
+		cycles = append(cycles, findingsFromJournalPayload(payload))
+	}
+	return cycles
+}
+
+// findingsFromJournalPayload decodes the finding list out of a journal
+// payload. The workspace.Commit aggregate only carries counts by kind, so
+// this helper reads the companion `.meta/report.json` payload when it was
+// synced into the journal (as sync.go records). Missing entries return an
+// empty slice so older cycles without the enriched payload still allow the
+// diff to complete.
+//
+// Usage example: `findings := findingsFromJournalPayload(map[string]any{"findings": []any{...}})`
+func findingsFromJournalPayload(payload map[string]any) []map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if findings := anyMapSliceValue(payload["findings"]); len(findings) > 0 {
+		return findings
+	}
+	// Older cycles stored the full report inline — accept both shapes so the
+	// diff still sees history during the rollout.
+	if report, ok := payload["report"].(map[string]any); ok {
+		return anyMapSliceValue(report["findings"])
+	}
+	return nil
+}
+
+// escapeJournalLiteral escapes single quotes in a SQL literal so QueryJournal
+// can accept workspace names that contain them (rare but possible with
+// hand-authored paths).
+//
+// Usage example: `safe := escapeJournalLiteral("core/go-io/task's-5")`
+func escapeJournalLiteral(value string) string {
+	return core.Replace(value, "'", "''")
+}
+
+// clusterFindings groups the current cycle's findings by (tool, severity,
+// category, rule_id) so `.meta/report.json` surfaces recurring shapes. The
+// cluster count equals the number of findings in the bucket; the sample list
+// is capped at `clusterSampleLimit` representative entries so the payload
+// stays bounded for chatty linters.
+//
+// Usage example: `clusters := clusterFindings(report.Findings)`
+func clusterFindings(findings []QAFinding) []DispatchCluster {
+	if len(findings) == 0 {
+		return nil
+	}
+
+	byKey := make(map[string]*DispatchCluster, len(findings))
+	for _, finding := range findings {
+		key := core.Sprintf("%s|%s|%s|%s", finding.Tool, finding.Severity, finding.Category, firstNonEmpty(finding.Code, finding.RuleID))
+		cluster, ok := byKey[key]
+		if !ok {
+			cluster = &DispatchCluster{
+				Tool:     finding.Tool,
+				Severity: finding.Severity,
+				Category: finding.Category,
+				RuleID:   firstNonEmpty(finding.Code, finding.RuleID),
+			}
+			byKey[key] = cluster
+		}
+		cluster.Count++
+		if len(cluster.Samples) < clusterSampleLimit {
+			cluster.Samples = append(cluster.Samples, DispatchClusterSample{
+				File:    finding.File,
+				Line:    finding.Line,
+				Message: finding.Message,
+			})
+		}
+	}
+
+	// Stable order: highest count first, then by rule identifier so
+	// identical-count clusters are deterministic in the report.
+	clusters := make([]DispatchCluster, 0, len(byKey))
+	for _, cluster := range byKey {
+		clusters = append(clusters, *cluster)
+	}
+	sortDispatchClusters(clusters)
+	return clusters
+}
+
+// sortDispatchClusters orders clusters by descending Count then ascending
+// RuleID so the report is deterministic across runs and `core-agent status`
+// always shows the same ordering for identical data.
+func sortDispatchClusters(clusters []DispatchCluster) {
+	for i := 1; i < len(clusters); i++ {
+		candidate := clusters[i]
+		j := i - 1
+		for j >= 0 && clusterLess(candidate, clusters[j]) {
+			clusters[j+1] = clusters[j]
+			j--
+		}
+		clusters[j+1] = candidate
+	}
+}
+
+func clusterLess(left, right DispatchCluster) bool {
+	if left.Count != right.Count {
+		return left.Count > right.Count
+	}
+	if left.Tool != right.Tool {
+		return left.Tool < right.Tool
+	}
+	return left.RuleID < right.RuleID
+}
+
