@@ -16,6 +16,7 @@ tasks:
       - task -d repo test
       - task -d issue test
       - task -d pr test
+      - task -d branch test
       - task -d sync test
       # brain subsystem
       - task -d brain test

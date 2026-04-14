@@ -710,3 +710,72 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, prs)
 }
+
+func TestPr_DeleteBranch_Good_Success(t *testing.T) {
+	var method, path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo:   "test-repo",
+		Branch: "agent/fix-tests",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, "core", out.Org)
+	assert.Equal(t, "test-repo", out.Repo)
+	assert.Equal(t, "agent/fix-tests", out.Branch)
+	assert.Equal(t, http.MethodDelete, method)
+	assert.Contains(t, path, "/branches/agent/fix-tests")
+}
+
+func TestPr_DeleteBranch_Bad_MissingRepo(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge("http://localhost:1", "test-token"),
+		forgeToken:     "test-token",
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Branch: "agent/fix-tests",
+	})
+	require.Error(t, err)
+}
+
+func TestPr_DeleteBranch_Bad_MissingBranch(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge("http://localhost:1", "test-token"),
+		forgeToken:     "test-token",
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo: "test-repo",
+	})
+	require.Error(t, err)
+}
+
+func TestPr_DeleteBranch_Ugly_NoForgeToken(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo:   "test-repo",
+		Branch: "agent/fix-tests",
+	})
+	require.Error(t, err)
+}

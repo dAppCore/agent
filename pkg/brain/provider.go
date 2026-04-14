@@ -211,6 +211,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 			"content":    input.Content,
 			"type":       input.Type,
 			"tags":       input.Tags,
+			"org":        input.Org,
 			"project":    input.Project,
 			"confidence": input.Confidence,
 			"supersedes": input.Supersedes,
@@ -321,6 +322,7 @@ func (p *BrainProvider) list(c *gin.Context) {
 			"project":  c.Query("project"),
 			"type":     c.Query("type"),
 			"agent_id": c.Query("agent_id"),
+			"org":      c.Query("org"),
 			"limit":    limit,
 		},
 	})

@@ -196,6 +196,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
 	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
 	c.Action("agentic.pr.close", s.handlePRClose).Description = "Close a Forge PR"
+	c.Action("agentic.branch.delete", s.handleBranchDelete).Description = "Delete a branch on the Forge remote"
+	c.Action("agent.branch.delete", s.handleBranchDelete).Description = "Delete a branch on the Forge remote"
 
 	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
@@ -435,6 +437,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerCreatePRTool(svc)
 	s.registerListPRsTool(svc)
 	s.registerClosePRTool(svc)
+	s.registerDeleteBranchTool(svc)
 	s.registerMirrorTool(svc)
 	s.registerShutdownTools(svc)
 	s.registerPlanTools(svc)

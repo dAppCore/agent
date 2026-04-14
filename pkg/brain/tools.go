@@ -20,6 +20,8 @@ type RememberInput struct {
 	Content    string   `json:"content"`
 	Type       string   `json:"type"`
 	Tags       []string `json:"tags,omitempty"`
+	// Usage example: `input := brain.RememberInput{Org: "core"}` — optional organisation scope; empty = global.
+	Org        string   `json:"org,omitempty"`
 	Project    string   `json:"project,omitempty"`
 	Confidence float64  `json:"confidence,omitempty"`
 	Supersedes string   `json:"supersedes,omitempty"`
@@ -54,6 +56,8 @@ type RecallFilter struct {
 	Project       string  `json:"project,omitempty"`
 	Type          any     `json:"type,omitempty"`
 	AgentID       string  `json:"agent_id,omitempty"`
+	// Usage example: `filter := brain.RecallFilter{Org: "core"}` — scope recall to a specific org; empty = all.
+	Org           string  `json:"org,omitempty"`
 	MinConfidence float64 `json:"min_confidence,omitempty"`
 }
 
@@ -79,11 +83,15 @@ type Memory struct {
 	Type            string   `json:"type"`
 	Content         string   `json:"content"`
 	Tags            []string `json:"tags,omitempty"`
+	// Usage example: `memory := brain.Memory{Org: "core"}` — optional organisation scope (null/empty = global).
+	Org             string   `json:"org,omitempty"`
 	Project         string   `json:"project,omitempty"`
 	Source          string   `json:"source,omitempty"`
 	Confidence      float64  `json:"confidence"`
 	SupersedesID    string   `json:"supersedes_id,omitempty"`
 	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	// Usage example: `memory := brain.Memory{IndexedAt: "2026-04-14T10:00:00Z"}` — when Qdrant/ES indexing finished (empty = pending).
+	IndexedAt       string   `json:"indexed_at,omitempty"`
 	ExpiresAt       string   `json:"expires_at,omitempty"`
 	DeletedAt       string   `json:"deleted_at,omitempty"`
 	CreatedAt       string   `json:"created_at"`
@@ -120,6 +128,8 @@ type ListInput struct {
 	Project string `json:"project,omitempty"`
 	Type    string `json:"type,omitempty"`
 	AgentID string `json:"agent_id,omitempty"`
+	// Usage example: `input := brain.ListInput{Org: "core"}` — filter by org; empty = all.
+	Org     string `json:"org,omitempty"`
 	Limit   int    `json:"limit,omitempty"`
 }
 
@@ -166,6 +176,7 @@ func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, inp
 			"content":    input.Content,
 			"type":       input.Type,
 			"tags":       input.Tags,
+			"org":        input.Org,
 			"project":    input.Project,
 			"confidence": input.Confidence,
 			"supersedes": input.Supersedes,
@@ -239,6 +250,7 @@ func (s *Subsystem) brainList(_ context.Context, _ *mcp.CallToolRequest, input L
 			"project":  input.Project,
 			"type":     input.Type,
 			"agent_id": input.AgentID,
+			"org":      input.Org,
 			"limit":    input.Limit,
 		},
 	})

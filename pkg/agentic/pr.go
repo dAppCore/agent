@@ -377,6 +377,14 @@ func (s *PrepSubsystem) registerClosePRTool(svc *coremcp.Service) {
 	}, s.closePR)
 }
 
+// s.registerDeleteBranchTool(svc)
+func (s *PrepSubsystem) registerDeleteBranchTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_delete_branch",
+		Description: "Delete a branch on the Forge remote. Used after successful merge or close to clean up agent branches.",
+	}, s.deleteBranch)
+}
+
 func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
 	if s.forgeToken == "" {
 		return nil, ListPRsOutput{}, core.E("listPRs", "no Forge token configured", nil)
@@ -463,6 +471,57 @@ func (s *PrepSubsystem) closePR(ctx context.Context, _ *mcp.CallToolRequest, inp
 		Repo:    input.Repo,
 		Number:  input.Number,
 		State:   state,
+	}, nil
+}
+
+// input := agentic.DeleteBranchInput{Org: "core", Repo: "go-io", Branch: "agent/fix-tests"}
+type DeleteBranchInput struct {
+	// input := agentic.DeleteBranchInput{Org: "core"}
+	Org string `json:"org,omitempty"`
+	// input := agentic.DeleteBranchInput{Repo: "go-io"}
+	Repo string `json:"repo"`
+	// input := agentic.DeleteBranchInput{Branch: "agent/fix-tests"}
+	Branch string `json:"branch"`
+}
+
+// out := agentic.DeleteBranchOutput{Success: true, Repo: "go-io", Branch: "agent/fix-tests"}
+type DeleteBranchOutput struct {
+	// out := agentic.DeleteBranchOutput{Success: true}
+	Success bool `json:"success"`
+	// out := agentic.DeleteBranchOutput{Org: "core"}
+	Org string `json:"org,omitempty"`
+	// out := agentic.DeleteBranchOutput{Repo: "go-io"}
+	Repo string `json:"repo"`
+	// out := agentic.DeleteBranchOutput{Branch: "agent/fix-tests"}
+	Branch string `json:"branch"`
+}
+
+// s.deleteBranch(ctx, nil, agentic.DeleteBranchInput{Repo: "go-io", Branch: "agent/fix-tests"})
+func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
+	if s.forgeToken == "" {
+		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "no Forge token configured", nil)
+	}
+	if s.forge == nil {
+		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "forge client is not configured", nil)
+	}
+	if input.Repo == "" || input.Branch == "" {
+		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "repo and branch are required", nil)
+	}
+
+	org := input.Org
+	if org == "" {
+		org = "core"
+	}
+
+	if err := s.forge.Branches.DeleteBranch(ctx, org, input.Repo, input.Branch); err != nil {
+		return nil, DeleteBranchOutput{}, core.E("deleteBranch", core.Concat("failed to delete branch ", input.Branch), err)
+	}
+
+	return nil, DeleteBranchOutput{
+		Success: true,
+		Org:     org,
+		Repo:    input.Repo,
+		Branch:  input.Branch,
 	}, nil
 }
 

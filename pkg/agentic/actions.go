@@ -395,6 +395,25 @@ func (s *PrepSubsystem) handlePRClose(ctx context.Context, options core.Options)
 	return s.cmdPRClose(normaliseForgeActionOptions(options))
 }
 
+// result := c.Action("agentic.branch.delete").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "branch", Value: "agent/fix-tests"},
+//
+// ))
+func (s *PrepSubsystem) handleBranchDelete(ctx context.Context, options core.Options) core.Result {
+	input := DeleteBranchInput{
+		Org:    optionStringValue(options, "org"),
+		Repo:   optionStringValue(options, "repo", "_arg"),
+		Branch: optionStringValue(options, "branch"),
+	}
+	_, out, err := s.deleteBranch(ctx, nil, input)
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: out, OK: true}
+}
+
 // result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "core/go-io/task-5"},

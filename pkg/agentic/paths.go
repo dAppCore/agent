@@ -27,8 +27,18 @@ var fs = (&core.Fs{}).NewUnrestricted()
 
 var workspaceRootOverride string
 
+// setWorkspaceRootOverride("/srv/.core/workspace")  // absolute — used as-is
+// setWorkspaceRootOverride(".core/workspace")      // relative — resolved to $HOME/Code/.core/workspace
+// setWorkspaceRootOverride("")                     // unset — WorkspaceRoot() falls back to CoreRoot()+"/workspace"
 func setWorkspaceRootOverride(root string) {
-	workspaceRootOverride = core.Trim(root)
+	root = core.Trim(root)
+	if root != "" && !core.PathIsAbs(root) {
+		// Resolve relative paths against $HOME/Code — the convention.
+		// Without this, workspaces resolve against the binary's cwd which
+		// varies by launch context (MCP stdio vs CLI vs dispatch worker).
+		root = core.JoinPath(HomeDir(), "Code", root)
+	}
+	workspaceRootOverride = root
 }
 
 // f := agentic.LocalFs()

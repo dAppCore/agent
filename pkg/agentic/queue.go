@@ -10,11 +10,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding"}
+// config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding", Runtime: "auto", Image: "core-dev"}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
+	// Runtime selects the container runtime — auto | apple | docker | podman.
+	// auto detects in preference order: Apple Container -> Docker -> Podman.
+	// Apple Containers (macOS 26+) provide hardware VM isolation and sub-second
+	// startup; Docker is the cross-platform fallback; Podman is the rootless
+	// option for Linux environments where Docker is unavailable.
+	Runtime string `yaml:"runtime"`
+	// Image is the default container image for non-native agent dispatch.
+	// Used by go-build LinuxKit images such as "core-dev", "core-ml", "core-minimal".
+	Image string `yaml:"image"`
+	// GPU enables GPU passthrough — Metal on Apple Containers (when available),
+	// NVIDIA on Docker. Default false.
+	GPU bool `yaml:"gpu"`
 }
 
 // rate := agentic.RateConfig{ResetUTC: "06:00", DailyLimit: 200, MinDelay: 15, SustainedDelay: 120, BurstWindow: 2, BurstDelay: 15}
@@ -60,12 +72,35 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+// identity := agentic.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch", "review"}}
+// AgentIdentity represents one entry in the agents.yaml `agents:` block —
+// the named identity (e.g. cladius, charon, codex) that can dispatch work.
+type AgentIdentity struct {
+	// Host is "local", "cloud", "remote", or an explicit IP/hostname.
+	//   identity := agentic.AgentIdentity{Host: "local"}
+	Host string `yaml:"host"`
+	// Runner is the runtime that backs this identity ("claude", "openai", "gemini").
+	//   identity := agentic.AgentIdentity{Runner: "claude"}
+	Runner string `yaml:"runner"`
+	// Active reports whether this identity participates in dispatch.
+	//   identity := agentic.AgentIdentity{Active: true}
+	Active bool `yaml:"active"`
+	// Roles enumerates the workflows this identity can handle:
+	// dispatch, worker, review, qa, plan.
+	//   identity := agentic.AgentIdentity{Roles: []string{"dispatch", "review", "plan"}}
+	Roles []string `yaml:"roles"`
+}
+
 // config := agentic.AgentsConfig{Version: 1, Dispatch: agentic.DispatchConfig{DefaultAgent: "claude"}}
 type AgentsConfig struct {
 	Version     int                         `yaml:"version"`
 	Dispatch    DispatchConfig              `yaml:"dispatch"`
 	Concurrency map[string]ConcurrencyLimit `yaml:"concurrency"`
 	Rates       map[string]RateConfig       `yaml:"rates"`
+	// Agents declares named identities (cladius, charon, codex, clotho)
+	// keyed by name. Each identity carries host/runner/roles metadata used
+	// by message routing, brain attribution, and session ownership.
+	Agents map[string]AgentIdentity `yaml:"agents"`
 }
 
 // config := s.loadAgentsConfig()

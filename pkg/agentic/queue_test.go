@@ -30,6 +30,117 @@ func TestQueue_DispatchConfig_Good_Defaults(t *testing.T) {
 	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
 }
 
+func TestQueue_DispatchConfig_Good_RuntimeImageGPUFromYAML(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+		"version: 1\n",
+		"dispatch:\n",
+		"  runtime: apple\n",
+		"  image: core-ml\n",
+		"  gpu: true\n",
+	)).OK)
+
+	t.Cleanup(func() {
+		setWorkspaceRootOverride("")
+	})
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, "apple", cfg.Dispatch.Runtime)
+	assert.Equal(t, "core-ml", cfg.Dispatch.Image)
+	assert.True(t, cfg.Dispatch.GPU)
+}
+
+func TestQueue_DispatchConfig_Bad_OmittedRuntimeFields(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "version: 1\ndispatch:\n  default_agent: codex\n").OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Empty(t, cfg.Dispatch.Runtime)
+	assert.Empty(t, cfg.Dispatch.Image)
+	assert.False(t, cfg.Dispatch.GPU)
+}
+
+func TestQueue_DispatchConfig_Ugly_PartialRuntimeBlock(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "version: 1\ndispatch:\n  runtime: docker\n").OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, "docker", cfg.Dispatch.Runtime)
+	assert.Empty(t, cfg.Dispatch.Image)
+	assert.False(t, cfg.Dispatch.GPU)
+}
+
+// --- AgentIdentity ---
+
+func TestQueue_AgentIdentity_Good_FullParseFromYAML(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+		"version: 1\n",
+		"agents:\n",
+		"  cladius:\n",
+		"    host: local\n",
+		"    runner: claude\n",
+		"    active: true\n",
+		"    roles: [dispatch, review, plan]\n",
+		"  codex:\n",
+		"    host: cloud\n",
+		"    runner: openai\n",
+		"    active: true\n",
+		"    roles: [worker]\n",
+	)).OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, "local", cfg.Agents["cladius"].Host)
+	assert.Equal(t, "claude", cfg.Agents["cladius"].Runner)
+	assert.True(t, cfg.Agents["cladius"].Active)
+	assert.Contains(t, cfg.Agents["cladius"].Roles, "dispatch")
+	assert.Equal(t, "cloud", cfg.Agents["codex"].Host)
+}
+
+func TestQueue_AgentIdentity_Bad_MissingAgentsBlock(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "version: 1\n").OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+	assert.Empty(t, cfg.Agents)
+}
+
+func TestQueue_AgentIdentity_Ugly_OnlyHostSet(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+		"agents:\n",
+		"  ghost:\n",
+		"    host: 192.168.0.42\n",
+	)).OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, "192.168.0.42", cfg.Agents["ghost"].Host)
+	assert.Empty(t, cfg.Agents["ghost"].Runner)
+	assert.False(t, cfg.Agents["ghost"].Active)
+}
+
 func TestQueue_DispatchConfig_Good_WorkspaceRootOverride(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)

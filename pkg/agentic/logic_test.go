@@ -218,7 +218,7 @@ func TestDispatch_ContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 
 	_, args := containerCommand("claude", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
-	assert.Contains(t, joined, ".claude:/home/dev/.claude:ro")
+	assert.Contains(t, joined, ".claude:/home/agent/.claude:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
@@ -227,7 +227,7 @@ func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 
 	_, args := containerCommand("gemini", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
-	assert.Contains(t, joined, ".gemini:/home/dev/.gemini:ro")
+	assert.Contains(t, joined, ".gemini:/home/agent/.gemini:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
@@ -237,7 +237,7 @@ func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	// codex agent must NOT mount .claude config
-	assert.NotContains(t, joined, ".claude:/home/dev/.claude:ro")
+	assert.NotContains(t, joined, ".claude:/home/agent/.claude:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {

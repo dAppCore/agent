@@ -13,11 +13,19 @@ import (
 
 //	config := runner.DispatchConfig{
 //	    DefaultAgent: "codex", DefaultTemplate: "coding", WorkspaceRoot: "/srv/core/workspace",
+//	    Runtime: "auto", Image: "core-dev", GPU: false,
 //	}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
+	// Runtime selects the container runtime — auto | apple | docker | podman.
+	// auto detects in preference order: Apple Container -> Docker -> Podman.
+	Runtime string `yaml:"runtime"`
+	// Image is the default container image for non-native agent dispatch.
+	Image string `yaml:"image"`
+	// GPU enables GPU passthrough — Metal on Apple Containers, NVIDIA on Docker.
+	GPU bool `yaml:"gpu"`
 }
 
 //	rate := runner.RateConfig{
@@ -64,6 +72,14 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+//	identity := runner.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch"}}
+type AgentIdentity struct {
+	Host   string   `yaml:"host"`
+	Runner string   `yaml:"runner"`
+	Active bool     `yaml:"active"`
+	Roles  []string `yaml:"roles"`
+}
+
 //	config := runner.AgentsConfig{
 //	    Version: 1,
 //	    Dispatch: runner.DispatchConfig{DefaultAgent: "codex", DefaultTemplate: "coding"},
@@ -73,6 +89,9 @@ type AgentsConfig struct {
 	Dispatch    DispatchConfig              `yaml:"dispatch"`
 	Concurrency map[string]ConcurrencyLimit `yaml:"concurrency"`
 	Rates       map[string]RateConfig       `yaml:"rates"`
+	// Agents declares named identities (cladius, charon, codex, clotho)
+	// keyed by name. Each identity carries host/runner/roles metadata.
+	Agents map[string]AgentIdentity `yaml:"agents"`
 }
 
 // config := s.loadAgentsConfig()

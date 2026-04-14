@@ -258,3 +258,109 @@ rates:
 	assert.Equal(t, 1, cfg.Concurrency["codex"].Models["gpt-5.4"])
 	assert.Equal(t, 120, cfg.Rates["gemini"].SustainedDelay)
 }
+
+// --- DispatchConfig runtime/image/gpu ---
+
+func TestQueue_DispatchConfig_Good_RuntimeImageGPU(t *testing.T) {
+	input := `
+version: 1
+dispatch:
+  default_agent: claude
+  runtime: apple
+  image: core-ml
+  gpu: true
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, "apple", cfg.Dispatch.Runtime)
+	assert.Equal(t, "core-ml", cfg.Dispatch.Image)
+	assert.True(t, cfg.Dispatch.GPU)
+}
+
+func TestQueue_DispatchConfig_Bad_OmittedRuntimeFields(t *testing.T) {
+	// When runtime / image / gpu are missing the yaml unmarshals into the
+	// struct's zero values. Callers treat empty runtime as "auto".
+	input := `
+version: 1
+dispatch:
+  default_agent: claude
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Empty(t, cfg.Dispatch.Runtime)
+	assert.Empty(t, cfg.Dispatch.Image)
+	assert.False(t, cfg.Dispatch.GPU)
+}
+
+func TestQueue_DispatchConfig_Ugly_PartialRuntimeBlock(t *testing.T) {
+	// Only runtime is set; image keeps its zero value, gpu defaults to false.
+	input := `
+version: 1
+dispatch:
+  runtime: docker
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, "docker", cfg.Dispatch.Runtime)
+	assert.Empty(t, cfg.Dispatch.Image)
+	assert.False(t, cfg.Dispatch.GPU)
+}
+
+// --- AgentIdentity ---
+
+func TestQueue_AgentIdentity_Good_FullParse(t *testing.T) {
+	input := `
+version: 1
+agents:
+  cladius:
+    host: local
+    runner: claude
+    active: true
+    roles: [dispatch, review, plan]
+  codex:
+    host: cloud
+    runner: openai
+    active: true
+    roles: [worker]
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, "local", cfg.Agents["cladius"].Host)
+	assert.Equal(t, "claude", cfg.Agents["cladius"].Runner)
+	assert.True(t, cfg.Agents["cladius"].Active)
+	assert.Contains(t, cfg.Agents["cladius"].Roles, "dispatch")
+	assert.Contains(t, cfg.Agents["cladius"].Roles, "review")
+	assert.Equal(t, "cloud", cfg.Agents["codex"].Host)
+}
+
+func TestQueue_AgentIdentity_Bad_MissingAgentsBlock(t *testing.T) {
+	input := `
+version: 1
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Empty(t, cfg.Agents)
+}
+
+func TestQueue_AgentIdentity_Ugly_OnlyHostSet(t *testing.T) {
+	// An identity with only host set populates host and leaves zero values
+	// for runner / active / roles. Routing code treats Active=false as a
+	// disabled identity and SHOULD NOT crash on missing fields.
+	input := `
+agents:
+  ghost:
+    host: 192.168.0.42
+`
+	var cfg AgentsConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.0.42", cfg.Agents["ghost"].Host)
+	assert.Empty(t, cfg.Agents["ghost"].Runner)
+	assert.False(t, cfg.Agents["ghost"].Active)
+	assert.Empty(t, cfg.Agents["ghost"].Roles)
+}

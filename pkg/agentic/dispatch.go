@@ -4,6 +4,8 @@ package agentic
 
 import (
 	"context"
+	"os/exec"
+	"runtime"
 	"time"
 
 	"dappco.re/go/agent/pkg/messages"
@@ -160,17 +162,6 @@ func agentCommandResult(agent, prompt string) core.Result {
 	}
 }
 
-// isNativeAgent returns true if the agent should run natively (not in Docker).
-// Claude agents need direct filesystem access, MCP tools, and native binary execution.
-//
-//	isNativeAgent("claude")       // true
-//	isNativeAgent("claude:opus")  // true
-//	isNativeAgent("codex")        // false (runs in Docker)
-func isNativeAgent(agent string) bool {
-	parts := core.SplitN(agent, ":", 2)
-	return parts[0] == "claude"
-}
-
 // isLEMProfile returns true if the model name is a known LEM profile
 // (lemer, lemma, lemmy, lemrd) configured in codex config.toml.
 //
@@ -207,22 +198,193 @@ func shellQuote(value string) string {
 
 const defaultDockerImage = "core-dev"
 
+// Container runtime identifiers used by dispatch to route agent containers to
+// the correct backend. Apple Container provides hardware VM isolation on
+// macOS 26+, Docker is the cross-platform default, Podman is the rootless
+// fallback for Linux environments.
+const (
+	// RuntimeAuto picks the first available runtime in preference order.
+	//   resolved := resolveContainerRuntime("auto")  // → "apple" on macOS 26+, "docker" elsewhere
+	RuntimeAuto = "auto"
+	// RuntimeApple uses Apple Containers (macOS 26+, Virtualisation.framework).
+	//   resolved := resolveContainerRuntime("apple")  // → "apple" if /usr/bin/container or `container` in PATH
+	RuntimeApple = "apple"
+	// RuntimeDocker uses Docker Engine (Docker Desktop on macOS, dockerd on Linux).
+	//   resolved := resolveContainerRuntime("docker")  // → "docker" if `docker` in PATH
+	RuntimeDocker = "docker"
+	// RuntimePodman uses Podman (rootless containers, popular on RHEL/Fedora).
+	//   resolved := resolveContainerRuntime("podman")  // → "podman" if `podman` in PATH
+	RuntimePodman = "podman"
+)
+
+// containerRuntimeBinary returns the executable name for a runtime identifier.
+//
+//	containerRuntimeBinary("apple")   // "container"
+//	containerRuntimeBinary("docker")  // "docker"
+//	containerRuntimeBinary("podman")  // "podman"
+func containerRuntimeBinary(runtime string) string {
+	switch runtime {
+	case RuntimeApple:
+		return "container"
+	case RuntimePodman:
+		return "podman"
+	default:
+		return "docker"
+	}
+}
+
+// goosIsDarwin reports whether the running process is on macOS. Captured at
+// package init so tests can compare against a fixed value without taking a
+// dependency on the `runtime` package themselves.
+var goosIsDarwin = runtime.GOOS == "darwin"
+
+// runtimeAvailable reports whether the runtime's binary is available on PATH
+// or via known absolute paths. Apple Container additionally requires macOS as
+// the host operating system because the binary is a thin wrapper over
+// Virtualisation.framework.
+//
+//	runtimeAvailable("docker")  // true if `docker` binary on PATH
+//	runtimeAvailable("apple")   // true on macOS when `container` binary on PATH
+func runtimeAvailable(name string) bool {
+	switch name {
+	case RuntimeApple:
+		if !goosIsDarwin {
+			return false
+		}
+	case RuntimeDocker, RuntimePodman:
+		// supported on every platform that ships the binary
+	default:
+		return false
+	}
+	binary := containerRuntimeBinary(name)
+	if _, err := exec.LookPath(binary); err == nil {
+		return true
+	}
+	return false
+}
+
+// resolveContainerRuntime returns the concrete runtime identifier for the
+// requested runtime preference. "auto" picks the first available runtime in
+// the preferred order (apple → docker → podman). An explicit runtime is
+// honoured if the binary is on PATH; otherwise it falls back to docker so
+// dispatch never silently breaks.
+//
+//	resolveContainerRuntime("")        // → "docker" (fallback)
+//	resolveContainerRuntime("auto")    // → "apple" on macOS 26+, "docker" elsewhere
+//	resolveContainerRuntime("apple")   // → "apple" if available, else "docker"
+//	resolveContainerRuntime("podman")  // → "podman" if available, else "docker"
+func resolveContainerRuntime(preferred string) string {
+	switch preferred {
+	case RuntimeApple, RuntimeDocker, RuntimePodman:
+		if runtimeAvailable(preferred) {
+			return preferred
+		}
+	}
+	for _, candidate := range []string{RuntimeApple, RuntimeDocker, RuntimePodman} {
+		if runtimeAvailable(candidate) {
+			return candidate
+		}
+	}
+	return RuntimeDocker
+}
+
+// dispatchRuntime returns the configured runtime preference (yaml
+// `dispatch.runtime`) or the default ("auto"). The CORE_AGENT_RUNTIME
+// environment variable wins for ad-hoc overrides during tests or CI.
+//
+//	rt := s.dispatchRuntime()  // "auto" | "apple" | "docker" | "podman"
+func (s *PrepSubsystem) dispatchRuntime() string {
+	if envValue := core.Env("CORE_AGENT_RUNTIME"); envValue != "" {
+		return envValue
+	}
+	if s == nil || s.ServiceRuntime == nil {
+		return RuntimeAuto
+	}
+	dispatchConfig, ok := s.Core().Config().Get("agents.dispatch").Value.(DispatchConfig)
+	if !ok || dispatchConfig.Runtime == "" {
+		return RuntimeAuto
+	}
+	return dispatchConfig.Runtime
+}
+
+// dispatchImage returns the configured container image (yaml `dispatch.image`)
+// falling back to AGENT_DOCKER_IMAGE and finally `core-dev`.
+//
+//	image := s.dispatchImage()  // "core-dev" | "core-ml" | configured value
+func (s *PrepSubsystem) dispatchImage() string {
+	if envValue := core.Env("AGENT_DOCKER_IMAGE"); envValue != "" {
+		return envValue
+	}
+	if s != nil && s.ServiceRuntime != nil {
+		dispatchConfig, ok := s.Core().Config().Get("agents.dispatch").Value.(DispatchConfig)
+		if ok && dispatchConfig.Image != "" {
+			return dispatchConfig.Image
+		}
+	}
+	return defaultDockerImage
+}
+
+// dispatchGPU reports whether GPU passthrough is enabled (yaml `dispatch.gpu`).
+// When true, dispatch adds Metal passthrough on Apple Containers (when
+// available) or `--gpus=all` on Docker for NVIDIA passthrough.
+//
+//	gpu := s.dispatchGPU()  // false unless agents.yaml sets dispatch.gpu: true
+func (s *PrepSubsystem) dispatchGPU() bool {
+	if s == nil || s.ServiceRuntime == nil {
+		return false
+	}
+	dispatchConfig, ok := s.Core().Config().Get("agents.dispatch").Value.(DispatchConfig)
+	if !ok {
+		return false
+	}
+	return dispatchConfig.GPU
+}
+
 // command, args := containerCommand("codex", []string{"exec", "--model", "gpt-5.4"}, "/srv/.core/workspace/core/go-io/task-5", "/srv/.core/workspace/core/go-io/task-5/.meta")
 func containerCommand(command string, args []string, workspaceDir, metaDir string) (string, []string) {
-	image := core.Env("AGENT_DOCKER_IMAGE")
+	return containerCommandFor(RuntimeDocker, defaultDockerImage, false, command, args, workspaceDir, metaDir)
+}
+
+// containerCommandFor builds the runtime-specific command line for executing
+// an agent inside a container. Docker and Podman share an identical CLI
+// surface (run/-rm/-v/-e), so they only differ in binary name. Apple
+// Containers use the same flag shape (`container run -v ...`) per the
+// Virtualisation.framework wrapper introduced in macOS 26.
+//
+//	command, args := containerCommandFor(RuntimeDocker, "core-dev", false, "codex", []string{"exec"}, ws, meta)
+//	command, args := containerCommandFor(RuntimeApple, "core-dev", true, "claude", nil, ws, meta)
+func containerCommandFor(containerRuntime, image string, gpu bool, command string, args []string, workspaceDir, metaDir string) (string, []string) {
 	if image == "" {
 		image = defaultDockerImage
+	}
+	if envImage := core.Env("AGENT_DOCKER_IMAGE"); envImage != "" {
+		image = envImage
 	}
 
 	home := HomeDir()
 
-	dockerArgs := []string{
-		"run", "--rm",
-		"--add-host=host.docker.internal:host-gateway",
+	containerArgs := []string{"run", "--rm"}
+	// Apple Containers don't support `--add-host=host-gateway`; the host-gateway
+	// alias is a Docker-only convenience for reaching the host loopback.
+	if containerRuntime != RuntimeApple {
+		containerArgs = append(containerArgs, "--add-host=host.docker.internal:host-gateway")
+	}
+	if gpu {
+		switch containerRuntime {
+		case RuntimeDocker, RuntimePodman:
+			// NVIDIA passthrough — `--gpus=all` is the standard NVIDIA Container Toolkit flag.
+			containerArgs = append(containerArgs, "--gpus=all")
+		case RuntimeApple:
+			// Metal passthrough — flagged for the macOS 26 roadmap; emit the
+			// flag so Apple's runtime can opt-in once it ships GPU support.
+			containerArgs = append(containerArgs, "--gpu=metal")
+		}
+	}
+	containerArgs = append(containerArgs,
 		"-v", core.Concat(workspaceDir, ":/workspace"),
 		"-v", core.Concat(metaDir, ":/workspace/.meta"),
 		"-w", "/workspace/repo",
-		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/dev/.codex:ro"),
+		"-v", core.Concat(core.JoinPath(home, ".codex"), ":/home/agent/.codex"),
 		"-e", "OPENAI_API_KEY",
 		"-e", "ANTHROPIC_API_KEY",
 		"-e", "GEMINI_API_KEY",
@@ -234,17 +396,17 @@ func containerCommand(command string, args []string, workspaceDir, metaDir strin
 		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
 		"-e", "GONOSUMCHECK=dappco.re/*,forge.lthn.ai/*",
 		"-e", "GOFLAGS=-mod=mod",
-	}
+	)
 
 	if command == "claude" {
-		dockerArgs = append(dockerArgs,
-			"-v", core.Concat(core.JoinPath(home, ".claude"), ":/home/dev/.claude:ro"),
+		containerArgs = append(containerArgs,
+			"-v", core.Concat(core.JoinPath(home, ".claude"), ":/home/agent/.claude:ro"),
 		)
 	}
 
 	if command == "gemini" {
-		dockerArgs = append(dockerArgs,
-			"-v", core.Concat(core.JoinPath(home, ".gemini"), ":/home/dev/.gemini:ro"),
+		containerArgs = append(containerArgs,
+			"-v", core.Concat(core.JoinPath(home, ".gemini"), ":/home/agent/.gemini:ro"),
 		)
 	}
 
@@ -261,9 +423,9 @@ func containerCommand(command string, args []string, workspaceDir, metaDir strin
 	}
 	quoted.WriteString("; chmod -R a+w /workspace /workspace/.meta 2>/dev/null; true")
 
-	dockerArgs = append(dockerArgs, image, "sh", "-c", quoted.String())
+	containerArgs = append(containerArgs, image, "sh", "-c", quoted.String())
 
-	return "docker", dockerArgs
+	return containerRuntimeBinary(containerRuntime), containerArgs
 }
 
 // outputFile := agentOutputFile(workspaceDir, "codex")
@@ -438,7 +600,8 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	fs.Delete(WorkspaceBlockedPath(workspaceDir))
 
 	if !isNativeAgent(agent) {
-		command, args = containerCommand(command, args, workspaceDir, metaDir)
+		runtimeName := resolveContainerRuntime(s.dispatchRuntime())
+		command, args = containerCommandFor(runtimeName, s.dispatchImage(), s.dispatchGPU(), command, args, workspaceDir, metaDir)
 	}
 
 	processResult := s.Core().Service("process")
