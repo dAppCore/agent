@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os/exec"
 	"runtime"
 	"time"
 
@@ -256,11 +255,8 @@ func runtimeAvailable(name string) bool {
 	default:
 		return false
 	}
-	binary := containerRuntimeBinary(name)
-	if _, err := exec.LookPath(binary); err == nil {
-		return true
-	}
-	return false
+	program := process.Program{Name: containerRuntimeBinary(name)}
+	return program.Find() == nil
 }
 
 // resolveContainerRuntime returns the concrete runtime identifier for the
