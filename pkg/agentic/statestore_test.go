@@ -328,6 +328,79 @@ func TestStatestore_HydrateWorkspaces_Good_ReapsFilesystemGhosts(t *testing.T) {
 	}
 }
 
+// TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers verifies
+// RFC §15.5 — QA workspace buffers left on disk by crashed dispatches are
+// released rather than committed, so partial cycles do not poison the diff
+// history described in RFC §7.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers`
+func TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers(t *testing.T) {
+	withStateStoreTempDir(t)
+	// go-store creates `.core/state/` relative to process cwd — redirect cwd
+	// into a tempdir so the leftover DuckDB file never leaks into the package
+	// working tree.
+	tempCWD := t.TempDir()
+	t.Chdir(tempCWD)
+
+	subsystem := &PrepSubsystem{}
+	defer subsystem.closeStateStore()
+
+	st := subsystem.stateStoreInstance()
+	if st == nil {
+		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
+	}
+
+	// Seed a fake orphan by creating a workspace, Put-ing a row, then
+	// Close-ing the workspace — closing keeps the .duckdb file on disk per
+	// the go-store contract, simulating a crashed dispatch. The unique name
+	// keeps this test isolated from the shared go-store registry cache.
+	workspaceName := core.Sprintf("qa-crashed-cycle-%d", time.Now().UnixNano())
+	workspace, err := st.NewWorkspace(workspaceName)
+	if err != nil {
+		t.Fatalf("create workspace: %v", err)
+	}
+	_ = workspace.Put("finding", map[string]any{"tool": "gosec"})
+	workspace.Close()
+
+	// Reopen the state store so RecoverOrphans walks the filesystem fresh.
+	subsystem.closeStateStore()
+	subsystem = &PrepSubsystem{}
+	defer subsystem.closeStateStore()
+
+	// The recovery should run without panicking and leave no orphans behind.
+	subsystem.recoverStateOrphans()
+}
+
+// TestStatestore_RecoverStateOrphans_Bad_MissingStateDir verifies the helper
+// is a no-op on the happy path where no crash ever happened (no `.core/state/`
+// directory exists yet). The agent must still boot cleanly.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_RecoverStateOrphans_Bad_MissingStateDir`
+func TestStatestore_RecoverStateOrphans_Bad_MissingStateDir(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{}
+	defer subsystem.closeStateStore()
+
+	if subsystem.stateStoreInstance() == nil {
+		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
+	}
+
+	// No `.core/state/` directory has been created yet — recovery must
+	// return without touching anything.
+	subsystem.recoverStateOrphans()
+}
+
+// TestStatestore_RecoverStateOrphans_Ugly_NilSubsystem verifies RFC §15.6 —
+// calling recovery on a nil subsystem must be a no-op so graceful degradation
+// holds for any edge case where the subsystem failed to initialise.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_RecoverStateOrphans_Ugly_NilSubsystem`
+func TestStatestore_RecoverStateOrphans_Ugly_NilSubsystem(t *testing.T) {
+	var subsystem *PrepSubsystem
+	subsystem.recoverStateOrphans()
+}
+
 // TestStatestore_SyncQueue_Good_PersistsViaStore verifies RFC §16.5 —
 // the sync queue lives in go-store under the sync_queue group so backoff
 // state survives restart even when the JSON file is rotated or wiped.

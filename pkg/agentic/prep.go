@@ -350,6 +350,10 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in background"
 
 	s.hydrateWorkspaces()
+	// RFC §15.5 — startup scans `.core/state/` for orphaned QA workspace
+	// buffers (leftover DuckDB files from dispatches that crashed before
+	// commit) and releases them so the next cycle starts clean.
+	s.recoverStateOrphans()
 	if planRetentionDays(core.NewOptions()) > 0 {
 		go s.runPlanCleanupLoop(ctx, planRetentionScheduleInterval)
 	}

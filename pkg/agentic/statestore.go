@@ -217,3 +217,36 @@ func (s *PrepSubsystem) stateStoreCount(group string) int {
 	}
 	return count
 }
+
+// recoverStateOrphans discards leftover QA workspace buffers from previous
+// crashed dispatches per RFC §15.5 "On startup: scan .core/workspace/ for
+// orphaned workspace dirs". Orphans are simply released — the final
+// DispatchReport was already written to `.meta/report.json` when the cycle
+// crashed (or not at all, in which case there is no signal worth keeping).
+// The recovered workspaces are logged so operators can audit what died.
+//
+// go-store's default state directory is `.core/state/` relative to the
+// process cwd. Passing an empty path lets RecoverOrphans use the store's
+// own cached state directory, so the agent inherits whichever path the
+// store configured at `store.New` time.
+//
+// Usage example: `s.recoverStateOrphans()`
+func (s *PrepSubsystem) recoverStateOrphans() {
+	st := s.stateStoreInstance()
+	if st == nil {
+		return
+	}
+	orphans := st.RecoverOrphans("")
+	for _, orphan := range orphans {
+		if orphan == nil {
+			continue
+		}
+		name := orphan.Name()
+		// Discard the buffer rather than committing — the dispatch that
+		// owned it did not reach the commit handler, so its findings are
+		// at best partial. Persisting a partial cycle would poison the
+		// journal diff described in RFC §7.
+		orphan.Discard()
+		core.Warn("reaped orphan QA workspace", "name", name)
+	}
+}
