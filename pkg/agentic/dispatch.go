@@ -678,40 +678,14 @@ func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Res
 	return core.Result{OK: true}
 }
 
+// runQA executes the RFC §7 completion pipeline QA step — captures every
+// lint finding, build, and test result into a go-store workspace buffer and
+// commits the cycle to the journal when a store is available. Falls back to
+// the legacy build/vet/test cascade when go-store is not loaded (RFC §15.6).
+//
+// Usage example: `passed := s.runQA("/workspace/core/go-io/task-5")`
 func (s *PrepSubsystem) runQA(workspaceDir string) bool {
-	ctx := context.Background()
-	repoDir := WorkspaceRepoDir(workspaceDir)
-	process := s.Core().Process()
-
-	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
-		for _, args := range [][]string{
-			{"go", "build", "./..."},
-			{"go", "vet", "./..."},
-			{"go", "test", "./...", "-count=1", "-timeout", "120s"},
-		} {
-			if !process.RunIn(ctx, repoDir, args[0], args[1:]...).OK {
-				core.Warn("QA failed", "cmd", core.Join(" ", args...))
-				return false
-			}
-		}
-		return true
-	}
-
-	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
-		if !process.RunIn(ctx, repoDir, "composer", "install", "--no-interaction").OK {
-			return false
-		}
-		return process.RunIn(ctx, repoDir, "composer", "test").OK
-	}
-
-	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
-		if !process.RunIn(ctx, repoDir, "npm", "install").OK {
-			return false
-		}
-		return process.RunIn(ctx, repoDir, "npm", "test").OK
-	}
-
-	return true
+	return s.runQAWithReport(context.Background(), workspaceDir)
 }
 
 func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
