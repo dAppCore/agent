@@ -1116,7 +1116,13 @@ func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceD
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")) || fs.IsFile(core.JoinPath(repoDir, "go.work"))) {
-		if result := process.RunWithEnv(ctx, repoDir, goEnv, "go", "work", "sync"); !result.OK {
+		// `go work sync` needs the workspace's own go.work — clear any
+		// inherited GOWORK=off (set by parent shells / tests) so the workspace
+		// file under repoDir/.. is honoured. The append order means GOWORK= here
+		// overrides any parent value passed through.
+		workEnv := append([]string{}, goEnv...)
+		workEnv = append(workEnv, "GOWORK=")
+		if result := process.RunWithEnv(ctx, repoDir, workEnv, "go", "work", "sync"); !result.OK {
 			return core.E("prepWorkspace", "go work sync failed", nil)
 		}
 	}
