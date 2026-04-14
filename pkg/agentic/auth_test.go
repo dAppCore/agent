@@ -132,3 +132,63 @@ func TestAuth_HandleAuthRevoke_Ugly(t *testing.T) {
 	assert.Equal(t, "7", output.KeyID)
 	assert.True(t, output.Revoked)
 }
+
+func TestAuth_HandleAuthLogin_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/agent/auth/login", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+		// Login is unauthenticated — pairing code is the proof.
+		require.Equal(t, "", r.Header.Get("Authorization"))
+
+		bodyResult := core.ReadAll(r.Body)
+		require.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		require.True(t, parseResult.OK)
+		require.Equal(t, "123456", payload["code"])
+
+		_, _ = w.Write([]byte(`{"data":{"key":{"id":11,"name":"charon","key":"ak_live_abcdef","prefix":"ak_live","permissions":["fleet:run"],"expires_at":"2027-01-01T00:00:00Z"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "")
+	subsystem.brainURL = server.URL
+	subsystem.brainKey = ""
+
+	result := subsystem.handleAuthLogin(context.Background(), core.NewOptions(
+		core.Option{Key: "code", Value: "123456"},
+	))
+	require.True(t, result.OK)
+
+	output, ok := result.Value.(AuthLoginOutput)
+	require.True(t, ok)
+	assert.True(t, output.Success)
+	assert.Equal(t, 11, output.Key.ID)
+	assert.Equal(t, "ak_live_abcdef", output.Key.Key)
+	assert.Equal(t, "ak_live", output.Key.Prefix)
+	assert.Equal(t, []string{"fleet:run"}, output.Key.Permissions)
+}
+
+func TestAuth_HandleAuthLogin_Bad(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	result := subsystem.handleAuthLogin(context.Background(), core.NewOptions())
+	assert.False(t, result.OK)
+}
+
+func TestAuth_HandleAuthLogin_Ugly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Server returns a malformed payload: missing key field entirely.
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "")
+	subsystem.brainURL = server.URL
+	subsystem.brainKey = ""
+
+	result := subsystem.handleAuthLogin(context.Background(), core.NewOptions(
+		core.Option{Key: "code", Value: "999999"},
+	))
+	assert.False(t, result.OK)
+}

@@ -25,6 +25,23 @@ type AgentApiKey struct {
 	CreatedAt      string   `json:"created_at,omitempty"`
 }
 
+// input := agentic.AuthLoginInput{Code: "123456"}
+// Login exchanges a 6-digit pairing code (generated at app.lthn.ai/device by a
+// logged-in user) for an AgentApiKey. See RFC §9 Fleet Mode — bootstrap via
+// `core-agent login CODE`.
+type AuthLoginInput struct {
+	Code string `json:"code"`
+}
+
+// out := agentic.AuthLoginOutput{Success: true, Key: agentic.AgentApiKey{Prefix: "ak_abcd", Key: "ak_live_secret"}}
+// The Key.Key field carries the new AgentApiKey raw value that the caller
+// should persist to `~/.claude/brain.key` (or `CORE_BRAIN_KEY` env) so
+// subsequent platform requests authenticate successfully.
+type AuthLoginOutput struct {
+	Success bool        `json:"success"`
+	Key     AgentApiKey `json:"key"`
+}
+
 // input := agentic.AuthProvisionInput{OAuthUserID: "user-42", Permissions: []string{"plans:read"}, IPRestrictions: []string{"10.0.0.0/8"}}
 type AuthProvisionInput struct {
 	OAuthUserID    string   `json:"oauth_user_id"`
@@ -100,6 +117,43 @@ func (s *PrepSubsystem) handleAuthProvision(ctx context.Context, options core.Op
 		Success: true,
 		Key:     parseAgentApiKey(payloadResourceMap(result.Value.(map[string]any), "key", "api_key", "agent_api_key")),
 	}, OK: true}
+}
+
+// result := c.Action("agentic.auth.login").Run(ctx, core.NewOptions(core.Option{Key: "code", Value: "123456"}))
+// Login exchanges a 6-digit pairing code for an AgentApiKey without requiring
+// a pre-existing API key. The caller is responsible for persisting the
+// returned Key.Key value to `~/.claude/brain.key` (the CLI command does this
+// automatically).
+func (s *PrepSubsystem) handleAuthLogin(ctx context.Context, options core.Options) core.Result {
+	input := AuthLoginInput{
+		Code: optionStringValue(options, "code", "pairing_code", "pairing-code", "_arg"),
+	}
+	if input.Code == "" {
+		return core.Result{Value: core.E("agentic.auth.login", "code is required (6-digit pairing code)", nil), OK: false}
+	}
+
+	body := core.JSONMarshalString(map[string]any{"code": input.Code})
+	url := core.Concat(s.syncAPIURL(), "/v1/agent/auth/login")
+
+	// Login is intentionally unauthenticated — the pairing code IS the proof.
+	requestResult := HTTPDo(ctx, "POST", url, body, "", "")
+	if !requestResult.OK {
+		return core.Result{Value: platformResultError("agentic.auth.login", requestResult), OK: false}
+	}
+
+	var payload map[string]any
+	parseResult := core.JSONUnmarshalString(requestResult.Value.(string), &payload)
+	if !parseResult.OK {
+		err, _ := parseResult.Value.(error)
+		return core.Result{Value: core.E("agentic.auth.login", "failed to parse platform response", err), OK: false}
+	}
+
+	key := parseAgentApiKey(payloadResourceMap(payload, "key", "api_key", "agent_api_key"))
+	if key.Key == "" {
+		return core.Result{Value: core.E("agentic.auth.login", "platform did not return an api key", nil), OK: false}
+	}
+
+	return core.Result{Value: AuthLoginOutput{Success: true, Key: key}, OK: true}
 }
 
 // result := c.Action("agentic.auth.revoke").Run(ctx, core.NewOptions(core.Option{Key: "key_id", Value: "7"}))

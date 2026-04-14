@@ -132,6 +132,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agent.auth.provision", s.handleAuthProvision).Description = "Provision a platform API key for an authenticated agent user"
 	c.Action("agentic.auth.revoke", s.handleAuthRevoke).Description = "Revoke a platform API key"
 	c.Action("agent.auth.revoke", s.handleAuthRevoke).Description = "Revoke a platform API key"
+	c.Action("agentic.auth.login", s.handleAuthLogin).Description = "Exchange a 6-digit pairing code for an AgentApiKey"
+	c.Action("agent.auth.login", s.handleAuthLogin).Description = "Exchange a 6-digit pairing code for an AgentApiKey"
 	c.Action("agentic.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
 	c.Action("agent.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
 	c.Action("agentic.fleet.heartbeat", s.handleFleetHeartbeat).Description = "Send a heartbeat for a fleet node"

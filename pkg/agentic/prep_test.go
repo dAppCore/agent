@@ -649,6 +649,8 @@ func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	assert.True(t, c.Action("agent.auth.provision").Exists())
 	assert.True(t, c.Action("agentic.auth.revoke").Exists())
 	assert.True(t, c.Action("agent.auth.revoke").Exists())
+	assert.True(t, c.Action("agentic.auth.login").Exists())
+	assert.True(t, c.Action("agent.auth.login").Exists())
 	assert.True(t, c.Action("agentic.fleet.register").Exists())
 	assert.True(t, c.Action("agent.fleet.register").Exists())
 	assert.True(t, c.Action("agentic.credits.balance").Exists())

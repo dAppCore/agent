@@ -152,6 +152,54 @@ func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
 	assert.Contains(t, output, "status:        online")
 }
 
+func TestCommandsplatform_CmdAuthLogin_Bad(t *testing.T) {
+	subsystem := testPrepWithPlatformServer(t, nil, "")
+	result := subsystem.cmdAuthLogin(core.NewOptions())
+	assert.False(t, result.OK)
+}
+
+func TestCommandsplatform_CmdAuthLogin_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/agent/auth/login", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "", r.Header.Get("Authorization"))
+
+		bodyResult := core.ReadAll(r.Body)
+		assert.True(t, bodyResult.OK)
+
+		var payload map[string]any
+		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
+		assert.True(t, parseResult.OK)
+		assert.Equal(t, "654321", payload["code"])
+
+		_, _ = w.Write([]byte(`{"data":{"key":{"id":42,"name":"charon","key":"ak_live_xyz","prefix":"ak_live","expires_at":"2027-01-01T00:00:00Z"}}}`))
+	}))
+	defer server.Close()
+
+	// Pin HOME to a temp dir so we do not overwrite a real ~/.claude/brain.key.
+	homeDir := t.TempDir()
+	t.Setenv("CORE_HOME", homeDir)
+
+	subsystem := testPrepWithPlatformServer(t, server, "")
+	subsystem.brainURL = server.URL
+	subsystem.brainKey = ""
+
+	output := captureStdout(t, func() {
+		result := subsystem.cmdAuthLogin(core.NewOptions(core.Option{Key: "_arg", Value: "654321"}))
+		assert.True(t, result.OK)
+	})
+
+	assert.Contains(t, output, "logged in")
+	assert.Contains(t, output, "key prefix: ak_live")
+	assert.Contains(t, output, "saved to:")
+
+	// Verify the key was persisted so the next dispatch authenticates.
+	keyPath := core.JoinPath(homeDir, ".claude", "brain.key")
+	readResult := fs.Read(keyPath)
+	assert.True(t, readResult.OK)
+	assert.Equal(t, "ak_live_xyz", core.Trim(readResult.Value.(string)))
+}
+
 func TestCommandsplatform_CmdSubscriptionDetect_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"providers":{"claude":true},"available":["claude"]}}`))
