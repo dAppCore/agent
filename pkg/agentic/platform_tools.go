@@ -121,6 +121,11 @@ func (s *PrepSubsystem) registerPlatformTools(svc *coremcp.Service) {
 	}, s.authRevokeTool)
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_auth_login",
+		Description: "Exchange a 6-digit pairing code (generated at app.lthn.ai/device) for an AgentApiKey. Bootstraps a fleet node without requiring an existing API key — RFC §9 Fleet Mode.",
+	}, s.authLoginTool)
+
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_register",
 		Description: "Register a fleet node with models, capabilities, and platform metadata.",
 	}, s.fleetRegisterTool)
@@ -252,6 +257,30 @@ func (s *PrepSubsystem) authRevokeTool(ctx context.Context, _ *mcp.CallToolReque
 	output, ok := result.Value.(AuthRevokeOutput)
 	if !ok {
 		return nil, AuthRevokeOutput{}, core.E("agentic.auth.revoke", "invalid auth revoke output", nil)
+	}
+	return nil, output, nil
+}
+
+// authLoginTool handles the MCP-side of the RFC §9 pairing-code bootstrap.
+// Callers pass a 6-digit pairing code generated at app.lthn.ai/device and
+// receive the provisioned AgentApiKey so the node can authenticate future
+// platform calls. The code itself is the proof — no existing API key is
+// required.
+//
+// Usage example:
+//
+//	out, _ := clientSession.CallTool(ctx, &mcp.CallToolParams{
+//	    Name:      "agentic_auth_login",
+//	    Arguments: json.RawMessage(`{"code": "123456"}`),
+//	})
+func (s *PrepSubsystem) authLoginTool(ctx context.Context, _ *mcp.CallToolRequest, input AuthLoginInput) (*mcp.CallToolResult, AuthLoginOutput, error) {
+	result := s.handleAuthLogin(ctx, platformOptions(core.Option{Key: "code", Value: input.Code}))
+	if !result.OK {
+		return nil, AuthLoginOutput{}, resultErrorValue("agentic.auth.login", result)
+	}
+	output, ok := result.Value.(AuthLoginOutput)
+	if !ok {
+		return nil, AuthLoginOutput{}, core.E("agentic.auth.login", "invalid auth login output", nil)
 	}
 	return nil, output, nil
 }

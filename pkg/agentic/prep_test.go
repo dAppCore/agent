@@ -739,6 +739,12 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agent_inbox")
 	assert.Contains(t, toolNames, "agentic_message_conversation")
 	assert.Contains(t, toolNames, "agent_conversation")
+	// RFC §9 pairing-code bootstrap exposes the login flow as an MCP tool so
+	// IDE/CLI callers can exchange a 6-digit code for an AgentApiKey without
+	// shelling out.
+	assert.Contains(t, toolNames, "agentic_auth_login")
+	assert.Contains(t, toolNames, "agentic_auth_provision")
+	assert.Contains(t, toolNames, "agentic_auth_revoke")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {

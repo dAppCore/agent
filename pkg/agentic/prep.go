@@ -595,7 +595,7 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 // subsystem := agentic.NewPrep()
 // subsystem.RegisterTools(svc)
 func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
@@ -617,7 +617,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerWatchTool(svc)
 	s.registerIssueTools(svc)
 	s.registerPRTools(svc)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
 	}, s.scan)
@@ -642,14 +642,6 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerContentTools(svc)
 	s.registerLanguageTools(svc)
 	s.registerSetupTool(svc)
-
-	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
-		Name:        "agentic_scan",
-		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
-	}, s.scan)
-
-	s.registerPlanTools(svc)
-	s.registerWatchTool(svc)
 }
 
 // subsystem := agentic.NewPrep()
