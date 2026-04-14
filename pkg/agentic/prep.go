@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
@@ -37,6 +38,8 @@ type PrepSubsystem struct {
 	failCount      map[string]int
 	providers      *ProviderManager
 	workspaces     *core.Registry[*WorkspaceStatus]
+	stateOnce      sync.Once
+	state          *stateStoreRef
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -367,6 +370,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 // _ = subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
+	s.closeStateStore()
 	return core.Result{OK: true}
 }
 
@@ -376,6 +380,31 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
+
+	// Registry hydration is filesystem-first — workspace status.json is
+	// authoritative. The go-store registry group caches last-known status
+	// so ghost agents can be detected after crashes even when the JSON
+	// status file has been rotated. Filesystem wins on conflict (§15.3).
+	s.stateStoreRestore(stateRegistryGroup, func(key, value string) bool {
+		if s.workspaces.Get(key).OK {
+			return true
+		}
+		var status WorkspaceStatus
+		if result := core.JSONUnmarshalString(value, &status); !result.OK {
+			return true
+		}
+		// Dead agents are marked failed so the next dispatch does not
+		// block on a PID that disappeared.
+		if status.Status == "running" && !ProcessAlive(nil, status.ProcessID, status.PID) {
+			status.Status = "failed"
+			if status.Question == "" {
+				status.Question = "Agent process died during restart"
+			}
+		}
+		s.workspaces.Set(key, &status)
+		return true
+	})
+
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)
 		result := ReadStatusResult(workspaceDir)
@@ -392,6 +421,11 @@ func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
 		s.workspaces.Set(name, st)
 	}
+	if st == nil {
+		s.stateStoreDelete(stateRegistryGroup, name)
+		return
+	}
+	s.stateStoreSet(stateRegistryGroup, name, st)
 }
 
 // s.Workspaces().Names()                        // all workspace names

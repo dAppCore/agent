@@ -120,6 +120,14 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 		return CommitOutput{}, err
 	}
 
+	// Mirror the dispatch record to the top-level dispatch_history group so
+	// sync push can drain completed dispatches without re-scanning the
+	// workspace tree — RFC §15.5 + §16.3. The record carries the same
+	// shape expected by `POST /v1/agent/sync`.
+	record["id"] = WorkspaceName(workspaceDir)
+	record["synced"] = false
+	s.stateStoreSet(stateDispatchHistoryGroup, WorkspaceName(workspaceDir), record)
+
 	return CommitOutput{
 		Success:     true,
 		Workspace:   input.Workspace,

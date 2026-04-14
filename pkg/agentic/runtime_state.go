@@ -22,14 +22,48 @@ func runtimeStatePath() string {
 }
 
 func (s *PrepSubsystem) loadRuntimeState() {
-	result := readRuntimeState()
-	if !result.OK {
-		return
+	state := runtimeState{
+		Backoff:   make(map[string]time.Time),
+		FailCount: make(map[string]int),
 	}
 
-	state, ok := result.Value.(runtimeState)
-	if !ok {
-		return
+	// Read the go-store cached runtime state first — when go-store is
+	// unavailable the read is a no-op and we fall back to the JSON file.
+	s.stateStoreRestore(stateRuntimeGroup, func(key, value string) bool {
+		switch key {
+		case "backoff":
+			backoff := map[string]time.Time{}
+			if result := core.JSONUnmarshalString(value, &backoff); result.OK {
+				for pool, deadline := range backoff {
+					state.Backoff[pool] = deadline
+				}
+			}
+		case "fail_count":
+			failCount := map[string]int{}
+			if result := core.JSONUnmarshalString(value, &failCount); result.OK {
+				for pool, count := range failCount {
+					state.FailCount[pool] = count
+				}
+			}
+		}
+		return true
+	})
+
+	// The JSON file remains authoritative when go-store is missing so
+	// existing deployments do not regress during the rollout.
+	if result := readRuntimeState(); result.OK {
+		if fileState, ok := result.Value.(runtimeState); ok {
+			for pool, deadline := range fileState.Backoff {
+				if _, seen := state.Backoff[pool]; !seen {
+					state.Backoff[pool] = deadline
+				}
+			}
+			for pool, count := range fileState.FailCount {
+				if _, seen := state.FailCount[pool]; !seen {
+					state.FailCount[pool] = count
+				}
+			}
+		}
 	}
 
 	if s.backoff == nil {
@@ -68,11 +102,26 @@ func (s *PrepSubsystem) persistRuntimeState() {
 
 	if len(state.Backoff) == 0 && len(state.FailCount) == 0 {
 		fs.Delete(runtimeStatePath())
+		s.stateStoreDelete(stateRuntimeGroup, "backoff")
+		s.stateStoreDelete(stateRuntimeGroup, "fail_count")
 		return
 	}
 
 	fs.EnsureDir(runtimeStateDir())
 	fs.WriteAtomic(runtimeStatePath(), core.JSONMarshalString(state))
+
+	// Mirror the authoritative JSON to the go-store cache so restarts see
+	// the same state even when the JSON file is archived or rotated.
+	if len(state.Backoff) > 0 {
+		s.stateStoreSet(stateRuntimeGroup, "backoff", state.Backoff)
+	} else {
+		s.stateStoreDelete(stateRuntimeGroup, "backoff")
+	}
+	if len(state.FailCount) > 0 {
+		s.stateStoreSet(stateRuntimeGroup, "fail_count", state.FailCount)
+	} else {
+		s.stateStoreDelete(stateRuntimeGroup, "fail_count")
+	}
 }
 
 func readRuntimeState() core.Result {
