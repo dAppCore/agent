@@ -128,6 +128,11 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 	record["synced"] = false
 	s.stateStoreSet(stateDispatchHistoryGroup, WorkspaceName(workspaceDir), record)
 
+	// RFC §15.5 — write the permanent stats row to `.core/workspace/db.duckdb`
+	// so the "what happened in the last 50 dispatches" query answer survives
+	// even after `dispatch_history` drains to the platform.
+	s.recordWorkspaceStats(workspaceDir, workspaceStatus)
+
 	return CommitOutput{
 		Success:     true,
 		Workspace:   input.Workspace,

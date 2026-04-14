@@ -40,6 +40,8 @@ type PrepSubsystem struct {
 	workspaces     *core.Registry[*WorkspaceStatus]
 	stateOnce      sync.Once
 	state          *stateStoreRef
+	workspaceStatsOnce sync.Once
+	workspaceStats     *workspaceStatsRef
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -92,7 +94,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
 		switch action {
-		case "agentic.status", "agentic.scan", "agentic.watch",
+		case "agentic.status", "agentic.scan", "agentic.watch", "agentic.workspace.stats",
 			"agentic.issue.get", "agentic.issue.list", "agentic.issue.assign", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
 			"agentic.prompt.version", "agentic.setup",
@@ -181,6 +183,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.resume", s.handleResume).Description = "Resume a blocked or completed workspace"
 	c.Action("agentic.scan", s.handleScan).Description = "Scan Forge repos for actionable issues"
 	c.Action("agentic.watch", s.handleWatch).Description = "Watch workspace for changes and report"
+	c.Action("agentic.workspace.stats", s.handleWorkspaceStats).Description = "List permanent dispatch stats from the parent workspace store"
+	c.Action("workspace.stats", s.handleWorkspaceStats).Description = "List permanent dispatch stats from the parent workspace store"
 
 	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
 	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
@@ -373,6 +377,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	s.closeStateStore()
+	s.closeWorkspaceStatsStore()
 	return core.Result{OK: true}
 }
 

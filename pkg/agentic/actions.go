@@ -96,6 +96,47 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
+// WorkspaceStatsInput filters rows returned by agentic.workspace.stats.
+// Empty fields act as wildcards — the same shape used by StatusInput so
+// callers do not need a second filter vocabulary.
+//
+// Usage example: `input := WorkspaceStatsInput{Repo: "go-io", Status: "completed", Limit: 50}`
+type WorkspaceStatsInput struct {
+	Repo   string `json:"repo,omitempty"`
+	Status string `json:"status,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+
+// WorkspaceStatsOutput is the envelope returned by agentic.workspace.stats.
+// Rows are unsorted — callers may re-sort by CompletedAt, DurationMS, etc.
+// The count is included so CLI consumers do not need to call len().
+//
+// Usage example: `output := WorkspaceStatsOutput{Count: 3, Rows: rows}`
+type WorkspaceStatsOutput struct {
+	Count int                    `json:"count"`
+	Rows  []workspaceStatsRecord `json:"rows,omitempty"`
+}
+
+// result := c.Action("agentic.workspace.stats").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "status", Value: "completed"},
+//	core.Option{Key: "limit", Value: 50},
+//
+// ))
+func (s *PrepSubsystem) handleWorkspaceStats(_ context.Context, options core.Options) core.Result {
+	input := WorkspaceStatsInput{
+		Repo:   options.String("repo"),
+		Status: options.String("status"),
+		Limit:  options.Int("limit"),
+	}
+	rows := filterWorkspaceStats(s.listWorkspaceStats(), input.Repo, input.Status, input.Limit)
+	return core.Result{
+		Value: WorkspaceStatsOutput{Count: len(rows), Rows: rows},
+		OK:    true,
+	}
+}
+
 // result := c.Action("agentic.watch").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "core/go-io/task-5"},
