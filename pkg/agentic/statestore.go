@@ -11,12 +11,12 @@ import (
 
 // Usage example: `groupName := queueGroup` // "queue"
 const (
-	stateQueueGroup          = "queue"
-	stateConcurrencyGroup    = "concurrency"
-	stateRegistryGroup       = "registry"
+	stateQueueGroup           = "queue"
+	stateConcurrencyGroup     = "concurrency"
+	stateRegistryGroup        = "registry"
 	stateDispatchHistoryGroup = "dispatch_history"
-	stateSyncQueueGroup      = "sync_queue"
-	stateRuntimeGroup        = "runtime"
+	stateSyncQueueGroup       = "sync_queue"
+	stateRuntimeGroup         = "runtime"
 )
 
 // stateStorePath returns the canonical path for the top-level agent DuckDB
@@ -151,6 +151,27 @@ func (s *PrepSubsystem) stateStoreDelete(group, key string) {
 		return
 	}
 	_ = st.Delete(group, key)
+}
+
+// stateStoreGet returns the JSON-encoded value for the given group+key and
+// reports whether the store yielded a hit. Misses (store unavailable, key
+// absent, transient errors) return ok=false so callers fall back to file or
+// in-memory state per RFC §15.6.
+//
+// Usage example: `if value, ok := s.stateStoreGet(stateSyncQueueGroup, "queue"); ok { ... }`
+func (s *PrepSubsystem) stateStoreGet(group, key string) (string, bool) {
+	st := s.stateStoreInstance()
+	if st == nil {
+		return "", false
+	}
+	value, err := st.Get(group, key)
+	if err != nil {
+		return "", false
+	}
+	if value == "" {
+		return "", false
+	}
+	return value, true
 }
 
 // stateStoreRestore iterates every entry in the given group and invokes

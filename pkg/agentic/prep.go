@@ -412,20 +412,145 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 		if !ok {
 			continue
 		}
+		// Reap ghost agents: a status.json that claims `running` for a
+		// PID that no longer exists is a stale artifact from a crashed
+		// dispatch — RFC §15.3 requires no ghost agents after restart.
+		// Persist the reaped status back to disk so cmdStatus and any
+		// out-of-process consumer see a coherent view.
+		if st.Status == "running" && !ProcessAlive(nil, st.ProcessID, st.PID) {
+			st.Status = "failed"
+			if st.Question == "" {
+				st.Question = "Agent process died during restart"
+			}
+			writeStatusResult(workspaceDir, st)
+		}
 		s.workspaces.Set(WorkspaceName(workspaceDir), st)
 	}
 }
 
 // s.TrackWorkspace("core/go-io/task-5", st)
+//
+// TrackWorkspace mirrors the workspace status into the go-store registry
+// group, the queue group (when status="queued") and the concurrency group
+// (running counts per agent type) so a restart restores all three slices of
+// dispatch state described in RFC §15.3.
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
 		s.workspaces.Set(name, st)
 	}
 	if st == nil {
 		s.stateStoreDelete(stateRegistryGroup, name)
+		s.stateStoreDelete(stateQueueGroup, name)
+		s.refreshConcurrencySnapshot()
 		return
 	}
 	s.stateStoreSet(stateRegistryGroup, name, st)
+
+	// Queue group keeps the spec-shaped `{repo}/{branch}` index of
+	// dispatch slots that have not started running yet (RFC §15.3).
+	if st.Status == "queued" {
+		s.stateStoreSet(stateQueueGroup, name, queueEntryFromStatus(st))
+	} else {
+		s.stateStoreDelete(stateQueueGroup, name)
+	}
+
+	s.refreshConcurrencySnapshot()
+}
+
+// queueEntry is the JSON shape persisted under stateQueueGroup so the dispatch
+// queue survives restart per RFC §15.3.
+//
+// Usage example: `entry := queueEntryFromStatus(workspaceStatus)`
+type queueEntry struct {
+	Repo     string    `json:"repo"`
+	Branch   string    `json:"branch,omitempty"`
+	Org      string    `json:"org,omitempty"`
+	Task     string    `json:"task,omitempty"`
+	Agent    string    `json:"agent,omitempty"`
+	Status   string    `json:"status,omitempty"`
+	Priority int       `json:"priority,omitempty"`
+	QueuedAt time.Time `json:"queued_at"`
+}
+
+// queueEntryFromStatus projects the dispatch fields RFC §15.3 records into the
+// queue group from the live WorkspaceStatus.
+//
+// Usage example: `entry := queueEntryFromStatus(&WorkspaceStatus{Repo: "go-io", Branch: "agent/fix-tests"})`
+func queueEntryFromStatus(st *WorkspaceStatus) queueEntry {
+	if st == nil {
+		return queueEntry{}
+	}
+	queuedAt := st.UpdatedAt
+	if queuedAt.IsZero() {
+		queuedAt = st.StartedAt
+	}
+	return queueEntry{
+		Repo:     st.Repo,
+		Branch:   st.Branch,
+		Org:      st.Org,
+		Task:     st.Task,
+		Agent:    st.Agent,
+		Status:   st.Status,
+		QueuedAt: queuedAt,
+	}
+}
+
+// refreshConcurrencySnapshot writes a `{agent-type}` snapshot of currently
+// running dispatch counts into stateConcurrencyGroup so RFC §15.3 ghost-agent
+// detection has authoritative pre-restart counts to compare against.
+//
+// Usage example: `s.refreshConcurrencySnapshot()`
+func (s *PrepSubsystem) refreshConcurrencySnapshot() {
+	if s == nil || s.workspaces == nil {
+		return
+	}
+	if s.stateStoreInstance() == nil {
+		return
+	}
+
+	counts := map[string]int{}
+	totals := map[string]int{}
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		if workspaceStatus == nil || workspaceStatus.Agent == "" {
+			return
+		}
+		base := baseAgent(workspaceStatus.Agent)
+		totals[base]++
+		if workspaceStatus.Status == "running" {
+			counts[base]++
+		}
+	})
+
+	seen := map[string]struct{}{}
+	for base, running := range counts {
+		entry := map[string]any{
+			"running":     running,
+			"tracked":     totals[base],
+			"snapshot_at": time.Now().UTC(),
+		}
+		s.stateStoreSet(stateConcurrencyGroup, base, entry)
+		seen[base] = struct{}{}
+	}
+	for base, tracked := range totals {
+		if _, ok := seen[base]; ok {
+			continue
+		}
+		entry := map[string]any{
+			"running":     0,
+			"tracked":     tracked,
+			"snapshot_at": time.Now().UTC(),
+		}
+		s.stateStoreSet(stateConcurrencyGroup, base, entry)
+	}
+
+	// Drop entries for agent types we no longer track so the snapshot
+	// never grows beyond active dispatch pools.
+	s.stateStoreRestore(stateConcurrencyGroup, func(key, _ string) bool {
+		if _, alive := totals[key]; !alive {
+			s.stateStoreDelete(stateConcurrencyGroup, key)
+		}
+		return true
+	})
 }
 
 // s.Workspaces().Names()                        // all workspace names

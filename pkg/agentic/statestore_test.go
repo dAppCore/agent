@@ -171,3 +171,201 @@ func TestStatestore_RuntimeState_Good_PersistsAcrossReloads(t *testing.T) {
 		t.Fatalf("expected replay fail count=3, got %d", replay.failCount["codex"])
 	}
 }
+
+// TestStatestore_TrackWorkspace_Good_MirrorsQueueGroup verifies RFC §15.3 —
+// queued workspaces are persisted under the queue group keyed by
+// `{repo}/{branch}` and removed once they leave the queued state.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_TrackWorkspace_Good_MirrorsQueueGroup`
+func TestStatestore_TrackWorkspace_Good_MirrorsQueueGroup(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{
+		workspaces: core.NewRegistry[*WorkspaceStatus](),
+	}
+	defer subsystem.closeStateStore()
+
+	queued := &WorkspaceStatus{
+		Status:    "queued",
+		Agent:     "codex:gpt-5.4",
+		Repo:      "go-io",
+		Org:       "core",
+		Task:      "Fix tests",
+		Branch:    "agent/fix-tests",
+		StartedAt: time.Now(),
+	}
+	subsystem.TrackWorkspace("core/go-io/task-5", queued)
+
+	if subsystem.stateStoreCount(stateQueueGroup) != 1 {
+		t.Fatalf("expected queue group to contain 1 entry, got %d", subsystem.stateStoreCount(stateQueueGroup))
+	}
+
+	value, ok := subsystem.stateStoreGet(stateQueueGroup, "core/go-io/task-5")
+	if !ok {
+		t.Fatalf("expected queue entry under core/go-io/task-5, got miss")
+	}
+	var entry queueEntry
+	if result := core.JSONUnmarshalString(value, &entry); !result.OK {
+		t.Fatalf("unmarshal queue entry: %v", result.Value)
+	}
+	if entry.Repo != "go-io" || entry.Branch != "agent/fix-tests" {
+		t.Fatalf("unexpected queue entry: %+v", entry)
+	}
+
+	queued.Status = "running"
+	subsystem.TrackWorkspace("core/go-io/task-5", queued)
+
+	if subsystem.stateStoreCount(stateQueueGroup) != 0 {
+		t.Fatalf("expected queue group emptied after dispatch, got %d", subsystem.stateStoreCount(stateQueueGroup))
+	}
+}
+
+// TestStatestore_TrackWorkspace_Good_RefreshesConcurrencySnapshot verifies
+// RFC §15.3 — running counts per agent type persist into the concurrency
+// group so a restart can detect over-dispatch before scheduling new work.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_TrackWorkspace_Good_RefreshesConcurrencySnapshot`
+func TestStatestore_TrackWorkspace_Good_RefreshesConcurrencySnapshot(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{
+		workspaces: core.NewRegistry[*WorkspaceStatus](),
+	}
+	defer subsystem.closeStateStore()
+
+	subsystem.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex:gpt-5.4",
+		Repo:   "go-io",
+	})
+	subsystem.TrackWorkspace("core/go-store/task-2", &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex:gpt-5.4-mini",
+		Repo:   "go-store",
+	})
+
+	value, ok := subsystem.stateStoreGet(stateConcurrencyGroup, "codex")
+	if !ok {
+		t.Fatalf("expected concurrency snapshot for codex, got miss")
+	}
+	snapshot := map[string]any{}
+	if result := core.JSONUnmarshalString(value, &snapshot); !result.OK {
+		t.Fatalf("unmarshal concurrency snapshot: %v", result.Value)
+	}
+	running, _ := snapshot["running"].(float64)
+	if int(running) != 2 {
+		t.Fatalf("expected running=2, got %v (%T)", snapshot["running"], snapshot["running"])
+	}
+
+	subsystem.TrackWorkspace("core/go-io/task-5", nil)
+	value, ok = subsystem.stateStoreGet(stateConcurrencyGroup, "codex")
+	if !ok {
+		t.Fatalf("expected concurrency snapshot to remain after one removal, got miss")
+	}
+	snapshot = map[string]any{}
+	if result := core.JSONUnmarshalString(value, &snapshot); !result.OK {
+		t.Fatalf("unmarshal concurrency snapshot after removal: %v", result.Value)
+	}
+	if running, _ := snapshot["running"].(float64); int(running) != 1 {
+		t.Fatalf("expected running=1 after removal, got %v", snapshot["running"])
+	}
+}
+
+// TestStatestore_HydrateWorkspaces_Good_ReapsFilesystemGhosts verifies RFC §15.3 —
+// a status.json that claims `running` for a PID that no longer exists must be
+// reaped by hydrateWorkspaces, both in the registry and on disk so other
+// tooling (status.json consumers, dashboards) sees a coherent view.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_HydrateWorkspaces_Good_ReapsFilesystemGhosts`
+func TestStatestore_HydrateWorkspaces_Good_ReapsFilesystemGhosts(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv("CORE_HOME", root)
+	t.Setenv("DIR_HOME", root)
+
+	subsystem := &PrepSubsystem{
+		workspaces: core.NewRegistry[*WorkspaceStatus](),
+	}
+	defer subsystem.closeStateStore()
+
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-restart")
+	fs.EnsureDir(workspaceDir)
+	writeStatusResult(workspaceDir, &WorkspaceStatus{
+		Status:    "running",
+		Agent:     "codex:gpt-5.4",
+		Repo:      "go-io",
+		Org:       "core",
+		Task:      "ghost-reap",
+		Branch:    "agent/ghost-reap",
+		PID:       99999,
+		StartedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	subsystem.hydrateWorkspaces()
+
+	result := subsystem.Workspaces().Get("core/go-io/task-restart")
+	if !result.OK {
+		t.Fatalf("expected workspace restored from filesystem, got miss")
+	}
+	status, ok := result.Value.(*WorkspaceStatus)
+	if !ok {
+		t.Fatalf("expected *WorkspaceStatus, got %T", result.Value)
+	}
+	if status.Status != "failed" {
+		t.Fatalf("expected ghost agent reaped to failed, got status=%s", status.Status)
+	}
+
+	// Verify the reaped status persisted back to disk so cmdStatus and
+	// out-of-process consumers observe the same coherent view.
+	reread := ReadStatusResult(workspaceDir)
+	if !reread.OK {
+		t.Fatalf("expected status.json readable after reap, got %v", reread.Value)
+	}
+	rereadStatus, ok := workspaceStatusValue(reread)
+	if !ok || rereadStatus.Status != "failed" {
+		t.Fatalf("expected status.json updated to failed, got %+v", rereadStatus)
+	}
+}
+
+// TestStatestore_SyncQueue_Good_PersistsViaStore verifies RFC §16.5 —
+// the sync queue lives in go-store under the sync_queue group so backoff
+// state survives restart even when the JSON file is rotated or wiped.
+//
+// Usage example: `go test ./pkg/agentic -run TestStatestore_SyncQueue_Good_PersistsViaStore`
+func TestStatestore_SyncQueue_Good_PersistsViaStore(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{}
+	defer subsystem.closeStateStore()
+
+	queued := []syncQueuedPush{{
+		AgentID:  "charon",
+		QueuedAt: time.Now(),
+		Dispatches: []map[string]any{
+			{"workspace": "core/go-io/task-5", "status": "completed"},
+		},
+	}}
+	subsystem.writeSyncQueue(queued)
+
+	value, ok := subsystem.stateStoreGet(stateSyncQueueGroup, syncQueueStoreKey)
+	if !ok {
+		t.Fatalf("expected sync queue persisted to go-store, got miss")
+	}
+	var roundTrip []syncQueuedPush
+	if result := core.JSONUnmarshalString(value, &roundTrip); !result.OK {
+		t.Fatalf("unmarshal sync queue: %v", result.Value)
+	}
+	if len(roundTrip) != 1 || roundTrip[0].AgentID != "charon" {
+		t.Fatalf("unexpected round trip: %+v", roundTrip)
+	}
+
+	if read := subsystem.readSyncQueue(); len(read) != 1 || read[0].AgentID != "charon" {
+		t.Fatalf("expected readSyncQueue to return go-store entry, got %+v", read)
+	}
+
+	subsystem.writeSyncQueue(nil)
+	if subsystem.stateStoreCount(stateSyncQueueGroup) != 0 {
+		t.Fatalf("expected empty sync queue group after clear, got %d", subsystem.stateStoreCount(stateSyncQueueGroup))
+	}
+}

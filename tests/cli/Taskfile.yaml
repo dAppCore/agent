@@ -26,6 +26,8 @@ tasks:
       - task -d workspace test
       # state subsystem
       - task -d state test
+      # restart lifecycle (RFC §15.7)
+      - task -d restart test
       # language detection
       - task -d lang test
       # session subsystem

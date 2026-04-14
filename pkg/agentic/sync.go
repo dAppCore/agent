@@ -104,7 +104,7 @@ func (s *PrepSubsystem) runSyncFlushLoop(ctx context.Context, interval time.Dura
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if len(readSyncQueue()) == 0 {
+			if len(s.readSyncQueue()) == 0 {
 				continue
 			}
 			// QueueOnly keeps syncPushInput from re-scanning workspaces — the
@@ -156,7 +156,7 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		dispatches = collectSyncDispatches()
 	}
 	token := s.syncToken()
-	queuedPushes := readSyncQueue()
+	queuedPushes := s.readSyncQueue()
 	if len(dispatches) > 0 {
 		queuedPushes = append(queuedPushes, syncQueuedPush{
 			AgentID:     agentID,
@@ -167,7 +167,7 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 	}
 	if token == "" {
 		if len(input.Dispatches) > 0 {
-			writeSyncQueue(queuedPushes)
+			s.writeSyncQueue(queuedPushes)
 		}
 		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
@@ -183,14 +183,14 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		}
 		if !queued.NextAttempt.IsZero() && queued.NextAttempt.After(now) {
 			// Respect backoff — persist remaining tail so queue survives restart.
-			writeSyncQueue(queuedPushes[i:])
+			s.writeSyncQueue(queuedPushes[i:])
 			return SyncPushOutput{Success: true, Count: synced}, nil
 		}
 		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
 			remaining := append([]syncQueuedPush(nil), queuedPushes[i:]...)
 			remaining[0].Attempts = queued.Attempts + 1
 			remaining[0].NextAttempt = time.Now().Add(syncBackoffSchedule(remaining[0].Attempts))
-			writeSyncQueue(remaining)
+			s.writeSyncQueue(remaining)
 			return SyncPushOutput{Success: true, Count: synced}, nil
 		}
 		synced += len(queued.Dispatches)
@@ -202,7 +202,7 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		})), len(queued.Dispatches), time.Now())
 	}
 
-	writeSyncQueue(nil)
+	s.writeSyncQueue(nil)
 	return SyncPushOutput{Success: true, Count: synced}, nil
 }
 
@@ -443,6 +443,46 @@ func writeSyncQueue(queued []syncQueuedPush) {
 	}
 	fs.EnsureDir(syncStateDir())
 	fs.WriteAtomic(syncQueuePath(), core.JSONMarshalString(queued))
+}
+
+// syncQueueStoreKey is the canonical key for the sync queue inside go-store —
+// the queue is a single JSON blob keyed under stateSyncQueueGroup so RFC §16.5
+// "Queue persists across restarts in db.duckdb" holds.
+//
+// Usage example: `key := syncQueueStoreKey // "queue"`
+const syncQueueStoreKey = "queue"
+
+// readSyncQueue reads the queued sync pushes from go-store first (RFC §16.5)
+// and falls back to the JSON file when the store is unavailable. Falling back
+// keeps offline deployments working through the rollout.
+//
+// Usage example: `queued := s.readSyncQueue()`
+func (s *PrepSubsystem) readSyncQueue() []syncQueuedPush {
+	if s != nil {
+		if value, ok := s.stateStoreGet(stateSyncQueueGroup, syncQueueStoreKey); ok {
+			var queued []syncQueuedPush
+			if result := core.JSONUnmarshalString(value, &queued); result.OK {
+				return queued
+			}
+		}
+	}
+	return readSyncQueue()
+}
+
+// writeSyncQueue persists the queued sync pushes to go-store (RFC §16.5) and
+// mirrors the JSON file so file-only consumers (debug tooling, manual recovery)
+// continue to work.
+//
+// Usage example: `s.writeSyncQueue(queued)`
+func (s *PrepSubsystem) writeSyncQueue(queued []syncQueuedPush) {
+	if s != nil {
+		if len(queued) == 0 {
+			s.stateStoreDelete(stateSyncQueueGroup, syncQueueStoreKey)
+		} else {
+			s.stateStoreSet(stateSyncQueueGroup, syncQueueStoreKey, queued)
+		}
+	}
+	writeSyncQueue(queued)
 }
 
 func readSyncContext() []map[string]any {
