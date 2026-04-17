@@ -104,7 +104,13 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 		}
 		return CommitOutput{}, err
 	}
-	core.WriteAll(appendHandle.Value, line)
+	if writeResult := core.WriteAll(appendHandle.Value, line); !writeResult.OK {
+		err, _ := writeResult.Value.(error)
+		if err == nil {
+			err = core.E("commitWorkspace", "failed to append journal entry", nil)
+		}
+		return CommitOutput{}, err
+	}
 
 	marker := commitMarker{
 		Workspace:   WorkspaceName(workspaceDir),

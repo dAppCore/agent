@@ -419,7 +419,9 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 		core.Warn("reviewQueue: failed to open review journal", "path", jsonlPath, "reason", r.Value)
 		return
 	}
-	core.WriteAll(r.Value, core.Concat(jsonLine, "\n"))
+	if writeResult := core.WriteAll(r.Value, core.Concat(jsonLine, "\n")); !writeResult.OK {
+		core.Warn("reviewQueue: failed to append review journal entry", "path", jsonlPath, "reason", writeResult.Value)
+	}
 }
 
 // s.saveRateLimitState(&RateLimitInfo{Limited: true, RetryAt: time.Now().Add(30 * time.Minute)})
