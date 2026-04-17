@@ -46,6 +46,8 @@ class PrepWorkspaceCommand extends Command
 
     private bool $dryRun;
 
+    private bool $todoWriteFailed = false;
+
     public function handle(): int
     {
         $this->baseUrl = rtrim((string) config('upstream.gitea.url', 'https://forge.lthn.ai'), '/');
@@ -99,6 +101,10 @@ class PrepWorkspaceCommand extends Command
             [$issueTitle, $issueBody] = $this->generateTodo($repo, $issueNumber);
         } else {
             $this->generateTodoSkeleton($repo);
+        }
+
+        if ($this->todoWriteFailed) {
+            return self::FAILURE;
         }
 
         // Step 4: Generate context from vector DB
@@ -188,7 +194,12 @@ class PrepWorkspaceCommand extends Command
                 continue;
             }
 
-            $content = base64_decode($contentBase64);
+            $content = base64_decode($contentBase64, true);
+            if ($content === false) {
+                $this->warn('  Invalid base64 content for: ' . $title);
+
+                continue;
+            }
             $filename = preg_replace('/[^a-zA-Z0-9_\-.]/', '-', $title) . '.md';
 
             File::put($this->outputDir . '/kb/' . $filename, $content);
@@ -303,8 +314,12 @@ class PrepWorkspaceCommand extends Command
                 $this->line('  Checklist items: ' . count($checklistItems));
             }
         } else {
-            File::put($this->outputDir . '/TODO.md', $todoContent);
-            $this->line('  TODO.md generated from: ' . $title);
+            if (File::put($this->outputDir . '/TODO.md', $todoContent) === false) {
+                $this->error('  Failed to write TODO.md from: ' . $title);
+                $this->todoWriteFailed = true;
+            } else {
+                $this->line('  TODO.md generated from: ' . $title);
+            }
         }
 
         return [$title, $body];
@@ -329,8 +344,12 @@ class PrepWorkspaceCommand extends Command
         if ($this->dryRun) {
             $this->line('  [would write] TODO.md skeleton');
         } else {
-            File::put($this->outputDir . '/TODO.md', $content);
-            $this->line('  TODO.md skeleton generated (no --issue provided)');
+            if (File::put($this->outputDir . '/TODO.md', $content) === false) {
+                $this->error('  Failed to write TODO.md skeleton');
+                $this->todoWriteFailed = true;
+            } else {
+                $this->line('  TODO.md skeleton generated (no --issue provided)');
+            }
         }
     }
 
