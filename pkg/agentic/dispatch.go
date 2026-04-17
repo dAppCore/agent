@@ -593,7 +593,9 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	metaDir := WorkspaceMetaDir(workspaceDir)
 	outputFile := agentOutputFile(workspaceDir, agent)
 
-	fs.Delete(WorkspaceBlockedPath(workspaceDir))
+	if deleteResult := fs.Delete(WorkspaceBlockedPath(workspaceDir)); !deleteResult.OK {
+		core.Warn("agentic: failed to remove blocked marker", "path", WorkspaceBlockedPath(workspaceDir), "reason", deleteResult.Value)
+	}
 
 	if !isNativeAgent(agent) {
 		runtimeName := resolveContainerRuntime(s.dispatchRuntime())
