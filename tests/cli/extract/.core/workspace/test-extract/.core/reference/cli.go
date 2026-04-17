@@ -107,14 +107,14 @@ func (cl *Cli) Run(args ...string) Result {
 				opts.Set("_arg", arg)
 			}
 			argsResult := opts.Get("_args")
-			args := []string{}
+			resultArgs := []string{}
 			if argsResult.OK {
 				if existing, ok := argsResult.Value.([]string); ok {
-					args = append(args, existing...)
+					resultArgs = append(resultArgs, existing...)
 				}
 			}
-			args = append(args, arg)
-			opts.Set("_args", args)
+			resultArgs = append(resultArgs, arg)
+			opts.Set("_args", resultArgs)
 		}
 	}
 

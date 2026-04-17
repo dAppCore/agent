@@ -71,8 +71,16 @@ function makeTool(string $name, array $scopes = [], string $category = 'test'): 
  */
 function makeApiKey(int $id, array $scopes = [], ?array $toolScopes = null, ?int $rateLimit = null): ApiKey
 {
+    return makeApiKeyWithIdentifier($id, $scopes, $toolScopes, $rateLimit);
+}
+
+/**
+ * Build a minimal ApiKey mock with a configurable identifier.
+ */
+function makeApiKeyWithIdentifier(mixed $identifier, array $scopes = [], ?array $toolScopes = null, ?int $rateLimit = null): ApiKey
+{
     $key = Mockery::mock(ApiKey::class);
-    $key->shouldReceive('getKey')->andReturn($id);
+    $key->shouldReceive('getKey')->andReturn($identifier);
     $key->shouldReceive('hasScope')->andReturnUsing(
         fn (string $scope) => in_array($scope, $scopes, true)
     );
@@ -319,5 +327,15 @@ describe('execute rate limiting', function () {
 
         expect(fn () => $registry->execute('plan.create', [], [], $apiKey, false))
             ->toThrow(\RuntimeException::class, 'Rate limit exceeded');
+    });
+
+    it('rejects non-scalar api key identifiers', function () {
+        $registry = new AgentToolRegistry;
+        $registry->register(makeTool('plan.create', ['plans.write']));
+
+        $apiKey = makeApiKeyWithIdentifier(new stdClass, ['plans.write'], null, 1);
+
+        expect(fn () => $registry->execute('plan.create', [], [], $apiKey, false))
+            ->toThrow(\InvalidArgumentException::class, 'getKey() must return a scalar or null');
     });
 });

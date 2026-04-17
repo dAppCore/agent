@@ -117,7 +117,7 @@ class AgentToolRegistry
      */
     public function forApiKey(ApiKey $apiKey): Collection
     {
-        $cacheKey = $this->apiKeyCacheKey($apiKey->getKey());
+        $cacheKey = $this->apiKeyCacheKey($this->apiKeyIdentifier($apiKey));
 
         $permittedNames = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($apiKey) {
             return $this->all()->filter(function (AgentToolInterface $tool) use ($apiKey) {
@@ -214,8 +214,7 @@ class AgentToolRegistry
                 );
             }
 
-            $this->assertApiKeyWithinExecutionRateLimit($apiKey, $name);
-            $this->recordApiKeyExecution($apiKey);
+            $this->enforceAndRecordRateLimit($apiKey, $name);
         }
 
         // Dependency check
@@ -291,6 +290,11 @@ class AgentToolRegistry
 
     /**
      * Return a stable identifier for cache keys.
+     *
+     * ApiKey::getKey() must return a scalar or null. Non-scalar values are
+     * rejected because they are not stable across requests.
+     *
+     * @throws \InvalidArgumentException
      */
     private function apiKeyIdentifier(ApiKey $apiKey): string
     {
@@ -300,7 +304,11 @@ class AgentToolRegistry
             return (string) $identifier;
         }
 
-        return (string) spl_object_id($apiKey);
+        throw new \InvalidArgumentException(sprintf(
+            'ApiKey %s::getKey() must return a scalar or null; returned %s',
+            $apiKey::class,
+            get_debug_type($identifier)
+        ));
     }
 
     /**
@@ -328,17 +336,10 @@ class AgentToolRegistry
     }
 
     /**
-     * Get the current execution count for an API key.
+     * Ensure the API key still has execution budget for the tool call, and
+     * record the execution in one cache-backed operation.
      */
-    private function apiKeyExecutionCount(ApiKey $apiKey): int
-    {
-        return (int) Cache::get($this->executionRateCacheKey($apiKey), 0);
-    }
-
-    /**
-     * Ensure the API key still has execution budget for the tool call.
-     */
-    private function assertApiKeyWithinExecutionRateLimit(ApiKey $apiKey, string $toolName): void
+    private function enforceAndRecordRateLimit(ApiKey $apiKey, string $toolName): void
     {
         $rateLimit = $this->apiKeyExecutionRateLimit($apiKey);
 
@@ -346,22 +347,19 @@ class AgentToolRegistry
             return;
         }
 
-        if ($this->apiKeyExecutionCount($apiKey) >= $rateLimit) {
+        $cacheKey = $this->executionRateCacheKey($apiKey);
+        $count = 1;
+
+        if (! Cache::add($cacheKey, $count, self::EXECUTION_RATE_LIMIT_CACHE_TTL)) {
+            $count = (int) Cache::increment($cacheKey);
+        }
+
+        if ($count > $rateLimit) {
+            Cache::decrement($cacheKey);
+
             throw new \RuntimeException(
                 "Rate limit exceeded: API key cannot execute tool '{$toolName}' right now"
             );
-        }
-    }
-
-    /**
-     * Record a tool execution in the cache budget.
-     */
-    private function recordApiKeyExecution(ApiKey $apiKey): void
-    {
-        $cacheKey = $this->executionRateCacheKey($apiKey);
-
-        if (! Cache::add($cacheKey, 1, self::EXECUTION_RATE_LIMIT_CACHE_TTL)) {
-            Cache::increment($cacheKey);
         }
     }
 }
