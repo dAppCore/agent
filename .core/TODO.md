@@ -1,0 +1,1 @@
+- @test pkg/monitor/harvest_test.go:49 — `go test ./...` currently fails in `TestHarvest_*` because the git commit setup command exits with code 1 when adding the binary fixture.

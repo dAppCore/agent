@@ -153,8 +153,12 @@ func (r *Runtime) ServiceName() string { return "Core" }
 
 // ServiceStartup starts all services via the embedded Core.
 func (r *Runtime) ServiceStartup(ctx context.Context, options any) Result {
+	if r == nil || r.Core == nil {
+		return Result{OK: true}
+	}
 	return r.Core.ServiceStartup(ctx, options)
 }
+
 // ServiceShutdown stops all services via the embedded Core.
 func (r *Runtime) ServiceShutdown(ctx context.Context) Result {
 	if r.Core != nil {

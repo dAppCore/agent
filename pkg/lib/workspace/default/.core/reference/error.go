@@ -396,6 +396,11 @@ func (h *ErrorPanic) appendReport(report CrashReport) {
 	var reports []CrashReport
 	if data, err := os.ReadFile(h.filePath); err == nil {
 		if err := json.Unmarshal(data, &reports); err != nil {
+			Default().Error(Concat("crash report file corrupted path=", h.filePath, " err=", err.Error(), " raw=", string(data)))
+			backupPath := Concat(h.filePath, ".corrupt")
+			if backupErr := os.WriteFile(backupPath, data, 0600); backupErr != nil {
+				Default().Error(Concat("crash report backup failed path=", h.filePath, " err=", backupErr.Error()))
+			}
 			reports = nil
 		}
 	}
