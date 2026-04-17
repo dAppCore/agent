@@ -298,13 +298,13 @@ class PrepWorkspaceCommand extends Command
         $todoContent .= "</details>\n";
 
         if ($this->dryRun) {
-            $this->line('  [would write] todo.md from: ' . $title);
+            $this->line('  [would write] TODO.md from: ' . $title);
             if (! empty($checklistItems)) {
                 $this->line('  Checklist items: ' . count($checklistItems));
             }
         } else {
-            File::put($this->outputDir . '/todo.md', $todoContent);
-            $this->line('  todo.md generated from: ' . $title);
+            File::put($this->outputDir . '/TODO.md', $todoContent);
+            $this->line('  TODO.md generated from: ' . $title);
         }
 
         return [$title, $body];
@@ -327,10 +327,10 @@ class PrepWorkspaceCommand extends Command
         $content .= "## Implementation Checklist\n\n_To be filled by the agent._\n";
 
         if ($this->dryRun) {
-            $this->line('  [would write] todo.md skeleton');
+            $this->line('  [would write] TODO.md skeleton');
         } else {
-            File::put($this->outputDir . '/todo.md', $content);
-            $this->line('  todo.md skeleton generated (no --issue provided)');
+            File::put($this->outputDir . '/TODO.md', $content);
+            $this->line('  TODO.md skeleton generated (no --issue provided)');
         }
     }
 

@@ -1,0 +1,2 @@
+- @hardening php/Console/Commands/PrepWorkspaceCommand.php:191 — `base64_decode()` is unchecked, so a malformed wiki payload can silently corrupt generated KB files.
+- @hardening php/Console/Commands/PrepWorkspaceCommand.php:306 — `File::put()` return values are ignored, so TODO generation can fail without surfacing a write error.
