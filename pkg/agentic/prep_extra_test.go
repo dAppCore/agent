@@ -117,6 +117,81 @@ func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 	assert.Empty(t, list)
 }
 
+// --- copyRepoSpecs ---
+
+func TestPrep_CopyRepoSpecs_Good(t *testing.T) {
+	root := t.TempDir()
+	codePath := core.JoinPath(root, "src")
+	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
+	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
+
+	require.True(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
+	require.True(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
+	require.True(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       codePath,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	require.NoError(t, s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo"))
+
+	rootCopy := fs.Read(core.JoinPath(root, "workspace", "specs", "RFC.md"))
+	require.True(t, rootCopy.OK)
+	assert.Equal(t, "root-spec", rootCopy.Value.(string))
+
+	nestedCopy := fs.Read(core.JoinPath(root, "workspace", "specs", "sub", "RFC-2.md"))
+	require.True(t, nestedCopy.OK)
+	assert.Equal(t, "nested-spec", nestedCopy.Value.(string))
+}
+
+func TestPrep_CopyRepoSpecs_Bad_SpecsDirBlocked(t *testing.T) {
+	root := t.TempDir()
+	codePath := core.JoinPath(root, "src")
+	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
+	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
+
+	require.True(t, fs.EnsureDir(specDir).OK)
+	require.True(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
+	require.True(t, fs.Write(core.JoinPath(root, "workspace", "specs"), "blocked").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       codePath,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	err := s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create specs dir")
+}
+
+func TestPrep_CopyRepoSpecs_Ugly_ParentDirBlocked(t *testing.T) {
+	root := t.TempDir()
+	codePath := core.JoinPath(root, "src")
+	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
+	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
+
+	require.True(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
+	require.True(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
+	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace", "specs")).OK)
+	require.True(t, fs.Write(core.JoinPath(root, "workspace", "specs", "sub"), "blocked").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       codePath,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	err := s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create specs parent dir")
+}
+
 func writeFakeLanguageCommand(t *testing.T, dir, name, logPath string, exitCode int) {
 	t.Helper()
 

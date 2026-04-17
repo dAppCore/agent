@@ -1,2 +1,0 @@
-- @hardening pkg/agentic/prep.go:892 — `fs.EnsureDir(specsDir)` ignores failures while seeding workspace specs, so template scaffolding can silently half-complete.
-- @hardening pkg/agentic/prep.go:904 — `fs.EnsureDir(core.PathDir(dst))` ignores failures during template copy, which can leave copied files missing without a warning.

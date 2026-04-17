@@ -24,22 +24,22 @@ type AgentOptions struct{}
 // core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge          *forge.Forge
-	forgeURL       string
-	forgeToken     string
-	brainURL       string
-	brainKey       string
-	codePath       string
-	startupContext context.Context
-	drainCh        chan struct{}
-	pokeCh         chan struct{}
-	frozen         bool
-	backoff        map[string]time.Time
-	failCount      map[string]int
-	providers      *ProviderManager
-	workspaces     *core.Registry[*WorkspaceStatus]
-	stateOnce      sync.Once
-	state          *stateStoreRef
+	forge              *forge.Forge
+	forgeURL           string
+	forgeToken         string
+	brainURL           string
+	brainKey           string
+	codePath           string
+	startupContext     context.Context
+	drainCh            chan struct{}
+	pokeCh             chan struct{}
+	frozen             bool
+	backoff            map[string]time.Time
+	failCount          map[string]int
+	providers          *ProviderManager
+	workspaces         *core.Registry[*WorkspaceStatus]
+	stateOnce          sync.Once
+	state              *stateStoreRef
 	workspaceStatsOnce sync.Once
 	workspaceStats     *workspaceStatsRef
 }
@@ -843,7 +843,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	s.copyRepoSpecs(workspaceDir, input.Repo)
+	if err := s.copyRepoSpecs(workspaceDir, input.Repo); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 	if versionResult := writePromptSnapshot(workspaceDir, out.Prompt); !versionResult.OK {
@@ -862,12 +864,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 // s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
 // s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
-func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
+func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
 	if !fs.IsDir(plansBase) {
-		return
+		return nil
 	}
 
 	var specDir string
@@ -885,11 +887,13 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 
 	if !fs.IsDir(specDir) {
-		return
+		return nil
 	}
 
 	specsDir := core.JoinPath(workspaceDir, "specs")
-	fs.EnsureDir(specsDir)
+	if ensureResult := fs.EnsureDir(specsDir); !ensureResult.OK {
+		return core.E("copyRepoSpecs", core.Concat("failed to create specs dir ", specsDir), nil)
+	}
 
 	patterns := []string{
 		core.JoinPath(specDir, "RFC*.md"),
@@ -901,13 +905,22 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 		for _, entry := range core.PathGlob(pattern) {
 			rel := entry[len(specDir)+1:]
 			dst := core.JoinPath(specsDir, rel)
-			fs.EnsureDir(core.PathDir(dst))
+			if ensureResult := fs.EnsureDir(core.PathDir(dst)); !ensureResult.OK {
+				return core.E("copyRepoSpecs", core.Concat("failed to create specs parent dir ", core.PathDir(dst)), nil)
+			}
 			r := fs.Read(entry)
-			if r.OK {
-				fs.Write(dst, r.Value.(string))
+			if !r.OK {
+				err, _ := r.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to read specs file ", entry), err)
+			}
+			if writeResult := fs.Write(dst, r.Value.(string)); !writeResult.OK {
+				err, _ := writeResult.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to write specs file ", dst), err)
 			}
 		}
 	}
+
+	return nil
 }
 
 // _, out, err := prep.PrepareWorkspace(ctx, input)
