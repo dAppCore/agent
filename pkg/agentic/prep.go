@@ -33,6 +33,9 @@ type PrepSubsystem struct {
 	startupContext     context.Context
 	drainCh            chan struct{}
 	pokeCh             chan struct{}
+	dispatchSyncPrep   func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error)
+	dispatchSyncSpawn  func(agent, prompt, workspaceDir string) (int, string, string, error)
+	dispatchSyncTick   time.Duration
 	frozen             bool
 	backoff            map[string]time.Time
 	failCount          map[string]int
