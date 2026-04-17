@@ -746,6 +746,47 @@ describe('variable validation', function () {
             ->toContain('bare_var')
             ->toContain('missing');
     });
+
+    it('rejects values that violate charset constraints', function () {
+        createTestTemplate('charset-guard', [
+            'name' => 'Test',
+            'variables' => [
+                'project_name' => [
+                    'required' => true,
+                    'charset' => 'slug',
+                ],
+            ],
+            'phases' => [],
+        ]);
+
+        $result = $this->service->validateVariables('charset-guard', [
+            'project_name' => 'Bad Value!',
+        ]);
+
+        expect($result['valid'])->toBeFalse()
+            ->and($result['errors'][0])->toContain('project_name')
+            ->and($result['errors'][0])->toContain('slug');
+    });
+
+    it('refuses to create a plan with invalid variable values', function () {
+        createTestTemplate('charset-create', [
+            'name' => 'Test',
+            'variables' => [
+                'project_name' => [
+                    'required' => true,
+                    'charset' => 'slug',
+                ],
+            ],
+            'phases' => [],
+        ]);
+
+        expect(fn () => $this->service->createPlan(
+            'charset-create',
+            ['project_name' => 'Bad Value!'],
+            [],
+            $this->workspace
+        ))->toThrow(\InvalidArgumentException::class);
+    });
 });
 
 // =========================================================================

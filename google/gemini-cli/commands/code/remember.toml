@@ -1,4 +1,0 @@
-prompt = """
-Remembering fact: {{args}}
-!{${extensionPath}/../../claude/code/scripts/capture-context.sh "{{args}}" "user"}
-"""
