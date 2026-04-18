@@ -1,9 +1,0 @@
-{
-  "name": "devops",
-  "version": "0.2.0",
-  "description": "DevOps utilities for the Core ecosystem — build, install, deploy.",
-  "author": {
-    "name": "Lethean",
-    "email": "virgil@lethean.io"
-  }
-}
