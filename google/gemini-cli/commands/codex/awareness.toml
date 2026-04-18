@@ -1,4 +1,0 @@
-description = "Return Codex awareness guidance"
-prompt = """
-Use the tool `codex_awareness` and return its output verbatim. Do not add commentary.
-"""

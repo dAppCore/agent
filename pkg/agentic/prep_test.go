@@ -739,6 +739,12 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agent_inbox")
 	assert.Contains(t, toolNames, "agentic_message_conversation")
 	assert.Contains(t, toolNames, "agent_conversation")
+	// RFC §9 pairing-code bootstrap exposes the login flow as an MCP tool so
+	// IDE/CLI callers can exchange a 6-digit code for an AgentApiKey without
+	// shelling out.
+	assert.Contains(t, toolNames, "agentic_auth_login")
+	assert.Contains(t, toolNames, "agentic_auth_provision")
+	assert.Contains(t, toolNames, "agentic_auth_revoke")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
@@ -1222,6 +1228,12 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 
 	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
 	require.True(t, fs.Exists(promptSnapshotPath))
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
@@ -1268,6 +1280,12 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.WorkspaceDir)
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
@@ -1290,4 +1308,10 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 
 	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
 	require.Error(t, err)
+}
+
+func TestPrep_EnsureWorkspaceTaskFile_Bad(t *testing.T) {
+	err := ensureWorkspaceTaskFile("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace dir is required")
 }

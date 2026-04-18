@@ -1,8 +1,0 @@
-version: "3"
-
-tasks:
-  test:
-    cmds:
-      - task -d list test
-      - task -d templates test
-      - task -d create test
