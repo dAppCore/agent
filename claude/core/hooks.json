@@ -1,0 +1,119 @@
+{
+  "$schema": "https://claude.ai/schemas/hooks.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.go$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/go-format.sh"
+          }
+        ],
+        "description": "Auto-format Go files after edits"
+      },
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.php$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/php-format.sh"
+          }
+        ],
+        "description": "Auto-format PHP files after edits"
+      },
+      {
+        "matcher": "tool == \"Edit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-debug.sh"
+          }
+        ],
+        "description": "Warn about debug statements (dd, dump, fmt.Println)"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"^gh pr create\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-pr-create.sh"
+          }
+        ],
+        "description": "Suggest review after PR creation"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-notify.sh"
+          }
+        ],
+        "description": "Check for inbox notifications (marker file, no API calls)"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"^git push\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-push-check.sh"
+          }
+        ],
+        "description": "Warn about unpushed verification before git push"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-save.sh",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "Save session context to OpenBrain (async, only when git changes exist)"
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact.sh"
+          }
+        ],
+        "description": "Save state before auto-compact to prevent amnesia"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"
+          }
+        ],
+        "description": "Restore recent session context on startup"
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "notification_type == \"idle_prompt\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-completions.sh"
+          }
+        ],
+        "description": "Check for agent completions when idle"
+      }
+    ]
+  }
+}

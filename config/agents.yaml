@@ -1,0 +1,101 @@
+version: 1
+
+# Dispatch concurrency control
+dispatch:
+  # Default agent type when not specified
+  default_agent: claude
+  # Default prompt template
+  default_template: coding
+  # Workspace root. Absolute paths used as-is.
+  # Relative paths resolve against $HOME/Code (e.g. ".core/workspace" → "$HOME/Code/.core/workspace").
+  workspace_root: .core/workspace
+  # Container runtime — auto | apple | docker | podman.
+  # auto picks the first available runtime in preference order:
+  # Apple Container (macOS 26+) → Docker → Podman.
+  # CORE_AGENT_RUNTIME env var overrides this for ad-hoc dispatch.
+  runtime: auto
+  # Default container image for non-native agent dispatch.
+  # Built by go-build LinuxKit (core-dev, core-ml, core-minimal).
+  # AGENT_DOCKER_IMAGE env var overrides this for ad-hoc dispatch.
+  image: core-dev
+  # GPU passthrough — Metal on Apple Containers (when available),
+  # NVIDIA on Docker via --gpus=all. Default false.
+  gpu: false
+
+# Per-agent concurrency limits (0 = unlimited)
+concurrency:
+  claude: 5
+  gemini: 1
+  codex: 1
+  local: 1
+
+# Rate limiting / quota management
+# Controls pacing between task dispatches to stay within daily quotas.
+# The scheduler calculates delay based on: time remaining in window,
+# tasks remaining, and burst vs sustained mode.
+rates:
+  gemini:
+    # Daily quota resets at this time (UTC)
+    reset_utc: "06:00"
+    # Maximum requests per day (0 = unlimited / unknown)
+    daily_limit: 0
+    # Minimum delay between task starts (seconds)
+    min_delay: 30
+    # Delay between tasks when pacing for sustained use (seconds)
+    sustained_delay: 120
+    # Hours before reset where burst mode kicks in
+    burst_window: 3
+    # Delay during burst window (seconds)
+    burst_delay: 30
+  claude:
+    reset_utc: "00:00"
+    daily_limit: 0
+    min_delay: 0
+    sustained_delay: 0
+    burst_window: 0
+    burst_delay: 0
+  coderabbit:
+    reset_utc: "00:00"
+    daily_limit: 0
+    # CodeRabbit enforces its own rate limits (~8/hour on Pro)
+    # The CLI returns retry-after time which we parse dynamically.
+    # These are conservative defaults for when we can't parse.
+    min_delay: 300
+    sustained_delay: 450
+    burst_window: 0
+    burst_delay: 300
+  codex:
+    reset_utc: "00:00"
+    daily_limit: 0
+    min_delay: 60
+    sustained_delay: 300
+    burst_window: 0
+    burst_delay: 60
+
+# Agent identities (which agents can dispatch)
+agents:
+  cladius:
+    host: local
+    runner: claude
+    active: true
+    roles: [dispatch, review, plan]
+  athena:
+    host: local
+    runner: claude
+    active: true
+    roles: [worker]
+  charon:
+    host: 10.69.69.165
+    runner: claude
+    active: true
+    roles: [worker, review]
+  clotho:
+    host: local
+    runner: claude
+    active: true
+    roles: [review, qa]
+  codex:
+    host: cloud
+    runner: openai
+    active: true
+    roles: [worker]

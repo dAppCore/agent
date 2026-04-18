@@ -1309,9 +1309,3 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
 	require.Error(t, err)
 }
-
-func TestPrep_EnsureWorkspaceTaskFile_Bad(t *testing.T) {
-	err := ensureWorkspaceTaskFile("")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace dir is required")
-}

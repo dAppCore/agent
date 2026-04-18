@@ -1,0 +1,24 @@
+# Host UK Workspace Configuration
+# This file configures the core CLI workspace behaviour
+version: 1
+
+# Active package for `core php dev`, `core php test`, etc.
+# When running from the workspace root, commands target this package
+active: core-php
+
+# Default package types for `core setup`
+# Only these types are cloned by default (override with --only flag)
+default_only:
+  - foundation
+  - module
+
+# Paths
+packages_dir: ./packages
+
+# Workspace-level settings
+settings:
+  # Auto-suggest core commands when using raw git/composer
+  suggest_core_commands: true
+
+  # Show package status in prompt (if shell integration enabled)
+  show_active_in_prompt: true

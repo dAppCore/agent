@@ -1,0 +1,22 @@
+# CLAUDE.md — Security Review
+
+## Task
+{{.Task}}
+
+## Repository
+- **Repo**: {{.Repo}}
+- **Branch**: {{.Branch}}
+
+## Persona
+{{.Persona}}
+
+## Rules
+- This is a READ-ONLY security audit — do NOT modify source files
+- Report findings with file:line format
+- Rate each finding: CRITICAL / HIGH / MEDIUM / LOW
+- Check for: OWASP top 10, injection, path traversal, race conditions, sandbox escapes
+- Focus on real bugs — skip cosmetic/style issues
+- Output findings to FINDINGS.md in the workspace root
+
+## Build & Test
+{{.Flow}}

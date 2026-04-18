@@ -1,0 +1,81 @@
+name: Code Review
+description: Thorough review of a pull request or code change
+category: review
+
+variables:
+  pr_or_branch:
+    description: PR number or branch name to review
+    required: true
+  focus_area:
+    description: Specific area to focus on (security, performance, etc.)
+    required: false
+
+guidelines:
+  - Review for correctness first
+  - Consider maintainability
+  - Check for security issues
+  - Be constructive in feedback
+
+phases:
+  - name: Context
+    description: Understand the change
+    tasks:
+      - Read PR description
+      - Understand the purpose
+      - Review linked issues
+      - Check for breaking changes
+      - Note any concerns
+
+  - name: Structure Review
+    description: Review code organisation
+    tasks:
+      - Check file placement
+      - Review class/function structure
+      - Assess naming conventions
+      - Check for duplication
+      - Evaluate abstractions
+
+  - name: Logic Review
+    description: Review implementation logic
+    tasks:
+      - Check algorithm correctness
+      - Review edge case handling
+      - Assess error handling
+      - Check null/undefined handling
+      - Review control flow
+
+  - name: Quality Review
+    description: Check code quality
+    tasks:
+      - Verify type safety
+      - Check documentation
+      - Review test coverage
+      - Assess readability
+      - Check style consistency
+
+  - name: Security Review
+    description: Check for security issues
+    tasks:
+      - Input validation
+      - SQL injection risks
+      - XSS vulnerabilities
+      - Authentication/authorisation
+      - Sensitive data handling
+
+  - name: Performance Review
+    description: Check for performance issues
+    tasks:
+      - Database query efficiency
+      - Memory usage
+      - Unnecessary operations
+      - Caching opportunities
+      - Potential bottlenecks
+
+  - name: Feedback
+    description: Compile review feedback
+    tasks:
+      - Summarise findings
+      - Categorise by severity
+      - Suggest improvements
+      - Note positive aspects
+      - Submit review

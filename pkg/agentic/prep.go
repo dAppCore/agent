@@ -1034,10 +1034,6 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 // ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
 // keeps TODO.md present for the prompt and the local agent shell wrapper.
 func ensureWorkspaceTaskFile(workspaceDir string) error {
-	if workspaceDir == "" {
-		return core.E("prepWorkspace", "workspace dir is required", nil)
-	}
-
 	todoPath := core.JoinPath(workspaceDir, "TODO.md")
 	if readResult := fs.Read(todoPath); readResult.OK && core.Trim(readResult.Value.(string)) != "" {
 		return nil
@@ -1051,7 +1047,7 @@ func ensureWorkspaceTaskFile(workspaceDir string) error {
 		return core.E("prepWorkspace", "load TODO.md template", nil)
 	}
 
-	if writeResult := fs.WriteAtomic(todoPath, templateResult.Value.(string)); !writeResult.OK {
+	if writeResult := fs.Write(todoPath, templateResult.Value.(string)); !writeResult.OK {
 		if err, ok := writeResult.Value.(error); ok {
 			return core.E("prepWorkspace", "write TODO.md", err)
 		}

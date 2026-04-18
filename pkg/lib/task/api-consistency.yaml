@@ -1,0 +1,39 @@
+name: API Consistency Audit
+description: Check REST endpoint naming, response shapes, and error formats
+category: audit
+
+guidelines:
+  - All endpoints should follow the core/api conventions
+  - Response shapes should be consistent across providers
+  - Error responses must include structured error objects
+  - UK English in all user-facing strings
+
+phases:
+  - name: Endpoint Naming
+    description: Check route naming conventions
+    tasks:
+      - "Check all registered routes follow /api/v1/{resource} pattern"
+      - "Check HTTP methods match CRUD semantics (GET=read, POST=create, PATCH=update, DELETE=remove)"
+      - "Check for inconsistent pluralisation (e.g. /provider vs /providers)"
+      - "Check for path parameter naming consistency"
+
+  - name: Response Shapes
+    description: Check response format consistency
+    tasks:
+      - "Check all success responses return consistent wrapper structure"
+      - "Check pagination uses consistent format (page, per_page, total)"
+      - "Check list endpoints return arrays, not objects"
+      - "Check single-item endpoints return the item directly"
+
+  - name: Error Handling
+    description: Check error response consistency
+    tasks:
+      - "Check all error responses include a structured error object"
+      - "Check HTTP status codes are correct (400 for validation, 404 for missing, 500 for internal)"
+      - "Check error messages use UK English"
+      - "Check no stack traces leak in production error responses"
+
+  - name: Report
+    description: Document findings
+    tasks:
+      - "List each inconsistency with endpoint, expected format, and actual format"

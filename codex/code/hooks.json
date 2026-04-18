@@ -1,0 +1,130 @@
+{
+  "$schema": "https://claude.ai/schemas/hooks.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-history-capture.sh"
+          }
+        ],
+        "description": "Capture session history before each tool use"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/detect-module.sh"
+          }
+        ],
+        "description": "Detect current module and export context variables",
+        "once": true
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prefer-core.sh"
+          }
+        ],
+        "description": "Block destructive commands (rm -rf, sed -i, xargs rm) and enforce core CLI"
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/block-docs.sh"
+          }
+        ],
+        "description": "Block random .md file creation"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git (checkout -b|branch)\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c \"${CLAUDE_PLUGIN_ROOT}/scripts/validate-branch.sh \\\"${CLAUDE_TOOL_INPUT}\\\"\""
+          }
+        ],
+        "description": "Validate branch names follow conventions"
+      },
+      {
+        "matcher": "tool == \"Write\" || tool == \"Edit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"${tool_input.content}\" | ${CLAUDE_PLUGIN_ROOT}/scripts/detect-secrets.sh ${tool_input.filepath}"
+          }
+        ],
+        "description": "Detect secrets in code before writing or editing files."
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"^git commit\"",
+        "hooks": [{
+          "type": "command",
+          "command": "bash claude/code/scripts/check-coverage.sh"
+        }],
+        "description": "Warn when coverage drops"
+      },
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.go$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/go-format.sh"
+          }
+        ],
+        "description": "Auto-format Go files after edits"
+      },
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.php$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/php-format.sh"
+          }
+        ],
+        "description": "Auto-format PHP files after edits"
+      },
+      {
+        "matcher": "tool == \"Edit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-debug.sh"
+          }
+        ],
+        "description": "Warn about debug statements (dd, dump, fmt.Println)"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"^git commit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-commit-check.sh"
+          }
+        ],
+        "description": "Warn about uncommitted work after git commit"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-history-restore.sh"
+          }
+        ],
+        "description": "Restore recent session context on startup"
+      }
+    ]
+  }
+}

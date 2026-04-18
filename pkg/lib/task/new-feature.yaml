@@ -1,0 +1,80 @@
+name: New Feature
+description: Implement a new feature from scratch
+category: development
+
+variables:
+  feature_name:
+    description: Name of the feature
+    required: true
+  description:
+    description: Brief description of what the feature does
+    required: false
+
+guidelines:
+  - Start with a clear understanding of requirements
+  - Design before implementing
+  - Write tests alongside code
+  - Document as you go
+
+phases:
+  - name: Planning
+    description: Define scope and approach
+    tasks:
+      - Clarify requirements for {{ feature_name }}
+      - Identify affected components
+      - Design data models if needed
+      - Plan API endpoints if needed
+      - Create task breakdown
+
+  - name: Foundation
+    description: Set up base infrastructure
+    tasks:
+      - Create feature branch
+      - Set up database migrations
+      - Create model classes
+      - Set up basic routes/controllers
+      - Add configuration if needed
+
+  - name: Core Implementation
+    description: Build the main functionality
+    tasks:
+      - Implement business logic
+      - Add service layer if complex
+      - Create API endpoints
+      - Add validation
+      - Handle edge cases
+
+  - name: Frontend
+    description: Build user interface
+    tasks:
+      - Create views/components
+      - Add form handling
+      - Implement client-side validation
+      - Add loading states
+      - Handle errors gracefully
+
+  - name: Testing
+    description: Ensure quality
+    tasks:
+      - Write unit tests
+      - Write feature/integration tests
+      - Write API tests if applicable
+      - Manual testing
+      - Performance testing if needed
+
+  - name: Documentation
+    description: Document the feature
+    tasks:
+      - Update API documentation
+      - Add inline code comments
+      - Update README if needed
+      - Create user documentation
+
+  - name: Review & Deploy
+    description: Get approval and ship
+    tasks:
+      - Self-review all changes
+      - Create pull request
+      - Address review feedback
+      - Merge and deploy
+      - Monitor for issues

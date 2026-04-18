@@ -1,0 +1,20 @@
+{
+  "name": "qa",
+  "description": "Codex qa plugin for the Host UK core-agent monorepo",
+  "version": "0.1.1",
+  "author": {
+    "name": "Host UK",
+    "email": "hello@host.uk.com"
+  },
+  "homepage": "https://github.com/host-uk/core-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/host-uk/core-agent.git"
+  },
+  "license": "EUPL-1.2",
+  "keywords": [
+    "codex",
+    "qa",
+    "host-uk"
+  ]
+}
