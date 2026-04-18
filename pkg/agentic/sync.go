@@ -570,6 +570,11 @@ func readSyncWorkspaceReport(workspaceDir string) map[string]any {
 	var report map[string]any
 	parseResult := core.JSONUnmarshalString(result.Value.(string), &report)
 	if !parseResult.OK {
+		backupPath := core.Concat(reportPath, ".corrupt-", time.Now().UTC().Format("20060102T150405Z"))
+		core.Warn("agentic: corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", parseResult.Value)
+		if renameResult := fs.Rename(reportPath, backupPath); !renameResult.OK {
+			core.Warn("agentic: failed to preserve corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", renameResult.Value)
+		}
 		return nil
 	}
 

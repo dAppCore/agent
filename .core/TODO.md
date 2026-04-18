@@ -1,1 +1,0 @@
-- @harden pkg/agentic/sync.go:563 — corrupt report.json is dropped silently when dispatch metadata is malformed.
