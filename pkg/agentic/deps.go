@@ -9,18 +9,18 @@ import (
 )
 
 // s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
-func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, repoDir, org string) {
+func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, repoDir, org string) error {
 	goModPath := core.JoinPath(repoDir, "go.mod")
 	r := fs.Read(goModPath)
 	if !r.OK {
-		return
+		return nil
 	}
 	deps := parseCoreDeps(r.Value.(string))
 	if len(deps) == 0 {
-		return
+		return nil
 	}
 	if s.ServiceRuntime == nil {
-		return
+		return nil
 	}
 	process := s.Core().Process()
 
@@ -56,8 +56,15 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, re
 			b.WriteString(core.Concat("\t./", dir, "\n"))
 		}
 		b.WriteString(")\n")
-		fs.Write(core.JoinPath(workspaceDir, "go.work"), b.String())
+		if r := fs.WriteAtomic(core.JoinPath(workspaceDir, "go.work"), b.String()); !r.OK {
+			if err, ok := r.Value.(error); ok {
+				return core.E("cloneWorkspaceDeps", "write go.work", err)
+			}
+			return core.E("cloneWorkspaceDeps", "write go.work", nil)
+		}
 	}
+
+	return nil
 }
 
 // dep := coreDep{module: "dappco.re/go/core", repo: "go", dir: "core-go"}

@@ -70,7 +70,9 @@ func TestDeps_CloneWorkspaceDeps_Bad_NoGoMod(t *testing.T) {
 	}
 
 	subsystem := &PrepSubsystem{}
-	subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core")
+	if err := subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core"); err != nil {
+		t.Fatalf("clone workspace deps: %v", err)
+	}
 
 	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }
@@ -95,7 +97,9 @@ require (
 	}
 
 	subsystem := &PrepSubsystem{}
-	subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core")
+	if err := subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core"); err != nil {
+		t.Fatalf("clone workspace deps: %v", err)
+	}
 
 	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }

@@ -832,11 +832,18 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if lang == "php" {
 		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
 			codexPath := core.JoinPath(workspaceDir, "CODEX.md")
-			fs.Write(codexPath, r.Value.(string))
+			if writeResult := fs.WriteAtomic(codexPath, r.Value.(string)); !writeResult.OK {
+				if err, ok := writeResult.Value.(error); ok {
+					return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", err)
+				}
+				return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", nil)
+			}
 		}
 	}
 
-	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
+	if err := s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org); err != nil {
+		return nil, PrepOutput{}, err
+	}
 	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
 		return nil, PrepOutput{}, err
 	}
