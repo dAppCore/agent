@@ -796,6 +796,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		return nil, PrepOutput{}, core.E("prepWorkspace", "extract default workspace template", nil)
 	}
+	if err := ensureWorkspaceTaskFile(workspaceDir); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	if !resumed {
 		if r := process.RunIn(ctx, ".", "git", "clone", repoPath, repoDir); !r.OK {
@@ -1019,6 +1022,32 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	promptBuilder.WriteString("- Run build and tests before committing\n")
 
 	return promptBuilder.String(), memoryCount, consumerCount
+}
+
+// ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
+// keeps TODO.md present for the prompt and the local agent shell wrapper.
+func ensureWorkspaceTaskFile(workspaceDir string) error {
+	todoPath := core.JoinPath(workspaceDir, "TODO.md")
+	if readResult := fs.Read(todoPath); readResult.OK && core.Trim(readResult.Value.(string)) != "" {
+		return nil
+	}
+
+	templateResult := lib.WorkspaceFile("default", "TODO.md.tmpl")
+	if !templateResult.OK {
+		if err, ok := templateResult.Value.(error); ok {
+			return core.E("prepWorkspace", "load TODO.md template", err)
+		}
+		return core.E("prepWorkspace", "load TODO.md template", nil)
+	}
+
+	if writeResult := fs.Write(todoPath, templateResult.Value.(string)); !writeResult.OK {
+		if err, ok := writeResult.Value.(error); ok {
+			return core.E("prepWorkspace", "write TODO.md", err)
+		}
+		return core.E("prepWorkspace", "write TODO.md", nil)
+	}
+
+	return nil
 }
 
 // writePromptSnapshot stores an immutable prompt snapshot for a workspace.

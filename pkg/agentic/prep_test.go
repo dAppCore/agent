@@ -1228,6 +1228,12 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 
 	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
 	require.True(t, fs.Exists(promptSnapshotPath))
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
@@ -1274,6 +1280,12 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.WorkspaceDir)
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {

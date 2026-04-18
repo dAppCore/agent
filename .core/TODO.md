@@ -1,0 +1,2 @@
+- @bug pkg/agentic/deps.go:59 — `go.work` is written without checking the result, so dependency cloning can fail silently.
+- @bug pkg/agentic/prep.go:835 — the PHP-specific `CODEX.md` overwrite ignores write failures, leaving prep to continue with a partial workspace.
