@@ -6,8 +6,8 @@
     "name": "Lethean Community",
     "email": "hello@lethean.io"
   },
-  "homepage": "https://dappco.re/agent/claude",
-  "repository": "https://github.com/dAppCore/agent.git",
+  "homepage": "https://lthn.ai/agent/claude",
+  "repository": "https://forge.lthn.ai/core/agent.git",
   "license": "EUPL-1.2",
   "keywords": [
     "research",
