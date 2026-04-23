@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Controllers\AgentApiController;
@@ -46,6 +48,7 @@ Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () 
 
 Route::middleware(AgentApiAuth::class.':brain.read')->group(function () {
     Route::post('v1/brain/recall', [BrainController::class, 'recall']);
+    Route::get('v1/brain/search', [BrainController::class, 'search']);
     Route::get('v1/brain/list', [BrainController::class, 'list']);
     Route::get('v1/brain/tags', [BrainController::class, 'tags']);
     Route::get('v1/brain/scopes', [BrainController::class, 'scopes']);
