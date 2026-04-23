@@ -115,3 +115,11 @@ marketplace:
 - go-agent/claude/ plugins (stay in Go repo, not merged into shared plugins)
 - EaaS subsystem references (stripped for OSS release)
 - Codex/Gemini plugins (stay in go-agent)
+
+## Resolution (2026-04-23)
+
+The canonical marketplace format for the core-go / core-php / infra plugin family is **YAML** (marketplace.yaml). The legacy JSON marketplace at .claude-plugin/marketplace.json is retained for the existing `core-agent` plugin family but is not extended to the new three. YAML was chosen because:
+- The RFC explicitly specified YAML for these three new families.
+- Mixing formats keeps the legacy surface stable without forcing a simultaneous migration of unrelated plugins.
+
+The rename from dappcore-go → core-go and dappcore-php → core-php is complete at the directory level; their manifests use the new name. Cross-plugin metadata (#92) handles the `dappcore` → `core` rename elsewhere.

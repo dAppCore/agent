@@ -1,0 +1,7 @@
+{
+  "name": "core-go",
+  "version": "0.1.0",
+  "description": "Claude plugin family for Core Go services, libraries, and tooling.",
+  "homepage": "https://lthn.ai",
+  "repository": "https://forge.lthn.ai/core/agent.git"
+}
