@@ -70,11 +70,10 @@ class SessionArtifact extends AgentTool
             return $this->error('Session not found');
         }
 
-        $session->addArtifact(
-            $path,
-            $action,
-            $this->optional($args, 'description')
-        );
+        $description = $this->optional($args, 'description');
+        $metadata = $description !== null ? ['description' => $description] : null;
+
+        $session->addArtifact($path, $action, $metadata);
 
         return $this->success(['artifact' => $path]);
     }
