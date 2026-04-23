@@ -68,43 +68,31 @@ class BrainService
     }
 
     /**
-     * Store a memory in both MariaDB and Qdrant.
+     * Store a memory and queue asynchronous indexing.
      *
-     * Creates the MariaDB record and upserts the Qdrant vector within
-     * a single DB transaction. If the memory supersedes an older one,
-     * the old entry is soft-deleted from MariaDB and removed from Qdrant.
+     * Creates the brain database record within a DB transaction and dispatches
+     * EmbedMemory after commit so embedding, Qdrant, and Elasticsearch
+     * indexing happen on the queue.
      *
      * @param  array<string, mixed>  $attributes  Fillable attributes for BrainMemory
      * @return BrainMemory The created memory
      */
     public function remember(array $attributes): BrainMemory
     {
-        $vector = $this->embed($attributes['content']);
+        $attributes['indexed_at'] = null;
 
-        return DB::connection('brain')->transaction(function () use ($attributes, $vector) {
+        $memory = DB::connection('brain')->transaction(function () use ($attributes) {
             $memory = BrainMemory::create($attributes);
-
-            $payload = $this->buildQdrantPayload($memory->id, [
-                'workspace_id' => $memory->workspace_id,
-                'agent_id' => $memory->agent_id,
-                'type' => $memory->type,
-                'tags' => $memory->tags ?? [],
-                'project' => $memory->project,
-                'confidence' => $memory->confidence,
-                'source' => $memory->source ?? 'manual',
-                'created_at' => $memory->created_at->toIso8601String(),
-            ]);
-            $payload['vector'] = $vector;
-
-            $this->qdrantUpsert([$payload]);
-
             if ($memory->supersedes_id) {
                 BrainMemory::where('id', $memory->supersedes_id)->delete();
-                $this->qdrantDelete([$memory->supersedes_id]);
             }
 
             return $memory;
         });
+
+        \Core\Mod\Agentic\Jobs\EmbedMemory::dispatch($memory->id);
+
+        return $memory;
     }
 
     /**
