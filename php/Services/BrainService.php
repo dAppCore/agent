@@ -217,6 +217,10 @@ class BrainService
             $must[] = ['key' => 'workspace_id', 'match' => ['value' => $criteria['workspace_id']]];
         }
 
+        if (isset($criteria['org'])) {
+            $must[] = ['key' => 'org', 'match' => ['value' => $criteria['org']]];
+        }
+
         if (isset($criteria['project'])) {
             $must[] = ['key' => 'project', 'match' => ['value' => $criteria['project']]];
         }
