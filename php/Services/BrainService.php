@@ -18,12 +18,15 @@ class BrainService
 
     private const VECTOR_DIMENSION = 768;
 
+    private const ELASTIC_INDEX = 'brain_memories';
+
     public function __construct(
         private string $ollamaUrl = 'http://localhost:11434',
         private string $qdrantUrl = 'http://localhost:6334',
         private string $collection = 'openbrain',
         private string $embeddingModel = self::DEFAULT_MODEL,
         private bool $verifySsl = true,
+        private string $elasticsearchUrl = 'http://127.0.0.1:9200',
     ) {}
 
     /**
@@ -211,7 +214,13 @@ class BrainService
      */
     public function elasticIndex(BrainMemory $memory): void
     {
-        // Implemented by the Elasticsearch integration ticket.
+        $response = $this->http(10)
+            ->put($this->elasticDocumentUrl($memory->id), $this->buildElasticDocument($memory));
+
+        if (! $response->successful()) {
+            Log::error("Elasticsearch index failed: {$response->status()}", ['id' => $memory->id, 'body' => $response->body()]);
+            throw new \RuntimeException("Elasticsearch index failed: {$response->status()}");
+        }
     }
 
     /**
@@ -219,7 +228,41 @@ class BrainService
      */
     public function elasticDelete(string $id): void
     {
-        // Implemented by the Elasticsearch integration ticket.
+        $response = $this->http(10)
+            ->delete($this->elasticDocumentUrl($id));
+
+        if (! $response->successful()) {
+            Log::error("Elasticsearch delete failed: {$response->status()}", ['id' => $id, 'body' => $response->body()]);
+            throw new \RuntimeException("Elasticsearch delete failed: {$response->status()}");
+        }
+    }
+
+    /**
+     * Search memories in Elasticsearch.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function elasticSearch(string $query, array $filters = []): array
+    {
+        $response = $this->http(10)
+            ->post($this->elasticSearchUrl(), [
+                'query' => [
+                    'bool' => [
+                        'must' => [$this->buildElasticQuery($query)],
+                        'filter' => $this->buildElasticFilters($filters),
+                    ],
+                ],
+            ]);
+
+        if (! $response->successful()) {
+            Log::error("Elasticsearch search failed: {$response->status()}", ['query' => $query, 'filters' => $filters, 'body' => $response->body()]);
+            throw new \RuntimeException("Elasticsearch search failed: {$response->status()}");
+        }
+
+        $result = $response->json();
+
+        return is_array($result) ? $result : [];
     }
 
     /**
@@ -261,6 +304,95 @@ class BrainService
         }
 
         return ['must' => $must];
+    }
+
+    /**
+     * Build an Elasticsearch document body from a memory.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildElasticDocument(BrainMemory $memory): array
+    {
+        return [
+            'id' => $memory->id,
+            'content' => $memory->content,
+            'type' => $memory->type,
+            'tags' => $memory->tags ?? [],
+            'project' => $memory->project,
+            'workspace_id' => $memory->workspace_id,
+            'org' => $memory->getAttribute('org'),
+            'confidence' => $memory->confidence,
+            'indexed_at' => $memory->indexed_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildElasticQuery(string $query): array
+    {
+        if ($query === '') {
+            return ['match_all' => (object) []];
+        }
+
+        return [
+            'multi_match' => [
+                'query' => $query,
+                'fields' => [
+                    'content^3',
+                    'type',
+                    'tags',
+                    'project',
+                    'org',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildElasticFilters(array $filters): array
+    {
+        $clauses = [];
+
+        foreach (['workspace_id', 'org', 'project', 'type'] as $field) {
+            if (! isset($filters[$field])) {
+                continue;
+            }
+
+            $clauses[] = is_array($filters[$field])
+                ? ['terms' => [$field => $filters[$field]]]
+                : ['term' => [$field => $filters[$field]]];
+        }
+
+        if (isset($filters['tags'])) {
+            $clauses[] = is_array($filters['tags'])
+                ? ['terms' => ['tags' => $filters['tags']]]
+                : ['term' => ['tags' => $filters['tags']]];
+        }
+
+        if (isset($filters['min_confidence'])) {
+            $clauses[] = ['range' => ['confidence' => ['gte' => $filters['min_confidence']]]];
+        }
+
+        return $clauses;
+    }
+
+    private function elasticDocumentUrl(string $id): string
+    {
+        return $this->elasticIndexUrl().'/_doc/'.rawurlencode($id);
+    }
+
+    private function elasticSearchUrl(): string
+    {
+        return $this->elasticIndexUrl().'/_search';
+    }
+
+    private function elasticIndexUrl(): string
+    {
+        return rtrim($this->elasticsearchUrl, '/').'/'.self::ELASTIC_INDEX;
     }
 
     /**
