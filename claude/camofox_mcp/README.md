@@ -16,7 +16,7 @@ pip install -e .
 Direct git install:
 
 ```bash
-pip install "git+https://github.com/dAppCore/core-agent.git#subdirectory=claude/camofox_mcp"
+pip install "git+https://forge.lthn.ai/core/agent.git#subdirectory=claude/camofox_mcp"
 ```
 
 ## Claude Code
