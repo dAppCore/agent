@@ -7,8 +7,9 @@ namespace Core\Mod\Agentic\Controllers\Api;
 use Core\Front\Controller;
 use Core\Mod\Agentic\Actions\Brain\ForgetKnowledge;
 use Core\Mod\Agentic\Actions\Brain\ListKnowledge;
-use Core\Mod\Agentic\Actions\Brain\RecallKnowledge;
 use Core\Mod\Agentic\Actions\Brain\RememberKnowledge;
+use Core\Mod\Agentic\Models\BrainMemory;
+use Core\Mod\Agentic\Services\BrainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,12 +62,22 @@ class BrainController extends Controller
      *
      * Semantic search across memories.
      */
-    public function recall(Request $request): JsonResponse
+    public function recall(Request $request, BrainService $brain): JsonResponse
     {
         $validated = $request->validate([
             'query' => 'required|string|max:2000',
+            'limit' => 'nullable|integer|min:1|max:20',
             'top_k' => 'nullable|integer|min:1|max:20',
+            'workspace_id' => 'nullable|integer|min:1',
+            'org' => 'nullable|string',
+            'project' => 'nullable|string',
+            'type' => 'nullable',
+            'keywords' => 'nullable|array',
+            'keywords.*' => 'string|max:255',
+            'boost_keywords' => 'nullable|array',
+            'boost_keywords.*' => 'string|max:255',
             'filter' => 'nullable|array',
+            'filter.org' => 'nullable|string',
             'filter.project' => 'nullable|string',
             'filter.type' => 'nullable',
             'filter.agent_id' => 'nullable|string',
@@ -74,15 +85,27 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
-        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id ?? $validated['workspace_id'] ?? 0);
+        $filter = $validated['filter'] ?? [];
+
+        foreach (['org', 'project', 'type'] as $field) {
+            if (array_key_exists($field, $validated) && $validated[$field] !== null) {
+                $filter[$field] = $validated[$field];
+            }
+        }
 
         try {
-            $result = RecallKnowledge::run(
+            $this->assertValidTypeFilter($filter['type'] ?? null);
+
+            $result = $brain->recall(
                 $validated['query'],
+                $validated['limit'] ?? $validated['top_k'] ?? 5,
+                $filter,
                 $workspaceId,
-                $validated['filter'] ?? [],
-                $validated['top_k'] ?? 5,
+                $this->normaliseStringList($validated['keywords'] ?? []),
+                $this->normaliseStringList($validated['boost_keywords'] ?? []),
             );
+            $result['count'] = count($result['memories'] ?? []);
 
             return response()->json([
                 'data' => $result,
@@ -98,6 +121,53 @@ class BrainController extends Controller
                 'message' => 'Brain service temporarily unavailable.',
             ], 503);
         }
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     * @return array<int, string>
+     */
+    private function normaliseStringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
+    }
+
+    private function assertValidTypeFilter(mixed $type): void
+    {
+        if ($type === null) {
+            return;
+        }
+
+        $validTypes = BrainMemory::VALID_TYPES;
+
+        if (is_string($type)) {
+            if (! in_array($type, $validTypes, true)) {
+                throw new \InvalidArgumentException(
+                    sprintf('filter.type must be one of: %s', implode(', ', $validTypes))
+                );
+            }
+
+            return;
+        }
+
+        if (is_array($type)) {
+            foreach ($type as $value) {
+                if (! is_string($value) || ! in_array($value, $validTypes, true)) {
+                    throw new \InvalidArgumentException(
+                        sprintf('Each filter.type value must be one of: %s', implode(', ', $validTypes))
+                    );
+                }
+            }
+
+            return;
+        }
+
+        throw new \InvalidArgumentException(
+            sprintf('filter.type must be one of: %s', implode(', ', $validTypes))
+        );
     }
 
     /**

@@ -101,8 +101,14 @@ class BrainService
      * @param  array<string, mixed>  $filter  Optional filter criteria
      * @return array{memories: array, scores: array<string, float>}
      */
-    public function recall(string $query, int $topK, array $filter, int $workspaceId): array
-    {
+    public function recall(
+        string $query,
+        int $topK,
+        array $filter,
+        int $workspaceId,
+        array $keywords = [],
+        array $boostKeywords = [],
+    ): array {
         $vector = $this->embed($query);
 
         $filter['workspace_id'] = $workspaceId;
@@ -121,29 +127,60 @@ class BrainService
         }
 
         $results = $response->json('result', []);
-        $ids = array_column($results, 'id');
-        $scoreMap = [];
+        $scoreMap = $this->scoreQdrantResults(is_array($results) ? $results : []);
+        $keywords = $this->normaliseKeywords($keywords);
 
-        foreach ($results as $r) {
-            $scoreMap[$r['id']] = $r['score'];
+        if ($keywords !== []) {
+            $keywordScoreMap = $this->scoreElasticResults(
+                $this->elasticSearch(implode(' ', $keywords), $filter, $topK),
+            );
+
+            foreach ($keywordScoreMap as $id => $score) {
+                $scoreMap[$id] = max($scoreMap[$id] ?? 0.0, $score);
+            }
         }
 
-        if (empty($ids)) {
+        if ($scoreMap === []) {
             return ['memories' => [], 'scores' => []];
         }
 
-        $memories = BrainMemory::whereIn('id', $ids)
+        $boostKeywords = $this->normaliseKeywords($boostKeywords);
+        $boostMultiplier = $boostKeywords !== [] ? $this->boostKeywordMultiplier() : 1.0;
+        $ranked = [];
+
+        $memories = BrainMemory::whereIn('id', array_keys($scoreMap))
             ->forWorkspace($workspaceId)
             ->active()
             ->latestVersions()
-            ->get()
-            ->sortBy(fn (BrainMemory $m) => array_search($m->id, $ids))
-            ->values();
+            ->get();
+
+        foreach ($memories as $memory) {
+            $score = (float) ($scoreMap[$memory->id] ?? 0.0);
+
+            if ($boostKeywords !== [] && $this->memoryContainsKeyword($memory, $boostKeywords)) {
+                $score *= $boostMultiplier;
+            }
+
+            $ranked[] = [
+                'memory' => $memory,
+                'score' => $score,
+            ];
+        }
+
+        usort($ranked, static fn (array $left, array $right): int => $right['score'] <=> $left['score']);
+        $ranked = array_slice($ranked, 0, $topK);
+        $finalScoreMap = [];
 
         return [
-            'memories' => $memories->map(fn (BrainMemory $m) => $m->toMcpContext(
-                (float) ($scoreMap[$m->id] ?? 0.0)
-            ))->all(),
+            'memories' => array_map(static function (array $item) use (&$finalScoreMap): array {
+                /** @var BrainMemory $memory */
+                $memory = $item['memory'];
+                $score = (float) $item['score'];
+                $finalScoreMap[$memory->id] = $score;
+
+                return $memory->toMcpContext($score);
+            }, $ranked),
+            'scores' => $finalScoreMap,
         ];
     }
 
@@ -231,17 +268,23 @@ class BrainService
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
-    public function elasticSearch(string $query, array $filters = []): array
+    public function elasticSearch(string $query, array $filters = [], ?int $limit = null): array
     {
-        $response = $this->http(10)
-            ->post($this->elasticSearchUrl(), [
-                'query' => [
-                    'bool' => [
-                        'must' => [$this->buildElasticQuery($query)],
-                        'filter' => $this->buildElasticFilters($filters),
-                    ],
+        $body = [
+            'query' => [
+                'bool' => [
+                    'must' => [$this->buildElasticQuery($query)],
+                    'filter' => $this->buildElasticFilters($filters),
                 ],
-            ]);
+            ],
+        ];
+
+        if ($limit !== null && $limit > 0) {
+            $body['size'] = $limit;
+        }
+
+        $response = $this->http(10)
+            ->post($this->elasticSearchUrl(), $body);
 
         if (! $response->successful()) {
             Log::error("Elasticsearch search failed: {$response->status()}", ['query' => $query, 'filters' => $filters, 'body' => $response->body()]);
@@ -251,6 +294,102 @@ class BrainService
         $result = $response->json();
 
         return is_array($result) ? $result : [];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array<string, float>
+     */
+    private function scoreQdrantResults(array $results): array
+    {
+        $scores = [];
+
+        foreach ($results as $result) {
+            $id = (string) ($result['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $scores[$id] = (float) ($result['score'] ?? 0.0);
+        }
+
+        return $scores;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function scoreElasticResults(array $result): array
+    {
+        $hits = $result['hits']['hits'] ?? [];
+        if (! is_array($hits) || $hits === []) {
+            return [];
+        }
+
+        $scores = [];
+        foreach ($hits as $hit) {
+            if (! is_array($hit)) {
+                continue;
+            }
+
+            $id = (string) ($hit['_id'] ?? '');
+            if ($id === '' && isset($hit['_source']) && is_array($hit['_source'])) {
+                $id = (string) ($hit['_source']['id'] ?? '');
+            }
+
+            if ($id === '') {
+                continue;
+            }
+
+            $scores[$id] = (float) ($hit['_score'] ?? 0.0);
+        }
+
+        return $scores;
+    }
+
+    /**
+     * @param  array<int, mixed>  $keywords
+     * @return array<int, string>
+     */
+    private function normaliseKeywords(array $keywords): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $keyword): string => is_string($keyword) ? trim($keyword) : '',
+            $keywords,
+        ), static fn (string $keyword): bool => $keyword !== ''));
+    }
+
+    private function boostKeywordMultiplier(): float
+    {
+        $configured = function_exists('config')
+            ? config('mcp.brain.boost_keywords_multiplier', config('mcp.brain.keyword_boost', 1.5))
+            : 1.5;
+        $multiplier = is_numeric($configured) ? (float) $configured : 1.5;
+
+        return $multiplier > 0.0 ? $multiplier : 1.5;
+    }
+
+    /**
+     * @param  array<int, string>  $keywords
+     */
+    private function memoryContainsKeyword(BrainMemory $memory, array $keywords): bool
+    {
+        $haystack = mb_strtolower(implode(' ', array_filter([
+            $memory->content,
+            $memory->type,
+            $memory->project,
+            $memory->source,
+            $memory->getAttribute('org'),
+            implode(' ', $memory->tags ?? []),
+        ], static fn (mixed $value): bool => is_string($value) && $value !== '')));
+
+        foreach ($keywords as $keyword) {
+            if (str_contains($haystack, mb_strtolower($keyword))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
