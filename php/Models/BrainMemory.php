@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Models;
 
+use Carbon\Carbon;
 use Core\Tenant\Concerns\BelongsToWorkspace;
 use Core\Tenant\Models\Workspace;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,10 +32,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $project
  * @property float $confidence
  * @property string|null $supersedes_id
- * @property \Carbon\Carbon|null $expires_at
- * @property \Carbon\Carbon|null $created_at
- * @property \Carbon\Carbon|null $updated_at
- * @property \Carbon\Carbon|null $deleted_at
+ * @property Carbon|null $indexed_at
+ * @property Carbon|null $expires_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
  */
 class BrainMemory extends Model
 {
@@ -72,6 +74,7 @@ class BrainMemory extends Model
         'project',
         'confidence',
         'supersedes_id',
+        'indexed_at',
         'expires_at',
         'source',
     ];
@@ -79,6 +82,7 @@ class BrainMemory extends Model
     protected $casts = [
         'tags' => 'array',
         'confidence' => 'float',
+        'indexed_at' => 'datetime',
         'expires_at' => 'datetime',
     ];
 

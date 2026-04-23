@@ -1,10 +1,13 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Services;
 
 use Core\Mod\Agentic\Models\BrainMemory;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +29,7 @@ class BrainService
     /**
      * Create an HTTP client with common settings.
      */
-    private function http(int $timeout = 10): \Illuminate\Http\Client\PendingRequest
+    private function http(int $timeout = 10): PendingRequest
     {
         return $this->verifySsl
             ? Http::timeout($timeout)
@@ -204,6 +207,14 @@ class BrainService
     }
 
     /**
+     * Index a memory in Elasticsearch.
+     */
+    public function elasticIndex(BrainMemory $memory): void
+    {
+        // Implemented by the Elasticsearch integration ticket.
+    }
+
+    /**
      * Build a Qdrant filter from criteria.
      *
      * @param  array<string, mixed>  $criteria
@@ -251,7 +262,7 @@ class BrainService
      *
      * @throws \RuntimeException
      */
-    private function qdrantUpsert(array $points): void
+    public function qdrantUpsert(array $points): void
     {
         $response = $this->http(10)
             ->put("{$this->qdrantUrl}/collections/{$this->collection}/points", [
