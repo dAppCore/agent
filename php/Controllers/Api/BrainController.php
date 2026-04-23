@@ -235,4 +235,109 @@ class BrainController extends Controller
             ], 422);
         }
     }
+
+    /**
+     * GET /v1/brain/tags
+     *
+     * List distinct memory tags and document counts.
+     */
+    public function tags(BrainService $brain): JsonResponse
+    {
+        try {
+            $result = $brain->elasticAggregate([
+                'size' => 0,
+                'aggs' => [
+                    'tags' => [
+                        'terms' => [
+                            'field' => 'tags.keyword',
+                            'size' => 1000,
+                        ],
+                    ],
+                ],
+            ]);
+
+            $tags = [];
+            $buckets = $result['aggregations']['tags']['buckets'] ?? [];
+
+            if (is_array($buckets)) {
+                foreach ($buckets as $bucket) {
+                    if (! is_array($bucket) || ! is_string($bucket['key'] ?? null)) {
+                        continue;
+                    }
+
+                    $tags[$bucket['key']] = (int) ($bucket['doc_count'] ?? 0);
+                }
+            }
+
+            return response()->json([
+                'data' => $tags,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'service_error',
+                'message' => 'Brain service temporarily unavailable.',
+            ], 503);
+        }
+    }
+
+    /**
+     * GET /v1/brain/scopes
+     *
+     * List distinct organisation/project memory scopes.
+     */
+    public function scopes(BrainService $brain): JsonResponse
+    {
+        try {
+            $result = $brain->elasticAggregate([
+                'size' => 0,
+                'aggs' => [
+                    'scopes' => [
+                        'composite' => [
+                            'size' => 1000,
+                            'sources' => [
+                                [
+                                    'org' => [
+                                        'terms' => [
+                                            'field' => 'org.keyword',
+                                        ],
+                                    ],
+                                ],
+                                [
+                                    'project' => [
+                                        'terms' => [
+                                            'field' => 'project.keyword',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+
+            $scopes = [];
+            $buckets = $result['aggregations']['scopes']['buckets'] ?? [];
+
+            if (is_array($buckets)) {
+                foreach ($buckets as $bucket) {
+                    $key = is_array($bucket) ? ($bucket['key'] ?? null) : null;
+
+                    if (! is_array($key) || ! is_string($key['org'] ?? null) || ! is_string($key['project'] ?? null)) {
+                        continue;
+                    }
+
+                    $scopes[$key['org']][$key['project']] = (int) ($bucket['doc_count'] ?? 0);
+                }
+            }
+
+            return response()->json([
+                'data' => $scopes,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'service_error',
+                'message' => 'Brain service temporarily unavailable.',
+            ], 503);
+        }
+    }
 }

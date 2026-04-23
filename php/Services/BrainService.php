@@ -393,6 +393,27 @@ class BrainService
     }
 
     /**
+     * Run an Elasticsearch aggregation query against brain memories.
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    public function elasticAggregate(array $body): array
+    {
+        $response = $this->http(10)
+            ->post($this->elasticSearchUrl(), $body);
+
+        if (! $response->successful()) {
+            Log::error("Elasticsearch aggregation failed: {$response->status()}", ['request' => $body, 'body' => $response->body()]);
+            throw new \RuntimeException("Elasticsearch aggregation failed: {$response->status()}");
+        }
+
+        $result = $response->json();
+
+        return is_array($result) ? $result : [];
+    }
+
+    /**
      * Build a Qdrant filter from criteria.
      *
      * @param  array<string, mixed>  $criteria
