@@ -215,6 +215,14 @@ class BrainService
     }
 
     /**
+     * Delete a memory from Elasticsearch.
+     */
+    public function elasticDelete(string $id): void
+    {
+        // Implemented by the Elasticsearch integration ticket.
+    }
+
+    /**
      * Build a Qdrant filter from criteria.
      *
      * @param  array<string, mixed>  $criteria
@@ -279,8 +287,10 @@ class BrainService
      * Delete points from Qdrant by ID.
      *
      * @param  array<string>  $ids
+     *
+     * @throws \RuntimeException
      */
-    private function qdrantDelete(array $ids): void
+    public function qdrantDelete(array $ids): void
     {
         $response = $this->http(10)
             ->post("{$this->qdrantUrl}/collections/{$this->collection}/points/delete", [
@@ -288,7 +298,8 @@ class BrainService
             ]);
 
         if (! $response->successful()) {
-            Log::warning("Qdrant delete failed: {$response->status()}", ['ids' => $ids, 'body' => $response->body()]);
+            Log::error("Qdrant delete failed: {$response->status()}", ['ids' => $ids, 'body' => $response->body()]);
+            throw new \RuntimeException("Qdrant delete failed: {$response->status()}");
         }
     }
 }
