@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
@@ -41,9 +40,9 @@ type PrepSubsystem struct {
 	failCount          map[string]int
 	providers          *ProviderManager
 	workspaces         *core.Registry[*WorkspaceStatus]
-	stateOnce          sync.Once
+	stateOnce          core.Once
 	state              *stateStoreRef
-	workspaceStatsOnce sync.Once
+	workspaceStatsOnce core.Once
 	workspaceStats     *workspaceStatsRef
 }
 
