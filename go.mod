@@ -4,12 +4,12 @@ go 1.26.0
 
 require (
 	dappco.re/go/core v0.8.0-alpha.1
-	dappco.re/go/core/api v0.3.0
-	dappco.re/go/core/forge v0.3.1
-	dappco.re/go/core/process v0.5.1
-	dappco.re/go/core/store v0.3.0
-	dappco.re/go/core/ws v0.4.0
-	dappco.re/go/mcp v0.5.6
+	dappco.re/go/api v0.8.0-alpha.1
+	dappco.re/go/forge v0.8.0-alpha.1
+	dappco.re/go/process v0.8.0-alpha.1
+	dappco.re/go/store v0.8.0-alpha.1
+	dappco.re/go/ws v0.8.0-alpha.1
+	dappco.re/go/mcp v0.8.0-alpha.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.5.0
@@ -18,11 +18,11 @@ require (
 )
 
 require (
-	dappco.re/go/core/ai v0.2.2 // indirect
-	dappco.re/go/core/io v0.4.1 // indirect
-	dappco.re/go/core/log v0.1.2 // indirect
-	dappco.re/go/core/rag v0.1.13 // indirect
-	dappco.re/go/core/webview v0.2.1 // indirect
+	dappco.re/go/ai v0.8.0-alpha.1 // indirect
+	dappco.re/go/io v0.8.0-alpha.1 // indirect
+	dappco.re/go/log v0.8.0-alpha.1 // indirect
+	dappco.re/go/rag v0.8.0-alpha.1 // indirect
+	dappco.re/go/webview v0.8.0-alpha.1 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect

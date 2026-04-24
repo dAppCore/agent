@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	forge_types "dappco.re/go/core/forge/types"
+	"dappco.re/go/forge"
+	forge_types "dappco.re/go/forge/types"
 )
 
 type issueView struct {

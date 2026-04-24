@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // Usage example: `groupName := queueGroup` // "queue"

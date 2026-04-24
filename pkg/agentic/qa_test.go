@@ -8,7 +8,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

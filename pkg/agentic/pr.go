@@ -6,7 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	forge_types "dappco.re/go/core/forge/types"
+	forge_types "dappco.re/go/forge/types"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -4,7 +4,7 @@ package agentic
 
 import (
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 )
 
 // alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)

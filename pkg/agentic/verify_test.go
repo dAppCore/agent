@@ -10,7 +10,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

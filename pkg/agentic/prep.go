@@ -13,7 +13,7 @@ import (
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

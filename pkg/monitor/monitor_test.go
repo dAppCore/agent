@@ -14,7 +14,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

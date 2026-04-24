@@ -11,8 +11,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	forge_types "dappco.re/go/core/forge/types"
+	"dappco.re/go/forge"
+	forge_types "dappco.re/go/forge/types"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"

@@ -6,7 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 )
 
 func ExampleProcessAlive() {

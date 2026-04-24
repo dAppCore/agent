@@ -7,7 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // stateWorkspaceStatsGroup is the group key inside the parent workspace store

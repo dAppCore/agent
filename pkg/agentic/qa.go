@@ -7,7 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // QAFinding mirrors the lint.Finding shape produced by `core-lint run --output json`.
