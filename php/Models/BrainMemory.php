@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $type
  * @property string $content
  * @property array|null $tags
+ * @property string|null $org
  * @property string|null $project
  * @property float $confidence
  * @property string|null $supersedes_id
@@ -71,6 +72,7 @@ class BrainMemory extends Model
         'type',
         'content',
         'tags',
+        'org',
         'project',
         'confidence',
         'supersedes_id',
@@ -127,6 +129,13 @@ class BrainMemory extends Model
     {
         return $project
             ? $query->where('project', $project)
+            : $query;
+    }
+
+    public function scopeForOrg(Builder $query, ?string $org): Builder
+    {
+        return $org
+            ? $query->where('org', $org)
             : $query;
     }
 
@@ -192,6 +201,7 @@ class BrainMemory extends Model
             'type' => $this->type,
             'content' => $this->content,
             'tags' => $this->tags ?? [],
+            'org' => $this->getAttribute('org'),
             'project' => $this->project,
             'confidence' => $this->confidence,
             'score' => round($score, 4),

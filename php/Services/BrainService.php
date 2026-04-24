@@ -6,8 +6,12 @@ declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Services;
 
+use Core\Mod\Agentic\Jobs\DeleteFromIndex;
+use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Models\BrainMemory;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -106,17 +110,33 @@ class BrainService
     public function remember(array $attributes): BrainMemory
     {
         $attributes['indexed_at'] = null;
+        $cleanupIds = [];
 
-        $memory = DB::connection('brain')->transaction(function () use ($attributes) {
-            $memory = BrainMemory::create($attributes);
+        $memory = DB::connection('brain')->transaction(function () use ($attributes, &$cleanupIds) {
+            $memory = new BrainMemory;
+            $memory->fill($attributes);
+            $memory->save();
+
             if ($memory->supersedes_id) {
-                BrainMemory::where('id', $memory->supersedes_id)->delete();
+                $superseded = BrainMemory::query()->find($memory->supersedes_id);
+
+                if ($superseded instanceof BrainMemory) {
+                    if ($superseded->indexed_at !== null) {
+                        $cleanupIds[] = $superseded->id;
+                    }
+
+                    $superseded->delete();
+                }
             }
 
             return $memory;
         });
 
-        \Core\Mod\Agentic\Jobs\EmbedMemory::dispatch($memory->id);
+        foreach ($cleanupIds as $cleanupId) {
+            DeleteFromIndex::dispatch($cleanupId);
+        }
+
+        EmbedMemory::dispatch($memory->id);
 
         return $memory;
     }
@@ -140,13 +160,15 @@ class BrainService
         $filter['workspace_id'] = $workspaceId;
         $qdrantFilter = $this->buildQdrantFilter($filter);
 
-        $response = $this->qdrantHttp(10)
-            ->post("{$this->qdrantUrl}/collections/{$this->collection}/points/search", [
+        $response = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->post(
+            "{$this->qdrantUrl}/collections/{$this->collection}/points/search",
+            [
                 'vector' => $vector,
                 'filter' => $qdrantFilter,
                 'limit' => $topK,
                 'with_payload' => false,
-            ]);
+            ],
+        ));
 
         if (! $response->successful()) {
             throw new \RuntimeException("Qdrant search failed: {$response->status()}");
@@ -215,10 +237,13 @@ class BrainService
      */
     public function forget(string $id): void
     {
-        DB::connection('brain')->transaction(function () use ($id) {
-            BrainMemory::where('id', $id)->delete();
-            $this->qdrantDelete([$id]);
+        $deleted = DB::connection('brain')->transaction(function () use ($id): int {
+            return BrainMemory::where('id', $id)->delete();
         });
+
+        if ($deleted > 0) {
+            DeleteFromIndex::dispatch($id);
+        }
     }
 
     /**
@@ -226,23 +251,33 @@ class BrainService
      */
     public function ensureCollection(): void
     {
-        $response = $this->qdrantHttp(5)
-            ->get("{$this->qdrantUrl}/collections/{$this->collection}");
+        $response = $this->retryableHttp(
+            5,
+            fn (PendingRequest $request): Response => $request->get("{$this->qdrantUrl}/collections/{$this->collection}")
+        );
 
         if ($response->status() === 404) {
-            $createResponse = $this->qdrantHttp(10)
-                ->put("{$this->qdrantUrl}/collections/{$this->collection}", [
+            $createResponse = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->put(
+                "{$this->qdrantUrl}/collections/{$this->collection}",
+                [
                     'vectors' => [
                         'size' => self::VECTOR_DIMENSION,
                         'distance' => 'Cosine',
                     ],
-                ]);
+                ],
+            ));
 
             if (! $createResponse->successful()) {
                 throw new \RuntimeException("Qdrant collection creation failed: {$createResponse->status()}");
             }
 
             Log::info("OpenBrain: created Qdrant collection '{$this->collection}'");
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            throw new \RuntimeException("Qdrant collection check failed: {$response->status()}");
         }
     }
 
@@ -578,10 +613,12 @@ class BrainService
      */
     public function qdrantUpsert(array $points): void
     {
-        $response = $this->qdrantHttp(10)
-            ->put("{$this->qdrantUrl}/collections/{$this->collection}/points", [
+        $response = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->put(
+            "{$this->qdrantUrl}/collections/{$this->collection}/points",
+            [
                 'points' => $points,
-            ]);
+            ],
+        ));
 
         if (! $response->successful()) {
             Log::error("Qdrant upsert failed: {$response->status()}", ['body' => $response->body()]);
@@ -598,14 +635,67 @@ class BrainService
      */
     public function qdrantDelete(array $ids): void
     {
-        $response = $this->qdrantHttp(10)
-            ->post("{$this->qdrantUrl}/collections/{$this->collection}/points/delete", [
+        $response = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->post(
+            "{$this->qdrantUrl}/collections/{$this->collection}/points/delete",
+            [
                 'points' => $ids,
-            ]);
+            ],
+        ));
 
         if (! $response->successful()) {
             Log::error("Qdrant delete failed: {$response->status()}", ['ids' => $ids, 'body' => $response->body()]);
             throw new \RuntimeException("Qdrant delete failed: {$response->status()}");
         }
+    }
+
+    /**
+     * Retry transient Qdrant HTTP failures with a small exponential backoff.
+     *
+     * Retries 5xx responses and connection failures. 4xx responses are
+     * returned immediately so callers can fail fast without extra churn.
+     *
+     * @param  callable(PendingRequest): Response  $buildRequest
+     */
+    private function retryableHttp(int $timeout, callable $buildRequest, int $maxAttempts = 3): Response
+    {
+        $delays = [100, 300, 900];
+        $lastConnectionException = null;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $response = $buildRequest($this->qdrantHttp($timeout));
+            } catch (ConnectionException $exception) {
+                $lastConnectionException = $exception;
+
+                if ($attempt === $maxAttempts) {
+                    break;
+                }
+
+                $this->sleepMilliseconds($delays[$attempt - 1] ?? 900);
+
+                continue;
+            }
+
+            if ($response->status() < 500 || $attempt === $maxAttempts) {
+                return $response;
+            }
+
+            $this->sleepMilliseconds($delays[$attempt - 1] ?? 900);
+        }
+
+        throw new \RuntimeException(
+            sprintf(
+                'Qdrant request failed after %d attempts: %s',
+                $maxAttempts,
+                $lastConnectionException?->getMessage() ?? 'connection error'
+            ),
+            0,
+            $lastConnectionException,
+        );
+    }
+
+    protected function sleepMilliseconds(int $milliseconds): void
+    {
+        usleep($milliseconds * 1000);
     }
 }
