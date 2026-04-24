@@ -20,6 +20,8 @@ class BrainService
 
     private const ELASTIC_INDEX = 'brain_memories';
 
+    private string $qdrantApiKey;
+
     public function __construct(
         private string $ollamaUrl = 'http://localhost:11434',
         private string $qdrantUrl = 'http://localhost:6334',
@@ -27,7 +29,15 @@ class BrainService
         private string $embeddingModel = self::DEFAULT_MODEL,
         private bool $verifySsl = true,
         private string $elasticsearchUrl = 'http://127.0.0.1:9200',
-    ) {}
+        ?string $qdrantApiKey = null,
+    ) {
+        if ($qdrantApiKey === null && function_exists('config')) {
+            $configuredQdrantApiKey = config('mcp.brain.qdrant.api_key', config('brain.qdrant.api_key', ''));
+            $qdrantApiKey = is_string($configuredQdrantApiKey) ? $configuredQdrantApiKey : '';
+        }
+
+        $this->qdrantApiKey = trim((string) $qdrantApiKey);
+    }
 
     /**
      * Create an HTTP client with common settings.
@@ -37,6 +47,22 @@ class BrainService
         return $this->verifySsl
             ? Http::timeout($timeout)
             : Http::withoutVerifying()->timeout($timeout);
+    }
+
+    /**
+     * Create an HTTP client for Qdrant requests.
+     */
+    private function qdrantHttp(int $timeout = 10): PendingRequest
+    {
+        $request = $this->http($timeout);
+
+        if ($this->qdrantApiKey === '') {
+            return $request;
+        }
+
+        return $request->withHeaders([
+            'api-key' => $this->qdrantApiKey,
+        ]);
     }
 
     /**
@@ -114,7 +140,7 @@ class BrainService
         $filter['workspace_id'] = $workspaceId;
         $qdrantFilter = $this->buildQdrantFilter($filter);
 
-        $response = $this->http(10)
+        $response = $this->qdrantHttp(10)
             ->post("{$this->qdrantUrl}/collections/{$this->collection}/points/search", [
                 'vector' => $vector,
                 'filter' => $qdrantFilter,
@@ -200,11 +226,11 @@ class BrainService
      */
     public function ensureCollection(): void
     {
-        $response = $this->http(5)
+        $response = $this->qdrantHttp(5)
             ->get("{$this->qdrantUrl}/collections/{$this->collection}");
 
         if ($response->status() === 404) {
-            $createResponse = $this->http(10)
+            $createResponse = $this->qdrantHttp(10)
                 ->put("{$this->qdrantUrl}/collections/{$this->collection}", [
                     'vectors' => [
                         'size' => self::VECTOR_DIMENSION,
@@ -552,7 +578,7 @@ class BrainService
      */
     public function qdrantUpsert(array $points): void
     {
-        $response = $this->http(10)
+        $response = $this->qdrantHttp(10)
             ->put("{$this->qdrantUrl}/collections/{$this->collection}/points", [
                 'points' => $points,
             ]);
@@ -572,7 +598,7 @@ class BrainService
      */
     public function qdrantDelete(array $ids): void
     {
-        $response = $this->http(10)
+        $response = $this->qdrantHttp(10)
             ->post("{$this->qdrantUrl}/collections/{$this->collection}/points/delete", [
                 'points' => $ids,
             ]);

@@ -81,6 +81,9 @@ return [
     'brain' => [
         'ollama_url' => env('BRAIN_OLLAMA_URL', 'https://ollama.lthn.sh'),
         'qdrant_url' => env('BRAIN_QDRANT_URL', 'https://qdrant.lthn.sh'),
+        'qdrant' => [
+            'api_key' => env('BRAIN_QDRANT_API_KEY', ''),
+        ],
         'collection' => env('BRAIN_COLLECTION', 'openbrain'),
         'embedding_model' => env('BRAIN_EMBEDDING_MODEL', 'embeddinggemma'),
 
