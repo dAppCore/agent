@@ -28,21 +28,9 @@ da6d6cfa1a6e800364e576087524191e141b41d0:pkg/agentic/prep_test.go:generic-api-ke
 # pkg/orchestrator/security_test.go (MaskToken test fixture)
 e90a84eaa01dccb9cbf5548bf057745eafa54243:pkg/orchestrator/security_test.go:generic-api-key:107
 
-# php/* placeholders + test fixtures — current path
-e58986a3b4e6bef381b3d436c16e1dbb2262aa5a:php/docs/api-keys.md:curl-auth-header:239
-e58986a3b4e6bef381b3d436c16e1dbb2262aa5a:php/View/Blade/admin/api-key-manager.blade.php:curl-auth-header:151
-e58986a3b4e6bef381b3d436c16e1dbb2262aa5a:php/tests/Unit/ClaudeServiceTest.php:generic-api-key:33
-e58986a3b4e6bef381b3d436c16e1dbb2262aa5a:php/tests/Feature/AgentApiKeyTest.php:generic-api-key:892
-e58986a3b4e6bef381b3d436c16e1dbb2262aa5a:php/Services/AgentDetection.php:generic-api-key:272
-ecd47fe3db0a057fcbca69b3e116f593336093dd:php/docs/api-keys.md:curl-auth-header:239
-ecd47fe3db0a057fcbca69b3e116f593336093dd:php/View/Blade/admin/api-key-manager.blade.php:curl-auth-header:151
-ecd47fe3db0a057fcbca69b3e116f593336093dd:php/tests/Unit/ClaudeServiceTest.php:generic-api-key:33
-ecd47fe3db0a057fcbca69b3e116f593336093dd:php/tests/Feature/AgentApiKeyTest.php:generic-api-key:892
-ecd47fe3db0a057fcbca69b3e116f593336093dd:php/Services/AgentDetection.php:generic-api-key:272
-
-# src/php/* — older path before pkg-rename (kept as historical fingerprints)
-e2d1d3266fe6af4f52ba88ba7b02583d9ad73d3b:src/php/docs/api-keys.md:curl-auth-header:239
-e2d1d3266fe6af4f52ba88ba7b02583d9ad73d3b:src/php/View/Blade/admin/api-key-manager.blade.php:curl-auth-header:151
-e2d1d3266fe6af4f52ba88ba7b02583d9ad73d3b:src/php/tests/Unit/ClaudeServiceTest.php:generic-api-key:33
-e2d1d3266fe6af4f52ba88ba7b02583d9ad73d3b:src/php/tests/Feature/AgentApiKeyTest.php:generic-api-key:892
-e2d1d3266fe6af4f52ba88ba7b02583d9ad73d3b:src/php/Services/AgentDetection.php:generic-api-key:272
+# php/* + src/php/* fingerprints removed in release/v0.8.0-alpha.1:
+# the original pre-squash commit SHAs do not exist in the public github
+# mirror's history (CodeRabbit Mantis #929). Re-add fresh suppressions
+# with current-SHA fingerprints after the next gitleaks run on the
+# public clone confirms the same false-positives still surface in the
+# squash-shaped history.
