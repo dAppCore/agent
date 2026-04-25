@@ -9,9 +9,11 @@ namespace Core\Mod\Agentic\Services;
 use Core\Mod\Agentic\Jobs\DeleteFromIndex;
 use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Models\BrainMemory;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +27,10 @@ class BrainService
     private const ELASTIC_INDEX = 'brain_memories';
 
     private const MAX_RETRY_DELAY_MS = 30000;
+
+    private const MEMORY_LOCK_TTL_SECONDS = 10;
+
+    private const MEMORY_LOCK_WAIT_SECONDS = 5;
 
     private string $qdrantApiKey;
 
@@ -113,26 +119,22 @@ class BrainService
     {
         $attributes['indexed_at'] = null;
         $cleanupIds = [];
+        $supersededId = $this->normaliseMemoryId($attributes['supersedes_id'] ?? null);
+        $remember = function () use ($attributes, &$cleanupIds): BrainMemory {
+            return DB::connection('brain')->transaction(function () use ($attributes, &$cleanupIds): BrainMemory {
+                $memory = new BrainMemory;
+                $memory->fill($attributes);
+                $memory->save();
 
-        $memory = DB::connection('brain')->transaction(function () use ($attributes, &$cleanupIds) {
-            $memory = new BrainMemory;
-            $memory->fill($attributes);
-            $memory->save();
+                $this->deleteSupersededMemory($memory->supersedes_id, $cleanupIds);
 
-            if ($memory->supersedes_id) {
-                $superseded = BrainMemory::query()->find($memory->supersedes_id);
+                return $memory;
+            });
+        };
 
-                if ($superseded instanceof BrainMemory) {
-                    if ($superseded->indexed_at !== null) {
-                        $cleanupIds[] = $superseded->id;
-                    }
-
-                    $superseded->delete();
-                }
-            }
-
-            return $memory;
-        });
+        $memory = $supersededId !== null
+            ? $this->withMemoryIndexLock($supersededId, $remember)
+            : $remember();
 
         foreach ($cleanupIds as $cleanupId) {
             DeleteFromIndex::dispatch($cleanupId);
@@ -239,22 +241,9 @@ class BrainService
      */
     public function forget(string $id): void
     {
-        $memory = null;
-        $deleted = DB::connection('brain')->transaction(function () use ($id, &$memory): int {
-            $memory = BrainMemory::query()
-                ->select(['id', 'indexed_at'])
-                ->find($id);
+        $deleted = $this->withMemoryIndexLock($id, fn (): bool => $this->deleteMemoryRecord($id));
 
-            if (! $memory instanceof BrainMemory) {
-                return 0;
-            }
-
-            $memory->delete();
-
-            return 1;
-        });
-
-        if ($deleted > 0 && $memory instanceof BrainMemory && $memory->indexed_at !== null) {
+        if ($deleted) {
             DeleteFromIndex::dispatch($id);
         }
     }
@@ -313,13 +302,21 @@ class BrainService
      */
     public function elasticIndex(BrainMemory $memory): void
     {
-        $response = $this->http(10)
-            ->put($this->elasticDocumentUrl($memory->id), $this->buildElasticDocument($memory));
+        $this->withMemoryIndexLock($memory->id, function () use ($memory): void {
+            $freshMemory = BrainMemory::query()->find($memory->id);
 
-        if (! $response->successful()) {
-            Log::error("Elasticsearch index failed: {$response->status()}", ['id' => $memory->id, 'body' => $response->body()]);
-            throw new \RuntimeException("Elasticsearch index failed: {$response->status()}");
-        }
+            if (! $freshMemory instanceof BrainMemory) {
+                return;
+            }
+
+            $response = $this->http(10)
+                ->put($this->elasticDocumentUrl($freshMemory->id), $this->buildElasticDocument($freshMemory));
+
+            if (! $response->successful()) {
+                Log::error("Elasticsearch index failed: {$response->status()}", ['id' => $freshMemory->id, 'body' => $response->body()]);
+                throw new \RuntimeException("Elasticsearch index failed: {$response->status()}");
+            }
+        });
     }
 
     /**
@@ -626,16 +623,98 @@ class BrainService
      */
     public function qdrantUpsert(array $points): void
     {
-        $response = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->put(
-            "{$this->qdrantUrl}/collections/{$this->collection}/points",
-            [
-                'points' => $points,
-            ],
-        ));
+        foreach ($points as $point) {
+            $memoryId = $this->normaliseMemoryId($point['id'] ?? null);
 
-        if (! $response->successful()) {
-            Log::error("Qdrant upsert failed: {$response->status()}", ['body' => $response->body()]);
-            throw new \RuntimeException("Qdrant upsert failed: {$response->status()}");
+            if ($memoryId === null) {
+                continue;
+            }
+
+            $this->withMemoryIndexLock($memoryId, function () use ($memoryId, $point): void {
+                if (! $this->memoryExists($memoryId)) {
+                    return;
+                }
+
+                $response = $this->retryableHttp(10, fn (PendingRequest $request): Response => $request->put(
+                    "{$this->qdrantUrl}/collections/{$this->collection}/points",
+                    [
+                        'points' => [$point],
+                    ],
+                ));
+
+                if (! $response->successful()) {
+                    Log::error("Qdrant upsert failed: {$response->status()}", ['body' => $response->body()]);
+                    throw new \RuntimeException("Qdrant upsert failed: {$response->status()}");
+                }
+            });
+        }
+    }
+
+    private function deleteMemoryRecord(string $id): bool
+    {
+        return DB::connection('brain')->transaction(function () use ($id): bool {
+            $memory = BrainMemory::query()
+                ->select(['id'])
+                ->find($id);
+
+            if (! $memory instanceof BrainMemory) {
+                return false;
+            }
+
+            $memory->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * @param  array<int, string>  $cleanupIds
+     */
+    private function deleteSupersededMemory(?string $supersededId, array &$cleanupIds): void
+    {
+        if ($supersededId === null || $supersededId === '') {
+            return;
+        }
+
+        $superseded = BrainMemory::query()->find($supersededId);
+
+        if (! $superseded instanceof BrainMemory) {
+            return;
+        }
+
+        $cleanupIds[] = $superseded->id;
+        $superseded->delete();
+    }
+
+    private function memoryExists(string $id): bool
+    {
+        return BrainMemory::query()->whereKey($id)->exists();
+    }
+
+    private function normaliseMemoryId(mixed $memoryId): ?string
+    {
+        return is_string($memoryId) && $memoryId !== ''
+            ? $memoryId
+            : null;
+    }
+
+    private function memoryLockKey(string $memoryId): string
+    {
+        return 'brain:memory:index:'.$memoryId;
+    }
+
+    private function withMemoryIndexLock(string $memoryId, callable $callback): mixed
+    {
+        $lock = Cache::lock($this->memoryLockKey($memoryId), self::MEMORY_LOCK_TTL_SECONDS);
+
+        try {
+            $lock->block(self::MEMORY_LOCK_WAIT_SECONDS);
+
+            return $callback();
+        } catch (LockTimeoutException $exception) {
+            throw new \RuntimeException("Timed out acquiring memory index lock: {$memoryId}", 0, $exception);
+        } finally {
+            rescue(static fn (): mixed => $lock->release(), report: false);
         }
     }
 
