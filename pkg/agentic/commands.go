@@ -111,7 +111,7 @@ func (s *PrepSubsystem) cmdRunTask(options core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdRunFlow(options core.Options) core.Result {
-	return s.runFlowCommand(options, "run flow")
+	return s.runFlowExecutionCommand(options, "run flow")
 }
 
 func (s *PrepSubsystem) cmdFlowPreview(options core.Options) core.Result {
@@ -1021,13 +1021,17 @@ func parseIntString(s string) int {
 }
 
 type FlowRunOutput struct {
-	Success       bool   `json:"success"`
-	Source        string `json:"source,omitempty"`
-	Name          string `json:"name,omitempty"`
-	Description   string `json:"description,omitempty"`
-	Steps         int    `json:"steps,omitempty"`
-	ResolvedSteps int    `json:"resolved_steps,omitempty"`
-	Parsed        bool   `json:"parsed,omitempty"`
+	Success       bool                `json:"success"`
+	Source        string              `json:"source,omitempty"`
+	Name          string              `json:"name,omitempty"`
+	Description   string              `json:"description,omitempty"`
+	Steps         int                 `json:"steps,omitempty"`
+	ResolvedSteps int                 `json:"resolved_steps,omitempty"`
+	Parsed        bool                `json:"parsed,omitempty"`
+	Executed      int                 `json:"executed,omitempty"`
+	Passed        int                 `json:"passed,omitempty"`
+	Failed        int                 `json:"failed,omitempty"`
+	StepResults   []FlowRunStepOutput `json:"step_results,omitempty"`
 }
 
 type flowDefinition struct {
@@ -1037,17 +1041,20 @@ type flowDefinition struct {
 }
 
 type flowDefinitionStep struct {
-	Name     string               `yaml:"name"`
-	Run      string               `yaml:"run"`
-	Flow     string               `yaml:"flow"`
-	Agent    string               `yaml:"agent"`
-	Prompt   string               `yaml:"prompt"`
-	Template string               `yaml:"template"`
-	Timeout  string               `yaml:"timeout"`
-	When     string               `yaml:"when"`
-	Output   string               `yaml:"output"`
-	Gate     string               `yaml:"gate"`
-	Parallel []flowDefinitionStep `yaml:"parallel"`
+	Name            string               `yaml:"name"`
+	Cmd             string               `yaml:"cmd"`
+	Args            []string             `yaml:"args"`
+	Run             string               `yaml:"run"`
+	Flow            string               `yaml:"flow"`
+	Agent           string               `yaml:"agent"`
+	Prompt          string               `yaml:"prompt"`
+	Template        string               `yaml:"template"`
+	Timeout         string               `yaml:"timeout"`
+	When            string               `yaml:"when"`
+	Output          string               `yaml:"output"`
+	Gate            string               `yaml:"gate"`
+	ContinueOnError bool                 `yaml:"continueOnError"`
+	Parallel        []flowDefinitionStep `yaml:"parallel"`
 }
 
 type flowRunDocument struct {
@@ -1109,7 +1116,7 @@ func parseFlowDefinition(content string) (flowDefinition, error) {
 	if err := yaml.Unmarshal([]byte(content), &definition); err != nil {
 		return flowDefinition{}, core.E("agentic.parseFlowDefinition", "invalid flow definition", err)
 	}
-	if definition.Name == "" || len(definition.Steps) == 0 {
+	if definition.Name == "" {
 		return flowDefinition{}, core.E("agentic.parseFlowDefinition", "invalid flow definition", nil)
 	}
 	return definition, nil
@@ -1133,6 +1140,9 @@ func flowStepSummary(step flowDefinitionStep) string {
 		label = core.Trim(step.Flow)
 	}
 	if label == "" {
+		label = core.Trim(step.Cmd)
+	}
+	if label == "" {
 		label = core.Trim(step.Agent)
 	}
 	if label == "" {
@@ -1145,6 +1155,8 @@ func flowStepSummary(step flowDefinitionStep) string {
 	switch {
 	case step.Flow != "":
 		return core.Concat(label, ": flow ", step.Flow)
+	case step.Cmd != "":
+		return core.Concat(label, ": cmd ", flowStepCommandLine(step))
 	case step.Agent != "":
 		return core.Concat(label, ": agent ", step.Agent)
 	case step.Run != "":
