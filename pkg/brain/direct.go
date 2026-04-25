@@ -4,7 +4,6 @@ package brain
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -204,23 +203,23 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
-	params := url.Values{}
+	var params []string
 	if input.Project != "" {
-		params.Set("project", input.Project)
+		params = append(params, core.Concat("project=", core.URLEncode(input.Project)))
 	}
 	if input.Type != "" {
-		params.Set("type", input.Type)
+		params = append(params, core.Concat("type=", core.URLEncode(input.Type)))
 	}
 	if input.AgentID != "" {
-		params.Set("agent_id", input.AgentID)
+		params = append(params, core.Concat("agent_id=", core.URLEncode(input.AgentID)))
 	}
 	if input.Limit > 0 {
-		params.Set("limit", core.Sprint(input.Limit))
+		params = append(params, core.Concat("limit=", core.URLEncode(core.Sprint(input.Limit))))
 	}
 
 	path := "/v1/brain/list"
-	if encoded := params.Encode(); encoded != "" {
-		path = core.Concat(path, "?", encoded)
+	if len(params) > 0 {
+		path = core.Concat(path, "?", core.Join("&", params...))
 	}
 
 	result := s.apiCall(ctx, "GET", path, nil)
