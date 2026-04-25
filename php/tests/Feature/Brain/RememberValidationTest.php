@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Jobs\EmbedMemory;
+use Core\Mod\Agentic\Models\BrainMemory;
 use Core\Mod\Agentic\Services\BrainService;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
@@ -34,6 +35,11 @@ function rememberValidationAttributes(array $attributes = []): array
         'org' => 'core',
         'project' => 'agent',
     ], $attributes);
+}
+
+function rememberValidationMemory(array $attributes = []): BrainMemory
+{
+    return BrainMemory::create(rememberValidationAttributes($attributes));
 }
 
 test('BrainRememberValidation_remember_Good_accepts_valid_content_and_tags', function (): void {
@@ -185,6 +191,125 @@ test('BrainRememberValidation_recall_Ugly_accepts_project_filters_at_the_128_cha
             ['key' => 'workspace_id', 'match' => ['value' => $workspace->id]],
             ['key' => 'project', 'match' => ['value' => $project]],
         ]);
+});
+
+test('BrainRememberValidation_search_Bad_rejects_queries_longer_than_2000_bytes', function (): void {
+    Http::fake();
+
+    expect(fn () => rememberValidationBrainService()->search(
+        str_repeat('q', 2001),
+        createWorkspace()->id,
+    ))->toThrow(\InvalidArgumentException::class, 'query exceeds maximum length of 2000');
+
+    Http::assertNothingSent();
+});
+
+test('BrainRememberValidation_search_Good_falls_back_to_mariadb_when_elasticsearch_fails', function (): void {
+    $workspace = createWorkspace();
+    $matching = rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'content' => 'Fallback search keeps MariaDB discovery available to self-hosters.',
+        'project' => 'agent',
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'content' => 'Other project memory should not match the scoped fallback search.',
+        'project' => 'other-project',
+    ]);
+
+    Http::fake([
+        'https://elasticsearch.test/brain_memories/_search' => Http::response(['error' => 'unavailable'], 503),
+    ]);
+
+    $result = rememberValidationBrainService()->search(
+        'Fallback search',
+        $workspace->id,
+        ['project' => 'agent'],
+        5,
+    );
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]['id'])->toBe($matching->id)
+        ->and($result[0]['score'])->toBe(0.0)
+        ->and($result[0]['project'])->toBe('agent');
+
+    Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://elasticsearch.test/brain_memories/_search'
+        && $request->method() === 'POST');
+});
+
+test('BrainRememberValidation_discoverTags_Bad_rejects_limits_above_100', function (): void {
+    expect(fn () => rememberValidationBrainService()->discoverTags(
+        createWorkspace()->id,
+        limit: 101,
+    ))->toThrow(\InvalidArgumentException::class, 'limit must be between 1 and 100');
+});
+
+test('BrainRememberValidation_discoverTags_Good_counts_tags_within_scope_and_ignores_blank_tags', function (): void {
+    $workspace = createWorkspace();
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'tags' => ['openbrain', 'architecture', '  '],
+        'project' => 'agent',
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'tags' => ['openbrain'],
+        'project' => 'agent',
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'tags' => ['deploy'],
+        'project' => 'other-project',
+    ]);
+
+    $result = rememberValidationBrainService()->discoverTags($workspace->id, 'core', 'agent', 2);
+
+    expect($result)->toBe([
+        ['name' => 'openbrain', 'count' => 2],
+        ['name' => 'architecture', 'count' => 1],
+    ]);
+});
+
+test('BrainRememberValidation_listScopes_Ugly_returns_sorted_scope_counts', function (): void {
+    $workspace = createWorkspace();
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'org' => 'core',
+        'project' => 'host',
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'org' => 'core',
+        'project' => 'agent',
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => $workspace->id,
+        'org' => null,
+        'project' => null,
+    ]);
+    rememberValidationMemory([
+        'workspace_id' => createWorkspace()->id,
+        'org' => 'ops',
+        'project' => 'deploy',
+    ]);
+
+    $result = rememberValidationBrainService()->listScopes($workspace->id);
+
+    expect($result)->toBe([
+        [
+            'org' => null,
+            'count' => 1,
+            'projects' => [],
+        ],
+        [
+            'org' => 'core',
+            'count' => 2,
+            'projects' => [
+                ['name' => 'agent', 'count' => 1],
+                ['name' => 'host', 'count' => 1],
+            ],
+        ],
+    ]);
 });
 
 test('BrainRememberValidation_forget_Bad_rejects_ids_longer_than_64_characters', function (): void {

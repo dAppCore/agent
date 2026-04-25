@@ -183,3 +183,142 @@ test('OrgScoping_list_Ugly_filters_memories_by_org', function (): void {
         ->and($result['memories'][0]['id'])->toBe($coreMemory->id)
         ->and($result['memories'][0]['org'])->toBe('core');
 });
+
+test('OrgScoping_search_Good_limits_results_to_authorised_orgs_and_global_memories', function (): void {
+    $workspace = createWorkspace();
+    $workspace->setAttribute('slug', 'core');
+    orgScopingBindRequestContext($workspace, [
+        'authorised_orgs' => ['core'],
+    ]);
+    $brain = orgScopingBrainService();
+    $coreMemory = orgScopingMemory($workspace->id, [
+        'content' => 'Core scoped discovery memory.',
+        'org' => 'core',
+    ]);
+    $globalMemory = orgScopingMemory($workspace->id, [
+        'content' => 'Global discovery memory.',
+        'org' => null,
+        'project' => null,
+    ]);
+    $otherOrgMemory = orgScopingMemory($workspace->id, [
+        'content' => 'Other organisation discovery memory.',
+        'org' => 'other-org',
+    ]);
+
+    Http::fake([
+        'https://elasticsearch.test/brain_memories/_search' => Http::response([
+            'hits' => [
+                'hits' => [
+                    ['_id' => $globalMemory->id, '_score' => 3.5],
+                    ['_id' => $otherOrgMemory->id, '_score' => 2.5],
+                    ['_id' => $coreMemory->id, '_score' => 1.5],
+                ],
+            ],
+        ]),
+    ]);
+
+    $result = $brain->search('discovery memory', $workspace->id, [], 5);
+
+    expect(array_column($result, 'id'))->toBe([
+        $globalMemory->id,
+        $coreMemory->id,
+    ])
+        ->and($result[0]['score'])->toBe(3.5)
+        ->and($result[1]['score'])->toBe(1.5);
+
+    Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://elasticsearch.test/brain_memories/_search'
+        && $request->method() === 'POST'
+        && $request['query']['bool']['filter'] === [
+            ['term' => ['workspace_id' => $workspace->id]],
+        ]);
+});
+
+test('OrgScoping_discoverTags_Bad_rejects_an_unauthorised_org_filter', function (): void {
+    $workspace = createWorkspace();
+    $workspace->setAttribute('slug', 'core');
+    orgScopingBindRequestContext($workspace, [
+        'authorised_orgs' => ['core'],
+    ]);
+    $brain = orgScopingBrainService();
+
+    expect(fn () => $brain->discoverTags($workspace->id, 'other-org'))
+        ->toThrow(AuthorizationException::class, "Organisation scope 'other-org' is not authorised for this authenticated workspace.");
+});
+
+test('OrgScoping_discoverTags_Good_limits_results_to_authorised_orgs_and_global_memories', function (): void {
+    $workspace = createWorkspace();
+    $workspace->setAttribute('slug', 'core');
+    orgScopingBindRequestContext($workspace, [
+        'authorised_orgs' => ['core'],
+    ]);
+    $brain = orgScopingBrainService();
+    orgScopingMemory($workspace->id, [
+        'content' => 'Core tag memory.',
+        'org' => 'core',
+        'tags' => ['core-tag'],
+    ]);
+    orgScopingMemory($workspace->id, [
+        'content' => 'Second core tag memory.',
+        'org' => 'core',
+        'tags' => ['core-tag'],
+    ]);
+    orgScopingMemory($workspace->id, [
+        'content' => 'Global tag memory.',
+        'org' => null,
+        'project' => null,
+        'tags' => ['global-tag'],
+    ]);
+    orgScopingMemory($workspace->id, [
+        'content' => 'Other org tag memory.',
+        'org' => 'other-org',
+        'tags' => ['other-tag'],
+    ]);
+
+    $result = $brain->discoverTags($workspace->id);
+
+    expect($result)->toBe([
+        ['name' => 'core-tag', 'count' => 2],
+        ['name' => 'global-tag', 'count' => 1],
+    ]);
+});
+
+test('OrgScoping_listScopes_Good_limits_scope_tree_to_authorised_orgs_and_global_memories', function (): void {
+    $workspace = createWorkspace();
+    $workspace->setAttribute('slug', 'core');
+    orgScopingBindRequestContext($workspace, [
+        'authorised_orgs' => ['core'],
+    ]);
+    $brain = orgScopingBrainService();
+    orgScopingMemory($workspace->id, [
+        'content' => 'Core agent memory.',
+        'org' => 'core',
+        'project' => 'agent',
+    ]);
+    orgScopingMemory($workspace->id, [
+        'content' => 'Global shared memory.',
+        'org' => null,
+        'project' => null,
+    ]);
+    orgScopingMemory($workspace->id, [
+        'content' => 'Other organisation memory.',
+        'org' => 'other-org',
+        'project' => 'agent',
+    ]);
+
+    $result = $brain->listScopes($workspace->id);
+
+    expect($result)->toBe([
+        [
+            'org' => null,
+            'count' => 1,
+            'projects' => [],
+        ],
+        [
+            'org' => 'core',
+            'count' => 1,
+            'projects' => [
+                ['name' => 'agent', 'count' => 1],
+            ],
+        ],
+    ]);
+});

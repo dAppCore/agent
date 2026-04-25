@@ -11,6 +11,7 @@ use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Models\BrainMemory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -53,6 +54,10 @@ class BrainService
     private const MAX_PROJECT_LENGTH = 128;
 
     private const MAX_ORG_LENGTH = 128;
+
+    private const MAX_SEARCH_QUERY_BYTES = 2000;
+
+    private const MAX_DISCOVERY_LIMIT = 100;
 
     private string $qdrantApiKey;
 
@@ -273,6 +278,150 @@ class BrainService
             }, $ranked),
             'scores' => $finalScoreMap,
         ];
+    }
+
+    /**
+     * Full-text discovery search with MariaDB fallback.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function search(string $query, int $workspaceId, array $filters = [], int $limit = 20): array
+    {
+        $this->validateSearchQuery($query);
+        $this->validateDiscoveryLimit($limit);
+        $this->validateMemoryFilters($filters);
+        $this->assertAuthorisedOrgScope($filters['org'] ?? null);
+
+        try {
+            return $this->hydrateElasticSearchResults(
+                $this->elasticSearch($query, array_merge($filters, ['workspace_id' => $workspaceId]), $limit),
+                $workspaceId,
+                $filters,
+            );
+        } catch (\RuntimeException $exception) {
+            Log::warning('OpenBrain Elasticsearch search failed, falling back to MariaDB', [
+                'message' => $exception->getMessage(),
+                'workspace_id' => $workspaceId,
+            ]);
+        }
+
+        return $this->brainQuery($workspaceId, $filters)
+            ->where('content', 'like', '%'.$query.'%')
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(static fn (BrainMemory $memory): array => $memory->toMcpContext())
+            ->all();
+    }
+
+    /**
+     * Discover the most common tags for a workspace scope.
+     *
+     * @return array<int, array{name: string, count: int}>
+     */
+    public function discoverTags(
+        int $workspaceId,
+        ?string $org = null,
+        ?string $project = null,
+        int $limit = 20,
+    ): array {
+        $this->validateDiscoveryLimit($limit);
+        $this->validateMemoryFilters([
+            'org' => $org,
+            'project' => $project,
+        ]);
+        $this->assertAuthorisedOrgScope($org);
+
+        $counts = [];
+
+        $this->brainQuery($workspaceId, array_filter([
+            'org' => $org,
+            'project' => $project,
+        ], static fn (mixed $value): bool => $value !== null && $value !== ''))
+            ->select('tags')
+            ->cursor()
+            ->each(static function (BrainMemory $memory) use (&$counts): void {
+                foreach ($memory->tags ?? [] as $tag) {
+                    if (! is_string($tag)) {
+                        continue;
+                    }
+
+                    $tag = trim($tag);
+
+                    if ($tag === '') {
+                        continue;
+                    }
+
+                    $counts[$tag] = ($counts[$tag] ?? 0) + 1;
+                }
+            });
+
+        arsort($counts);
+
+        $topCounts = array_slice($counts, 0, $limit, true);
+
+        return array_values(array_map(
+            static fn (string $tag, int $count): array => ['name' => $tag, 'count' => $count],
+            array_keys($topCounts),
+            array_values($topCounts),
+        ));
+    }
+
+    /**
+     * List org/project scopes with memory counts.
+     *
+     * @return array<int, array{org: ?string, count: int, projects: array<int, array{name: string, count: int}>}>
+     */
+    public function listScopes(int $workspaceId): array
+    {
+        $rows = $this->brainQuery($workspaceId)
+            ->selectRaw("coalesce(org, '') as org_key, coalesce(project, '') as project_key, count(*) as cnt")
+            ->groupBy('org_key', 'project_key')
+            ->get();
+
+        $scopes = [];
+
+        foreach ($rows as $row) {
+            $orgKey = is_string($row->org_key ?? null) ? $row->org_key : '';
+            $projectKey = is_string($row->project_key ?? null) ? $row->project_key : '';
+
+            if (! isset($scopes[$orgKey])) {
+                $scopes[$orgKey] = [
+                    'org' => $orgKey !== '' ? $orgKey : null,
+                    'count' => 0,
+                    'projects' => [],
+                ];
+            }
+
+            $scopes[$orgKey]['count'] += (int) ($row->cnt ?? 0);
+
+            if ($projectKey === '') {
+                continue;
+            }
+
+            $scopes[$orgKey]['projects'][] = [
+                'name' => $projectKey,
+                'count' => (int) ($row->cnt ?? 0),
+            ];
+        }
+
+        $scopes = array_values($scopes);
+
+        foreach ($scopes as &$scope) {
+            usort(
+                $scope['projects'],
+                static fn (array $left, array $right): int => $left['name'] <=> $right['name'],
+            );
+        }
+        unset($scope);
+
+        usort(
+            $scopes,
+            static fn (array $left, array $right): int => ($left['org'] ?? '') <=> ($right['org'] ?? ''),
+        );
+
+        return $scopes;
     }
 
     /**
@@ -501,6 +650,24 @@ class BrainService
         $this->validateStringMaxLength($id, 'id', self::MAX_ID_LENGTH);
     }
 
+    private function validateSearchQuery(string $query): void
+    {
+        if (trim($query) === '') {
+            throw new \InvalidArgumentException('query must not be empty');
+        }
+
+        $this->validateStringMaxLength($query, 'query', self::MAX_SEARCH_QUERY_BYTES);
+    }
+
+    private function validateDiscoveryLimit(int $limit): void
+    {
+        if ($limit < 1 || $limit > self::MAX_DISCOVERY_LIMIT) {
+            throw new \InvalidArgumentException(
+                sprintf('limit must be between 1 and %d', self::MAX_DISCOVERY_LIMIT)
+            );
+        }
+    }
+
     private function validateContent(mixed $content): void
     {
         if ($content === null) {
@@ -704,6 +871,24 @@ class BrainService
         return $request instanceof Request ? $request : null;
     }
 
+    private function applyAuthorisedOrgScopeQuery(Builder $query, mixed $requestedOrg = null): void
+    {
+        if ($requestedOrg !== null && $requestedOrg !== '') {
+            return;
+        }
+
+        $authorisedOrgs = $this->authorisedOrgScopes();
+
+        if ($authorisedOrgs === []) {
+            return;
+        }
+
+        $query->where(function (Builder $scopeQuery) use ($authorisedOrgs): void {
+            $scopeQuery->whereNull('org')
+                ->orWhereIn('org', $authorisedOrgs);
+        });
+    }
+
     /**
      * @param  array<int, string>  $keys
      */
@@ -848,6 +1033,108 @@ class BrainService
         $result = $response->json();
 
         return is_array($result) ? $result : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function brainQuery(int $workspaceId, array $filters = []): Builder
+    {
+        $query = BrainMemory::query()
+            ->forWorkspace($workspaceId)
+            ->active()
+            ->latestVersions();
+
+        $this->applyAuthorisedOrgScopeQuery($query, $filters['org'] ?? null);
+
+        if (isset($filters['org'])) {
+            is_array($filters['org'])
+                ? $query->whereIn('org', $filters['org'])
+                : $query->where('org', $filters['org']);
+        }
+
+        if (isset($filters['project'])) {
+            $query->where('project', $filters['project']);
+        }
+
+        if (isset($filters['type'])) {
+            is_array($filters['type'])
+                ? $query->whereIn('type', $filters['type'])
+                : $query->where('type', $filters['type']);
+        }
+
+        if (isset($filters['agent_id'])) {
+            $query->where('agent_id', $filters['agent_id']);
+        }
+
+        if (isset($filters['tags'])) {
+            $tags = is_array($filters['tags']) ? $filters['tags'] : [$filters['tags']];
+
+            $query->where(function (Builder $tagQuery) use ($tags): void {
+                foreach ($tags as $tag) {
+                    $tagQuery->orWhereJsonContains('tags', $tag);
+                }
+            });
+        }
+
+        if (isset($filters['min_confidence'])) {
+            $query->where('confidence', '>=', (float) $filters['min_confidence']);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @param  array<string, mixed>  $filters
+     * @return array<int, array<string, mixed>>
+     */
+    private function hydrateElasticSearchResults(array $result, int $workspaceId, array $filters): array
+    {
+        $hits = $result['hits']['hits'] ?? [];
+
+        if (! is_array($hits) || $hits === []) {
+            return [];
+        }
+
+        $ids = [];
+        $scores = [];
+
+        foreach ($hits as $hit) {
+            if (! is_array($hit)) {
+                continue;
+            }
+
+            $id = $hit['_id'] ?? ($hit['_source']['id'] ?? null);
+
+            if (! is_string($id) || $id === '' || in_array($id, $ids, true)) {
+                continue;
+            }
+
+            $ids[] = $id;
+            $scores[$id] = (float) ($hit['_score'] ?? 0.0);
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $memoryMap = $this->brainQuery($workspaceId, $filters)
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
+        $memories = [];
+
+        foreach ($ids as $id) {
+            $memory = $memoryMap->get($id);
+
+            if ($memory instanceof BrainMemory) {
+                $memories[] = $memory->toMcpContext((float) ($scores[$id] ?? 0.0));
+            }
+        }
+
+        return $memories;
     }
 
     /**
