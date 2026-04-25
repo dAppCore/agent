@@ -438,6 +438,7 @@ func (s *PrepSubsystem) registerContentTools(svc *coremcp.Service) {
 		Name:        "content_schema_generate",
 		Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content.",
 	}, s.contentSchemaGenerate)
+	s.registerContentSEOTool(svc)
 }
 
 func (s *PrepSubsystem) contentGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentGenerateInput) (*mcp.CallToolResult, ContentGenerateOutput, error) {
