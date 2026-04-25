@@ -28,6 +28,8 @@ class BrainService
 
     private const MAX_RETRY_DELAY_MS = 30000;
 
+    private const MAX_HTTP_ATTEMPTS = 6;
+
     private const MEMORY_LOCK_TTL_SECONDS = 10;
 
     private const MEMORY_LOCK_WAIT_SECONDS = 5;
@@ -743,12 +745,16 @@ class BrainService
     /**
      * Retry transient Qdrant HTTP failures with a small exponential backoff.
      *
-     * Retries 408, 429, 5xx responses, and connection failures. Other 4xx
+     * Retries 408, 429, and 503 responses plus connection failures. Other
      * responses are returned immediately so callers can fail fast.
      *
      * @param  callable(PendingRequest): Response  $buildRequest
      */
-    private function retryableHttp(int $timeout, callable $buildRequest, int $maxAttempts = 3): Response
+    private function retryableHttp(
+        int $timeout,
+        callable $buildRequest,
+        int $maxAttempts = self::MAX_HTTP_ATTEMPTS,
+    ): Response
     {
         $lastConnectionException = null;
 
@@ -794,7 +800,7 @@ class BrainService
     {
         $status = $response->status();
 
-        return $status === 408 || $status === 429 || $status >= 500;
+        return $status === 408 || $status === 429 || $status === 503;
     }
 
     private function retryDelayMilliseconds(?Response $response, int $attempt): int
