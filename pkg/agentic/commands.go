@@ -95,6 +95,7 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	s.registerSprintCommands()
 	s.registerStateCommands()
 	s.registerCoreCommands()
+	s.registerPipelineCommands()
 	s.registerLanguageCommands()
 	s.registerSetupCommands()
 }
