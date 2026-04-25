@@ -176,3 +176,42 @@ Route::middleware(AgentApiAuth::class.':subscription.write')->group(function () 
 Route::middleware(AgentApiAuth::class.':subscription.read')->group(function () {
     Route::get('v1/subscription/budget/{agentId}', [SubscriptionController::class, 'budget']);
 });
+
+Route::middleware(AgentApiAuth::class.':auth.write,sessions.write')->group(function () {
+    Route::post('v1/agent/auth/register', [\Core\Mod\Agentic\Controllers\Api\AgentAuth\AgentAuthController::class, 'register']);
+});
+
+Route::middleware(AgentApiAuth::class.':fleet.write')->group(function () {
+    Route::post('v1/fleet/dispatch', [\Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'dispatch']);
+});
+
+Route::middleware(AgentApiAuth::class.':fleet.read')->group(function () {
+    Route::get('v1/fleet/stream', [\Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'stream']);
+});
+
+Route::middleware(AgentApiAuth::class.':credits.write')->group(function () {
+    Route::post('v1/credits/deduct', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'deduct']);
+    Route::post('v1/credits/refund', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'refund']);
+});
+
+Route::middleware(AgentApiAuth::class.':credits.read')->group(function () {
+    Route::get('v1/credits/balance', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'balance']);
+    Route::get('v1/credits/ledger', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'ledger']);
+});
+
+Route::middleware(AgentApiAuth::class.':subscription.write')->group(function () {
+    Route::post('v1/subscription/upgrade', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'upgrade']);
+    Route::post('v1/subscription/cancel', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'cancel']);
+});
+
+Route::middleware(AgentApiAuth::class.':subscription.read')->group(function () {
+    Route::get('v1/subscription/status', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'status']);
+});
+
+Route::middleware(AgentApiAuth::class.':sync.write')->group(function () {
+    Route::post('v1/agent/sync/push', [\Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'push']);
+});
+
+Route::middleware(AgentApiAuth::class.':sync.read')->group(function () {
+    Route::get('v1/agent/sync/pull', [\Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'pull']);
+});
