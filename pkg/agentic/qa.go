@@ -83,6 +83,7 @@ type DispatchReport struct {
 	Workspace   string            `json:"workspace"`
 	Commit      string            `json:"commit,omitempty"`
 	Summary     map[string]any    `json:"summary"`
+	SummaryText string            `json:"summary_text,omitempty"`
 	Findings    []QAFinding       `json:"findings,omitempty"`
 	Tools       []QAToolRun       `json:"tools,omitempty"`
 	BuildPassed bool              `json:"build_passed"`
@@ -283,22 +284,12 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 	lintPassed := report.Summary.Errors == 0
 
 	workspaceName := WorkspaceName(workspaceDir)
-	previousCycles := readPreviousJournalCycles(storeInstance, workspaceName, persistentThreshold)
-
-	dispatchReport := DispatchReport{
-		Workspace:   workspaceName,
-		Summary:     workspace.Aggregate(),
-		Findings:    report.Findings,
-		Tools:       report.Tools,
-		BuildPassed: buildPassed,
-		TestPassed:  testPassed,
-		LintPassed:  lintPassed,
-		Passed:      buildPassed && testPassed,
-		GeneratedAt: time.Now().UTC(),
-		Clusters:    clusterFindings(report.Findings),
-	}
-
-	dispatchReport.New, dispatchReport.Resolved, dispatchReport.Persistent = diffFindingsAgainstJournal(report.Findings, previousCycles)
+	dispatchReport := s.analyseWorkspaceNamed(workspace, workspaceName)
+	dispatchReport.BuildPassed = buildPassed
+	dispatchReport.TestPassed = testPassed
+	dispatchReport.LintPassed = lintPassed
+	dispatchReport.Passed = buildPassed && testPassed
+	dispatchReport.GeneratedAt = time.Now().UTC()
 
 	writeDispatchReport(workspaceDir, dispatchReport)
 
@@ -351,8 +342,13 @@ func publishDispatchReport(storeInstance *store.Store, workspaceName string, dis
 		"test_passed":  dispatchReport.TestPassed,
 		"lint_passed":  dispatchReport.LintPassed,
 		"summary":      dispatchReport.Summary,
+		"summary_text": dispatchReport.SummaryText,
 		"findings":     findings,
 		"tools":        tools,
+		"clusters":     dispatchReport.Clusters,
+		"new":          dispatchReport.New,
+		"resolved":     dispatchReport.Resolved,
+		"persistent":   dispatchReport.Persistent,
 		"generated_at": dispatchReport.GeneratedAt.Format(time.RFC3339Nano),
 	}
 	tags := map[string]string{"workspace": workspaceName}
@@ -565,61 +561,8 @@ func findingToMap(finding QAFinding) map[string]any {
 //
 // Usage example: `newList, resolvedList, persistentList := diffFindingsAgainstJournal(current, previous)`
 func diffFindingsAgainstJournal(current []QAFinding, previous [][]map[string]any) (newList, resolvedList, persistentList []map[string]any) {
-	if len(previous) == 0 {
-		return nil, nil, nil
-	}
-
-	currentByKey := make(map[string]QAFinding, len(current))
-	for _, finding := range current {
-		currentByKey[findingFingerprint(finding)] = finding
-	}
-
-	lastCycle := previous[len(previous)-1]
-	lastCycleByKey := make(map[string]map[string]any, len(lastCycle))
-	for _, entry := range lastCycle {
-		lastCycleByKey[findingFingerprintFromMap(entry)] = entry
-	}
-
-	for key, finding := range currentByKey {
-		if _, ok := lastCycleByKey[key]; !ok {
-			newList = append(newList, findingToMap(finding))
-		}
-	}
-
-	for key, entry := range lastCycleByKey {
-		if _, ok := currentByKey[key]; !ok {
-			resolvedList = append(resolvedList, entry)
-		}
-	}
-
-	// Persistent findings must appear in every one of the last
-	// `persistentThreshold` cycles AND in the current cycle. We slice from the
-	// tail so shorter histories still participate — as the journal grows past
-	// the threshold the list becomes stricter.
-	window := previous
-	if len(window) > persistentThreshold-1 {
-		window = window[len(window)-(persistentThreshold-1):]
-	}
-	if len(window) == persistentThreshold-1 {
-		counts := make(map[string]int, len(currentByKey))
-		for _, cycle := range window {
-			seen := make(map[string]bool, len(cycle))
-			for _, entry := range cycle {
-				key := findingFingerprintFromMap(entry)
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				counts[key]++
-			}
-		}
-		for key, finding := range currentByKey {
-			if counts[key] == len(window) {
-				persistentList = append(persistentList, findingToMap(finding))
-			}
-		}
-	}
-
+	newList, resolvedList = diffFindings(current, previous)
+	persistentList = persistentFindings(current, previous)
 	return newList, resolvedList, persistentList
 }
 

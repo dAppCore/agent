@@ -10,6 +10,7 @@ require (
 	dappco.re/go/process v0.8.0-alpha.1
 	dappco.re/go/store v0.8.0-alpha.1
 	dappco.re/go/ws v0.8.0-alpha.1
+	forge.lthn.ai/Snider/Poindexter v0.0.0-20260223032814-5ab751f16d06
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.5.0
@@ -137,3 +138,5 @@ require (
 )
 
 replace dappco.re/go/mcp => ../mcp
+
+replace forge.lthn.ai/Snider/Poindexter => ../../snider/Poindexter
