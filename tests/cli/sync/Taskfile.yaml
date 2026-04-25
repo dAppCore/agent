@@ -4,3 +4,4 @@ tasks:
   test:
     cmds:
       - task -d status test
+      - task -d repo test

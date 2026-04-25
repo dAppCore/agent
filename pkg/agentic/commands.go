@@ -18,6 +18,7 @@ import (
 func (s *PrepSubsystem) registerCommands(ctx context.Context) {
 	s.startupContext = ctx
 	c := s.Core()
+	s.registerRepoSyncSupport()
 	c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("agentic:run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 	c.Command("run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow})

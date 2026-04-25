@@ -1,0 +1,54 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../../cmd/core-agent
+
+          workspace="$(mktemp -d)"
+          code_path="$(mktemp -d)"
+          export CORE_WORKSPACE="$workspace"
+          export CORE_HOME="$workspace"
+          export DIR_HOME="$workspace"
+          export CODE_PATH="$code_path"
+
+          remote_dir="$(mktemp -d)/remote.git"
+          git init --bare "$remote_dir" >/dev/null
+
+          repo_parent="$code_path/core"
+          repo_dir="$repo_parent/go-io"
+          mkdir -p "$repo_parent"
+          git -C "$repo_parent" clone "$remote_dir" go-io >/dev/null
+          git -C "$repo_dir" config user.name "Test"
+          git -C "$repo_dir" config user.email "test@example.com"
+          git -C "$repo_dir" checkout -b main >/dev/null
+          printf '# repo sync smoke\n' >"$repo_dir/README.md"
+          git -C "$repo_dir" add .
+          git -C "$repo_dir" commit -m "init" >/dev/null
+          git -C "$repo_dir" push -u origin main >/dev/null
+
+          push_clone="$(mktemp -d)/push-clone"
+          git clone "$remote_dir" "$push_clone" >/dev/null
+          git -C "$push_clone" config user.name "Test"
+          git -C "$push_clone" config user.email "test@example.com"
+          git -C "$push_clone" checkout main >/dev/null
+          printf 'package smoke\n' >"$push_clone/smoke.go"
+          git -C "$push_clone" add .
+          git -C "$push_clone" commit -m "agent work" >/dev/null
+          git -C "$push_clone" push origin main >/dev/null
+          remote_head="$(git -C "$push_clone" rev-parse HEAD)"
+
+          output="$(mktemp)"
+          run_capture_all 0 "$output" ./bin/core-agent repo/sync --repo=go-io --reset
+          assert_contains "fetched core/go-io@main" "$output"
+          assert_contains "count: 1" "$output"
+
+          test -f "$repo_dir/smoke.go"
+          local_head="$(git -C "$repo_dir" rev-parse HEAD)"
+          test "$local_head" = "$remote_head"
+          EOF
