@@ -3,13 +3,13 @@ module dappco.re/go/agent
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/api v0.8.0-alpha.1
+	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/forge v0.8.0-alpha.1
+	dappco.re/go/mcp v0.8.0-alpha.1
 	dappco.re/go/process v0.8.0-alpha.1
 	dappco.re/go/store v0.8.0-alpha.1
 	dappco.re/go/ws v0.8.0-alpha.1
-	dappco.re/go/mcp v0.8.0-alpha.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.5.0
@@ -25,6 +25,7 @@ require (
 	dappco.re/go/webview v0.8.0-alpha.1 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/Snider/Poindexter v0.0.0-20260104200422-91146b212a1f
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect

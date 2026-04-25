@@ -209,31 +209,52 @@ func TestQa_StringOutput_Ugly(t *testing.T) {
 // --- clusterFindings ---
 
 func TestQa_ClusterFindings_Good(t *testing.T) {
-	// Two G101 findings in the same tool merge into one cluster with count 2.
+	// Similar gosec findings with different rule IDs should still deduplicate.
 	findings := []QAFinding{
-		{Tool: "gosec", Severity: "error", Category: "security", Code: "G101", File: "a.go", Line: 10, Message: "secret"},
-		{Tool: "gosec", Severity: "error", Category: "security", Code: "G101", File: "b.go", Line: 20, Message: "secret"},
-		{Tool: "staticcheck", Severity: "warning", Code: "SA1000", File: "c.go", Line: 5},
+		{Tool: "gosec", Severity: "error", Category: "security", Code: "G101", File: "a.go", Line: 10, Message: "hardcoded password found"},
+		{Tool: "gosec", Severity: "error", Category: "security", Code: "G401", File: "b.go", Line: 20, Message: "hardcoded password found in config"},
+		{Tool: "gosec", Severity: "error", Category: "security", RuleID: "HARDCODED-SECRET", File: "c.go", Line: 30, Message: "possible hardcoded password found"},
+		{Tool: "gosec", Severity: "error", Category: "security", Code: "G304", File: "d.go", Line: 40, Message: "file path built from tainted input"},
+		{Tool: "staticcheck", Severity: "warning", Code: "SA1000", File: "e.go", Line: 5, Message: "invalid regexp pattern"},
 	}
 	clusters := clusterFindings(findings)
-	if assert.Len(t, clusters, 2) {
-		assert.Equal(t, 2, clusters[0].Count)
+	if assert.Len(t, clusters, 3) {
+		assert.Equal(t, 3, clusters[0].Count)
 		assert.Equal(t, "gosec", clusters[0].Tool)
-		assert.Len(t, clusters[0].Samples, 2)
+		assert.Len(t, clusters[0].Samples, 3)
 		assert.Equal(t, 1, clusters[1].Count)
+		assert.Equal(t, 1, clusters[2].Count)
 	}
 }
 
 func TestQa_ClusterFindings_Bad(t *testing.T) {
-	assert.Nil(t, clusterFindings(nil))
-	assert.Nil(t, clusterFindings([]QAFinding{}))
+	assert.NotPanics(t, func() {
+		assert.Nil(t, clusterFindings(nil))
+		assert.Nil(t, clusterFindings([]QAFinding{}))
+	})
 }
 
 func TestQa_ClusterFindings_Ugly(t *testing.T) {
+	findings := []QAFinding{
+		{Tool: "gosec", Severity: "error", Code: "G101", File: "a.go", Line: 10, Message: "hardcoded password found"},
+		{Tool: "gosec", Severity: "error", Code: "G304", File: "b.go", Line: 20, Message: "file path built from tainted input"},
+		{Tool: "staticcheck", Severity: "warning", Code: "SA1000", File: "c.go", Line: 30, Message: "invalid regexp pattern"},
+		{Tool: "govet", Severity: "warning", Code: "printf", File: "d.go", Line: 40, Message: "printf format mismatch"},
+		{Tool: "revive", Severity: "info", Code: "var-naming", File: "e.go", Line: 50, Message: "var name should be camelCase"},
+	}
+	clusters := clusterFindings(findings)
+	if assert.Len(t, clusters, 5) {
+		for _, cluster := range clusters {
+			assert.Equal(t, 1, cluster.Count)
+		}
+	}
+}
+
+func TestQa_ClusterFindings_Ugly_SampleLimit(t *testing.T) {
 	// 10 identical findings should cap samples at clusterSampleLimit.
 	findings := make([]QAFinding, 10)
 	for i := range findings {
-		findings[i] = QAFinding{Tool: "gosec", Code: "G101", File: "same.go", Line: i}
+		findings[i] = QAFinding{Tool: "gosec", Severity: "error", Code: "G101", File: "same.go", Line: i, Message: "hardcoded password found"}
 	}
 	clusters := clusterFindings(findings)
 	if assert.Len(t, clusters, 1) {

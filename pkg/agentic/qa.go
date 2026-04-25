@@ -97,9 +97,10 @@ type DispatchReport struct {
 }
 
 // DispatchCluster groups similar findings together so human reviewers can see
-// recurring problem shapes without scanning every raw finding. A cluster keys
-// by (tool, severity, category, rule_id) and counts how many findings fell
-// into that bucket in the current cycle, with representative samples.
+// recurring problem shapes without scanning every raw finding. Clusters are
+// built from Poindexter KD-tree similarity over hashed finding features, then
+// summarised back into the dominant tool/severity/category/rule identity with
+// representative samples.
 //
 // Usage example: `cluster := DispatchCluster{Tool: "gosec", Severity: "error", Category: "security", Count: 3, RuleID: "G101"}`
 type DispatchCluster struct {
@@ -693,74 +694,4 @@ func findingsFromJournalPayload(payload map[string]any) []map[string]any {
 // Usage example: `safe := escapeJournalLiteral("core/go-io/task's-5")`
 func escapeJournalLiteral(value string) string {
 	return core.Replace(value, "'", "''")
-}
-
-// clusterFindings groups the current cycle's findings by (tool, severity,
-// category, rule_id) so `.meta/report.json` surfaces recurring shapes. The
-// cluster count equals the number of findings in the bucket; the sample list
-// is capped at `clusterSampleLimit` representative entries so the payload
-// stays bounded for chatty linters.
-//
-// Usage example: `clusters := clusterFindings(report.Findings)`
-func clusterFindings(findings []QAFinding) []DispatchCluster {
-	if len(findings) == 0 {
-		return nil
-	}
-
-	byKey := make(map[string]*DispatchCluster, len(findings))
-	for _, finding := range findings {
-		key := core.Sprintf("%s|%s|%s|%s", finding.Tool, finding.Severity, finding.Category, firstNonEmpty(finding.Code, finding.RuleID))
-		cluster, ok := byKey[key]
-		if !ok {
-			cluster = &DispatchCluster{
-				Tool:     finding.Tool,
-				Severity: finding.Severity,
-				Category: finding.Category,
-				RuleID:   firstNonEmpty(finding.Code, finding.RuleID),
-			}
-			byKey[key] = cluster
-		}
-		cluster.Count++
-		if len(cluster.Samples) < clusterSampleLimit {
-			cluster.Samples = append(cluster.Samples, DispatchClusterSample{
-				File:    finding.File,
-				Line:    finding.Line,
-				Message: finding.Message,
-			})
-		}
-	}
-
-	// Stable order: highest count first, then by rule identifier so
-	// identical-count clusters are deterministic in the report.
-	clusters := make([]DispatchCluster, 0, len(byKey))
-	for _, cluster := range byKey {
-		clusters = append(clusters, *cluster)
-	}
-	sortDispatchClusters(clusters)
-	return clusters
-}
-
-// sortDispatchClusters orders clusters by descending Count then ascending
-// RuleID so the report is deterministic across runs and `core-agent status`
-// always shows the same ordering for identical data.
-func sortDispatchClusters(clusters []DispatchCluster) {
-	for i := 1; i < len(clusters); i++ {
-		candidate := clusters[i]
-		j := i - 1
-		for j >= 0 && clusterLess(candidate, clusters[j]) {
-			clusters[j+1] = clusters[j]
-			j--
-		}
-		clusters[j+1] = candidate
-	}
-}
-
-func clusterLess(left, right DispatchCluster) bool {
-	if left.Count != right.Count {
-		return left.Count > right.Count
-	}
-	if left.Tool != right.Tool {
-		return left.Tool < right.Tool
-	}
-	return left.RuleID < right.RuleID
 }
