@@ -4,10 +4,6 @@ package agentic
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"strconv"
-	"sync/atomic"
 	"time"
 
 	core "dappco.re/go/core"
@@ -156,8 +152,6 @@ type PlanListOutput struct {
 }
 
 const planListDefaultLimit = 20
-
-var planIDCounter atomic.Uint64
 
 // result := c.Action("plan.create").Run(ctx, core.NewOptions(
 //
@@ -717,17 +711,7 @@ func phaseCriteriaValue(values ...any) []string {
 }
 
 func planID() string {
-	counter := planIDCounter.Add(1)
-	suffix := planRandomHex()
-	return core.Concat("id-", strconv.FormatUint(counter, 10), "-", suffix)
-}
-
-func planRandomHex() string {
-	bytes := make([]byte, 3)
-	if _, err := rand.Read(bytes); err != nil {
-		return "000000"
-	}
-	return hex.EncodeToString(bytes)
+	return core.ID()
 }
 
 func planTaskSliceValue(value any) []PlanTask {
