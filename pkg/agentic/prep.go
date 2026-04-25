@@ -365,6 +365,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	if s.syncToken() != "" {
 		go s.runSyncFlushLoop(ctx, syncFlushScheduleInterval)
 	}
+	go s.runFetchLoop(ctx, s.fetchLoopInterval())
 
 	c.RegisterQuery(s.handleWorkspaceQuery)
 
