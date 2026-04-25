@@ -9,10 +9,12 @@ namespace Core\Mod\Agentic\Services;
 use Core\Mod\Agentic\Jobs\DeleteFromIndex;
 use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Models\BrainMemory;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -119,6 +121,8 @@ class BrainService
      */
     public function remember(array $attributes): BrainMemory
     {
+        $this->assertAuthorisedOrgScope($attributes['org'] ?? null);
+
         $attributes['indexed_at'] = null;
         $cleanupIds = [];
         $supersededId = $this->normaliseMemoryId($attributes['supersedes_id'] ?? null);
@@ -161,6 +165,8 @@ class BrainService
         array $keywords = [],
         array $boostKeywords = [],
     ): array {
+        $this->assertAuthorisedOrgScope($filter['org'] ?? null);
+
         $vector = $this->embed($query);
 
         $filter['workspace_id'] = $workspaceId;
@@ -243,6 +249,12 @@ class BrainService
      */
     public function forget(string $id): void
     {
+        $memoryOrg = BrainMemory::query()
+            ->whereKey($id)
+            ->value('org');
+
+        $this->assertAuthorisedOrgScope($memoryOrg);
+
         $deleted = $this->withMemoryIndexLock($id, fn (): bool => $this->deleteMemoryRecord($id));
 
         if ($deleted) {
@@ -343,6 +355,8 @@ class BrainService
      */
     public function elasticSearch(string $query, array $filters = [], ?int $limit = null): array
     {
+        $this->assertAuthorisedOrgScope($filters['org'] ?? null);
+
         $body = [
             'query' => [
                 'bool' => [
@@ -418,6 +432,170 @@ class BrainService
         }
 
         return $scores;
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    private function assertAuthorisedOrgScope(mixed $requestedOrg): void
+    {
+        $authorisedOrgs = $this->authorisedOrgScopes();
+        if ($authorisedOrgs === []) {
+            return;
+        }
+
+        foreach ($this->normaliseOrgScopes($requestedOrg) as $org) {
+            if (! in_array($org, $authorisedOrgs, true)) {
+                throw new AuthorizationException(
+                    sprintf("Organisation scope '%s' is not authorised for this authenticated workspace.", $org)
+                );
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function authorisedOrgScopes(): array
+    {
+        $request = $this->currentRequest();
+        if (! $request instanceof Request) {
+            return [];
+        }
+
+        $context = $request->attributes->get('mcp_workspace_context');
+        if (is_array($context)) {
+            $authorisedOrgs = $this->normaliseOrgScopes(
+                $context['authorised_orgs'] ?? $context['authorized_orgs'] ?? null
+            );
+
+            if ($authorisedOrgs !== []) {
+                return $authorisedOrgs;
+            }
+
+            $contextOrg = $this->resolveOrgScopeFromSource($context, [
+                'org',
+                'primary_org',
+                'organisation',
+                'organization',
+            ]);
+
+            if ($contextOrg !== null) {
+                return [$contextOrg];
+            }
+
+            $workspaceOrg = $this->resolveOrgScopeFromSource($context['workspace'] ?? null, [
+                'org',
+                'organisation',
+                'organization',
+                'slug',
+            ]);
+
+            if ($workspaceOrg !== null) {
+                return [$workspaceOrg];
+            }
+        }
+
+        $workspace = $request->attributes->get('workspace') ?? $request->attributes->get('mcp_workspace');
+        $workspaceOrg = $this->resolveOrgScopeFromSource($workspace, [
+            'org',
+            'organisation',
+            'organization',
+            'slug',
+        ]);
+
+        return $workspaceOrg !== null ? [$workspaceOrg] : [];
+    }
+
+    private function currentRequest(): ?Request
+    {
+        if (! function_exists('app') || ! app()->bound('request')) {
+            return null;
+        }
+
+        $request = app('request');
+
+        return $request instanceof Request ? $request : null;
+    }
+
+    /**
+     * @param  array<int, string>  $keys
+     */
+    private function resolveOrgScopeFromSource(mixed $source, array $keys): ?string
+    {
+        if (is_array($source)) {
+            foreach ($keys as $key) {
+                $scope = $this->normaliseSingleOrgScope($source[$key] ?? null);
+
+                if ($scope !== null) {
+                    return $scope;
+                }
+            }
+
+            return null;
+        }
+
+        if (! is_object($source)) {
+            return null;
+        }
+
+        foreach ($keys as $key) {
+            $value = null;
+
+            if (method_exists($source, 'getAttribute')) {
+                $value = $source->getAttribute($key);
+            }
+
+            if ($value === null && isset($source->{$key})) {
+                $value = $source->{$key};
+            }
+
+            $scope = $this->normaliseSingleOrgScope($value);
+            if ($scope !== null) {
+                return $scope;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normaliseOrgScopes(mixed $value): array
+    {
+        if (is_string($value)) {
+            $scope = $this->normaliseSingleOrgScope($value);
+
+            return $scope !== null ? [$scope] : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $scopes = [];
+
+        foreach ($value as $item) {
+            $scope = $this->normaliseSingleOrgScope($item);
+
+            if ($scope !== null) {
+                $scopes[] = $scope;
+            }
+        }
+
+        return array_values(array_unique($scopes));
+    }
+
+    private function normaliseSingleOrgScope(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $scope = trim($value);
+
+        return $scope !== '' ? $scope : null;
     }
 
     /**
