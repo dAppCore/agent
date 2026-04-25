@@ -13,6 +13,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const dispatchGracePeriod = 30 * time.Second
+
 type workspaceTracker interface {
 	TrackWorkspace(name string, status any)
 }
@@ -335,6 +337,85 @@ func (s *PrepSubsystem) dispatchGPU() bool {
 	return dispatchConfig.GPU
 }
 
+func (s *PrepSubsystem) dispatchTimeout() time.Duration {
+	timeoutMinutes := defaultDispatchTimeoutMinutes
+	if s != nil && s.ServiceRuntime != nil {
+		dispatchConfig, ok := s.Core().Config().Get("agents.dispatch").Value.(DispatchConfig)
+		if ok {
+			timeoutMinutes = normaliseDispatchConfig(dispatchConfig).TimeoutMinutes
+		}
+	}
+	return time.Duration(timeoutMinutes) * time.Minute
+}
+
+func dispatchRunOptions(command string, args []string, runDir string, timeout time.Duration) process.RunOptions {
+	return process.RunOptions{
+		Command:     command,
+		Args:        args,
+		Dir:         runDir,
+		Detach:      true,
+		Timeout:     timeout,
+		GracePeriod: dispatchGracePeriod,
+		KillGroup:   true,
+	}
+}
+
+func dispatchTimeoutReason(timeout time.Duration) string {
+	switch {
+	case timeout > 0 && timeout%time.Minute == 0:
+		return core.Sprintf("Agent timed out after %dm", int(timeout/time.Minute))
+	case timeout > 0 && timeout%time.Second == 0:
+		return core.Sprintf("Agent timed out after %ds", int(timeout/time.Second))
+	default:
+		return core.Sprintf("Agent timed out after %s", timeout.String())
+	}
+}
+
+func workspaceTimeoutPath(workspaceDir string) string {
+	return core.JoinPath(WorkspaceMetaDir(workspaceDir), "timeout.reason")
+}
+
+func dispatchTimeoutReasonFromWorkspace(workspaceDir string) string {
+	result := fs.Read(workspaceTimeoutPath(workspaceDir))
+	if !result.OK {
+		return ""
+	}
+	return core.Trim(result.Value.(string))
+}
+
+func clearDispatchTimeoutReason(workspaceDir string) {
+	deleteResult := fs.Delete(workspaceTimeoutPath(workspaceDir))
+	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)) {
+		core.Warn("agentic: failed to remove timeout marker", "path", workspaceTimeoutPath(workspaceDir), "reason", deleteResult.Value)
+	}
+}
+
+func startDispatchTimeoutWatch(workspaceDir string, timeout time.Duration, proc completionProcess) {
+	if timeout <= 0 || proc == nil {
+		return
+	}
+
+	go func() {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-proc.Done():
+			return
+		case <-timer.C:
+			select {
+			case <-proc.Done():
+				return
+			default:
+			}
+			writeResult := fs.WriteAtomic(workspaceTimeoutPath(workspaceDir), dispatchTimeoutReason(timeout))
+			if !writeResult.OK {
+				core.Warn("agentic: failed to write timeout marker", "path", workspaceTimeoutPath(workspaceDir), "reason", writeResult.Value)
+			}
+		}
+	}()
+}
+
 // command, args := containerCommand("codex", []string{"exec", "--model", "gpt-5.4"}, "/srv/.core/workspace/core/go-io/task-5", "/srv/.core/workspace/core/go-io/task-5/.meta")
 func containerCommand(command string, args []string, workspaceDir, metaDir string) (string, []string) {
 	return containerCommandFor(RuntimeDocker, defaultDockerImage, false, command, args, workspaceDir, metaDir)
@@ -564,6 +645,13 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 
 	repoDir := WorkspaceRepoDir(workspaceDir)
 	finalStatus, question := detectFinalStatus(repoDir, exitCode, processStatus)
+	if finalStatus != "blocked" {
+		if timeoutReason := dispatchTimeoutReasonFromWorkspace(workspaceDir); timeoutReason != "" {
+			finalStatus = "failed"
+			question = timeoutReason
+		}
+	}
+	clearDispatchTimeoutReason(workspaceDir)
 
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
@@ -595,6 +683,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	if deleteResult := fs.Delete(WorkspaceBlockedPath(workspaceDir)); !deleteResult.OK {
 		core.Warn("agentic: failed to remove blocked marker", "path", WorkspaceBlockedPath(workspaceDir), "reason", deleteResult.Value)
 	}
+	clearDispatchTimeoutReason(workspaceDir)
 
 	if !isNativeAgent(agent) {
 		runtimeName := resolveContainerRuntime(s.dispatchRuntime())
@@ -616,17 +705,13 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 		runDir = WorkspaceRepoDir(workspaceDir)
 	}
 
-	proc, err := procSvc.StartWithOptions(context.Background(), process.RunOptions{
-		Command: command,
-		Args:    args,
-		Dir:     runDir,
-		Detach:  true,
-	})
+	proc, err := procSvc.StartWithOptions(context.Background(), dispatchRunOptions(command, args, runDir, s.dispatchTimeout()))
 	if err != nil {
 		return 0, "", "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
 	}
 
 	proc.CloseStdin()
+	startDispatchTimeoutWatch(workspaceDir, s.dispatchTimeout(), proc)
 	pid := proc.Info().PID
 	processID := proc.ID
 

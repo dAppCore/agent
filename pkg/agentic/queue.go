@@ -10,11 +10,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding", Runtime: "auto", Image: "core-dev"}
+const defaultDispatchTimeoutMinutes = 60
+
+// config := agentic.DispatchConfig{DefaultAgent: "claude", DefaultTemplate: "coding", Runtime: "auto", Image: "core-dev", TimeoutMinutes: 60}
 type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
+	// TimeoutMinutes bounds agent runtime before dispatch marks the workspace
+	// failed and go-process shuts the process tree down.
+	TimeoutMinutes int `yaml:"timeout_minutes"`
 	// Runtime selects the container runtime — auto | apple | docker | podman.
 	// auto detects in preference order: Apple Container -> Docker -> Podman.
 	// Apple Containers (macOS 26+) provide hardware VM isolation and sub-second
@@ -103,6 +108,13 @@ type AgentsConfig struct {
 	Agents map[string]AgentIdentity `yaml:"agents"`
 }
 
+func normaliseDispatchConfig(config DispatchConfig) DispatchConfig {
+	if config.TimeoutMinutes <= 0 {
+		config.TimeoutMinutes = defaultDispatchTimeoutMinutes
+	}
+	return config
+}
+
 // config := s.loadAgentsConfig()
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
@@ -119,6 +131,7 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 		if err := yaml.Unmarshal([]byte(readResult.Value.(string)), &config); err != nil {
 			continue
 		}
+		config.Dispatch = normaliseDispatchConfig(config.Dispatch)
 		setWorkspaceRootOverride(config.Dispatch.WorkspaceRoot)
 		return &config
 	}
@@ -128,6 +141,7 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 		Dispatch: DispatchConfig{
 			DefaultAgent:    "claude",
 			DefaultTemplate: "coding",
+			TimeoutMinutes:  defaultDispatchTimeoutMinutes,
 		},
 		Concurrency: map[string]ConcurrencyLimit{
 			"claude": {Total: 1},

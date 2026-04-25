@@ -437,6 +437,73 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
 }
 
+func TestDispatch_Run_Bad_Timeout(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	wsDir := core.JoinPath(root, "ws-timeout")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	require.True(t, fs.EnsureDir(repoDir).OK)
+	require.True(t, fs.EnsureDir(metaDir).OK)
+
+	st := &WorkspaceStatus{
+		Status:    "running",
+		Agent:     "codex",
+		Repo:      "go-io",
+		StartedAt: time.Now(),
+	}
+	require.NoError(t, writeStatus(wsDir, st))
+
+	processResult := testCore.Service("process")
+	require.True(t, processResult.OK)
+	procSvc, ok := processResult.Value.(*process.Service)
+	require.True(t, ok)
+
+	timeout := 100 * time.Millisecond
+	opts := dispatchRunOptions("sleep", []string{"60"}, repoDir, timeout)
+	assert.Equal(t, timeout, opts.Timeout)
+	assert.Equal(t, dispatchGracePeriod, opts.GracePeriod)
+	assert.True(t, opts.KillGroup)
+	assert.True(t, opts.Detach)
+
+	proc, err := procSvc.StartWithOptions(context.Background(), opts)
+	require.NoError(t, err)
+	proc.CloseStdin()
+
+	s := newPrepWithProcess()
+	s.workspaces = core.NewRegistry[*WorkspaceStatus]()
+	startDispatchTimeoutWatch(wsDir, timeout, proc)
+
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        "codex",
+		workspaceDir: wsDir,
+		outputFile:   core.JoinPath(metaDir, "agent-codex.log"),
+		process:      proc,
+	}
+
+	r := monitor.run(context.Background(), core.NewOptions())
+	assert.True(t, r.OK)
+
+	info := proc.Info()
+	assert.Equal(t, process.StatusKilled, info.Status)
+
+	updated := mustReadStatus(t, wsDir)
+	assert.Equal(t, "failed", updated.Status)
+	assert.Equal(t, dispatchTimeoutReason(timeout), updated.Question)
+	assert.Equal(t, 0, updated.PID)
+
+	registryResult := s.workspaces.Get(WorkspaceName(wsDir))
+	require.True(t, registryResult.OK)
+	registryStatus, ok := registryResult.Value.(*WorkspaceStatus)
+	require.True(t, ok)
+	assert.Equal(t, "failed", registryStatus.Status)
+	assert.Equal(t, dispatchTimeoutReason(timeout), registryStatus.Question)
+
+	assert.False(t, fs.Exists(workspaceTimeoutPath(wsDir)))
+}
+
 // --- runQA ---
 
 func TestDispatch_RunQA_Good(t *testing.T) {

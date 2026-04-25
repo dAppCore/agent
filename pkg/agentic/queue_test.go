@@ -26,8 +26,21 @@ func TestQueue_DispatchConfig_Good_Defaults(t *testing.T) {
 	cfg := s.loadAgentsConfig()
 	assert.Equal(t, "claude", cfg.Dispatch.DefaultAgent)
 	assert.Equal(t, "coding", cfg.Dispatch.DefaultTemplate)
+	assert.Equal(t, 60, cfg.Dispatch.TimeoutMinutes)
 	assert.Equal(t, 1, cfg.Concurrency["claude"].Total)
 	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
+}
+
+func TestQueue_Config_Good_TimeoutDefault(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "version: 1\ndispatch:\n  default_agent: codex\n").OK)
+	t.Cleanup(func() { setWorkspaceRootOverride("") })
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
+	cfg := s.loadAgentsConfig()
+
+	assert.Equal(t, 60, cfg.Dispatch.TimeoutMinutes)
 }
 
 func TestQueue_DispatchConfig_Good_RuntimeImageGPUFromYAML(t *testing.T) {
@@ -39,6 +52,7 @@ func TestQueue_DispatchConfig_Good_RuntimeImageGPUFromYAML(t *testing.T) {
 		"  runtime: apple\n",
 		"  image: core-ml\n",
 		"  gpu: true\n",
+		"  timeout_minutes: 45\n",
 	)).OK)
 
 	t.Cleanup(func() {
@@ -51,6 +65,7 @@ func TestQueue_DispatchConfig_Good_RuntimeImageGPUFromYAML(t *testing.T) {
 	assert.Equal(t, "apple", cfg.Dispatch.Runtime)
 	assert.Equal(t, "core-ml", cfg.Dispatch.Image)
 	assert.True(t, cfg.Dispatch.GPU)
+	assert.Equal(t, 45, cfg.Dispatch.TimeoutMinutes)
 }
 
 func TestQueue_DispatchConfig_Bad_OmittedRuntimeFields(t *testing.T) {
