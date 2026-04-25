@@ -6,7 +6,6 @@ package monitor
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -420,7 +419,7 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	baseURL := monitorAPIURL()
-	inboxURL := core.Concat(baseURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName()))
+	inboxURL := core.Concat(baseURL, "/v1/messages/inbox?agent=", core.URLEncode(agentic.AgentName()))
 	httpResult := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(brainKey), "Bearer")
 	if !httpResult.OK {
 		return ""
