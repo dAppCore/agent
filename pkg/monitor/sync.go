@@ -4,7 +4,6 @@ package monitor
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -26,7 +25,7 @@ type ChangedRepo struct {
 
 func (m *Subsystem) syncRepos() string {
 	agentName := agentic.AgentName()
-	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), url.QueryEscape(agentName), m.lastSyncTimestamp)
+	checkinURL := core.Sprintf("%s/v1/agent/checkin?agent=%s&since=%d", monitorAPIURL(), core.URLEncode(agentName), m.lastSyncTimestamp)
 
 	brainKey := monitorBrainKey()
 	httpResult := agentic.HTTPGet(context.Background(), checkinURL, brainKey, "Bearer")
