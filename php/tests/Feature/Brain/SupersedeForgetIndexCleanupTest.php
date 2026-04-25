@@ -40,6 +40,18 @@ test('SupersedeForgetIndexCleanup_forget_Good_dispatches_delete_from_index', fun
     Queue::assertPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $memory->id);
 });
 
+test('SupersedeForgetIndexCleanup_forget_Bad_skips_delete_from_index_for_never_indexed_memory', function (): void {
+    Queue::fake();
+    $memory = cleanupMemory(['indexed_at' => null]);
+
+    cleanupBrainService()->forget($memory->id);
+
+    expect(BrainMemory::find($memory->id))->toBeNull()
+        ->and(BrainMemory::withTrashed()->find($memory->id)?->trashed())->toBeTrue();
+
+    Queue::assertNotPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $memory->id);
+});
+
 test('SupersedeForgetIndexCleanup_supersede_Bad_dispatches_cleanup_for_old_indexed_memory', function (): void {
     Queue::fake();
     $workspace = createWorkspace();

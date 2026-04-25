@@ -63,6 +63,7 @@ class BrainRecall extends AgentTool
                         'org' => [
                             'type' => 'string',
                             'description' => 'Filter by organisation scope',
+                            'maxLength' => 128,
                         ],
                         'project' => [
                             'type' => 'string',
@@ -110,8 +111,13 @@ class BrainRecall extends AgentTool
             return $this->error('filter must be an object');
         }
 
-        return $this->withCircuitBreaker('brain', function () use ($query, $workspaceId, $filter, $topK) {
-            $result = RecallKnowledge::run($query, (int) $workspaceId, $filter, $topK);
+        $validatedFilter = $filter;
+        if (array_key_exists('org', $validatedFilter)) {
+            $validatedFilter['org'] = $this->optionalString($validatedFilter, 'org', null, 128);
+        }
+
+        return $this->withCircuitBreaker('brain', function () use ($query, $workspaceId, $validatedFilter, $topK) {
+            $result = RecallKnowledge::run($query, (int) $workspaceId, $validatedFilter, $topK);
 
             return $this->success([
                 'count' => $result['count'],

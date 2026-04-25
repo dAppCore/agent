@@ -24,6 +24,8 @@ class BrainService
 
     private const ELASTIC_INDEX = 'brain_memories';
 
+    private const MAX_RETRY_DELAY_MS = 30000;
+
     private string $qdrantApiKey;
 
     public function __construct(
@@ -237,11 +239,22 @@ class BrainService
      */
     public function forget(string $id): void
     {
-        $deleted = DB::connection('brain')->transaction(function () use ($id): int {
-            return BrainMemory::where('id', $id)->delete();
+        $memory = null;
+        $deleted = DB::connection('brain')->transaction(function () use ($id, &$memory): int {
+            $memory = BrainMemory::query()
+                ->select(['id', 'indexed_at'])
+                ->find($id);
+
+            if (! $memory instanceof BrainMemory) {
+                return 0;
+            }
+
+            $memory->delete();
+
+            return 1;
         });
 
-        if ($deleted > 0) {
+        if ($deleted > 0 && $memory instanceof BrainMemory && $memory->indexed_at !== null) {
             DeleteFromIndex::dispatch($id);
         }
     }
@@ -651,14 +664,13 @@ class BrainService
     /**
      * Retry transient Qdrant HTTP failures with a small exponential backoff.
      *
-     * Retries 5xx responses and connection failures. 4xx responses are
-     * returned immediately so callers can fail fast without extra churn.
+     * Retries 408, 429, 5xx responses, and connection failures. Other 4xx
+     * responses are returned immediately so callers can fail fast.
      *
      * @param  callable(PendingRequest): Response  $buildRequest
      */
     private function retryableHttp(int $timeout, callable $buildRequest, int $maxAttempts = 3): Response
     {
-        $delays = [100, 300, 900];
         $lastConnectionException = null;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
@@ -671,16 +683,16 @@ class BrainService
                     break;
                 }
 
-                $this->sleepMilliseconds($delays[$attempt - 1] ?? 900);
+                $this->sleepMilliseconds($this->retryDelayMilliseconds(null, $attempt));
 
                 continue;
             }
 
-            if ($response->status() < 500 || $attempt === $maxAttempts) {
+            if (! $this->shouldRetryResponse($response) || $attempt === $maxAttempts) {
                 return $response;
             }
 
-            $this->sleepMilliseconds($delays[$attempt - 1] ?? 900);
+            $this->sleepMilliseconds($this->retryDelayMilliseconds($response, $attempt));
         }
 
         throw new \RuntimeException(
@@ -697,5 +709,42 @@ class BrainService
     protected function sleepMilliseconds(int $milliseconds): void
     {
         usleep($milliseconds * 1000);
+    }
+
+    private function shouldRetryResponse(Response $response): bool
+    {
+        $status = $response->status();
+
+        return $status === 408 || $status === 429 || $status >= 500;
+    }
+
+    private function retryDelayMilliseconds(?Response $response, int $attempt): int
+    {
+        $retryAfter = $response?->header('Retry-After');
+        if (is_string($retryAfter) && $retryAfter !== '') {
+            $delay = $this->parseRetryAfterMilliseconds($retryAfter);
+
+            if ($delay !== null) {
+                return $delay;
+            }
+        }
+
+        $delays = [100, 300, 900];
+
+        return $delays[$attempt - 1] ?? 900;
+    }
+
+    private function parseRetryAfterMilliseconds(string $retryAfter): ?int
+    {
+        if (is_numeric($retryAfter)) {
+            return min(max((int) $retryAfter, 0) * 1000, self::MAX_RETRY_DELAY_MS);
+        }
+
+        $retryAt = strtotime($retryAfter);
+        if ($retryAt === false) {
+            return null;
+        }
+
+        return min(max($retryAt - time(), 0) * 1000, self::MAX_RETRY_DELAY_MS);
     }
 }

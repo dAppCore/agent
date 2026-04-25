@@ -66,10 +66,27 @@ test('BrainSchemaOrg_brain_remember_Good_accepts_org_and_forwards_it', function 
     ]);
 
     expect($tool->inputSchema()['properties'])->toHaveKey('org')
+        ->and($tool->inputSchema()['properties']['org']['maxLength'])->toBe(128)
         ->and($result['success'])->toBeTrue()
         ->and($brain->remembered['org'])->toBe('core')
         ->and($result['memory']['org'])->toBe('core');
 });
+
+test('BrainSchemaOrg_brain_remember_Bad_rejects_org_longer_than_128_chars', function (): void {
+    $workspace = createWorkspace();
+    passThroughBrainCircuitBreaker($this->app);
+
+    $tool = new BrainRemember;
+
+    $tool->handle([
+        'content' => 'Shared organisation memory.',
+        'type' => 'fact',
+        'org' => str_repeat('o', 129),
+    ], [
+        'workspace_id' => $workspace->id,
+        'session_id' => 'session-1',
+    ]);
+})->throws(InvalidArgumentException::class, 'org exceeds maximum length of 128 characters');
 
 test('BrainSchemaOrg_brain_recall_Bad_accepts_org_filter_and_forwards_it', function (): void {
     $workspace = createWorkspace();
@@ -113,10 +130,27 @@ test('BrainSchemaOrg_brain_recall_Bad_accepts_org_filter_and_forwards_it', funct
     ]);
 
     expect($tool->inputSchema()['properties']['filter']['properties'])->toHaveKey('org')
+        ->and($tool->inputSchema()['properties']['filter']['properties']['org']['maxLength'])->toBe(128)
         ->and($result['success'])->toBeTrue()
         ->and($brain->captured['filter']['org'])->toBe('core')
         ->and($brain->captured['workspace_id'])->toBe($workspace->id);
 });
+
+test('BrainSchemaOrg_brain_recall_Ugly_rejects_filter_org_longer_than_128_chars', function (): void {
+    $workspace = createWorkspace();
+    passThroughBrainCircuitBreaker($this->app);
+
+    $tool = new BrainRecall;
+
+    $tool->handle([
+        'query' => 'org-filtered recall',
+        'filter' => [
+            'org' => str_repeat('o', 129),
+        ],
+    ], [
+        'workspace_id' => $workspace->id,
+    ]);
+})->throws(InvalidArgumentException::class, 'org exceeds maximum length of 128 characters');
 
 test('BrainSchemaOrg_brain_list_Ugly_accepts_org_filter_without_validation_error', function (): void {
     $workspace = createWorkspace();
@@ -148,6 +182,7 @@ test('BrainSchemaOrg_brain_list_Ugly_accepts_org_filter_without_validation_error
     ]);
 
     expect($tool->inputSchema()['properties'])->toHaveKey('org')
+        ->and($tool->inputSchema()['properties']['org']['maxLength'])->toBe(128)
         ->and($result['success'])->toBeTrue()
         ->and($result['count'])->toBe(1)
         ->and($result['memories'][0]['id'])->toBe($matching->id)

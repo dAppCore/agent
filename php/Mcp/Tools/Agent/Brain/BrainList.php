@@ -45,6 +45,7 @@ class BrainList extends AgentTool
                 'org' => [
                     'type' => 'string',
                     'description' => 'Filter by organisation scope',
+                    'maxLength' => 128,
                 ],
                 'project' => [
                     'type' => 'string',
@@ -77,32 +78,30 @@ class BrainList extends AgentTool
             return $this->error('workspace_id is required. Ensure you have authenticated with a valid API key. See: https://host.uk.com/ai');
         }
 
-        $org = $this->optionalString($args, 'org', null);
+        $org = $this->optionalString($args, 'org', null, 128);
         $project = $this->optionalString($args, 'project', null);
         $agentId = $this->optionalString($args, 'agent_id', null);
         $type = $this->optionalEnum($args, 'type', BrainMemory::VALID_TYPES);
         $limit = $this->optionalInt($args, 'limit', 20, 1, 100);
 
-        return $this->withCircuitBreaker('brain', function () use ($workspaceId, $org, $project, $agentId, $type, $limit) {
-            $query = BrainMemory::forWorkspace((int) $workspaceId)
-                ->active()
-                ->latestVersions()
-                ->forOrg($org)
-                ->forProject($project)
-                ->byAgent($agentId);
+        $query = BrainMemory::forWorkspace((int) $workspaceId)
+            ->active()
+            ->latestVersions()
+            ->forOrg($org)
+            ->forProject($project)
+            ->byAgent($agentId);
 
-            if ($type !== null) {
-                $query->ofType($type);
-            }
+        if ($type !== null) {
+            $query->ofType($type);
+        }
 
-            $memories = $query->orderByDesc('created_at')
-                ->limit($limit)
-                ->get();
+        $memories = $query->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
 
-            return $this->success([
-                'memories' => $memories->map(fn (BrainMemory $memory): array => $memory->toMcpContext())->all(),
-                'count' => $memories->count(),
-            ]);
-        }, fn () => $this->error('Brain service temporarily unavailable. Memory list unavailable.', 'service_unavailable'));
+        return $this->success([
+            'memories' => $memories->map(fn (BrainMemory $memory): array => $memory->toMcpContext())->all(),
+            'count' => $memories->count(),
+        ]);
     }
 }
