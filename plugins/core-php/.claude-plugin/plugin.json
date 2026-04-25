@@ -1,0 +1,18 @@
+{
+  "name": "core-php",
+  "version": "0.1.0",
+  "description": "Claude plugin family for Core PHP services, modules, and tooling.",
+  "author": {
+    "name": "Lethean Community",
+    "email": "hello@lethean.io"
+  },
+  "homepage": "https://lthn.ai",
+  "repository": "https://forge.lthn.ai/core/agent.git",
+  "license": "EUPL-1.2",
+  "keywords": [
+    "claude",
+    "core",
+    "php",
+    "agent"
+  ]
+}

@@ -1,0 +1,6 @@
+marketplace:
+  registry: forge.lthn.ai
+  organization: core
+  repository: infra
+  auto_update: true
+  check_interval: 24h
