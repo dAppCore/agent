@@ -1,0 +1,77 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          GOWORK=off go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../../cmd/core-agent
+
+          workspace="$(mktemp -d)"
+          export CORE_HOME="$workspace"
+          export DIR_HOME="$workspace"
+
+          server_src="$(mktemp /tmp/core-agent-fleet-login-XXXXXX.go)"
+          server_url="$(mktemp)"
+          cat >"$server_src" <<'GO'
+          package main
+
+          import (
+          	"encoding/json"
+          	"net"
+          	"net/http"
+          	"os"
+          )
+
+          func main() {
+          	listener, err := net.Listen("tcp", "127.0.0.1:0")
+          	if err != nil {
+          		panic(err)
+          	}
+
+          	handler := http.NewServeMux()
+          	handler.HandleFunc("/v1/device/pair", func(w http.ResponseWriter, r *http.Request) {
+          		defer r.Body.Close()
+          		w.Header().Set("Content-Type", "application/json")
+          		_ = json.NewEncoder(w).Encode(map[string]any{
+          			"agent_api_key": "ak_live_cli",
+          			"agent_id":      "charon",
+          			"expires_at":    "2027-01-01T00:00:00Z",
+          		})
+          	})
+
+          	if err := os.WriteFile(os.Args[1], []byte("http://"+listener.Addr().String()), 0644); err != nil {
+          		panic(err)
+          	}
+
+          	if err := http.Serve(listener, handler); err != nil {
+          		panic(err)
+          	}
+          }
+          GO
+
+          GOWORK=off go run "$server_src" "$server_url" >/tmp/core-agent-fleet-login.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true; rm -f "$server_src" "$server_url"' EXIT
+
+          for _ in $(seq 1 50); do
+            if [[ -s "$server_url" ]]; then
+              break
+            fi
+            sleep 0.1
+          done
+
+          export CORE_API_URL="$(cat "$server_url")"
+
+          output="$(mktemp)"
+          run_capture_all 0 "$output" ./bin/core-agent login 123456
+          assert_contains "logged in" "$output"
+          assert_contains "saved to:" "$output"
+
+          key_path="$workspace/.core/agent.key"
+          test -f "$key_path"
+          grep -Fq "ak_live_cli" "$key_path"
+          EOF
