@@ -353,7 +353,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in background"
 
-	s.hydrateWorkspaces()
+	if result := s.restorePersistedState(ctx); !result.OK {
+		return result
+	}
 	// RFC §15.5 — startup scans `.core/state/` for orphaned QA workspace
 	// buffers (leftover DuckDB files from dispatches that crashed before
 	// commit) and releases them so the next cycle starts clean.
@@ -385,6 +387,9 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 // _ = subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
+	if result := s.flushPersistedState(ctx); !result.OK {
+		return result
+	}
 	s.closeStateStore()
 	s.closeWorkspaceStatsStore()
 	return core.Result{OK: true}
