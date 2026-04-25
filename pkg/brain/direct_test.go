@@ -7,15 +7,27 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	core "dappco.re/go/core"
+	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // newTestDirect returns a DirectSubsystem wired to the given test server.
 func newTestDirect(srv *httptest.Server) *DirectSubsystem {
-	return &DirectSubsystem{apiURL: srv.URL, apiKey: "test-key"}
+	return &DirectSubsystem{
+		apiURL: srv.URL,
+		apiKey: "test-key",
+		apiClient: brainclient.New(brainclient.Options{
+			URL:         srv.URL,
+			Key:         "test-key",
+			HTTPClient:  srv.Client(),
+			MaxAttempts: 1,
+			BaseDelay:   time.Nanosecond,
+		}),
+	}
 }
 
 // jsonHandler returns an http.Handler that responds with the given JSON payload.
@@ -151,7 +163,7 @@ func TestDirect_ApiCall_Bad_ServerError(t *testing.T) {
 	require.False(t, result.OK)
 	err, _ := result.Value.(error)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API call failed")
+	assert.Contains(t, err.Error(), "upstream returned 500")
 }
 
 func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
@@ -169,12 +181,21 @@ func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
 }
 
 func TestDirect_ApiCall_Bad_ConnectionRefused(t *testing.T) {
-	sub := &DirectSubsystem{apiURL: "http://127.0.0.1:1", apiKey: "test-key"}
+	sub := &DirectSubsystem{
+		apiURL: "http://127.0.0.1:1",
+		apiKey: "test-key",
+		apiClient: brainclient.New(brainclient.Options{
+			URL:         "http://127.0.0.1:1",
+			Key:         "test-key",
+			MaxAttempts: 1,
+			BaseDelay:   time.Nanosecond,
+		}),
+	}
 	result := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
 	require.False(t, result.OK)
 	err, _ := result.Value.(error)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API call failed")
+	assert.Contains(t, err.Error(), "request failed")
 }
 
 func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
@@ -185,12 +206,14 @@ func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
 	require.False(t, result.OK)
 	err, _ := result.Value.(error)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API call failed")
+	assert.Contains(t, err.Error(), "upstream returned 400")
 }
 
 // --- remember ---
 
 func TestDirect_Remember_Good(t *testing.T) {
+	t.Setenv("CORE_BRAIN_AGENT_ID", "codex")
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/v1/brain/remember", r.URL.Path)
@@ -199,6 +222,8 @@ func TestDirect_Remember_Good(t *testing.T) {
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "test content", body["content"])
 		assert.Equal(t, "observation", body["type"])
+		assert.Equal(t, "core", body["org"])
+		assert.Equal(t, "codex", body["agent_id"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -211,6 +236,7 @@ func TestDirect_Remember_Good(t *testing.T) {
 		Content: "test content",
 		Type:    "observation",
 		Tags:    []string{"test"},
+		Org:     "core",
 		Project: "core",
 	})
 	require.NoError(t, err)
@@ -254,6 +280,7 @@ func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "architecture", body["query"])
+		assert.Equal(t, "core", body["org"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -287,6 +314,9 @@ func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 	_, out, err := newTestDirect(srv).recall(context.Background(), nil, RecallInput{
 		Query: "architecture",
 		TopK:  5,
+		Filter: RecallFilter{
+			Org: "core",
+		},
 	})
 	require.NoError(t, err)
 	assert.True(t, out.Success)
@@ -331,6 +361,7 @@ func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
 		assert.Equal(t, "cladius", body["agent_id"])
+		assert.Equal(t, "core", body["org"])
 		assert.Equal(t, "eaas", body["project"])
 		assert.Equal(t, "decision", body["type"])
 
@@ -346,6 +377,7 @@ func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 		TopK:  5,
 		Filter: RecallFilter{
 			AgentID: "cladius",
+			Org:     "core",
 			Project: "eaas",
 			Type:    "decision",
 		},
@@ -412,6 +444,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/v1/brain/list", r.URL.Path)
+		assert.Equal(t, "core", r.URL.Query().Get("org"))
 		assert.Equal(t, "agent", r.URL.Query().Get("project"))
 		assert.Equal(t, "decision", r.URL.Query().Get("type"))
 		assert.Equal(t, "codex", r.URL.Query().Get("agent_id"))
@@ -453,6 +486,7 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{
+		Org:     "core",
 		Project: "agent",
 		Type:    "decision",
 		AgentID: "codex",

@@ -9,6 +9,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
+	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -16,8 +17,9 @@ import (
 // core.Println(subsystem.Name()) // "brain"
 type DirectSubsystem struct {
 	*core.ServiceRuntime[DirectOptions]
-	apiURL string
-	apiKey string
+	apiURL    string
+	apiKey    string
+	apiClient *brainclient.Client
 }
 
 var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
@@ -48,8 +50,9 @@ func NewDirect() *DirectSubsystem {
 	}
 
 	return &DirectSubsystem{
-		apiURL: apiURL,
-		apiKey: apiKey,
+		apiURL:    apiURL,
+		apiKey:    apiKey,
+		apiClient: newBrainClient(apiURL, apiKey),
 	}
 }
 
@@ -93,37 +96,10 @@ func brainKeyPath(home string) string {
 }
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) core.Result {
-	if s.apiKey == "" {
-		return core.Result{
-			Value: core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil),
-			OK:    false,
-		}
+	result, err := s.client().Call(ctx, method, path, body)
+	if err != nil {
+		return core.Result{Value: err, OK: false}
 	}
-
-	requestURL := core.Concat(s.apiURL, path)
-	var bodyStr string
-	if body != nil {
-		bodyStr = core.JSONMarshalString(body)
-	}
-	requestResult := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
-	if !requestResult.OK {
-		core.Error("brain API call failed", "method", method, "path", path)
-		if err, ok := requestResult.Value.(error); ok {
-			return core.Result{Value: core.E("brain.apiCall", "API call failed", err), OK: false}
-		}
-		if responseBody, ok := requestResult.Value.(string); ok && responseBody != "" {
-			return core.Result{Value: core.E("brain.apiCall", core.Concat("API call failed: ", core.Trim(responseBody)), nil), OK: false}
-		}
-		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil), OK: false}
-	}
-
-	var result map[string]any
-	if parseResult := core.JSONUnmarshalString(requestResult.Value.(string), &result); !parseResult.OK {
-		core.Error("brain API response parse failed", "method", method, "path", path)
-		err, _ := parseResult.Value.(error)
-		return core.Result{Value: core.E("brain.apiCall", "parse response", err), OK: false}
-	}
-
 	return core.Result{Value: result, OK: true}
 }
 
@@ -132,11 +108,12 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 		"content":    input.Content,
 		"type":       input.Type,
 		"tags":       input.Tags,
+		"org":        input.Org,
 		"project":    input.Project,
 		"confidence": input.Confidence,
 		"supersedes": input.Supersedes,
 		"expires_in": input.ExpiresIn,
-		"agent_id":   agentic.AgentName(),
+		"agent_id":   directAgentID(),
 	})
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -161,6 +138,9 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 	if input.Filter.Project != "" {
 		body["project"] = input.Filter.Project
+	}
+	if input.Filter.Org != "" {
+		body["org"] = input.Filter.Org
 	}
 	if input.Filter.Type != nil {
 		body["type"] = input.Filter.Type
@@ -204,6 +184,9 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 
 func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
 	var params []string
+	if input.Org != "" {
+		params = append(params, core.Concat("org=", core.URLEncode(input.Org)))
+	}
 	if input.Project != "" {
 		params = append(params, core.Concat("project=", core.URLEncode(input.Project)))
 	}
@@ -236,6 +219,29 @@ func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		Count:    len(memories),
 		Memories: memories,
 	}, nil
+}
+
+func (s *DirectSubsystem) client() *brainclient.Client {
+	if s.apiClient == nil {
+		s.apiClient = newBrainClient(s.apiURL, s.apiKey)
+	}
+	return s.apiClient
+}
+
+func newBrainClient(apiURL, apiKey string) *brainclient.Client {
+	return brainclient.New(brainclient.Options{
+		URL:     apiURL,
+		Key:     apiKey,
+		Org:     core.Trim(core.Env("CORE_BRAIN_ORG")),
+		AgentID: directAgentID(),
+	})
+}
+
+func directAgentID() string {
+	if configured := core.Trim(core.Env("CORE_BRAIN_AGENT_ID")); configured != "" {
+		return configured
+	}
+	return agentic.AgentName()
 }
 
 func memoriesFromPayload(payload map[string]any) []Memory {

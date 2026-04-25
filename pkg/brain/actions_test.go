@@ -37,6 +37,7 @@ func TestActions_HandleList_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/v1/brain/list", r.URL.Path)
+		assert.Equal(t, "core", r.URL.Query().Get("org"))
 		assert.Equal(t, "agent", r.URL.Query().Get("project"))
 		assert.Equal(t, "decision", r.URL.Query().Get("type"))
 		assert.Equal(t, "cladius", r.URL.Query().Get("agent_id"))
@@ -69,6 +70,7 @@ func TestActions_HandleList_Good(t *testing.T) {
 	require.True(t, result.OK)
 
 	actionResult := c.Action("brain.list").Run(context.Background(), core.NewOptions(
+		core.Option{Key: "org", Value: "core"},
 		core.Option{Key: "project", Value: "agent"},
 		core.Option{Key: "type", Value: "decision"},
 		core.Option{Key: "agent_id", Value: "cladius"},
@@ -103,7 +105,7 @@ func TestActions_HandleList_Bad(t *testing.T) {
 	require.False(t, actionResult.OK)
 	err, ok := actionResult.Value.(error)
 	require.True(t, ok)
-	assert.Contains(t, err.Error(), "API call failed")
+	assert.Contains(t, err.Error(), "upstream returned 500")
 }
 
 func TestActions_HandleRecall_Ugly_FilterMap(t *testing.T) {
@@ -115,6 +117,7 @@ func TestActions_HandleRecall_Ugly_FilterMap(t *testing.T) {
 		require.True(t, core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body).OK)
 		assert.Equal(t, "architecture", body["query"])
 		assert.Equal(t, float64(3), body["top_k"])
+		assert.Equal(t, "core", body["org"])
 		assert.Equal(t, "agent", body["project"])
 		assert.Equal(t, "decision", body["type"])
 		assert.Equal(t, "clotho", body["agent_id"])
@@ -136,6 +139,7 @@ func TestActions_HandleRecall_Ugly_FilterMap(t *testing.T) {
 		core.Option{Key: "query", Value: "architecture"},
 		core.Option{Key: "top_k", Value: 3},
 		core.Option{Key: "filter", Value: map[string]any{
+			"org":            "core",
 			"project":        "agent",
 			"type":           "decision",
 			"agent_id":       "clotho",
