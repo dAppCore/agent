@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Models;
@@ -16,6 +18,8 @@ class CreditEntry extends Model
     protected $fillable = [
         'workspace_id',
         'fleet_node_id',
+        'fleet_task_id',
+        'agent_id',
         'task_type',
         'amount',
         'balance_after',
@@ -23,6 +27,7 @@ class CreditEntry extends Model
     ];
 
     protected $casts = [
+        'fleet_task_id' => 'integer',
         'amount' => 'integer',
         'balance_after' => 'integer',
     ];
@@ -35,5 +40,10 @@ class CreditEntry extends Model
     public function fleetNode(): BelongsTo
     {
         return $this->belongsTo(FleetNode::class);
+    }
+
+    public function fleetTask(): BelongsTo
+    {
+        return $this->belongsTo(FleetTask::class);
     }
 }

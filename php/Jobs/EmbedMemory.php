@@ -33,7 +33,7 @@ class EmbedMemory implements ShouldQueue
     {
         $memory = BrainMemory::find($this->memoryId);
 
-        if (! $memory instanceof BrainMemory) {
+        if (! $memory instanceof BrainMemory || $memory->indexed_at !== null) {
             return;
         }
 
