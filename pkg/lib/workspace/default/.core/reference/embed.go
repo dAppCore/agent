@@ -515,7 +515,7 @@ func Extract(fsys fs.FS, targetDir string, data any, opts ...ExtractOptions) Res
 	if err != nil {
 		return Result{err, false}
 	}
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, 0700); err != nil {
 		return Result{err, false}
 	}
 
@@ -568,7 +568,7 @@ func Extract(fsys fs.FS, targetDir string, data any, opts ...ExtractOptions) Res
 		if err != nil {
 			return Result{err, false}
 		}
-		if err := os.MkdirAll(target, 0755); err != nil {
+		if err := os.MkdirAll(target, 0700); err != nil {
 			return Result{err, false}
 		}
 	}
@@ -596,7 +596,7 @@ func Extract(fsys fs.FS, targetDir string, data any, opts ...ExtractOptions) Res
 			return Result{err, false}
 		}
 
-		f, err := os.Create(targetFile)
+		f, err := os.OpenFile(targetFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 		if err != nil {
 			return Result{err, false}
 		}
@@ -657,11 +657,11 @@ func copyFile(fsys fs.FS, source, target string) error {
 	}
 	defer s.Close()
 
-	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
 		return err
 	}
 
-	d, err := os.Create(target)
+	d, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

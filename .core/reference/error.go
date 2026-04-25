@@ -390,7 +390,7 @@ func (h *ErrorPanic) appendReport(report CrashReport) {
 		Default().Error(Concat("crash report marshal failed: ", err.Error()))
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(h.filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(h.filePath), 0700); err != nil {
 		Default().Error(Concat("crash report dir failed: ", err.Error()))
 		return
 	}
