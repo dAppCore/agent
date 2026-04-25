@@ -468,11 +468,18 @@ func (s *PrepSubsystem) cmdContentSchemaGenerate(options core.Options) core.Resu
 }
 
 func (s *PrepSubsystem) cmdComplete(options core.Options) core.Result {
-	result := s.handleComplete(s.commandContext(), options)
+	ctx := s.commandContext()
+	result := s.handleComplete(ctx, options)
 	if !result.OK {
 		err := commandResultError("agentic.cmdComplete", result)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
+	}
+
+	workspace := optionStringValue(options, "workspace", "_arg")
+	cleanupResult := s.cleanupWorkspaceBranch(ctx, workspace)
+	if !cleanupResult.OK {
+		core.Warn("agentic.cmdComplete: branch cleanup failed", "workspace", workspace, "reason", cleanupResult.Value)
 	}
 
 	return result

@@ -148,7 +148,10 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	workspaceStatus.PRURL = pullRequestURL
 	writeStatusResult(workspaceDir, workspaceStatus)
-	s.cleanupForgeBranch(ctx, repoDir, forgeRemote, workspaceStatus.Branch)
+	cleanupResult := s.cleanupBranch(ctx, cleanupRepoRef(workspaceStatus.Org, workspaceStatus.Repo), workspaceStatus.Branch)
+	if !cleanupResult.OK {
+		core.Warn("createPR: branch cleanup failed", "repo", workspaceStatus.Repo, "branch", workspaceStatus.Branch, "reason", cleanupResult.Value)
+	}
 
 	if workspaceStatus.Issue > 0 {
 		comment := core.Sprintf("Pull request created: %s", pullRequestURL)
@@ -498,12 +501,6 @@ type DeleteBranchOutput struct {
 
 // s.deleteBranch(ctx, nil, agentic.DeleteBranchInput{Repo: "go-io", Branch: "agent/fix-tests"})
 func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
-	if s.forgeToken == "" {
-		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "no Forge token configured", nil)
-	}
-	if s.forge == nil {
-		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "forge client is not configured", nil)
-	}
 	if input.Repo == "" || input.Branch == "" {
 		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "repo and branch are required", nil)
 	}
@@ -513,15 +510,20 @@ func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest
 		org = "core"
 	}
 
-	if err := s.forge.Branches.DeleteBranch(ctx, org, input.Repo, input.Branch); err != nil {
-		return nil, DeleteBranchOutput{}, core.E("deleteBranch", core.Concat("failed to delete branch ", input.Branch), err)
+	cleanupResult := s.cleanupBranch(ctx, cleanupRepoRef(org, input.Repo), input.Branch)
+	if !cleanupResult.OK {
+		err, _ := cleanupResult.Value.(error)
+		if err == nil {
+			err = core.E("deleteBranch", "branch cleanup failed", nil)
+		}
+		return nil, DeleteBranchOutput{}, err
 	}
 
 	return nil, DeleteBranchOutput{
 		Success: true,
 		Org:     org,
 		Repo:    input.Repo,
-		Branch:  input.Branch,
+		Branch:  cleanupBranchName(input.Branch),
 	}, nil
 }
 
