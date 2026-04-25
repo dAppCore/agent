@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -19,7 +18,7 @@ type applicationCommandSet struct {
 func startupArgs() []string {
 	previous := flag.CommandLine
 	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)
-	commandLine.SetOutput(&bytes.Buffer{})
+	commandLine.SetOutput(core.NewBuffer())
 	commandLine.BoolFunc("quiet", "", func(string) error {
 		core.SetLevel(core.LevelError)
 		return nil
@@ -134,4 +133,3 @@ func (commands applicationCommandSet) env(_ core.Options) core.Result {
 	}
 	return core.Result{OK: true}
 }
-
