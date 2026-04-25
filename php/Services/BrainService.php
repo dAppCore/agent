@@ -38,6 +38,22 @@ class BrainService
 
     private const MAX_SUPERSEDE_CHAIN_DEPTH = 100;
 
+    private const MAX_CONTENT_BYTES = 65536;
+
+    private const MAX_TAG_COUNT = 100;
+
+    private const MAX_TAG_LENGTH = 128;
+
+    private const MAX_ID_LENGTH = 64;
+
+    private const MAX_AGENT_ID_LENGTH = 64;
+
+    private const MAX_TYPE_LENGTH = 64;
+
+    private const MAX_PROJECT_LENGTH = 128;
+
+    private const MAX_ORG_LENGTH = 128;
+
     private string $qdrantApiKey;
 
     public function __construct(
@@ -123,6 +139,7 @@ class BrainService
      */
     public function remember(array $attributes): BrainMemory
     {
+        $this->validateRememberInput($attributes);
         $this->assertAuthorisedOrgScope($attributes['org'] ?? null);
 
         $attributes['indexed_at'] = null;
@@ -178,6 +195,7 @@ class BrainService
         array $keywords = [],
         array $boostKeywords = [],
     ): array {
+        $this->validateMemoryFilters($filter);
         $this->assertAuthorisedOrgScope($filter['org'] ?? null);
 
         $vector = $this->embed($query);
@@ -262,6 +280,8 @@ class BrainService
      */
     public function forget(string $id): void
     {
+        $this->validateForgetInput($id);
+
         $memoryOrg = BrainMemory::query()
             ->whereKey($id)
             ->value('org');
@@ -368,6 +388,7 @@ class BrainService
      */
     public function elasticSearch(string $query, array $filters = [], ?int $limit = null): array
     {
+        $this->validateMemoryFilters($filters);
         $this->assertAuthorisedOrgScope($filters['org'] ?? null);
 
         $body = [
@@ -445,6 +466,158 @@ class BrainService
         }
 
         return $scores;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function validateRememberInput(array $attributes): void
+    {
+        $this->validateContent($attributes['content'] ?? null);
+        $this->validateTags($attributes['tags'] ?? null);
+        $this->validateStringMaxLength($attributes['supersedes_id'] ?? null, 'supersedes_id', self::MAX_ID_LENGTH);
+        $this->validateStringMaxLength($attributes['agent_id'] ?? null, 'agent_id', self::MAX_AGENT_ID_LENGTH);
+        $this->validateStringMaxLength($attributes['type'] ?? null, 'type', self::MAX_TYPE_LENGTH);
+        $this->validateConfidence($attributes['confidence'] ?? null, 'confidence');
+        $this->validateStringMaxLength($attributes['project'] ?? null, 'project', self::MAX_PROJECT_LENGTH);
+        $this->validateStringMaxLength($attributes['org'] ?? null, 'org', self::MAX_ORG_LENGTH);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function validateMemoryFilters(array $filters): void
+    {
+        $this->validateStringMaxLength($filters['org'] ?? null, 'org', self::MAX_ORG_LENGTH);
+        $this->validateStringMaxLength($filters['project'] ?? null, 'project', self::MAX_PROJECT_LENGTH);
+        $this->validateStringOrArrayMaxLength($filters['type'] ?? null, 'type', self::MAX_TYPE_LENGTH);
+        $this->validateStringMaxLength($filters['agent_id'] ?? null, 'agent_id', self::MAX_AGENT_ID_LENGTH);
+        $this->validateTags($filters['tags'] ?? null, allowSingleTag: true);
+        $this->validateConfidence($filters['min_confidence'] ?? null, 'min_confidence');
+    }
+
+    private function validateForgetInput(string $id): void
+    {
+        $this->validateStringMaxLength($id, 'id', self::MAX_ID_LENGTH);
+    }
+
+    private function validateContent(mixed $content): void
+    {
+        if ($content === null) {
+            return;
+        }
+
+        if (! is_string($content)) {
+            throw new \InvalidArgumentException('content must be a string');
+        }
+
+        if (strlen($content) > self::MAX_CONTENT_BYTES) {
+            throw new \InvalidArgumentException(
+                sprintf('content exceeds maximum length of %d bytes', self::MAX_CONTENT_BYTES)
+            );
+        }
+    }
+
+    private function validateTags(mixed $tags, bool $allowSingleTag = false): void
+    {
+        if ($tags === null) {
+            return;
+        }
+
+        if ($allowSingleTag && is_string($tags)) {
+            if (strlen($tags) > self::MAX_TAG_LENGTH) {
+                throw new \InvalidArgumentException(
+                    sprintf('tag exceeds maximum length of %d', self::MAX_TAG_LENGTH)
+                );
+            }
+
+            return;
+        }
+
+        if (! is_array($tags)) {
+            throw new \InvalidArgumentException('tags must be an array');
+        }
+
+        if (count($tags) > self::MAX_TAG_COUNT) {
+            throw new \InvalidArgumentException(
+                sprintf('tags array exceeds maximum size of %d', self::MAX_TAG_COUNT)
+            );
+        }
+
+        foreach ($tags as $index => $tag) {
+            if (! is_string($tag)) {
+                throw new \InvalidArgumentException(
+                    sprintf('tag at index %s must be a string', (string) $index)
+                );
+            }
+
+            if (strlen($tag) > self::MAX_TAG_LENGTH) {
+                throw new \InvalidArgumentException(
+                    sprintf('tag at index %s exceeds maximum length of %d', (string) $index, self::MAX_TAG_LENGTH)
+                );
+            }
+        }
+    }
+
+    private function validateStringMaxLength(mixed $value, string $field, int $maxLength): void
+    {
+        if ($value === null) {
+            return;
+        }
+
+        if (! is_string($value)) {
+            throw new \InvalidArgumentException(sprintf('%s must be a string', $field));
+        }
+
+        if (strlen($value) > $maxLength) {
+            throw new \InvalidArgumentException(
+                sprintf('%s exceeds maximum length of %d', $field, $maxLength)
+            );
+        }
+    }
+
+    private function validateStringOrArrayMaxLength(mixed $value, string $field, int $maxLength): void
+    {
+        if ($value === null) {
+            return;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $index => $item) {
+                if (! is_string($item)) {
+                    throw new \InvalidArgumentException(
+                        sprintf('%s at index %s must be a string', $field, (string) $index)
+                    );
+                }
+
+                if (strlen($item) > $maxLength) {
+                    throw new \InvalidArgumentException(
+                        sprintf('%s at index %s exceeds maximum length of %d', $field, (string) $index, $maxLength)
+                    );
+                }
+            }
+
+            return;
+        }
+
+        $this->validateStringMaxLength($value, $field, $maxLength);
+    }
+
+    private function validateConfidence(mixed $value, string $field): void
+    {
+        if ($value === null) {
+            return;
+        }
+
+        if (! is_numeric($value)) {
+            throw new \InvalidArgumentException(sprintf('%s must be between 0.0 and 1.0', $field));
+        }
+
+        $confidence = (float) $value;
+
+        if ($confidence < 0.0 || $confidence > 1.0) {
+            throw new \InvalidArgumentException(sprintf('%s must be between 0.0 and 1.0', $field));
+        }
     }
 
     /**
@@ -685,6 +858,8 @@ class BrainService
      */
     public function buildQdrantFilter(array $criteria): array
     {
+        $this->validateMemoryFilters($criteria);
+
         $must = [];
 
         if (isset($criteria['workspace_id'])) {
