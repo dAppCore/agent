@@ -6,6 +6,8 @@ declare(strict_types=1);
 
 use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Services\BrainService;
+use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 function rememberValidationBrainService(): BrainService
@@ -101,6 +103,88 @@ test('BrainRememberValidation_recall_Bad_rejects_min_confidence_above_one', func
         ['min_confidence' => 1.1],
         createWorkspace()->id,
     ))->toThrow(\InvalidArgumentException::class, 'min_confidence must be between 0.0 and 1.0');
+});
+
+test('BrainRememberValidation_recall_Bad_rejects_project_filters_longer_than_128_characters', function (): void {
+    Http::fake();
+
+    expect(fn () => rememberValidationBrainService()->recall(
+        'brain validation query',
+        5,
+        ['project' => str_repeat('x', 129)],
+        createWorkspace()->id,
+    ))->toThrow(\InvalidArgumentException::class, 'project exceeds maximum length of 128');
+
+    Http::assertNothingSent();
+});
+
+test('BrainRememberValidation_recall_Bad_rejects_agent_id_filters_longer_than_64_characters', function (): void {
+    Http::fake();
+
+    expect(fn () => rememberValidationBrainService()->recall(
+        'brain validation query',
+        5,
+        ['agent_id' => str_repeat('x', 65)],
+        createWorkspace()->id,
+    ))->toThrow(\InvalidArgumentException::class, 'agent_id exceeds maximum length of 64');
+
+    Http::assertNothingSent();
+});
+
+test('BrainRememberValidation_recall_Good_accepts_project_filters_within_bounds', function (): void {
+    $workspace = createWorkspace();
+    Http::fake([
+        'https://ollama.test/api/embeddings' => Http::response(['embedding' => array_fill(0, 768, 0.125)]),
+        'https://qdrant.test/collections/openbrain/points/search' => Http::response(['result' => []]),
+    ]);
+
+    $result = rememberValidationBrainService()->recall(
+        'brain validation query',
+        5,
+        ['project' => 'core'],
+        $workspace->id,
+    );
+
+    expect($result)->toBe([
+        'memories' => [],
+        'scores' => [],
+    ]);
+
+    Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://qdrant.test/collections/openbrain/points/search'
+        && $request->method() === 'POST'
+        && $request['filter']['must'] === [
+            ['key' => 'workspace_id', 'match' => ['value' => $workspace->id]],
+            ['key' => 'project', 'match' => ['value' => 'core']],
+        ]);
+});
+
+test('BrainRememberValidation_recall_Ugly_accepts_project_filters_at_the_128_character_boundary', function (): void {
+    $workspace = createWorkspace();
+    $project = str_repeat('x', 128);
+
+    Http::fake([
+        'https://ollama.test/api/embeddings' => Http::response(['embedding' => array_fill(0, 768, 0.125)]),
+        'https://qdrant.test/collections/openbrain/points/search' => Http::response(['result' => []]),
+    ]);
+
+    $result = rememberValidationBrainService()->recall(
+        'brain validation query',
+        5,
+        ['project' => $project],
+        $workspace->id,
+    );
+
+    expect($result)->toBe([
+        'memories' => [],
+        'scores' => [],
+    ]);
+
+    Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://qdrant.test/collections/openbrain/points/search'
+        && $request->method() === 'POST'
+        && $request['filter']['must'] === [
+            ['key' => 'workspace_id', 'match' => ['value' => $workspace->id]],
+            ['key' => 'project', 'match' => ['value' => $project]],
+        ]);
 });
 
 test('BrainRememberValidation_forget_Bad_rejects_ids_longer_than_64_characters', function (): void {
