@@ -669,3 +669,21 @@ func TestSync_HandleSyncPush_Ugly_RespectsBackoffWindow(t *testing.T) {
 	require.Len(t, queued, 1)
 	assert.Equal(t, 3, queued[0].Attempts)
 }
+
+func TestSync_syncBackoffSchedule_Good(t *testing.T) {
+	assert.Equal(t, time.Second, syncBackoffSchedule(1))
+	assert.Equal(t, 5*time.Second, syncBackoffSchedule(2))
+	assert.Equal(t, 15*time.Second, syncBackoffSchedule(3))
+	assert.Equal(t, 60*time.Second, syncBackoffSchedule(4))
+}
+
+func TestSync_syncBackoffSchedule_Bad(t *testing.T) {
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(-1))
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(-42))
+}
+
+func TestSync_syncBackoffSchedule_Ugly(t *testing.T) {
+	assert.Equal(t, time.Duration(0), syncBackoffSchedule(0))
+	assert.Equal(t, 5*time.Minute, syncBackoffSchedule(5))
+	assert.Equal(t, 5*time.Minute, syncBackoffSchedule(999))
+}

@@ -610,3 +610,34 @@ func TestDispatch_ContainerCommand_Bad(t *testing.T) {
 // Good: tested in queue_test.go
 // Bad: tested in queue_test.go
 // Ugly: see queue_extra_test.go
+
+// --- agentCommand AX-10 ---
+
+func TestDispatch_agentCommand_Good(t *testing.T) {
+	command, args, err := agentCommand("codex:gpt-5.4-mini", "Implement AX-10 unit tests for Mantis #169")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", command)
+	assert.Equal(t, []string{
+		"exec",
+		"--dangerously-bypass-approvals-and-sandbox",
+		"-o", "../.meta/agent-codex.log",
+		"--model", "gpt-5.4-mini",
+		"Implement AX-10 unit tests for Mantis #169",
+	}, args)
+}
+
+func TestDispatch_agentCommand_Bad(t *testing.T) {
+	command, args, err := agentCommand("mantis", "Investigate a failing dispatch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown agent: mantis")
+	assert.Empty(t, command)
+	assert.Nil(t, args)
+}
+
+func TestDispatch_agentCommand_Ugly(t *testing.T) {
+	command, args, err := agentCommand("", "Investigate a failing dispatch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown agent")
+	assert.Empty(t, command)
+	assert.Nil(t, args)
+}
