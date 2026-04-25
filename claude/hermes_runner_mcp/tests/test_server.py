@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: EUPL-1.2
+# MockTransport fixtures in this module use literal http:// URLs for reserved test hosts only.
+# Keep the inline NOSONAR markers paired with those mock-only endpoints.
 
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ class HermesGatewayClientTests(unittest.TestCase):
         self.requests: list[httpx.Request] = []
         self.transport = httpx.MockTransport(self._handle_request)
         self.client = HermesGatewayClient(
-            "http://hermes.example/",
+            "http://hermes.example/",  # NOSONAR python:S5332 - MockTransport fixture target uses a reserved test host.
             "secret-key",
             transport=self.transport,
         )
@@ -40,7 +42,7 @@ class HermesGatewayClientTests(unittest.TestCase):
             200,
             json={
                 "run_id": "run-123",
-                "status_url": "http://hermes.example/runs/run-123",
+                "status_url": "http://hermes.example/runs/run-123",  # NOSONAR python:S5332 - MockTransport response fixture uses a reserved test host.
             },
         )
 
@@ -53,7 +55,7 @@ class HermesGatewayClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result.run_id, "run-123")
-        self.assertEqual(result.status_url, "http://hermes.example/runs/run-123")
+        self.assertEqual(result.status_url, "http://hermes.example/runs/run-123")  # NOSONAR python:S5332 - MockTransport assertion uses a reserved test host.
         self.assertEqual(len(self.requests), 1)
         request = self.requests[0]
         self.assertEqual(request.headers["authorization"], "Bearer secret-key")

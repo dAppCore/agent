@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: EUPL-1.2
+# MockTransport fixtures in this module use literal http:// URLs for in-process tests only.
+# Keep the inline NOSONAR markers paired with those mock-only endpoints.
 
 from __future__ import annotations
 
@@ -27,9 +29,9 @@ def make_bytes_response(request: httpx.Request, payload: bytes, status_code: int
 class CamofoxMcpApplicationTests(unittest.TestCase):
     def make_app(self, handler) -> CamofoxMcpApplication:
         transport = httpx.MockTransport(handler)
-        client = httpx.Client(transport=transport, base_url="http://camofox.local")
+        client = httpx.Client(transport=transport, base_url="http://camofox.local")  # NOSONAR python:S5332 - MockTransport base URL stays in-process.
         camofox = CamofoxClient(
-            "http://camofox.local",
+            "http://camofox.local",  # NOSONAR python:S5332 - MockTransport client target stays in-process.
             "secret-token",
             user_id="agent1",
             session_key="session1",
@@ -209,9 +211,9 @@ class MinimalStdioMcpServerTests(unittest.TestCase):
             raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
         transport = httpx.MockTransport(handler)
-        client = httpx.Client(transport=transport, base_url="http://camofox.local")
+        client = httpx.Client(transport=transport, base_url="http://camofox.local")  # NOSONAR python:S5332 - MockTransport base URL stays in-process.
         camofox = CamofoxClient(
-            "http://camofox.local",
+            "http://camofox.local",  # NOSONAR python:S5332 - MockTransport client target stays in-process.
             user_id="agent1",
             session_key="session1",
             client=client,
