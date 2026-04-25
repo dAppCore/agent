@@ -10,6 +10,98 @@ tasks:
 
           go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../cmd/core-agent
 
+          workspace="$(mktemp -d)"
+          port_file="$(mktemp)"
+          trap '[[ -n "${server_pid:-}" ]] && kill "${server_pid}" 2>/dev/null || true' EXIT
+
+          export CORE_WORKSPACE="$workspace"
+          export CORE_HOME="$workspace"
+          export DIR_HOME="$workspace"
+          export CODE_PATH="$workspace/code"
+
+          mkdir -p "$CODE_PATH/core"
+          cat >"$workspace/agents.yaml" <<'YAML'
+          version: 1
+          concurrency:
+            codex: 1
+          rates:
+            codex:
+              reset_utc: "00:00"
+              daily_limit: 2
+              sustained_delay: 30
+          YAML
+
+          python3 - "$port_file" <<'PY' &
+          import json
+          import sys
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+
+          port_file = sys.argv[1]
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == "/api/v1/repos/core/go-io/pulls/7":
+                      payload = {
+                          "number": 7,
+                          "title": "Test PR",
+                          "state": "closed",
+                          "html_url": "https://forge.test/core/go-io/pulls/7",
+                          "merged": True,
+                          "mergeable": True,
+                          "mergeable_state": "clean",
+                          "review_threads_total": 0,
+                          "review_threads_resolved": 0,
+                          "review_comments": 0,
+                          "comments": 0,
+                          "head": {
+                              "ref": "agent/fix-tests",
+                              "sha": "deadbeef",
+                              "repo": {
+                                  "updated_at": "2026-04-25T12:00:00Z",
+                                  "pushed_at": "2026-04-25T12:00:00Z",
+                              },
+                          },
+                          "base": {"ref": "dev"},
+                      }
+                      self.send_response(200)
+                      self.end_headers()
+                      self.wfile.write(json.dumps(payload).encode())
+                      return
+
+                  if self.path == "/api/v1/repos/core/go-io/commits/deadbeef/status":
+                      payload = {"statuses": [{"context": "qa", "state": "success"}]}
+                      self.send_response(200)
+                      self.end_headers()
+                      self.wfile.write(json.dumps(payload).encode())
+                      return
+
+                  if self.path == "/api/v1/repos/core/go-io/pulls/7.diff":
+                      self.send_response(200)
+                      self.end_headers()
+                      self.wfile.write(b"diff --git a/main.go b/main.go\n+package main\n")
+                      return
+
+                  self.send_response(404)
+                  self.end_headers()
+
+              def log_message(self, *_args):
+                  return
+
+          server = HTTPServer(("127.0.0.1", 0), Handler)
+          with open(port_file, "w", encoding="utf-8") as handle:
+              handle.write(str(server.server_address[1]))
+          server.serve_forever()
+          PY
+          server_pid=$!
+
+          for _ in $(seq 1 50); do
+            [[ -s "$port_file" ]] && break
+            sleep 0.1
+          done
+
+          export FORGE_TOKEN="test-token"
+          export FORGE_URL="http://127.0.0.1:$(cat "$port_file")"
+
           output="$(mktemp)"
 
           run_capture_all 0 "$output" ./bin/core-agent pipeline
@@ -18,9 +110,28 @@ tasks:
           run_capture_all 1 "$output" ./bin/core-agent pipeline/audit
           assert_contains "pipeline/audit <repo>" "$output"
 
-          run_capture_all 1 "$output" ./bin/core-agent pipeline/budget/plan
-          assert_contains "blocked-on-sibling" "$output"
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/budget/plan
+          assert_contains "codex" "$output"
+          grep -Eq 'codex[[:space:]]+0[[:space:]]+2[[:space:]]+2' "$output"
 
-          run_capture_all 1 "$output" ./bin/core-agent pipeline/training/capture
-          assert_contains "blocked-on-sibling" "$output"
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/budget/log --repo=go-io --agent=codex --model=gpt-5.4
+          assert_contains "journal:" "$output"
+
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/budget/plan
+          assert_contains "codex" "$output"
+          grep -Eq 'codex[[:space:]]+1[[:space:]]+2[[:space:]]+1' "$output"
+
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/training/capture 7 --repo=go-io
+          assert_contains "go-io#7" "$output"
+
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/training/stats
+          assert_contains "total_prs:          1" "$output"
+          assert_contains "zero_finding_prs:   1" "$output"
+
+          run_capture_all 0 "$output" ./bin/core-agent pipeline/training/export
+          assert_contains "exported: 1" "$output"
+
+          assert_contains '"repo":"go-io"' "$workspace/journal/dispatch.jsonl"
+          assert_contains '"pr_number":7' "$workspace/training/journal.jsonl"
+          assert_jq '.repo == "go-io" and .pr_number == 7 and .coderabbit_findings == 0' "$workspace/training/export.jsonl"
           EOF
