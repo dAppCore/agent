@@ -93,3 +93,35 @@ func TestSprint_HandleSprintList_Ugly_NestedEnvelope(t *testing.T) {
 	assert.Equal(t, 2, output.Sprints[0].WorkspaceID)
 	assert.Equal(t, "Finish RFC parity", output.Sprints[0].Goal)
 }
+
+func TestSprint_SprintStart_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sprints/ax-follow-up/start", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+		_, _ = w.Write([]byte(`{"data":{"sprint":{"slug":"ax-follow-up","title":"AX Follow-up","status":"active"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	_, output, err := subsystem.sprintStart(context.Background(), nil, SprintTransitionInput{Slug: "ax-follow-up"})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, "ax-follow-up", output.Sprint.Slug)
+	assert.Equal(t, "active", output.Sprint.Status)
+}
+
+func TestSprint_SprintComplete_Good(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/sprints/7/complete", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+		_, _ = w.Write([]byte(`{"data":{"sprint":{"id":7,"slug":"ax-follow-up","title":"AX Follow-up","status":"completed"}}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	_, output, err := subsystem.sprintComplete(context.Background(), nil, SprintTransitionInput{ID: "7"})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, 7, output.Sprint.ID)
+	assert.Equal(t, "completed", output.Sprint.Status)
+}

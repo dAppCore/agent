@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"syscall"
 
 	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/core"
@@ -20,7 +19,7 @@ import (
 func main() {
 	if err := runCoreAgent(); err != nil {
 		core.Error("core-agent failed", "err", err)
-		syscall.Exit(1)
+		core.Exit(1)
 	}
 }
 

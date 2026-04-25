@@ -3,7 +3,7 @@
 package main
 
 import (
-	"flag"
+	"os"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/core"
@@ -16,33 +16,7 @@ type applicationCommandSet struct {
 // args := startupArgs()
 // _ = c.Cli().Run("version")
 func startupArgs() []string {
-	previous := flag.CommandLine
-	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)
-	commandLine.SetOutput(core.NewBuffer())
-	commandLine.BoolFunc("quiet", "", func(string) error {
-		core.SetLevel(core.LevelError)
-		return nil
-	})
-	commandLine.BoolFunc("q", "", func(string) error {
-		core.SetLevel(core.LevelError)
-		return nil
-	})
-	commandLine.BoolFunc("debug", "", func(string) error {
-		core.SetLevel(core.LevelDebug)
-		return nil
-	})
-	commandLine.BoolFunc("d", "", func(string) error {
-		core.SetLevel(core.LevelDebug)
-		return nil
-	})
-
-	flag.CommandLine = commandLine
-	defer func() {
-		flag.CommandLine = previous
-	}()
-
-	flag.Parse()
-	return applyLogLevel(commandLine.Args())
+	return applyLogLevel(core.FilterArgs(os.Args[1:]))
 }
 
 // args := applyLogLevel([]string{"version", "-q"})

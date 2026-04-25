@@ -4,13 +4,12 @@ package agentic
 
 import (
 	"context"
-	"runtime"
 	"time"
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/process"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -235,7 +234,7 @@ func containerRuntimeBinary(runtime string) string {
 // goosIsDarwin reports whether the running process is on macOS. Captured at
 // package init so tests can compare against a fixed value without taking a
 // dependency on the `runtime` package themselves.
-var goosIsDarwin = runtime.GOOS == "darwin"
+var goosIsDarwin = core.Lower(core.Trim(envOr("GOOS", core.Env("OS")))) == "darwin"
 
 // runtimeAvailable reports whether the runtime's binary is available on PATH
 // or via known absolute paths. Apple Container additionally requires macOS as

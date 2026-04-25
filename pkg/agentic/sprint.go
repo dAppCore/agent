@@ -65,6 +65,12 @@ type SprintArchiveInput struct {
 	Slug string `json:"slug,omitempty"`
 }
 
+// input := agentic.SprintTransitionInput{Slug: "ax-follow-up"}
+type SprintTransitionInput struct {
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
+}
+
 // out := agentic.SprintOutput{Success: true, Sprint: agentic.Sprint{Slug: "ax-follow-up"}}
 type SprintOutput struct {
 	Success bool   `json:"success"`
@@ -192,6 +198,16 @@ func (s *PrepSubsystem) registerSprintTools(svc *coremcp.Service) {
 	}, s.sprintUpdate)
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_sprint_start",
+		Description: "Start a tracked platform sprint by slug or ID.",
+	}, s.sprintStart)
+
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_sprint_complete",
+		Description: "Complete a tracked platform sprint by slug or ID.",
+	}, s.sprintComplete)
+
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)
@@ -308,6 +324,14 @@ func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest
 	}, nil
 }
 
+func (s *PrepSubsystem) sprintStart(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	return s.sprintTransition(ctx, "sprint.start", "start", input)
+}
+
+func (s *PrepSubsystem) sprintComplete(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	return s.sprintTransition(ctx, "sprint.complete", "complete", input)
+}
+
 func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolRequest, input SprintArchiveInput) (*mcp.CallToolResult, SprintArchiveOutput, error) {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
@@ -332,6 +356,23 @@ func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 	return nil, output, nil
+}
+
+func (s *PrepSubsystem) sprintTransition(ctx context.Context, action, transition string, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	identifier := sprintIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, SprintOutput{}, core.E("sprintTransition", "id or slug is required", nil)
+	}
+
+	result := s.platformPayload(ctx, action, "POST", core.Concat("/v1/sprints/", identifier, "/", transition), nil)
+	if !result.OK {
+		return nil, SprintOutput{}, resultErrorValue(action, result)
+	}
+
+	return nil, SprintOutput{
+		Success: true,
+		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
+	}, nil
 }
 
 func sprintIdentifier(values ...string) string {

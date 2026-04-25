@@ -732,6 +732,8 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agentic_task_create")
 	assert.Contains(t, toolNames, "agentic_state_set")
 	assert.Contains(t, toolNames, "agentic_sprint_create")
+	assert.Contains(t, toolNames, "agentic_sprint_start")
+	assert.Contains(t, toolNames, "agentic_sprint_complete")
 	assert.Contains(t, toolNames, "session_complete")
 	assert.Contains(t, toolNames, "agentic_message_send")
 	assert.Contains(t, toolNames, "agent_send")
