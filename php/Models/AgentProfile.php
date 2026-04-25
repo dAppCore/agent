@@ -13,6 +13,7 @@ class AgentProfile extends Model
 {
     protected $fillable = [
         'name',
+        'plugin_cc_name',
         'gateway_url',
         'api_key_cipher',
         'cost_class',
