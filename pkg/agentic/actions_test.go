@@ -201,6 +201,17 @@ func TestActions_HandleIngest_Bad_NoWorkspace(t *testing.T) {
 	assert.False(t, r.OK)
 }
 
+func TestActions_HandleComplete_Bad_NoCore(t *testing.T) {
+	s := &PrepSubsystem{}
+
+	r := s.handleComplete(context.Background(), core.NewOptions())
+
+	assert.False(t, r.OK)
+	err, ok := r.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "core runtime is required")
+}
+
 func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {
 	s := newPrepWithProcess()
 	s.workspaces = core.NewRegistry[*WorkspaceStatus]()

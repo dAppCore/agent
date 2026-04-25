@@ -193,7 +193,11 @@ func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) c
 //
 // ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
-	return s.Core().Task("agent.completion").Run(ctx, s.Core(), options)
+	c := s.Core()
+	if c == nil {
+		return core.Result{Value: core.E("agentic.complete", "core runtime is required", nil), OK: false}
+	}
+	return c.Task("agent.completion").Run(ctx, c, options)
 }
 
 // input := agentic.CompleteInput{Workspace: "/srv/.core/workspace/core/go-io/task-42"}
