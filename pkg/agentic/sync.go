@@ -43,6 +43,8 @@ type SyncRecord struct {
 	Direction   string `json:"direction"`
 	PayloadSize int    `json:"payload_size"`
 	ItemsCount  int    `json:"items_count"`
+	Attempts    int    `json:"attempts,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 	SyncedAt    string `json:"synced_at"`
 }
 
@@ -60,7 +62,9 @@ type syncStatusState struct {
 	LastPullAt time.Time `json:"last_pull_at,omitempty"`
 }
 
-// syncBackoffSchedule implements RFC §16.5 — 1s → 5s → 15s → 60s → 5min max.
+// syncBackoffSchedule preserves the legacy sync pacing used by compatibility
+// tests and status tooling. The active offline queue retry logic lives in
+// remoteSyncQueueBackoff and caps at 30 seconds per RFC §16.5.
 // schedule := syncBackoffSchedule(2) // 15s
 // next := time.Now().Add(schedule)
 func syncBackoffSchedule(attempts int) time.Duration {
@@ -89,31 +93,13 @@ const syncFlushScheduleInterval = time.Minute
 // ctx, cancel := context.WithCancel(context.Background())
 // go s.runSyncFlushLoop(ctx, time.Minute)
 func (s *PrepSubsystem) runSyncFlushLoop(ctx context.Context, interval time.Duration) {
-	if ctx == nil || interval <= 0 {
+	if ctx == nil {
 		return
 	}
 	if s == nil || s.syncToken() == "" {
 		return
 	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if len(s.readSyncQueue()) == 0 {
-				continue
-			}
-			// QueueOnly keeps syncPushInput from re-scanning workspaces — the
-			// flush loop only drains entries already queued.
-			if _, err := s.syncPushInput(ctx, SyncPushInput{QueueOnly: true}); err != nil {
-				core.Warn("sync flush loop failed", "error", err)
-			}
-		}
-	}
+	s.remoteSyncQueueController(remoteSyncRealClock{}, interval).run(ctx)
 }
 
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
@@ -156,9 +142,8 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		dispatches = collectSyncDispatches()
 	}
 	token := s.syncToken()
-	queuedPushes := s.readSyncQueue()
-	if len(dispatches) > 0 {
-		queuedPushes = append(queuedPushes, syncQueuedPush{
+	if len(dispatches) > 0 && (token != "" || len(input.Dispatches) > 0) {
+		s.enqueueSyncPush(syncQueuedPush{
 			AgentID:     agentID,
 			FleetNodeID: input.FleetNodeID,
 			Dispatches:  dispatches,
@@ -166,43 +151,9 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		})
 	}
 	if token == "" {
-		if len(input.Dispatches) > 0 {
-			s.writeSyncQueue(queuedPushes)
-		}
 		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
-	if len(queuedPushes) == 0 {
-		return SyncPushOutput{Success: true, Count: 0}, nil
-	}
-
-	synced := 0
-	now := time.Now()
-	for i, queued := range queuedPushes {
-		if len(queued.Dispatches) == 0 {
-			continue
-		}
-		if !queued.NextAttempt.IsZero() && queued.NextAttempt.After(now) {
-			// Respect backoff — persist remaining tail so queue survives restart.
-			s.writeSyncQueue(queuedPushes[i:])
-			return SyncPushOutput{Success: true, Count: synced}, nil
-		}
-		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
-			remaining := append([]syncQueuedPush(nil), queuedPushes[i:]...)
-			remaining[0].Attempts = queued.Attempts + 1
-			remaining[0].NextAttempt = time.Now().Add(syncBackoffSchedule(remaining[0].Attempts))
-			s.writeSyncQueue(remaining)
-			return SyncPushOutput{Success: true, Count: synced}, nil
-		}
-		synced += len(queued.Dispatches)
-		markDispatchesSynced(queued.Dispatches)
-		recordSyncPush(time.Now())
-		recordSyncHistory("push", queued.AgentID, queued.FleetNodeID, len(core.JSONMarshalString(map[string]any{
-			"agent_id":   queued.AgentID,
-			"dispatches": queued.Dispatches,
-		})), len(queued.Dispatches), time.Now())
-	}
-
-	s.writeSyncQueue(nil)
+	synced := s.remoteSyncQueueController(remoteSyncRealClock{}, syncFlushScheduleInterval).drainReady(ctx)
 	return SyncPushOutput{Success: true, Count: synced}, nil
 }
 
@@ -649,13 +600,38 @@ func recordSyncHistory(direction, agentID string, fleetNodeID, payloadSize, item
 		ItemsCount:  itemsCount,
 		SyncedAt:    at.UTC().Format(time.RFC3339),
 	}
+	appendSyncRecord(record)
+}
 
+func appendSyncRecord(record SyncRecord) {
 	records := readSyncRecords()
 	records = append(records, record)
 	if len(records) > 100 {
 		records = records[len(records)-100:]
 	}
 	writeSyncRecords(records)
+}
+
+func recordSyncDrop(agentID string, fleetNodeID int, dispatches []map[string]any, attempts int, err error, at time.Time) {
+	reason := ""
+	if err != nil {
+		reason = err.Error()
+	}
+
+	record := SyncRecord{
+		AgentID:     core.Trim(agentID),
+		FleetNodeID: fleetNodeID,
+		Direction:   "drop",
+		PayloadSize: len(core.JSONMarshalString(map[string]any{
+			"agent_id":   agentID,
+			"dispatches": dispatches,
+		})),
+		ItemsCount: len(dispatches),
+		Attempts:   attempts,
+		Reason:     reason,
+		SyncedAt:   at.UTC().Format(time.RFC3339),
+	}
+	appendSyncRecord(record)
 }
 
 func recordSyncPush(at time.Time) {
