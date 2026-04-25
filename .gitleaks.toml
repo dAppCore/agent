@@ -1,0 +1,33 @@
+# gitleaks config — path-based allowlist for working-tree mode.
+#
+# Default mode (`gitleaks detect`, with-git) uses .gitleaksignore for
+# per-commit fingerprint suppression. That's where committed-history
+# false positives belong.
+#
+# This config adds path/regex allowlists that apply to BOTH modes —
+# specifically for working-tree-only false positives that the fingerprint
+# format can't address (no commit SHA exists for working-tree files).
+#
+# Filed: Mantis #325 follow-up. Reviewer: athena 2026-04-25.
+
+title = "core/agent gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Working-tree paths that contain documented placeholder/test/example secrets"
+paths = [
+    # Local VM workspace template — generated cert files (mode 0600, untracked)
+    '''\.core/vm/mnt/config/traefik/certs/.*\.key$''',
+    # PHP placeholder docs and blade templates with `YOUR_API_KEY`-style examples
+    '''php/docs/api-keys\.md$''',
+    '''php/View/Blade/admin/api-key-manager\.blade\.php$''',
+    # PHP test fixtures — `ak_test_*`, `claude-opus-4-*` model names, etc.
+    '''php/tests/Unit/ClaudeServiceTest\.php$''',
+    '''php/tests/Feature/AgentApiKeyTest\.php$''',
+    # PHP service docblock — `ak_a1b2c3...` example in a comment
+    '''php/Services/AgentDetection\.php$''',
+    # Go test that calls t.Setenv("CORE_BRAIN_KEY", "brain-key-123")
+    '''pkg/agentic/prep_test\.go$''',
+]
