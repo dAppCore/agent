@@ -834,7 +834,7 @@ func (s *PrepSubsystem) persistSessionHandoffMemory(ctx context.Context, session
 		body["project"] = project
 	}
 
-	result := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/remember"), core.JSONMarshalString(body), s.brainKey, "Bearer")
+	result := s.brainCall(ctx, "POST", "/v1/brain/remember", session.AgentType, body)
 	if !result.OK {
 		core.Warn("session handoff memory persist failed", "session_id", session.SessionID, "reason", result.Value)
 	}

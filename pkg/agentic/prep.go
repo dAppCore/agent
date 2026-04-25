@@ -38,6 +38,8 @@ type PrepSubsystem struct {
 	frozen             bool
 	backoff            map[string]time.Time
 	failCount          map[string]int
+	brainStateOnce     core.Once
+	brainState         *brainClientState
 	providers          *ProviderManager
 	workspaces         *core.Registry[*WorkspaceStatus]
 	stateOnce          core.Once
@@ -1200,36 +1202,41 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 		return "", 0
 	}
 
-	body := core.JSONMarshalString(map[string]any{
+	body := map[string]any{
 		"query":    core.Concat("architecture conventions key interfaces for ", repo),
 		"top_k":    10,
 		"project":  repo,
 		"agent_id": "cladius",
-	})
+	}
 
-	r := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/recall"), body, s.brainKey, "Bearer")
+	r := s.brainCall(ctx, "POST", "/v1/brain/recall", "cladius", body)
 	if !r.OK {
 		return "", 0
 	}
 
-	var result struct {
-		Memories []map[string]any `json:"memories"`
+	payload, ok := r.Value.(map[string]any)
+	if !ok {
+		return "", 0
 	}
-	core.JSONUnmarshalString(r.Value.(string), &result)
+	memories, _ := brainPayloadMap(payload)["memories"].([]any)
 
-	if len(result.Memories) == 0 {
+	if len(memories) == 0 {
 		return "", 0
 	}
 
 	b := core.NewBuilder()
-	for i, mem := range result.Memories {
+	for i, memory := range memories {
+		mem, ok := memory.(map[string]any)
+		if !ok {
+			continue
+		}
 		memType, _ := mem["type"].(string)
 		memContent, _ := mem["content"].(string)
 		memProject, _ := mem["project"].(string)
 		b.WriteString(core.Sprintf("%d. [%s] %s: %s\n", i+1, memType, memProject, memContent))
 	}
 
-	return b.String(), len(result.Memories)
+	return b.String(), len(memories)
 }
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {

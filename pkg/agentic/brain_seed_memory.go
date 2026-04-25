@@ -160,7 +160,7 @@ func (s *PrepSubsystem) brainSeedMemory(ctx context.Context, input BrainSeedMemo
 				"confidence":   0.7,
 			}
 
-			if result := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/remember"), core.JSONMarshalString(body), s.brainKey, "Bearer"); !result.OK {
+			if result := s.brainCall(ctx, "POST", "/v1/brain/remember", input.AgentID, body); !result.OK {
 				output.Skipped++
 				core.Print(nil, "  Failed to import %s :: %s", core.PathBase(path), section.Heading)
 				continue

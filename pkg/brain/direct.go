@@ -104,11 +104,12 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 }
 
 func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+	org := directOrg(input.Org)
 	result := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
 		"content":    input.Content,
 		"type":       input.Type,
 		"tags":       input.Tags,
-		"org":        input.Org,
+		"org":        org,
 		"project":    input.Project,
 		"confidence": input.Confidence,
 		"supersedes": input.Supersedes,
@@ -139,8 +140,8 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	if input.Filter.Project != "" {
 		body["project"] = input.Filter.Project
 	}
-	if input.Filter.Org != "" {
-		body["org"] = input.Filter.Org
+	if org := directOrg(input.Filter.Org); org != "" {
+		body["org"] = org
 	}
 	if input.Filter.Type != nil {
 		body["type"] = input.Filter.Type
@@ -184,8 +185,8 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 
 func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
 	var params []string
-	if input.Org != "" {
-		params = append(params, core.Concat("org=", core.URLEncode(input.Org)))
+	if org := directOrg(input.Org); org != "" {
+		params = append(params, core.Concat("org=", core.URLEncode(org)))
 	}
 	if input.Project != "" {
 		params = append(params, core.Concat("project=", core.URLEncode(input.Project)))
@@ -242,6 +243,14 @@ func directAgentID() string {
 		return configured
 	}
 	return agentic.AgentName()
+}
+
+func directOrg(org string) string {
+	org = core.Trim(org)
+	if org != "" {
+		return org
+	}
+	return core.Trim(core.Env("CORE_BRAIN_ORG"))
 }
 
 func memoriesFromPayload(payload map[string]any) []Memory {
