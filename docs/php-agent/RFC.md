@@ -273,6 +273,10 @@ WorkspaceState::set($planId, 'discovered_pattern', 'observer');
 $pattern = WorkspaceState::get($planId, 'discovered_pattern');
 ```
 
+### 7.x Fleet tasks vs sessions
+
+Fleet tasks (AssignTask / CompleteTask) are deliberately out-of-session. AgentSession's work_log, artefacts, handoff, and replay semantics are designed for interactive / MCP-driven flows, not for the atomic assign→complete shape of fleet distribution. If a fleet task's handler needs session-style replay, that handler should start its own AgentSession via AgentSessionService when it begins the work.
+
 ---
 
 ## 8. API Key Security

@@ -58,6 +58,10 @@ class BrainRemember extends AgentTool
                     'items' => ['type' => 'string'],
                     'description' => 'Optional tags for categorisation',
                 ],
+                'org' => [
+                    'type' => 'string',
+                    'description' => 'Optional organisation scope',
+                ],
                 'project' => [
                     'type' => 'string',
                     'description' => 'Optional project scope (e.g. repo name)',

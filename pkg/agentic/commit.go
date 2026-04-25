@@ -104,7 +104,13 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 		}
 		return CommitOutput{}, err
 	}
-	core.WriteAll(appendHandle.Value, line)
+	if writeResult := core.WriteAll(appendHandle.Value, line); !writeResult.OK {
+		err, _ := writeResult.Value.(error)
+		if err == nil {
+			err = core.E("commitWorkspace", "failed to append journal entry", nil)
+		}
+		return CommitOutput{}, err
+	}
 
 	marker := commitMarker{
 		Workspace:   WorkspaceName(workspaceDir),
@@ -157,6 +163,11 @@ func readCommitMarker(markerPath string) (commitMarker, bool) {
 
 	var marker commitMarker
 	if parseResult := core.JSONUnmarshalString(r.Value.(string), &marker); !parseResult.OK {
+		backupPath := core.Concat(markerPath, ".corrupt-", time.Now().UTC().Format("20060102T150405Z"))
+		core.Warn("agentic.commit: corrupt commit marker", "path", markerPath, "backup", backupPath, "reason", parseResult.Value)
+		if renameResult := fs.Rename(markerPath, backupPath); !renameResult.OK {
+			core.Warn("agentic.commit: failed to preserve corrupt commit marker", "path", markerPath, "backup", backupPath, "reason", renameResult.Value)
+		}
 		return commitMarker{}, false
 	}
 	return marker, true

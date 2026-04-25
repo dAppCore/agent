@@ -1,0 +1,5 @@
+registry: forge.lthn.ai
+organisation: core
+repository: core-go
+auto_update: true
+check_interval_hours: 24

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	providerws "dappco.re/go/core/ws"
+	providerws "dappco.re/go/ws"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gorilla/websocket"

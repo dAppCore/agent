@@ -3,11 +3,10 @@
 package agentic
 
 import (
-	"sync"
 	"time"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // stateWorkspaceStatsGroup is the group key inside the parent workspace store
@@ -25,7 +24,7 @@ const stateWorkspaceStatsGroup = "stats"
 // separate from the top-level `stateStoreRef` so the two stores open
 // independently — a missing parent DB does not disable top-level state.
 type workspaceStatsRef struct {
-	once     sync.Once
+	once     core.Once
 	instance *store.Store
 	err      error
 }
@@ -90,7 +89,7 @@ func (s *PrepSubsystem) closeWorkspaceStatsStore() {
 	}
 	ref.err = nil
 	s.workspaceStats = nil
-	s.workspaceStatsOnce = sync.Once{}
+	s.workspaceStatsOnce.Reset()
 }
 
 // openWorkspaceStatsStore opens the parent workspace stats database,

@@ -60,6 +60,10 @@ class BrainRecall extends AgentTool
                     'type' => 'object',
                     'description' => 'Optional filters to narrow results',
                     'properties' => [
+                        'org' => [
+                            'type' => 'string',
+                            'description' => 'Filter by organisation scope',
+                        ],
                         'project' => [
                             'type' => 'string',
                             'description' => 'Filter by project scope',

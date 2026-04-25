@@ -9,6 +9,13 @@ use Core\Mod\Agentic\Actions\Credits\AwardCredits;
 use Core\Mod\Agentic\Models\FleetNode;
 use Core\Mod\Agentic\Models\FleetTask;
 
+/**
+ * Fleet tasks intentionally do not create AgentSession records. AgentSession tracks interactive,
+ * replayable, handoff-capable work with a work_log and artefact history; fleet tasks are atomic
+ * assign→complete events with no in-between state to replay. If a fleet task's work requires
+ * session semantics, the agent executing the task should start an AgentSession itself via
+ * AgentSessionService.
+ */
 class CompleteTask
 {
     use Action;

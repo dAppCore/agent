@@ -367,6 +367,26 @@ func TestSync_HandleSyncPush_Good_ReportMetadata(t *testing.T) {
 	assert.Equal(t, 1, output.Count)
 }
 
+func TestSync_ReadSyncWorkspaceReport_Ugly_CorruptJSONPreservesArtifact(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	metaDir := WorkspaceMetaDir(workspaceDir)
+	require.True(t, fs.EnsureDir(metaDir).OK)
+
+	reportPath := core.JoinPath(metaDir, "report.json")
+	require.True(t, fs.Write(reportPath, `{"findings":[{"file":"main.go"}],"changes":`).OK)
+
+	report := readSyncWorkspaceReport(workspaceDir)
+	require.Nil(t, report)
+	assert.False(t, fs.Exists(reportPath))
+
+	entries := listDirNames(fs.List(metaDir))
+	require.Len(t, entries, 1)
+	assert.True(t, core.HasPrefix(entries[0], "report.json.corrupt-"))
+}
+
 func TestSync_HandleSyncPull_Good_NestedEnvelope(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)

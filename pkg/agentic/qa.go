@@ -7,7 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // QAFinding mirrors the lint.Finding shape produced by `core-lint run --output json`.
@@ -80,20 +80,20 @@ type QAReport struct {
 //
 // Usage example: `report := DispatchReport{Summary: map[string]any{"finding": 12, "tool_run": 3}, Findings: findings, Tools: tools, BuildPassed: true, TestPassed: true}`
 type DispatchReport struct {
-	Workspace   string              `json:"workspace"`
-	Commit      string              `json:"commit,omitempty"`
-	Summary     map[string]any      `json:"summary"`
-	Findings    []QAFinding         `json:"findings,omitempty"`
-	Tools       []QAToolRun         `json:"tools,omitempty"`
-	BuildPassed bool                `json:"build_passed"`
-	TestPassed  bool                `json:"test_passed"`
-	LintPassed  bool                `json:"lint_passed"`
-	Passed      bool                `json:"passed"`
-	GeneratedAt time.Time           `json:"generated_at"`
-	New         []map[string]any    `json:"new,omitempty"`
-	Resolved    []map[string]any    `json:"resolved,omitempty"`
-	Persistent  []map[string]any    `json:"persistent,omitempty"`
-	Clusters    []DispatchCluster   `json:"clusters,omitempty"`
+	Workspace   string            `json:"workspace"`
+	Commit      string            `json:"commit,omitempty"`
+	Summary     map[string]any    `json:"summary"`
+	Findings    []QAFinding       `json:"findings,omitempty"`
+	Tools       []QAToolRun       `json:"tools,omitempty"`
+	BuildPassed bool              `json:"build_passed"`
+	TestPassed  bool              `json:"test_passed"`
+	LintPassed  bool              `json:"lint_passed"`
+	Passed      bool              `json:"passed"`
+	GeneratedAt time.Time         `json:"generated_at"`
+	New         []map[string]any  `json:"new,omitempty"`
+	Resolved    []map[string]any  `json:"resolved,omitempty"`
+	Persistent  []map[string]any  `json:"persistent,omitempty"`
+	Clusters    []DispatchCluster `json:"clusters,omitempty"`
 }
 
 // DispatchCluster groups similar findings together so human reviewers can see
@@ -103,11 +103,11 @@ type DispatchReport struct {
 //
 // Usage example: `cluster := DispatchCluster{Tool: "gosec", Severity: "error", Category: "security", Count: 3, RuleID: "G101"}`
 type DispatchCluster struct {
-	Tool     string         `json:"tool,omitempty"`
-	Severity string         `json:"severity,omitempty"`
-	Category string         `json:"category,omitempty"`
-	RuleID   string         `json:"rule_id,omitempty"`
-	Count    int            `json:"count"`
+	Tool     string                  `json:"tool,omitempty"`
+	Severity string                  `json:"severity,omitempty"`
+	Category string                  `json:"category,omitempty"`
+	RuleID   string                  `json:"rule_id,omitempty"`
+	Count    int                     `json:"count"`
 	Samples  []DispatchClusterSample `json:"samples,omitempty"`
 }
 
@@ -461,14 +461,18 @@ func writeDispatchReport(workspaceDir string, report DispatchReport) {
 		return
 	}
 	metaDir := WorkspaceMetaDir(workspaceDir)
-	if !fs.EnsureDir(metaDir).OK {
+	if ensureResult := fs.EnsureDir(metaDir); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare dispatch report directory", "path", metaDir, "reason", ensureResult.Value)
 		return
 	}
 	payload := core.JSONMarshalString(report)
 	if payload == "" {
 		return
 	}
-	fs.WriteAtomic(core.JoinPath(metaDir, "report.json"), payload)
+	reportPath := core.JoinPath(metaDir, "report.json")
+	if writeResult := fs.WriteAtomic(reportPath, payload); !writeResult.OK {
+		core.Warn("agentic: failed to write dispatch report", "path", reportPath, "reason", writeResult.Value)
+	}
 }
 
 // stringOutput extracts the process output from a core.Result, returning an
@@ -760,4 +764,3 @@ func clusterLess(left, right DispatchCluster) bool {
 	}
 	return left.RuleID < right.RuleID
 }
-

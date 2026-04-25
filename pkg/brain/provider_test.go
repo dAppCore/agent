@@ -11,7 +11,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/ws"
+	"dappco.re/go/ws"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

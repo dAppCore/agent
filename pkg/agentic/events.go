@@ -34,7 +34,9 @@ func emitEvent(eventType, agent, workspace, status string) {
 	if !r.OK {
 		return
 	}
-	core.WriteAll(r.Value, line)
+	if writeResult := core.WriteAll(r.Value, line); !writeResult.OK {
+		core.Warn("agentic.emitEvent: failed to append event", "path", eventsFile, "reason", writeResult.Value)
+	}
 }
 
 func emitStartEvent(agent, workspace string) {

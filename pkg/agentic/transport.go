@@ -223,6 +223,9 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	}
 
 	sessionID := response.Header.Get("Mcp-Session-Id")
+	if sessionID == "" {
+		return core.Result{Value: core.E("mcpInitialize", "missing session id", nil), OK: false}
+	}
 
 	drainSSE(response)
 

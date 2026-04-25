@@ -1,4 +1,0 @@
-description = "Return Codex safety guardrails"
-prompt = """
-Use the tool `codex_safety` and return its output verbatim. Do not add commentary.
-"""

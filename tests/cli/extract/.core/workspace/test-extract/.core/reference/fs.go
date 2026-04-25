@@ -177,8 +177,18 @@ func (m *Fs) WriteMode(p, content string, mode os.FileMode) Result {
 //	dir := fs.TempDir("agent-workspace")
 //	defer fs.DeleteAll(dir)
 func (m *Fs) TempDir(prefix string) string {
-	dir, err := os.MkdirTemp("", prefix)
+	root := m.root
+	if root == "" || root == "/" {
+		root = os.TempDir()
+	} else if err := os.MkdirAll(root, 0755); err != nil {
+		return ""
+	}
+	dir, err := os.MkdirTemp(root, prefix)
 	if err != nil {
+		return ""
+	}
+	if vp := m.validatePath(dir); !vp.OK {
+		os.RemoveAll(dir)
 		return ""
 	}
 	return dir
@@ -358,13 +368,28 @@ func WriteAll(writer any, content string) Result {
 		return Result{E("core.WriteAll", "not a writer", nil), false}
 	}
 	_, err := wc.Write([]byte(content))
+	var closeErr error
 	if closer, ok := writer.(io.Closer); ok {
-		closer.Close()
+		closeErr = closer.Close()
 	}
 	if err != nil {
 		return Result{err, false}
 	}
+	if closeErr != nil {
+		return Result{closeErr, false}
+	}
 	return Result{OK: true}
+}
+
+func (m *Fs) isProtectedPath(full string) bool {
+	if full == "/" {
+		return true
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return false
+	}
+	return full == home
 }
 
 // CloseStream closes any value that implements io.Closer.
@@ -383,7 +408,7 @@ func (m *Fs) Delete(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if full == "/" || full == os.Getenv("HOME") {
+	if m.isProtectedPath(full) {
 		return Result{E("fs.Delete", Concat("refusing to delete protected path: ", full), nil), false}
 	}
 	if err := os.Remove(full); err != nil {
@@ -399,7 +424,7 @@ func (m *Fs) DeleteAll(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if full == "/" || full == os.Getenv("HOME") {
+	if m.isProtectedPath(full) {
 		return Result{E("fs.DeleteAll", Concat("refusing to delete protected path: ", full), nil), false}
 	}
 	if err := os.RemoveAll(full); err != nil {

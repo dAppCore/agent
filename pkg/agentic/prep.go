@@ -8,12 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -24,23 +23,26 @@ type AgentOptions struct{}
 // core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge          *forge.Forge
-	forgeURL       string
-	forgeToken     string
-	brainURL       string
-	brainKey       string
-	codePath       string
-	startupContext context.Context
-	drainCh        chan struct{}
-	pokeCh         chan struct{}
-	frozen         bool
-	backoff        map[string]time.Time
-	failCount      map[string]int
-	providers      *ProviderManager
-	workspaces     *core.Registry[*WorkspaceStatus]
-	stateOnce      sync.Once
-	state          *stateStoreRef
-	workspaceStatsOnce sync.Once
+	forge              *forge.Forge
+	forgeURL           string
+	forgeToken         string
+	brainURL           string
+	brainKey           string
+	codePath           string
+	startupContext     context.Context
+	drainCh            chan struct{}
+	pokeCh             chan struct{}
+	dispatchSyncPrep   func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error)
+	dispatchSyncSpawn  func(agent, prompt, workspaceDir string) (int, string, string, error)
+	dispatchSyncTick   time.Duration
+	frozen             bool
+	backoff            map[string]time.Time
+	failCount          map[string]int
+	providers          *ProviderManager
+	workspaces         *core.Registry[*WorkspaceStatus]
+	stateOnce          core.Once
+	state              *stateStoreRef
+	workspaceStatsOnce core.Once
 	workspaceStats     *workspaceStatsRef
 }
 
@@ -595,7 +597,7 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 // subsystem := agentic.NewPrep()
 // subsystem.RegisterTools(svc)
 func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
@@ -617,7 +619,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerWatchTool(svc)
 	s.registerIssueTools(svc)
 	s.registerPRTools(svc)
-	mcp.AddTool(svc.Server(), &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
 	}, s.scan)
@@ -642,14 +644,6 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerContentTools(svc)
 	s.registerLanguageTools(svc)
 	s.registerSetupTool(svc)
-
-	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
-		Name:        "agentic_scan",
-		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
-	}, s.scan)
-
-	s.registerPlanTools(svc)
-	s.registerWatchTool(svc)
 }
 
 // subsystem := agentic.NewPrep()
@@ -801,6 +795,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		return nil, PrepOutput{}, core.E("prepWorkspace", "extract default workspace template", nil)
 	}
+	if err := ensureWorkspaceTaskFile(workspaceDir); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	if !resumed {
 		if r := process.RunIn(ctx, ".", "git", "clone", repoPath, repoDir); !r.OK {
@@ -834,11 +831,18 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if lang == "php" {
 		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
 			codexPath := core.JoinPath(workspaceDir, "CODEX.md")
-			fs.Write(codexPath, r.Value.(string))
+			if writeResult := fs.WriteAtomic(codexPath, r.Value.(string)); !writeResult.OK {
+				if err, ok := writeResult.Value.(error); ok {
+					return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", err)
+				}
+				return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", nil)
+			}
 		}
 	}
 
-	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
+	if err := s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org); err != nil {
+		return nil, PrepOutput{}, err
+	}
 	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
 		return nil, PrepOutput{}, err
 	}
@@ -851,7 +855,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	s.copyRepoSpecs(workspaceDir, input.Repo)
+	if err := s.copyRepoSpecs(workspaceDir, input.Repo); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 	if versionResult := writePromptSnapshot(workspaceDir, out.Prompt); !versionResult.OK {
@@ -870,12 +876,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 // s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
 // s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
-func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
+func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
 	if !fs.IsDir(plansBase) {
-		return
+		return nil
 	}
 
 	var specDir string
@@ -893,11 +899,13 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 
 	if !fs.IsDir(specDir) {
-		return
+		return nil
 	}
 
 	specsDir := core.JoinPath(workspaceDir, "specs")
-	fs.EnsureDir(specsDir)
+	if ensureResult := fs.EnsureDir(specsDir); !ensureResult.OK {
+		return core.E("copyRepoSpecs", core.Concat("failed to create specs dir ", specsDir), nil)
+	}
 
 	patterns := []string{
 		core.JoinPath(specDir, "RFC*.md"),
@@ -909,13 +917,22 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 		for _, entry := range core.PathGlob(pattern) {
 			rel := entry[len(specDir)+1:]
 			dst := core.JoinPath(specsDir, rel)
-			fs.EnsureDir(core.PathDir(dst))
+			if ensureResult := fs.EnsureDir(core.PathDir(dst)); !ensureResult.OK {
+				return core.E("copyRepoSpecs", core.Concat("failed to create specs parent dir ", core.PathDir(dst)), nil)
+			}
 			r := fs.Read(entry)
-			if r.OK {
-				fs.Write(dst, r.Value.(string))
+			if !r.OK {
+				err, _ := r.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to read specs file ", entry), err)
+			}
+			if writeResult := fs.Write(dst, r.Value.(string)); !writeResult.OK {
+				err, _ := writeResult.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to write specs file ", dst), err)
 			}
 		}
 	}
+
+	return nil
 }
 
 // _, out, err := prep.PrepareWorkspace(ctx, input)
@@ -1011,6 +1028,32 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	promptBuilder.WriteString("- Run build and tests before committing\n")
 
 	return promptBuilder.String(), memoryCount, consumerCount
+}
+
+// ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
+// keeps TODO.md present for the prompt and the local agent shell wrapper.
+func ensureWorkspaceTaskFile(workspaceDir string) error {
+	todoPath := core.JoinPath(workspaceDir, "TODO.md")
+	if readResult := fs.Read(todoPath); readResult.OK && core.Trim(readResult.Value.(string)) != "" {
+		return nil
+	}
+
+	templateResult := lib.WorkspaceFile("default", "TODO.md.tmpl")
+	if !templateResult.OK {
+		if err, ok := templateResult.Value.(error); ok {
+			return core.E("prepWorkspace", "load TODO.md template", err)
+		}
+		return core.E("prepWorkspace", "load TODO.md template", nil)
+	}
+
+	if writeResult := fs.Write(todoPath, templateResult.Value.(string)); !writeResult.OK {
+		if err, ok := writeResult.Value.(error); ok {
+			return core.E("prepWorkspace", "write TODO.md", err)
+		}
+		return core.E("prepWorkspace", "write TODO.md", nil)
+	}
+
+	return nil
 }
 
 // writePromptSnapshot stores an immutable prompt snapshot for a workspace.

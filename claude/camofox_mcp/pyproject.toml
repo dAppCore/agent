@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: EUPL-1.2
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "camofox-mcp"
+version = "0.1.0"
+description = "MCP stdio server exposing the Camofox browser HTTP API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+camofox-mcp = "camofox_mcp.server:main"
+
+[tool.setuptools]
+packages = ["camofox_mcp"]
+
+[tool.setuptools.package-dir]
+camofox_mcp = "."

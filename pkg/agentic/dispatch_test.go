@@ -11,8 +11,8 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	"dappco.re/go/core/process"
+	"dappco.re/go/forge"
+	"dappco.re/go/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

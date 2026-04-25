@@ -1,8 +1,8 @@
 {
   "core": {
     "type": "stdio",
-    "command": "core-agent",
-    "args": ["mcp"],
+    "command": "core",
+    "args": ["mcp", "serve"],
     "env": {
       "MONITOR_INTERVAL": "10s",
       "CORE_AGENT_DISPATCH": "1"

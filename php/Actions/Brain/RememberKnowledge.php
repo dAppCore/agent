@@ -26,7 +26,7 @@ class RememberKnowledge
     ) {}
 
     /**
-     * @param  array{content: string, type: string, tags?: array, project?: string, confidence?: float, supersedes?: string, expires_in?: int}  $data
+     * @param  array{content: string, type: string, tags?: array, org?: string, project?: string, confidence?: float, supersedes?: string, expires_in?: int}  $data
      * @return BrainMemory The created memory
      *
      * @throws \InvalidArgumentException
@@ -85,6 +85,7 @@ class RememberKnowledge
             'type' => $type,
             'content' => $content,
             'tags' => $tags,
+            'org' => $data['org'] ?? null,
             'project' => $data['project'] ?? null,
             'confidence' => $confidence,
             'supersedes_id' => $supersedes,

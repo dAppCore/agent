@@ -81,6 +81,9 @@ return [
     'brain' => [
         'ollama_url' => env('BRAIN_OLLAMA_URL', 'https://ollama.lthn.sh'),
         'qdrant_url' => env('BRAIN_QDRANT_URL', 'https://qdrant.lthn.sh'),
+        'qdrant' => [
+            'api_key' => env('BRAIN_QDRANT_API_KEY', ''),
+        ],
         'collection' => env('BRAIN_COLLECTION', 'openbrain'),
         'embedding_model' => env('BRAIN_EMBEDDING_MODEL', 'embeddinggemma'),
 
@@ -95,8 +98,11 @@ return [
             'database' => env('BRAIN_DB_DATABASE', env('DB_DATABASE', 'forge')),
             'username' => env('BRAIN_DB_USERNAME', env('DB_USERNAME', 'forge')),
             'password' => env('BRAIN_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
+            // charset defaults: utf8 for pgsql (Postgres rejects 'utf8mb4'),
+            // utf8mb4 for everything else (MariaDB/MySQL). Override with
+            // BRAIN_DB_CHARSET if your instance needs something specific.
+            'charset' => env('BRAIN_DB_CHARSET', env('BRAIN_DB_DRIVER', env('DB_CONNECTION', 'mariadb')) === 'pgsql' ? 'utf8' : 'utf8mb4'),
+            'collation' => env('BRAIN_DB_COLLATION', 'utf8mb4_unicode_ci'),
             'prefix' => '',
         ],
     ],

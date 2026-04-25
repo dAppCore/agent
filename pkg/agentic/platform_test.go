@@ -4,8 +4,11 @@ package agentic
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +16,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func testDefaultClientWithTrustedServerCert(t *testing.T, srv *httptest.Server) *http.Client {
+	t.Helper()
+
+	roots := x509.NewCertPool()
+	roots.AddCert(srv.Certificate())
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{RootCAs: roots}
+	require.False(t, transport.TLSClientConfig.InsecureSkipVerify)
+
+	return &http.Client{
+		Timeout:   defaultClient.Timeout,
+		Transport: transport,
+	}
+}
+
+func testUseDefaultClient(t *testing.T, client *http.Client) {
+	t.Helper()
+
+	original := defaultClient
+	defaultClient = client
+	t.Cleanup(func() {
+		defaultClient = original
+	})
+}
 
 func testPrepWithPlatformServer(t *testing.T, srv *httptest.Server, token string) *PrepSubsystem {
 	t.Helper()
@@ -70,6 +99,59 @@ func TestPlatform_HandleFleetRegister_Good(t *testing.T) {
 	assert.Equal(t, []string{"codex"}, node.Models)
 	assert.Equal(t, []string{"go", "review"}, node.Capabilities)
 	assert.Nil(t, node.CurrentTaskID)
+}
+
+func TestPlatform_HandleFleetRegister_Good_TrustedTLS(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NotNil(t, r.TLS)
+		require.Equal(t, "/v1/fleet/register", r.URL.Path)
+		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+
+		_, _ = w.Write([]byte(`{"data":{"id":2,"agent_id":"charon","platform":"linux","status":"online"}}`))
+	}))
+	defer server.Close()
+
+	testUseDefaultClient(t, testDefaultClientWithTrustedServerCert(t, server))
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetRegister(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+		core.Option{Key: "platform", Value: "linux"},
+	))
+	require.True(t, result.OK)
+
+	node, ok := result.Value.(FleetNode)
+	require.True(t, ok)
+	assert.Equal(t, 2, node.ID)
+	assert.Equal(t, "charon", node.AgentID)
+	assert.Equal(t, "linux", node.Platform)
+	assert.Equal(t, "online", node.Status)
+}
+
+func TestPlatform_HandleFleetRegister_Bad_UntrustedTLSCert(t *testing.T) {
+	var called atomic.Bool
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+		_, _ = w.Write([]byte(`{"data":{"id":3,"agent_id":"charon","platform":"linux","status":"online"}}`))
+	}))
+	defer server.Close()
+
+	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
+	result := subsystem.handleFleetRegister(context.Background(), core.NewOptions(
+		core.Option{Key: "agent_id", Value: "charon"},
+		core.Option{Key: "platform", Value: "linux"},
+	))
+	require.False(t, result.OK)
+	assert.False(t, called.Load())
+
+	err, ok := result.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "platform request failed")
+	assert.True(t,
+		core.Contains(err.Error(), "certificate") ||
+			core.Contains(err.Error(), "x509") ||
+			core.Contains(err.Error(), "tls"),
+	)
 }
 
 func TestPlatform_HandleFleetHeartbeat_Good_ComputeBudget(t *testing.T) {

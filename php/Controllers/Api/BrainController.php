@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Controllers\Api;
@@ -7,8 +9,9 @@ namespace Core\Mod\Agentic\Controllers\Api;
 use Core\Front\Controller;
 use Core\Mod\Agentic\Actions\Brain\ForgetKnowledge;
 use Core\Mod\Agentic\Actions\Brain\ListKnowledge;
-use Core\Mod\Agentic\Actions\Brain\RecallKnowledge;
 use Core\Mod\Agentic\Actions\Brain\RememberKnowledge;
+use Core\Mod\Agentic\Models\BrainMemory;
+use Core\Mod\Agentic\Services\BrainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,12 +64,22 @@ class BrainController extends Controller
      *
      * Semantic search across memories.
      */
-    public function recall(Request $request): JsonResponse
+    public function recall(Request $request, BrainService $brain): JsonResponse
     {
         $validated = $request->validate([
             'query' => 'required|string|max:2000',
+            'limit' => 'nullable|integer|min:1|max:20',
             'top_k' => 'nullable|integer|min:1|max:20',
+            'workspace_id' => 'nullable|integer|min:1',
+            'org' => 'nullable|string',
+            'project' => 'nullable|string',
+            'type' => 'nullable',
+            'keywords' => 'nullable|array',
+            'keywords.*' => 'string|max:255',
+            'boost_keywords' => 'nullable|array',
+            'boost_keywords.*' => 'string|max:255',
             'filter' => 'nullable|array',
+            'filter.org' => 'nullable|string',
             'filter.project' => 'nullable|string',
             'filter.type' => 'nullable',
             'filter.agent_id' => 'nullable|string',
@@ -74,15 +87,27 @@ class BrainController extends Controller
         ]);
 
         $workspace = $request->attributes->get('workspace');
-        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id ?? $validated['workspace_id'] ?? 0);
+        $filter = $validated['filter'] ?? [];
+
+        foreach (['org', 'project', 'type'] as $field) {
+            if (array_key_exists($field, $validated) && $validated[$field] !== null) {
+                $filter[$field] = $validated[$field];
+            }
+        }
 
         try {
-            $result = RecallKnowledge::run(
+            $this->assertValidTypeFilter($filter['type'] ?? null);
+
+            $result = $brain->recall(
                 $validated['query'],
+                $validated['limit'] ?? $validated['top_k'] ?? 5,
+                $filter,
                 $workspaceId,
-                $validated['filter'] ?? [],
-                $validated['top_k'] ?? 5,
+                $this->normaliseStringList($validated['keywords'] ?? []),
+                $this->normaliseStringList($validated['boost_keywords'] ?? []),
             );
+            $result['count'] = count($result['memories'] ?? []);
 
             return response()->json([
                 'data' => $result,
@@ -92,6 +117,135 @@ class BrainController extends Controller
                 'error' => 'validation_error',
                 'message' => $e->getMessage(),
             ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'service_error',
+                'message' => 'Brain service temporarily unavailable.',
+            ], 503);
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     * @return array<int, string>
+     */
+    private function normaliseStringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
+    }
+
+    private function assertValidTypeFilter(mixed $type): void
+    {
+        if ($type === null) {
+            return;
+        }
+
+        $validTypes = BrainMemory::VALID_TYPES;
+
+        if (is_string($type)) {
+            if (! in_array($type, $validTypes, true)) {
+                throw new \InvalidArgumentException(
+                    sprintf('filter.type must be one of: %s', implode(', ', $validTypes))
+                );
+            }
+
+            return;
+        }
+
+        if (is_array($type)) {
+            foreach ($type as $value) {
+                if (! is_string($value) || ! in_array($value, $validTypes, true)) {
+                    throw new \InvalidArgumentException(
+                        sprintf('Each filter.type value must be one of: %s', implode(', ', $validTypes))
+                    );
+                }
+            }
+
+            return;
+        }
+
+        throw new \InvalidArgumentException(
+            sprintf('filter.type must be one of: %s', implode(', ', $validTypes))
+        );
+    }
+
+    /**
+     * GET /v1/brain/search
+     *
+     * Full-text search across memories.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => 'required|string|max:2000',
+            'org' => 'nullable|string|max:255',
+            'project' => 'nullable|string|max:255',
+            'limit' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $workspace = $request->attributes->get('workspace');
+        $workspaceId = (int) ($request->attributes->get('workspace_id') ?? $workspace?->id);
+        $limit = min(max((int) ($validated['limit'] ?? 20), 1), 100);
+
+        $filters = [
+            'workspace_id' => $workspaceId,
+        ];
+
+        foreach (['org', 'project'] as $field) {
+            if (isset($validated[$field]) && $validated[$field] !== '') {
+                $filters[$field] = $validated[$field];
+            }
+        }
+
+        try {
+            $brain = app(BrainService::class);
+            $result = $brain->elasticSearch($validated['q'], $filters);
+            $hits = $result['hits']['hits'] ?? [];
+
+            if (! is_array($hits)) {
+                $hits = [];
+            }
+
+            $hitData = $this->normaliseSearchHits(array_slice($hits, 0, $limit));
+
+            if ($hitData['ids'] === []) {
+                return response()->json([
+                    'data' => [
+                        'memories' => [],
+                        'count' => 0,
+                    ],
+                ]);
+            }
+
+            $query = BrainMemory::whereIn('id', $hitData['ids'])
+                ->forWorkspace($workspaceId)
+                ->active()
+                ->latestVersions();
+
+            if (isset($filters['project'])) {
+                $query->forProject((string) $filters['project']);
+            }
+
+            $memoryMap = $query->get()->keyBy('id');
+            $memories = [];
+
+            foreach ($hitData['ids'] as $id) {
+                $memory = $memoryMap->get($id);
+
+                if ($memory instanceof BrainMemory) {
+                    $memories[] = $memory->toMcpContext((float) ($hitData['scores'][$id] ?? 0.0));
+                }
+            }
+
+            return response()->json([
+                'data' => [
+                    'memories' => $memories,
+                    'count' => count($memories),
+                ],
+            ]);
         } catch (\RuntimeException $e) {
             return response()->json([
                 'error' => 'service_error',
@@ -164,5 +318,140 @@ class BrainController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    /**
+     * GET /v1/brain/tags
+     *
+     * List distinct memory tags and document counts.
+     */
+    public function tags(BrainService $brain): JsonResponse
+    {
+        try {
+            $result = $brain->elasticAggregate([
+                'size' => 0,
+                'aggs' => [
+                    'tags' => [
+                        'terms' => [
+                            'field' => 'tags.keyword',
+                            'size' => 1000,
+                        ],
+                    ],
+                ],
+            ]);
+
+            $tags = [];
+            $buckets = $result['aggregations']['tags']['buckets'] ?? [];
+
+            if (is_array($buckets)) {
+                foreach ($buckets as $bucket) {
+                    if (! is_array($bucket) || ! is_string($bucket['key'] ?? null)) {
+                        continue;
+                    }
+
+                    $tags[$bucket['key']] = (int) ($bucket['doc_count'] ?? 0);
+                }
+            }
+
+            return response()->json([
+                'data' => $tags,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'service_error',
+                'message' => 'Brain service temporarily unavailable.',
+            ], 503);
+        }
+    }
+
+    /**
+     * GET /v1/brain/scopes
+     *
+     * List distinct organisation/project memory scopes.
+     */
+    public function scopes(BrainService $brain): JsonResponse
+    {
+        try {
+            $result = $brain->elasticAggregate([
+                'size' => 0,
+                'aggs' => [
+                    'scopes' => [
+                        'composite' => [
+                            'size' => 1000,
+                            'sources' => [
+                                [
+                                    'org' => [
+                                        'terms' => [
+                                            'field' => 'org.keyword',
+                                        ],
+                                    ],
+                                ],
+                                [
+                                    'project' => [
+                                        'terms' => [
+                                            'field' => 'project.keyword',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+
+            $scopes = [];
+            $buckets = $result['aggregations']['scopes']['buckets'] ?? [];
+
+            if (is_array($buckets)) {
+                foreach ($buckets as $bucket) {
+                    $key = is_array($bucket) ? ($bucket['key'] ?? null) : null;
+
+                    if (! is_array($key) || ! is_string($key['org'] ?? null) || ! is_string($key['project'] ?? null)) {
+                        continue;
+                    }
+
+                    $scopes[$key['org']][$key['project']] = (int) ($bucket['doc_count'] ?? 0);
+                }
+            }
+
+            return response()->json([
+                'data' => $scopes,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'service_error',
+                'message' => 'Brain service temporarily unavailable.',
+            ], 503);
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $hits
+     * @return array{ids: array<int, string>, scores: array<string, float>}
+     */
+    private function normaliseSearchHits(array $hits): array
+    {
+        $ids = [];
+        $scores = [];
+
+        foreach ($hits as $hit) {
+            if (! is_array($hit)) {
+                continue;
+            }
+
+            $id = $hit['_id'] ?? ($hit['_source']['id'] ?? null);
+
+            if (! is_string($id) || $id === '' || in_array($id, $ids, true)) {
+                continue;
+            }
+
+            $ids[] = $id;
+            $scores[$id] = (float) ($hit['_score'] ?? 0.0);
+        }
+
+        return [
+            'ids' => $ids,
+            'scores' => $scores,
+        ];
     }
 }

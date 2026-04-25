@@ -3,10 +3,8 @@
 package agentic
 
 import (
-	"sync"
-
 	core "dappco.re/go/core"
-	store "dappco.re/go/core/store"
+	store "dappco.re/go/store"
 )
 
 // Usage example: `groupName := queueGroup` // "queue"
@@ -28,9 +26,9 @@ func stateStorePath() string {
 }
 
 // stateStoreRef keeps the store instance, its initialisation error, and a
-// sync.Once so multiple callers observe the same lazily-initialised value.
+// core.Once so multiple callers observe the same lazily-initialised value.
 type stateStoreRef struct {
-	once     sync.Once
+	once     core.Once
 	instance *store.Store
 	err      error
 }
@@ -102,7 +100,7 @@ func (s *PrepSubsystem) closeStateStore() {
 	}
 	ref.err = nil
 	s.state = nil
-	s.stateOnce = sync.Once{}
+	s.stateOnce.Reset()
 }
 
 // openStateStore attempts to open the canonical state store at

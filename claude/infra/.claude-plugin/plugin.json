@@ -1,0 +1,7 @@
+{
+  "name": "infra",
+  "version": "0.1.0",
+  "description": "Claude plugin family for Core infrastructure, operations, and platform tooling.",
+  "homepage": "https://lthn.ai",
+  "repository": "https://forge.lthn.ai/core/agent.git"
+}

@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Cache;
  */
 class AgentToolRegistry
 {
+    private const EXECUTION_RATE_LIMIT_CACHE_TTL = 60;
+
     /**
      * Registered tools indexed by name.
      *
@@ -115,7 +117,7 @@ class AgentToolRegistry
      */
     public function forApiKey(ApiKey $apiKey): Collection
     {
-        $cacheKey = $this->apiKeyCacheKey($apiKey->getKey());
+        $cacheKey = $this->apiKeyCacheKey($this->apiKeyIdentifier($apiKey));
 
         $permittedNames = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($apiKey) {
             return $this->all()->filter(function (AgentToolInterface $tool) use ($apiKey) {
@@ -211,6 +213,8 @@ class AgentToolRegistry
                     "Permission denied: API key does not have access to tool '{$name}'"
                 );
             }
+
+            $this->enforceAndRecordRateLimit($apiKey, $name);
         }
 
         // Dependency check
@@ -274,5 +278,88 @@ class AgentToolRegistry
     public function count(): int
     {
         return count($this->tools);
+    }
+
+    /**
+     * Build the cache key for a tool execution rate budget.
+     */
+    private function executionRateCacheKey(ApiKey $apiKey): string
+    {
+        return 'agent_api_key_tool_rate:'.$this->apiKeyIdentifier($apiKey);
+    }
+
+    /**
+     * Return a stable identifier for cache keys.
+     *
+     * ApiKey::getKey() must return a scalar or null. Non-scalar values are
+     * rejected because they are not stable across requests.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function apiKeyIdentifier(ApiKey $apiKey): string
+    {
+        $identifier = $apiKey->getKey();
+
+        if (is_scalar($identifier) || $identifier === null) {
+            return (string) $identifier;
+        }
+
+        throw new \InvalidArgumentException(sprintf(
+            'ApiKey %s::getKey() must return a scalar or null; returned %s',
+            $apiKey::class,
+            get_debug_type($identifier)
+        ));
+    }
+
+    /**
+     * Resolve the configured execution rate limit for an API key.
+     */
+    private function apiKeyExecutionRateLimit(ApiKey $apiKey): ?int
+    {
+        if (property_exists($apiKey, 'rate_limit') || isset($apiKey->rate_limit)) {
+            $rateLimit = $apiKey->rate_limit;
+
+            if (is_numeric($rateLimit)) {
+                return (int) $rateLimit;
+            }
+        }
+
+        if (method_exists($apiKey, 'getRateLimit')) {
+            $rateLimit = $apiKey->getRateLimit();
+
+            if (is_numeric($rateLimit)) {
+                return (int) $rateLimit;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure the API key still has execution budget for the tool call, and
+     * record the execution in one cache-backed operation.
+     */
+    private function enforceAndRecordRateLimit(ApiKey $apiKey, string $toolName): void
+    {
+        $rateLimit = $this->apiKeyExecutionRateLimit($apiKey);
+
+        if ($rateLimit === null) {
+            return;
+        }
+
+        $cacheKey = $this->executionRateCacheKey($apiKey);
+        $count = 1;
+
+        if (! Cache::add($cacheKey, $count, self::EXECUTION_RATE_LIMIT_CACHE_TTL)) {
+            $count = (int) Cache::increment($cacheKey);
+        }
+
+        if ($count > $rateLimit) {
+            Cache::decrement($cacheKey);
+
+            throw new \RuntimeException(
+                "Rate limit exceeded: API key cannot execute tool '{$toolName}' right now"
+            );
+        }
     }
 }

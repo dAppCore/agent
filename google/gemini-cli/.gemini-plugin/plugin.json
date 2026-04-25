@@ -1,0 +1,8 @@
+{
+  "name": "core-agent",
+  "description": "Lethean Core agent integration for Gemini CLI",
+  "version": "0.1.0",
+  "homepage": "https://lthn.ai",
+  "repository": "https://forge.lthn.ai/core/agent.git",
+  "author": "Lethean Network"
+}

@@ -167,6 +167,9 @@ func (r *Runtime) ServiceName() string { return "Core" }
 //
 //	runtime.ServiceStartup(context.Background(), nil)
 func (r *Runtime) ServiceStartup(ctx context.Context, options any) Result {
+	if r == nil || r.Core == nil {
+		return Result{OK: true}
+	}
 	return r.Core.ServiceStartup(ctx, options)
 }
 

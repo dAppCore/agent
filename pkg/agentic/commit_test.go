@@ -97,3 +97,51 @@ func TestCommit_HandleCommit_Ugly_Idempotent(t *testing.T) {
 	lines := len(core.Split(core.Trim(journal.Value.(string)), "\n"))
 	assert.Equal(t, 1, lines)
 }
+
+func TestCommit_HandleCommit_Ugly_CorruptMarkerIsPreserved(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	workspaceName := "core/go-io/task-44"
+	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)
+	metaDir := WorkspaceMetaDir(workspaceDir)
+	require.True(t, fs.EnsureDir(metaDir).OK)
+	require.True(t, writeStatus(workspaceDir, &WorkspaceStatus{
+		Status: "completed",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Org:    "core",
+		Task:   "Fix tests",
+		Branch: "agent/fix-tests",
+		Runs:   2,
+	}) == nil)
+	require.True(t, fs.Write(core.JoinPath(metaDir, "commit.json"), "{not-json").OK)
+
+	s := &PrepSubsystem{}
+	result := s.handleCommit(context.Background(), core.NewOptions(
+		core.Option{Key: "workspace", Value: workspaceName},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(CommitOutput)
+	require.True(t, ok)
+	assert.False(t, output.Skipped)
+
+	marker := fs.Read(output.MarkerPath)
+	require.True(t, marker.OK)
+	assert.Contains(t, marker.Value.(string), `"workspace":"core/go-io/task-44"`)
+
+	entries := listDirNames(fs.List(metaDir))
+	var backupPath string
+	for _, entry := range entries {
+		if core.HasPrefix(entry, "commit.json.corrupt-") {
+			backupPath = core.JoinPath(metaDir, entry)
+			break
+		}
+	}
+	require.NotEmpty(t, backupPath)
+
+	backup := fs.Read(backupPath)
+	require.True(t, backup.OK)
+	assert.Equal(t, "{not-json", backup.Value.(string))
+}
