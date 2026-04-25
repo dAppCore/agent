@@ -36,6 +36,8 @@ class BrainService
 
     private const MEMORY_LOCK_WAIT_SECONDS = 5;
 
+    private const MAX_SUPERSEDE_CHAIN_DEPTH = 100;
+
     private string $qdrantApiKey;
 
     public function __construct(
@@ -125,11 +127,11 @@ class BrainService
 
         $attributes['indexed_at'] = null;
         $cleanupIds = [];
-        $supersededId = $this->normaliseMemoryId($attributes['supersedes_id'] ?? null);
-        $remember = function () use ($attributes, &$cleanupIds): BrainMemory {
-            return DB::connection('brain')->transaction(function () use ($attributes, &$cleanupIds): BrainMemory {
+        $requestedSupersededId = $this->normaliseMemoryId($attributes['supersedes_id'] ?? null);
+        $remember = function (array $rememberAttributes) use (&$cleanupIds): BrainMemory {
+            return DB::connection('brain')->transaction(function () use ($rememberAttributes, &$cleanupIds): BrainMemory {
                 $memory = new BrainMemory;
-                $memory->fill($attributes);
+                $memory->fill($rememberAttributes);
                 $memory->save();
 
                 $this->deleteSupersededMemory($memory->supersedes_id, $cleanupIds);
@@ -138,9 +140,20 @@ class BrainService
             });
         };
 
-        $memory = $supersededId !== null
-            ? $this->withMemoryIndexLock($supersededId, $remember)
-            : $remember();
+        $memory = $requestedSupersededId !== null
+            ? $this->withMemoryIndexLock($requestedSupersededId, function () use ($requestedSupersededId, $attributes, $remember): BrainMemory {
+                $resolvedSupersededId = $this->resolveSupersedeHeadId($requestedSupersededId);
+                $rememberAttributes = $attributes;
+                // Retry calls should follow the current head rather than branch from a deleted ancestor.
+                $rememberAttributes['supersedes_id'] = $resolvedSupersededId;
+
+                if ($resolvedSupersededId === $requestedSupersededId) {
+                    return $remember($rememberAttributes);
+                }
+
+                return $this->withMemoryIndexLock($resolvedSupersededId, fn (): BrainMemory => $remember($rememberAttributes));
+            })
+            : $remember($attributes);
 
         foreach ($cleanupIds as $cleanupId) {
             DeleteFromIndex::dispatch($cleanupId);
@@ -859,11 +872,57 @@ class BrainService
         $superseded = BrainMemory::query()->find($supersededId);
 
         if (! $superseded instanceof BrainMemory) {
-            return;
+            throw new \RuntimeException("Superseded memory head vanished during delete: {$supersededId}");
         }
 
         $cleanupIds[] = $superseded->id;
         $superseded->delete();
+    }
+
+    private function resolveSupersedeHeadId(string $supersededId): string
+    {
+        $currentId = $supersededId;
+        $visited = [];
+        $depth = 0;
+
+        while (true) {
+            if (isset($visited[$currentId])) {
+                throw new \RuntimeException("Detected cycle while resolving supersede chain: {$supersededId}");
+            }
+
+            if ($depth >= self::MAX_SUPERSEDE_CHAIN_DEPTH) {
+                throw new \RuntimeException(
+                    "Supersede chain exceeded ".self::MAX_SUPERSEDE_CHAIN_DEPTH." hops: {$supersededId}"
+                );
+            }
+
+            $visited[$currentId] = true;
+
+            $successor = BrainMemory::withTrashed()
+                ->where('supersedes_id', $currentId)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($successor instanceof BrainMemory) {
+                $currentId = $successor->id;
+                $depth++;
+
+                continue;
+            }
+
+            $current = BrainMemory::withTrashed()->find($currentId);
+
+            if (! $current instanceof BrainMemory) {
+                throw new \InvalidArgumentException("Superseded memory not found: {$supersededId}");
+            }
+
+            if ($current->trashed()) {
+                throw new \InvalidArgumentException("Superseded memory has no live head: {$supersededId}");
+            }
+
+            return $current->id;
+        }
     }
 
     private function memoryExists(string $id): bool

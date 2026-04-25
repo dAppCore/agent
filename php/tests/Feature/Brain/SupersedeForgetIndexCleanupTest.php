@@ -8,6 +8,7 @@ use Core\Mod\Agentic\Jobs\DeleteFromIndex;
 use Core\Mod\Agentic\Jobs\EmbedMemory;
 use Core\Mod\Agentic\Models\BrainMemory;
 use Core\Mod\Agentic\Services\BrainService;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -120,7 +121,8 @@ test('SupersedeForgetIndexCleanup_supersede_Bad_dispatches_cleanup_for_old_index
 
     expect(BrainMemory::find($oldMemory->id))->toBeNull()
         ->and(BrainMemory::withTrashed()->find($oldMemory->id)?->trashed())->toBeTrue()
-        ->and($newMemory->indexed_at)->toBeNull();
+        ->and($newMemory->indexed_at)->toBeNull()
+        ->and($newMemory->supersedes_id)->toBe($oldMemory->id);
 
     Queue::assertPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $oldMemory->id);
     Queue::assertPushed(EmbedMemory::class, fn (EmbedMemory $job): bool => $job->memoryId === $newMemory->id);
@@ -148,10 +150,109 @@ test('SupersedeForgetIndexCleanup_supersede_Ugly_dispatches_cleanup_for_never_in
 
     expect(BrainMemory::find($oldMemory->id))->toBeNull()
         ->and(BrainMemory::withTrashed()->find($oldMemory->id)?->trashed())->toBeTrue()
-        ->and($newMemory->indexed_at)->toBeNull();
+        ->and($newMemory->indexed_at)->toBeNull()
+        ->and($newMemory->supersedes_id)->toBe($oldMemory->id);
 
     Queue::assertPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $oldMemory->id);
     Queue::assertPushed(EmbedMemory::class, fn (EmbedMemory $job): bool => $job->memoryId === $newMemory->id);
+});
+
+test('SupersedeForgetIndexCleanup_supersede_Good_retries_follow_the_current_head', function (): void {
+    Queue::fake();
+    $brain = cleanupBrainService();
+    $workspace = createWorkspace();
+    $originalMemory = cleanupMemory([
+        'workspace_id' => $workspace->id,
+        'content' => 'Original memory for retry chain.',
+    ]);
+
+    $replacement = $brain->remember([
+        'workspace_id' => $workspace->id,
+        'agent_id' => 'virgil',
+        'type' => 'observation',
+        'content' => 'First replacement memory.',
+        'confidence' => 0.91,
+        'org' => 'core',
+        'project' => 'agent',
+        'supersedes_id' => $originalMemory->id,
+    ]);
+
+    $retriedReplacement = $brain->remember([
+        'workspace_id' => $workspace->id,
+        'agent_id' => 'virgil',
+        'type' => 'observation',
+        'content' => 'Retried replacement memory.',
+        'confidence' => 0.92,
+        'org' => 'core',
+        'project' => 'agent',
+        'supersedes_id' => $originalMemory->id,
+    ]);
+
+    expect($replacement->supersedes_id)->toBe($originalMemory->id)
+        ->and($retriedReplacement->supersedes_id)->toBe($replacement->id)
+        ->and(BrainMemory::find($originalMemory->id))->toBeNull()
+        ->and(BrainMemory::withTrashed()->find($originalMemory->id)?->trashed())->toBeTrue()
+        ->and(BrainMemory::find($replacement->id))->toBeNull()
+        ->and(BrainMemory::withTrashed()->find($replacement->id)?->trashed())->toBeTrue()
+        ->and(BrainMemory::find($retriedReplacement->id))->not->toBeNull();
+
+    Queue::assertPushed(DeleteFromIndex::class, 2);
+    Queue::assertPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $originalMemory->id);
+    Queue::assertPushed(DeleteFromIndex::class, fn (DeleteFromIndex $job): bool => $job->memoryId === $replacement->id);
+    Queue::assertPushed(EmbedMemory::class, 2);
+});
+
+test('SupersedeForgetIndexCleanup_supersede_Bad_throws_for_unknown_memory', function (): void {
+    Queue::fake();
+    $workspace = createWorkspace();
+    $missingMemoryId = Str::uuid()->toString();
+
+    expect(fn () => cleanupBrainService()->remember([
+        'workspace_id' => $workspace->id,
+        'agent_id' => 'virgil',
+        'type' => 'observation',
+        'content' => 'Memory with missing supersede target.',
+        'confidence' => 0.88,
+        'org' => 'core',
+        'project' => 'agent',
+        'supersedes_id' => $missingMemoryId,
+    ]))->toThrow(\InvalidArgumentException::class, "Superseded memory not found: {$missingMemoryId}");
+
+    expect(BrainMemory::count())->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+test('SupersedeForgetIndexCleanup_supersede_Ugly_detects_cycles_before_writing', function (): void {
+    Queue::fake();
+    $workspace = createWorkspace();
+    $firstMemory = cleanupMemory([
+        'workspace_id' => $workspace->id,
+        'content' => 'Cycle root memory.',
+    ]);
+    $secondMemory = cleanupMemory([
+        'workspace_id' => $workspace->id,
+        'content' => 'Cycle successor memory.',
+        'supersedes_id' => $firstMemory->id,
+    ]);
+
+    $firstMemory->supersedes_id = $secondMemory->id;
+    $firstMemory->save();
+
+    expect(fn () => cleanupBrainService()->remember([
+        'workspace_id' => $workspace->id,
+        'agent_id' => 'virgil',
+        'type' => 'observation',
+        'content' => 'Memory that should fail on cycle.',
+        'confidence' => 0.9,
+        'org' => 'core',
+        'project' => 'agent',
+        'supersedes_id' => $firstMemory->id,
+    ]))->toThrow(\RuntimeException::class, "Detected cycle while resolving supersede chain: {$firstMemory->id}");
+
+    expect(BrainMemory::count())->toBe(2)
+        ->and(BrainMemory::withTrashed()->find($firstMemory->id)?->trashed())->toBeFalse()
+        ->and(BrainMemory::withTrashed()->find($secondMemory->id)?->trashed())->toBeFalse();
+    Queue::assertNothingPushed();
 });
 
 test('SupersedeForgetIndexCleanup_supersede_Ugly_skips_late_index_writes_for_deleted_memory', function (): void {
