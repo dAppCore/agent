@@ -40,6 +40,8 @@ Route::get('v1/health', [AgentApiController::class, 'health']);
 Route::post('github/webhook', [\Core\Mod\Agentic\Controllers\Api\GitHubWebhookController::class, 'receive'])
     ->middleware('throttle:120,1');
 
+Route::post('agentic/mantis-webhook', [\Core\Mod\Agentic\Http\Controllers\Api\MantisWebhookController::class, 'receive']);
+
 // Agent checkin — discover which repos changed since last sync
 // Uses auth.api (brain key) for authentication
 Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () {
