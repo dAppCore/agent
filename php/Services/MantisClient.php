@@ -17,6 +17,24 @@ class MantisClient
         private ?string $token = null,
     ) {}
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listOpen(): array
+    {
+        $response = $this->request()->get('/api/rest/issues', [
+            'status' => 'new',
+        ]);
+
+        if (! $response->successful()) {
+            throw new RuntimeException("Mantis listOpen failed: {$response->status()}");
+        }
+
+        $issues = $response->json('issues');
+
+        return is_array($issues) ? array_values(array_filter($issues, 'is_array')) : [];
+    }
+
     public function note(int $ticketId, string $text): void
     {
         $response = $this->request()->post("/api/rest/issues/{$ticketId}/notes", [
