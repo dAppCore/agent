@@ -15,6 +15,27 @@ from .openbrain_common import OpenBrainTransportMixin
 
 
 class OpenBrainContextEngine(OpenBrainTransportMixin):
+    """Hermes ContextEngine that retrieves OpenBrain memories for prompt-time
+    augmentation, scoped to a workspace (and optional org).
+
+    Extends ``OpenBrainTransportMixin`` for reachability + transport, then
+    layers Qdrant similarity search on top so the runner can pull relevant
+    prior memories when assembling a prompt.
+
+    Example::
+
+        engine = OpenBrainContextEngine(
+            brain_url="https://brain.lthn.sh",
+            api_key=os.environ["OPENBRAIN_KEY"],
+            qdrant_url="http://qdrant.lthn.sh:6333",
+            pg_dsn="postgres://...",
+            workspace_id=42,
+            org="cladius",
+        )
+        if engine.is_available():
+            engine.initialize()
+    """
+
     def __init__(
         self,
         brain_url: str,

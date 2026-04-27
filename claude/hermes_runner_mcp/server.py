@@ -33,6 +33,18 @@ class HermesAPIError(RuntimeError):
 
 
 class DispatchRequest(BaseModel):
+    """Validated input for the ``hermes_dispatch`` MCP tool.
+
+    Holds the task prompt, the structured inputs map, and an optional
+    subagent composition. ``gateway_payload()`` produces the JSON shape
+    the Hermes gateway expects.
+
+    Example::
+
+        req = DispatchRequest(task="run tests", inputs={"repo": "go-store"})
+        body = req.gateway_payload()
+    """
+
     task: str
     inputs: dict[str, Any] = Field(default_factory=dict)
     agents: list[dict[str, Any]] | None = None
@@ -53,17 +65,45 @@ class DispatchRequest(BaseModel):
 
 
 class DispatchResult(BaseModel):
+    """Successful result of a ``hermes_dispatch`` call: the run identifier
+    plus a poll URL the caller can pass to ``hermes_status``.
+
+    Example::
+
+        DispatchResult(run_id="r-42", status_url="https://hermes/runs/r-42")
+    """
+
     run_id: str
     status_url: str
 
 
 class StatusResult(BaseModel):
+    """Snapshot of a Hermes run's lifecycle state, exposed by the
+    ``hermes_status`` MCP tool. ``state`` is one of queued / running /
+    complete / failed; ``progress`` and ``last_event`` are runner-defined
+    extensions for richer UIs.
+
+    Example::
+
+        StatusResult(state="running", progress={"step": 2, "total": 5})
+    """
+
     state: Literal["queued", "running", "complete", "failed"]
     progress: Any = None
     last_event: Any = None
 
 
 class FetchResult(BaseModel):
+    """Final outputs of a completed Hermes run, exposed by the
+    ``hermes_fetch`` MCP tool. ``output`` is the runner's primary result;
+    ``artifacts`` is a list of side-channel files; ``log`` is any captured
+    log tail.
+
+    Example::
+
+        FetchResult(output={"sha": "abc"}, artifacts=[], log="...")
+    """
+
     output: Any = None
     artifacts: list[Any] = Field(default_factory=list)
     log: Any = None
@@ -71,6 +111,14 @@ class FetchResult(BaseModel):
 
 @dataclass(frozen=True)
 class ToolSpec:
+    """Static MCP-tool descriptor — name, human description, JSON-schema
+    input shape. Used to register tools onto the FastMCP server.
+
+    Example::
+
+        ToolSpec(name="hermes_dispatch", description="...", input_schema={...})
+    """
+
     name: str
     description: str
     input_schema: dict[str, Any]
@@ -138,6 +186,14 @@ TOOL_SPECS = (
 
 
 def configure_logging() -> None:
+    """Initialise the root logger to write INFO+ messages to stderr in the
+    standard ``time level name: message`` format. Safe to call multiple times.
+
+    Example::
+
+        configure_logging()
+    """
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -150,6 +206,16 @@ def install_signal_handlers(
     *,
     exit_immediately: bool,
 ) -> None:
+    """Wire SIGINT/SIGTERM to set ``stop_event`` so long-running loops can
+    drain cleanly. When ``exit_immediately`` is true, the handler raises
+    SystemExit on receipt instead of relying on the cooperative shutdown.
+
+    Example::
+
+        stop = threading.Event()
+        install_signal_handlers(stop, exit_immediately=False)
+    """
+
     def handle_signal(signum: int, _frame: Any) -> None:
         LOGGER.info("received signal %s, shutting down", signum)
         stop_event.set()
@@ -161,6 +227,19 @@ def install_signal_handlers(
 
 
 class HermesGatewayClient:
+    """HTTP client wrapper for the Hermes gateway. Owns a configured
+    ``httpx.Client`` with the API key header pre-set and a base URL
+    normalised to no trailing slash.
+
+    Example::
+
+        client = HermesGatewayClient("https://hermes.lthn.sh", api_key="...")
+        try:
+            run_id = client.dispatch(payload)
+        finally:
+            client.close()
+    """
+
     def __init__(
         self,
         hermes_url: str,
@@ -405,6 +484,18 @@ class HermesGatewayClient:
 
 
 class HermesToolHandler:
+    """Glue between the MCP tool registration surface and a
+    ``HermesGatewayClient``. Dispatches each tool name (hermes_dispatch /
+    hermes_status / hermes_fetch) to the corresponding gateway call and
+    formats the response into MCP-compatible result shapes.
+
+    Example::
+
+        client = HermesGatewayClient(...)
+        handler = HermesToolHandler(client)
+        tools = handler.list_tools()
+    """
+
     def __init__(self, client: HermesGatewayClient) -> None:
         self.client = client
 
@@ -461,6 +552,19 @@ class HermesToolHandler:
 
 
 class MinimalMCPServer:
+    """Standalone JSON-RPC over stdio server speaking the MCP protocol.
+
+    Used as a fallback when ``fastmcp`` isn't importable. Reads
+    line-delimited JSON-RPC requests from stdin, dispatches them to the
+    ``HermesToolHandler``, and writes responses back. Supports batch
+    requests (JSON array) and exits cleanly when ``stop_event`` is set.
+
+    Example::
+
+        server = MinimalMCPServer(handler, stop_event=threading.Event())
+        server.serve()
+    """
+
     def __init__(self, handler: HermesToolHandler, stop_event: threading.Event) -> None:
         self.handler = handler
         self.stop_event = stop_event
@@ -617,12 +721,24 @@ class MinimalMCPServer:
 
 
 def negotiate_protocol_version(requested: str | None) -> str:
+    """Return the negotiated MCP protocol version: the client's requested
+    version when supported, or the server's preferred fallback otherwise.
+
+    Example::
+
+        version = negotiate_protocol_version("2024-11-05")
+    """
+
     if requested in SUPPORTED_PROTOCOL_VERSIONS:
         return requested
     return SUPPORTED_PROTOCOL_VERSIONS[0]
 
 
 def _parse_run_identifier(payload: dict[str, Any]) -> str:
+    """Extract a non-empty ``run_id`` string from a tool-call payload, or
+    raise ``ValidationError`` describing the violation. Internal helper.
+    """
+
     run_id = payload.get("run_id")
     if isinstance(run_id, str) and run_id:
         return run_id
@@ -640,6 +756,15 @@ def _parse_run_identifier(payload: dict[str, Any]) -> str:
 
 
 def format_validation_error(exc: ValidationError) -> str:
+    """Render a Pydantic ``ValidationError`` as a single human-readable
+    string suitable for MCP error responses. Joins all field-level errors
+    with semicolons in ``location: message`` form.
+
+    Example::
+
+        msg = format_validation_error(exc)
+    """
+
     errors = []
     for error in exc.errors():
         location = ".".join(str(part) for part in error.get("loc", ()))
@@ -652,6 +777,15 @@ def format_validation_error(exc: ValidationError) -> str:
 
 
 def tool_success_result(payload: dict[str, Any]) -> dict[str, Any]:
+    """Wrap a successful MCP tool result in the dual content/structured
+    shape clients expect: a JSON-serialised text block plus the raw
+    structured object.
+
+    Example::
+
+        result = tool_success_result({"run_id": "r-42"})
+    """
+
     text = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
     return {
         "content": [
@@ -666,6 +800,13 @@ def tool_success_result(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def tool_error_result(message: str) -> dict[str, Any]:
+    """Wrap an MCP tool error in the standard text-content + isError shape.
+
+    Example::
+
+        err = tool_error_result("Hermes gateway timed out")
+    """
+
     return {
         "content": [
             {
@@ -678,6 +819,20 @@ def tool_error_result(message: str) -> dict[str, Any]:
 
 
 def build_fastmcp_server(handler: HermesToolHandler) -> Any:
+    """Construct a FastMCP server registered with the three Hermes tools
+    (hermes_dispatch / hermes_status / hermes_fetch). Returns ``None`` when
+    the optional ``mcp`` dependency is unavailable; callers should fall
+    back to ``MinimalMCPServer`` in that case.
+
+    Example::
+
+        server = build_fastmcp_server(handler)
+        if server is None:
+            MinimalMCPServer(handler, stop_event).serve()
+        else:
+            server.run()
+    """
+
     try:
         from typing import Annotated
 
@@ -739,6 +894,16 @@ def build_fastmcp_server(handler: HermesToolHandler) -> Any:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments for the hermes-runner-mcp binary.
+
+    Recognises ``--hermes-url`` and ``--api-key``; the latter falls back
+    to the ``HERMES_API_KEY`` environment variable when omitted.
+
+    Example::
+
+        args = parse_args(["--hermes-url", "https://hermes.lthn.sh"])
+    """
+
     parser = argparse.ArgumentParser(
         prog="hermes-runner-mcp",
         description="MCP stdio server for dispatching Hermes runner jobs.",
@@ -757,6 +922,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point for the hermes-runner-mcp binary. Wires logging, the
+    gateway client, the tool handler, and the chosen MCP server (FastMCP
+    when available, MinimalMCPServer otherwise). Returns a process exit
+    code (0 for clean shutdown, non-zero on fatal error).
+
+    Example::
+
+        sys.exit(main(sys.argv[1:]))
+    """
+
     configure_logging()
     args = parse_args(argv)
     stop_event = threading.Event()

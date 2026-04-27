@@ -11,6 +11,17 @@ namespace Core\Mcp\Services {
     use Illuminate\Support\Facades\Cache;
     use Throwable;
 
+    /**
+     * Cache-backed circuit breaker for downstream service calls. Counts
+     * consecutive failures per service and trips OPEN when the threshold
+     * is exceeded; HALF_OPEN allows a probe call after a cooldown to test
+     * recovery; CLOSED is the normal pass-through state.
+     *
+     * Example:
+     *
+     *   $breaker = new CircuitBreaker();
+     *   $result = $breaker->call('openbrain', fn () => $client->dispatch(...));
+     */
     final class CircuitBreaker
     {
         protected const CACHE_PREFIX = 'circuit_breaker:';
@@ -23,6 +34,16 @@ namespace Core\Mcp\Services {
 
         public const STATE_HALF_OPEN = 'half_open';
 
+        /**
+         * Execute $operation under circuit-breaker protection. When the
+         * circuit is OPEN, $fallback is invoked (or CircuitOpenException
+         * is thrown if no fallback is supplied). Failures increment the
+         * service's failure counter and may trip the breaker.
+         *
+         * Example:
+         *
+         *   $breaker->call('openbrain', $op, fn () => ['cached' => true]);
+         */
         public function call(string $service, Closure $operation, ?Closure $fallback = null): mixed
         {
             $state = $this->getState($service);

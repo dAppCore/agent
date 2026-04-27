@@ -8,10 +8,34 @@ namespace Core\Mcp\Services;
 
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Per-(caller, tool) rate limiter for MCP tool invocations. Backed by
+ * Laravel's cache; respects mcp.rate_limiting.enabled / decay_seconds /
+ * limit-by-tool configuration. Returns a structured result so callers
+ * can produce 429 responses with retry-after headers.
+ *
+ * Example:
+ *
+ *   $rl = new ToolRateLimiter();
+ *   $result = $rl->check($apiKey, 'agent.brain.recall');
+ *   if ($result['limited']) {
+ *       return response()->json(['error' => 'rate_limited'], 429);
+ *   }
+ *   $rl->hit($apiKey, 'agent.brain.recall');
+ */
 final class ToolRateLimiter
 {
     protected const CACHE_PREFIX = 'mcp_rate_limit:';
 
+    /**
+     * Inspect the rate-limit state for a (caller, tool) pair without
+     * incrementing it. Returns ['limited' => bool, 'remaining' => int,
+     * 'retry_after' => ?int].
+     *
+     * Example:
+     *
+     *   ['limited' => false, 'remaining' => 99, 'retry_after' => null]
+     */
     public function check(string $identifier, string $toolName): array
     {
         if (! config('mcp.rate_limiting.enabled', true)) {

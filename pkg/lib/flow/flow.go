@@ -18,12 +18,23 @@ const parseFileContext = "flow.ParseFile"
 //go:embed *.md upgrade
 var embeddedFiles embed.FS
 
+// Flow is the top-level YAML-defined workflow: a name, a description, and an
+// ordered list of Steps that runners execute in sequence. Loaded via Parse,
+// ParseFile, or LoadEmbedded.
+//
+//	flow, _ := flow.Parse(reader)
+//	for _, step := range flow.Steps { /* run step */ }
 type Flow struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Steps       []Step `yaml:"steps"`
 }
 
+// Step is a single command invocation inside a Flow: the step name, the
+// command + args to run, and whether failure should continue the flow or
+// abort it.
+//
+//	step := flow.Step{Name: "build", Cmd: "task", Args: []string{"build"}}
 type Step struct {
 	Name            string   `yaml:"name"`
 	Cmd             string   `yaml:"cmd"`
@@ -31,6 +42,11 @@ type Step struct {
 	ContinueOnError bool     `yaml:"continueOnError"`
 }
 
+// Parse decodes a Flow definition from a YAML stream and validates the
+// shape (non-empty name, at least one step, valid step names). Returns
+// the parsed Flow and a wrapped error on decode/validation failure.
+//
+//	flow, err := flow.Parse(bytes.NewBufferString(yamlSrc))
 func Parse(reader io.Reader) (Flow, error) {
 	if reader == nil {
 		return Flow{}, core.E("flow.Parse", "reader is nil", nil)
@@ -53,6 +69,11 @@ func Parse(reader io.Reader) (Flow, error) {
 	return definition, nil
 }
 
+// ParseFile reads path via the unrestricted core filesystem and forwards the
+// content to Parse. Useful for loading a flow definition from disk in one
+// call. Returns a wrapped error on read failure or invalid YAML.
+//
+//	flow, err := flow.ParseFile(".core/flows/build.yaml")
 func ParseFile(path string) (Flow, error) {
 	readResult := fs.Read(path)
 	if !readResult.OK {
@@ -70,6 +91,12 @@ func ParseFile(path string) (Flow, error) {
 	return Parse(bytes.NewBufferString(content))
 }
 
+// LoadEmbedded loads a Flow definition baked into the binary via go:embed.
+// Accepts a bare name and tries common candidate paths/extensions. Rejects
+// path-escape attempts (leading slash, "..") and returns a wrapped error
+// when the name is missing or no candidate matches.
+//
+//	flow, err := flow.LoadEmbedded("upgrade")
 func LoadEmbedded(name string) (Flow, error) {
 	name = normaliseEmbeddedName(name)
 	if name == "" {

@@ -22,6 +22,22 @@ except ImportError:  # pragma: no cover - exercised through fallbacks
 
 
 class OpenBrainTransportMixin:
+    """Shared HTTP/Postgres/Qdrant reachability checks for OpenBrain plugins.
+
+    Subclasses set ``brain_url``, ``api_key``, ``qdrant_url`` and ``pg_dsn``
+    during construction. The mixin then exposes ``_qdrant_reachable()`` and
+    ``_postgres_reachable()`` for health-probing the backing services.
+
+    Example::
+
+        class MyPlugin(OpenBrainTransportMixin):
+            def __init__(self, cfg):
+                self.brain_url = cfg.brain_url
+                self.qdrant_url = cfg.qdrant_url
+                self.pg_dsn = cfg.pg_dsn
+                self.api_key = cfg.api_key
+    """
+
     brain_url: str
     api_key: str
     qdrant_url: str

@@ -9,6 +9,11 @@ import (
 	core "dappco.re/go/core"
 )
 
+// FlowRunStepOutput captures the per-step result of a flow execution: the
+// step name, command + args, exit success, and stdout/stderr/error tail.
+// Returned in slices from Flow runners so callers can inspect each step.
+//
+//	out := FlowRunStepOutput{Name: "build", Command: "task", Success: true}
 type FlowRunStepOutput struct {
 	Name            string   `json:"name,omitempty"`
 	Command         string   `json:"command,omitempty"`

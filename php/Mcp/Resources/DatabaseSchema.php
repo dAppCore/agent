@@ -16,6 +16,16 @@ final class DatabaseSchema extends Resource
 {
     protected string $description = 'Database schema information for Host Hub';
 
+    /**
+     * Build the database-schema resource: enumerates every table and
+     * returns a column-level description map encoded as pretty JSON.
+     * Falls back to Laravel's Schema facade when the raw SHOW TABLES
+     * query is not available (e.g. SQLite).
+     *
+     * Example:
+     *
+     *   $resp = (new DatabaseSchema())->handle($request);
+     */
     public function handle(Request $request): Response
     {
         $schema = [];

@@ -27,6 +27,24 @@ VALID_MEMORY_TYPES = [
 
 
 class OpenBrainMemoryProvider(OpenBrainTransportMixin):
+    """Hermes MemoryProvider that writes new memories into OpenBrain.
+
+    Extends ``OpenBrainTransportMixin`` for reachability + transport. The
+    provider validates the memory ``type`` against the allow-listed set
+    declared in this module before persisting to the brain backend.
+
+    Example::
+
+        provider = OpenBrainMemoryProvider(
+            brain_url="https://brain.lthn.sh",
+            api_key=os.environ["OPENBRAIN_KEY"],
+            qdrant_url="http://qdrant.lthn.sh:6333",
+            pg_dsn="postgres://...",
+            workspace_id=42,
+        )
+        provider.remember("decision", "...content...", tags=["rfc"])
+    """
+
     def __init__(
         self,
         brain_url: str,

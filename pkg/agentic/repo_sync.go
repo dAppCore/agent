@@ -13,6 +13,11 @@ import (
 // mirror. The 5-minute fallback fetch scheduler already lives in fetch_loop.go;
 // this file wires the event-driven refresh and the manual command surface.
 
+// RepoSyncOutput is the per-repo result of a workspace→local mirror sync:
+// org/repo/branch identifiers, the local repo dir touched, and whether a
+// hard reset was performed. Emitted by the repo-sync command + watcher.
+//
+//	out := RepoSyncOutput{Success: true, Org: "core", Repo: "go-store", Branch: "dev"}
 type RepoSyncOutput struct {
 	Success bool   `json:"success"`
 	Org     string `json:"org,omitempty"`
@@ -22,6 +27,10 @@ type RepoSyncOutput struct {
 	Reset   bool   `json:"reset,omitempty"`
 }
 
+// RepoSyncCommandOutput aggregates a batch sync invocation: overall success
+// flag, count of repos touched, and the per-repo RepoSyncOutput slice.
+//
+//	out := RepoSyncCommandOutput{Success: true, Count: 3, Synced: []RepoSyncOutput{...}}
 type RepoSyncCommandOutput struct {
 	Success bool             `json:"success"`
 	Count   int              `json:"count"`
