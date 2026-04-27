@@ -13,6 +13,8 @@ import (
 
 var fs = (&core.Fs{}).NewUnrestricted()
 
+const parseFileContext = "flow.ParseFile"
+
 //go:embed *.md upgrade
 var embeddedFiles embed.FS
 
@@ -55,14 +57,14 @@ func ParseFile(path string) (Flow, error) {
 	readResult := fs.Read(path)
 	if !readResult.OK {
 		if err, ok := readResult.Value.(error); ok {
-			return Flow{}, core.E("flow.ParseFile", core.Concat("read ", path), err)
+			return Flow{}, core.E(parseFileContext, core.Concat("read ", path), err)
 		}
-		return Flow{}, core.E("flow.ParseFile", core.Concat("read ", path), nil)
+		return Flow{}, core.E(parseFileContext, core.Concat("read ", path), nil)
 	}
 
 	content, ok := readResult.Value.(string)
 	if !ok {
-		return Flow{}, core.E("flow.ParseFile", core.Concat("read ", path), nil)
+		return Flow{}, core.E(parseFileContext, core.Concat("read ", path), nil)
 	}
 
 	return Parse(bytes.NewBufferString(content))

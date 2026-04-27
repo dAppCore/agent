@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Jobs;
 
+use Core\Mod\Agentic\Models\BrainMemory;
 use Core\Mod\Agentic\Services\BrainService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,11 +27,21 @@ class DeleteFromIndex implements ShouldQueue
 
     public function __construct(
         public string $memoryId,
+        public bool $forceDeleteRecord = false,
     ) {}
 
     public function handle(BrainService $brain): void
     {
+        $memory = BrainMemory::withTrashed()->find($this->memoryId);
+        if ($memory instanceof BrainMemory && $memory->deleted_at === null) {
+            return;
+        }
+
         $brain->qdrantDelete([$this->memoryId]);
         $brain->elasticDelete($this->memoryId);
+
+        if ($this->forceDeleteRecord && $memory instanceof BrainMemory && $memory->deleted_at !== null) {
+            $memory->forceDelete();
+        }
     }
 }

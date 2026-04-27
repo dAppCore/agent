@@ -43,6 +43,7 @@ type seoRevisionRecord struct {
 }
 
 const contentSEORevisionGroup = "seo_revisions"
+const contentSEOPageIDRequired = "page_id is required"
 
 var (
 	contentSEONow         = time.Now
@@ -83,7 +84,7 @@ func (s *PrepSubsystem) ScheduleRevision(ctx context.Context, pageID, content st
 
 	pageID = core.Trim(pageID)
 	if pageID == "" {
-		return SEORevision{}, core.E("scheduleRevision", "page_id is required", nil)
+		return SEORevision{}, core.E("scheduleRevision", contentSEOPageIDRequired, nil)
 	}
 
 	storeInstance, err := s.contentSEOStore()
@@ -108,7 +109,7 @@ func (s *PrepSubsystem) ScheduleRevision(ctx context.Context, pageID, content st
 func (s *PrepSubsystem) GetPendingRevisions(pageID string) ([]SEORevision, error) {
 	pageID = core.Trim(pageID)
 	if pageID == "" {
-		return nil, core.E("getPendingRevisions", "page_id is required", nil)
+		return nil, core.E("getPendingRevisions", contentSEOPageIDRequired, nil)
 	}
 
 	storeInstance, err := s.contentSEOStore()
@@ -136,7 +137,7 @@ func (s *PrepSubsystem) OnGooglebotVisit(ctx context.Context, pageID string) err
 
 	pageID = core.Trim(pageID)
 	if pageID == "" {
-		return core.E("onGooglebotVisit", "page_id is required", nil)
+		return core.E("onGooglebotVisit", contentSEOPageIDRequired, nil)
 	}
 
 	storeInstance, err := s.contentSEOStore()

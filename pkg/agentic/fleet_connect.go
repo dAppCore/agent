@@ -25,6 +25,8 @@ var fleetPollInterval = 30 * time.Second
 var fleetHeartbeatInterval = 60 * time.Second
 var fleetPollingFailureThreshold = 3
 
+const fleetPollAction = "agentic.fleet.poll"
+
 var fleetSleep = func(ctx context.Context, delay time.Duration) bool {
 	if delay <= 0 {
 		select {
@@ -96,26 +98,14 @@ func (s *PrepSubsystem) Connect(ctx context.Context, options core.Options) core.
 	consecutiveFailures := 0
 
 	for ctx.Err() == nil {
-		if pollingDone != nil {
-			select {
-			case <-pollingDone:
-				pollingDone = nil
-				pollingCancel = nil
-			default:
-			}
-		}
+		fleetClearCompletedPollFallback(&pollingCancel, &pollingDone)
 
 		result := s.connectFleetEventStream(ctx, config)
 		if result.OK {
 			consecutiveFailures = 0
-			if pollingCancel != nil {
-				pollingCancel()
-				if pollingDone != nil {
-					<-pollingDone
-				}
-				pollingCancel = nil
-				pollingDone = nil
-			}
+			fleetStopPollFallback(pollingCancel, pollingDone)
+			pollingCancel = nil
+			pollingDone = nil
 			continue
 		}
 
@@ -128,13 +118,7 @@ func (s *PrepSubsystem) Connect(ctx context.Context, options core.Options) core.
 		fleetRememberState("disconnected", "sse", err.Error())
 
 		if consecutiveFailures >= fleetPollingFailureThreshold && pollingCancel == nil {
-			pollingContext, cancelPolling := context.WithCancel(ctx)
-			pollingCancel = cancelPolling
-			pollingDone = make(chan struct{})
-			go func() {
-				defer close(pollingDone)
-				_ = s.runFleetPollFallback(pollingContext, config)
-			}()
+			pollingCancel, pollingDone = s.startFleetPollFallback(ctx, config)
 		}
 
 		if !fleetSleep(ctx, fleetBackoffDelay(consecutiveFailures)) {
@@ -142,21 +126,50 @@ func (s *PrepSubsystem) Connect(ctx context.Context, options core.Options) core.
 		}
 	}
 
-	if pollingCancel != nil {
-		pollingCancel()
-		if pollingDone != nil {
-			<-pollingDone
-		}
-	}
+	fleetStopPollFallback(pollingCancel, pollingDone)
 
 	fleetRememberState("offline", fleetRuntimeSnapshotValue().Transport, "")
 	return core.Result{OK: true}
 }
 
+func fleetClearCompletedPollFallback(cancel *context.CancelFunc, done *chan struct{}) {
+	if *done == nil {
+		return
+	}
+
+	select {
+	case <-*done:
+		*done = nil
+		*cancel = nil
+	default:
+	}
+}
+
+func fleetStopPollFallback(cancel context.CancelFunc, done chan struct{}) {
+	if cancel == nil {
+		return
+	}
+
+	cancel()
+	if done != nil {
+		<-done
+	}
+}
+
+func (s *PrepSubsystem) startFleetPollFallback(ctx context.Context, config fleetClientConfig) (context.CancelFunc, chan struct{}) {
+	pollingContext, cancelPolling := context.WithCancel(ctx)
+	pollingDone := make(chan struct{})
+	go func() {
+		defer close(pollingDone)
+		_ = s.runFleetPollFallback(pollingContext, config)
+	}()
+	return cancelPolling, pollingDone
+}
+
 // result := subsystem.PollFallback(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
 func (s *PrepSubsystem) PollFallback(ctx context.Context, options core.Options) core.Result {
 	config := fleetClientConfigFromOptions(s, options)
-	if validation := validateFleetClientConfig("agentic.fleet.poll", config, true); !validation.OK {
+	if validation := validateFleetClientConfig(fleetPollAction, config, true); !validation.OK {
 		return validation
 	}
 	return s.runFleetPollFallback(ctx, config)
@@ -397,7 +410,7 @@ func (s *PrepSubsystem) runFleetPollFallback(ctx context.Context, config fleetCl
 				return core.Result{Value: task, OK: true}
 			}
 		} else {
-			err := commandResultError("agentic.fleet.poll", result)
+			err := commandResultError(fleetPollAction, result)
 			fleetRememberState("polling", "poll", err.Error())
 		}
 
@@ -413,14 +426,14 @@ func (s *PrepSubsystem) pollFleetNextTask(ctx context.Context, config fleetClien
 	path := appendQueryParam("/v1/fleet/task/next", "agent_id", config.AgentID)
 	path = appendQuerySlice(path, "capabilities[]", config.Capabilities)
 
-	result := s.fleetJSONRequest(ctx, "agentic.fleet.poll", config, http.MethodGet, path, nil)
+	result := s.fleetJSONRequest(ctx, fleetPollAction, config, http.MethodGet, path, nil)
 	if !result.OK {
 		return result
 	}
 
 	payload, ok := result.Value.(map[string]any)
 	if !ok {
-		return core.Result{Value: core.E("agentic.fleet.poll", "invalid fleet polling payload", nil), OK: false}
+		return core.Result{Value: core.E(fleetPollAction, "invalid fleet polling payload", nil), OK: false}
 	}
 
 	taskValues := payloadResourceMap(payload, "task")

@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Actions\Brain;
@@ -26,7 +28,16 @@ class RememberKnowledge
     ) {}
 
     /**
-     * @param  array{content: string, type: string, tags?: array, org?: string, project?: string, confidence?: float, supersedes?: string, expires_in?: int}  $data
+     * @param  array{
+     *     content: string,
+     *     type: string,
+     *     tags?: array,
+     *     org?: string,
+     *     project?: string,
+     *     confidence?: float,
+     *     supersedes?: string,
+     *     expires_in?: int
+     * }  $data
      * @return BrainMemory The created memory
      *
      * @throws \InvalidArgumentException
@@ -45,7 +56,10 @@ class RememberKnowledge
         $type = $data['type'] ?? null;
         if (! is_string($type) || ! in_array($type, BrainMemory::VALID_TYPES, true)) {
             throw new \InvalidArgumentException(
-                sprintf('type must be one of: %s', implode(', ', BrainMemory::VALID_TYPES))
+                sprintf(
+                    'type must be one of: %s',
+                    implode(', ', BrainMemory::VALID_TYPES),
+                )
             );
         }
 
@@ -79,13 +93,25 @@ class RememberKnowledge
             throw new \InvalidArgumentException('expires_in must be at least 1 hour');
         }
 
+        $org = $data['org'] ?? null;
+        if ($org !== null) {
+            if (! is_string($org) || trim($org) === '') {
+                throw new \InvalidArgumentException('org must be a non-empty string when provided');
+            }
+
+            $org = trim($org);
+            if (mb_strlen($org) > 128) {
+                throw new \InvalidArgumentException('org must not exceed 128 characters');
+            }
+        }
+
         return $this->brain->remember([
             'workspace_id' => $workspaceId,
             'agent_id' => $agentId,
             'type' => $type,
             'content' => $content,
             'tags' => $tags,
-            'org' => $data['org'] ?? null,
+            'org' => $org,
             'project' => $data['project'] ?? null,
             'confidence' => $confidence,
             'supersedes_id' => $supersedes,

@@ -18,6 +18,8 @@ run_capture_stdout() {
 		fi
 		return 1
 	fi
+
+	return 0
 }
 
 run_capture_all() {
@@ -38,6 +40,8 @@ run_capture_all() {
 		fi
 		return 1
 	fi
+
+	return 0
 }
 
 assert_jq() {

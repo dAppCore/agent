@@ -28,6 +28,11 @@ type RepoSyncCommandOutput struct {
 	Synced  []RepoSyncOutput `json:"synced,omitempty"`
 }
 
+const (
+	repoSyncResetAction    = "sync.reset"
+	repoSyncRepoDirContext = "agentic.repoSyncRepoDir"
+)
+
 // s.registerRepoSyncSupport()
 func (s *PrepSubsystem) registerRepoSyncSupport() {
 	if s == nil || s.ServiceRuntime == nil {
@@ -47,8 +52,8 @@ func (s *PrepSubsystem) registerRepoSyncSupport() {
 	if !c.Action("sync.fetch").Exists() {
 		c.Action("sync.fetch", s.handleRepoSyncFetch).Description = "Fetch a tracked local repo from origin"
 	}
-	if !c.Action("sync.reset").Exists() {
-		c.Action("sync.reset", s.handleRepoSyncReset).Description = "Reset a tracked local repo to origin/<branch>"
+	if !c.Action(repoSyncResetAction).Exists() {
+		c.Action(repoSyncResetAction, s.handleRepoSyncReset).Description = "Reset a tracked local repo to origin/<branch>"
 	}
 
 	c.RegisterAction(func(coreApp *core.Core, msg core.Message) core.Result {
@@ -173,7 +178,7 @@ func (s *PrepSubsystem) runRepoSync(ctx context.Context, target fetchRepoRef, br
 	}
 
 	if reset {
-		resetResult := s.Core().Action("sync.reset").Run(ctx, repoSyncOptions(target, resetBranch))
+		resetResult := s.Core().Action(repoSyncResetAction).Run(ctx, repoSyncOptions(target, resetBranch))
 		if !resetResult.OK {
 			return resetResult
 		}
@@ -332,16 +337,16 @@ func resultErrorValue(result core.Result) error {
 
 func (s *PrepSubsystem) repoSyncRepoDir(target fetchRepoRef) (string, error) {
 	if s == nil || s.ServiceRuntime == nil {
-		return "", core.E("agentic.repoSyncRepoDir", "prep subsystem is not initialised", nil)
+		return "", core.E(repoSyncRepoDirContext, "prep subsystem is not initialised", nil)
 	}
 
 	repoDir := s.localRepoDir(target.Org, target.Repo)
 	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
-		return "", core.E("agentic.repoSyncRepoDir", "local repo not found", nil)
+		return "", core.E(repoSyncRepoDirContext, "local repo not found", nil)
 	}
 
 	if !s.Core().Process().RunIn(context.Background(), repoDir, "git", "rev-parse", "--git-dir").OK {
-		return "", core.E("agentic.repoSyncRepoDir", "local repo is not a git checkout", nil)
+		return "", core.E(repoSyncRepoDirContext, "local repo is not a git checkout", nil)
 	}
 	return repoDir, nil
 }

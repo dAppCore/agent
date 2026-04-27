@@ -56,6 +56,7 @@ class AwardCredits
             if ($fleetTaskId !== null) {
                 $fleetTask = FleetTask::query()
                     ->where('workspace_id', $workspaceId)
+                    ->lockForUpdate()
                     ->find($fleetTaskId);
 
                 if (! $fleetTask instanceof FleetTask) {

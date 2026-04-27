@@ -49,8 +49,7 @@ class BrainPruneCommand extends Command
 
         $query->chunkById($chunkSize, function (Collection $memories) use (&$pruned): void {
             foreach ($memories as $memory) {
-                DeleteFromIndex::dispatch($memory->id);
-                $memory->forceDelete();
+                DeleteFromIndex::dispatch((string) $memory->id, true);
                 $pruned++;
             }
         });

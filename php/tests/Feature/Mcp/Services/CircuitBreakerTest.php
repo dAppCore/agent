@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__).'/Support/bootstrap.php';
 
+mcpRequire('Mcp/Exceptions/CircuitOpenException.php');
 mcpRequire('Mcp/Services/CircuitBreaker.php');
 
 use Core\Mcp\Exceptions\CircuitOpenException;

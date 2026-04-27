@@ -13,13 +13,13 @@ pip install -e .
 ## Claude Code
 
 ```bash
-claude mcp add hermes-runner -- hermes-runner-mcp --hermes-url=http://localhost:8642 --api-key=$HERMES_API_KEY
+claude mcp add hermes-runner -- hermes-runner-mcp --hermes-url=http://localhost:8642
 ```
 
 ## Configuration
 
 - `--hermes-url`: Hermes gateway base URL. Defaults to `http://localhost:8642/`.
-- `--api-key`: Hermes gateway API key. Falls back to `HERMES_API_KEY`.
+- `--api-key`: Hermes gateway API key. Defaults to `HERMES_API_KEY`, so prefer setting the environment variable instead of passing the secret on the command line.
 
 ## Tools
 

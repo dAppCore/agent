@@ -47,12 +47,9 @@ final class ToolRateLimiter
         }
 
         $cacheKey = $this->cacheKey($identifier, $toolName);
-        $current = (int) Cache::get($cacheKey, 0);
         $decaySeconds = (int) config('mcp.rate_limiting.decay_seconds', 60);
 
-        if ($current === 0) {
-            Cache::put($cacheKey, 1, $decaySeconds);
-
+        if (Cache::add($cacheKey, 1, $decaySeconds)) {
             return;
         }
 

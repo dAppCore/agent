@@ -27,7 +27,7 @@ SUMMARY=$(echo "$OUTPUT" | grep -E "^(fmt:|lint:|test:|pint:|stan:|=== RESULT ==
 # Also grab specific error lines with file:line references
 FILE_ERRORS=$(echo "$OUTPUT" | grep -E "^[a-zA-Z0-9_/.-]+\.(go|php):[0-9]+:" | head -10)
 
-if [ -z "$FAILURES" ] && [ "$EXIT_CODE" = "0" ]; then
+if [[ -z "$FAILURES" && "$EXIT_CODE" == "0" ]]; then
     # All passed - show brief confirmation
     cat << 'EOF'
 {

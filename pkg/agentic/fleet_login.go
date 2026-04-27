@@ -17,6 +17,8 @@ type fleetLoginOutput struct {
 	KeyPath     string
 }
 
+const fleetLoginAction = "agentic.fleet.login"
+
 // result := subsystem.cmdFleetLogin(core.NewOptions(core.Option{Key: "_arg", Value: "123456"}))
 func (s *PrepSubsystem) cmdFleetLogin(options core.Options) core.Result {
 	code := core.Trim(optionStringValue(options, "code", "pairing_code", "pairing-code", "_arg"))
@@ -56,14 +58,14 @@ func (s *PrepSubsystem) cmdFleetLogin(options core.Options) core.Result {
 func (s *PrepSubsystem) loginWithPairingCode(ctx context.Context, options core.Options) core.Result {
 	code := core.Trim(optionStringValue(options, "code", "pairing_code", "pairing-code", "_arg"))
 	if !fleetPairingCodeValid(code) {
-		return core.Result{Value: core.E("agentic.fleet.login", "pairing code must be 6 digits", nil), OK: false}
+		return core.Result{Value: core.E(fleetLoginAction, "pairing code must be 6 digits", nil), OK: false}
 	}
 
 	config := fleetClientConfig{
 		APIURL: fleetAPIURLFromOptions(s, options),
 	}
 
-	result := s.fleetJSONRequest(ctx, "agentic.fleet.login", config, http.MethodPost, "/v1/device/pair", map[string]any{
+	result := s.fleetJSONRequest(ctx, fleetLoginAction, config, http.MethodPost, "/v1/device/pair", map[string]any{
 		"code": code,
 	})
 	if !result.OK {
@@ -72,12 +74,12 @@ func (s *PrepSubsystem) loginWithPairingCode(ctx context.Context, options core.O
 
 	payload, ok := result.Value.(map[string]any)
 	if !ok {
-		return core.Result{Value: core.E("agentic.fleet.login", "invalid fleet login payload", nil), OK: false}
+		return core.Result{Value: core.E(fleetLoginAction, "invalid fleet login payload", nil), OK: false}
 	}
 
 	output := parseFleetLoginOutput(payload)
 	if output.AgentAPIKey == "" {
-		return core.Result{Value: core.E("agentic.fleet.login", "device pairing response did not include an api key", nil), OK: false}
+		return core.Result{Value: core.E(fleetLoginAction, "device pairing response did not include an api key", nil), OK: false}
 	}
 
 	output.Success = true
@@ -85,11 +87,11 @@ func (s *PrepSubsystem) loginWithPairingCode(ctx context.Context, options core.O
 
 	if ensureResult := fs.EnsureDir(core.PathDir(output.KeyPath)); !ensureResult.OK {
 		err, _ := ensureResult.Value.(error)
-		return core.Result{Value: core.E("agentic.fleet.login", "create fleet key directory", err), OK: false}
+		return core.Result{Value: core.E(fleetLoginAction, "create fleet key directory", err), OK: false}
 	}
 	if writeResult := fs.WriteMode(output.KeyPath, output.AgentAPIKey, 0600); !writeResult.OK {
 		err, _ := writeResult.Value.(error)
-		return core.Result{Value: core.E("agentic.fleet.login", "write fleet api key", err), OK: false}
+		return core.Result{Value: core.E(fleetLoginAction, "write fleet api key", err), OK: false}
 	}
 
 	if s != nil {

@@ -68,6 +68,10 @@ final class DataRedactor
             return '[MAX_DEPTH_EXCEEDED]';
         }
 
+        if (is_object($data)) {
+            return $this->redactObject($data, $maxDepth - 1);
+        }
+
         if (is_array($data)) {
             return $this->redactArray($data, $maxDepth - 1);
         }
@@ -83,6 +87,10 @@ final class DataRedactor
     {
         if ($maxDepth <= 0) {
             return '[...]';
+        }
+
+        if (is_object($data)) {
+            return $this->summarizeObject($data, $maxDepth - 1);
         }
 
         if (is_array($data)) {
@@ -125,6 +133,34 @@ final class DataRedactor
         }
 
         return $data;
+    }
+
+    protected function redactObject(object $data, int $maxDepth): mixed
+    {
+        $normalised = $this->normaliseObject($data);
+
+        if (is_object($normalised)) {
+            return $this->redactObject($normalised, $maxDepth);
+        }
+
+        if (is_array($normalised)) {
+            return $this->redactArray($normalised, $maxDepth);
+        }
+
+        return is_string($normalised)
+            ? $this->redactString($normalised)
+            : $normalised;
+    }
+
+    protected function summarizeObject(object $data, int $maxDepth): mixed
+    {
+        $normalised = $this->normaliseObject($data);
+
+        if (is_object($normalised)) {
+            return $this->summarizeObject($normalised, $maxDepth);
+        }
+
+        return $this->summarize($normalised, $maxDepth);
     }
 
     protected function redactArray(array $data, int $maxDepth): array
@@ -211,5 +247,14 @@ final class DataRedactor
         $visible = min(3, (int) floor($length / 4));
 
         return substr($value, 0, $visible).'***'.substr($value, -$visible);
+    }
+
+    protected function normaliseObject(object $data): mixed
+    {
+        if ($data instanceof \JsonSerializable) {
+            return $data->jsonSerialize();
+        }
+
+        return get_object_vars($data);
     }
 }

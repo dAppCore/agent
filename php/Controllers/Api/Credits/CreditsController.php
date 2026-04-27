@@ -17,7 +17,7 @@ class CreditsController extends Controller
 {
     public function balance(Request $request): JsonResponse
     {
-        $workspaceId = (int) $request->attributes->get('workspace_id');
+        $workspaceId = $this->workspaceIdFrom($request);
         $service = $this->resolveCreditService();
 
         $payload = $service !== null && method_exists($service, 'balance')
@@ -34,7 +34,7 @@ class CreditsController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
-        $workspaceId = (int) $request->attributes->get('workspace_id');
+        $workspaceId = $this->workspaceIdFrom($request);
         $service = $this->resolveCreditService();
 
         $entry = $service !== null && method_exists($service, 'deduct')
@@ -51,7 +51,7 @@ class CreditsController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
-        $workspaceId = (int) $request->attributes->get('workspace_id');
+        $workspaceId = $this->workspaceIdFrom($request);
         $service = $this->resolveCreditService();
 
         $entry = $service !== null && method_exists($service, 'refund')
@@ -67,7 +67,7 @@ class CreditsController extends Controller
             'limit' => 'nullable|integer|min:1|max:500',
         ]);
 
-        $workspaceId = (int) $request->attributes->get('workspace_id');
+        $workspaceId = $this->workspaceIdFrom($request);
         $limit = (int) ($validated['limit'] ?? 50);
         $service = $this->resolveCreditService();
 
@@ -91,6 +91,15 @@ class CreditsController extends Controller
             'data' => $entries,
             'total' => count($entries),
         ]);
+    }
+
+    private function workspaceIdFrom(Request $request): int
+    {
+        $workspaceId = filter_var($request->attributes->get('workspace_id'), FILTER_VALIDATE_INT);
+
+        abort_if($workspaceId === false || $workspaceId < 1, 400, 'workspace_id attribute is required.');
+
+        return (int) $workspaceId;
     }
 
     /**

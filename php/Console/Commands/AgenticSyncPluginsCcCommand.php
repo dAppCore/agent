@@ -22,7 +22,14 @@ class AgenticSyncPluginsCcCommand extends Command
 
     public function handle(): int
     {
-        $pluginsPath = $this->pluginsPath();
+        try {
+            $pluginsPath = $this->pluginsPath();
+        } catch (\RuntimeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
         $pluginNames = $this->discoverPluginNames($pluginsPath);
 
         if ($pluginNames === []) {
@@ -51,15 +58,13 @@ class AgenticSyncPluginsCcCommand extends Command
             }
 
             if ($nameMatches->count() > 1) {
-                $report[] = $this->unmappedRow($pluginName, 'ambiguous name match');
-
-                continue;
+                $pendingPluginNames[$pluginName] = 'ambiguous name match';
+            } else {
+                $pendingPluginNames[$pluginName] = 'no enabled profile';
             }
-
-            $pendingPluginNames[] = $pluginName;
         }
 
-        foreach ($pendingPluginNames as $pluginName) {
+        foreach ($pendingPluginNames as $pluginName => $fallbackReason) {
             $pluginNameMatches = $this->matchProfilesByPluginCcName($profiles, $pluginName, $claimedProfileIds);
 
             if ($pluginNameMatches->count() === 1) {
@@ -76,7 +81,7 @@ class AgenticSyncPluginsCcCommand extends Command
                 continue;
             }
 
-            $report[] = $this->unmappedRow($pluginName, 'no enabled profile');
+            $report[] = $this->unmappedRow($pluginName, $fallbackReason);
         }
 
         usort($report, static fn (array $left, array $right): int => strcmp((string) $left['plugin'], (string) $right['plugin']));
@@ -264,7 +269,11 @@ class AgenticSyncPluginsCcCommand extends Command
             $home = $_SERVER['HOME'] ?? $_ENV['HOME'] ?? '';
         }
 
-        return rtrim((string) $home, '/').'/.claude/plugins';
+        if (! is_string($home) || $home === '') {
+            throw new \RuntimeException('Unable to resolve HOME for Claude Code plugin discovery.');
+        }
+
+        return rtrim($home, '/').'/.claude/plugins';
     }
 
     private function normalise(string $value): string

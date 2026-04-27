@@ -86,27 +86,40 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
 	}
 
-	// "self" target: push via notifications/claude/channel directly.
-	// Claude Code expects: { content: string, meta: Record<string, string> }
 	if input.To == "self" {
-		if s.Core() != nil {
-			if mcpResult := s.Core().Service("mcp"); mcpResult.OK {
-				if mcpSvc, ok := mcpResult.Value.(*coremcp.Service); ok {
-					for session := range mcpSvc.Sessions() {
-						coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
-							"content": input.Content,
-							"meta": map[string]string{
-								"from":    agentic.AgentName(),
-								"subject": input.Subject,
-							},
-						})
-					}
-				}
-			}
-		}
+		s.notifySelf(ctx, input)
 		return nil, SendOutput{Success: true, ID: 0, To: "self"}, nil
 	}
 
+	return s.sendRemoteMessage(ctx, input)
+}
+
+func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
+	// "self" target: push via notifications/claude/channel directly.
+	// Claude Code expects: { content: string, meta: Record<string, string> }
+	if s.Core() == nil {
+		return
+	}
+	mcpResult := s.Core().Service("mcp")
+	if !mcpResult.OK {
+		return
+	}
+	mcpSvc, ok := mcpResult.Value.(*coremcp.Service)
+	if !ok {
+		return
+	}
+	for session := range mcpSvc.Sessions() {
+		coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
+			"content": input.Content,
+			"meta": map[string]string{
+				"from":    agentic.AgentName(),
+				"subject": input.Subject,
+			},
+		})
+	}
+}
+
+func (s *DirectSubsystem) sendRemoteMessage(ctx context.Context, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	result := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
 		"to":      input.To,
 		"from":    agentic.AgentName(),

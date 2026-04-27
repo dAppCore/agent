@@ -246,7 +246,6 @@ class McpAgentServerCommand extends Command
             ]);
         }
 
-        $consumedQuota = $quotaService->consume($workspaceId);
         $startedAt = microtime(true);
 
         try {
@@ -255,6 +254,7 @@ class McpAgentServerCommand extends Command
                 'request_id' => $id,
                 'transport' => 'stdio',
             ]);
+            $consumedQuota = $quotaService->consume($workspaceId);
             $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 
             if ($query !== null) {

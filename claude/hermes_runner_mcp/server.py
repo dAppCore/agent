@@ -12,7 +12,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from typing import Any, Literal
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
@@ -205,13 +205,14 @@ class HermesGatewayClient:
             ("run", "status_url"),
         )
         if status_url is None:
-            status_url = urljoin(self.base_url, f"runs/{run_id}")
+            status_url = urljoin(self.base_url, f"runs/{quote(run_id, safe='')}")
         return DispatchResult(run_id=run_id, status_url=status_url)
 
     def status(self, run_id: str) -> StatusResult:
+        encoded_run_id = quote(run_id, safe="")
         response = self._request_json(
             "GET",
-            (f"runs/{run_id}", f"status/{run_id}"),
+            (f"runs/{encoded_run_id}", f"status/{encoded_run_id}"),
         )
         raw_state = self._require_string(
             response,
@@ -242,9 +243,10 @@ class HermesGatewayClient:
         return StatusResult(state=state, progress=progress, last_event=last_event)
 
     def fetch(self, run_id: str) -> FetchResult:
+        encoded_run_id = quote(run_id, safe="")
         response = self._request_json(
             "GET",
-            (f"runs/{run_id}/fetch", f"fetch/{run_id}"),
+            (f"runs/{encoded_run_id}/fetch", f"fetch/{encoded_run_id}"),
         )
         output = self._find_value(
             response,
@@ -510,7 +512,7 @@ class MinimalMCPServer:
         request_id = payload.get("id")
 
         if not isinstance(method, str):
-            return None
+            return None if "id" not in payload else self._error(request_id, -32600, "Invalid Request")
 
         params = payload.get("params")
 
@@ -760,6 +762,7 @@ def main(argv: list[str] | None = None) -> int:
     stop_event = threading.Event()
     client = HermesGatewayClient(args.hermes_url, args.api_key)
     handler = HermesToolHandler(client)
+    exit_code = 0
 
     try:
         fastmcp_server = build_fastmcp_server(handler)
@@ -767,17 +770,16 @@ def main(argv: list[str] | None = None) -> int:
             install_signal_handlers(stop_event, exit_immediately=True)
             LOGGER.info("starting Hermes Runner MCP with official mcp SDK")
             fastmcp_server.run()
-            return 0
-
-        install_signal_handlers(stop_event, exit_immediately=False)
-        LOGGER.info("starting Hermes Runner MCP with minimal JSON-RPC stdio fallback")
-        MinimalMCPServer(handler, stop_event).serve()
-        return 0
+        else:
+            install_signal_handlers(stop_event, exit_immediately=False)
+            LOGGER.info("starting Hermes Runner MCP with minimal JSON-RPC stdio fallback")
+            MinimalMCPServer(handler, stop_event).serve()
     except KeyboardInterrupt:
         LOGGER.info("shutting down after keyboard interrupt")
-        return 0
     finally:
         client.close()
+
+    return exit_code
 
 
 if __name__ == "__main__":

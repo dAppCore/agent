@@ -43,12 +43,22 @@ final class DatabaseSchema extends Resource
         $driver = DB::getDriverName();
 
         try {
-            return array_map(static fn (object $column): array => (array) $column, DB::select(sprintf(
-                $driver === 'sqlite' ? 'PRAGMA table_info("%s")' : 'DESCRIBE `%s`',
-                $tableName,
-            )));
+            $statement = $driver === 'sqlite'
+                ? 'PRAGMA table_info('.$this->quoteIdentifier($tableName, $driver).')'
+                : 'DESCRIBE '.$this->quoteIdentifier($tableName, $driver);
+
+            return array_map(static fn (object $column): array => (array) $column, DB::select($statement));
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    protected function quoteIdentifier(string $identifier, string $driver): string
+    {
+        if ($driver === 'sqlite') {
+            return '"'.str_replace('"', '""', $identifier).'"';
+        }
+
+        return '`'.str_replace('`', '``', $identifier).'`';
     }
 }

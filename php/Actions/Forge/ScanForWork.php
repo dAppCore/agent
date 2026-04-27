@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 /*
  * Core PHP Framework
  *
@@ -69,7 +71,16 @@ class ScanForWork
                 continue;
             }
 
-            $epicMeta = $metaReader->getEpicMeta($epicNumber);
+            try {
+                $epicMeta = $metaReader->getEpicMeta($epicNumber);
+            } catch (\Throwable $exception) {
+                logger()->warning('ScanForWork skipped epic metadata fetch', [
+                    'epic_number' => $epicNumber,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                continue;
+            }
 
             foreach ($epicMeta->children as $childMeta) {
                 if ($childMeta->checkedBool) {
@@ -84,7 +95,16 @@ class ScanForWork
                     continue;
                 }
 
-                $issueState = $metaReader->getIssueState($childMeta->issueId);
+                try {
+                    $issueState = $metaReader->getIssueState($childMeta->issueId);
+                } catch (\Throwable $exception) {
+                    logger()->warning('ScanForWork skipped issue state fetch', [
+                        'issue_number' => $childMeta->issueId,
+                        'error' => $exception->getMessage(),
+                    ]);
+
+                    continue;
+                }
 
                 if ($issueState->state !== 'open') {
                     continue;

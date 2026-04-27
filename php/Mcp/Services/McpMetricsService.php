@@ -183,7 +183,7 @@ final class McpMetricsService
             ->select('tool_name', 'error_code')
             ->selectRaw('COUNT(*) as error_count')
             ->where('success', false)
-            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days)->startOfDay()->toDateTimeString())
+            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days - 1)->startOfDay()->toDateTimeString())
             ->groupBy('tool_name', 'error_code')
             ->orderByDesc('error_count')
             ->get()
@@ -204,7 +204,7 @@ final class McpMetricsService
             ->select('tool_name', 'duration_ms')
             ->whereNotNull('duration_ms')
             ->where('success', true)
-            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days)->startOfDay()->toDateTimeString())
+            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days - 1)->startOfDay()->toDateTimeString())
             ->get()
             ->groupBy('tool_name');
 
@@ -267,7 +267,7 @@ final class McpMetricsService
             ->selectRaw('COUNT(DISTINCT tool_name) as unique_tools')
             ->selectRaw('SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count')
             ->whereNotNull('plan_slug')
-            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days)->startOfDay()->toDateTimeString())
+            ->where('created_at', '>=', CarbonImmutable::now()->subDays($days - 1)->startOfDay()->toDateTimeString())
             ->groupBy('plan_slug')
             ->orderByDesc('call_count')
             ->limit($limit)

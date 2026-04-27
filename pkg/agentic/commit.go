@@ -59,22 +59,13 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 		return CommitOutput{}, core.E("commitWorkspace", core.Concat("workspace not found: ", input.Workspace), nil)
 	}
 
-	result := ReadStatusResult(workspaceDir)
-	workspaceStatus, ok := workspaceStatusValue(result)
-	if !ok {
-		err, _ := result.Value.(error)
-		if err == nil {
-			err = core.E("commitWorkspace", "status not found", nil)
-		}
+	workspaceStatus, err := commitWorkspaceStatus(workspaceDir)
+	if err != nil {
 		return CommitOutput{}, err
 	}
 
 	metaDir := WorkspaceMetaDir(workspaceDir)
-	if r := fs.EnsureDir(metaDir); !r.OK {
-		err, _ := r.Value.(error)
-		if err == nil {
-			err = core.E("commitWorkspace", "failed to create metadata directory", nil)
-		}
+	if err := commitEnsureMetaDir(metaDir); err != nil {
 		return CommitOutput{}, err
 	}
 
@@ -83,46 +74,15 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 
 	committedAt := time.Now().UTC().Format(time.RFC3339)
 	if existingCommit, ok := readCommitMarker(markerPath); ok && existingCommit.UpdatedAt == workspaceStatus.UpdatedAt && existingCommit.Runs == workspaceStatus.Runs {
-		return CommitOutput{
-			Success:     true,
-			Workspace:   input.Workspace,
-			JournalPath: journalPath,
-			MarkerPath:  markerPath,
-			CommittedAt: existingCommit.CommittedAt,
-			Skipped:     true,
-		}, nil
+		return commitSkippedOutput(input.Workspace, journalPath, markerPath, existingCommit), nil
 	}
 
 	record := commitWorkspaceRecord(workspaceDir, workspaceStatus, committedAt)
-	line := core.Concat(core.JSONMarshalString(record), "\n")
-
-	appendHandle := fs.Append(journalPath)
-	if !appendHandle.OK {
-		err, _ := appendHandle.Value.(error)
-		if err == nil {
-			err = core.E("commitWorkspace", "failed to open journal", nil)
-		}
-		return CommitOutput{}, err
-	}
-	if writeResult := core.WriteAll(appendHandle.Value, line); !writeResult.OK {
-		err, _ := writeResult.Value.(error)
-		if err == nil {
-			err = core.E("commitWorkspace", "failed to append journal entry", nil)
-		}
+	if err := commitAppendJournal(journalPath, record); err != nil {
 		return CommitOutput{}, err
 	}
 
-	marker := commitMarker{
-		Workspace:   WorkspaceName(workspaceDir),
-		UpdatedAt:   workspaceStatus.UpdatedAt,
-		Runs:        workspaceStatus.Runs,
-		CommittedAt: committedAt,
-	}
-	if r := fs.WriteAtomic(markerPath, core.JSONMarshalString(marker)); !r.OK {
-		err, _ := r.Value.(error)
-		if err == nil {
-			err = core.E("commitWorkspace", "failed to write commit marker", nil)
-		}
+	if err := commitWriteMarker(markerPath, workspaceDir, workspaceStatus, committedAt); err != nil {
 		return CommitOutput{}, err
 	}
 
@@ -146,6 +106,83 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 		MarkerPath:  markerPath,
 		CommittedAt: committedAt,
 	}, nil
+}
+
+func commitWorkspaceStatus(workspaceDir string) (*WorkspaceStatus, error) {
+	result := ReadStatusResult(workspaceDir)
+	workspaceStatus, ok := workspaceStatusValue(result)
+	if ok {
+		return workspaceStatus, nil
+	}
+	err, _ := result.Value.(error)
+	if err == nil {
+		err = core.E("commitWorkspace", "status not found", nil)
+	}
+	return nil, err
+}
+
+func commitEnsureMetaDir(metaDir string) error {
+	if r := fs.EnsureDir(metaDir); r.OK {
+		return nil
+	}
+	err, _ := r.Value.(error)
+	if err == nil {
+		err = core.E("commitWorkspace", "failed to create metadata directory", nil)
+	}
+	return err
+}
+
+func commitSkippedOutput(workspace, journalPath, markerPath string, existingCommit commitMarker) CommitOutput {
+	return CommitOutput{
+		Success:     true,
+		Workspace:   workspace,
+		JournalPath: journalPath,
+		MarkerPath:  markerPath,
+		CommittedAt: existingCommit.CommittedAt,
+		Skipped:     true,
+	}
+}
+
+func commitAppendJournal(journalPath string, record map[string]any) error {
+	appendHandle := fs.Append(journalPath)
+	if !appendHandle.OK {
+		err, _ := appendHandle.Value.(error)
+		if err == nil {
+			err = core.E("commitWorkspace", "failed to open journal", nil)
+		}
+		return err
+	}
+
+	line := core.Concat(core.JSONMarshalString(record), "\n")
+	writeResult := core.WriteAll(appendHandle.Value, line)
+	if writeResult.OK {
+		return nil
+	}
+
+	err, _ := writeResult.Value.(error)
+	if err == nil {
+		err = core.E("commitWorkspace", "failed to append journal entry", nil)
+	}
+	return err
+}
+
+func commitWriteMarker(markerPath, workspaceDir string, workspaceStatus *WorkspaceStatus, committedAt string) error {
+	marker := commitMarker{
+		Workspace:   WorkspaceName(workspaceDir),
+		UpdatedAt:   workspaceStatus.UpdatedAt,
+		Runs:        workspaceStatus.Runs,
+		CommittedAt: committedAt,
+	}
+
+	if r := fs.WriteAtomic(markerPath, core.JSONMarshalString(marker)); r.OK {
+		return nil
+	}
+
+	err, _ := r.Value.(error)
+	if err == nil {
+		err = core.E("commitWorkspace", "failed to write commit marker", nil)
+	}
+	return err
 }
 
 type commitMarker struct {

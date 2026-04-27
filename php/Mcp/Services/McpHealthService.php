@@ -108,12 +108,15 @@ final class McpHealthService
             ));
         }
 
-        $command = trim((string) ($connection['command'] ?? ''));
+        $command = trim($this->resolveEnvVars((string) ($connection['command'] ?? '')));
         if ($command === '') {
             return $this->buildResult(self::STATUS_OFFLINE, 'No command configured');
         }
 
-        $args = array_map(static fn (mixed $value): string => (string) $value, (array) ($connection['args'] ?? []));
+        $args = array_map(
+            fn (mixed $value): string => $this->resolveEnvVars((string) $value),
+            (array) ($connection['args'] ?? []),
+        );
         $cwd = $this->resolveEnvVars((string) ($connection['cwd'] ?? getcwd()));
         $payload = json_encode([
             'jsonrpc' => '2.0',
@@ -215,7 +218,8 @@ final class McpHealthService
         fclose($pipes[1]);
         fclose($pipes[2]);
 
-        $exitCode = $timedOut ? 124 : proc_close($process);
+        $closeCode = proc_close($process);
+        $exitCode = $timedOut ? 124 : $closeCode;
 
         return [
             'exit_code' => $exitCode,

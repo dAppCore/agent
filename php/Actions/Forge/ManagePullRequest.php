@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 /*
  * Core PHP Framework
  *
@@ -41,7 +43,15 @@ class ManagePullRequest
     {
         $forge = app(ForgejoService::class);
         $metaReader = $this->resolveMetaReader($owner, $repo);
-        $prMeta = $metaReader->getPRMeta($prNumber);
+
+        try {
+            $prMeta = $metaReader->getPRMeta($prNumber);
+        } catch (\Throwable $exception) {
+            return [
+                'merged' => false,
+                'reason' => 'meta_unavailable',
+            ];
+        }
 
         if ($prMeta->state !== 'open') {
             return ['merged' => false, 'reason' => 'not_open'];
@@ -55,7 +65,14 @@ class ManagePullRequest
             return ['merged' => false, 'reason' => 'checks_pending'];
         }
 
-        $forge->mergePullRequest($owner, $repo, $prNumber);
+        try {
+            $forge->mergePullRequest($owner, $repo, $prNumber);
+        } catch (\Throwable $exception) {
+            return [
+                'merged' => false,
+                'reason' => 'merge_failed',
+            ];
+        }
 
         return ['merged' => true, 'pr_number' => $prNumber];
     }

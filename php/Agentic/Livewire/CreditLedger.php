@@ -14,6 +14,7 @@ use Core\Mod\Agentic\Models\FleetNode;
 use Core\Tenant\Models\Workspace;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -180,7 +181,14 @@ class CreditLedger extends Component
     {
         $this->validate([
             'workspaceId' => 'required|integer|min:1',
-            'selectedAgentId' => 'required|string|max:255',
+            'selectedAgentId' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::exists(FleetNode::class, 'agent_id')->where(
+                    fn ($query) => $query->where('workspace_id', $this->workspaceId),
+                ),
+            ],
             'adjustmentAmount' => 'required|integer|min:1|max:100000',
             'adjustmentReason' => 'nullable|string|max:1000',
         ]);

@@ -28,6 +28,8 @@ type flowExecutionSummary struct {
 	StepResults []FlowRunStepOutput
 }
 
+const flowRunCommandContext = "agentic.cmdRunFlow"
+
 func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLabel string) core.Result {
 	if optionBoolValue(options, "dry_run", "dry-run") {
 		return s.runFlowCommand(options, commandLabel)
@@ -36,7 +38,7 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 	flowPath := optionStringValue(options, "_arg", "path", "slug")
 	if flowPath == "" {
 		core.Print(nil, "usage: core-agent %s <path-or-slug> [--dry-run] [--var=key=value] [--vars='{\"key\":\"value\"}'] [--variables='{\"key\":\"value\"}']", commandLabel)
-		return core.Result{Value: core.E("agentic.cmdRunFlow", "flow path or slug is required", nil), OK: false}
+		return core.Result{Value: core.E(flowRunCommandContext, "flow path or slug is required", nil), OK: false}
 	}
 
 	variables := optionStringMapValue(options, "var", "vars", "variables")
@@ -48,7 +50,7 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 
 	document, ok := flowResult.Value.(flowRunDocument)
 	if !ok || !document.Parsed {
-		err := core.E("agentic.cmdRunFlow", "invalid flow definition", nil)
+		err := core.E(flowRunCommandContext, "invalid flow definition", nil)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
@@ -57,7 +59,7 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 	if !validation.OK {
 		err, ok := validation.Value.(error)
 		if !ok {
-			err = core.E("agentic.cmdRunFlow", "invalid flow definition", nil)
+			err = core.E(flowRunCommandContext, "invalid flow definition", nil)
 		}
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -116,22 +118,22 @@ func (s *PrepSubsystem) validateExecutableFlowStep(index int, step flowDefinitio
 	if core.Trim(step.Cmd) == "" {
 		switch {
 		case core.Trim(step.Flow) != "":
-			return core.E("agentic.validateExecutableFlowStep", core.Concat("step \"", stepName, "\" cannot execute nested flow references; use flow/preview or convert to cmd"), nil)
+			return flowStepError(stepName, "cannot execute nested flow references; use flow/preview or convert to cmd")
 		case core.Trim(step.Run) != "":
-			return core.E("agentic.validateExecutableFlowStep", core.Concat("step \"", stepName, "\" uses legacy run syntax; use cmd and args"), nil)
+			return flowStepError(stepName, "uses legacy run syntax; use cmd and args")
 		default:
-			return core.E("agentic.validateExecutableFlowStep", core.Concat("step \"", stepName, "\" must define cmd"), nil)
+			return flowStepError(stepName, "must define cmd")
 		}
 	}
 
 	commandResult := s.Core().Command(step.Cmd)
 	if !commandResult.OK {
-		return core.E("agentic.validateExecutableFlowStep", core.Concat("step \"", stepName, "\" references unknown command: ", step.Cmd), nil)
+		return flowStepError(stepName, core.Concat("references unknown command: ", step.Cmd))
 	}
 
 	command, ok := commandResult.Value.(*core.Command)
 	if !ok || command == nil || command.Action == nil {
-		return core.E("agentic.validateExecutableFlowStep", core.Concat("step \"", stepName, "\" references a non-executable command: ", step.Cmd), nil)
+		return flowStepError(stepName, core.Concat("references a non-executable command: ", step.Cmd))
 	}
 
 	return nil
@@ -199,7 +201,7 @@ func (s *PrepSubsystem) executeFlowStep(index int, step flowDefinitionStep) Flow
 		return stepOutput
 	}
 
-	stepOutput.Error = commandResultError("agentic.cmdRunFlow", result).Error()
+	stepOutput.Error = commandResultError(flowRunCommandContext, result).Error()
 	if stepOutput.ContinueOnError {
 		core.Print(nil, "  status: failed (continued)")
 	} else {
@@ -223,6 +225,14 @@ func flowStepDisplayName(index int, step flowDefinitionStep) string {
 		return name
 	}
 	return core.Concat("step-", core.Itoa(index))
+}
+
+func flowStepError(stepName, message string) error {
+	return core.E(
+		"agentic.validateExecutableFlowStep",
+		core.Concat("step \"", stepName, "\" ", message),
+		nil,
+	)
 }
 
 func flowStepCommandLine(step flowDefinitionStep) string {

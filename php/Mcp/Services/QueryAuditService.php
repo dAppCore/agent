@@ -21,10 +21,14 @@ final class QueryAuditService
 
     public function isSafe(string $query): bool
     {
-        return preg_match(
-            '/\b(drop|delete|truncate|alter|create|insert|update)\b|(?:exec|system|passthru)\s*\(/i',
-            $query,
-        ) !== 1;
+        $trimmedQuery = ltrim($query);
+        $startsWithWriteStatement = preg_match(
+            '/^(?:--[^\n]*\n\s*)*(?:drop|delete|truncate|alter|create|insert|update)\b/i',
+            $trimmedQuery,
+        ) === 1;
+        $callsDangerousFunction = preg_match('/(?:exec|system|passthru)\s*\(/i', $query) === 1;
+
+        return ! $startsWithWriteStatement && ! $callsDangerousFunction;
     }
 
     public function exceedsLimit(array $result, int $limitBytes = 1000000): bool
@@ -117,31 +121,59 @@ final class QueryAuditService
         $this->ensureTableExists();
 
         $resolvedPeriods = $periods === [] ? ['day'] : array_values(array_unique($periods));
-        $entries = McpAuditEntry::query()->orderBy('created_at')->get();
         $aggregates = [];
 
         foreach ($resolvedPeriods as $period) {
             $resolvedPeriod = $this->resolvePeriod((string) $period);
+            $aggregates[$resolvedPeriod] = [];
+        }
 
-            $aggregates[$resolvedPeriod] = $entries->groupBy(
-                fn (McpAuditEntry $entry): string => $this->bucketFor(
-                    $entry->created_at instanceof CarbonInterface
-                        ? CarbonImmutable::instance($entry->created_at)
-                        : CarbonImmutable::parse((string) ($entry->created_at ?? 'now')),
-                    $resolvedPeriod,
-                ),
-            )->map(
-                static function (Collection $group, string $bucket): array {
+        McpAuditEntry::query()
+            ->orderBy('id')
+            ->chunkById(250, function (Collection $entries) use (&$aggregates, $resolvedPeriods): void {
+                foreach ($entries as $entry) {
+                    $timestamp = $this->entryTimestamp($entry);
+
+                    foreach ($resolvedPeriods as $resolvedPeriod) {
+                        $bucket = $this->bucketFor($timestamp, $resolvedPeriod);
+
+                        if (! isset($aggregates[$resolvedPeriod][$bucket])) {
+                            $aggregates[$resolvedPeriod][$bucket] = [
+                                'bucket' => $bucket,
+                                'total' => 0,
+                                'safe' => 0,
+                                'unsafe' => 0,
+                                'duration_total' => 0,
+                                'result_count' => 0,
+                            ];
+                        }
+
+                        $aggregates[$resolvedPeriod][$bucket]['total']++;
+                        $aggregates[$resolvedPeriod][$bucket][$entry->is_safe ? 'safe' : 'unsafe']++;
+                        $aggregates[$resolvedPeriod][$bucket]['duration_total'] += (int) ($entry->duration_ms ?? 0);
+                        $aggregates[$resolvedPeriod][$bucket]['result_count'] += (int) ($entry->result_count ?? 0);
+                    }
+                }
+            });
+
+        foreach ($aggregates as $period => $buckets) {
+            ksort($buckets);
+
+            $aggregates[$period] = array_values(array_map(
+                static function (array $bucket): array {
+                    $total = max((int) $bucket['total'], 1);
+
                     return [
-                        'bucket' => $bucket,
-                        'total' => $group->count(),
-                        'safe' => $group->where('is_safe', true)->count(),
-                        'unsafe' => $group->where('is_safe', false)->count(),
-                        'average_duration_ms' => (int) round((float) ($group->avg('duration_ms') ?? 0)),
-                        'result_count' => (int) $group->sum('result_count'),
+                        'bucket' => (string) $bucket['bucket'],
+                        'total' => (int) $bucket['total'],
+                        'safe' => (int) $bucket['safe'],
+                        'unsafe' => (int) $bucket['unsafe'],
+                        'average_duration_ms' => (int) round(((int) $bucket['duration_total']) / $total),
+                        'result_count' => (int) $bucket['result_count'],
                     ];
                 },
-            )->values()->all();
+                $buckets,
+            ));
         }
 
         return $aggregates;
@@ -190,6 +222,15 @@ final class QueryAuditService
             'hour' => $timestamp->format('Y-m-d H:00'),
             'day' => $timestamp->format('Y-m-d'),
         };
+    }
+
+    private function entryTimestamp(McpAuditEntry $entry): CarbonImmutable
+    {
+        if ($entry->created_at instanceof CarbonInterface) {
+            return CarbonImmutable::instance($entry->created_at);
+        }
+
+        return CarbonImmutable::parse((string) ($entry->created_at ?? 'now'));
     }
 }
 

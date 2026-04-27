@@ -108,24 +108,32 @@ func (s *PrepSubsystem) fetchRegisteredRepos(ctx context.Context) {
 func (s *PrepSubsystem) fetchLoopRepoRefs() []fetchRepoRef {
 	seen := map[string]bool{}
 	refs := []fetchRepoRef{}
+	add := func(org, repo string) { fetchLoopAppendRepoRef(seen, &refs, org, repo) }
 
-	add := func(org, repo string) {
-		orgName, ok := validateName(org)
-		if !ok {
-			return
-		}
-		repoName, ok := validateName(repo)
-		if !ok {
-			return
-		}
-		key := core.Concat(orgName, "/", repoName)
-		if seen[key] {
-			return
-		}
-		seen[key] = true
-		refs = append(refs, fetchRepoRef{Org: orgName, Repo: repoName})
+	s.fetchLoopCollectConfiguredRepoRefs(add)
+	s.fetchLoopCollectWorkspaceRepoRefs(add)
+
+	return refs
+}
+
+func fetchLoopAppendRepoRef(seen map[string]bool, refs *[]fetchRepoRef, org, repo string) {
+	orgName, ok := validateName(org)
+	if !ok {
+		return
 	}
+	repoName, ok := validateName(repo)
+	if !ok {
+		return
+	}
+	key := core.Concat(orgName, "/", repoName)
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	*refs = append(*refs, fetchRepoRef{Org: orgName, Repo: repoName})
+}
 
+func (s *PrepSubsystem) fetchLoopCollectConfiguredRepoRefs(add func(org, repo string)) {
 	if s != nil && s.ServiceRuntime != nil {
 		if result := s.Core().Config().Get("agents.fetch_repos"); result.OK {
 			fetchLoopCollectRepoRefs(result.Value, add)
@@ -133,29 +141,33 @@ func (s *PrepSubsystem) fetchLoopRepoRefs() []fetchRepoRef {
 	}
 
 	for _, path := range s.fetchLoopConfigPaths() {
-		raw := fetchLoopReadConfig(path)
-		fetchLoopCollectRepoRefs(raw["repos"], add)
-		if agents, ok := raw["agents"].(map[string]any); ok {
-			for _, value := range agents {
-				agent, ok := value.(map[string]any)
-				if !ok {
-					continue
-				}
-				fetchLoopCollectRepoRefs(agent["repos"], add)
-			}
-		}
+		fetchLoopCollectConfigRepoRefs(fetchLoopReadConfig(path), add)
 	}
+}
 
+func fetchLoopCollectConfigRepoRefs(raw map[string]any, add func(org, repo string)) {
+	fetchLoopCollectRepoRefs(raw["repos"], add)
+
+	agents, ok := raw["agents"].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, value := range agents {
+		agent, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		fetchLoopCollectRepoRefs(agent["repos"], add)
+	}
+}
+
+func (s *PrepSubsystem) fetchLoopCollectWorkspaceRepoRefs(add func(org, repo string)) {
 	for _, repoDir := range core.PathGlob(core.JoinPath(WorkspaceRoot(), "*", "*")) {
 		if !fs.IsDir(repoDir) {
 			continue
 		}
-		org := core.PathBase(core.PathDir(repoDir))
-		repo := core.PathBase(repoDir)
-		add(org, repo)
+		add(core.PathBase(core.PathDir(repoDir)), core.PathBase(repoDir))
 	}
-
-	return refs
 }
 
 func (s *PrepSubsystem) fetchLoopConfigPaths() []string {

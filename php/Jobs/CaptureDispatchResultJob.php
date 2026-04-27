@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Jobs;
 
+use Core\Mod\Agentic\Models\AgentProfile;
 use Core\Mod\Agentic\Services\MantisClient;
 use Core\Mod\Agentic\Services\ShaExtractor;
 use Illuminate\Bus\Queueable;
@@ -69,7 +70,7 @@ class CaptureDispatchResultJob implements ShouldQueue
         public int $ticketId,
         public array $response,
         public ?string $repo = null,
-        public ?\Mod\AgentProfile $profile = null,
+        public ?AgentProfile $profile = null,
     ) {
         $this->onQueue('ai');
     }
@@ -112,7 +113,7 @@ class CaptureDispatchResultJob implements ShouldQueue
         string $repo,
         string $forgeUrl,
         string $summaryLine,
-        ?\Mod\AgentProfile $profile = null,
+        ?AgentProfile $profile = null,
     ): string {
         $profileName = $this->profileName($profile);
 
@@ -248,7 +249,7 @@ class CaptureDispatchResultJob implements ShouldQueue
         return 'https://forge.lthn.sh/'.$repo.'/commit/'.$sha;
     }
 
-    private function profileName(?\Mod\AgentProfile $profile = null): string
+    private function profileName(?AgentProfile $profile = null): string
     {
         $name = $profile?->name;
 

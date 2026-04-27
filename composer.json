@@ -17,7 +17,8 @@
     "autoload": {
         "psr-4": {
             "Core\\Mod\\Agentic\\": "php/",
-            "Core\\Service\\Agentic\\": "php/Service/"
+            "Core\\Service\\Agentic\\": "php/Service/",
+            "Core\\Mcp\\": "php/Mcp/"
         }
     },
     "autoload-dev": {

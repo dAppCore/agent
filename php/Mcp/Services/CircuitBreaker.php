@@ -294,21 +294,3 @@ namespace Core\Mcp\Services {
         }
     }
 }
-
-namespace Core\Mcp\Exceptions {
-
-    use RuntimeException;
-
-    final class CircuitOpenException extends RuntimeException
-    {
-        public function __construct(
-            public readonly string $service,
-            string $message = '',
-        ) {
-            parent::__construct($message !== '' ? $message : sprintf(
-                "Service '%s' is temporarily unavailable. Please try again later.",
-                $service,
-            ));
-        }
-    }
-}

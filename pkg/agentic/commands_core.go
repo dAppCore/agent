@@ -19,6 +19,13 @@ type coreCommandSpec struct {
 	Next        string
 }
 
+const (
+	corePipelineFixFormatPath     = "core/pipeline/fix/format"
+	corePipelineBudgetPlanPath    = "core/pipeline/budget/plan"
+	corePipelineBudgetLogPath     = "core/pipeline/budget/log"
+	corePipelineTrainingStatsPath = "core/pipeline/training/stats"
+)
+
 var coreCommandSpecs = []coreCommandSpec{
 	{
 		Path:        "core",
@@ -95,7 +102,7 @@ var coreCommandSpecs = []coreCommandSpec{
 		Next:        "Read docs/flow/RFC.flow-resolve-stuck-prs.md and add conflict resolution for the PR.",
 	},
 	{
-		Path:        "core/pipeline/fix/format",
+		Path:        corePipelineFixFormatPath,
 		Description: "Apply formatting-only fixes for a pull request",
 		Usage:       "core pipeline fix format <pr-number> [--help]",
 		NeedsArg:    true,
@@ -121,13 +128,13 @@ var coreCommandSpecs = []coreCommandSpec{
 		Usage:       "core pipeline budget [plan|log] [--help]",
 	},
 	{
-		Path:        "core/pipeline/budget/plan",
+		Path:        corePipelineBudgetPlanPath,
 		Description: "Show the optimal dispatch plan for the current budget",
 		Usage:       "core pipeline budget plan [--help]",
 		Next:        "Read docs/RFC-AGENT-PIPELINE.md and add budget planning based on dispatch constraints.",
 	},
 	{
-		Path:        "core/pipeline/budget/log",
+		Path:        corePipelineBudgetLogPath,
 		Description: "Append a dispatch event to the budget journal",
 		Usage:       "core pipeline budget log [--help]",
 		Next:        "Read docs/RFC-AGENT-PIPELINE.md and add budget event journalling for dispatches.",
@@ -145,7 +152,7 @@ var coreCommandSpecs = []coreCommandSpec{
 		Next:        "Read docs/flow/RFC.flow-gather-training-data.md and add merged-PR capture into the journal.",
 	},
 	{
-		Path:        "core/pipeline/training/stats",
+		Path:        corePipelineTrainingStatsPath,
 		Description: "Summarise captured training journal data",
 		Usage:       "core pipeline training stats [--help]",
 		Next:        "Read docs/flow/RFC.flow-gather-training-data.md and add training journal summaries.",
@@ -173,15 +180,15 @@ func (s *PrepSubsystem) registerCoreCommands() {
 		"core/pipeline/fix":              s.cmdCorePipelineFix,
 		"core/pipeline/fix/reviews":      s.cmdCorePipelineFixReviews,
 		"core/pipeline/fix/conflicts":    s.cmdCorePipelineFixConflicts,
-		"core/pipeline/fix/format":       s.cmdCorePipelineFixFormat,
+		corePipelineFixFormatPath:        s.cmdCorePipelineFixFormat,
 		"core/pipeline/fix/threads":      s.cmdCorePipelineFixThreads,
 		"core/pipeline/onboard":          s.cmdCorePipelineOnboard,
 		"core/pipeline/budget":           s.cmdCorePipelineBudget,
-		"core/pipeline/budget/plan":      s.cmdCorePipelineBudgetPlan,
-		"core/pipeline/budget/log":       s.cmdCorePipelineBudgetLog,
+		corePipelineBudgetPlanPath:       s.cmdCorePipelineBudgetPlan,
+		corePipelineBudgetLogPath:        s.cmdCorePipelineBudgetLog,
 		"core/pipeline/training":         s.cmdCorePipelineTraining,
 		"core/pipeline/training/capture": s.cmdCorePipelineTrainingCapture,
-		"core/pipeline/training/stats":   s.cmdCorePipelineTrainingStats,
+		corePipelineTrainingStatsPath:    s.cmdCorePipelineTrainingStats,
 		"core/pipeline/training/export":  s.cmdCorePipelineTrainingExport,
 	}
 
@@ -310,7 +317,7 @@ func (s *PrepSubsystem) cmdCorePipelineFixConflicts(options core.Options) core.R
 }
 
 func (s *PrepSubsystem) cmdCorePipelineFixFormat(options core.Options) core.Result {
-	return runCoreCommandPlaceholder(options, "core/pipeline/fix/format")
+	return runCoreCommandPlaceholder(options, corePipelineFixFormatPath)
 }
 
 func (s *PrepSubsystem) cmdCorePipelineFixThreads(options core.Options) core.Result {
@@ -322,11 +329,11 @@ func (s *PrepSubsystem) cmdCorePipelineOnboard(options core.Options) core.Result
 }
 
 func (s *PrepSubsystem) cmdCorePipelineBudgetPlan(options core.Options) core.Result {
-	return runCoreCommandPlaceholder(options, "core/pipeline/budget/plan")
+	return runCoreCommandPlaceholder(options, corePipelineBudgetPlanPath)
 }
 
 func (s *PrepSubsystem) cmdCorePipelineBudgetLog(options core.Options) core.Result {
-	return runCoreCommandPlaceholder(options, "core/pipeline/budget/log")
+	return runCoreCommandPlaceholder(options, corePipelineBudgetLogPath)
 }
 
 func (s *PrepSubsystem) cmdCorePipelineTrainingCapture(options core.Options) core.Result {
@@ -334,7 +341,7 @@ func (s *PrepSubsystem) cmdCorePipelineTrainingCapture(options core.Options) cor
 }
 
 func (s *PrepSubsystem) cmdCorePipelineTrainingStats(options core.Options) core.Result {
-	return runCoreCommandPlaceholder(options, "core/pipeline/training/stats")
+	return runCoreCommandPlaceholder(options, corePipelineTrainingStatsPath)
 }
 
 func (s *PrepSubsystem) cmdCorePipelineTrainingExport(options core.Options) core.Result {

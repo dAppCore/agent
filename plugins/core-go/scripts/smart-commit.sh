@@ -26,7 +26,7 @@ done
 # Get staged changes
 STAGED_FILES=$(git diff --staged --name-status)
 
-if [ -z "$STAGED_FILES" ]; then
+if [[ -z "$STAGED_FILES" ]]; then
   echo "No staged changes to commit."
   exit 0
 fi
@@ -53,20 +53,20 @@ elif git diff --staged | grep -q -E "^\+.*(refactor|restructure)"; then
 fi
 
 # Determine scope from the most common path component
-if [ -n "$STAGED_FILE_PATHS" ]; then
+if [[ -n "$STAGED_FILE_PATHS" ]]; then
   # Extract the second component of each path (e.g., 'code' from 'claude/code/file.md')
   # This is a decent heuristic for module name.
   # We filter for lines that have a second component.
   POSSIBLE_SCOPES=$(echo "$STAGED_FILE_PATHS" | grep '/' | cut -d/ -f2)
 
-  if [ -n "$POSSIBLE_SCOPES" ]; then
+  if [[ -n "$POSSIBLE_SCOPES" ]]; then
     SCOPE=$(echo "$POSSIBLE_SCOPES" | sort | uniq -c | sort -nr | head -n 1 | awk '{print $2}')
   fi
   # If no scope is found (e.g., all files are in root), SCOPE remains empty, which is valid.
 fi
 
 # Construct the commit message
-if [ -n "$CUSTOM_MESSAGE" ]; then
+if [[ -n "$CUSTOM_MESSAGE" ]]; then
   COMMIT_MESSAGE="$CUSTOM_MESSAGE"
 else
   # Auto-generate a descriptive summary
@@ -75,8 +75,8 @@ else
   # This is a simple heuristic that can be greatly expanded.
   SUMMARY=$(echo "$DIFF_CONTENT" | grep -E -o "(function|class|def) \w+" | head -n 1 | sed -e 's/function //g' -e 's/class //g' -e 's/def //g')
 
-  if [ -z "$SUMMARY" ]; then
-    if [ $(echo "$STAGED_FILE_PATHS" | wc -l) -eq 1 ]; then
+  if [[ -z "$SUMMARY" ]]; then
+    if [[ $(echo "$STAGED_FILE_PATHS" | wc -l) -eq 1 ]]; then
       FIRST_FILE=$(echo "$STAGED_FILE_PATHS" | head -n 1)
       SUMMARY="update $(basename "$FIRST_FILE")"
     else
@@ -100,7 +100,7 @@ fi
 # Execute the commit
 git commit $AMEND_FLAG -m "$(echo -e "$COMMIT_MESSAGE")"
 
-if [ $? -eq 0 ]; then
+if [[ $? -eq 0 ]]; then
   echo "Commit successful."
 else
   echo "Commit failed."

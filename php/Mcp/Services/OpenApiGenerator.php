@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace Core\Mcp\Services;
 
+use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
 final class OpenApiGenerator
@@ -42,7 +43,17 @@ final class OpenApiGenerator
     protected function loadRegistry(): void
     {
         $path = resource_path('mcp/registry.yaml');
-        $this->registry = file_exists($path) ? (array) Yaml::parseFile($path) : ['servers' => []];
+        if (! file_exists($path)) {
+            $this->registry = ['servers' => []];
+
+            return;
+        }
+
+        try {
+            $this->registry = (array) Yaml::parseFile($path);
+        } catch (ParseException) {
+            $this->registry = ['servers' => []];
+        }
     }
 
     protected function loadServers(): void
@@ -56,9 +67,17 @@ final class OpenApiGenerator
 
             $id = (string) $reference['id'];
             $path = resource_path(sprintf('mcp/servers/%s.yaml', $id));
-            $this->servers[$id] = file_exists($path)
-                ? (array) Yaml::parseFile($path)
-                : ['id' => $id, 'name' => $id];
+            if (! file_exists($path)) {
+                $this->servers[$id] = ['id' => $id, 'name' => $id];
+
+                continue;
+            }
+
+            try {
+                $this->servers[$id] = (array) Yaml::parseFile($path);
+            } catch (ParseException) {
+                $this->servers[$id] = ['id' => $id, 'name' => $id];
+            }
         }
     }
 
@@ -210,7 +229,7 @@ final class OpenApiGenerator
                     ],
                 ],
             ],
-            '/resources/{uri}' => [
+            '/resources' => [
                 'get' => [
                     'tags' => ['Execution'],
                     'summary' => 'Read a resource',
@@ -218,7 +237,7 @@ final class OpenApiGenerator
                     'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
                     'parameters' => [[
                         'name' => 'uri',
-                        'in' => 'path',
+                        'in' => 'query',
                         'required' => true,
                         'schema' => ['type' => 'string'],
                     ]],
