@@ -10,17 +10,13 @@ use Core\Mod\Agentic\Actions\Brain\ForgetKnowledge;
 use Core\Mod\Agentic\Actions\Brain\ListKnowledge;
 use Core\Mod\Agentic\Actions\Brain\RecallKnowledge;
 use Core\Mod\Agentic\Models\BrainMemory;
-use Core\Tenant\Models\Workspace;
-use Flux\Flux;
-use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Component;
 
 #[Title('Brain Explorer')]
 #[Layout('hub::admin.layouts.app')]
-class BrainExplorer extends Component
+class BrainExplorer extends HubComponent
 {
     public int $workspaceId = 0;
 
@@ -142,11 +138,6 @@ class BrainExplorer extends Component
         };
     }
 
-    public function render(): View
-    {
-        return view()->file($this->viewPath());
-    }
-
     private function loadRecentMemories(): void
     {
         if ($this->workspaceId <= 0) {
@@ -234,7 +225,10 @@ class BrainExplorer extends Component
             'agent_id' => (string) ($memory['agent_id'] ?? 'unknown'),
             'type' => (string) ($memory['type'] ?? 'context'),
             'content' => (string) ($memory['content'] ?? ''),
-            'tags' => array_values(array_filter($memory['tags'] ?? [], static fn (mixed $tag): bool => is_string($tag) && $tag !== '')),
+            'tags' => array_values(array_filter(
+                $memory['tags'] ?? [],
+                static fn (mixed $tag): bool => is_string($tag) && $tag !== '',
+            )),
             'project' => $memory['project'] ?? null,
             'org' => $memory['org'] ?? null,
             'confidence' => isset($memory['confidence']) ? (float) $memory['confidence'] : 0.0,
@@ -244,38 +238,7 @@ class BrainExplorer extends Component
         ];
     }
 
-    private function resolveWorkspaceId(): int
-    {
-        try {
-            return (int) (Workspace::query()->value('id') ?? 0);
-        } catch (\Throwable) {
-            return 0;
-        }
-    }
-
-    private function checkHadesAccess(): void
-    {
-        if (! auth()->user()?->isHades()) {
-            abort(403, 'Hades access required');
-        }
-    }
-
-    private function toast(string $heading, string $text, string $variant): void
-    {
-        if (class_exists(Flux::class)) {
-            Flux::toast(
-                heading: $heading,
-                text: $text,
-                variant: $variant,
-            );
-
-            return;
-        }
-
-        $this->dispatch('notify', message: $text, variant: $variant);
-    }
-
-    private function viewPath(): string
+    protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/brain-explorer.blade.php';
     }

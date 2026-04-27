@@ -133,121 +133,166 @@ final class OpenApiGenerator
     {
         return [
             '/servers' => [
-                'get' => [
-                    'tags' => ['Discovery'],
-                    'summary' => 'List all MCP servers',
-                    'operationId' => 'listServers',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'List of available servers',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ServerList']]],
-                        ],
+                'get' => $this->authenticatedGet(
+                    'Discovery',
+                    'List all MCP servers',
+                    'listServers',
+                    [
+                        '200' => $this->schemaResponse(
+                            'List of available servers',
+                            '#/components/schemas/ServerList',
+                        ),
                     ],
-                ],
+                ),
             ],
             '/servers/{serverId}' => [
-                'get' => [
-                    'tags' => ['Discovery'],
-                    'summary' => 'Get server details',
-                    'operationId' => 'getServer',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'parameters' => [[
-                        'name' => 'serverId',
-                        'in' => 'path',
-                        'required' => true,
-                        'schema' => ['type' => 'string'],
-                    ]],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'Server details',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/Server']]],
-                        ],
+                'get' => $this->authenticatedGet(
+                    'Discovery',
+                    'Get server details',
+                    'getServer',
+                    [
+                        '200' => $this->schemaResponse(
+                            'Server details',
+                            '#/components/schemas/Server',
+                        ),
                         '404' => ['description' => 'Server not found'],
                     ],
-                ],
+                    [$this->requiredStringParameter('serverId', 'path')],
+                ),
             ],
             '/servers/{serverId}/tools' => [
-                'get' => [
-                    'tags' => ['Discovery'],
-                    'summary' => 'List server tools',
-                    'operationId' => 'listServerTools',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'parameters' => [[
-                        'name' => 'serverId',
-                        'in' => 'path',
-                        'required' => true,
-                        'schema' => ['type' => 'string'],
-                    ]],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'Tool list',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ToolList']]],
-                        ],
+                'get' => $this->authenticatedGet(
+                    'Discovery',
+                    'List server tools',
+                    'listServerTools',
+                    [
+                        '200' => $this->schemaResponse(
+                            'Tool list',
+                            '#/components/schemas/ToolList',
+                        ),
                     ],
-                ],
+                    [$this->requiredStringParameter('serverId', 'path')],
+                ),
             ],
             '/servers/{serverId}/resources' => [
-                'get' => [
-                    'tags' => ['Discovery'],
-                    'summary' => 'List server resources',
-                    'operationId' => 'listServerResources',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'parameters' => [[
-                        'name' => 'serverId',
-                        'in' => 'path',
-                        'required' => true,
-                        'schema' => ['type' => 'string'],
-                    ]],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'Resource list',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ResourceList']]],
-                        ],
+                'get' => $this->authenticatedGet(
+                    'Discovery',
+                    'List server resources',
+                    'listServerResources',
+                    [
+                        '200' => $this->schemaResponse(
+                            'Resource list',
+                            '#/components/schemas/ResourceList',
+                        ),
                     ],
-                ],
+                    [$this->requiredStringParameter('serverId', 'path')],
+                ),
             ],
             '/tools/call' => [
-                'post' => [
-                    'tags' => ['Execution'],
-                    'summary' => 'Execute an MCP tool',
-                    'operationId' => 'callTool',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'requestBody' => [
-                        'required' => true,
-                        'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ToolCallRequest']]],
-                    ],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'Tool executed successfully',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ToolCallResponse']]],
-                        ],
+                'post' => $this->authenticatedPost(
+                    'Execution',
+                    'Execute an MCP tool',
+                    'callTool',
+                    '#/components/schemas/ToolCallRequest',
+                    [
+                        '200' => $this->schemaResponse(
+                            'Tool executed successfully',
+                            '#/components/schemas/ToolCallResponse',
+                        ),
                         '400' => ['description' => 'Invalid request'],
                         '401' => ['description' => 'Unauthorized'],
                         '404' => ['description' => 'Server or tool not found'],
                         '500' => ['description' => 'Tool execution error'],
                     ],
-                ],
+                ),
             ],
             '/resources' => [
-                'get' => [
-                    'tags' => ['Execution'],
-                    'summary' => 'Read a resource',
-                    'operationId' => 'readResource',
-                    'security' => [['bearerAuth' => []], ['apiKeyAuth' => []]],
-                    'parameters' => [[
-                        'name' => 'uri',
-                        'in' => 'query',
-                        'required' => true,
-                        'schema' => ['type' => 'string'],
-                    ]],
-                    'responses' => [
-                        '200' => [
-                            'description' => 'Resource payload',
-                            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ResourceResponse']]],
-                        ],
+                'get' => $this->authenticatedGet(
+                    'Execution',
+                    'Read a resource',
+                    'readResource',
+                    [
+                        '200' => $this->schemaResponse(
+                            'Resource payload',
+                            '#/components/schemas/ResourceResponse',
+                        ),
                     ],
-                ],
+                    [$this->requiredStringParameter('uri', 'query')],
+                ),
+            ],
+        ];
+    }
+
+    protected function authenticatedGet(
+        string $tag,
+        string $summary,
+        string $operationId,
+        array $responses,
+        array $parameters = [],
+    ): array {
+        $operation = [
+            'tags' => [$tag],
+            'summary' => $summary,
+            'operationId' => $operationId,
+            'security' => $this->securityRequirements(),
+            'responses' => $responses,
+        ];
+
+        if ($parameters !== []) {
+            $operation['parameters'] = $parameters;
+        }
+
+        return $operation;
+    }
+
+    protected function authenticatedPost(
+        string $tag,
+        string $summary,
+        string $operationId,
+        string $requestSchemaRef,
+        array $responses,
+    ): array {
+        return [
+            'tags' => [$tag],
+            'summary' => $summary,
+            'operationId' => $operationId,
+            'security' => $this->securityRequirements(),
+            'requestBody' => [
+                'required' => true,
+                'content' => $this->jsonSchemaContent($requestSchemaRef),
+            ],
+            'responses' => $responses,
+        ];
+    }
+
+    protected function securityRequirements(): array
+    {
+        return [['bearerAuth' => []], ['apiKeyAuth' => []]];
+    }
+
+    protected function requiredStringParameter(string $name, string $location): array
+    {
+        return [
+            'name' => $name,
+            'in' => $location,
+            'required' => true,
+            'schema' => ['type' => 'string'],
+        ];
+    }
+
+    protected function schemaResponse(string $description, string $schemaRef): array
+    {
+        return [
+            'description' => $description,
+            'content' => $this->jsonSchemaContent($schemaRef),
+        ];
+    }
+
+    protected function jsonSchemaContent(string $schemaRef): array
+    {
+        return [
+            'application/json' => [
+                'schema' => ['$ref' => $schemaRef],
             ],
         ];
     }

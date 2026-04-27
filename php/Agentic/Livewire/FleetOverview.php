@@ -10,18 +10,14 @@ use Core\Mod\Agentic\Actions\Fleet\AssignTask;
 use Core\Mod\Agentic\Actions\Fleet\GetFleetStats;
 use Core\Mod\Agentic\Actions\Fleet\ListNodes;
 use Core\Mod\Agentic\Models\FleetNode;
-use Core\Tenant\Models\Workspace;
-use Flux\Flux;
-use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Component;
 
 #[Title('Fleet Overview')]
 #[Layout('hub::admin.layouts.app')]
-class FleetOverview extends Component
+class FleetOverview extends HubComponent
 {
     public int $workspaceId = 0;
 
@@ -69,7 +65,8 @@ class FleetOverview extends Component
                         'capabilities' => $node->capabilities ?? [],
                         'status' => $node->status,
                         'current_task_id' => $node->current_task_id,
-                        'current_task_label' => $currentTask?->repo ?? ($node->current_task_id ? 'Task #'.$node->current_task_id : 'Idle'),
+                        'current_task_label' => $currentTask?->repo
+                            ?? ($node->current_task_id ? 'Task #'.$node->current_task_id : 'Idle'),
                         'compute_budget' => $node->compute_budget ?? [],
                         'compute_budget_label' => $this->summariseBudget($node->compute_budget ?? []),
                         'last_heartbeat_at' => $node->last_heartbeat_at?->toDateTimeString(),
@@ -205,20 +202,6 @@ class FleetOverview extends Component
         };
     }
 
-    public function render(): View
-    {
-        return view()->file($this->viewPath());
-    }
-
-    private function resolveWorkspaceId(): int
-    {
-        try {
-            return (int) (Workspace::query()->value('id') ?? 0);
-        } catch (\Throwable) {
-            return 0;
-        }
-    }
-
     private function syncDispatchAgentId(): void
     {
         if ($this->dispatchAgentId !== '' && collect($this->nodes)->contains('agent_id', $this->dispatchAgentId)) {
@@ -238,33 +221,17 @@ class FleetOverview extends Component
         }
 
         return collect($budget)
-            ->map(static fn (mixed $value, string|int $key): string => sprintf('%s: %s', (string) $key, is_scalar($value) ? (string) $value : json_encode($value)))
+            ->map(
+                static fn (mixed $value, string|int $key): string => sprintf(
+                    '%s: %s',
+                    (string) $key,
+                    is_scalar($value) ? (string) $value : json_encode($value),
+                ),
+            )
             ->implode(', ');
     }
 
-    private function checkHadesAccess(): void
-    {
-        if (! auth()->user()?->isHades()) {
-            abort(403, 'Hades access required');
-        }
-    }
-
-    private function toast(string $heading, string $text, string $variant): void
-    {
-        if (class_exists(Flux::class)) {
-            Flux::toast(
-                heading: $heading,
-                text: $text,
-                variant: $variant,
-            );
-
-            return;
-        }
-
-        $this->dispatch('notify', message: $text, variant: $variant);
-    }
-
-    private function viewPath(): string
+    protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/fleet-overview.blade.php';
     }

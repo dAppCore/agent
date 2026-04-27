@@ -7,83 +7,27 @@ declare(strict_types=1);
 use Core\Mod\Agentic\Actions\Credits\AwardCredits;
 use Core\Mod\Agentic\Actions\Credits\GetBalance;
 use Core\Mod\Agentic\Models\FleetNode;
-use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseHas;
 
 uses(\Core\Mod\Agentic\Tests\Feature\Livewire\LivewireTestCase::class);
 
-if (! function_exists('prepareAgenticLivewireHarness')) {
-    function prepareAgenticLivewireHarness(): void
-    {
-        $base = sys_get_temp_dir().'/agentic-livewire-stubs';
-        $componentPath = $base.'/components';
-        $hubPath = $base.'/hub/admin/layouts';
-
-        if (! is_dir($componentPath)) {
-            mkdir($componentPath, 0777, true);
-        }
-
-        if (! is_dir($hubPath)) {
-            mkdir($hubPath, 0777, true);
-        }
-
-        file_put_contents($hubPath.'/app.blade.php', '{{ $slot }}');
-
-        $stubs = [
-            'badge.blade.php' => '<span {{ $attributes }}>{{ $slot }}</span>',
-            'button.blade.php' => '<button {{ $attributes }}>{{ $slot }}</button>',
-            'card.blade.php' => '<div {{ $attributes }}>{{ $slot }}</div>',
-            'heading.blade.php' => '<div {{ $attributes }}>{{ $slot }}</div>',
-            'input.blade.php' => '<input {{ $attributes }} />',
-            'select.blade.php' => '<select {{ $attributes }}>{{ $slot }}</select>',
-            'text.blade.php' => '<div {{ $attributes }}>{{ $slot }}</div>',
-            'textarea.blade.php' => '<textarea {{ $attributes }}>{{ $slot }}</textarea>',
-        ];
-
-        foreach ($stubs as $file => $contents) {
-            file_put_contents($componentPath.'/'.$file, $contents);
-        }
-
-        Blade::anonymousComponentPath($componentPath, 'flux');
-        app('view')->addNamespace('hub', $base.'/hub');
-    }
-}
-
-if (! function_exists('loadAgenticLivewireComponent')) {
-    function loadAgenticLivewireComponent(string $component): string
-    {
-        $phpRoot = dirname(__DIR__, 4);
-        require_once $phpRoot."/Agentic/Livewire/{$component}.php";
-
-        return "Core\\Mod\\Agentic\\Livewire\\{$component}";
-    }
-}
-
 beforeEach(function (): void {
-    prepareAgenticLivewireHarness();
     $this->actingAsHades();
 });
 
 it('wires credit actions and flux blade controls', function (): void {
-    $phpRoot = dirname(__DIR__, 4);
-    $componentSource = file_get_contents($phpRoot.'/Agentic/Livewire/CreditLedger.php');
-    $bladeSource = file_get_contents($phpRoot.'/resources/views/livewire/agentic/credit-ledger.blade.php');
-
-    expect($componentSource)
-        ->toContain('AwardCredits')
-        ->toContain('GetBalance')
-        ->toContain('GetCreditHistory');
-
-    expect($bladeSource)
-        ->toContain('<flux:card')
-        ->toContain('wire:click="deductCredits"')
-        ->toContain('wire:click="refundCredits"');
+    $this->assertFluxComponentWiring(
+        'CreditLedger',
+        'credit-ledger',
+        ['AwardCredits', 'GetBalance', 'GetCreditHistory'],
+        ['<flux:card', 'wire:click="deductCredits"', 'wire:click="refundCredits"'],
+    );
 });
 
 it('renders balance and transaction history for the selected agent', function (): void {
-    $component = loadAgenticLivewireComponent('CreditLedger');
+    $component = $this->livewireComponent('CreditLedger');
     $workspace = createWorkspace();
 
     FleetNode::query()->create([
@@ -105,7 +49,7 @@ it('renders balance and transaction history for the selected agent', function ()
 });
 
 it('refunds and deducts credits through the ledger actions', function (): void {
-    $component = loadAgenticLivewireComponent('CreditLedger');
+    $component = $this->livewireComponent('CreditLedger');
     $workspace = createWorkspace();
 
     FleetNode::query()->create([

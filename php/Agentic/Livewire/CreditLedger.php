@@ -11,18 +11,14 @@ use Core\Mod\Agentic\Actions\Credits\GetBalance;
 use Core\Mod\Agentic\Actions\Credits\GetCreditHistory;
 use Core\Mod\Agentic\Models\CreditEntry;
 use Core\Mod\Agentic\Models\FleetNode;
-use Core\Tenant\Models\Workspace;
-use Flux\Flux;
-use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Component;
 
 #[Title('Credit Ledger')]
 #[Layout('hub::admin.layouts.app')]
-class CreditLedger extends Component
+class CreditLedger extends HubComponent
 {
     public int $workspaceId = 0;
 
@@ -172,11 +168,6 @@ class CreditLedger extends Component
         return $amount >= 0 ? 'success' : 'danger';
     }
 
-    public function render(): View
-    {
-        return view()->file($this->viewPath());
-    }
-
     private function validateAdjustment(): void
     {
         $this->validate([
@@ -209,38 +200,7 @@ class CreditLedger extends Component
         $this->selectedAgentId = (string) (collect($this->agents)->first()['agent_id'] ?? '');
     }
 
-    private function resolveWorkspaceId(): int
-    {
-        try {
-            return (int) (Workspace::query()->value('id') ?? 0);
-        } catch (\Throwable) {
-            return 0;
-        }
-    }
-
-    private function checkHadesAccess(): void
-    {
-        if (! auth()->user()?->isHades()) {
-            abort(403, 'Hades access required');
-        }
-    }
-
-    private function toast(string $heading, string $text, string $variant): void
-    {
-        if (class_exists(Flux::class)) {
-            Flux::toast(
-                heading: $heading,
-                text: $text,
-                variant: $variant,
-            );
-
-            return;
-        }
-
-        $this->dispatch('notify', message: $text, variant: $variant);
-    }
-
-    private function viewPath(): string
+    protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/credit-ledger.blade.php';
     }
