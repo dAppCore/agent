@@ -13,7 +13,7 @@ import (
 
 func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -65,7 +65,7 @@ func TestCommands_TaskCommand_Good_SpecAliasRegistered(t *testing.T) {
 
 func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -107,7 +107,7 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 
 func TestCommands_TaskCommand_Good_CreateFileRefAliases(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -153,7 +153,7 @@ func TestCommands_TaskCommand_Bad_MissingRequiredFields(t *testing.T) {
 
 func TestCommands_TaskCommand_Ugly_ToggleCriteriaFallback(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{

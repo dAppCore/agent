@@ -1,6 +1,6 @@
 {
-  "name": "dappcore-agent",
-  "description": "Agentic systems to work on the Lethean Network's dAppCore project",
+  "name": "core-agent",
+  "description": "Agentic systems to work on the Lethean Network's core project",
   "owner": {
     "name": "Lethean Community",
     "email": "hello@lethean.io"

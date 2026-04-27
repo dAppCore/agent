@@ -103,7 +103,18 @@ func (cl *Cli) Run(args ...string) Result {
 				opts.Set(key, true)
 			}
 		} else if !IsFlag(arg) {
-			opts.Set("_arg", arg)
+			if !opts.Has("_arg") {
+				opts.Set("_arg", arg)
+			}
+			argsResult := opts.Get("_args")
+			args := []string{}
+			if argsResult.OK {
+				if existing, ok := argsResult.Value.([]string); ok {
+					args = append(args, existing...)
+				}
+			}
+			args = append(args, arg)
+			opts.Set("_args", args)
 		}
 	}
 

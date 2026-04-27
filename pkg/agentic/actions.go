@@ -96,6 +96,47 @@ func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) co
 	return core.Result{Value: out, OK: true}
 }
 
+// WorkspaceStatsInput filters rows returned by agentic.workspace.stats.
+// Empty fields act as wildcards — the same shape used by StatusInput so
+// callers do not need a second filter vocabulary.
+//
+// Usage example: `input := WorkspaceStatsInput{Repo: "go-io", Status: "completed", Limit: 50}`
+type WorkspaceStatsInput struct {
+	Repo   string `json:"repo,omitempty"`
+	Status string `json:"status,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+
+// WorkspaceStatsOutput is the envelope returned by agentic.workspace.stats.
+// Rows are unsorted — callers may re-sort by CompletedAt, DurationMS, etc.
+// The count is included so CLI consumers do not need to call len().
+//
+// Usage example: `output := WorkspaceStatsOutput{Count: 3, Rows: rows}`
+type WorkspaceStatsOutput struct {
+	Count int                    `json:"count"`
+	Rows  []workspaceStatsRecord `json:"rows,omitempty"`
+}
+
+// result := c.Action("agentic.workspace.stats").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "status", Value: "completed"},
+//	core.Option{Key: "limit", Value: 50},
+//
+// ))
+func (s *PrepSubsystem) handleWorkspaceStats(_ context.Context, options core.Options) core.Result {
+	input := WorkspaceStatsInput{
+		Repo:   options.String("repo"),
+		Status: options.String("status"),
+		Limit:  options.Int("limit"),
+	}
+	rows := filterWorkspaceStats(s.listWorkspaceStats(), input.Repo, input.Status, input.Limit)
+	return core.Result{
+		Value: WorkspaceStatsOutput{Count: len(rows), Rows: rows},
+		OK:    true,
+	}
+}
+
 // result := c.Action("agentic.watch").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "core/go-io/task-5"},
@@ -152,7 +193,11 @@ func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) c
 //
 // ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
-	return s.Core().Task("agent.completion").Run(ctx, s.Core(), options)
+	c := s.Core()
+	if c == nil {
+		return core.Result{Value: core.E("agentic.complete", "core runtime is required", nil), OK: false}
+	}
+	return c.Task("agent.completion").Run(ctx, c, options)
 }
 
 // input := agentic.CompleteInput{Workspace: "/srv/.core/workspace/core/go-io/task-42"}
@@ -393,6 +438,25 @@ func (s *PrepSubsystem) handlePRMerge(ctx context.Context, options core.Options)
 // ))
 func (s *PrepSubsystem) handlePRClose(ctx context.Context, options core.Options) core.Result {
 	return s.cmdPRClose(normaliseForgeActionOptions(options))
+}
+
+// result := c.Action("agentic.branch.delete").Run(ctx, core.NewOptions(
+//
+//	core.Option{Key: "repo", Value: "go-io"},
+//	core.Option{Key: "branch", Value: "agent/fix-tests"},
+//
+// ))
+func (s *PrepSubsystem) handleBranchDelete(ctx context.Context, options core.Options) core.Result {
+	input := DeleteBranchInput{
+		Org:    optionStringValue(options, "org"),
+		Repo:   optionStringValue(options, "repo", "_arg"),
+		Branch: optionStringValue(options, "branch"),
+	}
+	_, out, err := s.deleteBranch(ctx, nil, input)
+	if err != nil {
+		return core.Result{Value: err, OK: false}
+	}
+	return core.Result{Value: out, OK: true}
 }
 
 // result := c.Action("agentic.review-queue").Run(ctx, core.NewOptions(

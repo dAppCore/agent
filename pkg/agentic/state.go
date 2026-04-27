@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -141,39 +142,39 @@ func (s *PrepSubsystem) handleStateDelete(ctx context.Context, options core.Opti
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerStateTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerStateTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
 	}, s.stateSet)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
 	}, s.stateSet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_get",
 		Description: "Get a workspace state value for a plan by key.",
 	}, s.stateGet)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_get",
 		Description: "Get a workspace state value for a plan by key.",
 	}, s.stateGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
 	}, s.stateList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
 	}, s.stateDelete)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
 	}, s.stateDelete)

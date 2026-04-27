@@ -6,10 +6,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"sort"
+	"slices"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
@@ -148,18 +149,18 @@ func (s *PrepSubsystem) handleTemplateCreatePlan(ctx context.Context, options co
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerTemplateTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerTemplateTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_list",
 		Description: "List available plan templates with variables, category, and phase counts.",
 	}, s.templateList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_preview",
 		Description: "Preview a plan template with variable substitution before creating a stored plan.",
 	}, s.templatePreview)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_create_plan",
 		Description: "Create a stored plan from an embedded YAML template, with optional activation.",
 	}, s.templateCreatePlan)
@@ -178,8 +179,15 @@ func (s *PrepSubsystem) templateList(_ context.Context, _ *mcp.CallToolRequest, 
 		templates = append(templates, templateSummaryFromDefinition(definition, version))
 	}
 
-	sort.Slice(templates, func(i, j int) bool {
-		return templates[i].Slug < templates[j].Slug
+	slices.SortFunc(templates, func(a, b TemplateSummary) int {
+		switch {
+		case a.Slug < b.Slug:
+			return -1
+		case a.Slug > b.Slug:
+			return 1
+		default:
+			return 0
+		}
 	})
 
 	return nil, TemplateListOutput{
@@ -431,7 +439,7 @@ func templateVariableList(definition planTemplateDefinition) []TemplateVariable 
 	for name := range definition.Variables {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	variables := make([]TemplateVariable, 0, len(names))
 	for _, name := range names {
@@ -455,7 +463,7 @@ func missingTemplateVariables(definition planTemplateDefinition, variables map[s
 			missing = append(missing, name)
 		}
 	}
-	sort.Strings(missing)
+	slices.Sort(missing)
 	return missing
 }
 

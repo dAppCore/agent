@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -201,15 +202,13 @@ func TestPlan_ReadPlan_Ugly_EmptyFile(t *testing.T) {
 }
 
 func TestPlan_RegisterPlanTools_Good_RegistersAgenticCompatibilityAliases(t *testing.T) {
-	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
-		Capabilities: &mcpsdk.ServerCapabilities{
-			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
-		},
-	})
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
 
 	subsystem := &PrepSubsystem{}
-	subsystem.RegisterTools(server)
+	subsystem.RegisterTools(svc)
 
+	server := svc.Server()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 

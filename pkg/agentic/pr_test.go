@@ -11,8 +11,9 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	forge_types "dappco.re/go/core/forge/types"
+	"dappco.re/go/forge"
+	forge_types "dappco.re/go/forge/types"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,7 +140,7 @@ func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 
 func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -157,7 +158,7 @@ func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 
 func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create workspace with repo/.git
 	wsDir := core.JoinPath(root, "workspace", "test-ws")
@@ -193,7 +194,7 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 
 func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-2")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -262,15 +263,13 @@ func TestPr_ClosePR_Good_Success(t *testing.T) {
 }
 
 func TestPr_RegisterPRTools_Good_RegistersPRAliases(t *testing.T) {
-	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
-		Capabilities: &mcpsdk.ServerCapabilities{
-			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
-		},
-	})
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	s.registerPRTools(server)
+	s.registerPRTools(svc)
 
+	server := svc.Server()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
@@ -546,7 +545,7 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 func TestPr_CreatePR_Ugly(t *testing.T) {
 	// Workspace with no branch in status (auto-detect from git)
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "test-ws-ugly")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -710,4 +709,73 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 	prs, err := s.listRepoPRs(context.Background(), "core", "empty-repo", "open")
 	require.NoError(t, err)
 	assert.Empty(t, prs)
+}
+
+func TestPr_DeleteBranch_Good_Success(t *testing.T) {
+	var method, path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo:   "test-repo",
+		Branch: "agent/fix-tests",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Success)
+	assert.Equal(t, "core", out.Org)
+	assert.Equal(t, "test-repo", out.Repo)
+	assert.Equal(t, "agent/fix-tests", out.Branch)
+	assert.Equal(t, http.MethodDelete, method)
+	assert.Contains(t, path, "/branches/agent/fix-tests")
+}
+
+func TestPr_DeleteBranch_Bad_MissingRepo(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge("http://localhost:1", "test-token"),
+		forgeToken:     "test-token",
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Branch: "agent/fix-tests",
+	})
+	require.Error(t, err)
+}
+
+func TestPr_DeleteBranch_Bad_MissingBranch(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge("http://localhost:1", "test-token"),
+		forgeToken:     "test-token",
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo: "test-repo",
+	})
+	require.Error(t, err)
+}
+
+func TestPr_DeleteBranch_Ugly_NoForgeToken(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+	}
+
+	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
+		Repo:   "test-repo",
+		Branch: "agent/fix-tests",
+	})
+	require.Error(t, err)
 }

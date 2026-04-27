@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - task -d status test
+      - task -d repo test

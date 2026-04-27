@@ -1,0 +1,12 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - task -d delete test
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          cd ../../..
+          go test ./pkg/agentic -run 'TestCleanupBranch_' -count=1
+          EOF

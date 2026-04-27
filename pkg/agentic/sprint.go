@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -60,6 +61,12 @@ type SprintUpdateInput struct {
 
 // input := agentic.SprintArchiveInput{Slug: "ax-follow-up"}
 type SprintArchiveInput struct {
+	ID   string `json:"id,omitempty"`
+	Slug string `json:"slug,omitempty"`
+}
+
+// input := agentic.SprintTransitionInput{Slug: "ax-follow-up"}
+type SprintTransitionInput struct {
 	ID   string `json:"id,omitempty"`
 	Slug string `json:"slug,omitempty"`
 }
@@ -153,48 +160,58 @@ func (s *PrepSubsystem) handleSprintArchive(ctx context.Context, options core.Op
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerSprintTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerSprintTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
 	}, s.sprintCreate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
 	}, s.sprintGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
 	}, s.sprintList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
 	}, s.sprintUpdate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_sprint_start",
+		Description: "Start a tracked platform sprint by slug or ID.",
+	}, s.sprintStart)
+
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_sprint_complete",
+		Description: "Complete a tracked platform sprint by slug or ID.",
+	}, s.sprintComplete)
+
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
 	}, s.sprintArchive)
@@ -307,6 +324,14 @@ func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest
 	}, nil
 }
 
+func (s *PrepSubsystem) sprintStart(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	return s.sprintTransition(ctx, "sprint.start", "start", input)
+}
+
+func (s *PrepSubsystem) sprintComplete(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	return s.sprintTransition(ctx, "sprint.complete", "complete", input)
+}
+
 func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolRequest, input SprintArchiveInput) (*mcp.CallToolResult, SprintArchiveOutput, error) {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
@@ -331,6 +356,23 @@ func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 	return nil, output, nil
+}
+
+func (s *PrepSubsystem) sprintTransition(ctx context.Context, action, transition string, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+	identifier := sprintIdentifier(input.Slug, input.ID)
+	if identifier == "" {
+		return nil, SprintOutput{}, core.E("sprintTransition", "id or slug is required", nil)
+	}
+
+	result := s.platformPayload(ctx, action, "POST", core.Concat("/v1/sprints/", identifier, "/", transition), nil)
+	if !result.OK {
+		return nil, SprintOutput{}, resultErrorValue(action, result)
+	}
+
+	return nil, SprintOutput{
+		Success: true,
+		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
+	}, nil
 }
 
 func sprintIdentifier(values ...string) string {

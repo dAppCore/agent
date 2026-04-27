@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Console\Commands;
@@ -12,7 +14,7 @@ use Mod\Content\Services\AIGatewayService;
 
 class GenerateCommand extends Command
 {
-    protected $signature = 'generate
+    protected $signature = 'agentic:generate
         {action=status : Action: status, brief, batch, plan, queue-stats}
         {--id= : Brief or Plan ID}
         {--type=help_article : Content type: help_article, blog_post, landing_page, social_post}

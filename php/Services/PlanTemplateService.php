@@ -147,6 +147,11 @@ class PlanTemplateService
             return null;
         }
 
+        $validation = $this->validateVariables($templateSlug, $variables);
+        if (! $validation['valid']) {
+            throw new \InvalidArgumentException(implode('; ', $validation['errors']));
+        }
+
         // Snapshot the raw template content before variable substitution so the
         // version record captures the canonical template, not the instantiated copy.
         $templateVersion = PlanTemplateVersion::findOrCreateFromTemplate($templateSlug, $template);
@@ -240,7 +245,7 @@ class PlanTemplateService
 
         foreach ($variables as $key => $value) {
             // Sanitise value: only allow scalar values
-            if (! is_scalar($value) && $value !== null) {
+            if (! is_scalar($value)) {
                 continue;
             }
 
@@ -257,7 +262,7 @@ class PlanTemplateService
 
         // Apply defaults for unsubstituted variables
         foreach ($template['variables'] ?? [] as $key => $def) {
-            if (isset($def['default']) && ! isset($variables[$key])) {
+            if (isset($def['default']) && ! array_key_exists($key, $variables)) {
                 $escapedDefault = $this->escapeForJson((string) $def['default']);
                 $json = preg_replace(
                     '/\{\{\s*'.preg_quote($key, '/').'\s*\}\}/',
@@ -317,7 +322,11 @@ class PlanTemplateService
             if (! empty($variables)) {
                 $lines[] = "\n### Variables";
                 foreach ($variables as $key => $value) {
-                    $lines[] = "- **{$key}**: {$value}";
+                    if (! is_scalar($value)) {
+                        continue;
+                    }
+
+                    $lines[] = '- **'.$key.'**: '.$this->stringifyContextValue($value);
                 }
             }
 
@@ -354,8 +363,16 @@ class PlanTemplateService
 
         foreach ($template['variables'] ?? [] as $name => $varDef) {
             $required = $varDef['required'] ?? true;
+            $hasValue = array_key_exists($name, $variables);
 
-            if ($required && ! isset($variables[$name]) && ! isset($varDef['default'])) {
+            if ($hasValue) {
+                $error = $this->validateVariableValue($name, $variables[$name], $varDef);
+                if ($error !== null) {
+                    $errors[] = $error;
+                }
+            }
+
+            if ($required && ! $hasValue && ! array_key_exists('default', $varDef)) {
                 $errors[] = $this->buildVariableError($name, $varDef);
             }
         }
@@ -368,10 +385,102 @@ class PlanTemplateService
     }
 
     /**
-<<<<<<< HEAD
      * Naming convention reminder included in validation results.
      */
     private const NAMING_CONVENTION = 'Variable names use snake_case (e.g. project_name, api_key)';
+
+    /**
+     * Convert a context value into a string for display.
+     */
+    private function stringifyContextValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * Validate a provided variable value against template constraints.
+     */
+    private function validateVariableValue(string $name, mixed $value, array $varDef): ?string
+    {
+        if (! is_scalar($value) && $value !== null) {
+            return "Variable '{$name}' must be a scalar value";
+        }
+
+        if ($value === null) {
+            return "Variable '{$name}' must not be null";
+        }
+
+        $stringValue = (string) $value;
+
+        if (! preg_match('//u', $stringValue)) {
+            return "Variable '{$name}' contains invalid UTF-8 characters";
+        }
+
+        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $stringValue)) {
+            return "Variable '{$name}' contains disallowed control characters";
+        }
+
+        $allowedValues = $varDef['allowed_values'] ?? $varDef['enum'] ?? null;
+        if ($allowedValues !== null) {
+            $allowedValues = is_array($allowedValues) ? $allowedValues : [$allowedValues];
+            $allowedValues = array_map(
+                static fn ($allowedValue) => (string) $allowedValue,
+                $allowedValues
+            );
+
+            if (! in_array($stringValue, $allowedValues, true)) {
+                return "Variable '{$name}' must be one of: ".implode(', ', $allowedValues);
+            }
+        }
+
+        if (! empty($varDef['pattern'])) {
+            $pattern = (string) $varDef['pattern'];
+            $match = @preg_match($pattern, $stringValue);
+
+            if ($match !== 1) {
+                return "Variable '{$name}' does not match the required pattern";
+            }
+        }
+
+        if (! empty($varDef['charset'])) {
+            $charset = (string) $varDef['charset'];
+            $charsetPattern = $this->charsetPattern($charset);
+
+            if ($charsetPattern === null) {
+                return "Variable '{$name}' declares unsupported charset '{$charset}'";
+            }
+
+            if (preg_match($charsetPattern, $stringValue) !== 1) {
+                return "Variable '{$name}' must use the {$charset} character set";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Map a named charset to a validation pattern.
+     */
+    private function charsetPattern(string $charset): ?string
+    {
+        return match ($charset) {
+            'alpha' => '/\A[[:alpha:]]+\z/u',
+            'alnum' => '/\A[[:alnum:]]+\z/u',
+            'slug' => '/\A[a-z0-9]+(?:[-_][a-z0-9]+)*\z/i',
+            'snake_case' => '/\A[a-z0-9]+(?:_[a-z0-9]+)*\z/i',
+            'path_segment' => '/\A[^\x00-\x1F\x7F\/\\\\]+\z/u',
+            'printable' => '/\A[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+\z/u',
+            default => null,
+        };
+    }
 
     /**
      * Build an actionable error message for a missing required variable.

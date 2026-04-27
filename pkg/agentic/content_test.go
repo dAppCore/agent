@@ -324,3 +324,18 @@ func TestContent_HandleContentSchemaGenerate_Ugly(t *testing.T) {
 	))
 	assert.False(t, result.OK)
 }
+
+func TestContent_contentSchemaType_Good(t *testing.T) {
+	assert.Equal(t, "BlogPosting", contentSchemaType("article"))
+	assert.Equal(t, "FAQPage", contentSchemaType("faq"))
+	assert.Equal(t, "HowTo", contentSchemaType("how-to"))
+}
+
+func TestContent_contentSchemaType_Bad(t *testing.T) {
+	assert.Empty(t, contentSchemaType("press-release"))
+}
+
+func TestContent_contentSchemaType_Ugly(t *testing.T) {
+	assert.Equal(t, "TechArticle", contentSchemaType("  TECH-ARTICLE  "))
+	assert.Empty(t, contentSchemaType(""))
+}

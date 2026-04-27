@@ -14,6 +14,8 @@ func (s *PrepSubsystem) registerWorkspaceCommands() {
 	c.Command("agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList})
 	c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
 	c.Command("agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean})
+	c.Command("workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats})
+	c.Command("agentic:workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats})
 	c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 	c.Command("agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch})
 	c.Command("workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch})
@@ -94,6 +96,14 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 
 	for _, name := range toRemove {
 		path := core.JoinPath(workspaceRoot, name)
+		// RFC §15.5 — stats MUST be captured to `.core/workspace/db.duckdb`
+		// before the workspace directory is deleted so the permanent record
+		// of the dispatch survives cleanup.
+		if result := ReadStatusResult(path); result.OK {
+			if st, ok := workspaceStatusValue(result); ok {
+				s.recordWorkspaceStats(path, st)
+			}
+		}
 		filesystem.DeleteAll(path)
 		core.Print(nil, "  removed %s", name)
 	}
@@ -108,6 +118,42 @@ func workspaceCleanFilterValid(filter string) bool {
 	default:
 		return false
 	}
+}
+
+// cmdWorkspaceStats prints the last N dispatch stats rows persisted in the
+// parent workspace store. `core-agent workspace stats` answers "what
+// happened in the last 50 dispatches?" — the exact use case RFC §15.5 names
+// as the reason for the permanent record. The default limit is 50 to match
+// the spec.
+//
+// Usage example: `core-agent workspace stats --repo=go-io --status=completed --limit=20`
+func (s *PrepSubsystem) cmdWorkspaceStats(options core.Options) core.Result {
+	limit := options.Int("limit")
+	if limit <= 0 {
+		limit = 50
+	}
+	repo := options.String("repo")
+	status := options.String("status")
+
+	rows := filterWorkspaceStats(s.listWorkspaceStats(), repo, status, limit)
+	if len(rows) == 0 {
+		core.Print(nil, "  no recorded dispatches")
+		return core.Result{OK: true}
+	}
+
+	core.Print(nil, "  %-30s %-12s %-18s %-10s %-6s %s", "WORKSPACE", "STATUS", "AGENT", "DURATION", "FINDS", "COMPLETED")
+	for _, row := range rows {
+		core.Print(nil, "  %-30s %-12s %-18s %-10s %-6d %s",
+			row.Workspace,
+			row.Status,
+			row.Agent,
+			core.Sprintf("%dms", row.DurationMS),
+			row.FindingsTotal,
+			row.CompletedAt,
+		)
+	}
+	core.Print(nil, "\n  %d rows", len(rows))
+	return core.Result{OK: true}
 }
 
 // input := DispatchInput{Repo: "go-io", Task: "Fix the failing tests", Issue: 12}

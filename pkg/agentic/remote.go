@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -31,8 +32,8 @@ type RemoteDispatchOutput struct {
 	Error        string `json:"error,omitempty"`
 }
 
-func (s *PrepSubsystem) registerRemoteDispatchTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerRemoteDispatchTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_remote",
 		Description: "Dispatch a task to a remote core-agent (e.g. Charon). The remote agent preps a workspace and spawns the task locally on its hardware.",
 	}, s.dispatchRemote)

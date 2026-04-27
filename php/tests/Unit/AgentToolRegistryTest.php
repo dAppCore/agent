@@ -69,14 +69,25 @@ function makeTool(string $name, array $scopes = [], string $category = 'test'): 
  * Uses Mockery to avoid requiring the real ApiKey class at load time,
  * since the php-api package is not available in this test environment.
  */
-function makeApiKey(int $id, array $scopes = [], ?array $toolScopes = null): ApiKey
+function makeApiKey(int $id, array $scopes = [], ?array $toolScopes = null, ?int $rateLimit = null): ApiKey
+{
+    return makeApiKeyWithIdentifier($id, $scopes, $toolScopes, $rateLimit);
+}
+
+/**
+ * Build a minimal ApiKey mock with a configurable identifier.
+ */
+function makeApiKeyWithIdentifier(mixed $identifier, array $scopes = [], ?array $toolScopes = null, ?int $rateLimit = null): ApiKey
 {
     $key = Mockery::mock(ApiKey::class);
-    $key->shouldReceive('getKey')->andReturn($id);
+    $key->shouldReceive('getKey')->andReturn($identifier);
     $key->shouldReceive('hasScope')->andReturnUsing(
         fn (string $scope) => in_array($scope, $scopes, true)
     );
     $key->tool_scopes = $toolScopes;
+    if ($rateLimit !== null) {
+        $key->rate_limit = $rateLimit;
+    }
 
     return $key;
 }
@@ -283,5 +294,48 @@ describe('flushCacheForApiKey', function () {
         $registry->flushCacheForApiKey(999);
 
         expect(Cache::has('agent_tool_registry:api_key:999'))->toBeFalse();
+    });
+});
+
+// =========================================================================
+// Execution rate limiting
+// =========================================================================
+
+describe('execute rate limiting', function () {
+    beforeEach(function () {
+        Cache::flush();
+    });
+
+    it('records executions in a separate cache budget', function () {
+        $registry = new AgentToolRegistry;
+        $registry->register(makeTool('plan.create', ['plans.write']));
+
+        $apiKey = makeApiKey(50, ['plans.write'], null, 2);
+
+        $result = $registry->execute('plan.create', [], [], $apiKey, false);
+
+        expect($result['success'])->toBeTrue()
+            ->and(Cache::get('agent_api_key_tool_rate:50'))->toBe(1);
+    });
+
+    it('rejects executions once the budget is exhausted', function () {
+        $registry = new AgentToolRegistry;
+        $registry->register(makeTool('plan.create', ['plans.write']));
+
+        $apiKey = makeApiKey(51, ['plans.write'], null, 1);
+        Cache::put('agent_api_key_tool_rate:51', 1, 60);
+
+        expect(fn () => $registry->execute('plan.create', [], [], $apiKey, false))
+            ->toThrow(\RuntimeException::class, 'Rate limit exceeded');
+    });
+
+    it('rejects non-scalar api key identifiers', function () {
+        $registry = new AgentToolRegistry;
+        $registry->register(makeTool('plan.create', ['plans.write']));
+
+        $apiKey = makeApiKeyWithIdentifier(new stdClass, ['plans.write'], null, 1);
+
+        expect(fn () => $registry->execute('plan.create', [], [], $apiKey, false))
+            ->toThrow(\InvalidArgumentException::class, 'getKey() must return a scalar or null');
     });
 });

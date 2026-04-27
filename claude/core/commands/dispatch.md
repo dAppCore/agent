@@ -22,7 +22,7 @@ arguments:
 
 Dispatch a subagent to work on `$ARGUMENTS.repo` with task: `$ARGUMENTS.task`
 
-Use the `mcp__core__agentic_dispatch` tool with:
+Use the `mcp__plugin_agent_agent__agentic_dispatch` tool with:
 - repo: $ARGUMENTS.repo
 - task: $ARGUMENTS.task
 - agent: $ARGUMENTS.agent

@@ -5,7 +5,6 @@ package lib
 import (
 	"embed"
 	"runtime"
-	"sync"
 	"testing"
 
 	core "dappco.re/go/core"
@@ -18,7 +17,7 @@ func breakLibMountForTest(t *testing.T) {
 
 	originalPromptFiles := promptFiles
 	promptFiles = embed.FS{}
-	mountOnce = sync.Once{}
+	mountDone.Store(false)
 	mountResult = core.Result{}
 	data = nil
 	promptFS = nil
@@ -29,7 +28,7 @@ func breakLibMountForTest(t *testing.T) {
 
 	t.Cleanup(func() {
 		promptFiles = originalPromptFiles
-		mountOnce = sync.Once{}
+		mountDone.Store(false)
 		mountResult = core.Result{}
 		data = nil
 		promptFS = nil
@@ -47,7 +46,7 @@ func corruptLibMountForTest(t *testing.T) {
 	data = nil
 
 	t.Cleanup(func() {
-		mountOnce = sync.Once{}
+		mountDone.Store(false)
 		mountResult = core.Result{}
 		data = nil
 	})
@@ -623,6 +622,60 @@ func TestLib_ReferenceFiles_Good_SPDXHeaders(t *testing.T) {
 
 	for _, path := range goFiles {
 		assertSPDXHeader(t, path)
+	}
+}
+
+func TestLib_ReferenceFs_Good_EmbeddedCopyMatchesSource(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+
+	repoRoot := core.PathDir(core.PathDir(core.PathDir(file)))
+	sourcePath := core.JoinPath(repoRoot, ".core", "reference", "fs.go")
+	embeddedPath := core.JoinPath(repoRoot, "pkg", "lib", "workspace", "default", ".core", "reference", "fs.go")
+
+	source := testFs.Read(sourcePath)
+	if !source.OK {
+		t.Fatalf("failed to read %s", sourcePath)
+	}
+
+	embedded := testFs.Read(embeddedPath)
+	if !embedded.OK {
+		t.Fatalf("failed to read %s", embeddedPath)
+	}
+
+	if source.Value.(string) != embedded.Value.(string) {
+		t.Fatalf("%s diverged from %s", embeddedPath, sourcePath)
+	}
+}
+
+func TestLib_ExtractWorkspace_Good_ReferenceFsSecureDefaults(t *testing.T) {
+	dir := t.TempDir()
+	data := &WorkspaceData{Repo: "test-repo", Task: "tighten extracted reference fs permissions"}
+
+	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
+
+	path := core.JoinPath(dir, ".core", "reference", "fs.go")
+	r := testFs.Read(path)
+	if !r.OK {
+		t.Fatalf("failed to read %s", path)
+	}
+
+	text := r.Value.(string)
+	for _, snippet := range []string{
+		`return m.WriteMode(p, content, 0600)`,
+		`os.MkdirAll(filepath.Dir(full), 0700)`,
+		`os.Chmod(full, mode)`,
+		`os.MkdirAll(root, 0700)`,
+		`os.WriteFile(tmp, []byte(content), 0600)`,
+		`os.MkdirAll(vp.Value.(string), 0700)`,
+		`os.OpenFile(full, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)`,
+		`os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)`,
+	} {
+		if !core.Contains(text, snippet) {
+			t.Errorf("%s missing secure permission default %q", path, snippet)
+		}
 	}
 }
 

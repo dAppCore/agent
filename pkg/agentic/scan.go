@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"net/url"
 
 	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -108,7 +107,7 @@ func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label str
 	requestURL := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {
-		requestURL = core.Concat(requestURL, "&labels=", url.QueryEscape(label))
+		requestURL = core.Concat(requestURL, "&labels=", core.URLEncode(label))
 	}
 	httpResult := HTTPGet(ctx, requestURL, s.forgeToken, "token")
 	if !httpResult.OK {

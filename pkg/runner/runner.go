@@ -6,7 +6,6 @@ package runner
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
@@ -21,13 +20,28 @@ type Options struct{}
 // service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 type Service struct {
 	*core.ServiceRuntime[Options]
-	dispatchMu sync.Mutex
-	drainMu    sync.Mutex
-	pokeCh     chan struct{}
-	frozen     bool
-	backoff    map[string]time.Time
-	failCount  map[string]int
-	workspaces *core.Registry[*WorkspaceStatus]
+	pokeCh       chan struct{}
+	dispatchLock chan struct{}
+	drainLock    chan struct{}
+	frozen       bool
+	backoff      map[string]time.Time
+	failCount    map[string]int
+	workspaces   *core.Registry[*WorkspaceStatus]
+}
+
+// lock acquires a named mutex — uses c.Lock(name) when Core is
+// available, falls back to a channel-based lock for standalone use.
+//
+//	unlock := s.lock("runner.dispatch", s.dispatchLock)
+//	defer unlock()
+func (s *Service) lock(name string, fallback chan struct{}) (unlock func()) {
+	if s.ServiceRuntime != nil {
+		mu := s.Core().Lock(name).Mutex
+		mu.Lock()
+		return mu.Unlock
+	}
+	fallback <- struct{}{}
+	return func() { <-fallback }
 }
 
 type channelSender interface {
@@ -38,9 +52,11 @@ type channelSender interface {
 // service.TrackWorkspace("core/go-io/task-5", &runner.WorkspaceStatus{Status: "running", Agent: "codex"})
 func New() *Service {
 	return &Service{
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
-		workspaces: core.NewRegistry[*WorkspaceStatus](),
+		dispatchLock: make(chan struct{}, 1),
+		drainLock:    make(chan struct{}, 1),
+		backoff:      make(map[string]time.Time),
+		failCount:    make(map[string]int),
+		workspaces:   core.NewRegistry[*WorkspaceStatus](),
 	}
 }
 
@@ -266,8 +282,8 @@ func (s *Service) actionDispatch(_ context.Context, options core.Options) core.R
 	}
 	repo := options.String("repo")
 
-	s.dispatchMu.Lock()
-	defer s.dispatchMu.Unlock()
+	unlock := s.lock("runner.dispatch", s.dispatchLock)
+	defer unlock()
 
 	can, reason := s.canDispatchAgent(agent)
 	if !can {

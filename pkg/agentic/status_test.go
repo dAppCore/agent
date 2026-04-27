@@ -279,7 +279,7 @@ func TestStatus_ReadStatus_Ugly_EmptyFile(t *testing.T) {
 
 func TestStatus_Status_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Case 1: running + dead PID + BLOCKED.md → should detect as blocked
@@ -405,7 +405,7 @@ func TestStatus_WriteStatus_Bad_ReadOnlyPath(t *testing.T) {
 
 func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create a running workspace with a live PID (our own PID)
@@ -445,7 +445,7 @@ func TestStatus_Status_Good_PopulatedWorkspaces(t *testing.T) {
 
 func TestStatus_Status_Bad_EmptyWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Do NOT create the workspace/ subdirectory
 
 	s := &PrepSubsystem{

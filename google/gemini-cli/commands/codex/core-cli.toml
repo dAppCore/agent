@@ -1,4 +1,0 @@
-description = "Return core CLI mapping"
-prompt = """
-Use the tool `codex_core_cli` and return its output verbatim. Do not add commentary.
-"""

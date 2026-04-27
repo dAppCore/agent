@@ -2,7 +2,7 @@
 name: remember
 description: Save a fact or decision to OpenBrain for persistence across sessions
 args: <fact to remember>
-allowed-tools: ["mcp__core__brain_remember"]
+allowed-tools: ["mcp__plugin_agent_agent__brain_remember"]
 ---
 
 # Remember

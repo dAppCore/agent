@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -74,13 +75,13 @@ func (s *PrepSubsystem) cmdLangList(_ core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerLanguageTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerLanguageTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_detect",
 		Description: "Detect the primary language for a workspace or repository path.",
 	}, s.langDetect)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_list",
 		Description: "List supported language identifiers.",
 	}, s.langList)

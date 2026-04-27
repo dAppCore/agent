@@ -4,12 +4,15 @@ package agentic
 
 import (
 	"context"
-	"net/http"
+	"net/http" // Note: AX-6 — structural HTTP transport boundary for core.API protocol streams and raw MCP POST/SSE exchange; no exported core/api generic request wrapper covers this file.
 	"time"
 
 	core "dappco.re/go/core"
 )
 
+// defaultClient centralises the low-level HTTP boundary owned by this file.
+// Higher layers should go through core.Drive/core.API; this transport package
+// is the intrinsic implementation behind those abstractions.
 var defaultClient = &http.Client{Timeout: 30 * time.Second}
 
 type httpStream struct {
@@ -223,6 +226,9 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	}
 
 	sessionID := response.Header.Get("Mcp-Session-Id")
+	if sessionID == "" {
+		return core.Result{Value: core.E("mcpInitialize", "missing session id", nil), OK: false}
+	}
 
 	drainSSE(response)
 

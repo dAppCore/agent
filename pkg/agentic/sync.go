@@ -13,6 +13,10 @@ type SyncPushInput struct {
 	AgentID     string           `json:"agent_id,omitempty"`
 	FleetNodeID int              `json:"fleet_node_id,omitempty"`
 	Dispatches  []map[string]any `json:"dispatches,omitempty"`
+	// QueueOnly skips the collectSyncDispatches() scan so the caller only
+	// drains entries already queued. Used by the flush loop to avoid
+	// re-adding the same completed workspaces on every tick.
+	QueueOnly bool `json:"-"`
 }
 
 type SyncPushOutput struct {
@@ -39,6 +43,8 @@ type SyncRecord struct {
 	Direction   string `json:"direction"`
 	PayloadSize int    `json:"payload_size"`
 	ItemsCount  int    `json:"items_count"`
+	Attempts    int    `json:"attempts,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 	SyncedAt    string `json:"synced_at"`
 }
 
@@ -47,11 +53,53 @@ type syncQueuedPush struct {
 	FleetNodeID int              `json:"fleet_node_id,omitempty"`
 	Dispatches  []map[string]any `json:"dispatches"`
 	QueuedAt    time.Time        `json:"queued_at"`
+	Attempts    int              `json:"attempts,omitempty"`
+	NextAttempt time.Time        `json:"next_attempt,omitempty"`
 }
 
 type syncStatusState struct {
 	LastPushAt time.Time `json:"last_push_at,omitempty"`
 	LastPullAt time.Time `json:"last_pull_at,omitempty"`
+}
+
+// syncBackoffSchedule preserves the legacy sync pacing used by compatibility
+// tests and status tooling. The active offline queue retry logic lives in
+// remoteSyncQueueBackoff and caps at 30 seconds per RFC §16.5.
+// schedule := syncBackoffSchedule(2) // 15s
+// next := time.Now().Add(schedule)
+func syncBackoffSchedule(attempts int) time.Duration {
+	switch {
+	case attempts <= 0:
+		return 0
+	case attempts == 1:
+		return time.Second
+	case attempts == 2:
+		return 5 * time.Second
+	case attempts == 3:
+		return 15 * time.Second
+	case attempts == 4:
+		return 60 * time.Second
+	default:
+		return 5 * time.Minute
+	}
+}
+
+// syncFlushScheduleInterval is the cadence at which queued pushes are retried
+// when the agent has been unable to reach the platform. Per RFC §16.5 the
+// retry window max is 5 minutes, so the scheduler wakes at that cadence and
+// each queued entry enforces its own NextAttempt gate.
+const syncFlushScheduleInterval = time.Minute
+
+// ctx, cancel := context.WithCancel(context.Background())
+// go s.runSyncFlushLoop(ctx, time.Minute)
+func (s *PrepSubsystem) runSyncFlushLoop(ctx context.Context, interval time.Duration) {
+	if ctx == nil {
+		return
+	}
+	if s == nil || s.syncToken() == "" {
+		return
+	}
+	s.remoteSyncQueueController(remoteSyncRealClock{}, interval).run(ctx)
 }
 
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
@@ -90,13 +138,12 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		agentID = AgentName()
 	}
 	dispatches := input.Dispatches
-	if len(dispatches) == 0 {
+	if len(dispatches) == 0 && !input.QueueOnly {
 		dispatches = collectSyncDispatches()
 	}
 	token := s.syncToken()
-	queuedPushes := readSyncQueue()
-	if len(dispatches) > 0 {
-		queuedPushes = append(queuedPushes, syncQueuedPush{
+	if len(dispatches) > 0 && (token != "" || len(input.Dispatches) > 0) {
+		s.enqueueSyncPush(syncQueuedPush{
 			AgentID:     agentID,
 			FleetNodeID: input.FleetNodeID,
 			Dispatches:  dispatches,
@@ -104,33 +151,9 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 		})
 	}
 	if token == "" {
-		if len(input.Dispatches) > 0 {
-			writeSyncQueue(queuedPushes)
-		}
 		return SyncPushOutput{Success: true, Count: 0}, nil
 	}
-	if len(queuedPushes) == 0 {
-		return SyncPushOutput{Success: true, Count: 0}, nil
-	}
-
-	synced := 0
-	for i, queued := range queuedPushes {
-		if len(queued.Dispatches) == 0 {
-			continue
-		}
-		if err := s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, token); err != nil {
-			writeSyncQueue(queuedPushes[i:])
-			return SyncPushOutput{Success: true, Count: synced}, nil
-		}
-		synced += len(queued.Dispatches)
-		recordSyncPush(time.Now())
-		recordSyncHistory("push", queued.AgentID, queued.FleetNodeID, len(core.JSONMarshalString(map[string]any{
-			"agent_id":   queued.AgentID,
-			"dispatches": queued.Dispatches,
-		})), len(queued.Dispatches), time.Now())
-	}
-
-	writeSyncQueue(nil)
+	synced := s.remoteSyncQueueController(remoteSyncRealClock{}, syncFlushScheduleInterval).drainReady(ctx)
 	return SyncPushOutput{Success: true, Count: synced}, nil
 }
 
@@ -201,6 +224,7 @@ func (s *PrepSubsystem) syncToken() string {
 }
 
 func collectSyncDispatches() []map[string]any {
+	ledger := readSyncLedger()
 	var dispatches []map[string]any
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)
@@ -212,9 +236,107 @@ func collectSyncDispatches() []map[string]any {
 		if !shouldSyncStatus(workspaceStatus.Status) {
 			continue
 		}
-		dispatches = append(dispatches, syncDispatchRecord(workspaceDir, workspaceStatus))
+		dispatchID := syncDispatchID(workspaceDir, workspaceStatus)
+		if synced, ok := ledger[dispatchID]; ok && synced == syncDispatchFingerprint(workspaceStatus) {
+			continue
+		}
+		record := syncDispatchRecord(workspaceDir, workspaceStatus)
+		record["id"] = dispatchID
+		dispatches = append(dispatches, record)
 	}
 	return dispatches
+}
+
+// id := syncDispatchID(workspaceDir, workspaceStatus) // "core/go-io/task-5"
+func syncDispatchID(workspaceDir string, workspaceStatus *WorkspaceStatus) string {
+	if workspaceStatus == nil {
+		return WorkspaceName(workspaceDir)
+	}
+	return WorkspaceName(workspaceDir)
+}
+
+// fingerprint := syncDispatchFingerprint(workspaceStatus) // "2026-04-14T12:00:00Z#3"
+// A dispatch is considered unchanged when (updated_at, runs) matches.
+// Any new activity (re-dispatch, status change) generates a fresh fingerprint.
+func syncDispatchFingerprint(workspaceStatus *WorkspaceStatus) string {
+	if workspaceStatus == nil {
+		return ""
+	}
+	return core.Concat(workspaceStatus.UpdatedAt.UTC().Format(time.RFC3339), "#", core.Sprintf("%d", workspaceStatus.Runs))
+}
+
+// ledger := readSyncLedger() // map[dispatchID]fingerprint of last push
+func readSyncLedger() map[string]string {
+	ledger := map[string]string{}
+	result := fs.Read(syncLedgerPath())
+	if !result.OK {
+		return ledger
+	}
+	content := core.Trim(result.Value.(string))
+	if content == "" {
+		return ledger
+	}
+	if parseResult := core.JSONUnmarshalString(content, &ledger); !parseResult.OK {
+		return map[string]string{}
+	}
+	return ledger
+}
+
+// writeSyncLedger persists the dispatched fingerprints so the next scan
+// can skip workspaces that have already been pushed.
+func writeSyncLedger(ledger map[string]string) {
+	if len(ledger) == 0 {
+		if deleteResult := fs.Delete(syncLedgerPath()); !deleteResult.OK {
+			core.Warn("agentic: failed to delete sync ledger", "path", syncLedgerPath(), "reason", deleteResult.Value)
+		}
+		return
+	}
+	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare sync ledger directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		return
+	}
+	if writeResult := fs.WriteAtomic(syncLedgerPath(), core.JSONMarshalString(ledger)); !writeResult.OK {
+		core.Warn("agentic: failed to write sync ledger", "path", syncLedgerPath(), "reason", writeResult.Value)
+	}
+}
+
+// markDispatchesSynced records which dispatches were successfully pushed so
+// collectSyncDispatches skips them on the next scan.
+func markDispatchesSynced(dispatches []map[string]any) {
+	if len(dispatches) == 0 {
+		return
+	}
+	ledger := readSyncLedger()
+	changed := false
+	for _, record := range dispatches {
+		id := stringValue(record["id"])
+		if id == "" {
+			id = stringValue(record["workspace"])
+		}
+		if id == "" {
+			continue
+		}
+		updatedAt := ""
+		switch v := record["updated_at"].(type) {
+		case time.Time:
+			updatedAt = v.UTC().Format(time.RFC3339)
+		case string:
+			updatedAt = v
+		}
+		runs := 0
+		if v, ok := record["runs"].(int); ok {
+			runs = v
+		}
+		ledger[id] = core.Concat(updatedAt, "#", core.Sprintf("%d", runs))
+		changed = true
+	}
+	if changed {
+		writeSyncLedger(ledger)
+	}
+}
+
+func syncLedgerPath() string {
+	return core.JoinPath(syncStateDir(), "ledger.json")
 }
 
 func shouldSyncStatus(status string) bool {
@@ -274,11 +396,58 @@ func readSyncQueue() []syncQueuedPush {
 
 func writeSyncQueue(queued []syncQueuedPush) {
 	if len(queued) == 0 {
-		fs.Delete(syncQueuePath())
+		if deleteResult := fs.Delete(syncQueuePath()); !deleteResult.OK {
+			core.Warn("agentic: failed to delete sync queue", "path", syncQueuePath(), "reason", deleteResult.Value)
+		}
 		return
 	}
-	fs.EnsureDir(syncStateDir())
-	fs.WriteAtomic(syncQueuePath(), core.JSONMarshalString(queued))
+	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare sync queue directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		return
+	}
+	if writeResult := fs.WriteAtomic(syncQueuePath(), core.JSONMarshalString(queued)); !writeResult.OK {
+		core.Warn("agentic: failed to write sync queue", "path", syncQueuePath(), "reason", writeResult.Value)
+	}
+}
+
+// syncQueueStoreKey is the canonical key for the sync queue inside go-store —
+// the queue is a single JSON blob keyed under stateSyncQueueGroup so RFC §16.5
+// "Queue persists across restarts in db.duckdb" holds.
+//
+// Usage example: `key := syncQueueStoreKey // "queue"`
+const syncQueueStoreKey = "queue"
+
+// readSyncQueue reads the queued sync pushes from go-store first (RFC §16.5)
+// and falls back to the JSON file when the store is unavailable. Falling back
+// keeps offline deployments working through the rollout.
+//
+// Usage example: `queued := s.readSyncQueue()`
+func (s *PrepSubsystem) readSyncQueue() []syncQueuedPush {
+	if s != nil {
+		if value, ok := s.stateStoreGet(stateSyncQueueGroup, syncQueueStoreKey); ok {
+			var queued []syncQueuedPush
+			if result := core.JSONUnmarshalString(value, &queued); result.OK {
+				return queued
+			}
+		}
+	}
+	return readSyncQueue()
+}
+
+// writeSyncQueue persists the queued sync pushes to go-store (RFC §16.5) and
+// mirrors the JSON file so file-only consumers (debug tooling, manual recovery)
+// continue to work.
+//
+// Usage example: `s.writeSyncQueue(queued)`
+func (s *PrepSubsystem) writeSyncQueue(queued []syncQueuedPush) {
+	if s != nil {
+		if len(queued) == 0 {
+			s.stateStoreDelete(stateSyncQueueGroup, syncQueueStoreKey)
+		} else {
+			s.stateStoreSet(stateSyncQueueGroup, syncQueueStoreKey, queued)
+		}
+	}
+	writeSyncQueue(queued)
 }
 
 func readSyncContext() []map[string]any {
@@ -295,8 +464,13 @@ func readSyncContext() []map[string]any {
 }
 
 func writeSyncContext(contextData []map[string]any) {
-	fs.EnsureDir(syncStateDir())
-	fs.WriteAtomic(syncContextPath(), core.JSONMarshalString(contextData))
+	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare sync context directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		return
+	}
+	if writeResult := fs.WriteAtomic(syncContextPath(), core.JSONMarshalString(contextData)); !writeResult.OK {
+		core.Warn("agentic: failed to write sync context", "path", syncContextPath(), "reason", writeResult.Value)
+	}
 }
 
 func syncContextPayload(payload map[string]any) []map[string]any {
@@ -347,6 +521,11 @@ func readSyncWorkspaceReport(workspaceDir string) map[string]any {
 	var report map[string]any
 	parseResult := core.JSONUnmarshalString(result.Value.(string), &report)
 	if !parseResult.OK {
+		backupPath := core.Concat(reportPath, ".corrupt-", time.Now().UTC().Format("20060102T150405Z"))
+		core.Warn("agentic: corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", parseResult.Value)
+		if renameResult := fs.Rename(reportPath, backupPath); !renameResult.OK {
+			core.Warn("agentic: failed to preserve corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", renameResult.Value)
+		}
 		return nil
 	}
 
@@ -369,8 +548,13 @@ func readSyncStatusState() syncStatusState {
 }
 
 func writeSyncStatusState(state syncStatusState) {
-	fs.EnsureDir(syncStateDir())
-	fs.WriteAtomic(syncStatusPath(), core.JSONMarshalString(state))
+	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare sync status directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		return
+	}
+	if writeResult := fs.WriteAtomic(syncStatusPath(), core.JSONMarshalString(state)); !writeResult.OK {
+		core.Warn("agentic: failed to write sync status", "path", syncStatusPath(), "reason", writeResult.Value)
+	}
 }
 
 func syncRecordsPath() string {
@@ -393,8 +577,13 @@ func readSyncRecords() []SyncRecord {
 }
 
 func writeSyncRecords(records []SyncRecord) {
-	fs.EnsureDir(syncStateDir())
-	fs.WriteAtomic(syncRecordsPath(), core.JSONMarshalString(records))
+	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
+		core.Warn("agentic: failed to prepare sync records directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		return
+	}
+	if writeResult := fs.WriteAtomic(syncRecordsPath(), core.JSONMarshalString(records)); !writeResult.OK {
+		core.Warn("agentic: failed to write sync records", "path", syncRecordsPath(), "reason", writeResult.Value)
+	}
 }
 
 func recordSyncHistory(direction, agentID string, fleetNodeID, payloadSize, itemsCount int, at time.Time) {
@@ -411,13 +600,38 @@ func recordSyncHistory(direction, agentID string, fleetNodeID, payloadSize, item
 		ItemsCount:  itemsCount,
 		SyncedAt:    at.UTC().Format(time.RFC3339),
 	}
+	appendSyncRecord(record)
+}
 
+func appendSyncRecord(record SyncRecord) {
 	records := readSyncRecords()
 	records = append(records, record)
 	if len(records) > 100 {
 		records = records[len(records)-100:]
 	}
 	writeSyncRecords(records)
+}
+
+func recordSyncDrop(agentID string, fleetNodeID int, dispatches []map[string]any, attempts int, err error, at time.Time) {
+	reason := ""
+	if err != nil {
+		reason = err.Error()
+	}
+
+	record := SyncRecord{
+		AgentID:     core.Trim(agentID),
+		FleetNodeID: fleetNodeID,
+		Direction:   "drop",
+		PayloadSize: len(core.JSONMarshalString(map[string]any{
+			"agent_id":   agentID,
+			"dispatches": dispatches,
+		})),
+		ItemsCount: len(dispatches),
+		Attempts:   attempts,
+		Reason:     reason,
+		SyncedAt:   at.UTC().Format(time.RFC3339),
+	}
+	appendSyncRecord(record)
 }
 
 func recordSyncPush(at time.Time) {

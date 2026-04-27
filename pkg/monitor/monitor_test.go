@@ -14,7 +14,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,8 +157,8 @@ func TestMonitor_HandleAgentStarted_Good(t *testing.T) {
 	ev := messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-1"}
 	mon.handleAgentStarted(ev)
 
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
+	unlock := mon.monitorLock()
+	defer unlock()
 	assert.True(t, mon.seenRunning["core/go-io/task-1"])
 }
 
@@ -168,8 +168,8 @@ func TestMonitor_HandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
 
 	assert.NotPanics(t, func() { mon.handleAgentStarted(ev) })
 
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
+	unlock := mon.monitorLock()
+	defer unlock()
 	assert.True(t, mon.seenRunning[""])
 }
 
@@ -183,8 +183,8 @@ func TestMonitor_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
 
 	assert.NotPanics(t, func() { mon.handleAgentCompleted(ev) })
 
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
+	unlock := mon.monitorLock()
+	defer unlock()
 	assert.True(t, mon.seenCompleted["ws-1"])
 }
 
@@ -201,8 +201,8 @@ func TestMonitor_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-2", Status: "completed"})
 
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
+	unlock := mon.monitorLock()
+	defer unlock()
 	assert.True(t, mon.seenCompleted["ws-2"])
 }
 
@@ -215,8 +215,8 @@ func TestMonitor_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
 
 	assert.NotPanics(t, func() { mon.handleAgentCompleted(messages.AgentCompleted{}) })
 
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
+	unlock := mon.monitorLock()
+	defer unlock()
 	assert.True(t, mon.seenCompleted[""])
 }
 
@@ -753,10 +753,10 @@ func TestMonitor_Check_Good_CombinesMessages(t *testing.T) {
 	mon := New()
 	mon.check(context.Background())
 
-	mon.mu.Lock()
+	unlock := mon.monitorLock()
 	assert.True(t, mon.completionsSeeded)
 	assert.True(t, mon.seenCompleted["ws-0"])
-	mon.mu.Unlock()
+	unlock()
 }
 
 func TestMonitor_Check_Good_NoMessages(t *testing.T) {
@@ -818,9 +818,9 @@ func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mon.wg.Add(1)
+	mon.done = make(chan struct{})
 	go func() {
-		defer mon.wg.Done()
+		defer close(mon.done)
 		mon.loop(ctx)
 	}()
 
@@ -835,13 +835,15 @@ func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 
 	// Poll until the poke-triggered check updates the count
 	require.Eventually(t, func() bool {
-		mon.mu.Lock()
-		defer mon.mu.Unlock()
+		unlock := mon.monitorLock()
+		defer unlock()
 		return mon.seenCompleted["ws-poke"]
 	}, 5*time.Second, 50*time.Millisecond, "expected ws-poke completion to be recorded")
 
 	cancel()
-	mon.wg.Wait()
+	if mon.done != nil {
+		<-mon.done
+	}
 }
 
 // --- agentStatusResource ---

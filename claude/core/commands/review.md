@@ -6,7 +6,7 @@ arguments:
     description: Workspace name (e.g. go-html-1773592564). If omitted, shows all completed.
 ---
 
-If no workspace specified, use `mcp__core__agentic_status` to list all workspaces, then show only completed ones with a summary table.
+If no workspace specified, use `mcp__plugin_agent_agent__agentic_status` to list all workspaces, then show only completed ones with a summary table.
 
 If workspace specified:
 1. Read the agent log file: `.core/workspace/{workspace}/agent-*.log`

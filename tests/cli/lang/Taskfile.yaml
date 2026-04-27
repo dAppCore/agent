@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - task -d list test
+      - task -d detect test

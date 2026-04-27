@@ -11,8 +11,8 @@ import (
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	"dappco.re/go/core/process"
+	"dappco.re/go/forge"
+	"dappco.re/go/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -216,7 +216,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 
 func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	fs.EnsureDir(wsDir)
@@ -244,7 +244,7 @@ func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
 
 func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "ws-test")
 	fs.EnsureDir(wsDir)
@@ -271,7 +271,7 @@ func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 
 func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-monitor")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -326,7 +326,7 @@ func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
 
 func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-blocked")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -367,7 +367,7 @@ func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-test")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -393,7 +393,7 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-fail")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -414,7 +414,7 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 
 func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "ws-blocked")
 	repoDir := core.JoinPath(wsDir, "repo")
@@ -435,6 +435,73 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 
 	// Empty output should NOT create log file
 	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
+}
+
+func TestDispatch_Run_Bad_Timeout(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	wsDir := core.JoinPath(root, "ws-timeout")
+	repoDir := core.JoinPath(wsDir, "repo")
+	metaDir := core.JoinPath(wsDir, ".meta")
+	require.True(t, fs.EnsureDir(repoDir).OK)
+	require.True(t, fs.EnsureDir(metaDir).OK)
+
+	st := &WorkspaceStatus{
+		Status:    "running",
+		Agent:     "codex",
+		Repo:      "go-io",
+		StartedAt: time.Now(),
+	}
+	require.NoError(t, writeStatus(wsDir, st))
+
+	processResult := testCore.Service("process")
+	require.True(t, processResult.OK)
+	procSvc, ok := processResult.Value.(*process.Service)
+	require.True(t, ok)
+
+	timeout := 100 * time.Millisecond
+	opts := dispatchRunOptions("sleep", []string{"60"}, repoDir, timeout)
+	assert.Equal(t, timeout, opts.Timeout)
+	assert.Equal(t, dispatchGracePeriod, opts.GracePeriod)
+	assert.True(t, opts.KillGroup)
+	assert.True(t, opts.Detach)
+
+	proc, err := procSvc.StartWithOptions(context.Background(), opts)
+	require.NoError(t, err)
+	proc.CloseStdin()
+
+	s := newPrepWithProcess()
+	s.workspaces = core.NewRegistry[*WorkspaceStatus]()
+	startDispatchTimeoutWatch(wsDir, timeout, proc)
+
+	monitor := &agentCompletionMonitor{
+		service:      s,
+		agent:        "codex",
+		workspaceDir: wsDir,
+		outputFile:   core.JoinPath(metaDir, "agent-codex.log"),
+		process:      proc,
+	}
+
+	r := monitor.run(context.Background(), core.NewOptions())
+	assert.True(t, r.OK)
+
+	info := proc.Info()
+	assert.Equal(t, process.StatusKilled, info.Status)
+
+	updated := mustReadStatus(t, wsDir)
+	assert.Equal(t, "failed", updated.Status)
+	assert.Equal(t, dispatchTimeoutReason(timeout), updated.Question)
+	assert.Equal(t, 0, updated.PID)
+
+	registryResult := s.workspaces.Get(WorkspaceName(wsDir))
+	require.True(t, registryResult.OK)
+	registryStatus, ok := registryResult.Value.(*WorkspaceStatus)
+	require.True(t, ok)
+	assert.Equal(t, "failed", registryStatus.Status)
+	assert.Equal(t, dispatchTimeoutReason(timeout), registryStatus.Question)
+
+	assert.False(t, fs.Exists(workspaceTimeoutPath(wsDir)))
 }
 
 // --- runQA ---
@@ -499,7 +566,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 
 func TestDispatch_Dispatch_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"title": "Issue", "body": "Fix"})))
@@ -543,7 +610,7 @@ func TestDispatch_Dispatch_Bad(t *testing.T) {
 
 func TestDispatch_Dispatch_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Prep fails (no local clone)
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -558,7 +625,7 @@ func TestDispatch_Dispatch_Ugly(t *testing.T) {
 
 func TestDispatch_WorkspaceDir_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	dir, err := workspaceDir("core", "go-io", PrepInput{Issue: 42})
 	require.NoError(t, err)
@@ -582,7 +649,7 @@ func TestDispatch_WorkspaceDir_Bad(t *testing.T) {
 
 func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// PR takes precedence when multiple set (first match)
 	dir, err := workspaceDir("core", "go-io", PrepInput{PR: 3, Issue: 5})
@@ -610,3 +677,34 @@ func TestDispatch_ContainerCommand_Bad(t *testing.T) {
 // Good: tested in queue_test.go
 // Bad: tested in queue_test.go
 // Ugly: see queue_extra_test.go
+
+// --- agentCommand AX-10 ---
+
+func TestDispatch_agentCommand_Good(t *testing.T) {
+	command, args, err := agentCommand("codex:gpt-5.4-mini", "Implement AX-10 unit tests for Mantis #169")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", command)
+	assert.Equal(t, []string{
+		"exec",
+		"--dangerously-bypass-approvals-and-sandbox",
+		"-o", "../.meta/agent-codex.log",
+		"--model", "gpt-5.4-mini",
+		"Implement AX-10 unit tests for Mantis #169",
+	}, args)
+}
+
+func TestDispatch_agentCommand_Bad(t *testing.T) {
+	command, args, err := agentCommand("mantis", "Investigate a failing dispatch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown agent: mantis")
+	assert.Empty(t, command)
+	assert.Nil(t, args)
+}
+
+func TestDispatch_agentCommand_Ugly(t *testing.T) {
+	command, args, err := agentCommand("", "Investigate a failing dispatch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown agent")
+	assert.Empty(t, command)
+	assert.Nil(t, args)
+}

@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
@@ -25,13 +27,34 @@ return new class extends Migration
             return;
         }
 
-        $schema->table('brain_memories', function (Blueprint $table) {
-            try {
+        // Laravel Blueprint defers statement execution until the closure
+        // returns, so a try/catch INSIDE the closure doesn't catch the
+        // deferred SQL's failure. Instead, check the constraint exists
+        // before issuing the drop, across both pgsql + mariadb backends.
+        $conn = $schema->getConnection();
+        $driver = $conn->getDriverName();
+        $constraint = 'brain_memories_workspace_id_foreign';
+
+        $exists = match ($driver) {
+            'pgsql' => (bool) $conn->selectOne(
+                "SELECT 1 FROM information_schema.table_constraints
+                 WHERE table_name = 'brain_memories' AND constraint_name = ?",
+                [$constraint],
+            ),
+            'mariadb', 'mysql' => (bool) $conn->selectOne(
+                "SELECT 1 FROM information_schema.table_constraints
+                 WHERE table_schema = DATABASE() AND table_name = 'brain_memories'
+                       AND constraint_name = ?",
+                [$constraint],
+            ),
+            default => false,   // unknown driver — don't attempt the drop
+        };
+
+        if ($exists) {
+            $schema->table('brain_memories', function (Blueprint $table) {
                 $table->dropForeign(['workspace_id']);
-            } catch (\Throwable) {
-                // FK doesn't exist — fresh install, nothing to drop.
-            }
-        });
+            });
+        }
     }
 
     public function down(): void

@@ -1,8 +1,0 @@
-prompt = """
-Fix the following QA issue:
-{{args}}
-
-1. Analyze the issue.
-2. Apply the fix.
-3. Verify the fix with `core go test` or `core php test`.
-"""

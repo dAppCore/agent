@@ -59,6 +59,18 @@ func TestRemoteclient_McpInitialize_Bad_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
+func TestRemoteclient_McpInitialize_Bad_MissingSessionID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := mcpInitialize(context.Background(), srv.URL, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing session id")
+}
+
 func TestRemoteclient_McpInitialize_Bad_Unreachable(t *testing.T) {
 	_, err := mcpInitialize(context.Background(), "http://127.0.0.1:1", "")
 	assert.Error(t, err)

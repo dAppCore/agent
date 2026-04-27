@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"syscall"
 
 	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/core"
@@ -14,12 +13,13 @@ import (
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 )
 
 func main() {
 	if err := runCoreAgent(); err != nil {
 		core.Error("core-agent failed", "err", err)
-		syscall.Exit(1)
+		core.Exit(1)
 	}
 }
 
@@ -35,7 +35,7 @@ func newCoreAgent() *core.Core {
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
 		core.WithService(setup.Register),
-		core.WithService(registerMCPService),
+		core.WithService(coremcp.Register),
 	)
 	coreApp.App().Version = applicationVersion()
 

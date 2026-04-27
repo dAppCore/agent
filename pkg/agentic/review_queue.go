@@ -8,6 +8,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -55,8 +56,8 @@ func compileRetryAfterPattern() *regexp.Regexp {
 	return pattern
 }
 
-func (s *PrepSubsystem) registerReviewQueueTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerReviewQueueTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_review_queue",
 		Description: "Process the review queue. Supports coderabbit, codex, or both reviewers, auto-merges clean ones on GitHub, dispatches fix agents for findings, and respects rate limits.",
 	}, s.reviewQueue)
@@ -388,12 +389,17 @@ func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []
 // s.storeReviewOutput(repoDir, "go-io", "coderabbit", output)
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
 	dataDir := core.JoinPath(HomeDir(), ".core", "training", "reviews")
-	fs.EnsureDir(dataDir)
+	if ensureResult := fs.EnsureDir(dataDir); !ensureResult.OK {
+		core.Warn("reviewQueue: failed to prepare review output directory", "path", dataDir, "reason", ensureResult.Value)
+		return
+	}
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	filename := core.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
-
-	fs.Write(core.JoinPath(dataDir, filename), output)
+	outputPath := core.JoinPath(dataDir, filename)
+	if writeResult := fs.Write(outputPath, output); !writeResult.OK {
+		core.Warn("reviewQueue: failed to write review output", "path", outputPath, "reason", writeResult.Value)
+	}
 
 	entry := map[string]string{
 		"repo":      repo,
@@ -410,9 +416,12 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
 	r := fs.Append(jsonlPath)
 	if !r.OK {
+		core.Warn("reviewQueue: failed to open review journal", "path", jsonlPath, "reason", r.Value)
 		return
 	}
-	core.WriteAll(r.Value, core.Concat(jsonLine, "\n"))
+	if writeResult := core.WriteAll(r.Value, core.Concat(jsonLine, "\n")); !writeResult.OK {
+		core.Warn("reviewQueue: failed to append review journal entry", "path", jsonlPath, "reason", writeResult.Value)
+	}
 }
 
 // s.saveRateLimitState(&RateLimitInfo{Limited: true, RetryAt: time.Now().Add(30 * time.Minute)})

@@ -6,15 +6,30 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 )
 
+// processActionHandlers owns the agent-side overrides for the
+// `process.*` actions. Start/run/kill return rich values (the
+// `*process.Process` handle) instead of the raw string IDs surfaced
+// by go-process so dispatch code can reap, signal, and tree-kill
+// managed children without another lookup.
+//
+// Usage: `handlers := &processActionHandlers{service: svc}`
 type processActionHandlers struct {
 	service *process.Service
 }
 
-// c := core.New(core.WithService(agentic.ProcessRegister))
-// processService := c.Service("process")
+// ProcessRegister ensures a `*process.Service` is available under the
+// "process" service name and installs the agent-specific action
+// overrides.  Registering as a Startable service means the agent
+// handlers run AFTER go-process's own OnStartup (which installs the
+// string-ID variants), so the dispatch-friendly overrides always win.
+//
+// Usage:
+//
+//	c := core.New(core.WithService(agentic.ProcessRegister))
+//	processService := c.Service("process")
 func ProcessRegister(c *core.Core) core.Result {
 	if c == nil {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "core is required", nil), OK: false}
@@ -44,11 +59,63 @@ func ProcessRegister(c *core.Core) core.Result {
 	}
 
 	handlers := &processActionHandlers{service: service}
-	c.Action("process.run", handlers.handleRun)
-	c.Action("process.start", handlers.handleStart)
-	c.Action("process.kill", handlers.handleKill)
+	// Install the overrides now — good for callers who never run
+	// ServiceStartup (smaller test setups) and for the
+	// pre-registered-service path where go-process may already have
+	// started.
+	handlers.registerActions(c)
+
+	// Also register as a Startable service so the overrides survive
+	// any subsequent `process` OnStartup that would otherwise
+	// clobber them. The override service runs last because it
+	// registers after `process`.
+	overrideName := "agentic.process-overrides"
+	if existing := c.Service(overrideName); !existing.OK {
+		if registerResult := c.RegisterService(overrideName, &processOverrideService{handlers: handlers, core: c}); !registerResult.OK {
+			return registerResult
+		}
+	}
 
 	return core.Result{OK: true}
+}
+
+// processOverrideService reinstalls the agent-side action overrides
+// once Core finishes calling OnStartup on every registered service.
+// go-process re-registers `process.start`/`process.kill`/`process.run`
+// during its own OnStartup, so the override has to run after that to
+// keep the dispatch-friendly contract.
+//
+// Usage: `c.RegisterService("agentic.process-overrides", &processOverrideService{handlers: h, core: c})`
+type processOverrideService struct {
+	handlers *processActionHandlers
+	core     *core.Core
+}
+
+// OnStartup is called by Core after every underlying service has
+// booted. The override is reapplied at the tail of the lifecycle so
+// the agent-side handlers win.
+//
+// Usage: `_ = svc.OnStartup(ctx)`
+func (s *processOverrideService) OnStartup(context.Context) core.Result {
+	if s == nil || s.handlers == nil {
+		return core.Result{OK: true}
+	}
+	s.handlers.registerActions(s.core)
+	return core.Result{OK: true}
+}
+
+// registerActions wires the override handlers onto `c`. It is safe
+// to call multiple times — each call simply overwrites the same
+// action names.
+//
+// Usage: `handlers.registerActions(c)`
+func (h *processActionHandlers) registerActions(c *core.Core) {
+	if h == nil || c == nil {
+		return
+	}
+	c.Action("process.run", h.handleRun)
+	c.Action("process.start", h.handleStart)
+	c.Action("process.kill", h.handleKill)
 }
 
 func (h *processActionHandlers) handleRun(ctx context.Context, options core.Options) core.Result {

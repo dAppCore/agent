@@ -104,7 +104,7 @@ func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 
 	// Add a binary file
 	fs.Write(core.JoinPath(repoDir, "app.exe"), "binary")
-	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "add", "-f", "app.exe")
 	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	reason := testMon.checkSafety(repoDir)
@@ -184,7 +184,7 @@ func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 
 	// Add binary
 	fs.Write(core.JoinPath(repoDir, "build.so"), "elf")
-	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "add", "-f", "build.so")
 	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
@@ -315,7 +315,7 @@ func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	run(t, repoDir, "git", "commit", "-m", "agent work")
 
 	fs.Write(core.JoinPath(repoDir, "app.exe"), "binary")
-	run(t, repoDir, "git", "add", ".")
+	run(t, repoDir, "git", "add", "-f", "app.exe")
 	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	writeStatus(t, wsDir, "completed", "rej-repo", "agent/test-task")

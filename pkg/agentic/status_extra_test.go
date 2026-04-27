@@ -10,7 +10,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +29,8 @@ func coreWithRunnerActions() *core.Core {
 
 func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
@@ -47,7 +48,8 @@ func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 
 func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create completed workspace (old layout)
@@ -106,7 +108,8 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 
 func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws1 := core.JoinPath(wsRoot, "task-1")
@@ -156,7 +159,8 @@ func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 
 func TestStatus_DeepLayout_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace in deep layout (org/repo/task)
@@ -182,7 +186,8 @@ func TestStatus_DeepLayout_Good(t *testing.T) {
 
 func TestStatus_CorruptStatus_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "corrupt-ws")
@@ -223,7 +228,8 @@ func TestShutdown_DispatchStart_Good(t *testing.T) {
 func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	// shutdownGraceful delegates to runner.stop Action — verify it returns success and frozen message.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 
 	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
@@ -242,7 +248,8 @@ func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	// shutdownNow delegates to runner.kill Action — verify it returns success.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	c := coreWithRunnerActions()
@@ -263,7 +270,8 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	// shutdownNow delegates to runner.kill Action — queue clearing is now
 	// handled by the runner service. Verify the delegation returns success.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create queued workspaces (runner.kill would clear these in production)
@@ -389,7 +397,8 @@ func TestPrep_PrepWorkspace_Bad_NoRepo(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -407,7 +416,8 @@ func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -587,7 +597,8 @@ func TestPrep_OnShutdown_Good(t *testing.T) {
 
 func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -608,7 +619,8 @@ func TestShutdown_ShutdownNow_Ugly_DeepLayout(t *testing.T) {
 	// shutdownNow delegates to runner.kill Action — queue clearing is now
 	// handled by the runner service. Verify delegation with deep-layout workspaces.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace in deep layout (org/repo/task)
@@ -674,7 +686,8 @@ func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
 
 func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -694,7 +707,8 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	// shutdownGraceful delegates to runner.stop Action — verify it returns success
 	// even when workspaces exist.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with various statuses
@@ -728,7 +742,8 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	// shutdownNow delegates to runner.kill Action — verify it returns success
 	// even when there are no running PIDs. Kill counting is now in pkg/runner.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
+
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create completed workspaces only (no running PIDs to kill)

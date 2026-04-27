@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -79,13 +80,13 @@ func (s *PrepSubsystem) promptVersion(_ context.Context, _ *mcp.CallToolRequest,
 	}, nil
 }
 
-func (s *PrepSubsystem) registerPromptTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerPromptTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
 	}, s.promptVersionTool)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
 	}, s.promptVersionTool)

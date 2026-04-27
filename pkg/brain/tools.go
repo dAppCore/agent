@@ -7,7 +7,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -19,6 +20,8 @@ type RememberInput struct {
 	Content    string   `json:"content"`
 	Type       string   `json:"type"`
 	Tags       []string `json:"tags,omitempty"`
+	// Usage example: `input := brain.RememberInput{Org: "core"}` — optional organisation scope; empty = global.
+	Org        string   `json:"org,omitempty"`
 	Project    string   `json:"project,omitempty"`
 	Confidence float64  `json:"confidence,omitempty"`
 	Supersedes string   `json:"supersedes,omitempty"`
@@ -53,6 +56,8 @@ type RecallFilter struct {
 	Project       string  `json:"project,omitempty"`
 	Type          any     `json:"type,omitempty"`
 	AgentID       string  `json:"agent_id,omitempty"`
+	// Usage example: `filter := brain.RecallFilter{Org: "core"}` — scope recall to a specific org; empty = all.
+	Org           string  `json:"org,omitempty"`
 	MinConfidence float64 `json:"min_confidence,omitempty"`
 }
 
@@ -78,11 +83,15 @@ type Memory struct {
 	Type            string   `json:"type"`
 	Content         string   `json:"content"`
 	Tags            []string `json:"tags,omitempty"`
+	// Usage example: `memory := brain.Memory{Org: "core"}` — optional organisation scope (null/empty = global).
+	Org             string   `json:"org,omitempty"`
 	Project         string   `json:"project,omitempty"`
 	Source          string   `json:"source,omitempty"`
 	Confidence      float64  `json:"confidence"`
 	SupersedesID    string   `json:"supersedes_id,omitempty"`
 	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	// Usage example: `memory := brain.Memory{IndexedAt: "2026-04-14T10:00:00Z"}` — when Qdrant/ES indexing finished (empty = pending).
+	IndexedAt       string   `json:"indexed_at,omitempty"`
 	ExpiresAt       string   `json:"expires_at,omitempty"`
 	DeletedAt       string   `json:"deleted_at,omitempty"`
 	CreatedAt       string   `json:"created_at"`
@@ -119,6 +128,8 @@ type ListInput struct {
 	Project string `json:"project,omitempty"`
 	Type    string `json:"type,omitempty"`
 	AgentID string `json:"agent_id,omitempty"`
+	// Usage example: `input := brain.ListInput{Org: "core"}` — filter by org; empty = all.
+	Org     string `json:"org,omitempty"`
 	Limit   int    `json:"limit,omitempty"`
 }
 
@@ -132,23 +143,23 @@ type ListOutput struct {
 	Memories []Memory `json:"memories"`
 }
 
-func (s *Subsystem) registerBrainTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *Subsystem) registerBrainTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in the shared OpenBrain knowledge store. Persists decisions, observations, conventions, research, plans, bugs, or architecture knowledge for other agents.",
 	}, s.brainRemember)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across the shared OpenBrain knowledge store. Returns memories ranked by similarity to your query, with optional filtering.",
 	}, s.brainRecall)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from the shared OpenBrain knowledge store. Permanently deletes from both database and vector index.",
 	}, s.brainForget)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.",
 	}, s.brainList)
@@ -165,6 +176,7 @@ func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, inp
 			"content":    input.Content,
 			"type":       input.Type,
 			"tags":       input.Tags,
+			"org":        input.Org,
 			"project":    input.Project,
 			"confidence": input.Confidence,
 			"supersedes": input.Supersedes,
@@ -238,6 +250,7 @@ func (s *Subsystem) brainList(_ context.Context, _ *mcp.CallToolRequest, input L
 			"project":  input.Project,
 			"type":     input.Type,
 			"agent_id": input.AgentID,
+			"org":      input.Org,
 			"limit":    input.Limit,
 		},
 	})

@@ -1,3 +1,21 @@
+---
+module: core/agent
+repo: core/agent
+lang: multi
+tier: consumer
+depends:
+  - code/core/go/process
+  - code/core/go/store
+  - code/core/mcp
+  - code/snider/poindexter
+tags:
+  - dispatch
+  - orchestration
+  - pipeline
+  - agents
+  - memory
+---
+
 # core/agent RFC — Agentic Dispatch, Orchestration, and Pipeline Management
 
 > The cross-cutting contract for the agent system.
@@ -20,7 +38,7 @@ The contract is language-agnostic. Go implements the local MCP server and dispat
 
 | Model | Purpose |
 |-------|---------|
-| `AgentPlan` | Structured work plan with phases, soft-deleted, activity-logged |
+| `AgentPlan` | Structured work plan with phases, soft-deleted, activity-logged. Status enum: `draft`, `active`, `in_progress`, `needs_verification`, `verified`, `completed`, `archived`. Both Go and PHP must accept all values. |
 | `AgentPhase` | Individual phase within a plan (tasks, dependencies, status) |
 | `AgentSession` | Agent work session (context, work_log, artefacts, handoff) |
 | `AgentMessage` | Direct agent-to-agent messaging (chronological, not semantic) |
@@ -59,6 +77,7 @@ Both implementations provide these capabilities, registered as named actions:
 | `resume` | Resume a paused or failed agent session |
 | `scan` | Scan Forge repos for actionable issues |
 | `watch` | Watch workspace for agent output changes |
+| `complete` | Run the full completion pipeline (QA → PR → Verify → Ingest → Poke) |
 
 ### Pipeline
 
@@ -81,6 +100,8 @@ Both implementations provide these capabilities, registered as named actions:
 | `pr.get` | Get a single pull request |
 | `pr.list` | List pull requests |
 | `pr.merge` | Merge a pull request |
+| `pr.close` | Close a pull request without merging |
+| `branch.delete` | Delete a feature branch after merge or close |
 
 ### Brain
 
@@ -143,7 +164,9 @@ Shared semantic knowledge store. All agents read and write via `brain_*` tools.
 | `type` | enum | decision, observation, convention, research, plan, bug, architecture |
 | `content` | text | The knowledge (markdown) |
 | `tags` | JSON | Topic tags for filtering |
+| `org` | string nullable | Organisation scope (e.g. "core", "lthn", "ofm" — null = global) |
 | `project` | string nullable | Repo/project scope (null = cross-project) |
+| `indexed_at` | timestamp nullable | When Qdrant/ES indexing completed (null = pending async embed) |
 | `confidence` | float | 0.0-1.0 |
 | `supersedes_id` | UUID nullable | FK to older memory this replaces |
 | `expires_at` | timestamp nullable | TTL for session-scoped context |
@@ -174,7 +197,13 @@ brain_recall(query, filters)
 
 ## 5. API Surface
 
-Both implementations expose these endpoints. PHP serves them as REST routes; Go exposes equivalent capabilities via MCP tools and local IPC.
+Both implementations expose these capabilities but with different storage backends:
+
+- **Go** operates on **local workspace state** — plans, sessions, and findings live in `.core/` filesystem and DuckDB. Go is the local agent runtime.
+- **PHP** operates on **persistent database state** — MariaDB, Qdrant, Elasticsearch. PHP is the fleet coordination platform.
+- **Sync** connects them: `POST /v1/agent/sync` pushes Go's local dispatch history/findings to PHP's persistent store. `GET /v1/agent/context` pulls fleet-wide intelligence back to Go.
+
+Plans created locally by Go are workspace artifacts. Plans created via PHP are persistent. Cross-agent plan handoff requires syncing through the API. Go MCP tools operate on local plans; PHP REST endpoints operate on database plans.
 
 ### Brain (`/v1/brain/*`)
 
@@ -221,7 +250,7 @@ Standard CRUD patterns matching the domain model.
 
 ## 6. MCP Tools
 
-Both implementations register these tools. Go exposes them via the core-agent MCP server binary. PHP exposes them via the AgentToolRegistry.
+Go exposes all tools via the core-agent MCP server binary. PHP exposes Brain, Plan, Session, and Message tools via the AgentToolRegistry. Dispatch, Workspace, and Forge tools are Go-only (PHP handles these via REST endpoints, not MCP tools).
 
 ### Brain Tools
 
@@ -243,7 +272,8 @@ Both implementations register these tools. Go exposes them via the core-agent MC
 | `agentic_resume` | Resume agent |
 | `agentic_review_queue` | List review queue |
 | `agentic_dispatch_start` | Start dispatch service |
-| `agentic_dispatch_shutdown` | Graceful shutdown |
+| `agentic_dispatch_shutdown` | Graceful shutdown (drain queue) |
+| `agentic_dispatch_shutdown_now` | Immediate shutdown (kill running agents) |
 
 ### Workspace Tools
 
@@ -316,7 +346,10 @@ The QA step captures EVERYTHING — the agent does not filter what it thinks is 
 // QA handler — runs lint, captures all findings to workspace store
 func (s *QASubsystem) runQA(ctx context.Context, wsDir, repoDir string) QAResult {
     // Open workspace buffer for this dispatch cycle
-    ws, _ := s.store.NewWorkspace(core.JoinPath(wsDir, "db.duckdb"))
+    ws, err := s.store.NewWorkspace(core.Concat("qa-", core.PathBase(wsDir)))
+    if err != nil {
+        return QAResult{Error: core.E("qa.workspace", "create", err)}
+    }
 
     // Run core/lint — capture every finding
     lintResult := s.core.Action("lint.run").Run(ctx, s.core, core.Options{
@@ -535,7 +568,7 @@ core-agent fleet --api=https://api.lthn.ai --agent-id=charon
 
 ### Connection
 
-- AgentApiKey authentication (provisioned via OAuth flow on first login)
+- AgentApiKey authentication. Bootstrap: `core login CODE` exchanges a 6-digit pairing code (generated at app.lthn.ai/device by a logged-in user) for an AgentApiKey. See lthn.ai RFC §11.7 Device Pairing. No OAuth needed — session auth on the web side, code exchange on the agent side.
 - SSE connection for real-time job push
 - Polling fallback for NAT'd nodes (`GET /v1/fleet/task/next`)
 - Heartbeat and capability registration (`POST /v1/fleet/heartbeat`)
@@ -755,19 +788,22 @@ If go-store is not loaded as a service, agent falls back to in-memory state (cur
 // OnStartup restores state from go-store. store.New is used directly —
 // agent owns its own store instance, it does not use the Core DI service registry for this.
 func (s *Service) OnStartup(ctx context.Context) core.Result {
-    st, _ := store.New(".core/db.duckdb")
+    st, err := store.New(".core/db.duckdb")
+    if err != nil {
+        return core.Result{Value: core.E("agent.startup", "state store", err), OK: false}
+    }
 
     // Restore queue — values are JSON strings stored via store.Set
     for key, val := range st.AllSeq("queue") {
         var task QueuedTask
-        core.JSON.Unmarshal(val, &task)
+        core.JSONUnmarshalString(val, &task)
         s.queue.Enqueue(task)
     }
 
     // Restore registry — check PIDs, mark dead agents as failed
     for key, val := range st.AllSeq("registry") {
         var ws WorkspaceStatus
-        core.JSON.Unmarshal(val, &ws)
+        core.JSONUnmarshalString(val, &ws)
         if ws.Status == "running" && !pidAlive(ws.PID) {
             ws.Status = "failed"
             ws.Question = "Agent process died during restart"
@@ -824,7 +860,7 @@ After successful push or merge, delete the agent branch on Forge:
 ```go
 // Clean up Forge branch after push
 func (s *Service) cleanupBranch(ctx context.Context, repo, branch string) {
-    s.core.Action("forge.branch.delete").Run(ctx, s.core, core.Options{
+    s.core.Action("agentic.branch.delete").Run(ctx, s.core, core.Options{
         "repo":   repo,
         "branch": branch,
     })
@@ -833,20 +869,70 @@ func (s *Service) cleanupBranch(ctx context.Context, repo, branch string) {
 
 Agent branches (`agent/*`) are ephemeral — they exist only during the dispatch cycle. Accumulation of stale branches pollutes the workspace prep and causes clone confusion.
 
-### 15.5.2 Docker Mount Fix
+### 15.5.2 Workspace Mount
 
-The dispatch container must mount the full workspace root, not just the repo:
+The dispatch container mounts the workspace directory as the agent's home. The repo is at `repo/` within the workspace. Specs are baked into the Docker image at `~/spec/` (read-only, COPY at build time). The entrypoint handles auth symlinks and spec availability.
+
+### 15.5.3 Apple Container Dispatch
+
+On macOS 26+, agent dispatch uses Apple Containers instead of Docker. Apple Containers provide hardware VM isolation with sub-second startup — no Docker Desktop required, no cold-start penalty, and agents cannot escape the sandbox even with root.
+
+The container runtime is auto-detected via go-container's `Detect()` function, which probes available runtimes in preference order: Apple Container, Docker, Podman. The first available runtime is used unless overridden in `agents.yaml` or per-dispatch options.
+
+The container image is immutable — built by go-build's LinuxKit builder, not by the agent. The OS environment (toolchains, dependencies, linters) is enforced at build time. Agents work inside a known environment regardless of host configuration.
 
 ```go
-// Current (broken): only repo visible inside container
-"-v", core.Concat(repoDir, ":/workspace"),
+// Dispatch an agent to an Apple Container workspace
+//
+//   agent.Dispatch(task, agent.WithRuntime(container.Apple),
+//       agent.WithImage(build.LinuxKit("core-dev")),
+//       agent.WithMount("~/Code/project", "/workspace"),
+//       agent.WithGPU(true),  // Metal passthrough when available
+//   )
+func (s *Service) dispatchAppleContainer(ctx context.Context, task DispatchTask) core.Result {
+    // Detect runtime — prefers Apple → Docker → Podman
+    rt := s.Core().Action("container.detect").Run(ctx, s.Core(), core.Options{})
+    runtime := rt.Value.(string) // "apple", "docker", "podman"
 
-// Fixed: full workspace visible — specs/, CODEX.md, .meta/ all accessible
-"-v", core.Concat(wsDir, ":/workspace"),
-"-w", "/workspace/repo",  // working directory is still the repo
+    // Resolve immutable image — built by go-build LinuxKit
+    image := s.Core().Action("build.linuxkit.resolve").Run(ctx, s.Core(), core.Options{
+        "base": task.Image, // "core-dev", "core-ml", "core-minimal"
+    })
+
+    return s.Core().Action("container.run").Run(ctx, s.Core(), core.Options{
+        "runtime": runtime,
+        "image":   image.Value.(string),
+        "mount":   core.Concat(task.WorkspaceDir, ":/workspace"),
+        "gpu":     task.GPU,
+        "env":     task.Env,
+        "command": task.Command,
+    })
+}
 ```
 
-This allows agents to read `../specs/RFC.md` and `../CODEX.md` from within the repo. The entrypoint validates `/workspace/repo` exists.
+**Runtime behaviour:**
+
+| Property | Apple Container | Docker | Podman |
+|----------|----------------|--------|--------|
+| Isolation | Hardware VM (Virtualisation.framework) | Namespace/cgroup | Namespace/cgroup |
+| Startup | Sub-second | 2-5 seconds (cold) | 2-5 seconds (cold) |
+| GPU | Metal passthrough (roadmap) | NVIDIA only | NVIDIA only |
+| Root escape | Impossible (VM boundary) | Possible (misconfigured) | Possible (rootless mitigates) |
+| macOS native | Yes | Requires Docker Desktop | Requires Podman Machine |
+
+**Fallback chain:** If Apple Containers are unavailable (macOS < 26, Linux host, CI environment), dispatch falls back to Docker automatically. The agent code is runtime-agnostic — the same `container.run` action handles all three runtimes.
+
+**GPU passthrough:** Metal GPU passthrough is on Apple's roadmap. When available, `agent.WithGPU(true)` enables it — go-mlx works inside the container for local inference during agent tasks. Until then, `WithGPU(true)` is a no-op on Apple Containers and enables NVIDIA passthrough on Docker.
+
+**Configuration:**
+
+```yaml
+# agents.yaml — runtime preference override
+dispatch:
+  runtime: auto          # auto | apple | docker | podman
+  image: core-dev        # default LinuxKit image
+  gpu: false             # Metal passthrough (when available)
+```
 
 ### 15.6 Graceful Degradation
 
@@ -895,8 +981,16 @@ Agents authenticated with api.lthn.ai can sync local state to the platform. Loca
 ```
 Local agent (.core/db.duckdb)
   → auth: api.lthn.ai (AgentApiKey)
-    → POST /v1/agent/sync (dispatch history, findings, reports)
+    → POST /v1/agent/sync (dispatches[] — see DispatchHistoryItem below)
       → core/php/agent receives state
+
+DispatchHistoryItem payload shape (Go produces, PHP consumes):
+  { id (UUID, generated at dispatch time), repo, branch, agent_model, task, template, status, started_at, completed_at,
+    findings: [{tool, severity, file, category, message}],
+    changes: {files_changed, insertions, deletions},
+    report: {clusters_count, new_count, resolved_count, persistent_count},
+    synced: false }
+
         → OpenBrain: embed findings as BrainMemory records
         → WorkspaceState: update managed workflow progress
         → Notify: alert subscribers of new findings
@@ -930,14 +1024,14 @@ func (s *Service) OnStartup(ctx context.Context) core.Result {
 func (s *Service) handleSyncPush(ctx context.Context, opts core.Options) core.Result {
     st := s.stateStore()
     if st == nil {
-        return core.Result{OK: false, Error: core.E("agent.sync.push", "no store", nil)}
+        return core.Result{OK: false, Value: core.E("agent.sync.push", "no store", nil)}
     }
 
     // Collect unsync'd dispatch records
     var payload []map[string]any
     for key, val := range st.AllSeq("dispatch_history") {
         var record map[string]any
-        core.JSON.Unmarshal(val, &record)
+        core.JSONUnmarshalString(val, &record)
         if synced, _ := record["synced"].(bool); !synced {
             payload = append(payload, record)
         }
@@ -950,7 +1044,7 @@ func (s *Service) handleSyncPush(ctx context.Context, opts core.Options) core.Re
     // POST to lthn.ai
     result := s.Core().Action("api.post").Run(ctx, s.Core(), core.Options{
         "url":  core.Concat(s.apiURL, "/v1/agent/sync"),
-        "body": core.JSON.Marshal(payload),
+        "body": core.JSONMarshalString(payload),
         "auth": s.apiKey,
     })
 
@@ -958,7 +1052,7 @@ func (s *Service) handleSyncPush(ctx context.Context, opts core.Options) core.Re
     if result.OK {
         for _, record := range payload {
             record["synced"] = true
-            st.Set("dispatch_history", record["id"].(string), core.JSON.Marshal(record))
+            st.Set("dispatch_history", record["id"].(string), core.JSONMarshalString(record))
         }
     }
 
@@ -983,12 +1077,12 @@ func (s *Service) handleSyncPull(ctx context.Context, opts core.Options) core.Re
 
     // Merge fleet context into local store
     var context []map[string]any
-    core.JSON.Unmarshal(result.Value.(string), &context)
+    core.JSONUnmarshalString(result.Value.(string), &context)
 
     st := s.stateStore()
     for _, entry := range context {
         if id, ok := entry["id"].(string); ok {
-            st.Set("fleet_context", id, core.JSON.Marshal(entry))
+            st.Set("fleet_context", id, core.JSONMarshalString(entry))
         }
     }
 
@@ -1057,12 +1151,13 @@ See `code/core/php/agent/RFC.md` § "API Endpoints" and § "OpenBrain" for the P
 | Poindexter (spatial analysis) | `code/snider/poindexter/RFC.md` |
 | Lint (QA gate) | `code/core/lint/RFC.md` |
 | MCP spec | `code/core/mcp/RFC.md` |
-| lthn.ai platform RFC | `project/lthn/ai/RFC.md` |
+| RAG RFC | `code/core/go/rag/RFC.md` |
 
 ---
 
 ## Changelog
 
+- 2026-04-08: Added §15.5.3 Apple Container Dispatch — native macOS 26 hardware VM isolation, auto-detected runtime fallback chain (Apple → Docker → Podman), immutable LinuxKit images from go-build, Metal GPU passthrough (roadmap).
 - 2026-03-29: Restructured as language-agnostic contract. Go-specific code moved to `code/core/go/agent/RFC.md`. PHP-specific code stays in `code/core/php/agent/RFC.md`. Polyglot mapping, OpenBrain architecture, and completion pipeline consolidated here.
 - 2026-03-26: WIP — net/http consolidated to transport.go.
 - 2026-03-25: Initial spec — written with full core/go v0.8.0 domain context.

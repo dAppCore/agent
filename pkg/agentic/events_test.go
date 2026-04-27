@@ -11,7 +11,7 @@ import (
 
 func TestEvents_EmitEvent_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
 	assert.NotPanics(t, func() {
@@ -20,7 +20,7 @@ func TestEvents_EmitEvent_Good(t *testing.T) {
 }
 
 func TestEvents_EmitEvent_Bad_NoWorkspace(t *testing.T) {
-	t.Setenv("CORE_WORKSPACE", "/nonexistent")
+	setTestWorkspace(t, "/nonexistent")
 	assert.NotPanics(t, func() {
 		emitCompletionEvent("codex", "ws-1", "completed")
 	})

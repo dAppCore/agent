@@ -18,6 +18,10 @@ func (s *PrepSubsystem) registerPlatformCommands() {
 	c.Command("agentic:auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision})
 	c.Command("auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
 	c.Command("agentic:auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
+	c.Command("login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
+	c.Command("auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
+	c.Command("agentic:login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
+	c.Command("agentic:auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
 	c.Command("message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
 	c.Command("messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
 	c.Command("agentic:message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
@@ -126,6 +130,61 @@ func (s *PrepSubsystem) cmdAuthRevoke(options core.Options) core.Result {
 	}
 
 	core.Print(nil, "revoked: %s", output.KeyID)
+	return core.Result{OK: true}
+}
+
+// cmdAuthLogin exchanges a 6-digit pairing code generated at
+// `app.lthn.ai/device` for an AgentApiKey and persists the raw key to
+// `~/.claude/brain.key` so subsequent platform calls authenticate
+// automatically. This is RFC §9 Fleet Mode bootstrap.
+//
+// Usage: `core-agent login 123456`
+// Usage: `core-agent login --code=123456`
+func (s *PrepSubsystem) cmdAuthLogin(options core.Options) core.Result {
+	if optionStringValue(options, "code", "pairing_code", "pairing-code", "_arg") == "" {
+		core.Print(nil, "usage: core-agent login <6-digit-code>")
+		core.Print(nil, "  generate a pairing code at app.lthn.ai/device first")
+		return core.Result{Value: core.E("agentic.cmdAuthLogin", "pairing code is required", nil), OK: false}
+	}
+
+	result := s.handleAuthLogin(s.commandContext(), options)
+	if !result.OK {
+		err := commandResultError("agentic.cmdAuthLogin", result)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	output, ok := result.Value.(AuthLoginOutput)
+	if !ok {
+		err := core.E("agentic.cmdAuthLogin", "invalid auth login output", nil)
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	// Persist the raw key so the agent authenticates on the next invocation.
+	keyPath := core.JoinPath(HomeDir(), ".claude", "brain.key")
+	if r := fs.EnsureDir(core.PathDir(keyPath)); !r.OK {
+		core.Print(nil, "warning: could not create %s — key not persisted", core.PathDir(keyPath))
+	} else if r := fs.Write(keyPath, output.Key.Key); !r.OK {
+		core.Print(nil, "warning: could not write %s — key not persisted", keyPath)
+	} else {
+		s.brainKey = output.Key.Key
+	}
+
+	core.Print(nil, "logged in")
+	if output.Key.Prefix != "" {
+		core.Print(nil, "key prefix: %s", output.Key.Prefix)
+	}
+	if output.Key.Name != "" {
+		core.Print(nil, "name:       %s", output.Key.Name)
+	}
+	if output.Key.ExpiresAt != "" {
+		core.Print(nil, "expires:    %s", output.Key.ExpiresAt)
+	}
+	if len(output.Key.Permissions) > 0 {
+		core.Print(nil, "permissions: %s", core.Join(",", output.Key.Permissions...))
+	}
+	core.Print(nil, "saved to:   %s", keyPath)
 	return core.Result{OK: true}
 }
 

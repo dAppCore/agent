@@ -11,8 +11,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"forge.lthn.ai/core/go-ws"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	"dappco.re/go/ws"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

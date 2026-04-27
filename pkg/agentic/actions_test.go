@@ -11,7 +11,7 @@ import (
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,7 +54,7 @@ func TestActions_HandleDispatch_Bad_EntitlementDenied(t *testing.T) {
 
 func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	t.Setenv("CORE_BRAIN_KEY", "")
 
 	forgeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -199,6 +199,17 @@ func TestActions_HandleIngest_Bad_NoWorkspace(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleIngest(context.Background(), core.NewOptions())
 	assert.False(t, r.OK)
+}
+
+func TestActions_HandleComplete_Bad_NoCore(t *testing.T) {
+	s := &PrepSubsystem{}
+
+	r := s.handleComplete(context.Background(), core.NewOptions())
+
+	assert.False(t, r.OK)
+	err, ok := r.Value.(error)
+	require.True(t, ok)
+	assert.Contains(t, err.Error(), "core runtime is required")
 }
 
 func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {

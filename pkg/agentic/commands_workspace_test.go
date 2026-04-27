@@ -29,7 +29,7 @@ func TestCommandsworkspace_RegisterWorkspaceCommands_Good_Aliases(t *testing.T) 
 
 func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Don't create "workspace" subdir — WorkspaceRoot() returns root+"/workspace" which won't exist
 
 	c := core.New()
@@ -45,7 +45,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T)
 
 func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 	fs.EnsureDir(wsRoot)
 
@@ -77,7 +77,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 
 func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with various statuses
@@ -113,7 +113,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with statuses including merged and ready-for-review
@@ -150,11 +150,63 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 	}
 }
 
+func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsRoot := core.JoinPath(root, "workspace")
+
+	// A completed workspace with a .meta/report.json sidecar — per RFC §15.5
+	// the stats row must be persisted to `.core/workspace/db.duckdb` BEFORE
+	// the workspace directory is deleted.
+	workspaceDir := core.JoinPath(wsRoot, "core", "go-io", "task-stats")
+	fs.EnsureDir(workspaceDir)
+	fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Org:    "core",
+		Agent:  "codex:gpt-5.4",
+		Branch: "agent/task-stats",
+	}))
+	metaDir := core.JoinPath(workspaceDir, ".meta")
+	fs.EnsureDir(metaDir)
+	fs.WriteAtomic(core.JoinPath(metaDir, "report.json"), core.JSONMarshalString(map[string]any{
+		"passed":       true,
+		"build_passed": true,
+		"test_passed":  true,
+		"findings":     []any{map[string]any{"severity": "error", "tool": "gosec"}},
+	}))
+
+	c := core.New()
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	t.Cleanup(s.closeWorkspaceStatsStore)
+
+	r := s.cmdWorkspaceClean(core.NewOptions())
+	assert.True(t, r.OK)
+
+	// Workspace directory is gone.
+	assert.False(t, fs.Exists(workspaceDir))
+
+	// Stats row survives in `.core/workspace/db.duckdb`.
+	statsStore := s.workspaceStatsInstance()
+	if statsStore == nil {
+		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
+	}
+
+	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
+	assert.NoError(t, err)
+	assert.Contains(t, value, "core/go-io/task-stats")
+	assert.Contains(t, value, "\"build_passed\":true")
+}
+
 // --- CmdWorkspaceDispatch Ugly ---
 
 func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	c := core.New()
 	s := &PrepSubsystem{
@@ -178,7 +230,7 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 
 func TestCommandsworkspace_CmdWorkspaceWatch_Good_ExplicitWorkspaceCompletes(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
 		Status: "ready-for-review",

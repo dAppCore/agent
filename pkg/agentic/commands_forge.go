@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	forge_types "dappco.re/go/core/forge/types"
+	"dappco.re/go/forge"
+	forge_types "dappco.re/go/forge/types"
 )
 
 type issueView struct {
@@ -138,6 +138,8 @@ func (s *PrepSubsystem) registerForgeCommands() {
 	c.Command("agentic:repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList})
 	c.Command("repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync})
 	c.Command("agentic:repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync})
+	c.Command("branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete})
+	c.Command("agentic:branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete})
 }
 
 func (s *PrepSubsystem) cmdIssueGet(options core.Options) core.Result {
@@ -627,4 +629,34 @@ func (s *PrepSubsystem) currentBranch(repoDir string) string {
 		return ""
 	}
 	return core.Trim(result.Value.(string))
+}
+
+// result := c.Command("branch/delete").Run(core.NewOptions(
+//
+//	core.Option{Key: "_arg", Value: "go-io"},
+//	core.Option{Key: "branch", Value: "agent/fix-tests"},
+//	core.Option{Key: "org", Value: "core"},
+//
+// ))
+func (s *PrepSubsystem) cmdBranchDelete(options core.Options) core.Result {
+	ctx := context.Background()
+	org, repo, _ := parseForgeArgs(options)
+	branch := options.String("branch")
+	if repo == "" || branch == "" {
+		core.Print(nil, "usage: core-agent branch delete <repo> --branch=agent/fix-tests [--org=core]")
+		return core.Result{Value: core.E("agentic.cmdBranchDelete", "repo and branch are required", nil), OK: false}
+	}
+
+	_, output, err := s.deleteBranch(ctx, nil, DeleteBranchInput{
+		Org:    org,
+		Repo:   repo,
+		Branch: branch,
+	})
+	if err != nil {
+		core.Print(nil, "error: %v", err)
+		return core.Result{Value: err, OK: false}
+	}
+
+	core.Print(nil, "deleted %s/%s@%s", output.Org, output.Repo, output.Branch)
+	return core.Result{Value: output, OK: true}
 }

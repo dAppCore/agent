@@ -8,7 +8,7 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/process"
+	"dappco.re/go/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -110,4 +110,41 @@ func TestProcessRegister_HandleStart_Ugly_StartAndKill(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("process.kill did not stop the managed process")
 	}
+}
+
+// ProcessOverrideService guards the RFC §7 dispatch contract: go-process's own
+// OnStartup registers string-ID variants of `process.*` which would break the
+// agent's pid/queue helpers. The override service reapplies agent handlers
+// after ServiceStartup so the custom `*process.Process`-returning handlers win.
+
+func TestProcessRegister_OverrideService_Good_ServiceStartupPreservesAgentHandlers(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	c := core.New(core.WithService(ProcessRegister))
+	require.True(t, c.ServiceStartup(context.Background(), nil).OK)
+
+	r := c.Action("process.start").Run(context.Background(), core.NewOptions(
+		core.Option{Key: "command", Value: "sleep"},
+		core.Option{Key: "args", Value: []string{"30"}},
+		core.Option{Key: "detach", Value: true},
+	))
+	require.True(t, r.OK)
+
+	proc, ok := r.Value.(*process.Process)
+	require.True(t, ok, "agent-side process.start must still return *process.Process after ServiceStartup")
+	require.NotEmpty(t, proc.ID)
+
+	defer proc.Kill()
+}
+
+func TestProcessRegister_OverrideService_Bad_NilHandlers(t *testing.T) {
+	svc := &processOverrideService{}
+	result := svc.OnStartup(context.Background())
+	assert.True(t, result.OK, "OnStartup with nil handlers should succeed without panicking")
+}
+
+func TestProcessRegister_OverrideService_Ugly_NilCore(t *testing.T) {
+	svc := &processOverrideService{handlers: &processActionHandlers{}, core: nil}
+	result := svc.OnStartup(context.Background())
+	assert.True(t, result.OK, "OnStartup with nil core should no-op without panic")
 }

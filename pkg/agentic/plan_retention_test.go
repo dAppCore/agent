@@ -14,7 +14,7 @@ import (
 
 func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -61,7 +61,7 @@ func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T
 
 func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -95,7 +95,7 @@ func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing
 
 func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -127,7 +127,7 @@ func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
 
 func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -155,7 +155,7 @@ func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) 
 
 func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	path := core.JoinPath(PlansRoot(), "fallback-plan-abc123.json")
 	require.True(t, fs.Write(path, `{"id":"fallback-plan-abc123","title":"Fallback","status":"archived","objective":"Fallback"}`).OK)
@@ -179,7 +179,7 @@ func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testin
 
 func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 

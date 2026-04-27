@@ -43,7 +43,7 @@ func TestReviewqueue_BuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
 
 func TestReviewqueue_SaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	// Ensure .core dir exists
 	fs.EnsureDir(core.JoinPath(dir, ".core"))
@@ -117,7 +117,7 @@ func TestReviewqueue_RunPRManageLoop_Good_StopsOnCancel(t *testing.T) {
 
 func TestReviewqueue_NoCandidates_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create an empty core dir (no repos)
 	coreDir := core.JoinPath(root, "core")
@@ -140,7 +140,7 @@ func TestReviewqueue_NoCandidates_Good(t *testing.T) {
 
 func TestReviewqueue_StatusFiltered_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspaces with different statuses
@@ -177,7 +177,7 @@ func TestReviewqueue_StatusFiltered_Good(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace dir
@@ -190,7 +190,7 @@ func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("nonexistent")
 	assert.Empty(t, result)
@@ -198,7 +198,7 @@ func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "ws-test")
@@ -212,7 +212,7 @@ func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Deep layout: org/repo/task

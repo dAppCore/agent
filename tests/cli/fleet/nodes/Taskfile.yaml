@@ -1,0 +1,25 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          GOWORK=off go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../../cmd/core-agent
+
+          export CORE_API_URL="http://127.0.0.1:1"
+
+          output="$(mktemp)"
+          # fleet/nodes must fail cleanly when the API is unreachable.
+          run_capture_all 1 "$output" ./bin/core-agent fleet/nodes
+          assert_contains "error:" "$output"
+          assert_contains "fleet" "$output"
+          if grep -Fq "panic" "$output"; then
+            printf 'unexpected panic in fleet/nodes output\n' >&2
+            cat "$output" >&2
+            exit 1
+          fi
+          EOF

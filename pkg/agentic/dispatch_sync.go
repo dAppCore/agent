@@ -40,7 +40,12 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	prepContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	_, prepOut, err := s.prepWorkspace(prepContext, nil, prepInput)
+	prepWorkspace := s.prepWorkspace
+	if s.dispatchSyncPrep != nil {
+		prepWorkspace = s.dispatchSyncPrep
+	}
+
+	_, prepOut, err := prepWorkspace(prepContext, nil, prepInput)
 	if err != nil {
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "prep workspace failed", err)}
 	}
@@ -54,7 +59,12 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	core.Print(nil, "  workspace: %s", workspaceDir)
 	core.Print(nil, "  branch:    %s", prepOut.Branch)
 
-	pid, processID, _, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
+	spawnAgent := s.spawnAgent
+	if s.dispatchSyncSpawn != nil {
+		spawnAgent = s.dispatchSyncSpawn
+	}
+
+	pid, processID, _, err := spawnAgent(input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}
@@ -67,7 +77,12 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		runtime = s.Core()
 	}
 
-	ticker := time.NewTicker(3 * time.Second)
+	tick := 3 * time.Second
+	if s.dispatchSyncTick > 0 {
+		tick = s.dispatchSyncTick
+	}
+
+	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 
 	for {

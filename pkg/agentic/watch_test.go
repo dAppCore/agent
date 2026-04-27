@@ -45,7 +45,7 @@ func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 
 func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsRoot := core.JoinPath(root, "workspace")
 
@@ -77,7 +77,7 @@ func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 
 func TestWatch_FindActiveWorkspaces_Good_DeepLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-15")
 	fs.EnsureDir(ws)
@@ -96,7 +96,7 @@ func TestWatch_FindActiveWorkspaces_Good_DeepLayout(t *testing.T) {
 
 func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Ensure workspace dir exists but is empty
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
@@ -131,7 +131,7 @@ func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 	// Workspaces with corrupt status.json
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// Create workspace with corrupt status.json
@@ -188,7 +188,7 @@ func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
 
 func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "core/go-io/task-42", WorkspaceStatus{
 		Status: "running",
@@ -222,7 +222,7 @@ func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
 
 func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "core/go-io/task-41", WorkspaceStatus{
 		Status: "running",
@@ -268,7 +268,7 @@ func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
 
 func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "ws-running", WorkspaceStatus{
 		Status: "running",
@@ -293,7 +293,7 @@ func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
 
 func TestWatch_Watch_Ugly_TimeoutMarksRemainingFailed(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	writeWatchStatus(root, "ws-stuck", WorkspaceStatus{
 		Status: "running",

@@ -15,7 +15,7 @@ import (
 
 func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 
@@ -69,7 +69,7 @@ func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 
 func TestMessage_MessageInbox_Good_MarksReadAndEmitsCounts(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	c := core.New()
 	var inboxEvents []messages.InboxMessage
@@ -136,9 +136,120 @@ func TestMessage_MessageSend_Bad_MissingRequiredFields(t *testing.T) {
 	assert.Contains(t, result.Value.(error).Error(), "required")
 }
 
+func TestMessage_MessageSend_Ugly_WhitespaceContent(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdMessageSend(core.NewOptions(
+		core.Option{Key: "_arg", Value: "core/go-io/task-5"},
+		core.Option{Key: "from", Value: "codex"},
+		core.Option{Key: "to", Value: "claude"},
+		core.Option{Key: "content", Value: "   "},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "required")
+}
+
+func TestMessage_MessageInbox_Good_NoMessages(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+
+	s := newTestPrep(t)
+
+	result := s.cmdMessageInbox(core.NewOptions(
+		core.Option{Key: "_arg", Value: "core/go-io/task-empty"},
+		core.Option{Key: "agent", Value: "claude"},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(MessageListOutput)
+	require.True(t, ok)
+	assert.Equal(t, 0, output.Count)
+	assert.Empty(t, output.Messages)
+}
+
+func TestMessage_MessageInbox_Bad_MissingRequiredFields(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdMessageInbox(core.NewOptions())
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "required")
+}
+
+func TestMessage_HandleMessageInbox_Ugly_CorruptStore(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+
+	require.True(t, fs.EnsureDir(messageRoot()).OK)
+	require.True(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
+
+	s := newTestPrep(t)
+
+	result := s.cmdMessageInbox(core.NewOptions(
+		core.Option{Key: "_arg", Value: "core/go-io/task-5"},
+		core.Option{Key: "agent", Value: "claude"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "failed to parse message store")
+}
+
+func TestMessage_MessageConversation_Good_NoMessages(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+
+	s := newTestPrep(t)
+
+	result := s.cmdMessageConversation(core.NewOptions(
+		core.Option{Key: "_arg", Value: "core/go-io/task-empty"},
+		core.Option{Key: "agent", Value: "codex"},
+		core.Option{Key: "with", Value: "claude"},
+	))
+
+	require.True(t, result.OK)
+	output, ok := result.Value.(MessageListOutput)
+	require.True(t, ok)
+	assert.Equal(t, 0, output.Count)
+	assert.Empty(t, output.Messages)
+}
+
+func TestMessage_MessageConversation_Bad_MissingRequiredFields(t *testing.T) {
+	s := newTestPrep(t)
+
+	result := s.cmdMessageConversation(core.NewOptions())
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "required")
+}
+
+func TestMessage_MessageConversation_Ugly_CorruptStore(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+
+	require.True(t, fs.EnsureDir(messageRoot()).OK)
+	require.True(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
+
+	s := newTestPrep(t)
+
+	result := s.cmdMessageConversation(core.NewOptions(
+		core.Option{Key: "_arg", Value: "core/go-io/task-5"},
+		core.Option{Key: "agent", Value: "codex"},
+		core.Option{Key: "with", Value: "claude"},
+	))
+
+	assert.False(t, result.OK)
+	require.Error(t, result.Value.(error))
+	assert.Contains(t, result.Value.(error).Error(), "failed to parse message store")
+}
+
 func TestMessage_MessageInbox_Ugly_CorruptStore(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.True(t, fs.EnsureDir(messageRoot()).OK)

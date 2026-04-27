@@ -16,14 +16,15 @@
     },
     "autoload": {
         "psr-4": {
-            "Core\\Mod\\Agentic\\": "src/php/",
-            "Core\\Service\\Agentic\\": "src/php/Service/"
+            "Core\\Mod\\Agentic\\": "php/",
+            "Core\\Service\\Agentic\\": "php/Service/",
+            "Core\\Mcp\\": "php/Mcp/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Core\\Mod\\Agentic\\Tests\\": "src/php/tests/",
-            "Tests\\": "src/php/tests/"
+            "Core\\Mod\\Agentic\\Tests\\": "php/tests/",
+            "Tests\\": "php/tests/"
         }
     },
     "extra": {

@@ -96,9 +96,9 @@ func TestSync_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
 	mon := New()
 	mon.syncRepos()
 
-	mon.mu.Lock()
+	unlock := mon.monitorLock()
 	assert.Equal(t, newTS, mon.lastSyncTimestamp)
-	mon.mu.Unlock()
+	unlock()
 }
 
 func TestSync_SyncRepos_Good_PullsChangedRepo(t *testing.T) {

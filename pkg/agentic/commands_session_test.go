@@ -249,7 +249,7 @@ func TestCommandsSession_CmdSessionContinue_Ugly_InvalidResponse(t *testing.T) {
 
 func TestCommandsSession_CmdSessionHandoff_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.NoError(t, writeSessionCache(&Session{
@@ -298,7 +298,7 @@ func TestCommandsSession_CmdSessionHandoff_Bad_MissingSummary(t *testing.T) {
 
 func TestCommandsSession_CmdSessionHandoff_Ugly_CorruptedCacheFallsBackToRemoteError(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.True(t, fs.EnsureDir(sessionCacheRoot()).OK)
@@ -405,7 +405,7 @@ func TestCommandsSession_CmdSessionEnd_Ugly_InvalidResponse(t *testing.T) {
 
 func TestCommandsSession_CmdSessionLog_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.NoError(t, writeSessionCache(&Session{
@@ -450,7 +450,7 @@ func TestCommandsSession_CmdSessionLog_Bad_MissingMessage(t *testing.T) {
 
 func TestCommandsSession_CmdSessionLog_Ugly_CorruptedCacheFallsBackToRemoteError(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.True(t, fs.EnsureDir(sessionCacheRoot()).OK)
@@ -468,7 +468,7 @@ func TestCommandsSession_CmdSessionLog_Ugly_CorruptedCacheFallsBackToRemoteError
 
 func TestCommandsSession_CmdSessionArtifact_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.NoError(t, writeSessionCache(&Session{
@@ -518,7 +518,7 @@ func TestCommandsSession_CmdSessionArtifact_Bad_MissingPath(t *testing.T) {
 
 func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.NoError(t, writeSessionCache(&Session{
@@ -566,7 +566,7 @@ func TestCommandsSession_CmdSessionResume_Bad_MissingSessionID(t *testing.T) {
 
 func TestCommandsSession_CmdSessionResume_Ugly_CorruptedCacheFallsBackToRemoteError(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.True(t, fs.EnsureDir(sessionCacheRoot()).OK)
@@ -581,7 +581,7 @@ func TestCommandsSession_CmdSessionResume_Ugly_CorruptedCacheFallsBackToRemoteEr
 
 func TestCommandsSession_CmdSessionReplay_Good(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", dir)
+	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
 	require.NoError(t, writeSessionCache(&Session{

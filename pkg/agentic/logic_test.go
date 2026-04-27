@@ -106,6 +106,68 @@ func TestDispatch_LocalAgentCommandScript_Good_ShellQuoting(t *testing.T) {
 	assert.Contains(t, script, "'can'\\''t break quoting'")
 }
 
+func TestDispatch_AgentCommand_Good_CodexLEMProfile(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemmy", "implement the scorer")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemmy")
+	assert.NotContains(t, args, "--model")
+}
+
+func TestDispatch_AgentCommand_Good_CodexLemer(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemer", "add docs")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemer")
+}
+
+func TestDispatch_AgentCommand_Good_CodexLemrd(t *testing.T) {
+	cmd, args, err := agentCommand("codex:lemrd", "review code")
+	require.NoError(t, err)
+	assert.Equal(t, "codex", cmd)
+	assert.Contains(t, args, "--profile")
+	assert.Contains(t, args, "lemrd")
+}
+
+func TestDispatch_IsLEMProfile_Good(t *testing.T) {
+	assert.True(t, isLEMProfile("lemer"))
+	assert.True(t, isLEMProfile("lemma"))
+	assert.True(t, isLEMProfile("lemmy"))
+	assert.True(t, isLEMProfile("lemrd"))
+}
+
+func TestDispatch_IsLEMProfile_Bad(t *testing.T) {
+	assert.False(t, isLEMProfile("gpt-5.4"))
+	assert.False(t, isLEMProfile("gemini-2.5-flash"))
+	assert.False(t, isLEMProfile(""))
+}
+
+func TestDispatch_IsLEMProfile_Ugly(t *testing.T) {
+	assert.False(t, isLEMProfile("Lemmy"))
+	assert.False(t, isLEMProfile("LEMRD"))
+	assert.False(t, isLEMProfile("lem"))
+}
+
+func TestDispatch_IsNativeAgent_Good(t *testing.T) {
+	assert.True(t, isNativeAgent("claude"))
+	assert.True(t, isNativeAgent("claude:opus"))
+	assert.True(t, isNativeAgent("claude:haiku"))
+}
+
+func TestDispatch_IsNativeAgent_Bad(t *testing.T) {
+	assert.False(t, isNativeAgent("codex"))
+	assert.False(t, isNativeAgent("codex:gpt-5.4"))
+	assert.False(t, isNativeAgent("gemini"))
+}
+
+func TestDispatch_IsNativeAgent_Ugly(t *testing.T) {
+	assert.False(t, isNativeAgent(""))
+	assert.False(t, isNativeAgent("codex:lemmy"))
+	assert.False(t, isNativeAgent("local:mistral"))
+}
+
 func TestDispatch_AgentCommand_Bad_Unknown(t *testing.T) {
 	cmd, args, err := agentCommand("robot-from-the-future", "take over")
 	assert.Error(t, err)
@@ -156,7 +218,7 @@ func TestDispatch_ContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 
 	_, args := containerCommand("claude", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
-	assert.Contains(t, joined, ".claude:/home/dev/.claude:ro")
+	assert.Contains(t, joined, ".claude:/home/agent/.claude:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
@@ -165,7 +227,7 @@ func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 
 	_, args := containerCommand("gemini", []string{"-p", "do it"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
-	assert.Contains(t, joined, ".gemini:/home/dev/.gemini:ro")
+	assert.Contains(t, joined, ".gemini:/home/agent/.gemini:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
@@ -175,7 +237,7 @@ func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
 	joined := strings.Join(args, " ")
 	// codex agent must NOT mount .claude config
-	assert.NotContains(t, joined, ".claude:/home/dev/.claude:ro")
+	assert.NotContains(t, joined, ".claude:/home/agent/.claude:ro")
 }
 
 func TestDispatch_ContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
@@ -272,7 +334,7 @@ func TestAutopr_BuildAutoPRBody_Ugly_ZeroCommits(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_completed", "codex", "core/go-io/task-5", "completed")
@@ -290,7 +352,7 @@ func TestEvents_EmitEvent_Good_WritesJSONL(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "claude", "core/agent/task-1", "running")
@@ -311,7 +373,7 @@ func TestEvents_EmitEvent_Good_ValidJSON(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitEvent("agent_started", "codex", "core/go-io/task-1", "running")
@@ -332,7 +394,7 @@ func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("gemini", "core/go-log/task-3")
@@ -346,7 +408,7 @@ func TestEvents_EmitEvent_Good_StartHelper(t *testing.T) {
 
 func TestEvents_EmitEvent_Good_CompletionHelper(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("claude", "core/agent/task-7", "failed")
@@ -362,7 +424,7 @@ func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 	// CORE_WORKSPACE points to a directory that doesn't allow writing events.jsonl
 	// because workspace/ subdir doesn't exist. Should not panic.
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// Do NOT create workspace/ subdir — emitEvent must handle this gracefully
 	assert.NotPanics(t, func() {
 		emitEvent("agent_completed", "codex", "test", "completed")
@@ -371,7 +433,7 @@ func TestEvents_EmitEvent_Bad_NoWorkspaceDir(t *testing.T) {
 
 func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	// Should not panic with all empty fields
@@ -384,7 +446,7 @@ func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 
 func TestEvents_EmitStartEvent_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitStartEvent("codex", "core/go-io/task-10")
@@ -401,7 +463,7 @@ func TestEvents_EmitStartEvent_Good(t *testing.T) {
 func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 	// Empty agent name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -418,7 +480,7 @@ func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 	// Very long workspace name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	longName := strings.Repeat("very-long-workspace-name-", 50)
@@ -434,7 +496,7 @@ func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 
 func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	emitCompletionEvent("gemini", "core/go-log/task-5", "completed")
@@ -451,7 +513,7 @@ func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 	// Empty status
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -467,7 +529,7 @@ func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 func TestEvents_EmitCompletionEvent_Ugly(t *testing.T) {
 	// Unicode in agent name
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	assert.NotPanics(t, func() {
@@ -594,7 +656,7 @@ func TestQueue_BaseAgent_Ugly_JustColon(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Create the workspace directory structure
 	workspaceName := "core/go-io/task-5"
@@ -607,7 +669,7 @@ func TestHandlers_ResolveWorkspace_Good_ExistingDir(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	workspaceName := "core/agent/pr-42"
 	workspaceDir := core.JoinPath(root, "workspace", workspaceName)
@@ -619,7 +681,7 @@ func TestHandlers_ResolveWorkspace_Good_NestedPath(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("core/go-io/task-999")
 	assert.Equal(t, "", result)
@@ -627,7 +689,7 @@ func TestHandlers_ResolveWorkspace_Bad_NonExistentDir(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Bad_EmptyName(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Empty name resolves to the workspace root itself — which is a dir but not a workspace
 	// The function returns "" if the path is not a directory, and the workspace root *is*
@@ -639,7 +701,7 @@ func TestHandlers_ResolveWorkspace_Bad_EmptyName(t *testing.T) {
 
 func TestHandlers_ResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Path traversal attempt should return "" (parent of workspace root won't be a workspace)
 	result := resolveWorkspace("../../etc")
@@ -650,7 +712,7 @@ func TestHandlers_ResolveWorkspace_Ugly_PathTraversal(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-10")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -666,7 +728,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesFlatLayout(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "core", "go-io", "task-15")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -682,7 +744,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesDeepLayout(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-99")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -698,7 +760,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_NoMatch(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 	// No workspaces at all
 	result := findWorkspaceByPR("go-io", "agent/any-branch")
 	assert.Equal(t, "", result)
@@ -706,7 +768,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_EmptyWorkspace(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "task-5")
 	require.True(t, fs.EnsureDir(wsDir).OK)
@@ -723,7 +785,7 @@ func TestHandlers_FindWorkspaceByPR_Bad_RepoDiffers(t *testing.T) {
 
 func TestHandlers_FindWorkspaceByPR_Ugly_CorruptStatusFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	wsDir := core.JoinPath(root, "workspace", "corrupt-ws")
 	require.True(t, fs.EnsureDir(wsDir).OK)

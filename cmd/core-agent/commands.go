@@ -3,12 +3,10 @@
 package main
 
 import (
-	"bytes"
-	"flag"
+	"os"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/core"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
 )
 
 type applicationCommandSet struct {
@@ -18,33 +16,7 @@ type applicationCommandSet struct {
 // args := startupArgs()
 // _ = c.Cli().Run("version")
 func startupArgs() []string {
-	previous := flag.CommandLine
-	commandLine := flag.NewFlagSet("core-agent", flag.ContinueOnError)
-	commandLine.SetOutput(&bytes.Buffer{})
-	commandLine.BoolFunc("quiet", "", func(string) error {
-		core.SetLevel(core.LevelError)
-		return nil
-	})
-	commandLine.BoolFunc("q", "", func(string) error {
-		core.SetLevel(core.LevelError)
-		return nil
-	})
-	commandLine.BoolFunc("debug", "", func(string) error {
-		core.SetLevel(core.LevelDebug)
-		return nil
-	})
-	commandLine.BoolFunc("d", "", func(string) error {
-		core.SetLevel(core.LevelDebug)
-		return nil
-	})
-
-	flag.CommandLine = commandLine
-	defer func() {
-		flag.CommandLine = previous
-	}()
-
-	flag.Parse()
-	return applyLogLevel(commandLine.Args())
+	return applyLogLevel(core.FilterArgs(os.Args[1:]))
 }
 
 // args := applyLogLevel([]string{"version", "-q"})
@@ -85,15 +57,6 @@ func registerApplicationCommands(c *core.Core) {
 		Action:      commands.env,
 	})
 
-	c.Command("mcp", core.Command{
-		Description: "Start the MCP server on stdio",
-		Action:      commands.mcp,
-	})
-
-	c.Command("serve", core.Command{
-		Description: "Start the MCP server over HTTP",
-		Action:      commands.serve,
-	})
 }
 
 func (commands applicationCommandSet) version(_ core.Options) core.Result {
@@ -143,58 +106,4 @@ func (commands applicationCommandSet) env(_ core.Options) core.Result {
 		core.Print(nil, "  %-15s %s", key, core.Env(key))
 	}
 	return core.Result{OK: true}
-}
-
-func (commands applicationCommandSet) mcp(_ core.Options) core.Result {
-	service, err := commands.mcpService()
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	if err := service.ServeStdio(commands.coreApp.Context()); err != nil {
-		return core.Result{Value: core.E("main.mcp", "serve mcp stdio", err), OK: false}
-	}
-	return core.Result{OK: true}
-}
-
-func (commands applicationCommandSet) serve(options core.Options) core.Result {
-	service, err := commands.mcpService()
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	if err := service.ServeHTTP(commands.coreApp.Context(), commands.serveAddress(options)); err != nil {
-		return core.Result{Value: core.E("main.serve", "serve mcp http", err), OK: false}
-	}
-	return core.Result{OK: true}
-}
-
-func (commands applicationCommandSet) mcpService() (*coremcp.Service, error) {
-	if commands.coreApp == nil {
-		return nil, core.E("main.mcpService", "core is required", nil)
-	}
-
-	result := commands.coreApp.Service("mcp")
-	if !result.OK {
-		return nil, core.E("main.mcpService", "mcp service not registered", nil)
-	}
-
-	service, ok := result.Value.(*coremcp.Service)
-	if !ok || service == nil {
-		return nil, core.E("main.mcpService", "mcp service has invalid type", nil)
-	}
-
-	return service, nil
-}
-
-func (commands applicationCommandSet) serveAddress(options core.Options) string {
-	address := options.String("addr")
-	if address == "" {
-		address = options.String("_arg")
-	}
-	if address == "" {
-		address = core.Env("CORE_AGENT_HTTP_ADDR")
-	}
-	if address == "" {
-		address = coremcp.DefaultHTTPAddr
-	}
-	return address
 }

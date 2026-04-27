@@ -1,11 +1,12 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Mcp\Tools\Agent\Brain;
 
 use Core\Mcp\Dependencies\ToolDependency;
-use Core\Mod\Agentic\Actions\Brain\ListKnowledge;
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
 use Core\Mod\Agentic\Models\BrainMemory;
 
@@ -35,7 +36,7 @@ class BrainList extends AgentTool
 
     public function description(): string
     {
-        return 'List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.';
+        return 'List memories in the shared OpenBrain knowledge store. Supports filtering by organisation, project, type, and agent. No vector search -- use brain_recall for semantic queries.';
     }
 
     public function inputSchema(): array
@@ -43,6 +44,11 @@ class BrainList extends AgentTool
         return [
             'type' => 'object',
             'properties' => [
+                'org' => [
+                    'type' => 'string',
+                    'description' => 'Filter by organisation scope',
+                    'maxLength' => 128,
+                ],
                 'project' => [
                     'type' => 'string',
                     'description' => 'Filter by project scope',
@@ -74,8 +80,30 @@ class BrainList extends AgentTool
             return $this->error('workspace_id is required. Ensure you have authenticated with a valid API key. See: https://host.uk.com/ai');
         }
 
-        $result = ListKnowledge::run((int) $workspaceId, $args);
+        $org = $this->optionalString($args, 'org', null, 128);
+        $project = $this->optionalString($args, 'project', null);
+        $agentId = $this->optionalString($args, 'agent_id', null);
+        $type = $this->optionalEnum($args, 'type', BrainMemory::VALID_TYPES);
+        $limit = $this->optionalInt($args, 'limit', 20, 1, 100);
 
-        return $this->success($result);
+        $query = BrainMemory::forWorkspace((int) $workspaceId)
+            ->active()
+            ->latestVersions()
+            ->forOrg($org)
+            ->forProject($project)
+            ->byAgent($agentId);
+
+        if ($type !== null) {
+            $query->ofType($type);
+        }
+
+        $memories = $query->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        return $this->success([
+            'memories' => $memories->map(fn (BrainMemory $memory): array => $memory->toMcpContext())->all(),
+            'count' => $memories->count(),
+        ]);
     }
 }

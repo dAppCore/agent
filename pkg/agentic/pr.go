@@ -6,7 +6,8 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
-	forge_types "dappco.re/go/core/forge/types"
+	forge_types "dappco.re/go/forge/types"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -30,8 +31,8 @@ type CreatePROutput struct {
 	Pushed  bool   `json:"pushed"`
 }
 
-func (s *PrepSubsystem) registerCreatePRTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerCreatePRTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_create_pr",
 		Description: "Create a pull request from an agent workspace. Pushes the branch to Forge and opens a PR. Links to the source issue if one was tracked.",
 	}, s.createPR)
@@ -147,7 +148,10 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 
 	workspaceStatus.PRURL = pullRequestURL
 	writeStatusResult(workspaceDir, workspaceStatus)
-	s.cleanupForgeBranch(ctx, repoDir, forgeRemote, workspaceStatus.Branch)
+	cleanupResult := s.cleanupBranch(ctx, cleanupRepoRef(workspaceStatus.Org, workspaceStatus.Repo), workspaceStatus.Branch)
+	if !cleanupResult.OK {
+		core.Warn("createPR: branch cleanup failed", "repo", workspaceStatus.Repo, "branch", workspaceStatus.Branch, "reason", cleanupResult.Value)
+	}
 
 	if workspaceStatus.Issue > 0 {
 		comment := core.Sprintf("Pull request created: %s", pullRequestURL)
@@ -165,43 +169,43 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) registerPRTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerPRTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
 	}, s.prGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
 	}, s.prGet)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
 	}, s.prList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
 	}, s.prList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
 	}, s.prMerge)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
 	}, s.prMerge)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)
@@ -362,18 +366,26 @@ type PRInfo struct {
 	URL       string   `json:"url"`
 }
 
-func (s *PrepSubsystem) registerListPRsTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerListPRsTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_list_prs",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state (open/closed/all).",
 	}, s.listPRs)
 }
 
-func (s *PrepSubsystem) registerClosePRTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerClosePRTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_close_pr",
 		Description: "Close a pull request on Forge by repository and pull request number.",
 	}, s.closePR)
+}
+
+// s.registerDeleteBranchTool(svc)
+func (s *PrepSubsystem) registerDeleteBranchTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
+		Name:        "agentic_delete_branch",
+		Description: "Delete a branch on the Forge remote. Used after successful merge or close to clean up agent branches.",
+	}, s.deleteBranch)
 }
 
 func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
@@ -462,6 +474,56 @@ func (s *PrepSubsystem) closePR(ctx context.Context, _ *mcp.CallToolRequest, inp
 		Repo:    input.Repo,
 		Number:  input.Number,
 		State:   state,
+	}, nil
+}
+
+// input := agentic.DeleteBranchInput{Org: "core", Repo: "go-io", Branch: "agent/fix-tests"}
+type DeleteBranchInput struct {
+	// input := agentic.DeleteBranchInput{Org: "core"}
+	Org string `json:"org,omitempty"`
+	// input := agentic.DeleteBranchInput{Repo: "go-io"}
+	Repo string `json:"repo"`
+	// input := agentic.DeleteBranchInput{Branch: "agent/fix-tests"}
+	Branch string `json:"branch"`
+}
+
+// out := agentic.DeleteBranchOutput{Success: true, Repo: "go-io", Branch: "agent/fix-tests"}
+type DeleteBranchOutput struct {
+	// out := agentic.DeleteBranchOutput{Success: true}
+	Success bool `json:"success"`
+	// out := agentic.DeleteBranchOutput{Org: "core"}
+	Org string `json:"org,omitempty"`
+	// out := agentic.DeleteBranchOutput{Repo: "go-io"}
+	Repo string `json:"repo"`
+	// out := agentic.DeleteBranchOutput{Branch: "agent/fix-tests"}
+	Branch string `json:"branch"`
+}
+
+// s.deleteBranch(ctx, nil, agentic.DeleteBranchInput{Repo: "go-io", Branch: "agent/fix-tests"})
+func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
+	if input.Repo == "" || input.Branch == "" {
+		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "repo and branch are required", nil)
+	}
+
+	org := input.Org
+	if org == "" {
+		org = "core"
+	}
+
+	cleanupResult := s.cleanupBranch(ctx, cleanupRepoRef(org, input.Repo), input.Branch)
+	if !cleanupResult.OK {
+		err, _ := cleanupResult.Value.(error)
+		if err == nil {
+			err = core.E("deleteBranch", "branch cleanup failed", nil)
+		}
+		return nil, DeleteBranchOutput{}, err
+	}
+
+	return nil, DeleteBranchOutput{
+		Success: true,
+		Org:     org,
+		Repo:    input.Repo,
+		Branch:  cleanupBranchName(input.Branch),
 	}, nil
 }
 

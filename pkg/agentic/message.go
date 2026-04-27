@@ -4,11 +4,12 @@ package agentic
 
 import (
 	"context"
-	"sort"
+	"slices"
 	"time"
 
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -125,36 +126,63 @@ func (s *PrepSubsystem) handleMessageConversation(ctx context.Context, options c
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerMessageTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerMessageTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_message_send",
 		Description: "Send a direct message between two agents within a workspace.",
 	}, s.messageSend)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a direct message between two agents within a workspace.",
 	}, s.messageSend)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_message_inbox",
 		Description: "List messages delivered to an agent within a workspace.",
 	}, s.messageInbox)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "List messages delivered to an agent within a workspace.",
 	}, s.messageInbox)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_message_conversation",
 		Description: "List the chronological conversation between two agents within a workspace.",
 	}, s.messageConversation)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "List the chronological conversation between two agents within a workspace.",
 	}, s.messageConversation)
 }
 
 func (s *PrepSubsystem) messageSend(_ context.Context, _ *mcp.CallToolRequest, input MessageSendInput) (*mcp.CallToolResult, MessageSendOutput, error) {
+	// "self" target: push directly via MCP channel, skip the brain API.
+	// Use for testing channel notifications without a running server.
+	if input.ToAgent == "self" {
+		msg := AgentMessage{
+			ID:        core.ID(),
+			Workspace: input.Workspace,
+			FromAgent: input.FromAgent,
+			ToAgent:   "self",
+			Subject:   input.Subject,
+			Content:   input.Content,
+			CreatedAt: time.Now().Format(time.RFC3339),
+		}
+		if s.ServiceRuntime != nil {
+			s.Core().ACTION(coremcp.ChannelPush{
+				Channel: coremcp.ChannelInboxMessage,
+				Data: map[string]any{
+					"id":      msg.ID,
+					"from":    msg.FromAgent,
+					"to":      "self",
+					"subject": msg.Subject,
+					"content": msg.Content,
+				},
+			})
+		}
+		return nil, MessageSendOutput{Success: true, Message: msg}, nil
+	}
+
 	message, err := messageStoreSend(input)
 	if err != nil {
 		return nil, MessageSendOutput{}, err
@@ -297,8 +325,15 @@ func messageStoreFilter(workspace string, limit int, match func(AgentMessage) bo
 		}
 	}
 
-	sort.SliceStable(filtered, func(i, j int) bool {
-		return filtered[i].CreatedAt < filtered[j].CreatedAt
+	slices.SortStableFunc(filtered, func(a, b AgentMessage) int {
+		switch {
+		case a.CreatedAt < b.CreatedAt:
+			return -1
+		case a.CreatedAt > b.CreatedAt:
+			return 1
+		default:
+			return 0
+		}
 	})
 
 	if limit <= 0 {
@@ -348,8 +383,15 @@ func readWorkspaceMessages(workspace string) ([]AgentMessage, error) {
 		messages[i] = normaliseAgentMessage(messages[i])
 	}
 
-	sort.SliceStable(messages, func(i, j int) bool {
-		return messages[i].CreatedAt < messages[j].CreatedAt
+	slices.SortStableFunc(messages, func(a, b AgentMessage) int {
+		switch {
+		case a.CreatedAt < b.CreatedAt:
+			return -1
+		case a.CreatedAt > b.CreatedAt:
+			return 1
+		default:
+			return 0
+		}
 	})
 
 	return messages, nil

@@ -12,7 +12,7 @@ import (
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
 	"dappco.re/go/core"
-	"forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,8 +40,6 @@ func TestMain_NewCoreAgent_Good(t *testing.T) {
 	assert.Contains(t, c.Commands(), "version")
 	assert.Contains(t, c.Commands(), "check")
 	assert.Contains(t, c.Commands(), "env")
-	assert.Contains(t, c.Commands(), "mcp")
-	assert.Contains(t, c.Commands(), "serve")
 	assert.Contains(t, c.Actions(), "process.run")
 
 	service := c.Service("agentic")

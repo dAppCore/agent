@@ -58,6 +58,11 @@ class BrainRemember extends AgentTool
                     'items' => ['type' => 'string'],
                     'description' => 'Optional tags for categorisation',
                 ],
+                'org' => [
+                    'type' => 'string',
+                    'description' => 'Optional organisation scope',
+                    'maxLength' => 128,
+                ],
                 'project' => [
                     'type' => 'string',
                     'description' => 'Optional project scope (e.g. repo name)',
@@ -91,9 +96,11 @@ class BrainRemember extends AgentTool
         }
 
         $agentId = $context['agent_id'] ?? $context['session_id'] ?? 'anonymous';
+        $payload = $args;
+        $payload['org'] = $this->optionalString($args, 'org', null, 128);
 
-        return $this->withCircuitBreaker('brain', function () use ($args, $workspaceId, $agentId) {
-            $memory = RememberKnowledge::run($args, (int) $workspaceId, $agentId);
+        return $this->withCircuitBreaker('brain', function () use ($payload, $workspaceId, $agentId) {
+            $memory = RememberKnowledge::run($payload, (int) $workspaceId, $agentId);
 
             return $this->success([
                 'memory' => $memory->toMcpContext(),

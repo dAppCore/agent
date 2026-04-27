@@ -1,0 +1,102 @@
+version: "3"
+
+# RFC §15.7 — `tests/cli/restart/` validates that dispatch state survives a
+# kill+restart cycle without leaving ghost agents in the registry. The
+# Taskfile path mirrors the surface under test (`core-agent restart` is not a
+# command — restart is the lifecycle, validated by simulating a stale
+# workspace and confirming `status` reports it as failed/queued, not running).
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-agent ../../../cmd/core-agent
+
+          # Use an isolated CORE_WORKSPACE so the test cannot disturb the
+          # operator's own .core/ directory.
+          workspace="$(mktemp -d)"
+          export CORE_WORKSPACE="$workspace"
+          export CORE_HOME="$workspace"
+          export DIR_HOME="$workspace"
+
+          # Simulate the persisted state a killed process leaves behind:
+          # one queued workspace with only db.duckdb state and one dead
+          # running worker that must be reaped to failed on restart.
+          queued_dir="$workspace/workspace/core/go-io/task-queued"
+          dead_dir="$workspace/workspace/core/go-io/task-dead"
+          mkdir -p "$queued_dir" "$dead_dir"
+
+          seed="$workspace/seed-restart-state.go"
+          cat >"$seed" <<'GO'
+          package main
+
+          import (
+            "os"
+
+            store "dappco.re/go/store"
+          )
+
+          func main() {
+            st, err := store.New(os.Args[1])
+            if err != nil {
+              panic(err)
+            }
+            defer st.Close()
+
+            must := func(err error) {
+              if err != nil {
+                panic(err)
+              }
+            }
+
+            must(st.Set("queue", "core/go-io/task-queued", `{"repo":"go-io","org":"core","task":"restart-queued","branch":"agent/restart-queued","agent":"codex:gpt-5.4","status":"queued","queued_at":"2026-04-14T12:00:00Z"}`))
+            must(st.Set("registry", "core/go-io/task-queued", `{"status":"queued","agent":"codex:gpt-5.4","repo":"go-io","org":"core","task":"restart-queued","branch":"agent/restart-queued","started_at":"2026-04-14T12:00:00Z","updated_at":"2026-04-14T12:00:00Z","runs":0}`))
+            must(st.Set("registry", "core/go-io/task-dead", `{"status":"running","agent":"codex:gpt-5.4","repo":"go-io","org":"core","task":"restart-dead","branch":"agent/restart-dead","pid":99999,"process_id":"dead-proc","started_at":"2026-04-14T12:00:00Z","updated_at":"2026-04-14T12:00:00Z","runs":1}`))
+            must(st.Set("concurrency", "codex", `{"running":1,"tracked":2,"snapshot_at":"2026-04-14T12:00:00Z"}`))
+          }
+          GO
+          go run "$seed" "$workspace/db.duckdb"
+
+          # Restart into a fresh process. Startup must restore the queued
+          # workspace from db.duckdb and reap the dead worker to failed.
+          output="$(mktemp)"
+          run_capture_all 0 "$output" ./bin/core-agent status
+          assert_contains "core/go-io/task-queued" "$output"
+          assert_contains "core/go-io/task-dead" "$output"
+
+          if ! grep -E 'queued[[:space:]]+codex:gpt-5.4[[:space:]]+go-io[[:space:]]+core/go-io/task-queued' "$output"; then
+            printf 'expected queued workspace restored from db.duckdb\n' >&2
+            cat "$output" >&2
+            exit 1
+          fi
+
+          if grep -E 'core/go-io/task-dead.*\brunning\b' "$output"; then
+            printf 'expected dead worker reaped on restart, still reports running\n' >&2
+            cat "$output" >&2
+            exit 1
+          fi
+
+          dead_status="$dead_dir/status.json"
+          queued_status="$queued_dir/status.json"
+
+          if ! grep -q '"status":[[:space:]]*"failed"' "$dead_status"; then
+            printf 'expected failed status persisted to %s\n' "$dead_status" >&2
+            cat "$dead_status" >&2
+            exit 1
+          fi
+
+          if ! grep -q '"question":[[:space:]]*"dead worker on restart"' "$dead_status"; then
+            printf 'expected dead-worker question persisted to %s\n' "$dead_status" >&2
+            cat "$dead_status" >&2
+            exit 1
+          fi
+
+          if ! grep -q '"status":[[:space:]]*"queued"' "$queued_status"; then
+            printf 'expected queued status restored to %s\n' "$queued_status" >&2
+            cat "$queued_status" >&2
+            exit 1
+          fi
+          EOF

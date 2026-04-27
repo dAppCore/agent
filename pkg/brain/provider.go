@@ -5,10 +5,10 @@ package brain
 import (
 	"strconv"
 
-	"dappco.re/go/core/api"
-	"dappco.re/go/core/api/pkg/provider"
-	"forge.lthn.ai/core/go-ws"
-	"forge.lthn.ai/core/mcp/pkg/mcp/ide"
+	"dappco.re/go/api"
+	"dappco.re/go/api/pkg/provider"
+	"dappco.re/go/ws"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/gin-gonic/gin"
 )
 
@@ -211,6 +211,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 			"content":    input.Content,
 			"type":       input.Type,
 			"tags":       input.Tags,
+			"org":        input.Org,
 			"project":    input.Project,
 			"confidence": input.Confidence,
 			"supersedes": input.Supersedes,
@@ -321,6 +322,7 @@ func (p *BrainProvider) list(c *gin.Context) {
 			"project":  c.Query("project"),
 			"type":     c.Query("type"),
 			"agent_id": c.Query("agent_id"),
+			"org":      c.Query("org"),
 			"limit":    limit,
 		},
 	})

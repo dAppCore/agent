@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Actions\Fleet;
@@ -8,7 +10,15 @@ use Core\Actions\Action;
 use Core\Mod\Agentic\Actions\Credits\AwardCredits;
 use Core\Mod\Agentic\Models\FleetNode;
 use Core\Mod\Agentic\Models\FleetTask;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Fleet tasks intentionally do not create AgentSession records. AgentSession tracks interactive,
+ * replayable, handoff-capable work with a work_log and artefact history; fleet tasks are atomic
+ * assign→complete events with no in-between state to replay. If a fleet task's work requires
+ * session semantics, the agent executing the task should start an AgentSession itself via
+ * AgentSessionService.
+ */
 class CompleteTask
 {
     use Action;
@@ -30,41 +40,70 @@ class CompleteTask
         array $changes = [],
         array $report = []
     ): FleetTask {
-        $node = FleetNode::query()
-            ->where('workspace_id', $workspaceId)
-            ->where('agent_id', $agentId)
-            ->first();
+        return DB::transaction(function () use (
+            $workspaceId,
+            $agentId,
+            $taskId,
+            $result,
+            $findings,
+            $changes,
+            $report,
+        ): FleetTask {
+            $node = FleetNode::query()
+                ->where('workspace_id', $workspaceId)
+                ->where('agent_id', $agentId)
+                ->lockForUpdate()
+                ->first();
 
-        $fleetTask = FleetTask::query()
-            ->where('workspace_id', $workspaceId)
-            ->find($taskId);
+            $fleetTask = FleetTask::query()
+                ->where('workspace_id', $workspaceId)
+                ->lockForUpdate()
+                ->find($taskId);
 
-        if (! $node || ! $fleetTask) {
-            throw new \InvalidArgumentException('Fleet task not found');
-        }
+            if (! $node instanceof FleetNode || ! $fleetTask instanceof FleetTask) {
+                throw new \InvalidArgumentException('Fleet task not found');
+            }
 
-        $status = ($result['status'] ?? '') === 'failed'
-            ? FleetTask::STATUS_FAILED
-            : FleetTask::STATUS_COMPLETED;
+            if ($fleetTask->fleet_node_id !== null && $fleetTask->fleet_node_id !== $node->id) {
+                throw new \InvalidArgumentException('Fleet task does not belong to this node');
+            }
 
-        $fleetTask->update([
-            'status' => $status,
-            'result' => $result,
-            'findings' => $findings,
-            'changes' => $changes,
-            'report' => $report,
-            'completed_at' => now(),
-        ]);
+            $status = ($result['status'] ?? '') === 'failed'
+                ? FleetTask::STATUS_FAILED
+                : FleetTask::STATUS_COMPLETED;
 
-        $node->update([
-            'status' => FleetNode::STATUS_ONLINE,
-            'current_task_id' => null,
-            'last_heartbeat_at' => now(),
-        ]);
+            $fleetTask->update([
+                'status' => $status,
+                'result' => $result,
+                'findings' => $findings,
+                'changes' => $changes,
+                'report' => $report,
+                'completed_at' => now(),
+            ]);
 
-        $creditAmount = max(1, count($findings) + 1);
-        AwardCredits::run($workspaceId, $agentId, 'fleet-task', $creditAmount, $node->id, 'Fleet task completed');
+            $creditAmount = max(1, count($findings) + 1);
+            AwardCredits::run(
+                $workspaceId,
+                $agentId,
+                'fleet-task',
+                $creditAmount,
+                $node->id,
+                'Fleet task completed',
+                $fleetTask->id,
+            );
 
-        return $fleetTask->fresh();
+            $nodeUpdate = [
+                'last_heartbeat_at' => now(),
+            ];
+
+            if ($node->current_task_id === null || $node->current_task_id === $fleetTask->id) {
+                $nodeUpdate['status'] = FleetNode::STATUS_ONLINE;
+                $nodeUpdate['current_task_id'] = null;
+            }
+
+            $node->update($nodeUpdate);
+
+            return $fleetTask->fresh();
+        });
     }
 }

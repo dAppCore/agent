@@ -42,6 +42,7 @@ func (s *DirectSubsystem) handleRemember(ctx context.Context, options core.Optio
 		Content:    actionStringValue(options, "content"),
 		Type:       actionStringValue(options, "type"),
 		Tags:       actionStringSliceValue(options, "tags"),
+		Org:        actionStringValue(options, "org"),
 		Project:    actionStringValue(options, "project"),
 		Confidence: actionFloatValue(options, "confidence"),
 		Supersedes: actionStringValue(options, "supersedes"),
@@ -98,6 +99,7 @@ func (s *DirectSubsystem) handleForget(ctx context.Context, options core.Options
 // ))
 func (s *DirectSubsystem) handleList(ctx context.Context, options core.Options) core.Result {
 	input := ListInput{
+		Org:     actionStringValue(options, "org"),
 		Project: actionStringValue(options, "project"),
 		Type:    actionStringValue(options, "type"),
 		AgentID: actionStringValue(options, "agent_id", "agent"),
@@ -163,6 +165,9 @@ func (s *DirectSubsystem) handleConversation(ctx context.Context, options core.O
 
 func recallFilterFromOptions(options core.Options) RecallFilter {
 	filter := recallFilterValue(actionOptionValue(options, "filter"))
+	if filter.Org == "" {
+		filter.Org = actionStringValue(options, "org")
+	}
 	if filter.Project == "" {
 		filter.Project = actionStringValue(options, "project")
 	}
@@ -187,6 +192,7 @@ func recallFilterValue(value any) RecallFilter {
 			Project:       actionStringFromAny(typed["project"]),
 			Type:          typed["type"],
 			AgentID:       actionStringFromAny(typed["agent_id"]),
+			Org:           actionStringFromAny(typed["org"]),
 			MinConfidence: actionFloatFromAny(typed["min_confidence"]),
 		}
 	case map[string]string:
@@ -194,6 +200,7 @@ func recallFilterValue(value any) RecallFilter {
 			Project: actionStringFromAny(typed["project"]),
 			Type:    typed["type"],
 			AgentID: actionStringFromAny(typed["agent_id"]),
+			Org:     actionStringFromAny(typed["org"]),
 		}
 	default:
 		if text := actionStringFromAny(value); text != "" {

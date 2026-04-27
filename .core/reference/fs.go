@@ -148,24 +148,27 @@ func (m *Fs) Read(p string) Result {
 }
 
 // Write saves content to file, creating parent directories as needed.
-// Files are created with mode 0644. For sensitive files (keys, secrets),
-// use WriteMode with 0600.
+// Files are created with mode 0600 by default.
+// Use WriteMode when broader access is intentional.
 func (m *Fs) Write(p, content string) Result {
-	return m.WriteMode(p, content, 0644)
+	return m.WriteMode(p, content, 0600)
 }
 
 // WriteMode saves content to file with explicit permissions.
-// Use 0600 for sensitive files (encryption output, private keys, auth hashes).
+// Use 0644 or 0755 only when broader access is intentional.
 func (m *Fs) WriteMode(p, content string, mode os.FileMode) Result {
 	vp := m.validatePath(p)
 	if !vp.OK {
 		return vp
 	}
 	full := vp.Value.(string)
-	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
 		return Result{err, false}
 	}
 	if err := os.WriteFile(full, []byte(content), mode); err != nil {
+		return Result{err, false}
+	}
+	if err := os.Chmod(full, mode); err != nil {
 		return Result{err, false}
 	}
 	return Result{OK: true}
@@ -177,8 +180,18 @@ func (m *Fs) WriteMode(p, content string, mode os.FileMode) Result {
 //	dir := fs.TempDir("agent-workspace")
 //	defer fs.DeleteAll(dir)
 func (m *Fs) TempDir(prefix string) string {
-	dir, err := os.MkdirTemp("", prefix)
+	root := m.root
+	if root == "" || root == "/" {
+		root = os.TempDir()
+	} else if err := os.MkdirAll(root, 0700); err != nil {
+		return ""
+	}
+	dir, err := os.MkdirTemp(root, prefix)
 	if err != nil {
+		return ""
+	}
+	if vp := m.validatePath(dir); !vp.OK {
+		os.RemoveAll(dir)
 		return ""
 	}
 	return dir
@@ -202,12 +215,12 @@ func (m *Fs) WriteAtomic(p, content string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
 		return Result{err, false}
 	}
 
 	tmp := full + ".tmp." + shortRand()
-	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), 0600); err != nil {
 		return Result{err, false}
 	}
 	if err := os.Rename(tmp, full); err != nil {
@@ -223,7 +236,7 @@ func (m *Fs) EnsureDir(p string) Result {
 	if !vp.OK {
 		return vp
 	}
-	if err := os.MkdirAll(vp.Value.(string), 0755); err != nil {
+	if err := os.MkdirAll(vp.Value.(string), 0700); err != nil {
 		return Result{err, false}
 	}
 	return Result{OK: true}
@@ -299,10 +312,18 @@ func (m *Fs) Create(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
 		return Result{err, false}
 	}
-	return Result{}.New(os.Create(full))
+	file, err := os.OpenFile(full, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return Result{err, false}
+	}
+	if err := file.Chmod(0600); err != nil {
+		file.Close()
+		return Result{err, false}
+	}
+	return Result{}.New(file)
 }
 
 // Append opens the named file for appending, creating it if it doesn't exist.
@@ -312,10 +333,18 @@ func (m *Fs) Append(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
 		return Result{err, false}
 	}
-	return Result{}.New(os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644))
+	file, err := os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return Result{err, false}
+	}
+	if err := file.Chmod(0600); err != nil {
+		file.Close()
+		return Result{err, false}
+	}
+	return Result{}.New(file)
 }
 
 // ReadStream returns a reader for the file content.
@@ -358,13 +387,28 @@ func WriteAll(writer any, content string) Result {
 		return Result{E("core.WriteAll", "not a writer", nil), false}
 	}
 	_, err := wc.Write([]byte(content))
+	var closeErr error
 	if closer, ok := writer.(io.Closer); ok {
-		closer.Close()
+		closeErr = closer.Close()
 	}
 	if err != nil {
 		return Result{err, false}
 	}
+	if closeErr != nil {
+		return Result{closeErr, false}
+	}
 	return Result{OK: true}
+}
+
+func (m *Fs) isProtectedPath(full string) bool {
+	if full == "/" {
+		return true
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return false
+	}
+	return full == home
 }
 
 // CloseStream closes any value that implements io.Closer.
@@ -383,7 +427,7 @@ func (m *Fs) Delete(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if full == "/" || full == os.Getenv("HOME") {
+	if m.isProtectedPath(full) {
 		return Result{E("fs.Delete", Concat("refusing to delete protected path: ", full), nil), false}
 	}
 	if err := os.Remove(full); err != nil {
@@ -399,7 +443,7 @@ func (m *Fs) DeleteAll(p string) Result {
 		return vp
 	}
 	full := vp.Value.(string)
-	if full == "/" || full == os.Getenv("HOME") {
+	if m.isProtectedPath(full) {
 		return Result{E("fs.DeleteAll", Concat("refusing to delete protected path: ", full), nil), false}
 	}
 	if err := os.RemoveAll(full); err != nil {

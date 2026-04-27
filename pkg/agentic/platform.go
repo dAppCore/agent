@@ -3,9 +3,7 @@
 package agentic
 
 import (
-	"bufio"
 	"context"
-	"io"
 	"net/http"
 	"time"
 
@@ -932,31 +930,41 @@ func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
 	return payload
 }
 
-func readFleetEventBody(body interface{ Read([]byte) (int, error) }) (string, error) {
-	reader := bufio.NewReader(body)
-	rawLines := make([]string, 0, 4)
-
-	for {
-		line, err := reader.ReadString('\n')
-		if line != "" {
-			trimmed := core.Trim(line)
-			if trimmed != "" {
-				rawLines = append(rawLines, trimmed)
-			} else if len(rawLines) > 0 {
-				return core.Join("\n", rawLines...), nil
-			}
+// readFleetEventBody reads an SSE-style event body up to the first blank line.
+// Uses core.ReadAll instead of bufio+io.EOF for AX compliance.
+//
+//	body, err := readFleetEventBody(response.Body)
+func readFleetEventBody(body any) (string, error) {
+	r := core.ReadAll(body)
+	if !r.OK {
+		if err, ok := r.Value.(error); ok {
+			return "", err
 		}
+		return "", core.E("readFleetEventBody", "failed to read body", nil)
+	}
 
-		if err == io.EOF {
+	content := r.Value.(string)
+	if core.Trim(content) == "" {
+		return "", nil
+	}
+
+	// SSE event: content up to the first blank line.
+	rawLines := make([]string, 0, 4)
+	for _, line := range core.Split(content, "\n") {
+		trimmed := core.Trim(line)
+		if trimmed == "" {
 			if len(rawLines) > 0 {
 				return core.Join("\n", rawLines...), nil
 			}
-			return "", nil
+			continue
 		}
-		if err != nil {
-			return "", err
-		}
+		rawLines = append(rawLines, trimmed)
 	}
+
+	if len(rawLines) > 0 {
+		return core.Join("\n", rawLines...), nil
+	}
+	return "", nil
 }
 
 func parseFleetEvent(values map[string]any) FleetEvent {

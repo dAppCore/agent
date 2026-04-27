@@ -7,23 +7,24 @@ import (
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // subsystem := brain.NewDirect()
-// subsystem.RegisterMessagingTools(server)
-func (s *DirectSubsystem) RegisterMessagingTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+// subsystem.RegisterMessagingTools(svc)
+func (s *DirectSubsystem) RegisterMessagingTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a message to another agent. Direct, chronological, not semantic.",
 	}, s.sendMessage)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "Check your inbox — latest messages sent to you.",
 	}, s.inbox)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "View conversation thread with a specific agent.",
 	}, s.conversation)
@@ -85,6 +86,40 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
 	}
 
+	if input.To == "self" {
+		s.notifySelf(ctx, input)
+		return nil, SendOutput{Success: true, ID: 0, To: "self"}, nil
+	}
+
+	return s.sendRemoteMessage(ctx, input)
+}
+
+func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
+	// "self" target: push via notifications/claude/channel directly.
+	// Claude Code expects: { content: string, meta: Record<string, string> }
+	if s.Core() == nil {
+		return
+	}
+	mcpResult := s.Core().Service("mcp")
+	if !mcpResult.OK {
+		return
+	}
+	mcpSvc, ok := mcpResult.Value.(*coremcp.Service)
+	if !ok {
+		return
+	}
+	for session := range mcpSvc.Sessions() {
+		coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
+			"content": input.Content,
+			"meta": map[string]string{
+				"from":    agentic.AgentName(),
+				"subject": input.Subject,
+			},
+		})
+	}
+}
+
+func (s *DirectSubsystem) sendRemoteMessage(ctx context.Context, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	result := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
 		"to":      input.To,
 		"from":    agentic.AgentName(),

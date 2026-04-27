@@ -25,7 +25,7 @@ require (
 
 	assert.Equal(t, []coreDep{
 		{module: "dappco.re/go/core", repo: "go", dir: "core-go"},
-		{module: "dappco.re/go/core/process", repo: "go-process", dir: "core-go-process"},
+		{module: "dappco.re/go/process", repo: "go-process", dir: "core-go-process"},
 		{module: "dappco.re/go/mcp", repo: "mcp", dir: "core-mcp"},
 	}, deps)
 }
@@ -54,7 +54,7 @@ require (
 
 	assert.Equal(t, []coreDep{
 		{module: "dappco.re/go/core", repo: "go", dir: "core-go"},
-		{module: "dappco.re/go/core/process", repo: "go-process", dir: "core-go-process"},
+		{module: "dappco.re/go/process", repo: "go-process", dir: "core-go-process"},
 	}, parseCoreDeps(goMod))
 }
 
@@ -70,7 +70,9 @@ func TestDeps_CloneWorkspaceDeps_Bad_NoGoMod(t *testing.T) {
 	}
 
 	subsystem := &PrepSubsystem{}
-	subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core")
+	if err := subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core"); err != nil {
+		t.Fatalf("clone workspace deps: %v", err)
+	}
 
 	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }
@@ -95,7 +97,9 @@ require (
 	}
 
 	subsystem := &PrepSubsystem{}
-	subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core")
+	if err := subsystem.cloneWorkspaceDeps(context.Background(), wsDir, repoDir, "core"); err != nil {
+		t.Fatalf("clone workspace deps: %v", err)
+	}
 
 	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }

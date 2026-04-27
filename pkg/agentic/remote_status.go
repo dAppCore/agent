@@ -5,6 +5,7 @@ package agentic
 import (
 	"context"
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -19,8 +20,8 @@ type RemoteStatusOutput struct {
 	Error   string       `json:"error,omitempty"`
 }
 
-func (s *PrepSubsystem) registerRemoteStatusTool(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerRemoteStatusTool(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_status_remote",
 		Description: "Check workspace status on a remote core-agent (e.g. Charon). Shows running, completed, blocked, and failed agents.",
 	}, s.statusRemote)

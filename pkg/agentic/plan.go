@@ -4,13 +4,10 @@ package agentic
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"strconv"
-	"sync/atomic"
 	"time"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -156,8 +153,6 @@ type PlanListOutput struct {
 
 const planListDefaultLimit = 20
 
-var planIDCounter atomic.Uint64
-
 // result := c.Action("plan.create").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "title", Value: "AX RFC follow-up"},
@@ -247,98 +242,98 @@ func (s *PrepSubsystem) handlePlanList(ctx context.Context, options core.Options
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) registerPlanTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerPlanTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_create",
 		Description: "Create an implementation plan. Plans track phased work with acceptance criteria, status lifecycle (draft → ready → in_progress → needs_verification → verified → approved), and per-phase progress.",
 	}, s.planCreate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_read",
 		Description: "Read an implementation plan by ID. Returns the full plan with all phases, criteria, and status.",
 	}, s.planRead)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_get",
 		Description: "Read an implementation plan by slug with progress details and full phases.",
 	}, s.planGetCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_update",
 		Description: "Update an implementation plan. Supports partial updates — only provided fields are changed. Use this to advance status, update phases, or add notes.",
 	}, s.planUpdate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_delete",
 		Description: "Delete an implementation plan by ID. Permanently removes the plan file.",
 	}, s.planDelete)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_list",
 		Description: "List implementation plans. Supports filtering by status (draft, ready, in_progress, etc.) and repo.",
 	}, s.planList)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_create",
 		Description: "Create a plan using the slug-based compatibility surface described by the platform RFC.",
 	}, s.planCreateCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_read",
 		Description: "Read a plan using the legacy plain-name MCP alias.",
 	}, s.planRead)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_get",
 		Description: "Read a plan by slug with progress details and full phases.",
 	}, s.planGetCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_list",
 		Description: "List plans using the compatibility surface with slug and progress summaries.",
 	}, s.planListCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_check",
 		Description: "Check whether a plan or phase is complete using the compatibility surface.",
 	}, s.planCheck)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_check",
 		Description: "Check whether a plan or phase is complete using the compatibility surface.",
 	}, s.planCheck)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_update",
 		Description: "Update a plan using the legacy plain-name MCP alias.",
 	}, s.planUpdate)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
 	}, s.planUpdateStatusCompat)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
 	}, s.planUpdateStatusCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_delete",
 		Description: "Delete a plan using the legacy plain-name MCP alias.",
 	}, s.planDelete)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
 	}, s.planArchiveCompat)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
 	}, s.planArchiveCompat)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_from_issue",
 		Description: "Create an implementation plan from a tracked issue slug or ID.",
 	}, s.planFromIssue)
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_from_issue",
 		Description: "Create an implementation plan from a tracked issue slug or ID.",
 	}, s.planFromIssue)
@@ -716,17 +711,7 @@ func phaseCriteriaValue(values ...any) []string {
 }
 
 func planID() string {
-	counter := planIDCounter.Add(1)
-	suffix := planRandomHex()
-	return core.Concat("id-", strconv.FormatUint(counter, 10), "-", suffix)
-}
-
-func planRandomHex() string {
-	bytes := make([]byte, 3)
-	if _, err := rand.Read(bytes); err != nil {
-		return "000000"
-	}
-	return hex.EncodeToString(bytes)
+	return core.ID()
 }
 
 func planTaskSliceValue(value any) []PlanTask {

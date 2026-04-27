@@ -4,12 +4,12 @@ package brain
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
 	core "dappco.re/go/core"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
+	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -17,8 +17,9 @@ import (
 // core.Println(subsystem.Name()) // "brain"
 type DirectSubsystem struct {
 	*core.ServiceRuntime[DirectOptions]
-	apiURL string
-	apiKey string
+	apiURL    string
+	apiKey    string
+	apiClient *brainclient.Client
 }
 
 var _ coremcp.Subsystem = (*DirectSubsystem)(nil)
@@ -49,8 +50,9 @@ func NewDirect() *DirectSubsystem {
 	}
 
 	return &DirectSubsystem{
-		apiURL: apiURL,
-		apiKey: apiKey,
+		apiURL:    apiURL,
+		apiKey:    apiKey,
+		apiClient: newBrainClient(apiURL, apiKey),
 	}
 }
 
@@ -58,29 +60,29 @@ func NewDirect() *DirectSubsystem {
 func (s *DirectSubsystem) Name() string { return "brain" }
 
 // subsystem := brain.NewDirect()
-// subsystem.RegisterTools(server)
-func (s *DirectSubsystem) RegisterTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+// subsystem.RegisterTools(svc)
+func (s *DirectSubsystem) RegisterTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in OpenBrain. Types: fact, decision, observation, plan, convention, architecture, research, documentation, service, bug, pattern, context, procedure.",
 	}, s.remember)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across OpenBrain memories. Returns memories ranked by similarity. Use agent_id 'cladius' for Cladius's memories.",
 	}, s.recall)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from OpenBrain by ID.",
 	}, s.forget)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in OpenBrain with optional project, type, agent, and limit filters.",
 	}, s.list)
 
-	s.RegisterMessagingTools(server)
+	s.RegisterMessagingTools(svc)
 }
 
 // _ = subsystem.Shutdown(context.Background())
@@ -94,50 +96,25 @@ func brainKeyPath(home string) string {
 }
 
 func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body any) core.Result {
-	if s.apiKey == "" {
-		return core.Result{
-			Value: core.E("brain.apiCall", "no API key (set CORE_BRAIN_KEY or create ~/.claude/brain.key)", nil),
-			OK:    false,
-		}
+	result, err := s.client().Call(ctx, method, path, body)
+	if err != nil {
+		return core.Result{Value: err, OK: false}
 	}
-
-	requestURL := core.Concat(s.apiURL, path)
-	var bodyStr string
-	if body != nil {
-		bodyStr = core.JSONMarshalString(body)
-	}
-	requestResult := agentic.HTTPDo(ctx, method, requestURL, bodyStr, s.apiKey, "Bearer")
-	if !requestResult.OK {
-		core.Error("brain API call failed", "method", method, "path", path)
-		if err, ok := requestResult.Value.(error); ok {
-			return core.Result{Value: core.E("brain.apiCall", "API call failed", err), OK: false}
-		}
-		if responseBody, ok := requestResult.Value.(string); ok && responseBody != "" {
-			return core.Result{Value: core.E("brain.apiCall", core.Concat("API call failed: ", core.Trim(responseBody)), nil), OK: false}
-		}
-		return core.Result{Value: core.E("brain.apiCall", "API call failed", nil), OK: false}
-	}
-
-	var result map[string]any
-	if parseResult := core.JSONUnmarshalString(requestResult.Value.(string), &result); !parseResult.OK {
-		core.Error("brain API response parse failed", "method", method, "path", path)
-		err, _ := parseResult.Value.(error)
-		return core.Result{Value: core.E("brain.apiCall", "parse response", err), OK: false}
-	}
-
 	return core.Result{Value: result, OK: true}
 }
 
 func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+	org := directOrg(input.Org)
 	result := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
 		"content":    input.Content,
 		"type":       input.Type,
 		"tags":       input.Tags,
+		"org":        org,
 		"project":    input.Project,
 		"confidence": input.Confidence,
 		"supersedes": input.Supersedes,
 		"expires_in": input.ExpiresIn,
-		"agent_id":   agentic.AgentName(),
+		"agent_id":   directAgentID(),
 	})
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -162,6 +139,9 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 	if input.Filter.Project != "" {
 		body["project"] = input.Filter.Project
+	}
+	if org := directOrg(input.Filter.Org); org != "" {
+		body["org"] = org
 	}
 	if input.Filter.Type != nil {
 		body["type"] = input.Filter.Type
@@ -204,23 +184,26 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 }
 
 func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
-	params := url.Values{}
+	var params []string
+	if org := directOrg(input.Org); org != "" {
+		params = append(params, core.Concat("org=", core.URLEncode(org)))
+	}
 	if input.Project != "" {
-		params.Set("project", input.Project)
+		params = append(params, core.Concat("project=", core.URLEncode(input.Project)))
 	}
 	if input.Type != "" {
-		params.Set("type", input.Type)
+		params = append(params, core.Concat("type=", core.URLEncode(input.Type)))
 	}
 	if input.AgentID != "" {
-		params.Set("agent_id", input.AgentID)
+		params = append(params, core.Concat("agent_id=", core.URLEncode(input.AgentID)))
 	}
 	if input.Limit > 0 {
-		params.Set("limit", core.Sprint(input.Limit))
+		params = append(params, core.Concat("limit=", core.URLEncode(core.Sprint(input.Limit))))
 	}
 
 	path := "/v1/brain/list"
-	if encoded := params.Encode(); encoded != "" {
-		path = core.Concat(path, "?", encoded)
+	if len(params) > 0 {
+		path = core.Concat(path, "?", core.Join("&", params...))
 	}
 
 	result := s.apiCall(ctx, "GET", path, nil)
@@ -237,6 +220,37 @@ func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		Count:    len(memories),
 		Memories: memories,
 	}, nil
+}
+
+func (s *DirectSubsystem) client() *brainclient.Client {
+	if s.apiClient == nil {
+		s.apiClient = newBrainClient(s.apiURL, s.apiKey)
+	}
+	return s.apiClient
+}
+
+func newBrainClient(apiURL, apiKey string) *brainclient.Client {
+	return brainclient.New(brainclient.Options{
+		URL:     apiURL,
+		Key:     apiKey,
+		Org:     core.Trim(core.Env("CORE_BRAIN_ORG")),
+		AgentID: directAgentID(),
+	})
+}
+
+func directAgentID() string {
+	if configured := core.Trim(core.Env("CORE_BRAIN_AGENT_ID")); configured != "" {
+		return configured
+	}
+	return agentic.AgentName()
+}
+
+func directOrg(org string) string {
+	org = core.Trim(org)
+	if org != "" {
+		return org
+	}
+	return core.Trim(core.Env("CORE_BRAIN_ORG"))
 }
 
 func memoriesFromPayload(payload map[string]any) []Memory {

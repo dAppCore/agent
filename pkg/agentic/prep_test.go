@@ -11,7 +11,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
+	"dappco.re/go/forge"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -648,6 +649,8 @@ func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	assert.True(t, c.Action("agent.auth.provision").Exists())
 	assert.True(t, c.Action("agentic.auth.revoke").Exists())
 	assert.True(t, c.Action("agent.auth.revoke").Exists())
+	assert.True(t, c.Action("agentic.auth.login").Exists())
+	assert.True(t, c.Action("agent.auth.login").Exists())
 	assert.True(t, c.Action("agentic.fleet.register").Exists())
 	assert.True(t, c.Action("agent.fleet.register").Exists())
 	assert.True(t, c.Action("agentic.credits.balance").Exists())
@@ -692,15 +695,14 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 }
 
 func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
-	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, &mcpsdk.ServerOptions{
-		Capabilities: &mcpsdk.ServerCapabilities{
-			Tools: &mcpsdk.ToolCapabilities{ListChanged: true},
-		},
-	})
+	t.Setenv("CORE_MCP_FULL", "1")
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	require.NoError(t, err)
 
 	subsystem := &PrepSubsystem{}
-	subsystem.RegisterTools(server)
+	subsystem.RegisterTools(svc)
 
+	server := svc.Server()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
@@ -730,6 +732,8 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agentic_task_create")
 	assert.Contains(t, toolNames, "agentic_state_set")
 	assert.Contains(t, toolNames, "agentic_sprint_create")
+	assert.Contains(t, toolNames, "agentic_sprint_start")
+	assert.Contains(t, toolNames, "agentic_sprint_complete")
 	assert.Contains(t, toolNames, "session_complete")
 	assert.Contains(t, toolNames, "agentic_message_send")
 	assert.Contains(t, toolNames, "agent_send")
@@ -737,6 +741,12 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	assert.Contains(t, toolNames, "agent_inbox")
 	assert.Contains(t, toolNames, "agentic_message_conversation")
 	assert.Contains(t, toolNames, "agent_conversation")
+	// RFC §9 pairing-code bootstrap exposes the login flow as an MCP tool so
+	// IDE/CLI callers can exchange a 6-digit code for an AgentApiKey without
+	// shelling out.
+	assert.Contains(t, toolNames, "agentic_auth_login")
+	assert.Contains(t, toolNames, "agentic_auth_provision")
+	assert.Contains(t, toolNames, "agentic_auth_revoke")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
@@ -958,7 +968,7 @@ func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
 
 func TestPrep_PrepareWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -992,7 +1002,7 @@ func TestPrep_PrepareWorkspace_Bad(t *testing.T) {
 
 func TestPrep_PrepareWorkspace_Ugly(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -1160,7 +1170,7 @@ func TestPrep_GetGitLog_Ugly(t *testing.T) {
 
 func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	// Mock Forge API for issue body
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1220,11 +1230,17 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 
 	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
 	require.True(t, fs.Exists(promptSnapshotPath))
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CORE_WORKSPACE", root)
+	setTestWorkspace(t, root)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -1266,6 +1282,12 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, out.Success)
 	assert.NotEmpty(t, out.WorkspaceDir)
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	require.True(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	require.True(t, todoResult.OK)
+	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
 func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
@@ -1288,4 +1310,10 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 
 	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
 	require.Error(t, err)
+}
+
+func TestPrep_EnsureWorkspaceTaskFile_Bad(t *testing.T) {
+	err := ensureWorkspaceTaskFile("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace dir is required")
 }

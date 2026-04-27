@@ -8,13 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/lib"
 	core "dappco.re/go/core"
-	"dappco.re/go/core/forge"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	"dappco.re/go/forge"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -24,21 +23,29 @@ type AgentOptions struct{}
 // core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge          *forge.Forge
-	forgeURL       string
-	forgeToken     string
-	brainURL       string
-	brainKey       string
-	codePath       string
-	startupContext context.Context
-	dispatchMu     sync.Mutex
-	drainMu        sync.Mutex
-	pokeCh         chan struct{}
-	frozen         bool
-	backoff        map[string]time.Time
-	failCount      map[string]int
-	providers      *ProviderManager
-	workspaces     *core.Registry[*WorkspaceStatus]
+	forge              *forge.Forge
+	forgeURL           string
+	forgeToken         string
+	brainURL           string
+	brainKey           string
+	codePath           string
+	startupContext     context.Context
+	drainCh            chan struct{}
+	pokeCh             chan struct{}
+	dispatchSyncPrep   func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error)
+	dispatchSyncSpawn  func(agent, prompt, workspaceDir string) (int, string, string, error)
+	dispatchSyncTick   time.Duration
+	frozen             bool
+	backoff            map[string]time.Time
+	failCount          map[string]int
+	brainStateOnce     core.Once
+	brainState         *brainClientState
+	providers          *ProviderManager
+	workspaces         *core.Registry[*WorkspaceStatus]
+	stateOnce          core.Once
+	state              *stateStoreRef
+	workspaceStatsOnce core.Once
+	workspaceStats     *workspaceStatsRef
 }
 
 var _ coremcp.Subsystem = (*PrepSubsystem)(nil)
@@ -69,6 +76,7 @@ func NewPrep() *PrepSubsystem {
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
 		brainKey:   brainKey,
 		codePath:   envOr("CODE_PATH", core.JoinPath(home, "Code")),
+		drainCh:    make(chan struct{}, 1),
 		backoff:    make(map[string]time.Time),
 		failCount:  make(map[string]int),
 		workspaces: core.NewRegistry[*WorkspaceStatus](),
@@ -90,7 +98,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 			return core.Entitlement{Allowed: true, Unlimited: true}
 		}
 		switch action {
-		case "agentic.status", "agentic.scan", "agentic.watch",
+		case "agentic.status", "agentic.scan", "agentic.watch", "agentic.workspace.stats",
 			"agentic.issue.get", "agentic.issue.list", "agentic.issue.assign", "agentic.pr.get", "agentic.pr.list",
 			"agentic.prompt", "agentic.task", "agentic.flow", "agentic.persona",
 			"agentic.prompt.version", "agentic.setup",
@@ -130,6 +138,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agent.auth.provision", s.handleAuthProvision).Description = "Provision a platform API key for an authenticated agent user"
 	c.Action("agentic.auth.revoke", s.handleAuthRevoke).Description = "Revoke a platform API key"
 	c.Action("agent.auth.revoke", s.handleAuthRevoke).Description = "Revoke a platform API key"
+	c.Action("agentic.auth.login", s.handleAuthLogin).Description = "Exchange a 6-digit pairing code for an AgentApiKey"
+	c.Action("agent.auth.login", s.handleAuthLogin).Description = "Exchange a 6-digit pairing code for an AgentApiKey"
 	c.Action("agentic.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
 	c.Action("agent.fleet.register", s.handleFleetRegister).Description = "Register a fleet node with the platform API"
 	c.Action("agentic.fleet.heartbeat", s.handleFleetHeartbeat).Description = "Send a heartbeat for a fleet node"
@@ -177,6 +187,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.resume", s.handleResume).Description = "Resume a blocked or completed workspace"
 	c.Action("agentic.scan", s.handleScan).Description = "Scan Forge repos for actionable issues"
 	c.Action("agentic.watch", s.handleWatch).Description = "Watch workspace for changes and report"
+	c.Action("agentic.workspace.stats", s.handleWorkspaceStats).Description = "List permanent dispatch stats from the parent workspace store"
+	c.Action("workspace.stats", s.handleWorkspaceStats).Description = "List permanent dispatch stats from the parent workspace store"
 
 	c.Action("agentic.qa", s.handleQA).Description = "Run build + test QA checks on workspace"
 	c.Action("agentic.auto-pr", s.handleAutoPR).Description = "Create PR from completed workspace"
@@ -197,6 +209,8 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("agentic.pr.list", s.handlePRList).Description = "List Forge PRs for a repo"
 	c.Action("agentic.pr.merge", s.handlePRMerge).Description = "Merge a Forge PR"
 	c.Action("agentic.pr.close", s.handlePRClose).Description = "Close a Forge PR"
+	c.Action("agentic.branch.delete", s.handleBranchDelete).Description = "Delete a branch on the Forge remote"
+	c.Action("agent.branch.delete", s.handleBranchDelete).Description = "Delete a branch on the Forge remote"
 
 	c.Action("agentic.review-queue", s.handleReviewQueue).Description = "Run CodeRabbit review on completed workspaces"
 
@@ -339,13 +353,23 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 
 	c.Action("agentic.complete", s.handleComplete).Description = "Run completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in background"
 
-	s.hydrateWorkspaces()
+	if result := s.restorePersistedState(ctx); !result.OK {
+		return result
+	}
+	// RFC §15.5 — startup scans `.core/state/` for orphaned QA workspace
+	// buffers (leftover DuckDB files from dispatches that crashed before
+	// commit) and releases them so the next cycle starts clean.
+	s.recoverStateOrphans()
 	if planRetentionDays(core.NewOptions()) > 0 {
 		go s.runPlanCleanupLoop(ctx, planRetentionScheduleInterval)
 	}
 	if s.forgeToken != "" {
 		go s.runPRManageLoop(ctx, prManageScheduleInterval)
 	}
+	if s.syncToken() != "" {
+		go s.runSyncFlushLoop(ctx, syncFlushScheduleInterval)
+	}
+	go s.runFetchLoop(ctx, s.fetchLoopInterval())
 
 	c.RegisterQuery(s.handleWorkspaceQuery)
 
@@ -363,6 +387,11 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 // _ = subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
+	if result := s.flushPersistedState(ctx); !result.OK {
+		return result
+	}
+	s.closeStateStore()
+	s.closeWorkspaceStatsStore()
 	return core.Result{OK: true}
 }
 
@@ -372,6 +401,31 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 	if s.workspaces == nil {
 		s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	}
+
+	// Registry hydration is filesystem-first — workspace status.json is
+	// authoritative. The go-store registry group caches last-known status
+	// so ghost agents can be detected after crashes even when the JSON
+	// status file has been rotated. Filesystem wins on conflict (§15.3).
+	s.stateStoreRestore(stateRegistryGroup, func(key, value string) bool {
+		if s.workspaces.Get(key).OK {
+			return true
+		}
+		var status WorkspaceStatus
+		if result := core.JSONUnmarshalString(value, &status); !result.OK {
+			return true
+		}
+		// Dead agents are marked failed so the next dispatch does not
+		// block on a PID that disappeared.
+		if status.Status == "running" && !ProcessAlive(nil, status.ProcessID, status.PID) {
+			status.Status = "failed"
+			if status.Question == "" {
+				status.Question = "Agent process died during restart"
+			}
+		}
+		s.workspaces.Set(key, &status)
+		return true
+	})
+
 	for _, path := range WorkspaceStatusPaths() {
 		workspaceDir := core.PathDir(path)
 		result := ReadStatusResult(workspaceDir)
@@ -379,15 +433,145 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 		if !ok {
 			continue
 		}
+		// Reap ghost agents: a status.json that claims `running` for a
+		// PID that no longer exists is a stale artifact from a crashed
+		// dispatch — RFC §15.3 requires no ghost agents after restart.
+		// Persist the reaped status back to disk so cmdStatus and any
+		// out-of-process consumer see a coherent view.
+		if st.Status == "running" && !ProcessAlive(nil, st.ProcessID, st.PID) {
+			st.Status = "failed"
+			if st.Question == "" {
+				st.Question = "Agent process died during restart"
+			}
+			writeStatusResult(workspaceDir, st)
+		}
 		s.workspaces.Set(WorkspaceName(workspaceDir), st)
 	}
 }
 
 // s.TrackWorkspace("core/go-io/task-5", st)
+//
+// TrackWorkspace mirrors the workspace status into the go-store registry
+// group, the queue group (when status="queued") and the concurrency group
+// (running counts per agent type) so a restart restores all three slices of
+// dispatch state described in RFC §15.3.
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
 		s.workspaces.Set(name, st)
 	}
+	if st == nil {
+		s.stateStoreDelete(stateRegistryGroup, name)
+		s.stateStoreDelete(stateQueueGroup, name)
+		s.refreshConcurrencySnapshot()
+		return
+	}
+	s.stateStoreSet(stateRegistryGroup, name, st)
+
+	// Queue group keeps the spec-shaped `{repo}/{branch}` index of
+	// dispatch slots that have not started running yet (RFC §15.3).
+	if st.Status == "queued" {
+		s.stateStoreSet(stateQueueGroup, name, queueEntryFromStatus(st))
+	} else {
+		s.stateStoreDelete(stateQueueGroup, name)
+	}
+
+	s.refreshConcurrencySnapshot()
+}
+
+// queueEntry is the JSON shape persisted under stateQueueGroup so the dispatch
+// queue survives restart per RFC §15.3.
+//
+// Usage example: `entry := queueEntryFromStatus(workspaceStatus)`
+type queueEntry struct {
+	Repo     string    `json:"repo"`
+	Branch   string    `json:"branch,omitempty"`
+	Org      string    `json:"org,omitempty"`
+	Task     string    `json:"task,omitempty"`
+	Agent    string    `json:"agent,omitempty"`
+	Status   string    `json:"status,omitempty"`
+	Priority int       `json:"priority,omitempty"`
+	QueuedAt time.Time `json:"queued_at"`
+}
+
+// queueEntryFromStatus projects the dispatch fields RFC §15.3 records into the
+// queue group from the live WorkspaceStatus.
+//
+// Usage example: `entry := queueEntryFromStatus(&WorkspaceStatus{Repo: "go-io", Branch: "agent/fix-tests"})`
+func queueEntryFromStatus(st *WorkspaceStatus) queueEntry {
+	if st == nil {
+		return queueEntry{}
+	}
+	queuedAt := st.UpdatedAt
+	if queuedAt.IsZero() {
+		queuedAt = st.StartedAt
+	}
+	return queueEntry{
+		Repo:     st.Repo,
+		Branch:   st.Branch,
+		Org:      st.Org,
+		Task:     st.Task,
+		Agent:    st.Agent,
+		Status:   st.Status,
+		QueuedAt: queuedAt,
+	}
+}
+
+// refreshConcurrencySnapshot writes a `{agent-type}` snapshot of currently
+// running dispatch counts into stateConcurrencyGroup so RFC §15.3 ghost-agent
+// detection has authoritative pre-restart counts to compare against.
+//
+// Usage example: `s.refreshConcurrencySnapshot()`
+func (s *PrepSubsystem) refreshConcurrencySnapshot() {
+	if s == nil || s.workspaces == nil {
+		return
+	}
+	if s.stateStoreInstance() == nil {
+		return
+	}
+
+	counts := map[string]int{}
+	totals := map[string]int{}
+	s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
+		if workspaceStatus == nil || workspaceStatus.Agent == "" {
+			return
+		}
+		base := baseAgent(workspaceStatus.Agent)
+		totals[base]++
+		if workspaceStatus.Status == "running" {
+			counts[base]++
+		}
+	})
+
+	seen := map[string]struct{}{}
+	for base, running := range counts {
+		entry := map[string]any{
+			"running":     running,
+			"tracked":     totals[base],
+			"snapshot_at": time.Now().UTC(),
+		}
+		s.stateStoreSet(stateConcurrencyGroup, base, entry)
+		seen[base] = struct{}{}
+	}
+	for base, tracked := range totals {
+		if _, ok := seen[base]; ok {
+			continue
+		}
+		entry := map[string]any{
+			"running":     0,
+			"tracked":     tracked,
+			"snapshot_at": time.Now().UTC(),
+		}
+		s.stateStoreSet(stateConcurrencyGroup, base, entry)
+	}
+
+	// Drop entries for agent types we no longer track so the snapshot
+	// never grows beyond active dispatch pools.
+	s.stateStoreRestore(stateConcurrencyGroup, func(key, _ string) bool {
+		if _, alive := totals[key]; !alive {
+			s.stateStoreDelete(stateConcurrencyGroup, key)
+		}
+		return true
+	})
 }
 
 // s.Workspaces().Names()                        // all workspace names
@@ -419,52 +603,55 @@ func (s *PrepSubsystem) SetCore(c *core.Core) {
 }
 
 // subsystem := agentic.NewPrep()
-// subsystem.RegisterTools(server)
-func (s *PrepSubsystem) RegisterTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+// subsystem.RegisterTools(svc)
+func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
 	}, s.prepWorkspace)
-
-	s.registerDispatchTool(server)
-	s.registerStatusTool(server)
-	s.registerResumeTool(server)
-	mcp.AddTool(server, &mcp.Tool{
+	s.registerDispatchTool(svc)
+	s.registerStatusTool(svc)
+	s.registerResumeTool(svc)
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_complete",
 		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
 	}, s.completeTool)
-	s.registerCommitTool(server)
-	s.registerCreatePRTool(server)
-	s.registerListPRsTool(server)
-	s.registerClosePRTool(server)
-	s.registerEpicTool(server)
-	s.registerMirrorTool(server)
-	s.registerRemoteDispatchTool(server)
-	s.registerRemoteStatusTool(server)
-	s.registerReviewQueueTool(server)
-	s.registerPlatformTools(server)
-	s.registerShutdownTools(server)
-	s.registerSessionTools(server)
-	s.registerStateTools(server)
-	s.registerPhaseTools(server)
-	s.registerTaskTools(server)
-	s.registerPromptTools(server)
-	s.registerTemplateTools(server)
-	s.registerIssueTools(server)
-	s.registerMessageTools(server)
-	s.registerSprintTools(server)
-	s.registerPRTools(server)
-	s.registerContentTools(server)
-	s.registerLanguageTools(server)
-	s.registerSetupTool(server)
-
-	mcp.AddTool(server, &mcp.Tool{
+	s.registerCommitTool(svc)
+	s.registerCreatePRTool(svc)
+	s.registerListPRsTool(svc)
+	s.registerClosePRTool(svc)
+	s.registerDeleteBranchTool(svc)
+	s.registerMirrorTool(svc)
+	s.registerShutdownTools(svc)
+	s.registerPlanTools(svc)
+	s.registerWatchTool(svc)
+	s.registerIssueTools(svc)
+	s.registerPRTools(svc)
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
 	}, s.scan)
 
-	s.registerPlanTools(server)
-	s.registerWatchTool(server)
+	// Extended tools — only when CORE_MCP_FULL=1
+	if core.Env("CORE_MCP_FULL") != "1" {
+		return
+	}
+	s.registerEpicTool(svc)
+	s.registerRemoteDispatchTool(svc)
+	s.registerRemoteStatusTool(svc)
+	s.registerReviewQueueTool(svc)
+	s.registerPlatformTools(svc)
+	s.registerSessionTools(svc)
+	s.registerStateTools(svc)
+	s.registerPhaseTools(svc)
+	s.registerTaskTools(svc)
+	s.registerPromptTools(svc)
+	s.registerTemplateTools(svc)
+	s.registerMessageTools(svc)
+	s.registerSprintTools(svc)
+	s.registerContentTools(svc)
+	s.registerLanguageTools(svc)
+	s.registerSetupTool(svc)
 }
 
 // subsystem := agentic.NewPrep()
@@ -616,6 +803,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 		return nil, PrepOutput{}, core.E("prepWorkspace", "extract default workspace template", nil)
 	}
+	if err := ensureWorkspaceTaskFile(workspaceDir); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	if !resumed {
 		if r := process.RunIn(ctx, ".", "git", "clone", repoPath, repoDir); !r.OK {
@@ -649,11 +839,18 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 	if lang == "php" {
 		if r := lib.WorkspaceFile("default", "CODEX-PHP.md.tmpl"); r.OK {
 			codexPath := core.JoinPath(workspaceDir, "CODEX.md")
-			fs.Write(codexPath, r.Value.(string))
+			if writeResult := fs.WriteAtomic(codexPath, r.Value.(string)); !writeResult.OK {
+				if err, ok := writeResult.Value.(error); ok {
+					return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", err)
+				}
+				return nil, PrepOutput{}, core.E("prepWorkspace", "write CODEX.md", nil)
+			}
 		}
 	}
 
-	s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org)
+	if err := s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org); err != nil {
+		return nil, PrepOutput{}, err
+	}
 	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
 		return nil, PrepOutput{}, err
 	}
@@ -666,7 +863,9 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	s.copyRepoSpecs(workspaceDir, input.Repo)
+	if err := s.copyRepoSpecs(workspaceDir, input.Repo); err != nil {
+		return nil, PrepOutput{}, err
+	}
 
 	out.Prompt, out.Memories, out.Consumers = s.buildPrompt(ctx, input, out.Branch, repoPath)
 	if versionResult := writePromptSnapshot(workspaceDir, out.Prompt); !versionResult.OK {
@@ -685,12 +884,12 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 // s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
 // s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
-func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
+func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
 	if !fs.IsDir(plansBase) {
-		return
+		return nil
 	}
 
 	var specDir string
@@ -708,11 +907,13 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 	}
 
 	if !fs.IsDir(specDir) {
-		return
+		return nil
 	}
 
 	specsDir := core.JoinPath(workspaceDir, "specs")
-	fs.EnsureDir(specsDir)
+	if ensureResult := fs.EnsureDir(specsDir); !ensureResult.OK {
+		return core.E("copyRepoSpecs", core.Concat("failed to create specs dir ", specsDir), nil)
+	}
 
 	patterns := []string{
 		core.JoinPath(specDir, "RFC*.md"),
@@ -724,13 +925,22 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) {
 		for _, entry := range core.PathGlob(pattern) {
 			rel := entry[len(specDir)+1:]
 			dst := core.JoinPath(specsDir, rel)
-			fs.EnsureDir(core.PathDir(dst))
+			if ensureResult := fs.EnsureDir(core.PathDir(dst)); !ensureResult.OK {
+				return core.E("copyRepoSpecs", core.Concat("failed to create specs parent dir ", core.PathDir(dst)), nil)
+			}
 			r := fs.Read(entry)
-			if r.OK {
-				fs.Write(dst, r.Value.(string))
+			if !r.OK {
+				err, _ := r.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to read specs file ", entry), err)
+			}
+			if writeResult := fs.Write(dst, r.Value.(string)); !writeResult.OK {
+				err, _ := writeResult.Value.(error)
+				return core.E("copyRepoSpecs", core.Concat("failed to write specs file ", dst), err)
 			}
 		}
 	}
+
+	return nil
 }
 
 // _, out, err := prep.PrepareWorkspace(ctx, input)
@@ -828,6 +1038,36 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 	return promptBuilder.String(), memoryCount, consumerCount
 }
 
+// ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
+// keeps TODO.md present for the prompt and the local agent shell wrapper.
+func ensureWorkspaceTaskFile(workspaceDir string) error {
+	if workspaceDir == "" {
+		return core.E("prepWorkspace", "workspace dir is required", nil)
+	}
+
+	todoPath := core.JoinPath(workspaceDir, "TODO.md")
+	if readResult := fs.Read(todoPath); readResult.OK && core.Trim(readResult.Value.(string)) != "" {
+		return nil
+	}
+
+	templateResult := lib.WorkspaceFile("default", "TODO.md.tmpl")
+	if !templateResult.OK {
+		if err, ok := templateResult.Value.(error); ok {
+			return core.E("prepWorkspace", "load TODO.md template", err)
+		}
+		return core.E("prepWorkspace", "load TODO.md template", nil)
+	}
+
+	if writeResult := fs.WriteAtomic(todoPath, templateResult.Value.(string)); !writeResult.OK {
+		if err, ok := writeResult.Value.(error); ok {
+			return core.E("prepWorkspace", "write TODO.md", err)
+		}
+		return core.E("prepWorkspace", "write TODO.md", nil)
+	}
+
+	return nil
+}
+
 // writePromptSnapshot stores an immutable prompt snapshot for a workspace.
 //
 //	snapshot := writePromptSnapshot("/srv/.core/workspace/core/go-io/task-42", "TASK: Fix tests")
@@ -915,14 +1155,29 @@ func promptSnapshotHash(prompt string) string {
 func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
+	goEnv := []string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=url.https://forge.lthn.ai/.insteadOf",
+		"GIT_CONFIG_VALUE_0=ssh://git@forge.lthn.ai:2223/",
+		"GONOSUMCHECK=forge.lthn.ai/*,dappco.re/*",
+		"GOPRIVATE=forge.lthn.ai/*,dappco.re/*",
+		"GOFLAGS=-mod=mod",
+	}
+
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
-		if result := process.RunIn(ctx, repoDir, "go", "mod", "download"); !result.OK {
+		if result := process.RunWithEnv(ctx, repoDir, goEnv, "go", "mod", "download"); !result.OK {
 			return core.E("prepWorkspace", "go mod download failed", nil)
 		}
 	}
 
 	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")) || fs.IsFile(core.JoinPath(repoDir, "go.work"))) {
-		if result := process.RunIn(ctx, repoDir, "go", "work", "sync"); !result.OK {
+		// `go work sync` needs the workspace's own go.work — clear any
+		// inherited GOWORK=off (set by parent shells / tests) so the workspace
+		// file under repoDir/.. is honoured. The append order means GOWORK= here
+		// overrides any parent value passed through.
+		workEnv := append([]string{}, goEnv...)
+		workEnv = append(workEnv, "GOWORK=")
+		if result := process.RunWithEnv(ctx, repoDir, workEnv, "go", "work", "sync"); !result.OK {
 			return core.E("prepWorkspace", "go work sync failed", nil)
 		}
 	}
@@ -956,41 +1211,46 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 		return "", 0
 	}
 
-	body := core.JSONMarshalString(map[string]any{
+	body := map[string]any{
 		"query":    core.Concat("architecture conventions key interfaces for ", repo),
 		"top_k":    10,
 		"project":  repo,
 		"agent_id": "cladius",
-	})
+	}
 
-	r := HTTPPost(ctx, core.Concat(s.brainURL, "/v1/brain/recall"), body, s.brainKey, "Bearer")
+	r := s.brainCall(ctx, "POST", "/v1/brain/recall", "cladius", body)
 	if !r.OK {
 		return "", 0
 	}
 
-	var result struct {
-		Memories []map[string]any `json:"memories"`
+	payload, ok := r.Value.(map[string]any)
+	if !ok {
+		return "", 0
 	}
-	core.JSONUnmarshalString(r.Value.(string), &result)
+	memories, _ := brainPayloadMap(payload)["memories"].([]any)
 
-	if len(result.Memories) == 0 {
+	if len(memories) == 0 {
 		return "", 0
 	}
 
 	b := core.NewBuilder()
-	for i, mem := range result.Memories {
+	for i, memory := range memories {
+		mem, ok := memory.(map[string]any)
+		if !ok {
+			continue
+		}
 		memType, _ := mem["type"].(string)
 		memContent, _ := mem["content"].(string)
 		memProject, _ := mem["project"].(string)
 		b.WriteString(core.Sprintf("%d. [%s] %s: %s\n", i+1, memType, memProject, memContent))
 	}
 
-	return b.String(), len(result.Memories)
+	return b.String(), len(memories)
 }
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	goWorkPath := core.JoinPath(s.codePath, "go.work")
-	modulePath := core.Concat("forge.lthn.ai/core/", repo)
+	modulePath := core.Concat("dappco.re/go/core/", repo)
 
 	r := fs.Read(goWorkPath)
 	if !r.OK {

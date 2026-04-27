@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
@@ -43,7 +45,15 @@ return new class extends Migration
                 $table->index('agent_id');
                 $table->index(['workspace_id', 'type']);
                 $table->index(['workspace_id', 'project']);
+            });
 
+            // Self-referential FK added AFTER create so Postgres sees the
+            // primary key on `id` when evaluating the constraint. Adding it
+            // inside the create{} block ordered the FK before the PK index
+            // on some Postgres versions, breaking with:
+            //   SQLSTATE[42830]: there is no unique constraint matching
+            //   given keys for referenced table "brain_memories"
+            $schema->table('brain_memories', function (Blueprint $table) {
                 $table->foreign('supersedes_id')
                     ->references('id')
                     ->on('brain_memories')

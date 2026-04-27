@@ -6,14 +6,12 @@ package monitor
 
 import (
 	"context"
-	"net/url"
-	"sync"
 	"time"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
 	core "dappco.re/go/core"
-	coremcp "forge.lthn.ai/core/mcp/pkg/mcp"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -56,10 +54,10 @@ func resultString(result core.Result) (string, bool) {
 // service.Start(context.Background())
 type Subsystem struct {
 	*core.ServiceRuntime[Options]
-	server   *mcp.Server
+	svc      *coremcp.Service
 	interval time.Duration
 	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	done     chan struct{}
 
 	seenCompleted     map[string]bool
 	seenRunning       map[string]bool
@@ -67,23 +65,53 @@ type Subsystem struct {
 	lastInboxMaxID    int
 	inboxSeeded       bool
 	lastSyncTimestamp int64
-	mu                sync.Mutex
+	lockCh            chan struct{}
 
 	poke chan struct{}
+}
+
+// monitorLock acquires the monitor mutex — uses c.Lock("monitor") when
+// Core is available, falls back to a channel-based lock for standalone use.
+//
+//	unlock := m.monitorLock()
+//	defer unlock()
+func (m *Subsystem) monitorLock() (unlock func()) {
+	if m.ServiceRuntime != nil {
+		mu := m.Core().Lock("monitor").Mutex
+		mu.Lock()
+		return mu.Unlock
+	}
+	m.lockCh <- struct{}{}
+	return func() { <-m.lockCh }
+}
+
+// monitorRLock acquires a read-lock — uses c.Lock("monitor") when
+// Core is available, falls back to the channel-based lock for standalone use.
+//
+//	unlock := m.monitorRLock()
+//	defer unlock()
+func (m *Subsystem) monitorRLock() (unlock func()) {
+	if m.ServiceRuntime != nil {
+		mu := m.Core().Lock("monitor").Mutex
+		mu.RLock()
+		return mu.RUnlock
+	}
+	m.lockCh <- struct{}{}
+	return func() { <-m.lockCh }
 }
 
 var _ coremcp.Subsystem = (*Subsystem)(nil)
 
 func (m *Subsystem) handleAgentStarted(ev messages.AgentStarted) {
-	m.mu.Lock()
+	unlock := m.monitorLock()
 	m.seenRunning[ev.Workspace] = true
-	m.mu.Unlock()
+	unlock()
 }
 
 func (m *Subsystem) handleAgentCompleted(ev messages.AgentCompleted) {
-	m.mu.Lock()
+	unlock := m.monitorLock()
 	m.seenCompleted[ev.Workspace] = true
-	m.mu.Unlock()
+	unlock()
 
 	m.Poke()
 	go m.checkIdleAfterDelay()
@@ -133,6 +161,7 @@ func New(options ...MonitorOptions) *Subsystem {
 	return &Subsystem{
 		interval:      interval,
 		poke:          make(chan struct{}, 1),
+		lockCh:        make(chan struct{}, 1),
 		seenCompleted: make(map[string]bool),
 		seenRunning:   make(map[string]bool),
 	}
@@ -145,11 +174,11 @@ func (m *Subsystem) debug(msg string) {
 // name := service.Name() // "monitor"
 func (m *Subsystem) Name() string { return "monitor" }
 
-// service.RegisterTools(server)
-func (m *Subsystem) RegisterTools(server *mcp.Server) {
-	m.server = server
+// service.RegisterTools(svc)
+func (m *Subsystem) RegisterTools(svc *coremcp.Service) {
+	m.svc = svc
 
-	server.AddResource(&mcp.Resource{
+	svc.Server().AddResource(&mcp.Resource{
 		Name:        "Agent Status",
 		URI:         "status://agents",
 		Description: "Current status of all agent workspaces",
@@ -161,12 +190,12 @@ func (m *Subsystem) RegisterTools(server *mcp.Server) {
 func (m *Subsystem) Start(ctx context.Context) {
 	loopContext, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
+	m.done = make(chan struct{})
 
 	core.Info("monitor: started (interval=%s)", m.interval)
 
-	m.wg.Add(1)
 	go func() {
-		defer m.wg.Done()
+		defer close(m.done)
 		m.loop(loopContext)
 	}()
 }
@@ -190,7 +219,9 @@ func (m *Subsystem) Shutdown(_ context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
 	}
-	m.wg.Wait()
+	if m.done != nil {
+		<-m.done
+	}
 	return nil
 }
 
@@ -297,8 +328,8 @@ func (m *Subsystem) check(ctx context.Context) {
 	combinedMessage := core.Join("\n", statusMessages...)
 	m.notify(ctx, combinedMessage)
 
-	if m.server != nil {
-		m.server.ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
+	if m.svc != nil {
+		m.svc.Server().ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
 			URI: "status://agents",
 		})
 	}
@@ -312,7 +343,7 @@ func (m *Subsystem) checkCompletions() string {
 	completed := 0
 	var newlyCompleted []string
 
-	m.mu.Lock()
+	unlock := m.monitorLock()
 	seeded := m.completionsSeeded
 	for _, entry := range entries {
 		entryResult := fs.Read(entry)
@@ -360,7 +391,7 @@ func (m *Subsystem) checkCompletions() string {
 		}
 	}
 	m.completionsSeeded = true
-	m.mu.Unlock()
+	unlock()
 
 	if len(newlyCompleted) == 0 {
 		return ""
@@ -388,7 +419,7 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	baseURL := monitorAPIURL()
-	inboxURL := core.Concat(baseURL, "/v1/messages/inbox?agent=", url.QueryEscape(agentic.AgentName()))
+	inboxURL := core.Concat(baseURL, "/v1/messages/inbox?agent=", core.URLEncode(agentic.AgentName()))
 	httpResult := agentic.HTTPGet(context.Background(), inboxURL, core.Trim(brainKey), "Bearer")
 	if !httpResult.OK {
 		return ""
@@ -411,10 +442,10 @@ func (m *Subsystem) checkInbox() string {
 	maxID := 0
 	unread := 0
 
-	m.mu.Lock()
+	rUnlock := m.monitorRLock()
 	prevMaxID := m.lastInboxMaxID
 	seeded := m.inboxSeeded
-	m.mu.Unlock()
+	rUnlock()
 
 	type inboxMessage struct {
 		ID      int    `json:"id"`
@@ -441,10 +472,10 @@ func (m *Subsystem) checkInbox() string {
 		}
 	}
 
-	m.mu.Lock()
+	unlock := m.monitorLock()
 	m.lastInboxMaxID = maxID
 	m.inboxSeeded = true
-	m.mu.Unlock()
+	unlock()
 
 	if !seeded {
 		return ""
@@ -465,11 +496,11 @@ func (m *Subsystem) checkInbox() string {
 }
 
 func (m *Subsystem) notify(ctx context.Context, message string) {
-	if m.server == nil {
+	if m.svc == nil {
 		return
 	}
 
-	for session := range m.server.Sessions() {
+	for session := range m.svc.Server().Sessions() {
 		session.Log(ctx, &mcp.LoggingMessageParams{
 			Level:  "info",
 			Logger: "monitor",

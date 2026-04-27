@@ -6,6 +6,7 @@ import (
 	"context"
 
 	core "dappco.re/go/core"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -18,18 +19,18 @@ type ShutdownOutput struct {
 	Message string `json:"message"`
 }
 
-func (s *PrepSubsystem) registerShutdownTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{
+func (s *PrepSubsystem) registerShutdownTools(svc *coremcp.Service) {
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_start",
 		Description: "Start the dispatch queue runner. Unfreezes the queue and begins draining.",
 	}, s.dispatchStart)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown",
 		Description: "Graceful shutdown: stop accepting new jobs, let running agents finish. Queue is frozen.",
 	}, s.shutdownGraceful)
 
-	mcp.AddTool(server, &mcp.Tool{
+	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown_now",
 		Description: "Hard shutdown: kill all running agents immediately. Queue is cleared.",
 	}, s.shutdownNow)

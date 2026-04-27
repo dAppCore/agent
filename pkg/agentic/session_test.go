@@ -566,3 +566,21 @@ func TestSession_HandleSessionReplay_Ugly_MissingSession(t *testing.T) {
 	))
 	assert.False(t, result.OK)
 }
+
+func TestSession_normaliseSessionAgentType_Good(t *testing.T) {
+	agentType, ok := normaliseSessionAgentType("  CLAUDE:Sonnet  ")
+	require.True(t, ok)
+	assert.Equal(t, "sonnet", agentType)
+}
+
+func TestSession_normaliseSessionAgentType_Bad(t *testing.T) {
+	agentType, ok := normaliseSessionAgentType("codex")
+	assert.False(t, ok)
+	assert.Empty(t, agentType)
+}
+
+func TestSession_normaliseSessionAgentType_Ugly(t *testing.T) {
+	agentType, ok := normaliseSessionAgentType("   ")
+	assert.False(t, ok)
+	assert.Empty(t, agentType)
+}

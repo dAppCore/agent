@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: EUPL-1.2
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-runner-mcp"
+version = "0.1.0"
+description = "MCP stdio server that dispatches sandboxed Hermes runner jobs."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "EUPL-1.2" }
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.27,<1.0",
+    "pydantic>=2.7,<3.0",
+]
+
+[project.scripts]
+hermes-runner-mcp = "hermes_runner_mcp.server:main"
+
+[tool.setuptools]
+packages = ["hermes_runner_mcp"]
+
+[tool.setuptools.package-dir]
+hermes_runner_mcp = "."

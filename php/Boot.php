@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: EUPL-1.2
+
 declare(strict_types=1);
 
 namespace Core\Mod\Agentic;
@@ -177,11 +179,13 @@ class Boot extends ServiceProvider
 
         $event->command(Console\Commands\TaskCommand::class);
         $event->command(Console\Commands\PlanCommand::class);
-        $event->command(Console\Commands\AgenticGenerateCommand::class);
         $event->command(Console\Commands\GenerateCommand::class);
         $event->command(Console\Commands\PlanRetentionCommand::class);
         $event->command(Console\Commands\BrainSeedMemoryCommand::class);
         $event->command(Console\Commands\BrainIngestCommand::class);
+        $event->command(Console\Commands\BrainCleanCommand::class);
+        $event->command(Console\Commands\BrainPruneCommand::class);
+        $event->command(Console\Commands\BrainReindexCommand::class);
         $event->command(Console\Commands\ScanCommand::class);
         $event->command(Console\Commands\DispatchCommand::class);
         $event->command(Console\Commands\PrManageCommand::class);

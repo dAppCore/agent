@@ -3,7 +3,7 @@ name: status
 description: Show status of all agent workspaces (running, completed, blocked, failed)
 ---
 
-Use the `mcp__core__agentic_status` tool to list all agent workspaces.
+Use the `mcp__plugin_agent_agent__agentic_status` tool to list all agent workspaces.
 
 Show results as a table with columns: Name, Status, Agent, Repo, Task, Age.
 
