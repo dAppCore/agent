@@ -12,12 +12,25 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Aggregate MCP tool activity into dashboard-friendly metrics.
+ *
+ * @example
+ * $service = new McpMetricsService();
+ * $overview = $service->getOverview(7);
+ */
 final class McpMetricsService
 {
     protected string $statsTable = 'mcp_tool_call_stats';
 
     protected string $callsTable = 'mcp_tool_calls';
 
+    /**
+     * Summarise tool activity for the requested reporting window.
+     *
+     * @example
+     * $overview = $service->getOverview(14);
+     */
     public function getOverview(int $days = 7): array
     {
         $currentStart = CarbonImmutable::now()->subDays($days - 1)->startOfDay();
@@ -47,6 +60,12 @@ final class McpMetricsService
         ];
     }
 
+    /**
+     * Return the per-day call trend for the requested reporting window.
+     *
+     * @example
+     * $trend = $service->getDailyTrend(7);
+     */
     public function getDailyTrend(int $days = 7): Collection
     {
         $result = collect();
@@ -74,6 +93,12 @@ final class McpMetricsService
         return $result;
     }
 
+    /**
+     * Return the most-used tools in the requested reporting window.
+     *
+     * @example
+     * $tools = $service->getTopTools(7, 5);
+     */
     public function getTopTools(int $days = 7, int $limit = 10): Collection
     {
         if (! Schema::hasTable($this->statsTable)) {
@@ -109,6 +134,12 @@ final class McpMetricsService
             });
     }
 
+    /**
+     * Return aggregated call statistics grouped by MCP server.
+     *
+     * @example
+     * $servers = $service->getServerStats(30);
+     */
     public function getServerStats(int $days = 7): Collection
     {
         if (! Schema::hasTable($this->statsTable)) {
@@ -143,6 +174,12 @@ final class McpMetricsService
             });
     }
 
+    /**
+     * Return the latest recorded MCP calls for dashboard activity feeds.
+     *
+     * @example
+     * $calls = $service->getRecentCalls(20);
+     */
     public function getRecentCalls(int $limit = 20): Collection
     {
         if (! Schema::hasTable($this->callsTable)) {
@@ -173,6 +210,12 @@ final class McpMetricsService
             });
     }
 
+    /**
+     * Group recent tool failures by tool name and error code.
+     *
+     * @example
+     * $errors = $service->getErrorBreakdown(7);
+     */
     public function getErrorBreakdown(int $days = 7): Collection
     {
         if (! Schema::hasTable($this->callsTable)) {
@@ -194,6 +237,12 @@ final class McpMetricsService
             ]));
     }
 
+    /**
+     * Calculate duration percentiles for successful tool calls.
+     *
+     * @example
+     * $performance = $service->getToolPerformance(7, 10);
+     */
     public function getToolPerformance(int $days = 7, int $limit = 10): Collection
     {
         if (! Schema::hasTable($this->callsTable)) {
@@ -225,6 +274,12 @@ final class McpMetricsService
         })->sortByDesc('call_count')->take($limit)->values();
     }
 
+    /**
+     * Bucket recent tool calls by hour for the last 24 hours.
+     *
+     * @example
+     * $hours = $service->getHourlyDistribution();
+     */
     public function getHourlyDistribution(): Collection
     {
         $distribution = collect();
@@ -255,6 +310,12 @@ final class McpMetricsService
         return $distribution;
     }
 
+    /**
+     * Return activity totals grouped by plan slug for the requested window.
+     *
+     * @example
+     * $plans = $service->getPlanActivity(7, 10);
+     */
     public function getPlanActivity(int $days = 7, int $limit = 10): Collection
     {
         if (! Schema::hasTable($this->callsTable)) {
@@ -286,6 +347,12 @@ final class McpMetricsService
             });
     }
 
+    /**
+     * Load raw stats rows for the supplied date range.
+     *
+     * @example
+     * $rows = $this->statsInRange(CarbonImmutable::now()->subDays(6)->startOfDay(), CarbonImmutable::now()->endOfDay());
+     */
     protected function statsInRange(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
         if (! Schema::hasTable($this->statsTable)) {
@@ -298,6 +365,12 @@ final class McpMetricsService
             ->map(static fn (object $row): Collection => collect((array) $row));
     }
 
+    /**
+     * Load grouped daily totals for the supplied date range.
+     *
+     * @example
+     * $rows = $this->dailyTrendRows(CarbonImmutable::now()->subDays(6)->startOfDay(), CarbonImmutable::now()->endOfDay());
+     */
     protected function dailyTrendRows(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
         if (! Schema::hasTable($this->statsTable)) {
@@ -315,6 +388,12 @@ final class McpMetricsService
             ->get();
     }
 
+    /**
+     * Interpolate a percentile value from an ascending list of durations.
+     *
+     * @example
+     * $p95 = $this->percentile(collect([10, 25, 40, 90]), 95);
+     */
     protected function percentile(Collection $sortedValues, int $percentile): float
     {
         $count = $sortedValues->count();
@@ -336,6 +415,12 @@ final class McpMetricsService
         return round(((float) $sortedValues[$lower]) + (((float) $sortedValues[$upper] - (float) $sortedValues[$lower]) * $fraction), 1);
     }
 
+    /**
+     * Render a millisecond duration using the dashboard display format.
+     *
+     * @example
+     * $label = $this->humanDuration(1250);
+     */
     protected function humanDuration(?int $durationMs): string
     {
         if ($durationMs === null || $durationMs <= 0) {

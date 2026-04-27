@@ -17,6 +17,12 @@ use Livewire\Attributes\Title;
 
 #[Title('Fleet Overview')]
 #[Layout('hub::admin.layouts.app')]
+/**
+ * Inspect workspace fleet state and dispatch new tasks to agents.
+ *
+ * @example
+ * Livewire::test(FleetOverview::class, ['workspaceId' => 7])->call('refreshOverview');
+ */
 class FleetOverview extends HubComponent
 {
     public int $workspaceId = 0;
@@ -37,6 +43,12 @@ class FleetOverview extends HubComponent
 
     public string $dispatchModel = '';
 
+    /**
+     * Initialise the fleet screen with access checks and a default agent.
+     *
+     * @example
+     * $component->mount(7);
+     */
     public function mount(?int $workspaceId = null): void
     {
         $this->checkHadesAccess();
@@ -45,6 +57,12 @@ class FleetOverview extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return the fleet nodes visible for the current workspace filters.
+     *
+     * @example
+     * $nodes = $component->nodes();
+     */
     public function nodes(): array
     {
         if ($this->workspaceId <= 0) {
@@ -81,6 +99,12 @@ class FleetOverview extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return aggregated fleet statistics for the current workspace.
+     *
+     * @example
+     * $stats = $component->stats();
+     */
     public function stats(): array
     {
         if ($this->workspaceId <= 0) {
@@ -120,6 +144,12 @@ class FleetOverview extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return the list of platforms present in the current workspace fleet.
+     *
+     * @example
+     * $platforms = $component->platforms();
+     */
     public function platforms(): array
     {
         if ($this->workspaceId <= 0) {
@@ -140,12 +170,24 @@ class FleetOverview extends HubComponent
         }
     }
 
+    /**
+     * Pre-fill the dispatch form for a chosen agent.
+     *
+     * @example
+     * Livewire::test(FleetOverview::class, ['workspaceId' => 7])->call('stageDispatch', 'agent-6');
+     */
     public function stageDispatch(string $agentId): void
     {
         $this->dispatchAgentId = $agentId;
         $this->toast('Dispatch Ready', "Prepared dispatch for {$agentId}.", 'info');
     }
 
+    /**
+     * Validate and queue a new task dispatch for the selected agent.
+     *
+     * @example
+     * Livewire::test(FleetOverview::class, ['workspaceId' => 7])->call('dispatchTask');
+     */
     public function dispatchTask(): void
     {
         $this->validate([
@@ -185,6 +227,12 @@ class FleetOverview extends HubComponent
         $this->toast('Task Dispatched', "Queued work for {$agentId}.", 'success');
     }
 
+    /**
+     * Refresh computed fleet data and resynchronise the dispatch target.
+     *
+     * @example
+     * Livewire::test(FleetOverview::class, ['workspaceId' => 7])->call('refreshOverview');
+     */
     public function refreshOverview(): void
     {
         unset($this->nodes, $this->stats, $this->platforms);
@@ -192,6 +240,12 @@ class FleetOverview extends HubComponent
         $this->dispatch('notify', message: 'Fleet overview refreshed');
     }
 
+    /**
+     * Map a fleet node status to the badge variant used in the UI.
+     *
+     * @example
+     * $variant = $component->statusBadgeVariant(FleetNode::STATUS_BUSY);
+     */
     public function statusBadgeVariant(string $status): string
     {
         return match ($status) {
@@ -202,6 +256,12 @@ class FleetOverview extends HubComponent
         };
     }
 
+    /**
+     * Keep the dispatch agent aligned with the currently visible node list.
+     *
+     * @example
+     * $this->syncDispatchAgentId();
+     */
     private function syncDispatchAgentId(): void
     {
         if ($this->dispatchAgentId !== '' && collect($this->nodes)->contains('agent_id', $this->dispatchAgentId)) {
@@ -231,6 +291,12 @@ class FleetOverview extends HubComponent
             ->implode(', ');
     }
 
+    /**
+     * Resolve the Blade template used by the fleet overview screen.
+     *
+     * @example
+     * $path = $this->viewPath();
+     */
     protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/fleet-overview.blade.php';

@@ -15,12 +15,24 @@ use JsonException;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Run the MCP agent server over stdio for JSON-RPC requests.
+ *
+ * @example
+ * php artisan mcp:agent-server
+ */
 class McpAgentServerCommand extends Command
 {
     protected $signature = 'mcp:agent-server';
 
     protected $description = 'Run the MCP agent server in stdio mode';
 
+    /**
+     * Process the stdio request loop and emit JSON-RPC responses.
+     *
+     * @example
+     * $exitCode = $this->handle($toolRegistry, $quotaService, $queryAuditService);
+     */
     public function handle(
         ToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
@@ -82,6 +94,12 @@ class McpAgentServerCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Resolve the stream path from an environment override or default value.
+     *
+     * @example
+     * $path = $this->streamPath('MCP_AGENT_SERVER_INPUT', 'php://stdin');
+     */
     private function streamPath(string $variable, string $default): string
     {
         $value = getenv($variable);
@@ -89,6 +107,12 @@ class McpAgentServerCommand extends Command
         return is_string($value) && $value !== '' ? $value : $default;
     }
 
+    /**
+     * Decode a JSON-RPC payload and route batch or single requests.
+     *
+     * @example
+     * $response = $this->processPayload('{"jsonrpc":"2.0","method":"ping","id":1}', $toolRegistry, $quotaService, $queryAuditService);
+     */
     private function processPayload(
         string $payload,
         ToolRegistry $toolRegistry,
@@ -136,6 +160,12 @@ class McpAgentServerCommand extends Command
         );
     }
 
+    /**
+     * Execute a single JSON-RPC request and build the matching response envelope.
+     *
+     * @example
+     * $response = $this->processRequest(['jsonrpc' => '2.0', 'method' => 'ping', 'id' => 1], $toolRegistry, $quotaService, $queryAuditService);
+     */
     private function processRequest(
         array $request,
         ToolRegistry $toolRegistry,
@@ -202,6 +232,12 @@ class McpAgentServerCommand extends Command
         return $response;
     }
 
+    /**
+     * Run a tool call after quota and audit checks have passed.
+     *
+     * @example
+     * $response = $this->handleToolCall(['name' => 'brain_list', 'arguments' => []], 7, $toolRegistry, $quotaService, $queryAuditService);
+     */
     private function handleToolCall(
         array $params,
         mixed $id,
@@ -304,6 +340,12 @@ class McpAgentServerCommand extends Command
         }
     }
 
+    /**
+     * Resolve the requested tool name from supported JSON-RPC parameter keys.
+     *
+     * @example
+     * $toolName = $this->resolveToolName(['tool' => 'brain_list']);
+     */
     private function resolveToolName(array $params): string|null
     {
         $value = $params['name'] ?? $params['tool'] ?? null;
@@ -311,6 +353,12 @@ class McpAgentServerCommand extends Command
         return is_string($value) && $value !== '' ? $value : null;
     }
 
+    /**
+     * Determine the workspace identifier carried by the request payload.
+     *
+     * @example
+     * $workspaceId = $this->workspaceId(['workspace_id' => '42'], []);
+     */
     private function workspaceId(array $params, array $arguments): string
     {
         $value = $params['workspace_id']
@@ -322,6 +370,12 @@ class McpAgentServerCommand extends Command
         return (string) $value;
     }
 
+    /**
+     * Extract a free-form query string from tool arguments when present.
+     *
+     * @example
+     * $query = $this->toolQuery(['query' => 'select * from memories']);
+     */
     private function toolQuery(array $arguments): string|null
     {
         $query = $arguments['query'] ?? null;
@@ -329,6 +383,12 @@ class McpAgentServerCommand extends Command
         return is_string($query) && $query !== '' ? $query : null;
     }
 
+    /**
+     * Estimate the number of result items returned by a tool call.
+     *
+     * @example
+     * $count = $this->resultCount(['id' => 1, 'id' => 2]);
+     */
     private function resultCount(mixed $result): int
     {
         if (is_array($result)) {
@@ -338,6 +398,12 @@ class McpAgentServerCommand extends Command
         return $result === null ? 0 : 1;
     }
 
+    /**
+     * Persist query audit details when the audit table is available.
+     *
+     * @example
+     * $this->recordAudit($queryAuditService, 'select 1', '42', 'brain_list', 12, ['transport' => 'stdio'], 1);
+     */
     private function recordAudit(
         QueryAuditService $queryAuditService,
         string $query,
@@ -360,6 +426,12 @@ class McpAgentServerCommand extends Command
         }
     }
 
+    /**
+     * Build the standard JSON-RPC success response structure.
+     *
+     * @example
+     * $response = $this->successResponse(['ok' => true], 1);
+     */
     private function successResponse(mixed $result, mixed $id): array
     {
         return [
@@ -369,6 +441,12 @@ class McpAgentServerCommand extends Command
         ];
     }
 
+    /**
+     * Build the standard JSON-RPC error response structure.
+     *
+     * @example
+     * $response = $this->errorResponse(-32601, 'Method not found', 1);
+     */
     private function errorResponse(int $code, string $message, mixed $id = null, array $data = []): array
     {
         $error = [
@@ -387,6 +465,12 @@ class McpAgentServerCommand extends Command
         ];
     }
 
+    /**
+     * Encode a response payload as JSON for the stdio transport.
+     *
+     * @example
+     * $json = $this->encodePayload(['jsonrpc' => '2.0', 'result' => ['ok' => true], 'id' => 1]);
+     */
     private function encodePayload(mixed $payload): string
     {
         $encoded = json_encode(

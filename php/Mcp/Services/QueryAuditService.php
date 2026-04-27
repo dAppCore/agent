@@ -15,10 +15,23 @@ use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use RuntimeException;
 
+/**
+ * Audit MCP query usage and expose filtered activity summaries.
+ *
+ * @example
+ * $service = new QueryAuditService();
+ * $entry = $service->log('select * from memories', ['workspace_id' => '42']);
+ */
 final class QueryAuditService
 {
     private const TABLE = 'mcp_audit_entries';
 
+    /**
+     * Decide whether a query looks safe enough to execute.
+     *
+     * @example
+     * $safe = $service->isSafe('select * from memories');
+     */
     public function isSafe(string $query): bool
     {
         $trimmedQuery = ltrim($query);
@@ -31,11 +44,23 @@ final class QueryAuditService
         return ! $startsWithWriteStatement && ! $callsDangerousFunction;
     }
 
+    /**
+     * Decide whether an encoded result payload exceeds the audit size limit.
+     *
+     * @example
+     * $tooLarge = $service->exceedsLimit(['rows' => range(1, 5000)], 1024);
+     */
     public function exceedsLimit(array $result, int $limitBytes = 1000000): bool
     {
         return strlen((string) json_encode($result, JSON_INVALID_UTF8_SUBSTITUTE)) > $limitBytes;
     }
 
+    /**
+     * Persist one audit entry for a query execution.
+     *
+     * @example
+     * $entry = $service->log('select * from memories', ['workspace_id' => '42', 'tool_name' => 'brain_list']);
+     */
     public function log(string $query, array $context = []): AuditEntry
     {
         $this->ensureTableExists();
@@ -179,6 +204,12 @@ final class QueryAuditService
         return $aggregates;
     }
 
+    /**
+     * Assert that the audit table exists before reading or writing entries.
+     *
+     * @example
+     * $this->ensureTableExists();
+     */
     private function ensureTableExists(): void
     {
         if (! Schema::hasTable(self::TABLE)) {
@@ -186,6 +217,12 @@ final class QueryAuditService
         }
     }
 
+    /**
+     * Normalise a recorded-at value into an immutable timestamp.
+     *
+     * @example
+     * $recordedAt = $this->resolveRecordedAt('2026-04-27T10:15:00Z');
+     */
     private function resolveRecordedAt(mixed $value): CarbonImmutable
     {
         if ($value instanceof CarbonImmutable) {
@@ -203,6 +240,12 @@ final class QueryAuditService
         return CarbonImmutable::parse((string) $value);
     }
 
+    /**
+     * Validate and return a supported aggregation period.
+     *
+     * @example
+     * $period = $this->resolvePeriod('hour');
+     */
     private function resolvePeriod(string $period): string
     {
         if (! in_array($period, ['minute', 'hour', 'day'], true)) {
@@ -215,6 +258,12 @@ final class QueryAuditService
         return $period;
     }
 
+    /**
+     * Format one aggregation bucket key for the requested period.
+     *
+     * @example
+     * $bucket = $this->bucketFor(CarbonImmutable::parse('2026-04-27 10:15:00'), 'hour');
+     */
     private function bucketFor(CarbonImmutable $timestamp, string $period): string
     {
         return match ($period) {
@@ -224,6 +273,12 @@ final class QueryAuditService
         };
     }
 
+    /**
+     * Resolve an audit entry model timestamp into an immutable Carbon value.
+     *
+     * @example
+     * $timestamp = $this->entryTimestamp($entry);
+     */
     private function entryTimestamp(McpAuditEntry $entry): CarbonImmutable
     {
         if ($entry->created_at instanceof CarbonInterface) {
@@ -234,6 +289,12 @@ final class QueryAuditService
     }
 }
 
+/**
+ * Persisted Eloquent model for one MCP audit log entry.
+ *
+ * @example
+ * $entry = McpAuditEntry::query()->first();
+ */
 class McpAuditEntry extends Model
 {
     protected $table = 'mcp_audit_entries';
