@@ -9,12 +9,10 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestConnect_BackoffOnFailure(t *testing.T) {
+func TestBackoffOnFailure_PrepSubsystem_Connect_Good(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	resetFleetRuntimeState()
 
@@ -31,7 +29,7 @@ func TestConnect_BackoffOnFailure(t *testing.T) {
 	})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/fleet/events", r.URL.Path)
+		core.AssertEqual(t, "/v1/fleet/events", r.URL.Path)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":"stream unavailable"}`))
 	}))
@@ -61,8 +59,8 @@ func TestConnect_BackoffOnFailure(t *testing.T) {
 	}
 
 	result := subsystem.Connect(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
-	require.True(t, result.OK)
-	assert.Equal(t, []time.Duration{
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, []time.Duration{
 		time.Millisecond,
 		2 * time.Millisecond,
 		4 * time.Millisecond,
@@ -72,35 +70,35 @@ func TestConnect_BackoffOnFailure(t *testing.T) {
 	}, durations)
 }
 
-func TestPollFallback_Good(t *testing.T) {
+func TestPollFallback_PrepSubsystem_PollFallback_Good(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	resetFleetRuntimeState()
 	t.Cleanup(resetFleetRuntimeState)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/fleet/task/next", r.URL.Path)
-		require.Equal(t, "agent_id=charon", r.URL.RawQuery)
-		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/v1/fleet/task/next", r.URL.Path)
+		core.AssertEqual(t, "agent_id=charon", r.URL.RawQuery)
+		core.AssertEqual(t, "Bearer secret-token", r.Header.Get("Authorization"))
 		_, _ = w.Write([]byte(`{"data":{"task":{"id":7,"repo":"core/go-io","branch":"dev","task":"Fix tests","status":"assigned"}}}`))
 	}))
 	defer server.Close()
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.PollFallback(context.Background(), core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	task, ok := result.Value.(*FleetTask)
-	require.True(t, ok)
-	require.NotNil(t, task)
-	assert.Equal(t, 7, task.ID)
-	assert.Equal(t, "core/go-io", task.Repo)
+	core.RequireTrue(t, ok)
+	core.AssertNotNil(t, task)
+	core.AssertEqual(t, 7, task.ID)
+	core.AssertEqual(t, "core/go-io", task.Repo)
 
 	snapshot := fleetRuntimeSnapshotValue()
-	assert.Equal(t, "polling", snapshot.State)
-	assert.Equal(t, 7, snapshot.LastTask.ID)
+	core.AssertEqual(t, "polling", snapshot.State)
+	core.AssertEqual(t, 7, snapshot.LastTask.ID)
 }
 
-func TestHeartbeat_Good(t *testing.T) {
+func TestHeartbeat_PrepSubsystem_Heartbeat_Good(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	resetFleetRuntimeState()
 
@@ -114,18 +112,18 @@ func TestHeartbeat_Good(t *testing.T) {
 
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/fleet/heartbeat", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/v1/fleet/heartbeat", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "Bearer secret-token", r.Header.Get("Authorization"))
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		assert.Equal(t, "charon", payload["agent_id"])
-		assert.Equal(t, "online", payload["status"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "charon", payload["agent_id"])
+		core.AssertEqual(t, "online", payload["status"])
 
 		requests++
 		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
@@ -145,7 +143,7 @@ func TestHeartbeat_Good(t *testing.T) {
 	}
 
 	result := subsystem.Heartbeat(ctx, core.NewOptions(core.Option{Key: "agent_id", Value: "charon"}))
-	require.True(t, result.OK)
-	assert.Equal(t, 1, requests)
-	assert.NotEmpty(t, fleetRuntimeSnapshotValue().LastHeartbeatAt)
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, 1, requests)
+	core.AssertNotEmpty(t, fleetRuntimeSnapshotValue().LastHeartbeatAt)
 }

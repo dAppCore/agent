@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 )
 
 // Repo sync closes the RFC §7 loop from a pushed workspace back to the local
@@ -215,14 +215,14 @@ func (s *PrepSubsystem) handleRepoSyncFetch(ctx context.Context, options core.Op
 		return core.Result{Value: err, OK: false}
 	}
 
-	args := []string{"git", "fetch", "origin"}
+	args := []string{"fetch", "origin"}
 	if branch := core.Trim(optionStringValue(options, "branch")); branch != "" {
 		args = append(args, branch)
 	}
 
-	result := s.Core().Process().RunIn(repoSyncContext(ctx), repoDir, args...)
+	result := s.Core().Process().RunIn(repoSyncContext(ctx), repoDir, "git", args...)
 	if !result.OK {
-		return core.Result{Value: core.E("agentic.handleRepoSyncFetch", "git fetch failed", resultErrorValue(result)), OK: false}
+		return core.Result{Value: core.E("agentic.handleRepoSyncFetch", "git fetch failed", resultErrorValue("agentic.handleRepoSyncFetch", result)), OK: false}
 	}
 
 	return core.Result{Value: RepoSyncOutput{
@@ -255,13 +255,13 @@ func (s *PrepSubsystem) handleRepoSyncReset(ctx context.Context, options core.Op
 	if current := s.currentBranch(repoDir); current != "" && current != branch {
 		checkoutResult := process.RunIn(repoSyncContext(ctx), repoDir, "git", "checkout", "-B", branch, core.Concat("origin/", branch))
 		if !checkoutResult.OK {
-			return core.Result{Value: core.E("agentic.handleRepoSyncReset", "git checkout failed", resultErrorValue(checkoutResult)), OK: false}
+			return core.Result{Value: core.E("agentic.handleRepoSyncReset", "git checkout failed", resultErrorValue("agentic.handleRepoSyncReset", checkoutResult)), OK: false}
 		}
 	}
 
 	resetResult := process.RunIn(repoSyncContext(ctx), repoDir, "git", "reset", "--hard", core.Concat("origin/", branch))
 	if !resetResult.OK {
-		return core.Result{Value: core.E("agentic.handleRepoSyncReset", "git reset failed", resultErrorValue(resetResult)), OK: false}
+		return core.Result{Value: core.E("agentic.handleRepoSyncReset", "git reset failed", resultErrorValue("agentic.handleRepoSyncReset", resetResult)), OK: false}
 	}
 
 	return core.Result{Value: RepoSyncOutput{
@@ -335,13 +335,6 @@ func repoSyncContext(ctx context.Context) context.Context {
 		return ctx
 	}
 	return context.Background()
-}
-
-func resultErrorValue(result core.Result) error {
-	if err, ok := result.Value.(error); ok && err != nil {
-		return err
-	}
-	return nil
 }
 
 func (s *PrepSubsystem) repoSyncRepoDir(target fetchRepoRef) (string, error) {

@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"testing"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // initTestRepo creates a bare git repo and a workspace clone with a branch.
@@ -46,7 +44,9 @@ func run(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
 	gitEnv := []string{"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test"}
 	r := testMon.Core().Process().RunWithEnv(context.Background(), dir, gitEnv, name, args...)
-	require.True(t, r.OK, "command %s %v failed: %s", name, args, r.Value)
+	if !r.OK {
+		t.Fatalf("command %s %v failed: %v", name, args, r.Value)
+	}
 }
 
 func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
@@ -66,12 +66,13 @@ func TestHarvest_DetectBranch_Good(t *testing.T) {
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	branch := testMon.detectBranch(repoDir)
-	assert.Equal(t, "agent/test-task", branch)
+	core.AssertEqual(t, "agent/test-task", branch)
 }
 
 func TestHarvest_DetectBranch_Bad_NoRepo(t *testing.T) {
 	branch := testMon.detectBranch(t.TempDir())
-	assert.Equal(t, "", branch)
+	core.AssertEqual(t, "", branch)
+	core.AssertEmpty(t, branch)
 }
 
 func TestHarvest_CountUnpushed_Good(t *testing.T) {
@@ -79,7 +80,7 @@ func TestHarvest_CountUnpushed_Good(t *testing.T) {
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	count := testMon.countUnpushed(repoDir, "agent/test-task")
-	assert.Equal(t, 1, count)
+	core.AssertEqual(t, 1, count)
 }
 
 func TestHarvest_CountChangedFiles_Good(t *testing.T) {
@@ -87,7 +88,7 @@ func TestHarvest_CountChangedFiles_Good(t *testing.T) {
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	count := testMon.countChangedFiles(repoDir)
-	assert.Equal(t, 1, count)
+	core.AssertEqual(t, 1, count)
 }
 
 func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
@@ -95,7 +96,7 @@ func TestHarvest_CheckSafety_Good_CleanWorkspace(t *testing.T) {
 	repoDir := core.JoinPath(wsDir, "repo")
 
 	reason := testMon.checkSafety(repoDir)
-	assert.Equal(t, "", reason)
+	core.AssertEqual(t, "", reason)
 }
 
 func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
@@ -108,8 +109,8 @@ func TestHarvest_CheckSafety_Bad_BinaryFile(t *testing.T) {
 	run(t, repoDir, "git", "commit", "-m", "add binary")
 
 	reason := testMon.checkSafety(repoDir)
-	assert.Contains(t, reason, "binary file added")
-	assert.Contains(t, reason, "app.exe")
+	core.AssertContains(t, reason, "binary file added")
+	core.AssertContains(t, reason, "app.exe")
 }
 
 func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
@@ -123,12 +124,12 @@ func TestHarvest_CheckSafety_Bad_LargeFile(t *testing.T) {
 	run(t, repoDir, "git", "commit", "-m", "add large file")
 
 	reason := testMon.checkSafety(repoDir)
-	assert.Contains(t, reason, "large file")
-	assert.Contains(t, reason, "huge.txt")
+	core.AssertContains(t, reason, "large file")
+	core.AssertContains(t, reason, "huge.txt")
 }
 
 func TestHarvest_UpdateStatus_Bad_WriteFailure(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		updateStatus("/dev/null/impossible", "ready-for-review", "")
 	})
 }
@@ -141,16 +142,16 @@ func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
 	mon.ServiceRuntime = testMon.ServiceRuntime
 
 	result := mon.harvestWorkspace(wsDir)
-	require.NotNil(t, result)
-	assert.Equal(t, "test-repo", result.repo)
-	assert.Equal(t, "agent/test-task", result.branch)
-	assert.Equal(t, 1, result.files)
-	assert.Equal(t, "", result.rejected)
+	core.AssertNotNil(t, result)
+	core.AssertEqual(t, "test-repo", result.repo)
+	core.AssertEqual(t, "agent/test-task", result.branch)
+	core.AssertEqual(t, 1, result.files)
+	core.AssertEqual(t, "", result.rejected)
 
 	// Verify status updated
 	var st map[string]any
-	require.True(t, core.JSONUnmarshalString(fs.Read(core.JoinPath(wsDir, "status.json")).Value.(string), &st).OK)
-	assert.Equal(t, "ready-for-review", st["status"])
+	core.RequireTrue(t, core.JSONUnmarshalString(fs.Read(core.JoinPath(wsDir, "status.json")).Value.(string), &st).OK)
+	core.AssertEqual(t, "ready-for-review", st["status"])
 }
 
 func TestHarvest_HarvestWorkspace_Bad_NotCompleted(t *testing.T) {
@@ -160,7 +161,7 @@ func TestHarvest_HarvestWorkspace_Bad_NotCompleted(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.harvestWorkspace(wsDir)
-	assert.Nil(t, result)
+	core.AssertNil(t, result)
 }
 
 func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
@@ -175,7 +176,7 @@ func TestHarvest_HarvestWorkspace_Bad_MainBranch(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.harvestWorkspace(wsDir)
-	assert.Nil(t, result)
+	core.AssertNil(t, result)
 }
 
 func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
@@ -193,13 +194,13 @@ func TestHarvest_HarvestWorkspace_Bad_BinaryRejected(t *testing.T) {
 	mon.ServiceRuntime = testMon.ServiceRuntime
 
 	result := mon.harvestWorkspace(wsDir)
-	require.NotNil(t, result)
-	assert.Contains(t, result.rejected, "binary file added")
+	core.AssertNotNil(t, result)
+	core.AssertContains(t, result.rejected, "binary file added")
 
 	// Verify status set to rejected
 	var st map[string]any
 	core.JSONUnmarshalString(fs.Read(core.JoinPath(wsDir, "status.json")).Value.(string), &st)
-	assert.Equal(t, "rejected", st["status"])
+	core.AssertEqual(t, "rejected", st["status"])
 }
 
 func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
@@ -222,16 +223,16 @@ func TestHarvest_HarvestCompleted_Good_ChannelEvents(t *testing.T) {
 
 	// Call harvestWorkspace directly since harvestCompleted uses agentic.WorkspaceRoot()
 	result := mon.harvestWorkspace(wsDir)
-	require.NotNil(t, result)
-	assert.Equal(t, "", result.rejected)
+	core.AssertNotNil(t, result)
+	core.AssertEqual(t, "", result.rejected)
 
 	// Simulate what harvestCompleted does with the result — emit IPC
 	mon.Core().ACTION(messages.HarvestComplete{Repo: result.repo, Branch: result.branch, Files: result.files})
 
-	require.Len(t, captured, 1)
-	assert.Equal(t, "test-repo", captured[0].Repo)
-	assert.Equal(t, "agent/test-task", captured[0].Branch)
-	assert.Equal(t, 1, captured[0].Files)
+	core.AssertLen(t, captured, 1)
+	core.AssertEqual(t, "test-repo", captured[0].Repo)
+	core.AssertEqual(t, "agent/test-task", captured[0].Branch)
+	core.AssertEqual(t, 1, captured[0].Files)
 }
 
 func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
@@ -275,11 +276,11 @@ func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	msg := mon.harvestCompleted()
-	assert.Contains(t, msg, "Harvested:")
-	assert.Contains(t, msg, "repo-0")
-	assert.Contains(t, msg, "repo-1")
+	core.AssertContains(t, msg, "Harvested:")
+	core.AssertContains(t, msg, "repo-0")
+	core.AssertContains(t, msg, "repo-1")
 
-	assert.GreaterOrEqual(t, len(harvests), 2)
+	core.AssertGreaterOrEqual(t, len(harvests), 2)
 }
 
 func TestHarvest_HarvestCompleted_Good_Empty(t *testing.T) {
@@ -290,7 +291,7 @@ func TestHarvest_HarvestCompleted_Good_Empty(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.harvestCompleted()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
@@ -334,10 +335,10 @@ func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	msg := mon.harvestCompleted()
-	assert.Contains(t, msg, "REJECTED")
+	core.AssertContains(t, msg, "REJECTED")
 
-	require.Len(t, rejections, 1)
-	assert.Contains(t, rejections[0].Reason, "binary file added")
+	core.AssertLen(t, rejections, 1)
+	core.AssertContains(t, rejections[0].Reason, "binary file added")
 }
 
 func TestHarvest_UpdateStatus_Good(t *testing.T) {
@@ -349,7 +350,7 @@ func TestHarvest_UpdateStatus_Good(t *testing.T) {
 
 	var st map[string]any
 	core.JSONUnmarshalString(fs.Read(core.JoinPath(dir, "status.json")).Value.(string), &st)
-	assert.Equal(t, "ready-for-review", st["status"])
+	core.AssertEqual(t, "ready-for-review", st["status"])
 }
 
 func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
@@ -361,6 +362,6 @@ func TestHarvest_UpdateStatus_Good_WithQuestion(t *testing.T) {
 
 	var st map[string]any
 	core.JSONUnmarshalString(fs.Read(core.JoinPath(dir, "status.json")).Value.(string), &st)
-	assert.Equal(t, "rejected", st["status"])
-	assert.Equal(t, "binary file: app.exe", st["question"])
+	core.AssertEqual(t, "rejected", st["status"])
+	core.AssertEqual(t, "binary file: app.exe", st["question"])
 }

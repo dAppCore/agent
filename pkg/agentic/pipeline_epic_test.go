@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineEpic_Good_CreateGroupsIssuesIntoEpic(t *testing.T) {
@@ -21,13 +19,13 @@ func TestPipelineEpic_Good_CreateGroupsIssuesIntoEpic(t *testing.T) {
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineEpicCreate(context.Background(), PipelineEpicCreateInput{Org: "core", Repo: "go-io"})
 
-	require.NoError(t, err)
-	require.Len(t, output.Epics, 1)
-	assert.Equal(t, 13, output.Epics[0].Number)
-	assert.Equal(t, "epic/13-security", output.Epics[0].Branch)
-	assert.Contains(t, repo.Issues[13].Body, "- [ ] #10 security(go-io): Validate tokens")
-	assert.Contains(t, repo.Comments[10][0], "Parent: #13")
-	assert.Equal(t, "deadbeef", repo.Branches["epic/13-security"])
+	core.RequireNoError(t, err)
+	core.AssertLen(t, output.Epics, 1)
+	core.AssertEqual(t, 13, output.Epics[0].Number)
+	core.AssertEqual(t, "epic/13-security", output.Epics[0].Branch)
+	core.AssertContains(t, repo.Issues[13].Body, "- [ ] #10 security(go-io): Validate tokens")
+	core.AssertContains(t, repo.Comments[10][0], "Parent: #13")
+	core.AssertEqual(t, "deadbeef", repo.Branches["epic/13-security"])
 }
 
 func TestPipelineEpic_Bad_RunRequiresRepoAndNumber(t *testing.T) {
@@ -35,10 +33,10 @@ func TestPipelineEpic_Bad_RunRequiresRepoAndNumber(t *testing.T) {
 
 	result := s.cmdPipelineEpicRun(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "repo and epic number are required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "repo and epic number are required")
 }
 
 func TestPipelineEpic_Ugly_SyncMarksClosedChildrenChecked(t *testing.T) {
@@ -57,11 +55,11 @@ func TestPipelineEpic_Ugly_SyncMarksClosedChildrenChecked(t *testing.T) {
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineEpicSync(context.Background(), "core", "go-io", 20, false)
 
-	require.NoError(t, err)
-	assert.True(t, output.Updated)
-	assert.Equal(t, 1, output.Checked)
-	assert.Contains(t, repo.Issues[20].Body, "- [x] #10 security(go-io): Validate tokens")
-	assert.Contains(t, repo.Issues[20].Body, "- [ ] #11 security(go-io): Sanitize input")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Updated)
+	core.AssertEqual(t, 1, output.Checked)
+	core.AssertContains(t, repo.Issues[20].Body, "- [x] #10 security(go-io): Validate tokens")
+	core.AssertContains(t, repo.Issues[20].Body, "- [ ] #11 security(go-io): Sanitize input")
 }
 
 func TestPipelineEpic_Run_Good_DryRunDispatchesUncheckedChildren(t *testing.T) {
@@ -86,7 +84,7 @@ func TestPipelineEpic_Run_Good_DryRunDispatchesUncheckedChildren(t *testing.T) {
 		DryRun:     true,
 	})
 
-	require.NoError(t, err)
-	assert.Len(t, output.Dispatched, 3)
-	assert.Equal(t, "epic/20-security", output.Branch)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, output.Dispatched, 3)
+	core.AssertEqual(t, "epic/20-security", output.Branch)
 }

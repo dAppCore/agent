@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // Follow-up: docs/RFC.pipeline.md still does not exist in this checkout.

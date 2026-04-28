@@ -9,11 +9,9 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
 	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestActions_HandleDispatch_Good(t *testing.T) {
@@ -23,7 +21,7 @@ func TestActions_HandleDispatch_Good(t *testing.T) {
 		core.Option{Key: "task", Value: "fix tests"},
 	))
 	// Will fail (no local clone) but exercises the handler path
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestActions_HandleDispatch_Bad_EntitlementDenied(t *testing.T) {
@@ -46,10 +44,10 @@ func TestActions_HandleDispatch_Bad_EntitlementDenied(t *testing.T) {
 		core.Option{Key: "task", Value: "fix tests"},
 	))
 
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 	err, ok := r.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "dispatch limit reached")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "dispatch limit reached")
 }
 
 func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
@@ -71,15 +69,15 @@ func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 	})
 
 	srcRepo := core.JoinPath(t.TempDir(), "core", "go-io")
-	require.True(t, fs.EnsureDir(srcRepo).OK)
+	core.RequireTrue(t, fs.EnsureDir(srcRepo).OK)
 	process := s.Core().Process()
-	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "init", "-b", "main").OK)
-	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.name", "Test").OK)
-	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.email", "test@test.com").OK)
-	require.True(t, fs.Write(core.JoinPath(srcRepo, "go.mod"), "module test\ngo 1.22\n").OK)
-	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "hello\n").OK)
-	require.True(t, process.RunIn(context.Background(), srcRepo, "git", "add", ".").OK)
-	require.True(t, process.RunIn(
+	core.RequireTrue(t, process.RunIn(context.Background(), srcRepo, "git", "init", "-b", "main").OK)
+	core.RequireTrue(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.name", "Test").OK)
+	core.RequireTrue(t, process.RunIn(context.Background(), srcRepo, "git", "config", "user.email", "test@test.com").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(srcRepo, "go.mod"), "module test\ngo 1.22\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "hello\n").OK)
+	core.RequireTrue(t, process.RunIn(context.Background(), srcRepo, "git", "add", ".").OK)
+	core.RequireTrue(t, process.RunIn(
 		context.Background(),
 		srcRepo,
 		"git",
@@ -104,15 +102,17 @@ func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 		core.Option{Key: "dry-run", Value: true},
 	))
 
-	require.Truef(t, r.OK, "dispatch failed: %#v", r.Value)
-	assert.Equal(t, 1, recorded)
+	if !r.OK {
+		t.Fatalf("dispatch failed: %#v", r.Value)
+	}
+	core.AssertEqual(t, 1, recorded)
 }
 
 func TestActions_HandleStatus_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	s := newPrepWithProcess()
 	r := s.handleStatus(context.Background(), core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandlePrompt_Good(t *testing.T) {
@@ -120,7 +120,7 @@ func TestActions_HandlePrompt_Good(t *testing.T) {
 	r := s.handlePrompt(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "coding"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandlePrompt_Bad(t *testing.T) {
@@ -128,7 +128,7 @@ func TestActions_HandlePrompt_Bad(t *testing.T) {
 	r := s.handlePrompt(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "does-not-exist"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestActions_HandleTask_Good(t *testing.T) {
@@ -136,7 +136,7 @@ func TestActions_HandleTask_Good(t *testing.T) {
 	r := s.handleTask(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "bug-fix"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandleFlow_Good(t *testing.T) {
@@ -144,7 +144,7 @@ func TestActions_HandleFlow_Good(t *testing.T) {
 	r := s.handleFlow(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "go"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandlePersona_Good(t *testing.T) {
@@ -157,14 +157,14 @@ func TestActions_HandlePersona_Good(t *testing.T) {
 	r := s.handlePersona(context.Background(), core.NewOptions(
 		core.Option{Key: "path", Value: personas[0]},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandlePoke_Good(t *testing.T) {
 	s := newPrepWithProcess()
 	s.pokeCh = make(chan struct{}, 1)
 	r := s.handlePoke(context.Background(), core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestActions_HandlePoke_Good_DelegatesToRunner(t *testing.T) {
@@ -179,26 +179,26 @@ func TestActions_HandlePoke_Good_DelegatesToRunner(t *testing.T) {
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
 	r := s.handlePoke(context.Background(), core.NewOptions())
-	require.True(t, r.OK)
-	assert.True(t, called)
+	core.RequireTrue(t, r.OK)
+	core.AssertTrue(t, called)
 }
 
 func TestActions_HandleQA_Bad_NoWorkspace(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleQA(context.Background(), core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestActions_HandleVerify_Bad_NoWorkspace(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleVerify(context.Background(), core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestActions_HandleIngest_Bad_NoWorkspace(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleIngest(context.Background(), core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestActions_HandleComplete_Bad_NoCore(t *testing.T) {
@@ -206,10 +206,10 @@ func TestActions_HandleComplete_Bad_NoCore(t *testing.T) {
 
 	r := s.handleComplete(context.Background(), core.NewOptions())
 
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 	err, ok := r.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "core runtime is required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "core runtime is required")
 }
 
 func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {
@@ -218,19 +218,19 @@ func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {
 	s.workspaces.Set("core/go-io/task-42", &WorkspaceStatus{Status: "blocked", Repo: "go-io"})
 
 	r := s.handleWorkspaceQuery(nil, WorkspaceQuery{Status: "blocked"})
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	names, ok := r.Value.([]string)
-	require.True(t, ok)
-	require.Len(t, names, 1)
-	assert.Equal(t, "core/go-io/task-42", names[0])
+	core.RequireTrue(t, ok)
+	core.AssertLen(t, names, 1)
+	core.AssertEqual(t, "core/go-io/task-42", names[0])
 }
 
 func TestActions_HandleWorkspaceQuery_Bad(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleWorkspaceQuery(nil, "not-a-workspace-query")
-	assert.False(t, r.OK)
-	assert.Nil(t, r.Value)
+	core.AssertFalse(t, r.OK)
+	core.AssertNil(t, r.Value)
 }
 
 func TestActions_DispatchInputFromOptions_Good_MapsRFCFields(t *testing.T) {
@@ -250,19 +250,19 @@ func TestActions_DispatchInputFromOptions_Good_MapsRFCFields(t *testing.T) {
 		core.Option{Key: "dry-run", Value: "true"},
 	))
 
-	assert.Equal(t, "go-io", input.Repo)
-	assert.Equal(t, "core", input.Org)
-	assert.Equal(t, "Fix the failing tests", input.Task)
-	assert.Equal(t, "codex:gpt-5.4", input.Agent)
-	assert.Equal(t, "coding", input.Template)
-	assert.Equal(t, "bug-fix", input.PlanTemplate)
-	assert.Equal(t, map[string]string{"ISSUE": "42", "MODE": "deep"}, input.Variables)
-	assert.Equal(t, "code/reviewer", input.Persona)
-	assert.Equal(t, 42, input.Issue)
-	assert.Equal(t, 7, input.PR)
-	assert.Equal(t, "agent/fix-tests", input.Branch)
-	assert.Equal(t, "v0.8.0", input.Tag)
-	assert.True(t, input.DryRun)
+	core.AssertEqual(t, "go-io", input.Repo)
+	core.AssertEqual(t, "core", input.Org)
+	core.AssertEqual(t, "Fix the failing tests", input.Task)
+	core.AssertEqual(t, "codex:gpt-5.4", input.Agent)
+	core.AssertEqual(t, "coding", input.Template)
+	core.AssertEqual(t, "bug-fix", input.PlanTemplate)
+	core.AssertEqual(t, map[string]string{"ISSUE": "42", "MODE": "deep"}, input.Variables)
+	core.AssertEqual(t, "code/reviewer", input.Persona)
+	core.AssertEqual(t, 42, input.Issue)
+	core.AssertEqual(t, 7, input.PR)
+	core.AssertEqual(t, "agent/fix-tests", input.Branch)
+	core.AssertEqual(t, "v0.8.0", input.Tag)
+	core.AssertTrue(t, input.DryRun)
 }
 
 func TestActions_PrepInputFromOptions_Good_MapsRFCFields(t *testing.T) {
@@ -280,17 +280,17 @@ func TestActions_PrepInputFromOptions_Good_MapsRFCFields(t *testing.T) {
 		core.Option{Key: "dry_run", Value: true},
 	))
 
-	assert.Equal(t, "go-scm", input.Repo)
-	assert.Equal(t, "core", input.Org)
-	assert.Equal(t, "Prepare release branch", input.Task)
-	assert.Equal(t, "claude", input.Agent)
-	assert.Equal(t, 12, input.Issue)
-	assert.Equal(t, "dev", input.Branch)
-	assert.Equal(t, "security", input.Template)
-	assert.Equal(t, "release", input.PlanTemplate)
-	assert.Equal(t, map[string]string{"REPO": "go-scm", "MODE": "resume"}, input.Variables)
-	assert.Equal(t, "code/security", input.Persona)
-	assert.True(t, input.DryRun)
+	core.AssertEqual(t, "go-scm", input.Repo)
+	core.AssertEqual(t, "core", input.Org)
+	core.AssertEqual(t, "Prepare release branch", input.Task)
+	core.AssertEqual(t, "claude", input.Agent)
+	core.AssertEqual(t, 12, input.Issue)
+	core.AssertEqual(t, "dev", input.Branch)
+	core.AssertEqual(t, "security", input.Template)
+	core.AssertEqual(t, "release", input.PlanTemplate)
+	core.AssertEqual(t, map[string]string{"REPO": "go-scm", "MODE": "resume"}, input.Variables)
+	core.AssertEqual(t, "code/security", input.Persona)
+	core.AssertTrue(t, input.DryRun)
 }
 
 func TestActions_WatchInputFromOptions_Good_ParsesWorkspaceList(t *testing.T) {
@@ -300,9 +300,9 @@ func TestActions_WatchInputFromOptions_Good_ParsesWorkspaceList(t *testing.T) {
 		core.Option{Key: "timeout", Value: "900"},
 	))
 
-	assert.Equal(t, []string{"core/go-io/task-5", "core/go-scm/task-6"}, input.Workspaces)
-	assert.Equal(t, 15, input.PollInterval)
-	assert.Equal(t, 900, input.Timeout)
+	core.AssertEqual(t, []string{"core/go-io/task-5", "core/go-scm/task-6"}, input.Workspaces)
+	core.AssertEqual(t, 15, input.PollInterval)
+	core.AssertEqual(t, 900, input.Timeout)
 }
 
 func TestActions_ReviewQueueInputFromOptions_Good_MapsLocalOnly(t *testing.T) {
@@ -313,10 +313,10 @@ func TestActions_ReviewQueueInputFromOptions_Good_MapsLocalOnly(t *testing.T) {
 		core.Option{Key: "local_only", Value: "yes"},
 	))
 
-	assert.Equal(t, 4, input.Limit)
-	assert.Equal(t, "both", input.Reviewer)
-	assert.True(t, input.DryRun)
-	assert.True(t, input.LocalOnly)
+	core.AssertEqual(t, 4, input.Limit)
+	core.AssertEqual(t, "both", input.Reviewer)
+	core.AssertTrue(t, input.DryRun)
+	core.AssertTrue(t, input.LocalOnly)
 }
 
 func TestActions_EpicInputFromOptions_Good_ParsesListFields(t *testing.T) {
@@ -332,15 +332,15 @@ func TestActions_EpicInputFromOptions_Good_ParsesListFields(t *testing.T) {
 		core.Option{Key: "template", Value: "coding"},
 	))
 
-	assert.Equal(t, "go-io", input.Repo)
-	assert.Equal(t, "core", input.Org)
-	assert.Equal(t, "AX RFC follow-up", input.Title)
-	assert.Equal(t, "Finish the remaining wrappers", input.Body)
-	assert.Equal(t, []string{"Map action inputs", "Add tests"}, input.Tasks)
-	assert.Equal(t, []string{"agentic", "ax"}, input.Labels)
-	assert.True(t, input.Dispatch)
-	assert.Equal(t, "codex", input.Agent)
-	assert.Equal(t, "coding", input.Template)
+	core.AssertEqual(t, "go-io", input.Repo)
+	core.AssertEqual(t, "core", input.Org)
+	core.AssertEqual(t, "AX RFC follow-up", input.Title)
+	core.AssertEqual(t, "Finish the remaining wrappers", input.Body)
+	core.AssertEqual(t, []string{"Map action inputs", "Add tests"}, input.Tasks)
+	core.AssertEqual(t, []string{"agentic", "ax"}, input.Labels)
+	core.AssertTrue(t, input.Dispatch)
+	core.AssertEqual(t, "codex", input.Agent)
+	core.AssertEqual(t, "coding", input.Template)
 }
 
 func TestActions_NormaliseForgeActionOptions_Good_MapsRepoAndNumber(t *testing.T) {
@@ -350,9 +350,9 @@ func TestActions_NormaliseForgeActionOptions_Good_MapsRepoAndNumber(t *testing.T
 		core.Option{Key: "title", Value: "Fix watcher"},
 	))
 
-	assert.Equal(t, "go-io", options.String("_arg"))
-	assert.Equal(t, "12", options.String("number"))
-	assert.Equal(t, "Fix watcher", options.String("title"))
+	core.AssertEqual(t, "go-io", options.String("_arg"))
+	core.AssertEqual(t, "12", options.String("number"))
+	core.AssertEqual(t, "Fix watcher", options.String("title"))
 }
 
 func TestActions_OptionHelpers_Ugly_IgnoreMalformedMapJSON(t *testing.T) {
@@ -362,5 +362,5 @@ func TestActions_OptionHelpers_Ugly_IgnoreMalformedMapJSON(t *testing.T) {
 		core.Option{Key: "variables", Value: "{\"BROKEN\""},
 	))
 
-	assert.Nil(t, input.Variables)
+	core.AssertNil(t, input.Variables)
 }

@@ -9,10 +9,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // coreWithRunnerActions builds a Core with stub runner.start/stop/kill Actions
@@ -31,7 +29,7 @@ func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -40,10 +38,10 @@ func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, out.Total)
-	assert.Equal(t, 0, out.Running)
-	assert.Equal(t, 0, out.Completed)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 0, out.Total)
+	core.AssertEqual(t, 0, out.Running)
+	core.AssertEqual(t, 0, out.Completed)
 }
 
 func TestStatus_MixedWorkspaces_Good(t *testing.T) {
@@ -54,8 +52,8 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 
 	// Create completed workspace (old layout)
 	ws1 := core.JoinPath(wsRoot, "task-1")
-	require.True(t, fs.EnsureDir(ws1).OK)
-	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws1).OK)
+	core.RequireNoError(t, writeStatus(ws1, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Agent:  "codex",
@@ -63,8 +61,8 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 
 	// Create failed workspace (old layout)
 	ws2 := core.JoinPath(wsRoot, "task-2")
-	require.True(t, fs.EnsureDir(ws2).OK)
-	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws2).OK)
+	core.RequireNoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status: "failed",
 		Repo:   "go-log",
 		Agent:  "claude",
@@ -72,8 +70,8 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 
 	// Create blocked workspace (old layout)
 	ws3 := core.JoinPath(wsRoot, "task-3")
-	require.True(t, fs.EnsureDir(ws3).OK)
-	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws3).OK)
+	core.RequireNoError(t, writeStatus(ws3, &WorkspaceStatus{
 		Status:   "blocked",
 		Repo:     "agent",
 		Agent:    "gemini",
@@ -82,8 +80,8 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 
 	// Create queued workspace (old layout)
 	ws4 := core.JoinPath(wsRoot, "task-4")
-	require.True(t, fs.EnsureDir(ws4).OK)
-	require.NoError(t, writeStatus(ws4, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws4).OK)
+	core.RequireNoError(t, writeStatus(ws4, &WorkspaceStatus{
 		Status: "queued",
 		Repo:   "go-mcp",
 		Agent:  "codex",
@@ -96,14 +94,14 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 4, out.Total)
-	assert.Equal(t, 1, out.Completed)
-	assert.Equal(t, 1, out.Failed)
-	assert.Equal(t, 1, out.Queued)
-	assert.Len(t, out.Blocked, 1)
-	assert.Equal(t, "Which API version?", out.Blocked[0].Question)
-	assert.Equal(t, "agent", out.Blocked[0].Repo)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 4, out.Total)
+	core.AssertEqual(t, 1, out.Completed)
+	core.AssertEqual(t, 1, out.Failed)
+	core.AssertEqual(t, 1, out.Queued)
+	core.AssertLen(t, out.Blocked, 1)
+	core.AssertEqual(t, "Which API version?", out.Blocked[0].Question)
+	core.AssertEqual(t, "agent", out.Blocked[0].Repo)
 }
 
 func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
@@ -113,16 +111,16 @@ func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws1 := core.JoinPath(wsRoot, "task-1")
-	require.True(t, fs.EnsureDir(ws1).OK)
-	require.NoError(t, writeStatus(ws1, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws1).OK)
+	core.RequireNoError(t, writeStatus(ws1, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Agent:  "codex",
 	}))
 
 	ws2 := core.JoinPath(wsRoot, "task-2")
-	require.True(t, fs.EnsureDir(ws2).OK)
-	require.NoError(t, writeStatus(ws2, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws2).OK)
+	core.RequireNoError(t, writeStatus(ws2, &WorkspaceStatus{
 		Status:   "blocked",
 		Repo:     "go-log",
 		Agent:    "claude",
@@ -130,8 +128,8 @@ func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 	}))
 
 	ws3 := core.JoinPath(wsRoot, "task-3")
-	require.True(t, fs.EnsureDir(ws3).OK)
-	require.NoError(t, writeStatus(ws3, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws3).OK)
+	core.RequireNoError(t, writeStatus(ws3, &WorkspaceStatus{
 		Status: "running",
 		Repo:   "agent",
 		Agent:  "gemini",
@@ -148,13 +146,13 @@ func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 		Status:    "blocked",
 		Limit:     1,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Total)
-	assert.Equal(t, 0, out.Failed)
-	assert.Equal(t, 0, out.Completed)
-	assert.Len(t, out.Blocked, 1)
-	assert.Equal(t, "go-log", out.Blocked[0].Repo)
-	assert.Equal(t, "Which log format?", out.Blocked[0].Question)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Total)
+	core.AssertEqual(t, 0, out.Failed)
+	core.AssertEqual(t, 0, out.Completed)
+	core.AssertLen(t, out.Blocked, 1)
+	core.AssertEqual(t, "go-log", out.Blocked[0].Repo)
+	core.AssertEqual(t, "Which log format?", out.Blocked[0].Question)
 }
 
 func TestStatus_DeepLayout_Good(t *testing.T) {
@@ -165,8 +163,8 @@ func TestStatus_DeepLayout_Good(t *testing.T) {
 
 	// Create workspace in deep layout (org/repo/task)
 	ws := core.JoinPath(wsRoot, "core", "go-io", "task-15")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Agent:  "codex",
@@ -179,9 +177,9 @@ func TestStatus_DeepLayout_Good(t *testing.T) {
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Total)
-	assert.Equal(t, 1, out.Completed)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Total)
+	core.AssertEqual(t, 1, out.Completed)
 }
 
 func TestStatus_CorruptStatus_Good(t *testing.T) {
@@ -191,8 +189,8 @@ func TestStatus_CorruptStatus_Good(t *testing.T) {
 	wsRoot := core.JoinPath(root, "workspace")
 
 	ws := core.JoinPath(wsRoot, "corrupt-ws")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.True(t, fs.Write(core.JoinPath(ws, "status.json"), "invalid-json{{{").OK)
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(ws, "status.json"), "invalid-json{{{").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -201,9 +199,9 @@ func TestStatus_CorruptStatus_Good(t *testing.T) {
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Total)
-	assert.Equal(t, 1, out.Failed) // corrupt status counts as failed
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Total)
+	core.AssertEqual(t, 1, out.Failed) // corrupt status counts as failed
 }
 
 // --- shutdown tools ---
@@ -220,16 +218,15 @@ func TestShutdown_DispatchStart_Good(t *testing.T) {
 	}
 
 	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "started")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "started")
 }
 
 func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	// shutdownGraceful delegates to runner.stop Action — verify it returns success and frozen message.
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-
 
 	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
@@ -240,9 +237,9 @@ func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "frozen")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "frozen")
 }
 
 func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
@@ -250,7 +247,7 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
@@ -261,9 +258,9 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "killed all agents, cleared queue")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
 }
 
 func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
@@ -277,8 +274,8 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	// Create queued workspaces (runner.kill would clear these in production)
 	for i := 1; i <= 3; i++ {
 		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
-		require.True(t, fs.EnsureDir(ws).OK)
-		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+		core.RequireTrue(t, fs.EnsureDir(ws).OK)
+		core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "queued",
 			Repo:   "go-io",
 			Agent:  "codex",
@@ -293,17 +290,17 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "killed all agents, cleared queue")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
 }
 
 // --- brainRecall ---
 
 func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/v1/brain/recall")
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertContains(t, r.URL.Path, "/v1/brain/recall")
 
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"memories": []map[string]any{
@@ -323,9 +320,9 @@ func TestPrep_BrainRecall_Good_Success(t *testing.T) {
 	}
 
 	result, count := s.brainRecall(context.Background(), "go-core")
-	assert.Equal(t, 2, count)
-	assert.Contains(t, result, "Core uses DI pattern")
-	assert.Contains(t, result, "Use E() for errors")
+	core.AssertEqual(t, 2, count)
+	core.AssertContains(t, result, "Core uses DI pattern")
+	core.AssertContains(t, result, "Use E() for errors")
 }
 
 func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
@@ -345,8 +342,8 @@ func TestPrep_BrainRecall_Good_NoMemories(t *testing.T) {
 	}
 
 	result, count := s.brainRecall(context.Background(), "go-core")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, result)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, result)
 }
 
 func TestPrep_BrainRecall_Bad_NoBrainKey(t *testing.T) {
@@ -358,8 +355,8 @@ func TestPrep_BrainRecall_Bad_NoBrainKey(t *testing.T) {
 	}
 
 	result, count := s.brainRecall(context.Background(), "go-core")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, result)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, result)
 }
 
 func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
@@ -377,8 +374,8 @@ func TestPrep_BrainRecall_Bad_ServerError(t *testing.T) {
 	}
 
 	result, count := s.brainRecall(context.Background(), "go-core")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, result)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, result)
 }
 
 // --- prepWorkspace ---
@@ -391,14 +388,13 @@ func TestPrep_PrepWorkspace_Bad_NoRepo(t *testing.T) {
 	}
 
 	_, _, err := s.prepWorkspace(context.Background(), nil, PrepInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "repo is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "repo is required")
 }
 
 func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -410,14 +406,13 @@ func TestPrep_PrepWorkspace_Bad_NoIdentifier(t *testing.T) {
 	_, _, err := s.prepWorkspace(context.Background(), nil, PrepInput{
 		Repo: "go-io",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "one of issue, pr, branch, or tag is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "one of issue, pr, branch, or tag is required")
 }
 
 func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -430,8 +425,8 @@ func TestPrep_PrepWorkspace_Bad_InvalidRepoName(t *testing.T) {
 		Repo:  "..",
 		Issue: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid repo name")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "invalid repo name")
 }
 
 // --- listPRs ---
@@ -467,13 +462,13 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 	_, out, err := s.listPRs(context.Background(), nil, ListPRsInput{
 		Repo: "go-io",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 1, out.Count)
-	assert.Equal(t, "Fix tests", out.PRs[0].Title)
-	assert.Equal(t, "virgil", out.PRs[0].Author)
-	assert.Equal(t, "agent/fix-tests", out.PRs[0].Branch)
-	assert.Contains(t, out.PRs[0].Labels, "agentic")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 1, out.Count)
+	core.AssertEqual(t, "Fix tests", out.PRs[0].Title)
+	core.AssertEqual(t, "virgil", out.PRs[0].Author)
+	core.AssertEqual(t, "agent/fix-tests", out.PRs[0].Branch)
+	core.AssertContains(t, out.PRs[0].Labels, "agentic")
 }
 
 // --- Poke ---
@@ -488,8 +483,8 @@ func TestRunner_Poke_Good_SendsSignal(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	assert.NotPanics(t, func() { s.Poke() })
-	assert.Len(t, s.pokeCh, 0, "no-op Poke should not send to channel")
+	core.AssertNotPanics(t, func() { s.Poke() })
+	core.AssertLen(t, s.pokeCh, 0, "no-op Poke should not send to channel")
 }
 
 func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
@@ -504,7 +499,7 @@ func TestRunner_Poke_Good_NonBlocking(t *testing.T) {
 	s.pokeCh <- struct{}{}
 
 	// Second poke should not block
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.Poke()
 	})
 }
@@ -518,7 +513,7 @@ func TestRunner_Poke_Bad_NilChannel(t *testing.T) {
 	}
 
 	// Should not panic with nil channel
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.Poke()
 	})
 }
@@ -536,15 +531,15 @@ func TestStatus_WriteRead_Good_WithPID(t *testing.T) {
 	}
 
 	err := writeStatus(dir, st)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Read it back
 	got := mustReadStatus(t, dir)
-	assert.Equal(t, "running", got.Status)
-	assert.Equal(t, "codex", got.Agent)
-	assert.Equal(t, "go-io", got.Repo)
-	assert.Equal(t, 12345, got.PID)
-	assert.False(t, got.UpdatedAt.IsZero())
+	core.AssertEqual(t, "running", got.Status)
+	core.AssertEqual(t, "codex", got.Agent)
+	core.AssertEqual(t, "go-io", got.Repo)
+	core.AssertEqual(t, 12345, got.PID)
+	core.AssertFalse(t, got.UpdatedAt.IsZero())
 }
 
 func TestStatus_WriteRead_Good_AllFields(t *testing.T) {
@@ -566,16 +561,16 @@ func TestStatus_WriteRead_Good_AllFields(t *testing.T) {
 	}
 
 	err := writeStatus(dir, st)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	got := mustReadStatus(t, dir)
-	assert.Equal(t, "blocked", got.Status)
-	assert.Equal(t, "claude", got.Agent)
-	assert.Equal(t, "core", got.Org)
-	assert.Equal(t, 42, got.Issue)
-	assert.Equal(t, "Which log format?", got.Question)
-	assert.Equal(t, 3, got.Runs)
-	assert.Equal(t, "https://forge.test/core/go-log/pulls/5", got.PRURL)
+	core.AssertEqual(t, "blocked", got.Status)
+	core.AssertEqual(t, "claude", got.Agent)
+	core.AssertEqual(t, "core", got.Org)
+	core.AssertEqual(t, 42, got.Issue)
+	core.AssertEqual(t, "Which log format?", got.Question)
+	core.AssertEqual(t, 3, got.Runs)
+	core.AssertEqual(t, "https://forge.test/core/go-log/pulls/5", got.PRURL)
 }
 
 // --- OnStartup / OnShutdown ---
@@ -589,8 +584,8 @@ func TestPrep_OnShutdown_Good(t *testing.T) {
 	}
 
 	r := s.OnShutdown(context.Background())
-	assert.True(t, r.OK)
-	assert.True(t, s.frozen)
+	core.AssertTrue(t, r.OK)
+	core.AssertTrue(t, s.frozen)
 }
 
 // --- drainQueue ---
@@ -598,7 +593,6 @@ func TestPrep_OnShutdown_Good(t *testing.T) {
 func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -608,7 +602,7 @@ func TestQueue_DrainQueue_Good_FrozenDoesNothing(t *testing.T) {
 	}
 
 	// Should return immediately when frozen
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.drainQueue()
 	})
 }
@@ -625,8 +619,8 @@ func TestShutdown_ShutdownNow_Ugly_DeepLayout(t *testing.T) {
 
 	// Create workspace in deep layout (org/repo/task)
 	ws := core.JoinPath(wsRoot, "core", "go-io", "task-5")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "queued",
 		Repo:   "go-io",
 		Agent:  "codex",
@@ -642,9 +636,9 @@ func TestShutdown_ShutdownNow_Ugly_DeepLayout(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "killed all agents, cleared queue")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
 }
 
 // --- dispatchStart Bad/Ugly ---
@@ -661,9 +655,9 @@ func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
 	}
 
 	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "started")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "started")
 }
 
 func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
@@ -676,10 +670,10 @@ func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
 	}
 
 	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.False(t, s.frozen, "should remain unfrozen")
-	assert.Contains(t, out.Message, "started")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertFalse(t, s.frozen, "should remain unfrozen")
+	core.AssertContains(t, out.Message, "started")
 }
 
 // --- shutdownGraceful Bad/Ugly ---
@@ -687,7 +681,6 @@ func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
 func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -697,10 +690,10 @@ func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.True(t, s.frozen, "should remain frozen")
-	assert.Contains(t, out.Message, "frozen")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertTrue(t, s.frozen, "should remain frozen")
+	core.AssertContains(t, out.Message, "frozen")
 }
 
 func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
@@ -714,8 +707,8 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	// Create workspaces with various statuses
 	for _, name := range []string{"ws-completed", "ws-failed", "ws-blocked"} {
 		ws := core.JoinPath(wsRoot, name)
-		require.True(t, fs.EnsureDir(ws).OK)
-		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+		core.RequireTrue(t, fs.EnsureDir(ws).OK)
+		core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "completed",
 			Repo:   "go-io",
 			Agent:  "codex",
@@ -731,9 +724,9 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "frozen")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "frozen")
 }
 
 // --- shutdownNow Bad ---
@@ -749,8 +742,8 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	// Create completed workspaces only (no running PIDs to kill)
 	for i := 1; i <= 2; i++ {
 		ws := core.JoinPath(wsRoot, "task-"+itoa(i))
-		require.True(t, fs.EnsureDir(ws).OK)
-		require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+		core.RequireTrue(t, fs.EnsureDir(ws).OK)
+		core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 			Status: "completed",
 			Repo:   "go-io",
 			Agent:  "codex",
@@ -766,7 +759,7 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 	}
 
 	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Contains(t, out.Message, "killed all agents, cleared queue")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
 }

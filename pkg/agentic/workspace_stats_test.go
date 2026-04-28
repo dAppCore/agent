@@ -6,40 +6,48 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 func TestWorkspacestats_ExtractModelFromAgent_Good(t *testing.T) {
-	assert.Equal(t, "gpt-5.4-mini", extractModelFromAgent("codex:gpt-5.4-mini"))
-	assert.Equal(t, "sonnet", extractModelFromAgent("claude:sonnet"))
+	codexModel := extractModelFromAgent("codex:gpt-5.4-mini")
+	claudeModel := extractModelFromAgent("claude:sonnet")
+	core.AssertEqual(t, "gpt-5.4-mini", codexModel)
+	core.AssertEqual(t, "sonnet", claudeModel)
 }
 
 func TestWorkspacestats_ExtractModelFromAgent_Bad_NoColon(t *testing.T) {
-	assert.Equal(t, "", extractModelFromAgent("codex"))
+	model := extractModelFromAgent("codex")
+	core.AssertEqual(t, "", model)
+	core.AssertEmpty(t, model)
 }
 
 func TestWorkspacestats_ExtractModelFromAgent_Ugly_EmptyAndMultipleColons(t *testing.T) {
-	assert.Equal(t, "", extractModelFromAgent(""))
+	empty := extractModelFromAgent("")
+	model := extractModelFromAgent("codex:gpt:5.4:mini")
+	core.AssertEqual(t, "", empty)
 	// Multiple colons — the model preserves the remainder unchanged.
-	assert.Equal(t, "gpt:5.4:mini", extractModelFromAgent("codex:gpt:5.4:mini"))
+	core.AssertEqual(t, "gpt:5.4:mini", model)
 }
 
 func TestWorkspacestats_DispatchDurationMS_Good(t *testing.T) {
 	started := time.Now()
 	updated := started.Add(2500 * time.Millisecond)
-	assert.Equal(t, int64(2500), dispatchDurationMS(started, updated))
+	core.AssertEqual(t, int64(2500), dispatchDurationMS(started, updated))
 }
 
 func TestWorkspacestats_DispatchDurationMS_Bad_ZeroStart(t *testing.T) {
-	assert.Equal(t, int64(0), dispatchDurationMS(time.Time{}, time.Now()))
+	startedAt := time.Time{}
+	duration := dispatchDurationMS(startedAt, time.Now())
+	core.AssertEqual(t, int64(0), duration)
+	core.AssertTrue(t, duration >= 0)
 }
 
 func TestWorkspacestats_DispatchDurationMS_Ugly_UpdatedBeforeStarted(t *testing.T) {
 	started := time.Now()
 	updated := started.Add(-5 * time.Second)
 	// When UpdatedAt is before StartedAt we return 0 rather than a negative value.
-	assert.Equal(t, int64(0), dispatchDurationMS(started, updated))
+	core.AssertEqual(t, int64(0), dispatchDurationMS(started, updated))
 }
 
 func TestWorkspacestats_CountFindingsBy_Good(t *testing.T) {
@@ -49,13 +57,15 @@ func TestWorkspacestats_CountFindingsBy_Good(t *testing.T) {
 		{"severity": "warning", "tool": "golangci-lint"},
 	}
 	counts := countFindingsBy(findings, "severity")
-	assert.Equal(t, 2, counts["error"])
-	assert.Equal(t, 1, counts["warning"])
+	core.AssertEqual(t, 2, counts["error"])
+	core.AssertEqual(t, 1, counts["warning"])
 }
 
 func TestWorkspacestats_CountFindingsBy_Bad_EmptySlice(t *testing.T) {
-	assert.Nil(t, countFindingsBy(nil, "severity"))
-	assert.Nil(t, countFindingsBy([]map[string]any{}, "severity"))
+	nilCounts := countFindingsBy(nil, "severity")
+	emptyCounts := countFindingsBy([]map[string]any{}, "severity")
+	core.AssertNil(t, nilCounts)
+	core.AssertNil(t, emptyCounts)
 }
 
 func TestWorkspacestats_CountFindingsBy_Ugly_MissingFieldValues(t *testing.T) {
@@ -66,9 +76,9 @@ func TestWorkspacestats_CountFindingsBy_Ugly_MissingFieldValues(t *testing.T) {
 		{"tool": "gosec"}, // no severity at all
 	}
 	counts := countFindingsBy(findings, "severity")
-	assert.Equal(t, 1, counts["error"])
+	core.AssertEqual(t, 1, counts["error"])
 	// Empty and missing values are skipped, so the map only holds "error".
-	assert.Equal(t, 1, len(counts))
+	core.AssertEqual(t, 1, len(counts))
 }
 
 func TestWorkspacestats_BuildWorkspaceStatsRecord_Good_FromStatus(t *testing.T) {
@@ -92,15 +102,15 @@ func TestWorkspacestats_BuildWorkspaceStatsRecord_Good_FromStatus(t *testing.T) 
 		UpdatedAt: updated,
 	})
 
-	assert.Equal(t, "core/go-io/task-5", record.Workspace)
-	assert.Equal(t, "go-io", record.Repo)
-	assert.Equal(t, "agent/task-5", record.Branch)
-	assert.Equal(t, "codex:gpt-5.4-mini", record.Agent)
-	assert.Equal(t, "gpt-5.4-mini", record.Model)
-	assert.Equal(t, "completed", record.Status)
-	assert.Equal(t, 2, record.Runs)
-	assert.Equal(t, int64(3500), record.DurationMS)
-	assert.NotEmpty(t, record.CompletedAt)
+	core.AssertEqual(t, "core/go-io/task-5", record.Workspace)
+	core.AssertEqual(t, "go-io", record.Repo)
+	core.AssertEqual(t, "agent/task-5", record.Branch)
+	core.AssertEqual(t, "codex:gpt-5.4-mini", record.Agent)
+	core.AssertEqual(t, "gpt-5.4-mini", record.Model)
+	core.AssertEqual(t, "completed", record.Status)
+	core.AssertEqual(t, 2, record.Runs)
+	core.AssertEqual(t, int64(3500), record.DurationMS)
+	core.AssertNotEmpty(t, record.CompletedAt)
 }
 
 func TestWorkspacestats_BuildWorkspaceStatsRecord_Good_FromReport(t *testing.T) {
@@ -135,22 +145,22 @@ func TestWorkspacestats_BuildWorkspaceStatsRecord_Good_FromReport(t *testing.T) 
 		Status: "completed",
 	})
 
-	assert.True(t, record.Passed)
-	assert.True(t, record.BuildPassed)
-	assert.True(t, record.TestPassed)
-	assert.True(t, record.LintPassed)
-	assert.Equal(t, 2, record.FindingsTotal)
-	assert.Equal(t, 1, record.BySeverity["error"])
-	assert.Equal(t, 1, record.BySeverity["warning"])
-	assert.Equal(t, 1, record.ByTool["gosec"])
-	assert.Equal(t, 1, record.ByTool["golangci-lint"])
-	assert.Equal(t, 1, record.ClustersCount)
-	assert.Equal(t, 1, record.NewCount)
-	assert.Equal(t, 1, record.ResolvedCount)
-	assert.Equal(t, 0, record.PersistentCount)
-	assert.Equal(t, 12, record.Insertions)
-	assert.Equal(t, 3, record.Deletions)
-	assert.Equal(t, 2, record.FilesChanged)
+	core.AssertTrue(t, record.Passed)
+	core.AssertTrue(t, record.BuildPassed)
+	core.AssertTrue(t, record.TestPassed)
+	core.AssertTrue(t, record.LintPassed)
+	core.AssertEqual(t, 2, record.FindingsTotal)
+	core.AssertEqual(t, 1, record.BySeverity["error"])
+	core.AssertEqual(t, 1, record.BySeverity["warning"])
+	core.AssertEqual(t, 1, record.ByTool["gosec"])
+	core.AssertEqual(t, 1, record.ByTool["golangci-lint"])
+	core.AssertEqual(t, 1, record.ClustersCount)
+	core.AssertEqual(t, 1, record.NewCount)
+	core.AssertEqual(t, 1, record.ResolvedCount)
+	core.AssertEqual(t, 0, record.PersistentCount)
+	core.AssertEqual(t, 12, record.Insertions)
+	core.AssertEqual(t, 3, record.Deletions)
+	core.AssertEqual(t, 2, record.FilesChanged)
 }
 
 func TestWorkspacestats_BuildWorkspaceStatsRecord_Ugly_MissingReport(t *testing.T) {
@@ -167,10 +177,10 @@ func TestWorkspacestats_BuildWorkspaceStatsRecord_Ugly_MissingReport(t *testing.
 		Status: "failed",
 	})
 
-	assert.Equal(t, "core/go-io/task-5", record.Workspace)
-	assert.False(t, record.Passed)
-	assert.Equal(t, 0, record.FindingsTotal)
-	assert.Nil(t, record.BySeverity)
+	core.AssertEqual(t, "core/go-io/task-5", record.Workspace)
+	core.AssertFalse(t, record.Passed)
+	core.AssertEqual(t, 0, record.FindingsTotal)
+	core.AssertNil(t, record.BySeverity)
 }
 
 func TestWorkspacestats_RecordWorkspaceStats_Good_WritesToStore(t *testing.T) {
@@ -203,9 +213,9 @@ func TestWorkspacestats_RecordWorkspaceStats_Good_WritesToStore(t *testing.T) {
 	}
 
 	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-5")
-	assert.NoError(t, err)
-	assert.Contains(t, value, "core/go-io/task-5")
-	assert.Contains(t, value, "go-io")
+	core.AssertNoError(t, err)
+	core.AssertContains(t, value, "core/go-io/task-5")
+	core.AssertContains(t, value, "go-io")
 }
 
 func TestWorkspacestats_RecordWorkspaceStats_Bad_NilInputs(t *testing.T) {
@@ -230,21 +240,21 @@ func TestWorkspacestats_WorkspaceStatsPath_Good(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	expected := core.JoinPath(root, "workspace", "db.duckdb")
-	assert.Equal(t, expected, workspaceStatsPath())
+	core.AssertEqual(t, expected, workspaceStatsPath())
 }
 
 func TestWorkspacestats_WorkspaceStatsMatches_Good(t *testing.T) {
 	record := workspaceStatsRecord{Repo: "go-io", Status: "completed"}
-	assert.True(t, workspaceStatsMatches(record, "", ""))
-	assert.True(t, workspaceStatsMatches(record, "go-io", ""))
-	assert.True(t, workspaceStatsMatches(record, "", "completed"))
-	assert.True(t, workspaceStatsMatches(record, "go-io", "completed"))
+	core.AssertTrue(t, workspaceStatsMatches(record, "", ""))
+	core.AssertTrue(t, workspaceStatsMatches(record, "go-io", ""))
+	core.AssertTrue(t, workspaceStatsMatches(record, "", "completed"))
+	core.AssertTrue(t, workspaceStatsMatches(record, "go-io", "completed"))
 }
 
 func TestWorkspacestats_WorkspaceStatsMatches_Bad_RepoMismatch(t *testing.T) {
 	record := workspaceStatsRecord{Repo: "go-io", Status: "completed"}
-	assert.False(t, workspaceStatsMatches(record, "go-log", ""))
-	assert.False(t, workspaceStatsMatches(record, "", "failed"))
+	core.AssertFalse(t, workspaceStatsMatches(record, "go-log", ""))
+	core.AssertFalse(t, workspaceStatsMatches(record, "", "failed"))
 }
 
 func TestWorkspacestats_FilterWorkspaceStats_Good_AppliesLimit(t *testing.T) {
@@ -255,9 +265,9 @@ func TestWorkspacestats_FilterWorkspaceStats_Good_AppliesLimit(t *testing.T) {
 	}
 
 	filtered := filterWorkspaceStats(records, "go-io", "completed", 2)
-	assert.Len(t, filtered, 2)
-	assert.Equal(t, "a", filtered[0].Workspace)
-	assert.Equal(t, "b", filtered[1].Workspace)
+	core.AssertLen(t, filtered, 2)
+	core.AssertEqual(t, "a", filtered[0].Workspace)
+	core.AssertEqual(t, "b", filtered[1].Workspace)
 }
 
 func TestWorkspacestats_FilterWorkspaceStats_Ugly_FilterSkipsMismatches(t *testing.T) {
@@ -269,19 +279,21 @@ func TestWorkspacestats_FilterWorkspaceStats_Ugly_FilterSkipsMismatches(t *testi
 
 	// Repo filter drops the go-log row, status filter drops the failed one.
 	filtered := filterWorkspaceStats(records, "go-io", "completed", 0)
-	assert.Len(t, filtered, 1)
-	assert.Equal(t, "a", filtered[0].Workspace)
+	core.AssertLen(t, filtered, 1)
+	core.AssertEqual(t, "a", filtered[0].Workspace)
 
 	// Empty filters return everything.
-	assert.Len(t, filterWorkspaceStats(records, "", "", 0), 3)
+	core.AssertLen(t, filterWorkspaceStats(records, "", "", 0), 3)
 
 	// Nil input returns nil.
-	assert.Nil(t, filterWorkspaceStats(nil, "", "", 0))
+	core.AssertNil(t, filterWorkspaceStats(nil, "", "", 0))
 }
 
 func TestWorkspacestats_ListWorkspaceStats_Ugly_StoreUnavailableReturnsNil(t *testing.T) {
 	var s *PrepSubsystem
-	assert.Nil(t, s.listWorkspaceStats())
+	rows := s.listWorkspaceStats()
+	core.AssertNil(t, rows)
+	core.AssertEqual(t, 0, len(rows))
 }
 
 func TestWorkspacestats_WorkspaceStatsInstance_Ugly_ReopenAfterClose(t *testing.T) {
@@ -304,7 +316,7 @@ func TestWorkspacestats_WorkspaceStatsInstance_Ugly_ReopenAfterClose(t *testing.
 	s.closeWorkspaceStatsStore()
 
 	second := s.workspaceStatsInstance()
-	assert.NotNil(t, second)
+	core.AssertNotNil(t, second)
 	// After close the reference is reset so a new instance is opened — the
 	// old pointer is stale but the store handle is re-used transparently.
 }
@@ -322,10 +334,10 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_ReturnsEmptyWhenNoRows(t *test
 	t.Cleanup(s.closeWorkspaceStatsStore)
 
 	result := s.handleWorkspaceStats(nil, core.NewOptions())
-	assert.True(t, result.OK)
+	core.AssertTrue(t, result.OK)
 	out, ok := result.Value.(WorkspaceStatsOutput)
-	assert.True(t, ok)
-	assert.Equal(t, 0, out.Count)
+	core.AssertTrue(t, ok)
+	core.AssertEqual(t, 0, out.Count)
 }
 
 func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
@@ -363,9 +375,9 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
 	result := s.handleWorkspaceStats(nil, core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 	))
-	assert.True(t, result.OK)
+	core.AssertTrue(t, result.OK)
 	out := result.Value.(WorkspaceStatsOutput)
-	assert.Equal(t, 2, out.Count)
+	core.AssertEqual(t, 2, out.Count)
 
 	// Filter by repo + status.
 	result = s.handleWorkspaceStats(nil, core.NewOptions(
@@ -373,14 +385,14 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
 		core.Option{Key: "status", Value: "completed"},
 	))
 	out = result.Value.(WorkspaceStatsOutput)
-	assert.Equal(t, 1, out.Count)
+	core.AssertEqual(t, 1, out.Count)
 
 	// Limit trims the result set.
 	result = s.handleWorkspaceStats(nil, core.NewOptions(
 		core.Option{Key: "limit", Value: 1},
 	))
 	out = result.Value.(WorkspaceStatsOutput)
-	assert.Equal(t, 1, out.Count)
+	core.AssertEqual(t, 1, out.Count)
 }
 
 func TestWorkspacestats_CmdWorkspaceStats_Good_NoRowsPrintsFriendlyMessage(t *testing.T) {
@@ -396,7 +408,7 @@ func TestWorkspacestats_CmdWorkspaceStats_Good_NoRowsPrintsFriendlyMessage(t *te
 	t.Cleanup(s.closeWorkspaceStatsStore)
 
 	result := s.cmdWorkspaceStats(core.NewOptions())
-	assert.True(t, result.OK)
+	core.AssertTrue(t, result.OK)
 }
 
 func TestWorkspacestats_CmdWorkspaceStats_Good_PrintsTable(t *testing.T) {
@@ -424,7 +436,7 @@ func TestWorkspacestats_CmdWorkspaceStats_Good_PrintsTable(t *testing.T) {
 	}
 
 	result := s.cmdWorkspaceStats(core.NewOptions())
-	assert.True(t, result.OK)
+	core.AssertTrue(t, result.OK)
 }
 
 func TestWorkspacestats_RegisterWorkspaceStatsCommand_Good(t *testing.T) {
@@ -432,6 +444,6 @@ func TestWorkspacestats_RegisterWorkspaceStatsCommand_Good(t *testing.T) {
 
 	s.registerWorkspaceCommands()
 
-	assert.Contains(t, c.Commands(), "workspace/stats")
-	assert.Contains(t, c.Commands(), "agentic:workspace/stats")
+	core.AssertContains(t, c.Commands(), "workspace/stats")
+	core.AssertContains(t, c.Commands(), "agentic:workspace/stats")
 }

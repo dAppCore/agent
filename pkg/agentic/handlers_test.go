@@ -8,10 +8,8 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // newCoreForHandlerTests creates a Core with PrepSubsystem registered via
@@ -41,10 +39,10 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 
 // --- HandleIPCEvents ---
 
-func TestHandlers_HandleIPCEvents_Good(t *testing.T) {
+func TestHandlers_PrepSubsystem_HandleIPCEvents_Good(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 	// HandleIPCEvents was auto-registered — Core should not panic on ACTION
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		c.ACTION(messages.AgentCompleted{Workspace: "nonexistent", Repo: "test", Status: "completed"})
 	})
 }
@@ -68,7 +66,7 @@ func TestHandlers_PokeOnCompletion_Good(t *testing.T) {
 		Workspace: "ws-test", Repo: "go-io", Status: "completed",
 	})
 
-	require.Eventually(t, func() bool { return len(poked) == 1 }, time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return len(poked) == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
@@ -100,7 +98,7 @@ func TestHandlers_IgnoresNonCompleted_Good(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	// Non-completed status — ingest still runs (it handles all completions)
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		c.ACTION(messages.AgentCompleted{
 			Workspace: "nonexistent",
 			Repo:      "test",
@@ -118,14 +116,14 @@ func TestHandlers_PokeQueue_Good(t *testing.T) {
 	// Should call drainQueue without panic
 }
 
-func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
+func TestCompletionPipeline_RegisterHandlers_Good(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	workspaceName := "core/go-io/task-5"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
-	require.True(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
-	require.NoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
+	core.RequireNoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix-tests",
@@ -194,7 +192,7 @@ func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 		Status:    "completed",
 	})
 
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		return seen("qa") && seen("auto-pr") && seen("verify") && seen("ingest") && seen("poke")
 	}, time.Second, 10*time.Millisecond)
 }
@@ -205,16 +203,16 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 
 	firstWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-1")
 	secondWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-2")
-	require.True(t, fs.EnsureDir(firstWorkspace).OK)
-	require.True(t, fs.EnsureDir(secondWorkspace).OK)
+	core.RequireTrue(t, fs.EnsureDir(firstWorkspace).OK)
+	core.RequireTrue(t, fs.EnsureDir(secondWorkspace).OK)
 
-	require.NoError(t, writeStatus(firstWorkspace, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(firstWorkspace, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/first",
 		PRURL:  "https://forge.lthn.ai/core/go-io/pulls/12",
 	}))
-	require.NoError(t, writeStatus(secondWorkspace, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(secondWorkspace, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/second",
@@ -222,7 +220,7 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 	}))
 
 	result := findWorkspaceByPRWithInfo("go-io", "", 13, "https://forge.lthn.ai/core/go-io/pulls/13")
-	assert.Equal(t, secondWorkspace, result)
+	core.AssertEqual(t, secondWorkspace, result)
 }
 
 func TestHandlers_IngestDisabled_Bad(t *testing.T) {
@@ -258,7 +256,7 @@ func TestHandlers_ResolveWorkspace_Good(t *testing.T) {
 	fs.EnsureDir(ws)
 
 	result := resolveWorkspace("core/go-io/task-15")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 func TestHandlers_ResolveWorkspace_Bad(t *testing.T) {
@@ -266,7 +264,7 @@ func TestHandlers_ResolveWorkspace_Bad(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("nonexistent")
-	assert.Empty(t, result)
+	core.AssertEmpty(t, result)
 }
 
 func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
@@ -280,7 +278,7 @@ func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("go-io", "agent/fix")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
@@ -295,7 +293,7 @@ func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("agent", "agent/tests")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 // --- command registration ---
@@ -309,7 +307,7 @@ func TestHandlers_Commandsforge_Good(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() { s.registerForgeCommands() })
+	core.AssertNotPanics(t, func() { s.registerForgeCommands() })
 }
 
 func TestHandlers_Commandsworkspace_Good(t *testing.T) {
@@ -321,5 +319,5 @@ func TestHandlers_Commandsworkspace_Good(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() { s.registerWorkspaceCommands() })
+	core.AssertNotPanics(t, func() { s.registerWorkspaceCommands() })
 }

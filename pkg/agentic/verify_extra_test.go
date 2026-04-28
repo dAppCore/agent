@@ -9,22 +9,21 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
 )
 
 // --- commentOnIssue ---
 
 func TestPr_CommentOnIssue_Good_PostsCommentOnPR(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/issues/7/comments")
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertContains(t, r.URL.Path, "/issues/7/comments")
 
 		var body map[string]string
 		bodyStr := core.ReadAll(r.Body)
 		core.JSONUnmarshalString(bodyStr.Value.(string), &body)
-		assert.Equal(t, "Test comment", body["body"])
+		core.AssertEqual(t, "Test comment", body["body"])
 
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": 99})))
 	}))
@@ -87,12 +86,12 @@ func TestVerify_AutoVerifyAndMerge_Good_FullPipeline(t *testing.T) {
 	}
 
 	s.autoVerifyAndMerge(wsDir)
-	assert.True(t, mergeOK, "should have called merge API")
-	assert.True(t, commented, "should have posted comment")
+	core.AssertTrue(t, mergeOK, "should have called merge API")
+	core.AssertTrue(t, commented, "should have posted comment")
 
 	// Status should be marked as merged
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "merged", updated.Status)
+	core.AssertEqual(t, "merged", updated.Status)
 }
 
 // --- attemptVerifyAndMerge ---
@@ -119,7 +118,7 @@ func TestVerify_AttemptVerifyAndMerge_Good_TestsPassMergeSucceeds(t *testing.T) 
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test", "agent/fix", 1)
-	assert.Equal(t, mergeSuccess, result)
+	core.AssertEqual(t, mergeSuccess, result)
 }
 
 func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
@@ -145,5 +144,5 @@ func TestVerify_AttemptVerifyAndMerge_Bad_MergeFails(t *testing.T) {
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test", "agent/fix", 1)
-	assert.Equal(t, mergeConflict, result)
+	core.AssertEqual(t, mergeConflict, result)
 }

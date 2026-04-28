@@ -9,9 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineTraining_Good_RootHelp(t *testing.T) {
@@ -19,12 +17,12 @@ func TestPipelineTraining_Good_RootHelp(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		result := s.cmdPipelineTraining(core.NewOptions())
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "core-agent pipeline/training/capture")
-	assert.Contains(t, output, "core-agent pipeline/training/stats")
-	assert.Contains(t, output, "core-agent pipeline/training/export")
+	core.AssertContains(t, output, "core-agent pipeline/training/capture")
+	core.AssertContains(t, output, "core-agent pipeline/training/stats")
+	core.AssertContains(t, output, "core-agent pipeline/training/export")
 }
 
 func TestPipelineTraining_Good_CaptureWritesJournal(t *testing.T) {
@@ -48,26 +46,26 @@ func TestPipelineTraining_Good_CaptureWritesJournal(t *testing.T) {
 			core.Option{Key: "_arg", Value: "7"},
 			core.Option{Key: "repo", Value: "go-io"},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
 	entries := readPipelineTrainingJournal(pipelineTrainingJournalPath())
-	require.Len(t, entries, 1)
-	assert.Contains(t, output, "go-io#7")
-	assert.Equal(t, 2, entries[0].CodeRabbitFindings)
-	assert.Equal(t, "forge.pull.diff", entries[0].DiffSource)
-	assert.Contains(t, entries[0].Diff, "diff --git")
+	core.AssertLen(t, entries, 1)
+	core.AssertContains(t, output, "go-io#7")
+	core.AssertEqual(t, 2, entries[0].CodeRabbitFindings)
+	core.AssertEqual(t, "forge.pull.diff", entries[0].DiffSource)
+	core.AssertContains(t, entries[0].Diff, "diff --git")
 }
 
 func TestPipelineTraining_Good_StatsAggregatesJournal(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	require.NoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
+	core.RequireNoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
 		CapturedAt:         "2026-04-25T12:00:00Z",
 		Repo:               "go-io",
 		PRNumber:           7,
 		CodeRabbitFindings: 0,
 	}))
-	require.NoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
+	core.RequireNoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
 		CapturedAt:         "2026-04-25T12:10:00Z",
 		Repo:               "go-log",
 		PRNumber:           8,
@@ -77,30 +75,30 @@ func TestPipelineTraining_Good_StatsAggregatesJournal(t *testing.T) {
 	var stats PipelineTrainingStats
 	output := captureStdout(t, func() {
 		result := s.cmdPipelineTrainingStats(core.NewOptions())
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 		var ok bool
 		stats, ok = result.Value.(PipelineTrainingStats)
-		require.True(t, ok)
+		core.RequireTrue(t, ok)
 	})
 
-	assert.Equal(t, 2, stats.TotalPRs)
-	assert.Equal(t, 1, stats.ZeroFindingPRs)
-	assert.Equal(t, 1, stats.ByRepo["go-io"])
-	assert.Equal(t, 1, stats.ByRepo["go-log"])
-	assert.Contains(t, output, "go-io")
-	assert.Contains(t, output, "go-log")
+	core.AssertEqual(t, 2, stats.TotalPRs)
+	core.AssertEqual(t, 1, stats.ZeroFindingPRs)
+	core.AssertEqual(t, 1, stats.ByRepo["go-io"])
+	core.AssertEqual(t, 1, stats.ByRepo["go-log"])
+	core.AssertContains(t, output, "go-io")
+	core.AssertContains(t, output, "go-log")
 }
 
 func TestPipelineTraining_Good_ExportWritesZeroFindingOnly(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	require.NoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
+	core.RequireNoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
 		CapturedAt:         "2026-04-25T12:00:00Z",
 		Repo:               "go-io",
 		PRNumber:           7,
 		CodeRabbitFindings: 0,
 		Diff:               "clean diff",
 	}))
-	require.NoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
+	core.RequireNoError(t, appendJSONLRecord(pipelineTrainingJournalPath(), PipelineTrainingEntry{
 		CapturedAt:         "2026-04-25T12:10:00Z",
 		Repo:               "go-log",
 		PRNumber:           8,
@@ -109,12 +107,12 @@ func TestPipelineTraining_Good_ExportWritesZeroFindingOnly(t *testing.T) {
 	}))
 
 	result := s.cmdPipelineTrainingExport(core.NewOptions())
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	exported := readPipelineTrainingJournal(pipelineTrainingExportPath())
-	require.Len(t, exported, 1)
-	assert.Equal(t, "go-io", exported[0].Repo)
-	assert.Equal(t, 0, exported[0].CodeRabbitFindings)
+	core.AssertLen(t, exported, 1)
+	core.AssertEqual(t, "go-io", exported[0].Repo)
+	core.AssertEqual(t, 0, exported[0].CodeRabbitFindings)
 }
 
 func TestPipelineTraining_Bad_CaptureRequiresRepoAndNumber(t *testing.T) {
@@ -122,10 +120,10 @@ func TestPipelineTraining_Bad_CaptureRequiresRepoAndNumber(t *testing.T) {
 
 	result := s.cmdPipelineTrainingCapture(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "repo and pull request number are required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "repo and pull request number are required")
 }
 
 func TestPipelineTraining_Bad_CaptureRejectsOpenPullRequest(t *testing.T) {
@@ -147,17 +145,17 @@ func TestPipelineTraining_Bad_CaptureRejectsOpenPullRequest(t *testing.T) {
 		core.Option{Key: "repo", Value: "go-io"},
 	))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "pull request is not merged")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "pull request is not merged")
 }
 
 func TestPipelineTraining_Ugly_CaptureFallsBackToGitShow(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	c := core.New()
+	c := testCore
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -167,7 +165,7 @@ func TestPipelineTraining_Ugly_CaptureFallsBackToGitShow(t *testing.T) {
 	}
 
 	repoDir, headSHA := createTrainingGitRepo(t, c, s.codePath)
-	assert.NotEmpty(t, repoDir)
+	core.AssertNotEmpty(t, repoDir)
 
 	srv := newTrainingTestServer(t, trainingTestServerConfig{
 		Repo:                  "go-io",
@@ -189,24 +187,24 @@ func TestPipelineTraining_Ugly_CaptureFallsBackToGitShow(t *testing.T) {
 		Repo:   "go-io",
 		Number: 9,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "git.show", output.DiffSource)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "git.show", output.DiffSource)
 }
 
 func TestPipelineTraining_Ugly_StatsSkipsCorruptJournalRows(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	require.NoError(t, ensureParentDir(pipelineTrainingJournalPath()))
-	require.True(t, fs.WriteAtomic(pipelineTrainingJournalPath(), core.Concat(
+	core.RequireNoError(t, ensureParentDir(pipelineTrainingJournalPath()))
+	core.RequireTrue(t, fs.WriteAtomic(pipelineTrainingJournalPath(), core.Concat(
 		"{not-json}\n",
 		core.JSONMarshalString(PipelineTrainingEntry{CapturedAt: "2026-04-25T12:00:00Z", Repo: "go-io", PRNumber: 7, CodeRabbitFindings: 0}),
 		"\n",
 	)).OK)
 
 	result := s.cmdPipelineTrainingStats(core.NewOptions())
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	stats, ok := result.Value.(PipelineTrainingStats)
-	require.True(t, ok)
-	assert.Equal(t, 1, stats.TotalPRs)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, stats.TotalPRs)
 }
 
 type trainingTestServerConfig struct {
@@ -278,15 +276,15 @@ func newTrainingTestServer(t *testing.T, config trainingTestServerConfig) *httpt
 func createTrainingGitRepo(t *testing.T, c *core.Core, codePath string) (string, string) {
 	t.Helper()
 	repoDir := core.JoinPath(codePath, "core", "go-io")
-	require.True(t, fs.EnsureDir(repoDir).OK)
-	require.True(t, c.Process().Run(context.Background(), "git", "init", "-b", "dev", repoDir).OK)
-	require.True(t, c.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test").OK)
-	require.True(t, c.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@example.com").OK)
-	require.True(t, fs.Write(core.JoinPath(repoDir, "main.go"), "package main\n\nfunc main() {}\n").OK)
-	require.True(t, c.Process().RunIn(context.Background(), repoDir, "git", "add", ".").OK)
-	require.True(t, c.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init").OK)
+	core.RequireTrue(t, fs.EnsureDir(repoDir).OK)
+	core.RequireTrue(t, c.Process().Run(context.Background(), "git", "init", "-b", "dev", repoDir).OK)
+	core.RequireTrue(t, c.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test").OK)
+	core.RequireTrue(t, c.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@example.com").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, "main.go"), "package main\n\nfunc main() {}\n").OK)
+	core.RequireTrue(t, c.Process().RunIn(context.Background(), repoDir, "git", "add", ".").OK)
+	core.RequireTrue(t, c.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init").OK)
 
 	head := c.Process().RunIn(context.Background(), repoDir, "git", "rev-parse", "HEAD")
-	require.True(t, head.OK)
+	core.RequireTrue(t, head.OK)
 	return repoDir, core.Trim(resultText(head))
 }

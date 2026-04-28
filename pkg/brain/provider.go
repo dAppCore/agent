@@ -5,10 +5,11 @@ package brain
 import (
 	"strconv"
 
-	"dappco.re/go/api"
+	core "dappco.re/go"
+	api "dappco.re/go/api"
 	"dappco.re/go/api/pkg/provider"
-	"dappco.re/go/ws"
 	"dappco.re/go/mcp/pkg/mcp/ide"
+	"dappco.re/go/ws"
 	"github.com/gin-gonic/gin"
 )
 
@@ -363,8 +364,10 @@ func (p *BrainProvider) emitEvent(channel string, data any) {
 	if p.hub == nil {
 		return
 	}
-	_ = p.hub.SendToChannel(channel, ws.Message{
+	if err := p.hub.SendToChannel(channel, ws.Message{
 		Type: ws.TypeEvent,
 		Data: data,
-	})
+	}); err != nil {
+		core.Warn("brain.emitEvent: failed to broadcast event", "channel", channel, "reason", err)
+	}
 }

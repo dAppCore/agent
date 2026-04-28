@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleResumeInput() {
 	input := ResumeInput{Workspace: "core/go-io/task-5", Answer: "Use v2 API"}

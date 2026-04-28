@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineFix_Good_ReviewsPostsComment(t *testing.T) {
@@ -19,9 +17,9 @@ func TestPipelineFix_Good_ReviewsPostsComment(t *testing.T) {
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineFixReviews(context.Background(), PipelineFixInput{Org: "core", Repo: "go-io", Number: 7})
 
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Contains(t, repo.Comments[7][0], "Can you fix the code reviews?")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertContains(t, repo.Comments[7][0], "Can you fix the code reviews?")
 }
 
 func TestPipelineFix_Bad_FormatRequiresWorkspace(t *testing.T) {
@@ -33,8 +31,8 @@ func TestPipelineFix_Bad_FormatRequiresWorkspace(t *testing.T) {
 
 	_, err := s.pipelineFixFormat(context.Background(), PipelineFixInput{Org: "core", Repo: "go-io", Number: 9})
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace or repo_dir is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace or repo_dir is required")
 }
 
 func TestPipelineFix_Ugly_ThreadsNoopWhenAlreadyResolved(t *testing.T) {
@@ -55,15 +53,15 @@ func TestPipelineFix_Ugly_ThreadsNoopWhenAlreadyResolved(t *testing.T) {
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineFixThreads(context.Background(), PipelineFixInput{Org: "core", Repo: "go-io", Number: 5})
 
-	require.NoError(t, err)
-	assert.Equal(t, "noop", output.Action)
-	assert.Equal(t, "no unresolved review threads remain", output.Message)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "noop", output.Action)
+	core.AssertEqual(t, "no unresolved review threads remain", output.Message)
 }
 
 func TestPipelineFix_Format_Good_DryRunCountsFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "one.go"), "package main\nfunc main( ){}\n").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "two.go"), "package main\nfunc helper( ){}\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "one.go"), "package main\nfunc main( ){}\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "two.go"), "package main\nfunc helper( ){}\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -79,7 +77,7 @@ func TestPipelineFix_Format_Good_DryRunCountsFiles(t *testing.T) {
 		DryRun:       true,
 	})
 
-	require.NoError(t, err)
-	assert.Equal(t, "format", output.Action)
-	assert.Equal(t, 2, output.Files)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "format", output.Action)
+	core.AssertEqual(t, 2, output.Files)
 }

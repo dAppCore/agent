@@ -7,27 +7,29 @@ import (
 	"strings"
 	"testing"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func assertCoreIDFormat(t *testing.T, id string) {
 	t.Helper()
 	parts := strings.Split(id, "-")
-	if assert.Len(t, parts, 3) {
-		assert.Equal(t, "id", parts[0])
-		assert.Regexp(t, "^[1-9][0-9]*$", parts[1])
-		assert.Len(t, parts[2], 6)
-		assert.Regexp(t, "^[0-9a-f]{6}$", parts[2])
+	core.AssertLen(t, parts, 3)
+	if len(parts) != 3 {
+		return
 	}
+	core.AssertEqual(t, "id", parts[0])
+	assertRegexp(t, "^[1-9][0-9]*$", parts[1])
+	core.AssertLen(t, parts[2], 6)
+	assertRegexp(t, "^[0-9a-f]{6}$", parts[2])
 }
 
 func TestPlan_PlanPath_Good(t *testing.T) {
-	assert.Equal(t, "/tmp/plans/my-plan-abc123.json", planPath("/tmp/plans", "my-plan-abc123"))
-	assert.Equal(t, "/data/test.json", planPath("/data", "test"))
+	first := planPath("/tmp/plans", "my-plan-abc123")
+	second := planPath("/data", "test")
+	core.AssertEqual(t, "/tmp/plans/my-plan-abc123.json", first)
+	core.AssertEqual(t, "/data/test.json", second)
 }
 
 func TestPlan_WritePlan_Good(t *testing.T) {
@@ -40,11 +42,11 @@ func TestPlan_WritePlan_Good(t *testing.T) {
 	}
 
 	path, err := writePlan(dir, plan)
-	require.NoError(t, err)
-	assert.Equal(t, core.JoinPath(dir, "test-plan-abc123.json"), path)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, core.JoinPath(dir, "test-plan-abc123.json"), path)
 
 	// Verify file exists
-	assert.True(t, fs.IsFile(path))
+	core.AssertTrue(t, fs.IsFile(path))
 }
 
 func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {
@@ -59,8 +61,8 @@ func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {
 	}
 
 	path, err := writePlan(dir, plan)
-	require.NoError(t, err)
-	assert.Contains(t, path, "nested-plan-abc123.json")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, path, "nested-plan-abc123.json")
 }
 
 func TestPlan_ReadPlan_Good(t *testing.T) {
@@ -81,42 +83,42 @@ func TestPlan_ReadPlan_Good(t *testing.T) {
 	}
 
 	_, err := writePlan(dir, original)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read, err := readPlan(dir, "read-test-abc123")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Equal(t, original.ID, read.ID)
-	assert.Equal(t, original.Title, read.Title)
-	assert.Equal(t, original.Status, read.Status)
-	assert.Equal(t, original.Repo, read.Repo)
-	assert.Equal(t, original.Org, read.Org)
-	assert.Equal(t, original.Objective, read.Objective)
-	assert.Len(t, read.Phases, 2)
-	assert.Equal(t, "Setup", read.Phases[0].Name)
-	assert.Equal(t, "done", read.Phases[0].Status)
-	require.Len(t, read.Phases[0].Tasks, 1)
-	assert.Equal(t, "Review imports", read.Phases[0].Tasks[0].Title)
-	assert.Equal(t, "pkg/agentic/plan.go", read.Phases[0].Tasks[0].File)
-	assert.Equal(t, 46, read.Phases[0].Tasks[0].Line)
-	assert.Equal(t, "Implement", read.Phases[1].Name)
-	assert.Equal(t, "pending", read.Phases[1].Status)
-	assert.Equal(t, "Some notes", read.Notes)
-	assert.Equal(t, "claude:opus", read.Agent)
+	core.AssertEqual(t, original.ID, read.ID)
+	core.AssertEqual(t, original.Title, read.Title)
+	core.AssertEqual(t, original.Status, read.Status)
+	core.AssertEqual(t, original.Repo, read.Repo)
+	core.AssertEqual(t, original.Org, read.Org)
+	core.AssertEqual(t, original.Objective, read.Objective)
+	core.AssertLen(t, read.Phases, 2)
+	core.AssertEqual(t, "Setup", read.Phases[0].Name)
+	core.AssertEqual(t, "done", read.Phases[0].Status)
+	core.AssertLen(t, read.Phases[0].Tasks, 1)
+	core.AssertEqual(t, "Review imports", read.Phases[0].Tasks[0].Title)
+	core.AssertEqual(t, "pkg/agentic/plan.go", read.Phases[0].Tasks[0].File)
+	core.AssertEqual(t, 46, read.Phases[0].Tasks[0].Line)
+	core.AssertEqual(t, "Implement", read.Phases[1].Name)
+	core.AssertEqual(t, "pending", read.Phases[1].Status)
+	core.AssertEqual(t, "Some notes", read.Notes)
+	core.AssertEqual(t, "claude:opus", read.Agent)
 }
 
 func TestPlan_ReadPlan_Bad_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	_, err := readPlan(dir, "nonexistent-plan")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_ReadPlan_Bad_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "bad-json.json"), "{broken").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "bad-json.json"), "{broken").OK)
 
 	_, err := readPlan(dir, "bad-json")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
@@ -139,33 +141,33 @@ func TestPlan_WriteRead_Good_Roundtrip(t *testing.T) {
 	}
 
 	_, err := writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read, err := readPlan(dir, "roundtrip-abc123")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Equal(t, plan.Title, read.Title)
-	assert.Equal(t, plan.Status, read.Status)
-	assert.Len(t, read.Phases, 3)
-	assert.Equal(t, []string{"tests pass", "coverage > 80%"}, read.Phases[0].Criteria)
-	assert.Equal(t, 5, read.Phases[0].Tests)
-	require.Len(t, read.Phases[0].Tasks, 1)
-	assert.Equal(t, "pkg/agentic/plan_test.go", read.Phases[0].Tasks[0].File)
-	assert.Equal(t, 100, read.Phases[0].Tasks[0].Line)
-	assert.Equal(t, "Working on it", read.Phases[1].Notes)
+	core.AssertEqual(t, plan.Title, read.Title)
+	core.AssertEqual(t, plan.Status, read.Status)
+	core.AssertLen(t, read.Phases, 3)
+	core.AssertEqual(t, []string{"tests pass", "coverage > 80%"}, read.Phases[0].Criteria)
+	core.AssertEqual(t, 5, read.Phases[0].Tests)
+	core.AssertLen(t, read.Phases[0].Tasks, 1)
+	core.AssertEqual(t, "pkg/agentic/plan_test.go", read.Phases[0].Tasks[0].File)
+	core.AssertEqual(t, 100, read.Phases[0].Tasks[0].Line)
+	core.AssertEqual(t, "Working on it", read.Phases[1].Notes)
 }
 
 func TestPlan_ValidPlanStatus_Good_AllValid(t *testing.T) {
 	validStatuses := []string{"draft", "ready", "in_progress", "needs_verification", "verified", "approved"}
 	for _, s := range validStatuses {
-		assert.True(t, validPlanStatus(s), "expected %q to be valid", s)
+		core.AssertTrue(t, validPlanStatus(s), "expected %q to be valid", s)
 	}
 }
 
 func TestPlan_ValidPlanStatus_Bad_Invalid(t *testing.T) {
 	invalidStatuses := []string{"", "running", "completed", "cancelled", "archived", "DRAFT", "Draft"}
 	for _, s := range invalidStatuses {
-		assert.False(t, validPlanStatus(s), "expected %q to be invalid", s)
+		core.AssertFalse(t, validPlanStatus(s), "expected %q to be invalid", s)
 	}
 }
 
@@ -180,30 +182,30 @@ func TestPlan_WritePlan_Good_OverwriteExisting(t *testing.T) {
 	}
 
 	_, err := writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan.Title = "Updated"
 	plan.Status = "ready"
 	_, err = writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read, err := readPlan(dir, "overwrite-abc123")
-	require.NoError(t, err)
-	assert.Equal(t, "Updated", read.Title)
-	assert.Equal(t, "ready", read.Status)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Updated", read.Title)
+	core.AssertEqual(t, "ready", read.Status)
 }
 
 func TestPlan_ReadPlan_Ugly_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
 
 	_, err := readPlan(dir, "empty")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_RegisterPlanTools_Good_RegistersAgenticCompatibilityAliases(t *testing.T) {
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	subsystem := &PrepSubsystem{}
 	subsystem.RegisterTools(svc)
@@ -213,24 +215,24 @@ func TestPlan_RegisterPlanTools_Good_RegistersAgenticCompatibilityAliases(t *tes
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
 	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = serverSession.Close() })
 
 	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = clientSession.Close() })
 
 	result, err := clientSession.ListTools(context.Background(), nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var toolNames []string
 	for _, tool := range result.Tools {
 		toolNames = append(toolNames, tool.Name)
 	}
 
-	assert.Contains(t, toolNames, "agentic_plan_get")
-	assert.Contains(t, toolNames, "agentic_plan_check")
-	assert.Contains(t, toolNames, "agentic_plan_update_status")
-	assert.Contains(t, toolNames, "agentic_plan_archive")
-	assert.Contains(t, toolNames, "agentic_plan_from_issue")
+	core.AssertContains(t, toolNames, "agentic_plan_get")
+	core.AssertContains(t, toolNames, "agentic_plan_check")
+	core.AssertContains(t, toolNames, "agentic_plan_update_status")
+	core.AssertContains(t, toolNames, "agentic_plan_archive")
+	core.AssertContains(t, toolNames, "agentic_plan_from_issue")
 }

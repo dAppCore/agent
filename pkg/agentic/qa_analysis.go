@@ -7,7 +7,7 @@ import (
 	"maps"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	store "dappco.re/go/store"
 	poindexter "forge.lthn.ai/Snider/Poindexter"
 )

@@ -5,8 +5,7 @@ package messages
 import (
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 // TestMessages_AllSatisfyMessage_Good verifies every message type can be
@@ -28,9 +27,9 @@ func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
 		InboxMessage{New: 1, Total: 3},
 	}
 
-	assert.Len(t, msgs, 13, "expected 13 message types")
+	core.AssertLen(t, msgs, 13, "expected 13 message types")
 	for _, msg := range msgs {
-		assert.NotNil(t, msg)
+		core.AssertNotNil(t, msg)
 	}
 }
 
@@ -46,17 +45,17 @@ func TestMessages_TypeSwitch_Good(t *testing.T) {
 	handled := false
 	switch ev := msg.(type) {
 	case AgentCompleted:
-		assert.Equal(t, "codex", ev.Agent)
-		assert.Equal(t, "go-io", ev.Repo)
-		assert.Equal(t, "completed", ev.Status)
+		core.AssertEqual(t, "codex", ev.Agent)
+		core.AssertEqual(t, "go-io", ev.Repo)
+		core.AssertEqual(t, "completed", ev.Status)
 		handled = true
 	}
-	assert.True(t, handled)
+	core.AssertTrue(t, handled)
 }
 
 // TestMessages_EmptySignal_Good verifies zero-field messages work as signals.
 func TestMessages_EmptySignal_Good(t *testing.T) {
 	var msg core.Message = PokeQueue{}
 	_, ok := msg.(PokeQueue)
-	assert.True(t, ok)
+	core.AssertTrue(t, ok)
 }

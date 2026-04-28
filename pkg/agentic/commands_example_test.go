@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func Example_parseIntString() {
 	core.Println(parseIntString("42"))

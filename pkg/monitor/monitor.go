@@ -8,9 +8,9 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -210,7 +210,9 @@ func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 // result := service.OnShutdown(context.Background())
 // core.Println(result.OK)
 func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
-	_ = m.Shutdown(ctx)
+	if err := m.Shutdown(ctx); err != nil {
+		return core.Fail(err)
+	}
 	return core.Result{OK: true}
 }
 

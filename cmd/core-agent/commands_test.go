@@ -8,10 +8,9 @@ import (
 	"os"
 	"testing"
 
+	"dappco.re/go"
 	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
 )
 
 // newTestCore creates a minimal Core with application commands registered.
@@ -66,21 +65,21 @@ func TestCommands_ApplyLogLevel_Good(t *testing.T) {
 	defer core.SetLevel(core.LevelInfo)
 
 	args := applyLogLevel([]string{"--quiet", "version"})
-	assert.Equal(t, []string{"version"}, args)
+	core.AssertEqual(t, []string{"version"}, args)
 }
 
 func TestCommands_ApplyLogLevel_Bad(t *testing.T) {
 	defer core.SetLevel(core.LevelInfo)
 
 	args := applyLogLevel([]string{"status"})
-	assert.Equal(t, []string{"status"}, args)
+	core.AssertEqual(t, []string{"status"}, args)
 }
 
 func TestCommands_ApplyLogLevel_Ugly(t *testing.T) {
 	defer core.SetLevel(core.LevelInfo)
 
 	args := applyLogLevel([]string{"version", "-q"})
-	assert.Equal(t, []string{"version"}, args)
+	core.AssertEqual(t, []string{"version"}, args)
 }
 
 func TestCommands_StartupArgs_Good(t *testing.T) {
@@ -88,7 +87,7 @@ func TestCommands_StartupArgs_Good(t *testing.T) {
 
 	withArgs(t, "core-agent", "--debug", "check")
 	args := startupArgs()
-	assert.Equal(t, []string{"check"}, args)
+	core.AssertEqual(t, []string{"check"}, args)
 }
 
 func TestCommands_StartupArgs_Bad(t *testing.T) {
@@ -96,7 +95,7 @@ func TestCommands_StartupArgs_Bad(t *testing.T) {
 
 	withArgs(t, "core-agent", "status")
 	args := startupArgs()
-	assert.Equal(t, []string{"status"}, args)
+	core.AssertEqual(t, []string{"status"}, args)
 }
 
 func TestCommands_StartupArgs_Ugly(t *testing.T) {
@@ -104,15 +103,15 @@ func TestCommands_StartupArgs_Ugly(t *testing.T) {
 
 	withArgs(t, "core-agent", "version", "-q")
 	args := startupArgs()
-	assert.Equal(t, []string{"version"}, args)
+	core.AssertEqual(t, []string{"version"}, args)
 }
 
 func TestCommands_RegisterApplicationCommands_Good(t *testing.T) {
 	c := newTestCore(t)
 	cmds := c.Commands()
-	assert.Contains(t, cmds, "version")
-	assert.Contains(t, cmds, "check")
-	assert.Contains(t, cmds, "env")
+	core.AssertContains(t, cmds, "version")
+	core.AssertContains(t, cmds, "check")
+	core.AssertContains(t, cmds, "env")
 }
 
 func TestCommands_Version_Good(t *testing.T) {
@@ -123,7 +122,7 @@ func TestCommands_Version_Good(t *testing.T) {
 	})
 
 	r := c.Cli().Run("version")
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_VersionDev_Bad(t *testing.T) {
@@ -132,14 +131,14 @@ func TestCommands_VersionDev_Bad(t *testing.T) {
 	c.App().Version = "dev"
 
 	r := c.Cli().Run("version")
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_Check_Good(t *testing.T) {
 	c := newTestCore(t)
 
 	r := c.Cli().Run("check")
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_Check_Good_BranchWorkspaceCount(t *testing.T) {
@@ -149,9 +148,9 @@ func TestCommands_Check_Good_BranchWorkspaceCount(t *testing.T) {
 
 	wsRoot := core.JoinPath(root, "workspace")
 	ws := core.JoinPath(wsRoot, "core", "go-io", "feature", "new-ui")
-	assert.True(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceRepoDir(ws)).OK)
-	assert.True(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceMetaDir(ws)).OK)
-	assert.True(t, agentic.LocalFs().Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(agentic.WorkspaceStatus{
+	core.AssertTrue(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceRepoDir(ws)).OK)
+	core.AssertTrue(t, agentic.LocalFs().EnsureDir(agentic.WorkspaceMetaDir(ws)).OK)
+	core.AssertTrue(t, agentic.LocalFs().Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(agentic.WorkspaceStatus{
 		Status: "running",
 		Repo:   "go-io",
 		Agent:  "codex",
@@ -159,23 +158,23 @@ func TestCommands_Check_Good_BranchWorkspaceCount(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := c.Cli().Run("check")
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "1 workspaces")
+	core.AssertContains(t, output, "1 workspaces")
 }
 
 func TestCommands_Env_Good(t *testing.T) {
 	c := newTestCore(t)
 
 	r := c.Cli().Run("env")
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CliUnknown_Bad(t *testing.T) {
 	c := newTestCore(t)
 	r := c.Cli().Run("nonexistent")
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CliBanner_Good(t *testing.T) {

@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func Example_containerCommand() {
 	cmd, args := containerCommand("codex", []string{"--model", "gpt-5.4"}, "/workspace/task-5", "/workspace/task-5/.meta")

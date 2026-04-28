@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 // testPrep is the package-level PrepSubsystem for tests that need process execution.
@@ -20,6 +19,18 @@ var testCore *core.Core
 
 // TestMain sets up a PrepSubsystem with go-process registered for all tests in the package.
 func TestMain(m *testing.M) {
+	testRoot, err := os.MkdirTemp("", "agentic-tests-*")
+	if err != nil {
+		panic(err)
+	}
+	homeDir := core.JoinPath(testRoot, "home")
+	_ = os.MkdirAll(homeDir, 0o755)
+	_ = os.MkdirAll(core.JoinPath(homeDir, "Code", ".core"), 0o755)
+
+	_ = os.Setenv("CORE_BRAIN_INSECURE", "true")
+	_ = os.Setenv("CORE_HOME", homeDir)
+	_ = os.Setenv("HOME", homeDir)
+	_ = os.Setenv("DIR_HOME", homeDir)
 	testCore = core.New(
 		core.WithService(ProcessRegister),
 	)
@@ -55,16 +66,20 @@ func TestPid_ProcessAlive_Good(t *testing.T) {
 	proc := startManagedProcess(t, testCore)
 	pid := proc.Info().PID
 
-	assert.True(t, ProcessAlive(testCore, proc.ID, pid))
-	assert.True(t, ProcessAlive(testCore, "", pid))
+	core.AssertTrue(t, ProcessAlive(testCore, proc.ID, pid))
+	core.AssertTrue(t, ProcessAlive(testCore, "", pid))
 }
 
 func TestPid_ProcessAlive_Bad(t *testing.T) {
-	assert.False(t, ProcessAlive(testCore, "", 999999))
+	alive := ProcessAlive(testCore, "", 999999)
+	core.AssertFalse(t, alive)
+	core.AssertEqual(t, false, alive)
 }
 
 func TestPid_ProcessAlive_Ugly(t *testing.T) {
-	assert.False(t, ProcessAlive(nil, "", 0))
+	alive := ProcessAlive(nil, "", 0)
+	core.AssertFalse(t, alive)
+	core.AssertEqual(t, false, alive)
 }
 
 // --- ProcessTerminate ---
@@ -73,7 +88,7 @@ func TestPid_ProcessTerminate_Good(t *testing.T) {
 	proc := startManagedProcess(t, testCore)
 	pid := proc.Info().PID
 
-	assert.True(t, ProcessTerminate(testCore, proc.ID, pid))
+	core.AssertTrue(t, ProcessTerminate(testCore, proc.ID, pid))
 
 	select {
 	case <-proc.Done():
@@ -81,13 +96,17 @@ func TestPid_ProcessTerminate_Good(t *testing.T) {
 		t.Fatal("ProcessTerminate did not stop the process")
 	}
 
-	assert.False(t, ProcessAlive(testCore, proc.ID, pid))
+	core.AssertFalse(t, ProcessAlive(testCore, proc.ID, pid))
 }
 
 func TestPid_ProcessTerminate_Bad(t *testing.T) {
-	assert.False(t, ProcessTerminate(testCore, "", 999999))
+	terminated := ProcessTerminate(testCore, "", 999999)
+	core.AssertFalse(t, terminated)
+	core.AssertEqual(t, false, terminated)
 }
 
 func TestPid_ProcessTerminate_Ugly(t *testing.T) {
-	assert.False(t, ProcessTerminate(nil, "", 0))
+	terminated := ProcessTerminate(nil, "", 0)
+	core.AssertFalse(t, terminated)
+	core.AssertEqual(t, false, terminated)
 }

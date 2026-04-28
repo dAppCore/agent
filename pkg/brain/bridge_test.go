@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	providerws "dappco.re/go/ws"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
+	providerws "dappco.re/go/ws"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // testWSServer creates a WS server that accepts connections and discards messages.
@@ -52,7 +50,7 @@ func testBridge(t *testing.T) *ide.Bridge {
 	})
 	bridge.Start(context.Background())
 
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		return bridge.Connected()
 	}, 2*time.Second, 10*time.Millisecond, "bridge did not connect")
 
@@ -65,7 +63,7 @@ func testBridge(t *testing.T) *ide.Bridge {
 func TestBrain_RegisterTools_Good(t *testing.T) {
 	sub := New(nil)
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	sub.RegisterTools(svc)
 }
 
@@ -74,7 +72,7 @@ func TestDirect_RegisterTools_Good(t *testing.T) {
 	t.Setenv("CORE_BRAIN_KEY", "test-key")
 	sub := NewDirect()
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	sub.RegisterTools(svc)
 }
 
@@ -88,9 +86,9 @@ func TestBrain_RememberBridge_Good(t *testing.T) {
 		Tags:    []string{"test"},
 		Project: "core",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.False(t, out.Timestamp.IsZero())
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertFalse(t, out.Timestamp.IsZero())
 }
 
 func TestBrain_RecallBridge_Good(t *testing.T) {
@@ -99,9 +97,9 @@ func TestBrain_RecallBridge_Good(t *testing.T) {
 		Query: "architecture",
 		TopK:  5,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Empty(t, out.Memories)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEmpty(t, out.Memories)
 }
 
 func TestBrain_ForgetBridge_Good(t *testing.T) {
@@ -110,10 +108,10 @@ func TestBrain_ForgetBridge_Good(t *testing.T) {
 		ID:     "mem-123",
 		Reason: "outdated",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "mem-123", out.Forgotten)
-	assert.False(t, out.Timestamp.IsZero())
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "mem-123", out.Forgotten)
+	core.AssertFalse(t, out.Timestamp.IsZero())
 }
 
 func TestBrain_ListBridge_Good(t *testing.T) {
@@ -123,9 +121,9 @@ func TestBrain_ListBridge_Good(t *testing.T) {
 		Type:    "decision",
 		Limit:   10,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Empty(t, out.Memories)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEmpty(t, out.Memories)
 }
 
 // --- Provider handlers with connected bridge ---
@@ -140,56 +138,56 @@ func TestProvider_RememberBridge_Good(t *testing.T) {
 		Confidence: 0.9,
 	}))
 	w := providerRequest(t, p, "POST", "/api/brain/remember", body)
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 }
 
 func TestProvider_RememberInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/remember", []byte("{"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
 }
 
 func TestProvider_RecallBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	body := []byte(core.JSONMarshalString(RecallInput{Query: "test", TopK: 5}))
 	w := providerRequest(t, p, "POST", "/api/brain/recall", body)
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 }
 
 func TestProvider_RecallInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/recall", []byte("bad"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
 }
 
 func TestProvider_ForgetBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	body := []byte(core.JSONMarshalString(ForgetInput{ID: "mem-abc", Reason: "outdated"}))
 	w := providerRequest(t, p, "POST", "/api/brain/forget", body)
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 }
 
 func TestProvider_ForgetInvalid_Bad(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "POST", "/api/brain/forget", []byte("{"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
 }
 
 func TestProvider_ListBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "GET", "/api/brain/list?project=core&type=decision&limit=10", nil)
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 }
 
 func TestProvider_StatusBridge_Good(t *testing.T) {
 	p := NewProvider(testBridge(t), nil)
 	w := providerRequest(t, p, "GET", "/api/brain/status", nil)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 	var resp map[string]any
-	require.True(t, core.JSONUnmarshal(w.Body.Bytes(), &resp).OK)
+	core.RequireTrue(t, core.JSONUnmarshal(w.Body.Bytes(), &resp).OK)
 	data, _ := resp["data"].(map[string]any)
-	assert.Equal(t, true, data["connected"])
+	core.AssertEqual(t, true, data["connected"])
 }
 
 // --- emitEvent with hub ---

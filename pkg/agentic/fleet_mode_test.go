@@ -8,9 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestFleetMode_RegisterFleetCommands_Good(t *testing.T) {
@@ -20,10 +18,10 @@ func TestFleetMode_RegisterFleetCommands_Good(t *testing.T) {
 
 	subsystem.registerFleetCommands()
 
-	assert.Contains(t, c.Commands(), "login")
-	assert.Contains(t, c.Commands(), "fleet")
-	assert.Contains(t, c.Commands(), "fleet/nodes")
-	assert.Contains(t, c.Commands(), "fleet/status")
+	core.AssertContains(t, c.Commands(), "login")
+	core.AssertContains(t, c.Commands(), "fleet")
+	core.AssertContains(t, c.Commands(), "fleet/nodes")
+	core.AssertContains(t, c.Commands(), "fleet/status")
 }
 
 func TestFleetMode_CmdFleetNodes_Good(t *testing.T) {
@@ -36,11 +34,11 @@ func TestFleetMode_CmdFleetNodes_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetNodesCommand(core.NewOptions())
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "charon")
-	assert.Contains(t, output, "total: 1")
+	core.AssertContains(t, output, "charon")
+	core.AssertContains(t, output, "total: 1")
 }
 
 func TestFleetMode_CmdFleetStatus_Good(t *testing.T) {
@@ -55,11 +53,11 @@ func TestFleetMode_CmdFleetStatus_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetStatus(core.NewOptions())
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "state:           connected")
-	assert.Contains(t, output, "last task:       #9 core/go-io assigned Fix tests")
+	core.AssertContains(t, output, "state:           connected")
+	core.AssertContains(t, output, "last task:       #9 core/go-io assigned Fix tests")
 }
 
 func TestFleetMode_ListFleetNodes_Bad_Unreachable(t *testing.T) {
@@ -68,5 +66,5 @@ func TestFleetMode_ListFleetNodes_Bad_Unreachable(t *testing.T) {
 	result := subsystem.listFleetNodes(context.Background(), core.NewOptions(
 		core.Option{Key: "api", Value: "http://127.0.0.1:1"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }

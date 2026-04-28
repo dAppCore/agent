@@ -5,8 +5,8 @@ package main
 import (
 	"context"
 
+	"dappco.re/go"
 	agentpkg "dappco.re/go/agent"
-	"dappco.re/go/core"
 
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"

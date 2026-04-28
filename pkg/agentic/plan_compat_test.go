@@ -6,8 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPlancompat_PlanCreateCompat_Good(t *testing.T) {
@@ -22,11 +21,11 @@ func TestPlancompat_PlanCreateCompat_Good(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{Title: "Review RFC"}}},
 		},
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Contains(t, output.Plan.Slug, "compatibility-plan")
-	assert.Equal(t, "draft", output.Plan.Status)
-	assert.Equal(t, 1, output.Plan.Phases)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertContains(t, output.Plan.Slug, "compatibility-plan")
+	core.AssertEqual(t, "draft", output.Plan.Status)
+	core.AssertEqual(t, 1, output.Plan.Phases)
 }
 
 func TestPlancompat_PlanGetCompat_Good_BySlug(t *testing.T) {
@@ -41,18 +40,18 @@ func TestPlancompat_PlanGetCompat_Good_BySlug(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{Title: "Review RFC", Status: "completed"}, {Title: "Patch code"}}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.planGetCompat(context.Background(), nil, PlanReadInput{Slug: plan.Slug})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, plan.Slug, output.Plan.Slug)
-	assert.Equal(t, 2, output.Plan.Progress.Total)
-	assert.Equal(t, 1, output.Plan.Progress.Completed)
-	assert.Equal(t, 50, output.Plan.Progress.Percentage)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, plan.Slug, output.Plan.Slug)
+	core.AssertEqual(t, 2, output.Plan.Progress.Total)
+	core.AssertEqual(t, 1, output.Plan.Progress.Completed)
+	core.AssertEqual(t, 50, output.Plan.Progress.Percentage)
 }
 
 func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
@@ -64,18 +63,18 @@ func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
 		Title:       "Status Compat",
 		Description: "Update by slug",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.planUpdateStatusCompat(context.Background(), nil, PlanStatusUpdateInput{
 		Slug:   plan.Slug,
 		Status: "active",
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, "active", output.Plan.Status)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "active", output.Plan.Status)
 }
 
 func TestPlancompat_PlanArchiveCompat_Good(t *testing.T) {
@@ -87,22 +86,22 @@ func TestPlancompat_PlanArchiveCompat_Good(t *testing.T) {
 		Title:       "Archive Compat",
 		Description: "Archive by slug",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.planArchiveCompat(context.Background(), nil, PlanDeleteInput{
 		Slug:   plan.Slug,
 		Reason: "No longer needed",
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, plan.Slug, output.Archived)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, plan.Slug, output.Archived)
 
 	archivedPlan, err := readPlan(PlansRoot(), plan.Slug)
-	require.NoError(t, err)
-	assert.Equal(t, "archived", archivedPlan.Status)
-	assert.False(t, archivedPlan.ArchivedAt.IsZero())
-	assert.Contains(t, archivedPlan.Notes, "No longer needed")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "archived", archivedPlan.Status)
+	core.AssertFalse(t, archivedPlan.ArchivedAt.IsZero())
+	core.AssertContains(t, archivedPlan.Notes, "No longer needed")
 }

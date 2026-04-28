@@ -5,7 +5,7 @@ package agentic_test
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 
 	"dappco.re/go/agent/pkg/agentic"
 )

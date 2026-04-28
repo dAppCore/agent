@@ -6,8 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineMonitor_Good_AutoIntervenesAndMerges(t *testing.T) {
@@ -60,11 +59,11 @@ func TestPipelineMonitor_Good_AutoIntervenesAndMerges(t *testing.T) {
 		Repo: "go-io",
 	}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
 
-	require.NoError(t, err)
-	assert.Len(t, output.Actions, 3)
-	assert.Contains(t, repo.Comments[1][0], "Can you fix the merge conflict?")
-	assert.Contains(t, repo.Comments[2][0], "Can you fix the code reviews?")
-	assert.Contains(t, repo.Merged, 3)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, output.Actions, 3)
+	core.AssertContains(t, repo.Comments[1][0], "Can you fix the merge conflict?")
+	core.AssertContains(t, repo.Comments[2][0], "Can you fix the code reviews?")
+	core.AssertContains(t, repo.Merged, 3)
 }
 
 func TestPipelineMonitor_Bad_NoToken(t *testing.T) {
@@ -73,8 +72,8 @@ func TestPipelineMonitor_Bad_NoToken(t *testing.T) {
 
 	_, err := s.pipelineMonitorWithReader(context.Background(), PipelineMonitorInput{Org: "core", Repo: "go-io"}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token configured")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token configured")
 }
 
 func TestPipelineMonitor_Ugly_NoActionWhenChecksPending(t *testing.T) {
@@ -99,6 +98,6 @@ func TestPipelineMonitor_Ugly_NoActionWhenChecksPending(t *testing.T) {
 		Repo: "go-io",
 	}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
 
-	require.NoError(t, err)
-	assert.Empty(t, output.Actions)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, output.Actions)
 }

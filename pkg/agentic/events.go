@@ -5,7 +5,7 @@ package agentic
 import (
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}

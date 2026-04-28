@@ -38,7 +38,7 @@ sandbox_mode = "workspace-write"
 [mcp_servers.core-agent]
 command = "core-agent"
 args = ["mcp"]
-required = true
+required = false
 startup_timeout_sec = 15
 tool_timeout_sec = 120
 

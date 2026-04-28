@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
 	forge_types "dappco.re/go/forge/types"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // mockPRForgeServer creates a Forge API mock that handles PR creation and comments.
@@ -78,9 +76,9 @@ func TestPr_ForgeCreatePR_Good_Success(t *testing.T) {
 		"agent/fix-bug", "dev",
 		"Fix the login bug", "PR body text",
 	)
-	require.NoError(t, err)
-	assert.Equal(t, 12, prNum)
-	assert.Contains(t, prURL, "pulls/12")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 12, prNum)
+	core.AssertContains(t, prURL, "pulls/12")
 }
 
 func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
@@ -105,7 +103,7 @@ func TestPr_ForgeCreatePR_Bad_ServerError(t *testing.T) {
 		"agent/fix", "dev",
 		"Title", "Body",
 	)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 // --- createPR (MCP tool) ---
@@ -119,8 +117,8 @@ func TestPr_CreatePR_Bad_NoWorkspace(t *testing.T) {
 	}
 
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace is required")
 }
 
 func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
@@ -134,8 +132,8 @@ func TestPr_CreatePR_Bad_NoToken(t *testing.T) {
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{
 		Workspace: "test-ws",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token")
 }
 
 func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
@@ -152,8 +150,8 @@ func TestPr_CreatePR_Bad_WorkspaceNotFound(t *testing.T) {
 	_, _, err := s.createPR(context.Background(), nil, CreatePRInput{
 		Workspace: "nonexistent-workspace",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace not found")
 }
 
 func TestPr_CreatePR_Good_DryRun(t *testing.T) {
@@ -167,7 +165,7 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
 	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
-	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix-bug",
@@ -185,11 +183,11 @@ func TestPr_CreatePR_Good_DryRun(t *testing.T) {
 		Workspace: "test-ws",
 		DryRun:    true,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "agent/fix-bug", out.Branch)
-	assert.Equal(t, "go-io", out.Repo)
-	assert.Equal(t, "Fix the login bug", out.Title)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "agent/fix-bug", out.Branch)
+	core.AssertEqual(t, "go-io", out.Repo)
+	core.AssertEqual(t, "Fix the login bug", out.Title)
 }
 
 func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
@@ -202,7 +200,7 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.name", "Test")
 	testCore.Process().RunIn(context.Background(), repoDir, "git", "config", "user.email", "test@test.com")
 
-	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix",
@@ -221,18 +219,18 @@ func TestPr_CreatePR_Good_CustomTitle(t *testing.T) {
 		Title:     "Custom PR title",
 		DryRun:    true,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "Custom PR title", out.Title)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Custom PR title", out.Title)
 }
 
 func TestPr_ClosePR_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPatch, r.Method)
-		assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/7", r.URL.Path)
+		core.AssertEqual(t, http.MethodPatch, r.Method)
+		core.AssertEqual(t, "/api/v1/repos/core/test-repo/pulls/7", r.URL.Path)
 
 		bodyResult := core.ReadAll(r.Body)
-		assert.True(t, bodyResult.OK)
-		assert.Contains(t, bodyResult.Value.(string), `"state":"closed"`)
+		core.AssertTrue(t, bodyResult.OK)
+		core.AssertContains(t, bodyResult.Value.(string), `"state":"closed"`)
 
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 7,
@@ -254,17 +252,17 @@ func TestPr_ClosePR_Good_Success(t *testing.T) {
 		Repo:   "test-repo",
 		Number: 7,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "core", out.Org)
-	assert.Equal(t, "test-repo", out.Repo)
-	assert.Equal(t, 7, out.Number)
-	assert.Equal(t, "closed", out.State)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "core", out.Org)
+	core.AssertEqual(t, "test-repo", out.Repo)
+	core.AssertEqual(t, 7, out.Number)
+	core.AssertEqual(t, "closed", out.State)
 }
 
 func TestPr_RegisterPRTools_Good_RegistersPRAliases(t *testing.T) {
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.registerPRTools(svc)
@@ -274,35 +272,35 @@ func TestPr_RegisterPRTools_Good_RegistersPRAliases(t *testing.T) {
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
 	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = serverSession.Close() })
 
 	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = clientSession.Close() })
 
 	result, err := clientSession.ListTools(context.Background(), nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var toolNames []string
 	for _, tool := range result.Tools {
 		toolNames = append(toolNames, tool.Name)
 	}
 
-	assert.Contains(t, toolNames, "agentic_pr_get")
-	assert.Contains(t, toolNames, "pr_get")
-	assert.Contains(t, toolNames, "agentic_pr_list")
-	assert.Contains(t, toolNames, "pr_list")
-	assert.Contains(t, toolNames, "agentic_pr_merge")
-	assert.Contains(t, toolNames, "pr_merge")
-	assert.Contains(t, toolNames, "agentic_pr_close")
-	assert.Contains(t, toolNames, "pr_close")
+	core.AssertContains(t, toolNames, "agentic_pr_get")
+	core.AssertContains(t, toolNames, "pr_get")
+	core.AssertContains(t, toolNames, "agentic_pr_list")
+	core.AssertContains(t, toolNames, "pr_list")
+	core.AssertContains(t, toolNames, "agentic_pr_merge")
+	core.AssertContains(t, toolNames, "pr_merge")
+	core.AssertContains(t, toolNames, "agentic_pr_close")
+	core.AssertContains(t, toolNames, "pr_close")
 }
 
 func TestPr_PRGet_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/42", r.URL.Path)
+		core.AssertEqual(t, http.MethodGet, r.Method)
+		core.AssertEqual(t, "/api/v1/repos/core/test-repo/pulls/42", r.URL.Path)
 
 		_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number":    42,
@@ -330,13 +328,13 @@ func TestPr_PRGet_Good_Success(t *testing.T) {
 		Repo:   "test-repo",
 		Number: 42,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "test-repo", out.PR.Repo)
-	assert.Equal(t, 42, out.PR.Number)
-	assert.Equal(t, "Fix login", out.PR.Title)
-	assert.Equal(t, "open", out.PR.State)
-	assert.Equal(t, "agent/fix-login", out.PR.Branch)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "test-repo", out.PR.Repo)
+	core.AssertEqual(t, 42, out.PR.Number)
+	core.AssertEqual(t, "Fix login", out.PR.Title)
+	core.AssertEqual(t, "open", out.PR.State)
+	core.AssertEqual(t, "agent/fix-login", out.PR.Branch)
 }
 
 func TestPr_PRGet_Bad_NoToken(t *testing.T) {
@@ -351,8 +349,8 @@ func TestPr_PRGet_Bad_NoToken(t *testing.T) {
 		Repo:   "test-repo",
 		Number: 42,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token")
 }
 
 func TestPr_PRMerge_Good_Success(t *testing.T) {
@@ -360,7 +358,7 @@ func TestPr_PRMerge_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/merge") {
 			mergeCalled = true
-			assert.Equal(t, "/api/v1/repos/core/test-repo/pulls/42/merge", r.URL.Path)
+			core.AssertEqual(t, "/api/v1/repos/core/test-repo/pulls/42/merge", r.URL.Path)
 			_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"number": 42,
 				"title":  "Fix login",
@@ -398,12 +396,12 @@ func TestPr_PRMerge_Good_Success(t *testing.T) {
 		Number: 42,
 		Method: "merge",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.True(t, mergeCalled)
-	assert.Equal(t, "test-repo", out.Repo)
-	assert.Equal(t, 42, out.Number)
-	assert.Equal(t, "merged", out.State)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertTrue(t, mergeCalled)
+	core.AssertEqual(t, "test-repo", out.Repo)
+	core.AssertEqual(t, 42, out.Number)
+	core.AssertEqual(t, "merged", out.State)
 }
 
 // --- listPRs ---
@@ -417,8 +415,8 @@ func TestPr_ListPRs_Bad_NoToken(t *testing.T) {
 	}
 
 	_, _, err := s.listPRs(context.Background(), nil, ListPRsInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token")
 }
 
 // --- commentOnIssue ---
@@ -443,7 +441,7 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 	}
 
 	s.commentOnIssue(context.Background(), "core", "go-io", 42, "Test comment")
-	assert.True(t, commentPosted)
+	core.AssertTrue(t, commentPosted)
 }
 
 // --- buildPRBody ---
@@ -460,11 +458,11 @@ func TestPr_BuildPRBody_Good(t *testing.T) {
 		Runs:   3,
 	}
 	body := s.buildPRBody(st)
-	assert.Contains(t, body, "## Summary")
-	assert.Contains(t, body, "Fix the login bug")
-	assert.Contains(t, body, "Closes #42")
-	assert.Contains(t, body, "**Agent:** codex")
-	assert.Contains(t, body, "**Runs:** 3")
+	core.AssertContains(t, body, "## Summary")
+	core.AssertContains(t, body, "Fix the login bug")
+	core.AssertContains(t, body, "Closes #42")
+	core.AssertContains(t, body, "**Agent:** codex")
+	core.AssertContains(t, body, "**Runs:** 3")
 }
 
 func TestPr_BuildPRBody_Bad(t *testing.T) {
@@ -472,9 +470,9 @@ func TestPr_BuildPRBody_Bad(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{}
 	body := s.buildPRBody(st)
-	assert.Contains(t, body, "## Summary")
-	assert.Contains(t, body, "**Agent:**")
-	assert.NotContains(t, body, "Closes #")
+	core.AssertContains(t, body, "## Summary")
+	core.AssertContains(t, body, "**Agent:**")
+	core.AssertNotContains(t, body, "Closes #")
 }
 
 func TestPr_BuildPRBody_Ugly(t *testing.T) {
@@ -487,8 +485,8 @@ func TestPr_BuildPRBody_Ugly(t *testing.T) {
 		Runs:  1,
 	}
 	body := s.buildPRBody(st)
-	assert.Contains(t, body, "## Summary")
-	assert.Contains(t, body, "very long task")
+	core.AssertContains(t, body, "## Summary")
+	core.AssertContains(t, body, "very long task")
 }
 
 // --- commentOnIssue Bad/Ugly ---
@@ -510,7 +508,7 @@ func TestPr_CommentOnIssue_Bad(t *testing.T) {
 	}
 
 	// Should not panic even on server error
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.commentOnIssue(context.Background(), "core", "go-io", 42, "Test comment")
 	})
 }
@@ -537,7 +535,7 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 
 	longComment := strings.Repeat("This is a very long comment with details. ", 1000)
 	s.commentOnIssue(context.Background(), "core", "go-io", 42, longComment)
-	assert.True(t, commentPosted)
+	core.AssertTrue(t, commentPosted)
 }
 
 // --- createPR Ugly ---
@@ -559,7 +557,7 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 	testCore.Process().RunIn(context.Background(), repoDir, "git", "commit", "-m", "init")
 
 	// Write status with empty branch
-	require.NoError(t, writeStatus(wsDir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(wsDir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "", // empty branch — should auto-detect
@@ -577,9 +575,9 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 		Workspace: "test-ws-ugly",
 		DryRun:    true,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.Branch, "branch should be auto-detected from git")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.Branch, "branch should be auto-detected from git")
 }
 
 // --- forgeCreatePR Ugly ---
@@ -609,7 +607,7 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 	}
 
 	// Should not panic — may return zero values for missing fields
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		_, _, _ = s.forgeCreatePR(
 			context.Background(),
 			"core", "test-repo",
@@ -646,8 +644,8 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 	_, out, err := s.listPRs(context.Background(), nil, ListPRsInput{
 		State: "all",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
 // --- listRepoPRs Good/Bad/Ugly ---
@@ -665,7 +663,7 @@ func TestPr_ListRepoPRs_Good(t *testing.T) {
 	}
 
 	prs, err := s.listRepoPRs(context.Background(), "core", "test-repo", "open")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	// May be empty depending on mock, but should not error
 	_ = prs
 }
@@ -687,7 +685,7 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 	}
 
 	_, err := s.listRepoPRs(context.Background(), "core", "go-io", "open")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPr_ListRepoPRs_Ugly(t *testing.T) {
@@ -707,8 +705,8 @@ func TestPr_ListRepoPRs_Ugly(t *testing.T) {
 	}
 
 	prs, err := s.listRepoPRs(context.Background(), "core", "empty-repo", "open")
-	require.NoError(t, err)
-	assert.Empty(t, prs)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, prs)
 }
 
 func TestPr_DeleteBranch_Good_Success(t *testing.T) {
@@ -733,13 +731,13 @@ func TestPr_DeleteBranch_Good_Success(t *testing.T) {
 		Repo:   "test-repo",
 		Branch: "agent/fix-tests",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "core", out.Org)
-	assert.Equal(t, "test-repo", out.Repo)
-	assert.Equal(t, "agent/fix-tests", out.Branch)
-	assert.Equal(t, http.MethodDelete, method)
-	assert.Contains(t, path, "/branches/agent/fix-tests")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "core", out.Org)
+	core.AssertEqual(t, "test-repo", out.Repo)
+	core.AssertEqual(t, "agent/fix-tests", out.Branch)
+	core.AssertEqual(t, http.MethodDelete, method)
+	core.AssertContains(t, path, "/branches/agent/fix-tests")
 }
 
 func TestPr_DeleteBranch_Bad_MissingRepo(t *testing.T) {
@@ -752,7 +750,7 @@ func TestPr_DeleteBranch_Bad_MissingRepo(t *testing.T) {
 	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
 		Branch: "agent/fix-tests",
 	})
-	require.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPr_DeleteBranch_Bad_MissingBranch(t *testing.T) {
@@ -765,7 +763,7 @@ func TestPr_DeleteBranch_Bad_MissingBranch(t *testing.T) {
 	_, _, err := s.deleteBranch(context.Background(), nil, DeleteBranchInput{
 		Repo: "test-repo",
 	})
-	require.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPr_DeleteBranch_Ugly_NoForgeToken(t *testing.T) {
@@ -777,5 +775,5 @@ func TestPr_DeleteBranch_Ugly_NoForgeToken(t *testing.T) {
 		Repo:   "test-repo",
 		Branch: "agent/fix-tests",
 	})
-	require.Error(t, err)
+	core.AssertError(t, err)
 }

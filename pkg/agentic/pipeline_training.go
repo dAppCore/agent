@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // input := PipelineTrainingCaptureInput{Org: "core", Repo: "go-io", Number: 42}
@@ -190,8 +190,12 @@ func (s *PrepSubsystem) pipelineTrainingReadGitDiff(ctx context.Context, org, re
 	}
 
 	if meta.BaseBranch != "" && meta.HeadBranch != "" {
-		_ = process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.BaseBranch)
-		_ = process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.HeadBranch)
+		if fetchBaseResult := process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.BaseBranch); !fetchBaseResult.OK {
+			core.Warn("pipelineTrainingReadGitDiff: failed to fetch base branch", "repo", repo, "branch", meta.BaseBranch, "reason", fetchBaseResult.Value)
+		}
+		if fetchHeadResult := process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.HeadBranch); !fetchHeadResult.OK {
+			core.Warn("pipelineTrainingReadGitDiff: failed to fetch head branch", "repo", repo, "branch", meta.HeadBranch, "reason", fetchHeadResult.Value)
+		}
 		diffResult := process.RunIn(ctx, repoDir, "git", "diff", core.Concat("origin/", meta.BaseBranch), core.Concat("origin/", meta.HeadBranch))
 		if diffResult.OK && core.Trim(resultText(diffResult)) != "" {
 			return resultText(diffResult), "git.diff", nil

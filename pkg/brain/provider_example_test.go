@@ -2,7 +2,7 @@
 
 package brain
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleNewProvider() {
 	p := NewProvider(nil, nil)

@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- resume ---
@@ -31,21 +29,21 @@ func TestResume_Resume_Good(t *testing.T) {
 	_, out, err := s.resume(context.Background(), nil, ResumeInput{
 		Workspace: "ws-blocked", Answer: "Use the new Core API", DryRun: true,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "ws-blocked", out.Workspace)
-	assert.Equal(t, "codex", out.Agent)
-	assert.Contains(t, out.Prompt, "Fix the tests")
-	assert.Contains(t, out.Prompt, "Use the new Core API")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "ws-blocked", out.Workspace)
+	core.AssertEqual(t, "codex", out.Agent)
+	core.AssertContains(t, out.Prompt, "Fix the tests")
+	core.AssertContains(t, out.Prompt, "Use the new Core API")
 
 	answerR := fs.Read(core.JoinPath(repoDir, "ANSWER.md"))
-	assert.Contains(t, answerR.Value.(string), "Use the new Core API")
+	core.AssertContains(t, answerR.Value.(string), "Use the new Core API")
 
 	// Agent override
 	_, out2, _ := s.resume(context.Background(), nil, ResumeInput{
 		Workspace: "ws-blocked", Agent: "claude:opus", DryRun: true,
 	})
-	assert.Equal(t, "claude:opus", out2.Agent)
+	core.AssertEqual(t, "claude:opus", out2.Agent)
 
 	// Completed workspace is resumable too
 	ws2 := core.JoinPath(wsRoot, "ws-done")
@@ -55,8 +53,8 @@ func TestResume_Resume_Good(t *testing.T) {
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st2))
 
 	_, out3, err3 := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-done", DryRun: true})
-	require.NoError(t, err3)
-	assert.True(t, out3.Success)
+	core.RequireNoError(t, err3)
+	core.AssertTrue(t, out3.Success)
 }
 
 func TestResume_Resume_Bad(t *testing.T) {
@@ -67,13 +65,13 @@ func TestResume_Resume_Bad(t *testing.T) {
 
 	// Empty workspace
 	_, _, err := s.resume(context.Background(), nil, ResumeInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace is required")
 
 	// Workspace not found
 	_, _, err = s.resume(context.Background(), nil, ResumeInput{Workspace: "nonexistent"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace not found")
 
 	// Not resumable (running)
 	ws := core.JoinPath(WorkspaceRoot(), "ws-running")
@@ -83,8 +81,8 @@ func TestResume_Resume_Bad(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	_, _, err = s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-running"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not resumable")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "not resumable")
 }
 
 func TestResume_Resume_Ugly(t *testing.T) {
@@ -98,8 +96,8 @@ func TestResume_Resume_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	_, _, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-nostatus"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no status.json")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no status.json")
 
 	// No answer provided — prompt has no ANSWER section
 	ws2 := core.JoinPath(WorkspaceRoot(), "ws-noanswer")
@@ -109,6 +107,6 @@ func TestResume_Resume_Ugly(t *testing.T) {
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st))
 
 	_, out, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-noanswer", DryRun: true})
-	require.NoError(t, err)
-	assert.NotContains(t, out.Prompt, "ANSWER TO YOUR QUESTION")
+	core.RequireNoError(t, err)
+	core.AssertNotContains(t, out.Prompt, "ANSWER TO YOUR QUESTION")
 }

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

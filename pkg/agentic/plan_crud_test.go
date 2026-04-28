@@ -8,9 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // newTestPrep creates a PrepSubsystem for testing with testCore wired in.
@@ -40,13 +38,13 @@ func TestPlan_PlanCreate_Good(t *testing.T) {
 		},
 		Notes: "Priority: high",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.ID)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.ID)
 	assertCoreIDFormat(t, out.ID)
-	assert.NotEmpty(t, out.Path)
+	core.AssertNotEmpty(t, out.Path)
 
-	assert.True(t, fs.Exists(out.Path))
+	core.AssertTrue(t, fs.Exists(out.Path))
 }
 
 func TestPlan_PlanCreate_Good_UniqueIDs(t *testing.T) {
@@ -58,16 +56,16 @@ func TestPlan_PlanCreate_Good_UniqueIDs(t *testing.T) {
 		Title:     "Repeated Title",
 		Objective: "Repeated objective",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	assertCoreIDFormat(t, first.ID)
 
 	_, second, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Title:     "Repeated Title",
 		Objective: "Repeated objective",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	assertCoreIDFormat(t, second.ID)
-	assert.NotEqual(t, first.ID, second.ID)
+	core.AssertNotEqual(t, first.ID, second.ID)
 }
 
 func TestPlan_PlanCreate_Bad_MissingTitle(t *testing.T) {
@@ -75,8 +73,8 @@ func TestPlan_PlanCreate_Bad_MissingTitle(t *testing.T) {
 	_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Objective: "something",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "title is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "title is required")
 }
 
 func TestPlan_PlanCreate_Bad_MissingObjective(t *testing.T) {
@@ -84,8 +82,8 @@ func TestPlan_PlanCreate_Bad_MissingObjective(t *testing.T) {
 	_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Title: "My Plan",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "objective is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "objective is required")
 }
 
 func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
@@ -98,14 +96,14 @@ func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 		Objective: "Test defaults",
 		Phases:    []Phase{{Name: "Phase 1"}, {Name: "Phase 2"}},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, readErr := readPlan(PlansRoot(), out.ID)
-	require.NoError(t, readErr)
-	assert.Equal(t, "pending", plan.Phases[0].Status)
-	assert.Equal(t, "pending", plan.Phases[1].Status)
-	assert.Equal(t, 1, plan.Phases[0].Number)
-	assert.Equal(t, 2, plan.Phases[1].Number)
+	core.RequireNoError(t, readErr)
+	core.AssertEqual(t, "pending", plan.Phases[0].Status)
+	core.AssertEqual(t, "pending", plan.Phases[1].Status)
+	core.AssertEqual(t, 1, plan.Phases[0].Number)
+	core.AssertEqual(t, 2, plan.Phases[1].Number)
 }
 
 // --- planRead (MCP handler) ---
@@ -119,21 +117,21 @@ func TestPlan_PlanRead_Good(t *testing.T) {
 		Title:     "Read Test",
 		Objective: "Verify read works",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, readOut, err := s.planRead(context.Background(), nil, PlanReadInput{ID: createOut.ID})
-	require.NoError(t, err)
-	assert.True(t, readOut.Success)
-	assert.Equal(t, createOut.ID, readOut.Plan.ID)
-	assert.Equal(t, "Read Test", readOut.Plan.Title)
-	assert.Equal(t, "draft", readOut.Plan.Status)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, readOut.Success)
+	core.AssertEqual(t, createOut.ID, readOut.Plan.ID)
+	core.AssertEqual(t, "Read Test", readOut.Plan.Title)
+	core.AssertEqual(t, "draft", readOut.Plan.Status)
 }
 
 func TestPlan_PlanRead_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "id is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "id is required")
 }
 
 func TestPlan_PlanRead_Bad_NotFound(t *testing.T) {
@@ -142,8 +140,8 @@ func TestPlan_PlanRead_Bad_NotFound(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "nonexistent"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "not found")
 }
 
 // --- planUpdate (MCP handler) ---
@@ -162,9 +160,9 @@ func TestPlan_PlanUpdate_Good_Status(t *testing.T) {
 		ID:     createOut.ID,
 		Status: "ready",
 	})
-	require.NoError(t, err)
-	assert.True(t, updateOut.Success)
-	assert.Equal(t, "ready", updateOut.Plan.Status)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, updateOut.Success)
+	core.AssertEqual(t, "ready", updateOut.Plan.Status)
 }
 
 func TestPlan_PlanUpdate_Good_PartialUpdate(t *testing.T) {
@@ -183,11 +181,11 @@ func TestPlan_PlanUpdate_Good_PartialUpdate(t *testing.T) {
 		Title: "New Title",
 		Agent: "codex",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "New Title", updateOut.Plan.Title)
-	assert.Equal(t, "Original objective", updateOut.Plan.Objective)
-	assert.Equal(t, "Original notes", updateOut.Plan.Notes)
-	assert.Equal(t, "codex", updateOut.Plan.Agent)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "New Title", updateOut.Plan.Title)
+	core.AssertEqual(t, "Original objective", updateOut.Plan.Objective)
+	core.AssertEqual(t, "Original notes", updateOut.Plan.Notes)
+	core.AssertEqual(t, "codex", updateOut.Plan.Agent)
 }
 
 func TestPlan_PlanUpdate_Good_AllStatusTransitions(t *testing.T) {
@@ -204,8 +202,8 @@ func TestPlan_PlanUpdate_Good_AllStatusTransitions(t *testing.T) {
 		_, out, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{
 			ID: createOut.ID, Status: status,
 		})
-		require.NoError(t, err, "transition to %s", status)
-		assert.Equal(t, status, out.Plan.Status)
+		core.RequireNoError(t, err, "transition to %s", status)
+		core.AssertEqual(t, status, out.Plan.Status)
 	}
 }
 
@@ -221,15 +219,15 @@ func TestPlan_PlanUpdate_Bad_InvalidStatus(t *testing.T) {
 	_, _, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{
 		ID: createOut.ID, Status: "invalid_status",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid status")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "invalid status")
 }
 
 func TestPlan_PlanUpdate_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planUpdate(context.Background(), nil, PlanUpdateInput{Status: "ready"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "id is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "id is required")
 }
 
 func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
@@ -247,9 +245,9 @@ func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
 		ID:     createOut.ID,
 		Phases: []Phase{{Number: 1, Name: "New Phase", Status: "done"}, {Number: 2, Name: "Phase 2"}},
 	})
-	require.NoError(t, err)
-	assert.Len(t, updateOut.Plan.Phases, 2)
-	assert.Equal(t, "New Phase", updateOut.Plan.Phases[0].Name)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, updateOut.Plan.Phases, 2)
+	core.AssertEqual(t, "New Phase", updateOut.Plan.Phases[0].Name)
 }
 
 // --- planDelete (MCP handler) ---
@@ -264,8 +262,8 @@ func TestPlan_PlanDelete_Good(t *testing.T) {
 	})
 
 	planBeforeDelete, err := readPlan(PlansRoot(), createOut.ID)
-	require.NoError(t, err)
-	require.NoError(t, writePlanStates(planBeforeDelete.Slug, []WorkspaceState{{
+	core.RequireNoError(t, err)
+	core.RequireNoError(t, writePlanStates(planBeforeDelete.Slug, []WorkspaceState{{
 		Key:   "pattern",
 		Value: "observer",
 	}}))
@@ -274,22 +272,22 @@ func TestPlan_PlanDelete_Good(t *testing.T) {
 		ID:     createOut.ID,
 		Reason: "No longer needed",
 	})
-	require.NoError(t, err)
-	assert.True(t, delOut.Success)
-	assert.Equal(t, createOut.ID, delOut.Deleted)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, delOut.Success)
+	core.AssertEqual(t, createOut.ID, delOut.Deleted)
 
-	assert.False(t, fs.Exists(createOut.Path))
-	assert.False(t, fs.Exists(statePath(planBeforeDelete.Slug)))
+	core.AssertFalse(t, fs.Exists(createOut.Path))
+	core.AssertFalse(t, fs.Exists(statePath(planBeforeDelete.Slug)))
 
 	_, readErr := readPlan(PlansRoot(), createOut.ID)
-	require.Error(t, readErr)
+	core.AssertError(t, readErr)
 }
 
 func TestPlan_PlanDelete_Bad_MissingID(t *testing.T) {
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "id is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "id is required")
 }
 
 func TestPlan_PlanDelete_Bad_NotFound(t *testing.T) {
@@ -298,8 +296,8 @@ func TestPlan_PlanDelete_Bad_NotFound(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "nonexistent"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "not found")
 }
 
 // --- planList (MCP handler) ---
@@ -310,9 +308,9 @@ func TestPlan_PlanList_Good_Empty(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
 }
 
 func TestPlan_PlanList_Good_Multiple(t *testing.T) {
@@ -325,8 +323,8 @@ func TestPlan_PlanList_Good_Multiple(t *testing.T) {
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "C", Objective: "C", Repo: "go-io"})
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 3, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 3, out.Count)
 }
 
 func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
@@ -339,8 +337,8 @@ func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 	s.planCreate(context.Background(), nil, PlanCreateInput{Title: "C", Objective: "C", Repo: "go-io"})
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{Repo: "go-io"})
-	require.NoError(t, err)
-	assert.Equal(t, 2, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 2, out.Count)
 }
 
 func TestPlan_HandlePlanCreate_Good(t *testing.T) {
@@ -361,18 +359,18 @@ func TestPlan_HandlePlanCreate_Good(t *testing.T) {
 		}},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(PlanCreateOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
 	assertCoreIDFormat(t, output.ID)
 
 	read, err := readPlan(PlansRoot(), output.ID)
-	require.NoError(t, err)
-	require.Len(t, read.Phases, 1)
-	assert.Equal(t, "Register actions", read.Phases[0].Name)
-	assert.Equal(t, []string{"plan.create exists", "tests cover handlers"}, read.Phases[0].Criteria)
-	assert.Equal(t, 2, read.Phases[0].Tests)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, read.Phases, 1)
+	core.AssertEqual(t, "Register actions", read.Phases[0].Name)
+	core.AssertEqual(t, []string{"plan.create exists", "tests cover handlers"}, read.Phases[0].Criteria)
+	core.AssertEqual(t, 2, read.Phases[0].Tests)
 }
 
 func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
@@ -384,7 +382,7 @@ func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
 		Title:     "Update via action",
 		Objective: "Parse phase JSON from action options",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	result := s.handlePlanUpdate(context.Background(), core.NewOptions(
 		core.Option{Key: "id", Value: created.ID},
@@ -393,15 +391,15 @@ func TestPlan_HandlePlanUpdate_Good_JSONPhases(t *testing.T) {
 		core.Option{Key: "phases", Value: `[{"number":1,"name":"Review drift","status":"pending","criteria":["actions registered"]}]`},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(PlanUpdateOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, "ready", output.Plan.Status)
-	assert.Equal(t, "codex", output.Plan.Agent)
-	require.Len(t, output.Plan.Phases, 1)
-	assert.Equal(t, "Review drift", output.Plan.Phases[0].Name)
-	assert.Equal(t, []string{"actions registered"}, output.Plan.Phases[0].Criteria)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "ready", output.Plan.Status)
+	core.AssertEqual(t, "codex", output.Plan.Agent)
+	core.AssertLen(t, output.Plan.Phases, 1)
+	core.AssertEqual(t, "Review drift", output.Plan.Phases[0].Name)
+	core.AssertEqual(t, []string{"actions registered"}, output.Plan.Phases[0].Criteria)
 }
 
 func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
@@ -414,9 +412,9 @@ func TestPlan_PlanList_Good_FilterByStatus(t *testing.T) {
 	s.planUpdate(context.Background(), nil, PlanUpdateInput{ID: c2.ID, Status: "ready"})
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{Status: "ready"})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Count)
-	assert.Equal(t, "ready", out.Plans[0].Status)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Count)
+	core.AssertEqual(t, "ready", out.Plans[0].Status)
 }
 
 func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
@@ -431,8 +429,8 @@ func TestPlan_PlanList_Good_IgnoresNonJSON(t *testing.T) {
 	fs.Write(plansDir+"/notes.txt", "not a plan")
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Count, "should skip non-JSON files")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Count, "should skip non-JSON files")
 }
 
 func TestPlan_PlanList_Good_DefaultLimit(t *testing.T) {
@@ -445,26 +443,28 @@ func TestPlan_PlanList_Good_DefaultLimit(t *testing.T) {
 			Title:     core.Sprintf("Plan %d", i+1),
 			Objective: "Test default list limit",
 		})
-		require.NoError(t, err)
+		core.RequireNoError(t, err)
 	}
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 20, out.Count)
-	assert.Len(t, out.Plans, 20)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 20, out.Count)
+	core.AssertLen(t, out.Plans, 20)
 }
 
 // --- planPath edge cases ---
 
 func TestPlan_PlanPath_Bad_PathTraversal(t *testing.T) {
 	p := planPath("/tmp/plans", "../../etc/passwd")
-	assert.NotContains(t, p, "..")
+	base := core.PathBase(p)
+	core.AssertNotContains(t, p, "..")
+	core.AssertEqual(t, "passwd.json", base)
 }
 
 func TestPlan_PlanPath_Bad_Dot(t *testing.T) {
-	assert.Contains(t, planPath("/tmp", "."), "invalid")
-	assert.Contains(t, planPath("/tmp", ".."), "invalid")
-	assert.Contains(t, planPath("/tmp", ""), "invalid")
+	core.AssertContains(t, planPath("/tmp", "."), "invalid")
+	core.AssertContains(t, planPath("/tmp", ".."), "invalid")
+	core.AssertContains(t, planPath("/tmp", ""), "invalid")
 }
 
 // --- planCreate Ugly ---
@@ -479,9 +479,9 @@ func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
 		Title:     longTitle,
 		Objective: "Test very long title handling",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.ID)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.ID)
 	assertCoreIDFormat(t, out.ID)
 }
 
@@ -494,12 +494,12 @@ func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 		Title:     "\u00e9\u00e0\u00fc\u00f1\u00f0 Plan \u2603\u2764\u270c",
 		Objective: "Handle unicode gracefully",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.ID)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.ID)
 	assertCoreIDFormat(t, out.ID)
 	// Should be readable from disk
-	assert.True(t, fs.Exists(out.Path))
+	core.AssertTrue(t, fs.Exists(out.Path))
 }
 
 // --- planRead Ugly ---
@@ -511,8 +511,8 @@ func TestPlan_PlanRead_Ugly_SpecialCharsInID(t *testing.T) {
 	s := newTestPrep(t)
 	// Try to read with special chars — should safely not find it
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "plan-with-<script>-chars"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "not found")
 }
 
 func TestPlan_PlanRead_Ugly_UnicodeID(t *testing.T) {
@@ -521,7 +521,7 @@ func TestPlan_PlanRead_Ugly_UnicodeID(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, _, err := s.planRead(context.Background(), nil, PlanReadInput{ID: "\u00e9\u00e0\u00fc-plan"})
-	assert.Error(t, err, "unicode ID should not find a file")
+	core.AssertError(t, err)
 }
 
 // --- planUpdate Ugly ---
@@ -542,9 +542,9 @@ func TestPlan_PlanUpdate_Ugly_EmptyPhasesArray(t *testing.T) {
 		ID:     createOut.ID,
 		Phases: []Phase{},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	// Empty slice is still non-nil, so it replaces
-	assert.Empty(t, updateOut.Plan.Phases)
+	core.AssertEmpty(t, updateOut.Plan.Phases)
 }
 
 func TestPlan_PlanUpdate_Ugly_UnicodeNotes(t *testing.T) {
@@ -561,8 +561,8 @@ func TestPlan_PlanUpdate_Ugly_UnicodeNotes(t *testing.T) {
 		ID:    createOut.ID,
 		Notes: "\u00e9\u00e0\u00fc\u00f1 notes with \u2603 snowman and \u00a3 pound sign",
 	})
-	require.NoError(t, err)
-	assert.Contains(t, updateOut.Plan.Notes, "\u2603")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, updateOut.Plan.Notes, "\u2603")
 }
 
 // --- planDelete Ugly ---
@@ -574,8 +574,8 @@ func TestPlan_PlanDelete_Ugly_PathTraversalAttempt(t *testing.T) {
 	s := newTestPrep(t)
 	// Path traversal attempt should be sanitised and not find anything
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "../../etc/passwd"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "not found")
 }
 
 func TestPlan_PlanDelete_Ugly_UnicodeID(t *testing.T) {
@@ -584,40 +584,40 @@ func TestPlan_PlanDelete_Ugly_UnicodeID(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, _, err := s.planDelete(context.Background(), nil, PlanDeleteInput{ID: "\u00e9\u00e0\u00fc-to-delete"})
-	assert.Error(t, err, "unicode ID should not match a real plan")
+	core.AssertError(t, err)
 }
 
 // --- planPath Ugly ---
 
 func TestPlan_PlanPath_Ugly_UnicodeID(t *testing.T) {
 	result := planPath("/tmp/plans", "\u00e9\u00e0\u00fc-plan-\u2603")
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		_ = planPath("/tmp", "\u00e9\u00e0\u00fc")
 	})
-	assert.Contains(t, result, ".json")
+	core.AssertContains(t, result, ".json")
 }
 
 func TestPlan_PlanPath_Ugly_VeryLongID(t *testing.T) {
 	longID := strings.Repeat("a", 500)
 	result := planPath("/tmp/plans", longID)
-	assert.Contains(t, result, ".json")
-	assert.NotEmpty(t, result)
+	core.AssertContains(t, result, ".json")
+	core.AssertNotEmpty(t, result)
 }
 
 // --- validPlanStatus Ugly ---
 
 func TestPlan_ValidPlanStatus_Ugly_UnicodeStatus(t *testing.T) {
-	assert.False(t, validPlanStatus("\u00e9\u00e0\u00fc"))
-	assert.False(t, validPlanStatus("\u2603"))
-	assert.False(t, validPlanStatus("\u0000"))
+	core.AssertFalse(t, validPlanStatus("\u00e9\u00e0\u00fc"))
+	core.AssertFalse(t, validPlanStatus("\u2603"))
+	core.AssertFalse(t, validPlanStatus("\u0000"))
 }
 
 func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
-	assert.False(t, validPlanStatus("Draft"))       // capital D
-	assert.False(t, validPlanStatus("DRAFT"))       // all caps
-	assert.False(t, validPlanStatus("in-progress")) // hyphen instead of underscore
-	assert.False(t, validPlanStatus(" draft"))      // leading space
-	assert.False(t, validPlanStatus("draft "))      // trailing space
+	core.AssertFalse(t, validPlanStatus("Draft"))       // capital D
+	core.AssertFalse(t, validPlanStatus("DRAFT"))       // all caps
+	core.AssertFalse(t, validPlanStatus("in-progress")) // hyphen instead of underscore
+	core.AssertFalse(t, validPlanStatus(" draft"))      // leading space
+	core.AssertFalse(t, validPlanStatus("draft "))      // trailing space
 }
 
 // --- planList Bad/Ugly ---
@@ -629,9 +629,9 @@ func TestPlan_PlanList_Bad(t *testing.T) {
 
 	s := newTestPrep(t)
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
 }
 
 func TestPlan_PlanList_Ugly(t *testing.T) {
@@ -648,8 +648,8 @@ func TestPlan_PlanList_Ugly(t *testing.T) {
 	fs.Write(plansDir+"/corrupt-plan.json", "not valid json {{{")
 
 	_, out, err := s.planList(context.Background(), nil, PlanListInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 1, out.Count, "corrupt JSON file should be skipped")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, out.Count, "corrupt JSON file should be skipped")
 }
 
 // --- writePlan Bad/Ugly ---
@@ -667,8 +667,8 @@ func TestPlan_WritePlan_Bad(t *testing.T) {
 	}
 	// Should write with planPath sanitising empty ID to "invalid"
 	path, err := writePlan(dir, plan)
-	require.NoError(t, err)
-	assert.Contains(t, path, "invalid.json")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, path, "invalid.json")
 }
 
 func TestPlan_WritePlan_Ugly(t *testing.T) {
@@ -684,12 +684,12 @@ func TestPlan_WritePlan_Ugly(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 	path, err := writePlan(dir, plan)
-	require.NoError(t, err)
-	assert.NotEmpty(t, path)
-	assert.Contains(t, path, ".json")
+	core.RequireNoError(t, err)
+	core.AssertNotEmpty(t, path)
+	core.AssertContains(t, path, ".json")
 
 	// Verify we can read it back
 	readBack, err := readPlan(dir, longID)
-	require.NoError(t, err)
-	assert.Equal(t, "Long ID Plan", readBack.Title)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Long ID Plan", readBack.Title)
 }

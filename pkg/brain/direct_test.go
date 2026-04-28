@@ -9,10 +9,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // newTestDirect returns a DirectSubsystem wired to the given test server.
@@ -53,8 +51,8 @@ func TestDirect_NewDirect_Good_Defaults(t *testing.T) {
 	t.Setenv("CORE_BRAIN_KEY", "")
 
 	sub := NewDirect()
-	assert.Equal(t, "https://api.lthn.sh", sub.apiURL)
-	assert.NotEmpty(t, sub.apiURL)
+	core.AssertEqual(t, "https://api.lthn.sh", sub.apiURL)
+	core.AssertNotEmpty(t, sub.apiURL)
 }
 
 func TestDirect_NewDirect_Good_CustomEnv(t *testing.T) {
@@ -62,8 +60,8 @@ func TestDirect_NewDirect_Good_CustomEnv(t *testing.T) {
 	t.Setenv("CORE_BRAIN_KEY", "test-key-123")
 
 	sub := NewDirect()
-	assert.Equal(t, "https://custom.api.test", sub.apiURL)
-	assert.Equal(t, "test-key-123", sub.apiKey)
+	core.AssertEqual(t, "https://custom.api.test", sub.apiURL)
+	core.AssertEqual(t, "test-key-123", sub.apiKey)
 }
 
 func TestDirect_NewDirect_Good_KeyFromFile(t *testing.T) {
@@ -73,11 +71,11 @@ func TestDirect_NewDirect_Good_KeyFromFile(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("CORE_HOME", tmpHome)
 	keyDir := core.JoinPath(tmpHome, ".claude")
-	require.True(t, fs.EnsureDir(keyDir).OK)
-	require.True(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  file-key-456  \n").OK)
+	core.RequireTrue(t, fs.EnsureDir(keyDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  file-key-456  \n").OK)
 
 	sub := NewDirect()
-	assert.Equal(t, "file-key-456", sub.apiKey)
+	core.AssertEqual(t, "file-key-456", sub.apiKey)
 }
 
 func TestDirect_NewDirect_Good_HomeFallback(t *testing.T) {
@@ -89,21 +87,25 @@ func TestDirect_NewDirect_Good_HomeFallback(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
 	keyDir := core.JoinPath(tmpHome, ".claude")
-	require.True(t, fs.EnsureDir(keyDir).OK)
-	require.True(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  home-key-789  \n").OK)
+	core.RequireTrue(t, fs.EnsureDir(keyDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  home-key-789  \n").OK)
 
 	sub := NewDirect()
-	assert.Equal(t, "home-key-789", sub.apiKey)
+	core.AssertEqual(t, "home-key-789", sub.apiKey)
 }
 
 func TestDirect_Subsystem_Good_Name(t *testing.T) {
 	sub := &DirectSubsystem{}
-	assert.Equal(t, "brain", sub.Name())
+	got := sub.Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotEmpty(t, got)
 }
 
 func TestDirect_Subsystem_Good_Shutdown(t *testing.T) {
 	sub := &DirectSubsystem{}
-	assert.NoError(t, sub.Shutdown(context.Background()))
+	err := sub.Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
 }
 
 // --- apiCall ---
@@ -111,18 +113,18 @@ func TestDirect_Subsystem_Good_Shutdown(t *testing.T) {
 func TestDirect_ApiCall_Bad_NoAPIKey(t *testing.T) {
 	sub := &DirectSubsystem{apiURL: "http://localhost", apiKey: ""}
 	result := sub.apiCall(context.Background(), "GET", "/test", nil)
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, _ := result.Value.(error)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no API key")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no API key")
 }
 
 func TestDirect_ApiCall_Good_GET(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Equal(t, "/v1/test", r.URL.Path)
-		assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
+		core.AssertEqual(t, "GET", r.Method)
+		core.AssertEqual(t, "/v1/test", r.URL.Path)
+		core.AssertEqual(t, "Bearer test-key", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "application/json", r.Header.Get("Accept"))
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"status": "ok"})))
@@ -130,19 +132,19 @@ func TestDirect_ApiCall_Good_GET(t *testing.T) {
 	defer srv.Close()
 
 	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	payload, _ := result.Value.(map[string]any)
-	assert.Equal(t, "ok", payload["status"])
+	core.AssertEqual(t, "ok", payload["status"])
 }
 
 func TestDirect_ApiCall_Good_POSTWithBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "application/json", r.Header.Get("Content-Type"))
 
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "hello", body["content"])
+		core.AssertEqual(t, "hello", body["content"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"id": "mem-123"})))
@@ -150,9 +152,9 @@ func TestDirect_ApiCall_Good_POSTWithBody(t *testing.T) {
 	defer srv.Close()
 
 	result := newTestDirect(srv).apiCall(context.Background(), "POST", "/v1/brain/remember", map[string]any{"content": "hello"})
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	payload, _ := result.Value.(map[string]any)
-	assert.Equal(t, "mem-123", payload["id"])
+	core.AssertEqual(t, "mem-123", payload["id"])
 }
 
 func TestDirect_ApiCall_Bad_ServerError(t *testing.T) {
@@ -160,10 +162,10 @@ func TestDirect_ApiCall_Bad_ServerError(t *testing.T) {
 	defer srv.Close()
 
 	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, _ := result.Value.(error)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "upstream returned 500")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "upstream returned 500")
 }
 
 func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
@@ -174,10 +176,10 @@ func TestDirect_ApiCall_Bad_InvalidJSON(t *testing.T) {
 	defer srv.Close()
 
 	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, _ := result.Value.(error)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parse response")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "parse response")
 }
 
 func TestDirect_ApiCall_Bad_ConnectionRefused(t *testing.T) {
@@ -192,10 +194,10 @@ func TestDirect_ApiCall_Bad_ConnectionRefused(t *testing.T) {
 		}),
 	}
 	result := sub.apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, _ := result.Value.(error)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "request failed")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "request failed")
 }
 
 func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
@@ -203,10 +205,10 @@ func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
 	defer srv.Close()
 
 	result := newTestDirect(srv).apiCall(context.Background(), "GET", "/v1/test", nil)
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, _ := result.Value.(error)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "upstream returned 400")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "upstream returned 400")
 }
 
 // --- remember ---
@@ -215,15 +217,15 @@ func TestDirect_Remember_Good(t *testing.T) {
 	t.Setenv("CORE_BRAIN_AGENT_ID", "codex")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/v1/brain/remember", r.URL.Path)
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "/v1/brain/remember", r.URL.Path)
 
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "test content", body["content"])
-		assert.Equal(t, "observation", body["type"])
-		assert.Equal(t, "core", body["org"])
-		assert.Equal(t, "codex", body["agent_id"])
+		core.AssertEqual(t, "test content", body["content"])
+		core.AssertEqual(t, "observation", body["type"])
+		core.AssertEqual(t, "core", body["org"])
+		core.AssertEqual(t, "codex", body["agent_id"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -239,10 +241,10 @@ func TestDirect_Remember_Good(t *testing.T) {
 		Org:     "core",
 		Project: "core",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "mem-abc", out.MemoryID)
-	assert.False(t, out.Timestamp.IsZero())
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "mem-abc", out.MemoryID)
+	core.AssertFalse(t, out.Timestamp.IsZero())
 }
 
 func TestDirect_Remember_Ugly_LegacyTopLevelID(t *testing.T) {
@@ -253,9 +255,9 @@ func TestDirect_Remember_Ugly_LegacyTopLevelID(t *testing.T) {
 		Content: "legacy payload",
 		Type:    "observation",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "mem-legacy", out.MemoryID)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "mem-legacy", out.MemoryID)
 }
 
 func TestDirect_Remember_Bad_APIError(t *testing.T) {
@@ -266,21 +268,21 @@ func TestDirect_Remember_Bad_APIError(t *testing.T) {
 		Content: "test",
 		Type:    "fact",
 	})
-	require.Error(t, err)
-	assert.False(t, out.Success)
+	core.AssertError(t, err)
+	core.AssertFalse(t, out.Success)
 }
 
 // --- recall ---
 
 func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/v1/brain/recall", r.URL.Path)
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "/v1/brain/recall", r.URL.Path)
 
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "architecture", body["query"])
-		assert.Equal(t, "core", body["org"])
+		core.AssertEqual(t, "architecture", body["query"])
+		core.AssertEqual(t, "core", body["org"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -318,27 +320,27 @@ func TestDirect_Recall_Good_WithMemories(t *testing.T) {
 			Org: "core",
 		},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 2, out.Count)
-	require.Len(t, out.Memories, 2)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 2, out.Count)
+	core.AssertLen(t, out.Memories, 2)
 
-	assert.Equal(t, "mem-1", out.Memories[0].ID)
-	assert.Equal(t, "Use Qdrant for vector search", out.Memories[0].Content)
-	assert.Equal(t, "decision", out.Memories[0].Type)
-	assert.Equal(t, "virgil", out.Memories[0].AgentID)
-	assert.Equal(t, 0.95, out.Memories[0].Confidence)
-	assert.Equal(t, "manual", out.Memories[0].Source)
-	assert.Contains(t, out.Memories[0].Tags, "source:manual")
+	core.AssertEqual(t, "mem-1", out.Memories[0].ID)
+	core.AssertEqual(t, "Use Qdrant for vector search", out.Memories[0].Content)
+	core.AssertEqual(t, "decision", out.Memories[0].Type)
+	core.AssertEqual(t, "virgil", out.Memories[0].AgentID)
+	core.AssertEqual(t, 0.95, out.Memories[0].Confidence)
+	core.AssertEqual(t, "manual", out.Memories[0].Source)
+	core.AssertContains(t, out.Memories[0].Tags, "source:manual")
 
-	assert.Equal(t, "mem-2", out.Memories[1].ID)
+	core.AssertEqual(t, "mem-2", out.Memories[1].ID)
 }
 
 func TestDirect_Recall_Good_DefaultTopK(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, float64(10), body["top_k"])
+		core.AssertEqual(t, float64(10), body["top_k"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -351,19 +353,19 @@ func TestDirect_Recall_Good_DefaultTopK(t *testing.T) {
 		Query: "test",
 		TopK:  0,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
 }
 
 func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "cladius", body["agent_id"])
-		assert.Equal(t, "core", body["org"])
-		assert.Equal(t, "eaas", body["project"])
-		assert.Equal(t, "decision", body["type"])
+		core.AssertEqual(t, "cladius", body["agent_id"])
+		core.AssertEqual(t, "core", body["org"])
+		core.AssertEqual(t, "eaas", body["project"])
+		core.AssertEqual(t, "decision", body["type"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -382,7 +384,7 @@ func TestDirect_Recall_Good_WithFilters(t *testing.T) {
 			Type:    "decision",
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 }
 
 func TestDirect_Recall_Good_EmptyMemories(t *testing.T) {
@@ -392,10 +394,10 @@ func TestDirect_Recall_Good_EmptyMemories(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).recall(context.Background(), nil, RecallInput{Query: "nothing"})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
-	assert.Empty(t, out.Memories)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
+	core.AssertEmpty(t, out.Memories)
 }
 
 func TestDirect_Recall_Bad_APIError(t *testing.T) {
@@ -403,16 +405,16 @@ func TestDirect_Recall_Bad_APIError(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).recall(context.Background(), nil, RecallInput{Query: "test"})
-	require.Error(t, err)
-	assert.False(t, out.Success)
+	core.AssertError(t, err)
+	core.AssertFalse(t, out.Success)
 }
 
 // --- forget ---
 
 func TestDirect_Forget_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Equal(t, "/v1/brain/forget/mem-123", r.URL.Path)
+		core.AssertEqual(t, "DELETE", r.Method)
+		core.AssertEqual(t, "/v1/brain/forget/mem-123", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{"deleted": true})))
@@ -423,10 +425,10 @@ func TestDirect_Forget_Good(t *testing.T) {
 		ID:     "mem-123",
 		Reason: "outdated",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "mem-123", out.Forgotten)
-	assert.False(t, out.Timestamp.IsZero())
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "mem-123", out.Forgotten)
+	core.AssertFalse(t, out.Timestamp.IsZero())
 }
 
 func TestDirect_Forget_Bad_APIError(t *testing.T) {
@@ -434,21 +436,21 @@ func TestDirect_Forget_Bad_APIError(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).forget(context.Background(), nil, ForgetInput{ID: "nonexistent"})
-	require.Error(t, err)
-	assert.False(t, out.Success)
+	core.AssertError(t, err)
+	core.AssertFalse(t, out.Success)
 }
 
 // --- list ---
 
 func TestDirect_List_Good_WithMemories(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Equal(t, "/v1/brain/list", r.URL.Path)
-		assert.Equal(t, "core", r.URL.Query().Get("org"))
-		assert.Equal(t, "agent", r.URL.Query().Get("project"))
-		assert.Equal(t, "decision", r.URL.Query().Get("type"))
-		assert.Equal(t, "codex", r.URL.Query().Get("agent_id"))
-		assert.Equal(t, "2", r.URL.Query().Get("limit"))
+		core.AssertEqual(t, "GET", r.Method)
+		core.AssertEqual(t, "/v1/brain/list", r.URL.Path)
+		core.AssertEqual(t, "core", r.URL.Query().Get("org"))
+		core.AssertEqual(t, "agent", r.URL.Query().Get("project"))
+		core.AssertEqual(t, "decision", r.URL.Query().Get("type"))
+		core.AssertEqual(t, "codex", r.URL.Query().Get("agent_id"))
+		core.AssertEqual(t, "2", r.URL.Query().Get("limit"))
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -492,24 +494,24 @@ func TestDirect_List_Good_WithMemories(t *testing.T) {
 		AgentID: "codex",
 		Limit:   2,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 2, out.Count)
-	require.Len(t, out.Memories, 2)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 2, out.Count)
+	core.AssertLen(t, out.Memories, 2)
 
-	assert.Equal(t, "mem-list-1", out.Memories[0].ID)
-	assert.Equal(t, 0.73, out.Memories[0].Confidence)
-	assert.Equal(t, 2, out.Memories[0].SupersedesCount)
-	assert.Equal(t, "mem-old", out.Memories[0].SupersedesID)
-	assert.Equal(t, "manual", out.Memories[0].Source)
-	assert.Equal(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)
-	assert.Equal(t, "2026-04-01T00:00:00Z", out.Memories[0].ExpiresAt)
-	assert.Equal(t, "2026-03-31T12:30:00Z", out.Memories[0].DeletedAt)
-	assert.Contains(t, out.Memories[0].Tags, "queue")
-	assert.Contains(t, out.Memories[0].Tags, "source:manual")
+	core.AssertEqual(t, "mem-list-1", out.Memories[0].ID)
+	core.AssertEqual(t, 0.73, out.Memories[0].Confidence)
+	core.AssertEqual(t, 2, out.Memories[0].SupersedesCount)
+	core.AssertEqual(t, "mem-old", out.Memories[0].SupersedesID)
+	core.AssertEqual(t, "manual", out.Memories[0].Source)
+	core.AssertEqual(t, "2026-03-30T10:00:00Z", out.Memories[0].UpdatedAt)
+	core.AssertEqual(t, "2026-04-01T00:00:00Z", out.Memories[0].ExpiresAt)
+	core.AssertEqual(t, "2026-03-31T12:30:00Z", out.Memories[0].DeletedAt)
+	core.AssertContains(t, out.Memories[0].Tags, "queue")
+	core.AssertContains(t, out.Memories[0].Tags, "source:manual")
 
-	assert.Equal(t, "mem-list-2", out.Memories[1].ID)
-	assert.Equal(t, 0.91, out.Memories[1].Confidence)
+	core.AssertEqual(t, "mem-list-2", out.Memories[1].ID)
+	core.AssertEqual(t, 0.91, out.Memories[1].Confidence)
 }
 
 func TestDirect_List_Good_EmptyMemories(t *testing.T) {
@@ -519,10 +521,10 @@ func TestDirect_List_Good_EmptyMemories(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
-	assert.Empty(t, out.Memories)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
+	core.AssertEmpty(t, out.Memories)
 }
 
 func TestDirect_List_Bad_APIError(t *testing.T) {
@@ -530,6 +532,6 @@ func TestDirect_List_Bad_APIError(t *testing.T) {
 	defer srv.Close()
 
 	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{Project: "agent"})
-	require.Error(t, err)
-	assert.False(t, out.Success)
+	core.AssertError(t, err)
+	core.AssertFalse(t, out.Success)
 }

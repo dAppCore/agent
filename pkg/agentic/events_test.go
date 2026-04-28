@@ -5,8 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 func TestEvents_EmitEvent_Good(t *testing.T) {
@@ -14,20 +13,20 @@ func TestEvents_EmitEvent_Good(t *testing.T) {
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
 
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		emitStartEvent("codex", "ws-1")
 	})
 }
 
 func TestEvents_EmitEvent_Bad_NoWorkspace(t *testing.T) {
 	setTestWorkspace(t, "/nonexistent")
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		emitCompletionEvent("codex", "ws-1", "completed")
 	})
 }
 
 func TestEvents_EmitEvent_Ugly_AllEmpty(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		emitEvent("", "", "", "")
 	})
 }

@@ -10,8 +10,8 @@ import (
 	"encoding/hex"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
 	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -457,7 +457,11 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 // dispatch state described in RFC §15.3.
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
-		s.workspaces.Set(name, st)
+		if st == nil {
+			s.workspaces.Delete(name)
+		} else {
+			s.workspaces.Set(name, st)
+		}
 	}
 	if st == nil {
 		s.stateStoreDelete(stateRegistryGroup, name)
@@ -566,12 +570,16 @@ func (s *PrepSubsystem) refreshConcurrencySnapshot() {
 
 	// Drop entries for agent types we no longer track so the snapshot
 	// never grows beyond active dispatch pools.
+	stale := make([]string, 0)
 	s.stateStoreRestore(stateConcurrencyGroup, func(key, _ string) bool {
 		if _, alive := totals[key]; !alive {
-			s.stateStoreDelete(stateConcurrencyGroup, key)
+			stale = append(stale, key)
 		}
 		return true
 	})
+	for _, key := range stale {
+		s.stateStoreDelete(stateConcurrencyGroup, key)
+	}
 }
 
 // s.Workspaces().Names()                        // all workspace names
@@ -1250,7 +1258,7 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	goWorkPath := core.JoinPath(s.codePath, "go.work")
-	modulePath := core.Concat("dappco.re/go/core/", repo)
+	modulePaths := consumerModulePaths(repo)
 
 	r := fs.Read(goWorkPath)
 	if !r.OK {
@@ -1271,7 +1279,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 			continue
 		}
 		modData := mr.Value.(string)
-		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, core.Concat("module ", modulePath)) {
+		if consumerRequiresModule(modData, modulePaths) {
 			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
@@ -1287,6 +1295,33 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	b.WriteString(core.Sprintf("Breaking change risk: %d consumers.\n", len(consumers)))
 
 	return b.String(), len(consumers)
+}
+
+func consumerModulePaths(repo string) []string {
+	if repo == "go" {
+		return []string{"dappco.re/go"}
+	}
+	return []string{
+		core.Concat("dappco.re/go/", repo),
+	}
+}
+
+func consumerRequiresModule(goMod string, modulePaths []string) bool {
+	lines := core.Split(goMod, "\n")
+	for _, modulePath := range modulePaths {
+		for _, line := range lines {
+			line = core.Trim(line)
+			if line == "" || core.HasPrefix(line, "module ") {
+				continue
+			}
+			if line == modulePath ||
+				core.HasPrefix(line, core.Concat(modulePath, " ")) ||
+				core.HasPrefix(line, core.Concat("require ", modulePath, " ")) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *PrepSubsystem) getGitLog(repoPath string) string {

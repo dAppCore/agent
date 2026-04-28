@@ -8,9 +8,9 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 )
 
 // options := runner.Options{}
@@ -358,7 +358,9 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 			}
 			workspaceStatus.Status = "failed"
 			workspaceStatus.PID = 0
-			_ = WriteStatus(workspaceDir, workspaceStatus)
+			if writeResult := WriteStatus(workspaceDir, workspaceStatus); !writeResult.OK {
+				core.Warn("runner.actionKill: failed to write failed status", "workspace", agentic.WorkspaceName(workspaceDir), "reason", writeResult.Value)
+			}
 			if s.workspaces != nil {
 				s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
 			}

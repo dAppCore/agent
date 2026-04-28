@@ -228,7 +228,7 @@ func GeneratePack(pkg ScannedPackage) Result {
 		return Result{b.String(), true}
 	}
 
-	b.WriteString("import \"dappco.re/go/core\"\n\n")
+	b.WriteString("import \"dappco.re/go\"\n\n")
 	b.WriteString("func init() {\n")
 
 	// Pack groups (entire directories)
@@ -291,12 +291,18 @@ func compress(input string) (string, error) {
 		return "", err
 	}
 	if _, err := gz.Write([]byte(input)); err != nil {
-		_ = gz.Close()
-		_ = b64.Close()
+		if closeErr := gz.Close(); closeErr != nil {
+			return "", err
+		}
+		if closeErr := b64.Close(); closeErr != nil {
+			return "", err
+		}
 		return "", err
 	}
 	if err := gz.Close(); err != nil {
-		_ = b64.Close()
+		if closeErr := b64.Close(); closeErr != nil {
+			return "", err
+		}
 		return "", err
 	}
 	if err := b64.Close(); err != nil {

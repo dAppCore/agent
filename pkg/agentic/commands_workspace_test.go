@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 func TestCommandsworkspace_RegisterWorkspaceCommands_Good_Aliases(t *testing.T) {
@@ -15,14 +14,14 @@ func TestCommandsworkspace_RegisterWorkspaceCommands_Good_Aliases(t *testing.T) 
 
 	s.registerWorkspaceCommands()
 
-	assert.Contains(t, c.Commands(), "workspace/list")
-	assert.Contains(t, c.Commands(), "agentic:workspace/list")
-	assert.Contains(t, c.Commands(), "workspace/clean")
-	assert.Contains(t, c.Commands(), "agentic:workspace/clean")
-	assert.Contains(t, c.Commands(), "workspace/dispatch")
-	assert.Contains(t, c.Commands(), "agentic:workspace/dispatch")
-	assert.Contains(t, c.Commands(), "workspace/watch")
-	assert.Contains(t, c.Commands(), "agentic:workspace/watch")
+	core.AssertContains(t, c.Commands(), "workspace/list")
+	core.AssertContains(t, c.Commands(), "agentic:workspace/list")
+	core.AssertContains(t, c.Commands(), "workspace/clean")
+	core.AssertContains(t, c.Commands(), "agentic:workspace/clean")
+	core.AssertContains(t, c.Commands(), "workspace/dispatch")
+	core.AssertContains(t, c.Commands(), "agentic:workspace/dispatch")
+	core.AssertContains(t, c.Commands(), "workspace/watch")
+	core.AssertContains(t, c.Commands(), "agentic:workspace/watch")
 }
 
 // --- CmdWorkspaceList Bad/Ugly ---
@@ -40,7 +39,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Bad_NoWorkspaceRootDir(t *testing.T)
 	}
 
 	r := s.cmdWorkspaceList(core.NewOptions())
-	assert.True(t, r.OK) // gracefully says "no workspaces"
+	core.AssertTrue(t, r.OK) // gracefully says "no workspaces"
 }
 
 func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testing.T) {
@@ -70,7 +69,7 @@ func TestCommandsworkspace_CmdWorkspaceList_Ugly_NonDirAndCorruptStatus(t *testi
 	}
 
 	r := s.cmdWorkspaceList(core.NewOptions())
-	assert.True(t, r.OK) // should skip non-dir entries and still list valid workspaces
+	core.AssertTrue(t, r.OK) // should skip non-dir entries and still list valid workspaces
 }
 
 // --- CmdWorkspaceClean Bad/Ugly ---
@@ -100,14 +99,14 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 	// Unknown filters now fail explicitly so agent callers can correct typos.
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "unknown"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 	err, ok := r.Value.(error)
-	assert.True(t, ok)
-	assert.Contains(t, err.Error(), "unknown filter: unknown")
+	core.AssertTrue(t, ok)
+	core.AssertContains(t, err.Error(), "unknown filter: unknown")
 
 	// All workspaces should still exist
 	for _, name := range []string{"ws-done", "ws-fail", "ws-run"} {
-		assert.True(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
 	}
 }
 
@@ -138,15 +137,15 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 	// "all" filter removes completed, failed, blocked, merged, ready-for-review but NOT running/queued
 	r := s.cmdWorkspaceClean(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	// merged, ready-for-review, blocked should be removed
 	for _, name := range []string{"ws-merged", "ws-review", "ws-blocked"} {
-		assert.False(t, fs.Exists(core.JoinPath(wsRoot, name)), "workspace %s should be removed", name)
+		core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, name)), "workspace %s should be removed", name)
 	}
 	// running and queued should remain
 	for _, name := range []string{"ws-running", "ws-queued"} {
-		assert.True(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
 	}
 }
 
@@ -185,10 +184,10 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	t.Cleanup(s.closeWorkspaceStatsStore)
 
 	r := s.cmdWorkspaceClean(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	// Workspace directory is gone.
-	assert.False(t, fs.Exists(workspaceDir))
+	core.AssertFalse(t, fs.Exists(workspaceDir))
 
 	// Stats row survives in `.core/workspace/db.duckdb`.
 	statsStore := s.workspaceStatsInstance()
@@ -197,9 +196,9 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	}
 
 	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
-	assert.NoError(t, err)
-	assert.Contains(t, value, "core/go-io/task-stats")
-	assert.Contains(t, value, "\"build_passed\":true")
+	core.AssertNoError(t, err)
+	core.AssertContains(t, value, "core/go-io/task-stats")
+	core.AssertContains(t, value, "\"build_passed\":true")
 }
 
 // --- CmdWorkspaceDispatch Ugly ---
@@ -225,7 +224,7 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Ugly_AllFieldsSet(t *testing.T) 
 	))
 	// Dispatch calls the real method — fails because no source repo exists to clone.
 	// The test verifies the CLI correctly passes all fields through to dispatch.
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceWatch_Good_ExplicitWorkspaceCompletes(t *testing.T) {
@@ -251,13 +250,13 @@ func TestCommandsworkspace_CmdWorkspaceWatch_Good_ExplicitWorkspaceCompletes(t *
 		core.Option{Key: "poll_interval", Value: 1},
 		core.Option{Key: "timeout", Value: 2},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	output, ok := r.Value.(WatchOutput)
-	assert.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Len(t, output.Completed, 1)
-	assert.Equal(t, "core/go-io/task-42", output.Completed[0].Workspace)
+	core.AssertTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertLen(t, output.Completed, 1)
+	core.AssertEqual(t, "core/go-io/task-42", output.Completed[0].Workspace)
 }
 
 func TestCommandsworkspace_WorkspaceDispatchInputFromOptions_Good_MapsFullContract(t *testing.T) {
@@ -277,17 +276,17 @@ func TestCommandsworkspace_WorkspaceDispatchInputFromOptions_Good_MapsFullContra
 		core.Option{Key: "dry_run", Value: true},
 	))
 
-	assert.Equal(t, "go-io", input.Repo)
-	assert.Equal(t, "ship the release", input.Task)
-	assert.Equal(t, "codex:gpt-5.4", input.Agent)
-	assert.Equal(t, "core", input.Org)
-	assert.Equal(t, "coding", input.Template)
-	assert.Equal(t, "bug-fix", input.PlanTemplate)
-	assert.Equal(t, map[string]string{"ISSUE": "42", "MODE": "deep"}, input.Variables)
-	assert.Equal(t, "code/reviewer", input.Persona)
-	assert.Equal(t, 42, input.Issue)
-	assert.Equal(t, 7, input.PR)
-	assert.Equal(t, "feature/release", input.Branch)
-	assert.Equal(t, "v0.8.0", input.Tag)
-	assert.True(t, input.DryRun)
+	core.AssertEqual(t, "go-io", input.Repo)
+	core.AssertEqual(t, "ship the release", input.Task)
+	core.AssertEqual(t, "codex:gpt-5.4", input.Agent)
+	core.AssertEqual(t, "core", input.Org)
+	core.AssertEqual(t, "coding", input.Template)
+	core.AssertEqual(t, "bug-fix", input.PlanTemplate)
+	core.AssertEqual(t, map[string]string{"ISSUE": "42", "MODE": "deep"}, input.Variables)
+	core.AssertEqual(t, "code/reviewer", input.Persona)
+	core.AssertEqual(t, 42, input.Issue)
+	core.AssertEqual(t, 7, input.PR)
+	core.AssertEqual(t, "feature/release", input.Branch)
+	core.AssertEqual(t, "v0.8.0", input.Tag)
+	core.AssertTrue(t, input.DryRun)
 }

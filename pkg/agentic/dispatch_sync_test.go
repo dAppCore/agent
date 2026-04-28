@@ -7,29 +7,27 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDispatchsync_ContainerCommand_Good(t *testing.T) {
 	cmd, args := containerCommand("codex", []string{"--model", "gpt-5.4"}, "/workspace/task-5", "/workspace/task-5/.meta")
-	assert.Equal(t, "docker", cmd)
-	assert.Contains(t, args, "run")
-	assert.Contains(t, args, "/workspace/task-5:/workspace")
-	assert.Contains(t, args, "/workspace/task-5/.meta:/workspace/.meta")
-	assert.Contains(t, args, "/workspace/repo")
+	core.AssertEqual(t, "docker", cmd)
+	core.AssertContains(t, args, "run")
+	core.AssertContains(t, args, "/workspace/task-5:/workspace")
+	core.AssertContains(t, args, "/workspace/task-5/.meta:/workspace/.meta")
+	core.AssertContains(t, args, "/workspace/repo")
 }
 
 func TestDispatchsync_ContainerCommand_Bad_UnknownAgent(t *testing.T) {
 	cmd, args := containerCommand("unknown", nil, "/workspace/task-5", "/workspace/task-5/.meta")
-	assert.Equal(t, "docker", cmd)
-	assert.NotEmpty(t, args)
+	core.AssertEqual(t, "docker", cmd)
+	core.AssertNotEmpty(t, args)
 }
 
 func TestDispatchsync_ContainerCommand_Ugly_EmptyArgs(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		containerCommand("codex", nil, "", "")
 	})
 }
@@ -42,14 +40,14 @@ func TestDispatchsync_HandleDispatchSync_Good_Completed(t *testing.T) {
 	s := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
 
 	s.dispatchSyncPrep = func(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-		require.Equal(t, "core", input.Org)
-		require.Equal(t, "go-io", input.Repo)
-		require.Equal(t, "codex", input.Agent)
-		require.Equal(t, "Fix tests", input.Task)
-		require.Equal(t, 7, input.Issue)
+		core.AssertEqual(t, "core", input.Org)
+		core.AssertEqual(t, "go-io", input.Repo)
+		core.AssertEqual(t, "codex", input.Agent)
+		core.AssertEqual(t, "Fix tests", input.Task)
+		core.AssertEqual(t, 7, input.Issue)
 
-		require.True(t, fs.EnsureDir(workspaceDir).OK)
-		require.True(t, fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{
+		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+		core.RequireTrue(t, fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{
 			Status: "completed",
 			PRURL:  "https://forge.test/core/go-io/pulls/7",
 		})).OK)
@@ -62,9 +60,9 @@ func TestDispatchsync_HandleDispatchSync_Good_Completed(t *testing.T) {
 		}, nil
 	}
 	s.dispatchSyncSpawn = func(agent, prompt, dir string) (int, string, string, error) {
-		require.Equal(t, "codex", agent)
-		require.Equal(t, "prompt", prompt)
-		require.Equal(t, workspaceDir, dir)
+		core.AssertEqual(t, "codex", agent)
+		core.AssertEqual(t, "prompt", prompt)
+		core.AssertEqual(t, workspaceDir, dir)
 		return 321, "process-321", core.JoinPath(dir, ".meta", "agent.log"), nil
 	}
 
@@ -76,12 +74,12 @@ func TestDispatchsync_HandleDispatchSync_Good_Completed(t *testing.T) {
 		core.Option{Key: "issue", Value: "7"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(DispatchSyncResult)
-	require.True(t, ok)
-	assert.True(t, output.OK)
-	assert.Equal(t, "completed", output.Status)
-	assert.Equal(t, "https://forge.test/core/go-io/pulls/7", output.PRURL)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.OK)
+	core.AssertEqual(t, "completed", output.Status)
+	core.AssertEqual(t, "https://forge.test/core/go-io/pulls/7", output.PRURL)
 }
 
 func TestDispatchsync_HandleDispatchSync_Bad_PrepFailure(t *testing.T) {
@@ -95,9 +93,9 @@ func TestDispatchsync_HandleDispatchSync_Bad_PrepFailure(t *testing.T) {
 		core.Option{Key: "task", Value: "Fix tests"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "prep workspace failed")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "prep workspace failed")
 }
 
 func TestDispatchsync_HandleDispatchSync_Bad_PrepIncomplete(t *testing.T) {
@@ -113,9 +111,9 @@ func TestDispatchsync_HandleDispatchSync_Bad_PrepIncomplete(t *testing.T) {
 		core.Option{Key: "task", Value: "Fix tests"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "prep failed")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "prep failed")
 }
 
 func TestDispatchsync_HandleDispatchSync_Ugly_SpawnFailure(t *testing.T) {
@@ -126,8 +124,8 @@ func TestDispatchsync_HandleDispatchSync_Ugly_SpawnFailure(t *testing.T) {
 	s := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
 
 	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-		require.True(t, fs.EnsureDir(workspaceDir).OK)
-		require.True(t, fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{
+		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+		core.RequireTrue(t, fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{
 			Status: "running",
 		})).OK)
 
@@ -139,7 +137,7 @@ func TestDispatchsync_HandleDispatchSync_Ugly_SpawnFailure(t *testing.T) {
 		}, nil
 	}
 	s.dispatchSyncSpawn = func(agent, prompt, dir string) (int, string, string, error) {
-		require.Equal(t, "codex", agent)
+		core.AssertEqual(t, "codex", agent)
 		return 0, "", "", core.E("spawn", "boom", nil)
 	}
 
@@ -149,7 +147,7 @@ func TestDispatchsync_HandleDispatchSync_Ugly_SpawnFailure(t *testing.T) {
 		core.Option{Key: "task", Value: "Fix tests"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "spawn agent failed")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "spawn agent failed")
 }

@@ -2,7 +2,7 @@
 
 package monitor
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleRegister_ipc() {
 	c := core.New(core.WithService(Register))

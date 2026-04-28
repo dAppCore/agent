@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineOnboard_Good_ChainsAuditEpicAndDispatch(t *testing.T) {
@@ -29,12 +27,12 @@ func TestPipelineOnboard_Good_ChainsAuditEpicAndDispatch(t *testing.T) {
 		DispatchDryRun: true,
 	})
 
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Len(t, output.Audit.Created, 3)
-	require.Len(t, output.Runs, 1)
-	assert.Len(t, output.Runs[0].Dispatched, 3)
-	assert.Empty(t, output.Direct)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertLen(t, output.Audit.Created, 3)
+	core.AssertLen(t, output.Runs, 1)
+	core.AssertLen(t, output.Runs[0].Dispatched, 3)
+	core.AssertEmpty(t, output.Direct)
 }
 
 func TestPipelineOnboard_Bad_MissingRepo(t *testing.T) {
@@ -42,10 +40,10 @@ func TestPipelineOnboard_Bad_MissingRepo(t *testing.T) {
 
 	result := s.cmdPipelineOnboard(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "repo is required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "repo is required")
 }
 
 func TestPipelineOnboard_Ugly_DirectDispatchWhenEpicNotCreated(t *testing.T) {
@@ -66,7 +64,7 @@ func TestPipelineOnboard_Ugly_DirectDispatchWhenEpicNotCreated(t *testing.T) {
 		DispatchDryRun: true,
 	})
 
-	require.NoError(t, err)
-	assert.Empty(t, output.Runs)
-	assert.Len(t, output.Direct, 2)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, output.Runs)
+	core.AssertLen(t, output.Direct, 2)
 }

@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleDispatchInput_remote() {
 	input := DispatchInput{Repo: "go-io", Task: "Fix tests", Agent: "codex"}

@@ -12,7 +12,7 @@ import (
 	"embed"
 	"sync/atomic"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 //go:embed all:prompt

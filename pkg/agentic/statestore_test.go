@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // withStateStoreTempDir redirects CORE_WORKSPACE to a fresh temporary
@@ -399,6 +399,9 @@ func TestStatestore_RecoverStateOrphans_Bad_MissingStateDir(t *testing.T) {
 func TestStatestore_RecoverStateOrphans_Ugly_NilSubsystem(t *testing.T) {
 	var subsystem *PrepSubsystem
 	subsystem.recoverStateOrphans()
+	store := subsystem.stateStoreInstance()
+	core.AssertNil(t, store)
+	core.AssertNil(t, subsystem.stateStoreErr())
 }
 
 // TestStatestore_SyncQueue_Good_PersistsViaStore verifies RFC §16.5 —

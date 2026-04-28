@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestProviderManager_NewProviderManager_Good_RegistersBuiltIns(t *testing.T) {
@@ -17,33 +15,33 @@ func TestProviderManager_NewProviderManager_Good_RegistersBuiltIns(t *testing.T)
 		return "Draft ready", nil
 	})
 
-	require.NotNil(t, manager)
-	assert.Equal(t, []string{"claude", "gemini", "openai"}, manager.Names())
+	core.AssertNotNil(t, manager)
+	core.AssertEqual(t, []string{"claude", "gemini", "openai"}, manager.Names())
 
 	provider, ok := manager.Provider("claude")
-	require.True(t, ok)
-	assert.Equal(t, "claude", provider.Name())
-	assert.Equal(t, "claude-3.7-sonnet", provider.DefaultModel())
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "claude", provider.Name())
+	core.AssertEqual(t, "claude-3.7-sonnet", provider.DefaultModel())
 
 	text, err := provider.Generate(context.Background(), "Write a release note", nil)
-	require.NoError(t, err)
-	assert.Equal(t, "Draft ready", text)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Draft ready", text)
 }
 
 func TestProviderManager_Provider_Bad_UnknownNameReturnsFalse(t *testing.T) {
 	manager := NewProviderManager(nil)
 
 	provider, ok := manager.Provider("unknown")
-	assert.False(t, ok)
-	assert.Nil(t, provider)
+	core.AssertFalse(t, ok)
+	core.AssertNil(t, provider)
 }
 
 func TestProviderManager_ContentProvider_Ugly_NoGeneratorReturnsError(t *testing.T) {
 	provider := newContentProvider("claude", "claude-3.7-sonnet", true, nil)
 
 	_, err := provider.Generate(context.Background(), "Draft a release note", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "provider not configured")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "provider not configured")
 }
 
 func TestProviderManager_ContentProvider_Good_RetriesWithExponentialBackoff(t *testing.T) {
@@ -67,14 +65,14 @@ func TestProviderManager_ContentProvider_Good_RetriesWithExponentialBackoff(t *t
 			return "", core.E("test.generate", "transient failure", nil)
 		}
 
-		assert.Equal(t, "claude", options["provider"])
-		assert.Equal(t, "claude-3.7-sonnet", options["model"])
+		core.AssertEqual(t, "claude", options["provider"])
+		core.AssertEqual(t, "claude-3.7-sonnet", options["model"])
 		return "Draft ready", nil
 	})
 
 	text, err := provider.Generate(context.Background(), "Write a release note", nil)
-	require.NoError(t, err)
-	assert.Equal(t, "Draft ready", text)
-	assert.Equal(t, 3, attempts)
-	assert.Equal(t, []time.Duration{50 * time.Millisecond, 100 * time.Millisecond}, delays)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Draft ready", text)
+	core.AssertEqual(t, 3, attempts)
+	core.AssertEqual(t, []time.Duration{50 * time.Millisecond, 100 * time.Millisecond}, delays)
 }

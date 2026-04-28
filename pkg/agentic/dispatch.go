@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -756,6 +756,12 @@ func (m *agentCompletionMonitor) run(_ context.Context, _ core.Options) core.Res
 
 	<-m.process.Done()
 	info := m.process.Info()
+	if (info.ExitCode != 0 || info.Status == process.StatusKilled || info.Status == process.StatusFailed) && m.workspaceDir != "" {
+		deadline := time.Now().Add(100 * time.Millisecond)
+		for dispatchTimeoutReasonFromWorkspace(m.workspaceDir) == "" && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
 	m.service.onAgentComplete(m.agent, m.workspaceDir, m.outputFile, info.ExitCode, string(info.Status), m.process.Output())
 	return core.Result{OK: true}
 }

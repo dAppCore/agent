@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

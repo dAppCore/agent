@@ -8,25 +8,23 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestSession_HandleSessionStart_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "Bearer secret-token", r.Header.Get("Authorization"))
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "opus", payload["agent_type"])
-		require.Equal(t, "ax-follow-up", payload["plan_slug"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "opus", payload["agent_type"])
+		core.AssertEqual(t, "ax-follow-up", payload["plan_slug"])
 
 		_, _ = w.Write([]byte(`{"data":{"id":1,"session_id":"ses_abc123","plan_slug":"ax-follow-up","agent_type":"opus","status":"active","context_summary":{"repo":"core/go"}}}`))
 	}))
@@ -38,28 +36,28 @@ func TestSession_HandleSessionStart_Good(t *testing.T) {
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
 		core.Option{Key: "context", Value: `{"repo":"core/go"}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "ses_abc123", output.Session.SessionID)
-	assert.Equal(t, "active", output.Session.Status)
-	assert.Equal(t, "opus", output.Session.AgentType)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "ses_abc123", output.Session.SessionID)
+	core.AssertEqual(t, "active", output.Session.Status)
+	core.AssertEqual(t, "opus", output.Session.AgentType)
 }
 
 func TestSession_HandleSessionStart_Good_CanonicalAlias(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "opus", payload["agent_type"])
-		require.Equal(t, "ax-follow-up", payload["plan_slug"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "opus", payload["agent_type"])
+		core.AssertEqual(t, "ax-follow-up", payload["plan_slug"])
 
 		_, _ = w.Write([]byte(`{"data":{"id":1,"session_id":"ses_abc123","plan_slug":"ax-follow-up","agent_type":"opus","status":"active","context_summary":{"repo":"core/go"}}}`))
 	}))
@@ -71,20 +69,20 @@ func TestSession_HandleSessionStart_Good_CanonicalAlias(t *testing.T) {
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
 		core.Option{Key: "context", Value: `{"repo":"core/go"}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "ses_abc123", output.Session.SessionID)
-	assert.Equal(t, "active", output.Session.Status)
-	assert.Equal(t, "opus", output.Session.AgentType)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "ses_abc123", output.Session.SessionID)
+	core.AssertEqual(t, "active", output.Session.Status)
+	core.AssertEqual(t, "opus", output.Session.AgentType)
 }
 
 func TestSession_HandleSessionStart_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionStart_Bad_InvalidAgentType(t *testing.T) {
@@ -93,8 +91,8 @@ func TestSession_HandleSessionStart_Bad_InvalidAgentType(t *testing.T) {
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions(
 		core.Option{Key: "agent_type", Value: "codex"},
 	))
-	assert.False(t, result.OK)
-	require.Contains(t, result.Value.(error).Error(), "claude:opus")
+	core.AssertFalse(t, result.OK)
+	core.AssertContains(t, result.Value.(error).Error(), "claude:opus")
 }
 
 func TestSession_HandleSessionStart_Ugly(t *testing.T) {
@@ -107,13 +105,13 @@ func TestSession_HandleSessionStart_Ugly(t *testing.T) {
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions(
 		core.Option{Key: "agent_type", Value: "codex"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionGet_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions/ses_abc123", r.URL.Path)
-		require.Equal(t, http.MethodGet, r.Method)
+		core.AssertEqual(t, "/v1/sessions/ses_abc123", r.URL.Path)
+		core.AssertEqual(t, http.MethodGet, r.Method)
 		_, _ = w.Write([]byte(`{"data":{"session_id":"ses_abc123","plan":"ax-follow-up","agent_type":"codex","status":"active"}}`))
 	}))
 	defer server.Close()
@@ -122,12 +120,12 @@ func TestSession_HandleSessionGet_Good(t *testing.T) {
 	result := subsystem.handleSessionGet(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_abc123"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "ses_abc123", output.Session.SessionID)
-	assert.Equal(t, "ax-follow-up", output.Session.Plan)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "ses_abc123", output.Session.SessionID)
+	core.AssertEqual(t, "ax-follow-up", output.Session.Plan)
 }
 
 func TestSession_HandleSessionGet_Good_NestedEnvelope(t *testing.T) {
@@ -140,21 +138,21 @@ func TestSession_HandleSessionGet_Good_NestedEnvelope(t *testing.T) {
 	result := subsystem.handleSessionGet(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_nested"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "ses_nested", output.Session.SessionID)
-	assert.Equal(t, "active", output.Session.Status)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "ses_nested", output.Session.SessionID)
+	core.AssertEqual(t, "active", output.Session.Status)
 }
 
 func TestSession_HandleSessionList_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions", r.URL.Path)
-		require.Equal(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
-		require.Equal(t, "codex", r.URL.Query().Get("agent_type"))
-		require.Equal(t, "active", r.URL.Query().Get("status"))
-		require.Equal(t, "5", r.URL.Query().Get("limit"))
+		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
+		core.AssertEqual(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
+		core.AssertEqual(t, "codex", r.URL.Query().Get("agent_type"))
+		core.AssertEqual(t, "active", r.URL.Query().Get("status"))
+		core.AssertEqual(t, "5", r.URL.Query().Get("limit"))
 		_, _ = w.Write([]byte(`{"data":[{"session_id":"ses_1","agent_type":"codex","status":"active"},{"session_id":"ses_2","agent_type":"claude","status":"completed"}],"count":2}`))
 	}))
 	defer server.Close()
@@ -166,13 +164,13 @@ func TestSession_HandleSessionList_Good(t *testing.T) {
 		core.Option{Key: "status", Value: "active"},
 		core.Option{Key: "limit", Value: 5},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 2, output.Count)
-	require.Len(t, output.Sessions, 2)
-	assert.Equal(t, "ses_1", output.Sessions[0].SessionID)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 2, output.Count)
+	core.AssertLen(t, output.Sessions, 2)
+	core.AssertEqual(t, "ses_1", output.Sessions[0].SessionID)
 }
 
 func TestSession_HandleSessionList_Good_NestedEnvelope(t *testing.T) {
@@ -183,27 +181,27 @@ func TestSession_HandleSessionList_Good_NestedEnvelope(t *testing.T) {
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.handleSessionList(context.Background(), core.NewOptions())
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 1, output.Count)
-	require.Len(t, output.Sessions, 1)
-	assert.Equal(t, "ses_1", output.Sessions[0].SessionID)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, output.Count)
+	core.AssertLen(t, output.Sessions, 1)
+	core.AssertEqual(t, "ses_1", output.Sessions[0].SessionID)
 }
 
 func TestSession_HandleSessionContinue_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions/ses_abc123/continue", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/sessions/ses_abc123/continue", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "codex", payload["agent_type"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "codex", payload["agent_type"])
 
 		_, _ = w.Write([]byte(`{"data":{"session_id":"ses_abc123","agent_type":"codex","status":"active","work_log":[{"type":"checkpoint","message":"continue"}]}}`))
 	}))
@@ -215,27 +213,27 @@ func TestSession_HandleSessionContinue_Good(t *testing.T) {
 		core.Option{Key: "agent_type", Value: "codex"},
 		core.Option{Key: "work_log", Value: `[{"type":"checkpoint","message":"continue"}]`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	require.Len(t, output.Session.WorkLog, 1)
-	assert.Equal(t, "active", output.Session.Status)
+	core.RequireTrue(t, ok)
+	core.AssertLen(t, output.Session.WorkLog, 1)
+	core.AssertEqual(t, "active", output.Session.Status)
 }
 
 func TestSession_HandleSessionEnd_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sessions/ses_abc123/end", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/sessions/ses_abc123/end", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "completed", payload["status"])
-		require.Equal(t, "All green", payload["summary"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "completed", payload["status"])
+		core.AssertEqual(t, "All green", payload["summary"])
 
 		_, _ = w.Write([]byte(`{"data":{"session_id":"ses_abc123","agent_type":"codex","status":"completed","summary":"All green","ended_at":"2026-03-31T12:00:00Z"}}`))
 	}))
@@ -247,12 +245,12 @@ func TestSession_HandleSessionEnd_Good(t *testing.T) {
 		core.Option{Key: "status", Value: "completed"},
 		core.Option{Key: "summary", Value: "All green"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "completed", output.Session.Status)
-	assert.Equal(t, "All green", output.Session.Summary)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "completed", output.Session.Status)
+	core.AssertEqual(t, "All green", output.Session.Summary)
 }
 
 func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
@@ -261,42 +259,42 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 		callCount++
 		switch r.URL.Path {
 		case "/v1/sessions/ses_handoff/end":
-			require.Equal(t, http.MethodPost, r.Method)
+			core.AssertEqual(t, http.MethodPost, r.Method)
 
 			bodyResult := core.ReadAll(r.Body)
-			require.True(t, bodyResult.OK)
+			core.RequireTrue(t, bodyResult.OK)
 
 			var payload map[string]any
 			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-			require.True(t, parseResult.OK)
-			require.Equal(t, "handed_off", payload["status"])
-			require.Equal(t, "Ready for review", payload["summary"])
+			core.RequireTrue(t, parseResult.OK)
+			core.AssertEqual(t, "handed_off", payload["status"])
+			core.AssertEqual(t, "Ready for review", payload["summary"])
 
 			handoffNotes, ok := payload["handoff_notes"].(map[string]any)
-			require.True(t, ok)
-			assert.Equal(t, "Ready for review", handoffNotes["summary"])
-			assert.Equal(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
-			assert.Equal(t, []any{"Needs input"}, handoffNotes["blockers"])
+			core.RequireTrue(t, ok)
+			core.AssertEqual(t, "Ready for review", handoffNotes["summary"])
+			core.AssertEqual(t, []any{"Run the verifier"}, handoffNotes["next_steps"])
+			core.AssertEqual(t, []any{"Needs input"}, handoffNotes["blockers"])
 
 			_, _ = w.Write([]byte(`{"data":{"session_id":"ses_handoff","agent_type":"codex","status":"handed_off","summary":"Ready for review","handoff_notes":{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}}}`))
 		case "/v1/brain/remember":
-			require.Equal(t, http.MethodPost, r.Method)
-			require.Equal(t, "Bearer secret-token", r.Header.Get("Authorization"))
+			core.AssertEqual(t, http.MethodPost, r.Method)
+			core.AssertEqual(t, "Bearer secret-token", r.Header.Get("Authorization"))
 
 			bodyResult := core.ReadAll(r.Body)
-			require.True(t, bodyResult.OK)
+			core.RequireTrue(t, bodyResult.OK)
 
 			var payload map[string]any
 			parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-			require.True(t, parseResult.OK)
-			assert.Equal(t, "observation", payload["type"])
-			assert.Equal(t, "codex", payload["agent_id"])
+			core.RequireTrue(t, parseResult.OK)
+			core.AssertEqual(t, "observation", payload["type"])
+			core.AssertEqual(t, "codex", payload["agent_id"])
 
 			content, _ := payload["content"].(string)
-			assert.Contains(t, content, "Session handoff: ses_handoff")
-			assert.Contains(t, content, "Ready for review")
-			assert.Contains(t, content, "Run the verifier")
-			assert.Contains(t, content, "Needs input")
+			core.AssertContains(t, content, "Session handoff: ses_handoff")
+			core.AssertContains(t, content, "Ready for review")
+			core.AssertContains(t, content, "Run the verifier")
+			core.AssertContains(t, content, "Needs input")
 
 			_, _ = w.Write([]byte(`{"data":{"id":"mem_handoff"}}`))
 		default:
@@ -312,17 +310,17 @@ func TestSession_HandleSessionEnd_Good_HandoffNotes(t *testing.T) {
 		core.Option{Key: "summary", Value: "Ready for review"},
 		core.Option{Key: "handoff_notes", Value: `{"summary":"Ready for review","next_steps":["Run the verifier"],"blockers":["Needs input"]}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionOutput)
-	require.True(t, ok)
-	assert.Equal(t, "handed_off", output.Session.Status)
-	assert.Equal(t, "Ready for review", output.Session.Summary)
-	require.NotNil(t, output.Session.Handoff)
-	assert.Equal(t, "Ready for review", output.Session.Handoff["summary"])
-	assert.Equal(t, []any{"Run the verifier"}, output.Session.Handoff["next_steps"])
-	assert.Equal(t, []any{"Needs input"}, output.Session.Handoff["blockers"])
-	assert.Equal(t, 2, callCount)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "handed_off", output.Session.Status)
+	core.AssertEqual(t, "Ready for review", output.Session.Summary)
+	core.AssertNotNil(t, output.Session.Handoff)
+	core.AssertEqual(t, "Ready for review", output.Session.Handoff["summary"])
+	core.AssertEqual(t, []any{"Run the verifier"}, output.Session.Handoff["next_steps"])
+	core.AssertEqual(t, []any{"Needs input"}, output.Session.Handoff["blockers"])
+	core.AssertEqual(t, 2, callCount)
 }
 
 func TestSession_HandleSessionEnd_Bad_MissingSessionID(t *testing.T) {
@@ -331,7 +329,7 @@ func TestSession_HandleSessionEnd_Bad_MissingSessionID(t *testing.T) {
 		core.Option{Key: "status", Value: "completed"},
 		core.Option{Key: "summary", Value: "All green"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionEnd_Ugly_InvalidResponse(t *testing.T) {
@@ -346,12 +344,12 @@ func TestSession_HandleSessionEnd_Ugly_InvalidResponse(t *testing.T) {
 		core.Option{Key: "status", Value: "completed"},
 		core.Option{Key: "summary", Value: "All green"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionLog_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writeSessionCache(&Session{
+	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_log",
 		AgentType: "codex",
 		Status:    "active",
@@ -363,13 +361,13 @@ func TestSession_HandleSessionLog_Good(t *testing.T) {
 		core.Option{Key: "type", Value: "checkpoint"},
 		core.Option{Key: "data", Value: `{"repo":"core/go"}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	session, err := readSessionCache("ses_log")
-	require.NoError(t, err)
-	require.Len(t, session.WorkLog, 1)
-	assert.Equal(t, "Checked build", session.WorkLog[0]["message"])
-	assert.Equal(t, "checkpoint", session.WorkLog[0]["type"])
+	core.RequireNoError(t, err)
+	core.AssertLen(t, session.WorkLog, 1)
+	core.AssertEqual(t, "Checked build", session.WorkLog[0]["message"])
+	core.AssertEqual(t, "checkpoint", session.WorkLog[0]["type"])
 }
 
 func TestSession_HandleSessionLog_Bad(t *testing.T) {
@@ -377,7 +375,7 @@ func TestSession_HandleSessionLog_Bad(t *testing.T) {
 	result := subsystem.handleSessionLog(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_log"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionLog_Ugly_MissingSession(t *testing.T) {
@@ -386,12 +384,12 @@ func TestSession_HandleSessionLog_Ugly_MissingSession(t *testing.T) {
 		core.Option{Key: "session_id", Value: "ses_missing"},
 		core.Option{Key: "message", Value: "Checked build"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionArtifact_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writeSessionCache(&Session{
+	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_artifact",
 		AgentType: "codex",
 		Status:    "active",
@@ -403,13 +401,13 @@ func TestSession_HandleSessionArtifact_Good(t *testing.T) {
 		core.Option{Key: "action", Value: "modified"},
 		core.Option{Key: "metadata", Value: `{"insertions":12}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	session, err := readSessionCache("ses_artifact")
-	require.NoError(t, err)
-	require.Len(t, session.Artifacts, 1)
-	assert.Equal(t, "pkg/agentic/session.go", session.Artifacts[0]["path"])
-	assert.Equal(t, "modified", session.Artifacts[0]["action"])
+	core.RequireNoError(t, err)
+	core.AssertLen(t, session.Artifacts, 1)
+	core.AssertEqual(t, "pkg/agentic/session.go", session.Artifacts[0]["path"])
+	core.AssertEqual(t, "modified", session.Artifacts[0]["action"])
 }
 
 func TestSession_HandleSessionArtifact_Bad(t *testing.T) {
@@ -417,7 +415,7 @@ func TestSession_HandleSessionArtifact_Bad(t *testing.T) {
 	result := subsystem.handleSessionArtifact(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_artifact"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionArtifact_Ugly_MissingSession(t *testing.T) {
@@ -427,12 +425,12 @@ func TestSession_HandleSessionArtifact_Ugly_MissingSession(t *testing.T) {
 		core.Option{Key: "path", Value: "pkg/agentic/session.go"},
 		core.Option{Key: "action", Value: "modified"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionHandoff_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writeSessionCache(&Session{
+	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_handoff",
 		AgentType: "codex",
 		Status:    "active",
@@ -447,12 +445,12 @@ func TestSession_HandleSessionHandoff_Good(t *testing.T) {
 		core.Option{Key: "next_steps", Value: `["Run verify"]`},
 		core.Option{Key: "blockers", Value: `["Need CI"]`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	session, err := readSessionCache("ses_handoff")
-	require.NoError(t, err)
-	assert.Equal(t, "handed_off", session.Status)
-	assert.Equal(t, "Ready for review", session.Handoff["summary"])
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "handed_off", session.Status)
+	core.AssertEqual(t, "Ready for review", session.Handoff["summary"])
 }
 
 func TestSession_HandleSessionHandoff_Bad(t *testing.T) {
@@ -460,7 +458,7 @@ func TestSession_HandleSessionHandoff_Bad(t *testing.T) {
 	result := subsystem.handleSessionHandoff(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_handoff"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionHandoff_Ugly_MissingSession(t *testing.T) {
@@ -469,12 +467,12 @@ func TestSession_HandleSessionHandoff_Ugly_MissingSession(t *testing.T) {
 		core.Option{Key: "session_id", Value: "ses_handoff"},
 		core.Option{Key: "summary", Value: "Ready for review"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionResume_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writeSessionCache(&Session{
+	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_resume",
 		AgentType: "codex",
 		Status:    "handed_off",
@@ -492,22 +490,22 @@ func TestSession_HandleSessionResume_Good(t *testing.T) {
 	result := subsystem.handleSessionResume(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_resume"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionResumeOutput)
-	require.True(t, ok)
-	assert.Equal(t, "active", output.Session.Status)
-	assert.Equal(t, "ses_resume", output.HandoffContext["session_id"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "active", output.Session.Status)
+	core.AssertEqual(t, "ses_resume", output.HandoffContext["session_id"])
 	handoffNotes, ok := output.HandoffContext["handoff_notes"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "Ready for review", handoffNotes["summary"])
-	require.Len(t, output.RecentActions, 1)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "Ready for review", handoffNotes["summary"])
+	core.AssertLen(t, output.RecentActions, 1)
 }
 
 func TestSession_HandleSessionResume_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionResume(context.Background(), core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionResume_Ugly_MissingSession(t *testing.T) {
@@ -515,12 +513,12 @@ func TestSession_HandleSessionResume_Ugly_MissingSession(t *testing.T) {
 	result := subsystem.handleSessionResume(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_resume"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionReplay_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	require.NoError(t, writeSessionCache(&Session{
+	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_replay",
 		AgentType: "codex",
 		Status:    "completed",
@@ -542,21 +540,21 @@ func TestSession_HandleSessionReplay_Good(t *testing.T) {
 	result := subsystem.handleSessionReplay(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_replay"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(SessionReplayOutput)
-	require.True(t, ok)
-	assert.Equal(t, "ses_replay", output.ReplayContext["session_id"])
-	assert.Equal(t, 3, output.ReplayContext["total_actions"])
-	require.Len(t, output.ReplayContext["work_log"].([]map[string]any), 3)
-	require.Len(t, output.ReplayContext["checkpoints"].([]map[string]any), 1)
-	require.Len(t, output.ReplayContext["work_log_by_type"].(map[string]any)["error"].([]map[string]any), 1)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "ses_replay", output.ReplayContext["session_id"])
+	core.AssertEqual(t, 3, output.ReplayContext["total_actions"])
+	core.AssertLen(t, output.ReplayContext["work_log"].([]map[string]any), 3)
+	core.AssertLen(t, output.ReplayContext["checkpoints"].([]map[string]any), 1)
+	core.AssertLen(t, output.ReplayContext["work_log_by_type"].(map[string]any)["error"].([]map[string]any), 1)
 }
 
 func TestSession_HandleSessionReplay_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionReplay(context.Background(), core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_HandleSessionReplay_Ugly_MissingSession(t *testing.T) {
@@ -564,23 +562,23 @@ func TestSession_HandleSessionReplay_Ugly_MissingSession(t *testing.T) {
 	result := subsystem.handleSessionReplay(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_replay"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestSession_normaliseSessionAgentType_Good(t *testing.T) {
 	agentType, ok := normaliseSessionAgentType("  CLAUDE:Sonnet  ")
-	require.True(t, ok)
-	assert.Equal(t, "sonnet", agentType)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "sonnet", agentType)
 }
 
 func TestSession_normaliseSessionAgentType_Bad(t *testing.T) {
 	agentType, ok := normaliseSessionAgentType("codex")
-	assert.False(t, ok)
-	assert.Empty(t, agentType)
+	core.AssertFalse(t, ok)
+	core.AssertEmpty(t, agentType)
 }
 
 func TestSession_normaliseSessionAgentType_Ugly(t *testing.T) {
 	agentType, ok := normaliseSessionAgentType("   ")
-	assert.False(t, ok)
-	assert.Empty(t, agentType)
+	core.AssertFalse(t, ok)
+	core.AssertEmpty(t, agentType)
 }

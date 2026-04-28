@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	store "dappco.re/go/store"
 )
 
@@ -211,7 +211,7 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 		return
 	}
 	for _, finding := range report.Findings {
-		_ = workspace.Put("finding", map[string]any{
+		if err := workspace.Put("finding", map[string]any{
 			"tool":     finding.Tool,
 			"file":     finding.File,
 			"line":     finding.Line,
@@ -222,16 +222,20 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 			"category": finding.Category,
 			"rule_id":  finding.RuleID,
 			"title":    finding.Title,
-		})
+		}); err != nil {
+			core.Warn("agentic: failed to persist lint finding", "workspace", workspace.Name(), "reason", err)
+		}
 	}
 	for _, tool := range report.Tools {
-		_ = workspace.Put("tool_run", map[string]any{
+		if err := workspace.Put("tool_run", map[string]any{
 			"name":     tool.Name,
 			"version":  tool.Version,
 			"status":   tool.Status,
 			"duration": tool.Duration,
 			"findings": tool.Findings,
-		})
+		}); err != nil {
+			core.Warn("agentic: failed to persist tool run", "workspace", workspace.Name(), "reason", err)
+		}
 	}
 }
 
@@ -243,10 +247,12 @@ func (s *PrepSubsystem) recordBuildResult(workspace *store.Workspace, kind strin
 	if workspace == nil || kind == "" {
 		return
 	}
-	_ = workspace.Put(kind, map[string]any{
+	if err := workspace.Put(kind, map[string]any{
 		"passed": passed,
 		"output": output,
-	})
+	}); err != nil {
+		core.Warn("agentic: failed to persist build result", "workspace", workspace.Name(), "kind", kind, "reason", err)
+	}
 }
 
 // runQAWithReport extends runQA with the RFC §7 capture pipeline — it opens a

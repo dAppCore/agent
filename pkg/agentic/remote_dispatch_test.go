@@ -11,9 +11,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- dispatchRemote ---
@@ -46,9 +44,9 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 	_, out, err := s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{
 		Host: srv.Listener.Addr().String(), Repo: "go-io", Task: "Fix tests",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "go-io", out.Repo)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "go-io", out.Repo)
 }
 
 func TestRemote_DispatchRemote_Bad(t *testing.T) {
@@ -56,15 +54,15 @@ func TestRemote_DispatchRemote_Bad(t *testing.T) {
 
 	// Missing host
 	_, _, err := s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{Repo: "go-io", Task: "do"})
-	assert.Contains(t, err.Error(), "host is required")
+	core.AssertContains(t, err.Error(), "host is required")
 
 	// Missing repo
 	_, _, err = s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{Host: "charon", Task: "do"})
-	assert.Contains(t, err.Error(), "repo is required")
+	core.AssertContains(t, err.Error(), "repo is required")
 
 	// Missing task
 	_, _, err = s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{Host: "charon", Repo: "go-io"})
-	assert.Contains(t, err.Error(), "task is required")
+	core.AssertContains(t, err.Error(), "task is required")
 
 	// Init fails (server error)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
@@ -72,7 +70,7 @@ func TestRemote_DispatchRemote_Bad(t *testing.T) {
 	_, _, err = s.dispatchRemote(context.Background(), nil, RemoteDispatchInput{
 		Host: srv.Listener.Addr().String(), Repo: "go-io", Task: "test",
 	})
-	assert.Contains(t, err.Error(), "MCP initialize failed")
+	core.AssertContains(t, err.Error(), "MCP initialize failed")
 }
 
 func TestRemote_DispatchRemote_Ugly(t *testing.T) {
@@ -100,7 +98,7 @@ func TestRemote_DispatchRemote_Ugly(t *testing.T) {
 		Agent: "claude:opus", Org: "core", Template: "coding", Persona: "eng",
 		Variables: map[string]string{"key": "val"},
 	})
-	require.NoError(t, err)
-	assert.False(t, out.Success)
-	assert.Contains(t, out.Error, "tool not found")
+	core.RequireNoError(t, err)
+	core.AssertFalse(t, out.Success)
+	core.AssertContains(t, out.Error, "tool not found")
 }

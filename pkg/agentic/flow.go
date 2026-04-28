@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // FlowRunStepOutput captures the per-step result of a flow execution: the

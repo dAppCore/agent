@@ -8,8 +8,8 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
 

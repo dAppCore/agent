@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- countRunningByModel ---
@@ -19,7 +17,7 @@ func TestQueue_CountRunningByModel_Good_Empty(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.Equal(t, 0, s.countRunningByModel("claude:opus"))
+	core.AssertEqual(t, 0, s.countRunningByModel("claude:opus"))
 }
 
 func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
@@ -28,15 +26,15 @@ func TestQueue_CountRunningByModel_Good_SkipsNonRunning(t *testing.T) {
 
 	// Completed workspace — must not be counted
 	ws := core.JoinPath(root, "workspace", "test-ws")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
 		Agent:  "codex:gpt-5.4",
 		PID:    0,
 	}))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
 func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
@@ -44,8 +42,8 @@ func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	ws := core.JoinPath(root, "workspace", "model-ws")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "running",
 		Agent:  "gemini:flash",
 		PID:    0,
@@ -53,7 +51,7 @@ func TestQueue_CountRunningByModel_Good_SkipsMismatchedModel(t *testing.T) {
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	// Asking for gemini:pro — must not count gemini:flash
-	assert.Equal(t, 0, s.countRunningByModel("gemini:pro"))
+	core.AssertEqual(t, 0, s.countRunningByModel("gemini:pro"))
 }
 
 func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
@@ -62,15 +60,15 @@ func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 
 	// Deep layout: workspace/org/repo/task-N/status.json
 	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-1")
-	require.True(t, fs.EnsureDir(ws).OK)
-	require.NoError(t, writeStatus(ws, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
 		Status: "completed",
 		Agent:  "codex:gpt-5.4",
 	}))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	// Completed, so count is still 0
-	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
 // --- drainQueue ---
@@ -81,7 +79,7 @@ func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: true, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// Must not panic and must not block
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.drainQueue()
 	})
 }
@@ -92,29 +90,29 @@ func TestQueue_DrainQueue_Good_EmptyWorkspace(t *testing.T) {
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	// No workspaces — must return without error/panic
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.drainQueue()
 	})
 }
 
 // --- Poke ---
 
-func TestRunner_Poke_Good_NilChannel(t *testing.T) {
+func TestPokeNilChannel_PrepSubsystem_Poke_Bad(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), pokeCh: nil}
 	// Must not panic when pokeCh is nil
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.Poke()
 	})
 }
 
-func TestRunner_Poke_Good_ChannelReceivesSignal(t *testing.T) {
+func TestPokeChannel_PrepSubsystem_Poke_Good(t *testing.T) {
 	// Poke is now a no-op — queue poke is owned by pkg/runner.Service.
 	// Verify it does not send to the channel and does not panic.
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	s.pokeCh = make(chan struct{}, 1)
 
-	assert.NotPanics(t, func() { s.Poke() })
-	assert.Len(t, s.pokeCh, 0, "no-op poke should not enqueue a signal")
+	core.AssertNotPanics(t, func() { s.Poke() })
+	core.AssertLen(t, s.pokeCh, 0, "no-op poke should not enqueue a signal")
 }
 
 func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
@@ -124,15 +122,15 @@ func TestRunner_Poke_Good_NonBlockingWhenFull(t *testing.T) {
 	s.pokeCh <- struct{}{}
 
 	// Second poke must not block or panic
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.Poke()
 	})
-	assert.Len(t, s.pokeCh, 1, "channel length should remain 1")
+	core.AssertLen(t, s.pokeCh, 1, "channel length should remain 1")
 }
 
 // --- StartRunner ---
 
-func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
+func TestStartRunner_PrepSubsystem_StartRunner_Good(t *testing.T) {
 	// StartRunner is now a no-op — queue drain is owned by pkg/runner.Service.
 	// Verify it does not panic and does not set pokeCh.
 	root := t.TempDir()
@@ -140,10 +138,10 @@ func TestRunner_StartRunner_Good_CreatesPokeCh(t *testing.T) {
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
-	assert.Nil(t, s.pokeCh)
+	core.AssertNil(t, s.pokeCh)
 
-	assert.NotPanics(t, func() { s.StartRunner() })
-	assert.Nil(t, s.pokeCh, "no-op StartRunner should not initialise pokeCh")
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNil(t, s.pokeCh, "no-op StartRunner should not initialise pokeCh")
 }
 
 func TestRunner_StartRunner_Good_FrozenByDefault(t *testing.T) {
@@ -154,7 +152,7 @@ func TestRunner_StartRunner_Good_FrozenByDefault(t *testing.T) {
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
-	assert.NotPanics(t, func() { s.StartRunner() })
+	core.AssertNotPanics(t, func() { s.StartRunner() })
 }
 
 func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
@@ -165,12 +163,12 @@ func TestRunner_StartRunner_Good_AutoStartEnvVar(t *testing.T) {
 	t.Setenv("CORE_AGENT_DISPATCH", "1")
 
 	s := NewPrep()
-	assert.NotPanics(t, func() { s.StartRunner() })
+	core.AssertNotPanics(t, func() { s.StartRunner() })
 }
 
 // --- Poke Ugly ---
 
-func TestRunner_Poke_Ugly(t *testing.T) {
+func TestPokeRapidFire_PrepSubsystem_Poke_Ugly(t *testing.T) {
 	// Poke on a closed channel — the select with default protects against panic
 	// but closing + sending would panic. However, Poke uses non-blocking send,
 	// so we test that pokeCh=nil is safe (already tested), and that
@@ -180,15 +178,15 @@ func TestRunner_Poke_Ugly(t *testing.T) {
 
 	// Rapid-fire pokes — should all be safe
 	for i := 0; i < 100; i++ {
-		assert.NotPanics(t, func() { s.Poke() })
+		core.AssertNotPanics(t, func() { s.Poke() })
 	}
 	// Channel should have at most 1 signal
-	assert.LessOrEqual(t, len(s.pokeCh), 1)
+	core.AssertLessOrEqual(t, len(s.pokeCh), 1)
 }
 
 // --- StartRunner Bad/Ugly ---
 
-func TestRunner_StartRunner_Bad(t *testing.T) {
+func TestStartRunner_PrepSubsystem_StartRunner_Bad(t *testing.T) {
 	// StartRunner is now a no-op — frozen state and pokeCh are owned by pkg/runner.Service.
 	// Verify the no-op does not panic and does not modify state.
 	root := t.TempDir()
@@ -196,11 +194,11 @@ func TestRunner_StartRunner_Bad(t *testing.T) {
 	t.Setenv("CORE_AGENT_DISPATCH", "")
 
 	s := NewPrep()
-	assert.NotPanics(t, func() { s.StartRunner() })
-	assert.Nil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
 }
 
-func TestRunner_StartRunner_Ugly(t *testing.T) {
+func TestStartRunner_PrepSubsystem_StartRunner_Ugly(t *testing.T) {
 	// StartRunner is now a no-op — calling it multiple times must not panic.
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -209,46 +207,48 @@ func TestRunner_StartRunner_Ugly(t *testing.T) {
 	s := NewPrep()
 
 	// Call twice — both are no-ops, must not panic
-	assert.NotPanics(t, func() { s.StartRunner() })
-	assert.NotPanics(t, func() { s.StartRunner() })
-	assert.Nil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNil(t, s.pokeCh, "no-op StartRunner should not create pokeCh")
 }
 
 // --- DefaultBranch ---
 
-func TestPaths_DefaultBranch_Good_DefaultsToMain(t *testing.T) {
+func TestDefaultBranchFallback_PrepSubsystem_DefaultBranch_Bad(t *testing.T) {
 	// Non-git temp dir — git commands fail, fallback is "main"
 	dir := t.TempDir()
 	branch := testPrep.DefaultBranch(dir)
-	assert.Equal(t, "main", branch)
+	core.AssertEqual(t, "main", branch)
 }
 
-func TestPaths_DefaultBranch_Good_RealGitRepo(t *testing.T) {
+func TestDefaultBranchRepo_PrepSubsystem_DefaultBranch_Good(t *testing.T) {
 	dir := t.TempDir()
 	// Init a real git repo with a main branch
-	require.NoError(t, runGitInit(dir))
+	core.RequireNoError(t, runGitInit(dir))
 
 	branch := testPrep.DefaultBranch(dir)
 	// Any valid branch name — just must not panic or be empty
-	assert.NotEmpty(t, branch)
+	core.AssertNotEmpty(t, branch)
 }
 
 // --- LocalFs ---
 
 func TestPaths_LocalFs_Good_NonNil(t *testing.T) {
 	f := LocalFs()
-	assert.NotNil(t, f, "LocalFs should return a non-nil *core.Fs")
+	missing := core.JoinPath(t.TempDir(), "missing.txt")
+	core.AssertNotNil(t, f, "LocalFs should return a non-nil *core.Fs")
+	core.AssertFalse(t, f.Read(missing).OK)
 }
 
-func TestPaths_LocalFs_Good_CanRead(t *testing.T) {
+func TestCanRead_Agentic_LocalFs_Good(t *testing.T) {
 	dir := t.TempDir()
 	path := core.JoinPath(dir, "hello.txt")
-	require.True(t, fs.Write(path, "hello").OK)
+	core.RequireTrue(t, fs.Write(path, "hello").OK)
 
 	f := LocalFs()
 	r := f.Read(path)
-	assert.True(t, r.OK)
-	assert.Equal(t, "hello", r.Value.(string))
+	core.AssertTrue(t, r.OK)
+	core.AssertEqual(t, "hello", r.Value.(string))
 }
 
 // --- helpers ---
@@ -256,15 +256,28 @@ func TestPaths_LocalFs_Good_CanRead(t *testing.T) {
 // --- RunLoop ---
 
 func TestRunner_RunLoop_Good(t *testing.T) {
-	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+	coreApp := core.New(core.WithOption("name", "test"))
+	called := false
+	coreApp.Action("runner.start", func(_ context.Context, _ core.Options) core.Result {
+		called = true
+		return core.Result{OK: true}
+	})
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(coreApp, AgentOptions{})}
+	s.StartRunner()
+	core.AssertTrue(t, called)
 }
 
 func TestRunner_RunLoop_Bad(t *testing.T) {
-	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{})}
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNil(t, s.pokeCh)
 }
 
 func TestRunner_RunLoop_Ugly(t *testing.T) {
-	t.Skip("blocking goroutine — tested indirectly via StartRunner")
+	var s *PrepSubsystem
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNil(t, s)
 }
 
 // runGitInit initialises a bare git repo with one commit so branch detection works.

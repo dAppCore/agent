@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -122,7 +122,8 @@ func commitWorkspaceStatus(workspaceDir string) (*WorkspaceStatus, error) {
 }
 
 func commitEnsureMetaDir(metaDir string) error {
-	if r := fs.EnsureDir(metaDir); r.OK {
+	r := fs.EnsureDir(metaDir)
+	if r.OK {
 		return nil
 	}
 	err, _ := r.Value.(error)
@@ -174,7 +175,8 @@ func commitWriteMarker(markerPath, workspaceDir string, workspaceStatus *Workspa
 		CommittedAt: committedAt,
 	}
 
-	if r := fs.WriteAtomic(markerPath, core.JSONMarshalString(marker)); r.OK {
+	r := fs.WriteAtomic(markerPath, core.JSONMarshalString(marker))
+	if r.OK {
 		return nil
 	}
 

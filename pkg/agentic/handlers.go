@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 )
 
 // c := core.New(core.WithService(agentic.ProcessRegister))

@@ -8,24 +8,22 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestLogin_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/device/pair", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/v1/device/pair", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "", r.Header.Get("Authorization"))
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		assert.Equal(t, "123456", payload["code"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "123456", payload["code"])
 
 		_, _ = w.Write([]byte(`{"agent_api_key":"ak_live_test","agent_id":"charon","expires_at":"2027-01-01T00:00:00Z"}`))
 	}))
@@ -37,22 +35,22 @@ func TestLogin_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetLogin(core.NewOptions(core.Option{Key: "_arg", Value: "123456"}))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "logged in")
-	assert.Contains(t, output, "agent:      charon")
-	assert.Contains(t, output, "saved to:")
+	core.AssertContains(t, output, "logged in")
+	core.AssertContains(t, output, "agent:      charon")
+	core.AssertContains(t, output, "saved to:")
 
 	keyPath := core.JoinPath(homeDir, ".core", "agent.key")
 	readResult := fs.Read(keyPath)
-	require.True(t, readResult.OK)
-	assert.Equal(t, "ak_live_test", core.Trim(readResult.Value.(string)))
+	core.RequireTrue(t, readResult.OK)
+	core.AssertEqual(t, "ak_live_test", core.Trim(readResult.Value.(string)))
 
 	statResult := fs.Stat(keyPath)
-	require.True(t, statResult.OK)
+	core.RequireTrue(t, statResult.OK)
 	info := statResult.Value.(iofs.FileInfo)
-	assert.Equal(t, iofs.FileMode(0600), info.Mode().Perm())
+	core.AssertEqual(t, iofs.FileMode(0600), info.Mode().Perm())
 }
 
 func TestLogin_Bad(t *testing.T) {
@@ -65,11 +63,11 @@ func TestLogin_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetLogin(core.NewOptions(core.Option{Key: "_arg", Value: "123456"}))
-		require.False(t, result.OK)
+		core.AssertFalse(t, result.OK)
 	})
 
-	assert.Contains(t, output, "error:")
-	assert.Contains(t, output, "invalid pairing code")
+	core.AssertContains(t, output, "error:")
+	core.AssertContains(t, output, "invalid pairing code")
 }
 
 func TestLogin_Ugly(t *testing.T) {
@@ -79,9 +77,9 @@ func TestLogin_Ugly(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetLogin(core.NewOptions(core.Option{Key: "_arg", Value: "12ab"}))
-		require.False(t, result.OK)
+		core.AssertFalse(t, result.OK)
 	})
 
-	assert.Contains(t, output, "usage: core-agent login <6-digit-code>")
-	assert.False(t, fs.Exists(core.JoinPath(homeDir, ".core", "agent.key")))
+	core.AssertContains(t, output, "usage: core-agent login <6-digit-code>")
+	core.AssertFalse(t, fs.Exists(core.JoinPath(homeDir, ".core", "agent.key")))
 }

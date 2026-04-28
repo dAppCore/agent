@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 	"gopkg.in/yaml.v3"
 )
 
@@ -72,7 +72,7 @@ func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-//	identity := runner.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch"}}
+// identity := runner.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch"}}
 type AgentIdentity struct {
 	Host   string   `yaml:"host"`
 	Runner string   `yaml:"runner"`

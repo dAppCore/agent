@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 const deadWorkerOnRestartQuestion = "dead worker on restart"
@@ -26,7 +26,11 @@ func (s *PrepSubsystem) restorePersistedState(_ context.Context) core.Result {
 	}
 
 	s.workspaces = core.NewRegistry[*WorkspaceStatus]()
-	_ = s.stateStoreInstance()
+	if storeInstance := s.stateStoreInstance(); storeInstance == nil {
+		if err := s.stateStoreErr(); err != nil {
+			core.Warn("agentic.restorePersistedState: state store unavailable", "reason", err)
+		}
+	}
 
 	restored := map[string]*WorkspaceStatus{}
 	s.restoreRegistrySnapshot(restored)
@@ -83,7 +87,11 @@ func (s *PrepSubsystem) flushPersistedState(_ context.Context) core.Result {
 		return core.Result{OK: true}
 	}
 
-	_ = s.stateStoreInstance()
+	if storeInstance := s.stateStoreInstance(); storeInstance == nil {
+		if err := s.stateStoreErr(); err != nil {
+			core.Warn("agentic.flushPersistedState: state store unavailable", "reason", err)
+		}
+	}
 	registryKeep := map[string]struct{}{}
 	queueKeep := map[string]struct{}{}
 
@@ -151,7 +159,9 @@ func (s *PrepSubsystem) restoreQueueSnapshot(restored map[string]*WorkspaceStatu
 func (s *PrepSubsystem) restoreConcurrencySnapshot() {
 	s.stateStoreRestore(stateConcurrencyGroup, func(_ string, value string) bool {
 		var snapshot concurrencySnapshot
-		_ = core.JSONUnmarshalString(value, &snapshot)
+		if result := core.JSONUnmarshalString(value, &snapshot); !result.OK {
+			return true
+		}
 		return true
 	})
 }
@@ -245,7 +255,9 @@ func (s *PrepSubsystem) writePersistedWorkspaceStatus(workspaceDir string, works
 	if workspaceStatus.UpdatedAt.IsZero() {
 		workspaceStatus.UpdatedAt = time.Now().UTC()
 	}
-	_ = fs.WriteAtomic(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(workspaceStatus))
+	if writeResult := fs.WriteAtomic(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(workspaceStatus)); !writeResult.OK {
+		core.Warn("agentic.persist: failed to write persisted workspace status", "path", WorkspaceStatusPath(workspaceDir), "reason", writeResult.Value)
+	}
 }
 
 func cloneWorkspaceStatus(workspaceStatus *WorkspaceStatus) *WorkspaceStatus {

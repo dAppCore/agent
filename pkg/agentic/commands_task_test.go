@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestCommands_TaskCommand_Good_Update(t *testing.T) {
@@ -23,10 +21,10 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdTaskUpdate(core.NewOptions(
 		core.Option{Key: "plan_slug", Value: plan.Slug},
@@ -39,16 +37,16 @@ func TestCommands_TaskCommand_Good_Update(t *testing.T) {
 		core.Option{Key: "file", Value: "pkg/agentic/task.go"},
 		core.Option{Key: "line", Value: 128},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TaskOutput)
-	require.True(t, ok)
-	assert.Equal(t, "completed", output.Task.Status)
-	assert.Equal(t, "Done", output.Task.Notes)
-	assert.Equal(t, "high", output.Task.Priority)
-	assert.Equal(t, "security", output.Task.Category)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
-	assert.Equal(t, 128, output.Task.Line)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "completed", output.Task.Status)
+	core.AssertEqual(t, "Done", output.Task.Notes)
+	core.AssertEqual(t, "high", output.Task.Priority)
+	core.AssertEqual(t, "security", output.Task.Category)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.File)
+	core.AssertEqual(t, 128, output.Task.Line)
 }
 
 func TestCommands_TaskCommand_Good_SpecAliasRegistered(t *testing.T) {
@@ -57,10 +55,10 @@ func TestCommands_TaskCommand_Good_SpecAliasRegistered(t *testing.T) {
 
 	s.registerTaskCommands()
 
-	assert.Contains(t, c.Commands(), "agentic:task")
-	assert.Contains(t, c.Commands(), "agentic:task/create")
-	assert.Contains(t, c.Commands(), "agentic:task/update")
-	assert.Contains(t, c.Commands(), "agentic:task/toggle")
+	core.AssertContains(t, c.Commands(), "agentic:task")
+	core.AssertContains(t, c.Commands(), "agentic:task/create")
+	core.AssertContains(t, c.Commands(), "agentic:task/update")
+	core.AssertContains(t, c.Commands(), "agentic:task/toggle")
 }
 
 func TestCommands_TaskCommand_Good_Create(t *testing.T) {
@@ -75,10 +73,10 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 			{Name: "Setup"},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdTaskCreate(core.NewOptions(
 		core.Option{Key: "plan_slug", Value: plan.Slug},
@@ -92,17 +90,17 @@ func TestCommands_TaskCommand_Good_Create(t *testing.T) {
 		core.Option{Key: "file", Value: "pkg/agentic/task.go"},
 		core.Option{Key: "line", Value: 153},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TaskCreateOutput)
-	require.True(t, ok)
-	assert.Equal(t, "Patch code", output.Task.Title)
-	assert.Equal(t, "pending", output.Task.Status)
-	assert.Equal(t, "Do this first", output.Task.Notes)
-	assert.Equal(t, "high", output.Task.Priority)
-	assert.Equal(t, "implementation", output.Task.Category)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
-	assert.Equal(t, 153, output.Task.Line)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "Patch code", output.Task.Title)
+	core.AssertEqual(t, "pending", output.Task.Status)
+	core.AssertEqual(t, "Do this first", output.Task.Notes)
+	core.AssertEqual(t, "high", output.Task.Priority)
+	core.AssertEqual(t, "implementation", output.Task.Category)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.File)
+	core.AssertEqual(t, 153, output.Task.Line)
 }
 
 func TestCommands_TaskCommand_Good_CreateFileRefAliases(t *testing.T) {
@@ -117,10 +115,10 @@ func TestCommands_TaskCommand_Good_CreateFileRefAliases(t *testing.T) {
 			{Name: "Setup"},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdTaskCreate(core.NewOptions(
 		core.Option{Key: "plan_slug", Value: plan.Slug},
@@ -129,14 +127,14 @@ func TestCommands_TaskCommand_Good_CreateFileRefAliases(t *testing.T) {
 		core.Option{Key: "file_ref", Value: "pkg/agentic/task.go"},
 		core.Option{Key: "line_ref", Value: 153},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TaskCreateOutput)
-	require.True(t, ok)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.FileRef)
-	assert.Equal(t, 153, output.Task.LineRef)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
-	assert.Equal(t, 153, output.Task.Line)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.FileRef)
+	core.AssertEqual(t, 153, output.Task.LineRef)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.File)
+	core.AssertEqual(t, 153, output.Task.Line)
 }
 
 func TestCommands_TaskCommand_Bad_MissingRequiredFields(t *testing.T) {
@@ -147,8 +145,8 @@ func TestCommands_TaskCommand_Bad_MissingRequiredFields(t *testing.T) {
 		core.Option{Key: "task_identifier", Value: "1"},
 	))
 
-	assert.False(t, r.OK)
-	assert.Contains(t, r.Value.(error).Error(), "required")
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(error).Error(), "required")
 }
 
 func TestCommands_TaskCommand_Ugly_ToggleCriteriaFallback(t *testing.T) {
@@ -163,22 +161,22 @@ func TestCommands_TaskCommand_Ugly_ToggleCriteriaFallback(t *testing.T) {
 			{Name: "Setup", Criteria: []string{"Review RFC"}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdTaskToggle(core.NewOptions(
 		core.Option{Key: "plan_slug", Value: plan.Slug},
 		core.Option{Key: "phase_order", Value: 1},
 		core.Option{Key: "task_identifier", Value: 1},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TaskOutput)
-	require.True(t, ok)
-	assert.Equal(t, "completed", output.Task.Status)
-	assert.Equal(t, "Review RFC", output.Task.Title)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "completed", output.Task.Status)
+	core.AssertEqual(t, "Review RFC", output.Task.Title)
 }
 
 func TestCommands_TaskCommand_Bad_CreateMissingTitle(t *testing.T) {
@@ -189,6 +187,6 @@ func TestCommands_TaskCommand_Bad_CreateMissingTitle(t *testing.T) {
 		core.Option{Key: "phase_order", Value: 1},
 	))
 
-	assert.False(t, r.OK)
-	assert.Contains(t, r.Value.(error).Error(), "required")
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(error).Error(), "required")
 }

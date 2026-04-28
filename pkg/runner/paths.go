@@ -5,8 +5,8 @@ package runner
 import (
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 )
 
 // fs := agentic.LocalFs()

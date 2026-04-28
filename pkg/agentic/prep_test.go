@@ -10,74 +10,80 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPrep_EnvOr_Good_EnvSet(t *testing.T) {
 	t.Setenv("TEST_ENVVAR_CUSTOM", "custom-value")
-	assert.Equal(t, "custom-value", envOr("TEST_ENVVAR_CUSTOM", "default"))
+	want := "custom-value"
+	got := envOr("TEST_ENVVAR_CUSTOM", "default")
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_EnvOr_Good_Fallback(t *testing.T) {
 	t.Setenv("TEST_ENVVAR_MISSING", "")
-	assert.Equal(t, "default-value", envOr("TEST_ENVVAR_MISSING", "default-value"))
+	want := "default-value"
+	got := envOr("TEST_ENVVAR_MISSING", "default-value")
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_EnvOr_Good_UnsetUsesFallback(t *testing.T) {
 	t.Setenv("TEST_ENVVAR_TOTALLY_MISSING", "")
-	assert.Equal(t, "fallback", envOr("TEST_ENVVAR_TOTALLY_MISSING", "fallback"))
+	want := "fallback"
+	got := envOr("TEST_ENVVAR_TOTALLY_MISSING", "fallback")
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_DetectLanguage_Good_Go(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
-	assert.Equal(t, "go", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+	core.AssertEqual(t, "go", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_PHP(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), "{}").OK)
-	assert.Equal(t, "php", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "composer.json"), "{}").OK)
+	core.AssertEqual(t, "php", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_TypeScript(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
-	assert.Equal(t, "ts", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
+	core.AssertEqual(t, "ts", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Rust(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "Cargo.toml"), "[package]").OK)
-	assert.Equal(t, "rust", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "Cargo.toml"), "[package]").OK)
+	core.AssertEqual(t, "rust", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Python(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "requirements.txt"), "flask").OK)
-	assert.Equal(t, "py", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "requirements.txt"), "flask").OK)
+	core.AssertEqual(t, "py", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Cpp(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "CMakeLists.txt"), "cmake_minimum_required").OK)
-	assert.Equal(t, "cpp", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "CMakeLists.txt"), "cmake_minimum_required").OK)
+	core.AssertEqual(t, "cpp", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_Docker(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "Dockerfile"), "FROM alpine").OK)
-	assert.Equal(t, "docker", detectLanguage(dir))
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "Dockerfile"), "FROM alpine").OK)
+	core.AssertEqual(t, "docker", detectLanguage(dir))
 }
 
 func TestPrep_DetectLanguage_Good_DefaultsToGo(t *testing.T) {
 	dir := t.TempDir()
-	assert.Equal(t, "go", detectLanguage(dir))
+	want := "go"
+	got := detectLanguage(dir)
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_DetectBuildCmd_Good(t *testing.T) {
@@ -97,15 +103,17 @@ func TestPrep_DetectBuildCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.True(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
-			assert.Equal(t, tt.expected, detectBuildCmd(dir))
+			core.RequireTrue(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
+			core.AssertEqual(t, tt.expected, detectBuildCmd(dir))
 		})
 	}
 }
 
 func TestPrep_DetectBuildCmd_Good_DefaultsToGo(t *testing.T) {
 	dir := t.TempDir()
-	assert.Equal(t, "go build ./...", detectBuildCmd(dir))
+	want := "go build ./..."
+	got := detectBuildCmd(dir)
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_DetectTestCmd_Good(t *testing.T) {
@@ -125,31 +133,39 @@ func TestPrep_DetectTestCmd_Good(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			dir := t.TempDir()
-			require.True(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
-			assert.Equal(t, tt.expected, detectTestCmd(dir))
+			core.RequireTrue(t, fs.Write(core.JoinPath(dir, tt.file), tt.content).OK)
+			core.AssertEqual(t, tt.expected, detectTestCmd(dir))
 		})
 	}
 }
 
 func TestPrep_DetectTestCmd_Good_DefaultsToGo(t *testing.T) {
 	dir := t.TempDir()
-	assert.Equal(t, "go test ./...", detectTestCmd(dir))
+	want := "go test ./..."
+	got := detectTestCmd(dir)
+	core.AssertEqual(t, want, got)
 }
 
 func TestSanitise_SanitiseBranchSlug_Good(t *testing.T) {
-	assert.Equal(t, "fix-login-bug", sanitiseBranchSlug("Fix login bug!", 40))
-	assert.Equal(t, "trim-me", sanitiseBranchSlug("---Trim Me---", 40))
+	first := sanitiseBranchSlug("Fix login bug!", 40)
+	second := sanitiseBranchSlug("---Trim Me---", 40)
+	core.AssertEqual(t, "fix-login-bug", first)
+	core.AssertEqual(t, "trim-me", second)
 }
 
 func TestSanitise_SanitiseBranchSlug_Good_Truncates(t *testing.T) {
-	assert.Equal(t, "feature", sanitiseBranchSlug("feature--extra", 7))
+	input := "feature--extra"
+	got := sanitiseBranchSlug(input, 7)
+	core.AssertEqual(t, "feature", got)
 }
 
 func TestSanitise_SanitiseFilename_Good(t *testing.T) {
-	assert.Equal(t, "Core---Agent-Notes", sanitiseFilename("Core / Agent:Notes"))
+	input := "Core / Agent:Notes"
+	got := sanitiseFilename(input)
+	core.AssertEqual(t, "Core---Agent-Notes", got)
 }
 
-func TestPrep_NewPrep_Good_Defaults(t *testing.T) {
+func TestPrepDefaults_NewPrep_Good(t *testing.T) {
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "")
 	t.Setenv("CORE_BRAIN_KEY", "")
@@ -159,9 +175,9 @@ func TestPrep_NewPrep_Good_Defaults(t *testing.T) {
 	t.Setenv("CODE_PATH", "")
 
 	s := NewPrep()
-	assert.Equal(t, "https://forge.lthn.ai", s.forgeURL)
-	assert.Equal(t, "https://api.lthn.sh", s.brainURL)
-	assert.NotEmpty(t, s.codePath)
+	core.AssertEqual(t, "https://forge.lthn.ai", s.forgeURL)
+	core.AssertEqual(t, "https://api.lthn.sh", s.brainURL)
+	core.AssertNotEmpty(t, s.codePath)
 }
 
 func TestPrep_NewPrep_Good_EnvOverrides(t *testing.T) {
@@ -173,18 +189,18 @@ func TestPrep_NewPrep_Good_EnvOverrides(t *testing.T) {
 	t.Setenv("CODE_PATH", "/custom/code")
 
 	s := NewPrep()
-	assert.Equal(t, "https://custom-forge.example.com", s.forgeURL)
-	assert.Equal(t, "test-token", s.forgeToken)
-	assert.Equal(t, "https://custom-brain.example.com", s.brainURL)
-	assert.Equal(t, "brain-key-123", s.brainKey)
-	assert.Equal(t, "/custom/code", s.codePath)
+	core.AssertEqual(t, "https://custom-forge.example.com", s.forgeURL)
+	core.AssertEqual(t, "test-token", s.forgeToken)
+	core.AssertEqual(t, "https://custom-brain.example.com", s.brainURL)
+	core.AssertEqual(t, "brain-key-123", s.brainKey)
+	core.AssertEqual(t, "/custom/code", s.codePath)
 }
 
 func TestPrep_NewPrep_Good_CoreHomeOverride(t *testing.T) {
 	tmpHome := t.TempDir()
 	claudeDir := core.JoinPath(tmpHome, ".claude")
-	require.True(t, fs.EnsureDir(claudeDir).OK)
-	require.True(t, fs.Write(core.JoinPath(claudeDir, "brain.key"), "core-home-key").OK)
+	core.RequireTrue(t, fs.EnsureDir(claudeDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(claudeDir, "brain.key"), "core-home-key").OK)
 
 	t.Setenv("CORE_HOME", tmpHome)
 	t.Setenv("HOME", "/ignored-home")
@@ -193,8 +209,8 @@ func TestPrep_NewPrep_Good_CoreHomeOverride(t *testing.T) {
 	t.Setenv("CODE_PATH", "")
 
 	s := NewPrep()
-	assert.Equal(t, core.JoinPath(tmpHome, "Code"), s.codePath)
-	assert.Equal(t, "core-home-key", s.brainKey)
+	core.AssertEqual(t, core.JoinPath(tmpHome, "Code"), s.codePath)
+	core.AssertEqual(t, "core-home-key", s.brainKey)
 }
 
 func TestPrep_NewPrep_Good_GiteaTokenFallback(t *testing.T) {
@@ -202,36 +218,38 @@ func TestPrep_NewPrep_Good_GiteaTokenFallback(t *testing.T) {
 	t.Setenv("GITEA_TOKEN", "gitea-fallback-token")
 
 	s := NewPrep()
-	assert.Equal(t, "gitea-fallback-token", s.forgeToken)
+	core.AssertEqual(t, "gitea-fallback-token", s.forgeToken)
 }
 
-func TestPrep_Subsystem_Good_Name(t *testing.T) {
+func TestPrepName_PrepSubsystem_Name_Good(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.Equal(t, "agentic", s.Name())
+	name := s.Name()
+	core.AssertNotEmpty(t, name)
+	core.AssertEqual(t, "agentic", name)
 }
 
-func TestPrep_Subsystem_SetCore_Good_WiresServiceRuntime(t *testing.T) {
+func TestPrepSetCore_PrepSubsystem_SetCore_Good(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s := NewPrep()
 
 	s.SetCore(c)
 
-	require.NotNil(t, s.ServiceRuntime)
-	assert.Equal(t, c, s.Core())
+	core.AssertNotNil(t, s.ServiceRuntime)
+	core.AssertEqual(t, c, s.Core())
 }
 
-func TestPrep_Subsystem_SetCore_Bad_NilCoreDoesNothing(t *testing.T) {
+func TestPrepNilCore_PrepSubsystem_SetCore_Bad(t *testing.T) {
 	s := &PrepSubsystem{}
 
 	s.SetCore(nil)
 
-	assert.Nil(t, s.ServiceRuntime)
+	core.AssertNil(t, s.ServiceRuntime)
 }
 
-func TestPrep_Subsystem_SetCore_Ugly_NilReceiverDoesNotPanic(t *testing.T) {
+func TestPrepNilReceiver_PrepSubsystem_SetCore_Ugly(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		var s *PrepSubsystem
 		s.SetCore(c)
 	})
@@ -240,156 +258,191 @@ func TestPrep_Subsystem_SetCore_Ugly_NilReceiverDoesNotPanic(t *testing.T) {
 // --- sanitiseBranchSlug Bad/Ugly ---
 
 func TestSanitise_SanitiseBranchSlug_Bad_EmptyString(t *testing.T) {
-	assert.Equal(t, "", sanitiseBranchSlug("", 40))
+	input := ""
+	got := sanitiseBranchSlug(input, 40)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitiseBranchSlug_Bad_OnlySpecialChars(t *testing.T) {
-	assert.Equal(t, "", sanitiseBranchSlug("!@#$%^&*()", 40))
+	input := "!@#$%^&*()"
+	got := sanitiseBranchSlug(input, 40)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitiseBranchSlug_Bad_OnlyDashes(t *testing.T) {
-	assert.Equal(t, "", sanitiseBranchSlug("------", 40))
+	input := "------"
+	got := sanitiseBranchSlug(input, 40)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitiseBranchSlug_Ugly_VeryLongString(t *testing.T) {
 	long := strings.Repeat("abcdefghij", 100)
 	result := sanitiseBranchSlug(long, 50)
-	assert.LessOrEqual(t, len(result), 50)
+	core.AssertLessOrEqual(t, len(result), 50)
 }
 
 func TestSanitise_SanitiseBranchSlug_Ugly_Unicode(t *testing.T) {
 	// Unicode chars should be replaced with dashes, then edges trimmed
 	result := sanitiseBranchSlug("\u00e9\u00e0\u00fc\u00f1\u00f0", 40)
-	assert.NotContains(t, result, "\u00e9")
+	core.AssertNotContains(t, result, "\u00e9")
 	// All replaced with dashes, then trimmed = empty
-	assert.Equal(t, "", result)
+	core.AssertEqual(t, "", result)
 }
 
 func TestSanitise_SanitiseBranchSlug_Ugly_ZeroMax(t *testing.T) {
 	// max=0 means no limit
 	result := sanitiseBranchSlug("hello-world", 0)
-	assert.Equal(t, "hello-world", result)
+	core.AssertNotEmpty(t, result)
+	core.AssertEqual(t, "hello-world", result)
 }
 
 // --- sanitisePlanSlug Bad/Ugly ---
 
 func TestSanitise_SanitisePlanSlug_Bad_EmptyString(t *testing.T) {
-	assert.Equal(t, "", sanitisePlanSlug(""))
+	input := ""
+	got := sanitisePlanSlug(input)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitisePlanSlug_Bad_OnlySpecialChars(t *testing.T) {
-	assert.Equal(t, "", sanitisePlanSlug("!@#$%^&*()"))
+	input := "!@#$%^&*()"
+	got := sanitisePlanSlug(input)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitisePlanSlug_Bad_OnlySpaces(t *testing.T) {
 	// Spaces become dashes, then collapsed, then trimmed
-	assert.Equal(t, "", sanitisePlanSlug("     "))
+	input := "     "
+	got := sanitisePlanSlug(input)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitisePlanSlug_Ugly_VeryLongString(t *testing.T) {
 	long := strings.Repeat("abcdefghij ", 20)
 	result := sanitisePlanSlug(long)
-	assert.LessOrEqual(t, len(result), 30)
+	core.AssertLessOrEqual(t, len(result), 30)
 }
 
 func TestSanitise_SanitisePlanSlug_Ugly_Unicode(t *testing.T) {
 	result := sanitisePlanSlug("\u00e9\u00e0\u00fc\u00f1\u00f0")
-	assert.Equal(t, "", result, "unicode chars should be stripped, leaving empty string")
+	core.AssertNotContains(t, result, "\u00e9")
+	core.AssertEqual(t, "", result, "unicode chars should be stripped, leaving empty string")
 }
 
 func TestSanitise_SanitisePlanSlug_Ugly_AllDashInput(t *testing.T) {
-	assert.Equal(t, "", sanitisePlanSlug("---"))
+	input := "---"
+	got := sanitisePlanSlug(input)
+	core.AssertEqual(t, "", got)
 }
 
 // --- sanitiseFilename Bad/Ugly ---
 
 func TestSanitise_SanitiseFilename_Bad_EmptyString(t *testing.T) {
-	assert.Equal(t, "", sanitiseFilename(""))
+	input := ""
+	got := sanitiseFilename(input)
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_SanitiseFilename_Bad_OnlySpecialChars(t *testing.T) {
 	result := sanitiseFilename("!@#$%^&*()")
 	// All replaced with dashes
-	assert.Equal(t, "----------", result)
+	core.AssertLen(t, result, 10)
+	core.AssertEqual(t, "----------", result)
 }
 
 func TestSanitise_SanitiseFilename_Ugly_VeryLongString(t *testing.T) {
 	long := strings.Repeat("a", 1000)
 	result := sanitiseFilename(long)
-	assert.Equal(t, 1000, len(result))
+	core.AssertEqual(t, 1000, len(result))
 }
 
 func TestSanitise_SanitiseFilename_Ugly_Unicode(t *testing.T) {
 	result := sanitiseFilename("\u00e9\u00e0\u00fc\u00f1\u00f0")
 	// All replaced with dashes
 	for _, r := range result {
-		assert.Equal(t, '-', r)
+		core.AssertEqual(t, '-', r)
 	}
 }
 
 func TestSanitise_SanitiseFilename_Ugly_PreservesDotsUnderscores(t *testing.T) {
-	assert.Equal(t, "my_file.test.txt", sanitiseFilename("my_file.test.txt"))
+	input := "my_file.test.txt"
+	got := sanitiseFilename(input)
+	core.AssertEqual(t, "my_file.test.txt", got)
 }
 
 // --- collapseRepeatedRune Bad/Ugly ---
 
 func TestSanitise_CollapseRepeatedRune_Bad_EmptyString(t *testing.T) {
-	assert.Equal(t, "", collapseRepeatedRune("", '-'))
+	input := ""
+	got := collapseRepeatedRune(input, '-')
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_CollapseRepeatedRune_Bad_AllTarget(t *testing.T) {
-	assert.Equal(t, "-", collapseRepeatedRune("-----", '-'))
+	input := "-----"
+	got := collapseRepeatedRune(input, '-')
+	core.AssertEqual(t, "-", got)
 }
 
 func TestSanitise_CollapseRepeatedRune_Ugly_Unicode(t *testing.T) {
-	assert.Equal(t, "h\u00e9llo", collapseRepeatedRune("h\u00e9\u00e9\u00e9llo", '\u00e9'))
+	input := "h\u00e9\u00e9\u00e9llo"
+	got := collapseRepeatedRune(input, '\u00e9')
+	core.AssertEqual(t, "h\u00e9llo", got)
 }
 
 func TestSanitise_CollapseRepeatedRune_Ugly_VeryLong(t *testing.T) {
 	long := strings.Repeat("--a", 500)
 	result := collapseRepeatedRune(long, '-')
-	assert.NotContains(t, result, "--")
+	core.AssertNotContains(t, result, "--")
 }
 
 // --- trimRuneEdges Bad/Ugly ---
 
 func TestSanitise_TrimRuneEdges_Bad_EmptyString(t *testing.T) {
-	assert.Equal(t, "", trimRuneEdges("", '-'))
+	input := ""
+	got := trimRuneEdges(input, '-')
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_TrimRuneEdges_Bad_AllTarget(t *testing.T) {
-	assert.Equal(t, "", trimRuneEdges("-----", '-'))
+	input := "-----"
+	got := trimRuneEdges(input, '-')
+	core.AssertEqual(t, "", got)
 }
 
 func TestSanitise_TrimRuneEdges_Ugly_Unicode(t *testing.T) {
-	assert.Equal(t, "hello", trimRuneEdges("\u00e9hello\u00e9\u00e9", '\u00e9'))
+	input := "\u00e9hello\u00e9\u00e9"
+	got := trimRuneEdges(input, '\u00e9')
+	core.AssertEqual(t, "hello", got)
 }
 
 func TestSanitise_TrimRuneEdges_Ugly_NoMatch(t *testing.T) {
-	assert.Equal(t, "hello", trimRuneEdges("hello", '-'))
+	input := "hello"
+	got := trimRuneEdges(input, '-')
+	core.AssertEqual(t, "hello", got)
 }
 
 // --- PrepSubsystem Name Bad/Ugly ---
 
-func TestPrep_Name_Bad(t *testing.T) {
+func TestPrepName_PrepSubsystem_Name_Bad(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	name := s.Name()
-	assert.NotEmpty(t, name, "Name should never return empty")
-	assert.Equal(t, "agentic", name)
+	core.AssertNotEmpty(t, name, "Name should never return empty")
+	core.AssertEqual(t, "agentic", name)
 }
 
-func TestPrep_Name_Ugly(t *testing.T) {
+func TestPrepName_PrepSubsystem_Name_Ugly(t *testing.T) {
 	// Zero-value struct — Name() should still work
 	var s PrepSubsystem
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		name := s.Name()
-		assert.Equal(t, "agentic", name)
+		core.AssertEqual(t, "agentic", name)
 	})
 }
 
 // --- NewPrep Bad/Ugly ---
 
-func TestPrep_NewPrep_Bad(t *testing.T) {
+func TestPrepBad_NewPrep_Bad(t *testing.T) {
 	// Call without any env — verify doesn't panic, returns valid struct
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "")
@@ -399,26 +452,26 @@ func TestPrep_NewPrep_Bad(t *testing.T) {
 	t.Setenv("SPECS_PATH", "")
 	t.Setenv("CODE_PATH", "")
 
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s := NewPrep()
-		assert.NotNil(t, s)
+		core.AssertNotNil(t, s)
 	})
 }
 
-func TestPrep_NewPrep_Ugly(t *testing.T) {
+func TestPrepUgly_NewPrep_Ugly(t *testing.T) {
 	// Verify returned struct has non-nil backoff/failCount maps
 	t.Setenv("FORGE_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "")
 
 	s := NewPrep()
-	assert.NotNil(t, s.backoff, "backoff map must not be nil")
-	assert.NotNil(t, s.failCount, "failCount map must not be nil")
-	assert.NotNil(t, s.forge, "Forge client must not be nil")
+	core.AssertNotNil(t, s.backoff, "backoff map must not be nil")
+	core.AssertNotNil(t, s.failCount, "failCount map must not be nil")
+	core.AssertNotNil(t, s.forge, "Forge client must not be nil")
 }
 
 // --- OnStartup Good/Bad/Ugly ---
 
-func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
+func TestPrepStartup_PrepSubsystem_OnStartup_Good(t *testing.T) {
 	// StartRunner is now a no-op — pokeCh is no longer initialised by OnStartup.
 	// Verify OnStartup succeeds and pokeCh remains nil.
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
@@ -428,12 +481,12 @@ func TestPrep_OnStartup_Good_CreatesPokeCh(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	assert.Nil(t, s.pokeCh, "pokeCh should be nil before OnStartup")
+	core.AssertNil(t, s.pokeCh, "pokeCh should be nil before OnStartup")
 
 	r := s.OnStartup(context.Background())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
-	assert.Nil(t, s.pokeCh, "pokeCh should remain nil — queue drain is owned by pkg/runner")
+	core.AssertNil(t, s.pokeCh, "pokeCh should remain nil — queue drain is owned by pkg/runner")
 }
 
 func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
@@ -446,7 +499,7 @@ func TestPrep_OnStartup_Good_FrozenByDefault(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	assert.True(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, s.OnStartup(context.Background()).OK)
 }
 
 func TestPrep_OnStartup_Good_NoError(t *testing.T) {
@@ -457,7 +510,7 @@ func TestPrep_OnStartup_Good_NoError(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	assert.True(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, s.OnStartup(context.Background()).OK)
 }
 
 func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
@@ -468,24 +521,24 @@ func TestPrep_OnStartup_Good_RegistersPlanActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("agentic.dispatch.sync").Exists())
-	assert.True(t, c.Action("plan.create").Exists())
-	assert.True(t, c.Action("plan.get").Exists())
-	assert.True(t, c.Action("plan.read").Exists())
-	assert.True(t, c.Action("plan.update").Exists())
-	assert.True(t, c.Action("plan.update_status").Exists())
-	assert.True(t, c.Action("plan.from.issue").Exists())
-	assert.True(t, c.Action("plan.check").Exists())
-	assert.True(t, c.Action("plan.archive").Exists())
-	assert.True(t, c.Action("plan.delete").Exists())
-	assert.True(t, c.Action("plan.list").Exists())
-	assert.True(t, c.Action("phase.get").Exists())
-	assert.True(t, c.Action("phase.update_status").Exists())
-	assert.True(t, c.Action("phase.add_checkpoint").Exists())
-	assert.True(t, c.Action("task.create").Exists())
-	assert.True(t, c.Action("task.update").Exists())
-	assert.True(t, c.Action("task.toggle").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("agentic.dispatch.sync").Exists())
+	core.AssertTrue(t, c.Action("plan.create").Exists())
+	core.AssertTrue(t, c.Action("plan.get").Exists())
+	core.AssertTrue(t, c.Action("plan.read").Exists())
+	core.AssertTrue(t, c.Action("plan.update").Exists())
+	core.AssertTrue(t, c.Action("plan.update_status").Exists())
+	core.AssertTrue(t, c.Action("plan.from.issue").Exists())
+	core.AssertTrue(t, c.Action("plan.check").Exists())
+	core.AssertTrue(t, c.Action("plan.archive").Exists())
+	core.AssertTrue(t, c.Action("plan.delete").Exists())
+	core.AssertTrue(t, c.Action("plan.list").Exists())
+	core.AssertTrue(t, c.Action("phase.get").Exists())
+	core.AssertTrue(t, c.Action("phase.update_status").Exists())
+	core.AssertTrue(t, c.Action("phase.add_checkpoint").Exists())
+	core.AssertTrue(t, c.Action("task.create").Exists())
+	core.AssertTrue(t, c.Action("task.update").Exists())
+	core.AssertTrue(t, c.Action("task.toggle").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersDispatchControlActions(t *testing.T) {
@@ -496,10 +549,10 @@ func TestPrep_OnStartup_Good_RegistersDispatchControlActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("agentic.dispatch.start").Exists())
-	assert.True(t, c.Action("agentic.dispatch.shutdown").Exists())
-	assert.True(t, c.Action("agentic.dispatch.shutdown_now").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("agentic.dispatch.start").Exists())
+	core.AssertTrue(t, c.Action("agentic.dispatch.shutdown").Exists())
+	core.AssertTrue(t, c.Action("agentic.dispatch.shutdown_now").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
@@ -510,47 +563,47 @@ func TestPrep_OnStartup_Good_RegistersSessionActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("session.start").Exists())
-	assert.True(t, c.Action("session.get").Exists())
-	assert.True(t, c.Action("session.list").Exists())
-	assert.True(t, c.Action("session.continue").Exists())
-	assert.True(t, c.Action("session.end").Exists())
-	assert.True(t, c.Action("session.complete").Exists())
-	assert.True(t, c.Action("session.log").Exists())
-	assert.True(t, c.Action("session.artifact").Exists())
-	assert.True(t, c.Action("session.handoff").Exists())
-	assert.True(t, c.Action("session.resume").Exists())
-	assert.True(t, c.Action("session.replay").Exists())
-	assert.True(t, c.Action("state.set").Exists())
-	assert.True(t, c.Action("state.get").Exists())
-	assert.True(t, c.Action("state.list").Exists())
-	assert.True(t, c.Action("state.delete").Exists())
-	assert.True(t, c.Action("issue.create").Exists())
-	assert.True(t, c.Action("issue.get").Exists())
-	assert.True(t, c.Action("issue.list").Exists())
-	assert.True(t, c.Action("issue.update").Exists())
-	assert.True(t, c.Action("issue.assign").Exists())
-	assert.True(t, c.Action("issue.comment").Exists())
-	assert.True(t, c.Action("issue.report").Exists())
-	assert.True(t, c.Action("issue.archive").Exists())
-	assert.True(t, c.Action("agentic.message.send").Exists())
-	assert.True(t, c.Action("agent.message.send").Exists())
-	assert.True(t, c.Action("agentic.message.inbox").Exists())
-	assert.True(t, c.Action("agent.message.inbox").Exists())
-	assert.True(t, c.Action("agentic.message.conversation").Exists())
-	assert.True(t, c.Action("agent.message.conversation").Exists())
-	assert.True(t, c.Action("agentic.issue.update").Exists())
-	assert.True(t, c.Action("agentic.issue.create").Exists())
-	assert.True(t, c.Action("agentic.issue.assign").Exists())
-	assert.True(t, c.Action("agentic.issue.comment").Exists())
-	assert.True(t, c.Action("agentic.issue.report").Exists())
-	assert.True(t, c.Action("agentic.issue.archive").Exists())
-	assert.True(t, c.Action("sprint.create").Exists())
-	assert.True(t, c.Action("sprint.get").Exists())
-	assert.True(t, c.Action("sprint.list").Exists())
-	assert.True(t, c.Action("sprint.update").Exists())
-	assert.True(t, c.Action("sprint.archive").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("session.start").Exists())
+	core.AssertTrue(t, c.Action("session.get").Exists())
+	core.AssertTrue(t, c.Action("session.list").Exists())
+	core.AssertTrue(t, c.Action("session.continue").Exists())
+	core.AssertTrue(t, c.Action("session.end").Exists())
+	core.AssertTrue(t, c.Action("session.complete").Exists())
+	core.AssertTrue(t, c.Action("session.log").Exists())
+	core.AssertTrue(t, c.Action("session.artifact").Exists())
+	core.AssertTrue(t, c.Action("session.handoff").Exists())
+	core.AssertTrue(t, c.Action("session.resume").Exists())
+	core.AssertTrue(t, c.Action("session.replay").Exists())
+	core.AssertTrue(t, c.Action("state.set").Exists())
+	core.AssertTrue(t, c.Action("state.get").Exists())
+	core.AssertTrue(t, c.Action("state.list").Exists())
+	core.AssertTrue(t, c.Action("state.delete").Exists())
+	core.AssertTrue(t, c.Action("issue.create").Exists())
+	core.AssertTrue(t, c.Action("issue.get").Exists())
+	core.AssertTrue(t, c.Action("issue.list").Exists())
+	core.AssertTrue(t, c.Action("issue.update").Exists())
+	core.AssertTrue(t, c.Action("issue.assign").Exists())
+	core.AssertTrue(t, c.Action("issue.comment").Exists())
+	core.AssertTrue(t, c.Action("issue.report").Exists())
+	core.AssertTrue(t, c.Action("issue.archive").Exists())
+	core.AssertTrue(t, c.Action("agentic.message.send").Exists())
+	core.AssertTrue(t, c.Action("agent.message.send").Exists())
+	core.AssertTrue(t, c.Action("agentic.message.inbox").Exists())
+	core.AssertTrue(t, c.Action("agent.message.inbox").Exists())
+	core.AssertTrue(t, c.Action("agentic.message.conversation").Exists())
+	core.AssertTrue(t, c.Action("agent.message.conversation").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.update").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.create").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.assign").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.comment").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.report").Exists())
+	core.AssertTrue(t, c.Action("agentic.issue.archive").Exists())
+	core.AssertTrue(t, c.Action("sprint.create").Exists())
+	core.AssertTrue(t, c.Action("sprint.get").Exists())
+	core.AssertTrue(t, c.Action("sprint.list").Exists())
+	core.AssertTrue(t, c.Action("sprint.update").Exists())
+	core.AssertTrue(t, c.Action("sprint.archive").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersNamespacedActionAliases(t *testing.T) {
@@ -561,15 +614,15 @@ func TestPrep_OnStartup_Good_RegistersNamespacedActionAliases(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("agentic.plan.create").Exists())
-	assert.True(t, c.Action("agentic.plan.read").Exists())
-	assert.True(t, c.Action("agentic.phase.get").Exists())
-	assert.True(t, c.Action("agentic.task.create").Exists())
-	assert.True(t, c.Action("agentic.session.start").Exists())
-	assert.True(t, c.Action("agentic.state.set").Exists())
-	assert.True(t, c.Action("agentic.content.generate").Exists())
-	assert.True(t, c.Action("agentic.content.schema.generate").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("agentic.plan.create").Exists())
+	core.AssertTrue(t, c.Action("agentic.plan.read").Exists())
+	core.AssertTrue(t, c.Action("agentic.phase.get").Exists())
+	core.AssertTrue(t, c.Action("agentic.task.create").Exists())
+	core.AssertTrue(t, c.Action("agentic.session.start").Exists())
+	core.AssertTrue(t, c.Action("agentic.state.set").Exists())
+	core.AssertTrue(t, c.Action("agentic.content.generate").Exists())
+	core.AssertTrue(t, c.Action("agentic.content.schema.generate").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersForgeActions(t *testing.T) {
@@ -580,12 +633,12 @@ func TestPrep_OnStartup_Good_RegistersForgeActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("agentic.pr.get").Exists())
-	assert.True(t, c.Action("agentic.pr.list").Exists())
-	assert.True(t, c.Action("agentic.pr.merge").Exists())
-	assert.True(t, c.Action("agentic.pr.close").Exists())
-	assert.True(t, c.Action("agentic.commit").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("agentic.pr.get").Exists())
+	core.AssertTrue(t, c.Action("agentic.pr.list").Exists())
+	core.AssertTrue(t, c.Action("agentic.pr.merge").Exists())
+	core.AssertTrue(t, c.Action("agentic.pr.close").Exists())
+	core.AssertTrue(t, c.Action("agentic.commit").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
@@ -596,25 +649,25 @@ func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("content.generate").Exists())
-	assert.True(t, c.Action("agentic.generate").Exists())
-	assert.True(t, c.Action("content.batch").Exists())
-	assert.True(t, c.Action("content.batch.generate").Exists())
-	assert.True(t, c.Action("content.batch_generate").Exists())
-	assert.True(t, c.Action("content_batch").Exists())
-	assert.True(t, c.Action("content.brief.create").Exists())
-	assert.True(t, c.Action("content.brief.get").Exists())
-	assert.True(t, c.Action("content.brief.list").Exists())
-	assert.True(t, c.Action("content.status").Exists())
-	assert.True(t, c.Action("content.usage.stats").Exists())
-	assert.True(t, c.Action("content.usage_stats").Exists())
-	assert.True(t, c.Action("content.from.plan").Exists())
-	assert.True(t, c.Action("content.from_plan").Exists())
-	assert.True(t, c.Action("content.schema.generate").Exists())
-	assert.True(t, c.Action("agentic.content.generate").Exists())
-	assert.True(t, c.Action("agentic.content.batch").Exists())
-	assert.True(t, c.Action("agentic.content.schema.generate").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("content.generate").Exists())
+	core.AssertTrue(t, c.Action("agentic.generate").Exists())
+	core.AssertTrue(t, c.Action("content.batch").Exists())
+	core.AssertTrue(t, c.Action("content.batch.generate").Exists())
+	core.AssertTrue(t, c.Action("content.batch_generate").Exists())
+	core.AssertTrue(t, c.Action("content_batch").Exists())
+	core.AssertTrue(t, c.Action("content.brief.create").Exists())
+	core.AssertTrue(t, c.Action("content.brief.get").Exists())
+	core.AssertTrue(t, c.Action("content.brief.list").Exists())
+	core.AssertTrue(t, c.Action("content.status").Exists())
+	core.AssertTrue(t, c.Action("content.usage.stats").Exists())
+	core.AssertTrue(t, c.Action("content.usage_stats").Exists())
+	core.AssertTrue(t, c.Action("content.from.plan").Exists())
+	core.AssertTrue(t, c.Action("content.from_plan").Exists())
+	core.AssertTrue(t, c.Action("content.schema.generate").Exists())
+	core.AssertTrue(t, c.Action("agentic.content.generate").Exists())
+	core.AssertTrue(t, c.Action("agentic.content.batch").Exists())
+	core.AssertTrue(t, c.Action("agentic.content.schema.generate").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersTemplateActions(t *testing.T) {
@@ -625,13 +678,13 @@ func TestPrep_OnStartup_Good_RegistersTemplateActions(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("template.list").Exists())
-	assert.True(t, c.Action("agentic.template.list").Exists())
-	assert.True(t, c.Action("template.preview").Exists())
-	assert.True(t, c.Action("agentic.template.preview").Exists())
-	assert.True(t, c.Action("template.create_plan").Exists())
-	assert.True(t, c.Action("agentic.template.create_plan").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("template.list").Exists())
+	core.AssertTrue(t, c.Action("agentic.template.list").Exists())
+	core.AssertTrue(t, c.Action("template.preview").Exists())
+	core.AssertTrue(t, c.Action("agentic.template.preview").Exists())
+	core.AssertTrue(t, c.Action("template.create_plan").Exists())
+	core.AssertTrue(t, c.Action("agentic.template.create_plan").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
@@ -642,23 +695,23 @@ func TestPrep_OnStartup_Good_RegistersPlatformActionAliases(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.True(t, c.Action("agentic.sync.push").Exists())
-	assert.True(t, c.Action("agent.sync.push").Exists())
-	assert.True(t, c.Action("agentic.auth.provision").Exists())
-	assert.True(t, c.Action("agent.auth.provision").Exists())
-	assert.True(t, c.Action("agentic.auth.revoke").Exists())
-	assert.True(t, c.Action("agent.auth.revoke").Exists())
-	assert.True(t, c.Action("agentic.auth.login").Exists())
-	assert.True(t, c.Action("agent.auth.login").Exists())
-	assert.True(t, c.Action("agentic.fleet.register").Exists())
-	assert.True(t, c.Action("agent.fleet.register").Exists())
-	assert.True(t, c.Action("agentic.credits.balance").Exists())
-	assert.True(t, c.Action("agent.credits.balance").Exists())
-	assert.True(t, c.Action("agentic.fleet.events").Exists())
-	assert.True(t, c.Action("agent.fleet.events").Exists())
-	assert.True(t, c.Action("agentic.subscription.budget.update").Exists())
-	assert.True(t, c.Action("agent.subscription.budget.update").Exists())
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, c.Action("agentic.sync.push").Exists())
+	core.AssertTrue(t, c.Action("agent.sync.push").Exists())
+	core.AssertTrue(t, c.Action("agentic.auth.provision").Exists())
+	core.AssertTrue(t, c.Action("agent.auth.provision").Exists())
+	core.AssertTrue(t, c.Action("agentic.auth.revoke").Exists())
+	core.AssertTrue(t, c.Action("agent.auth.revoke").Exists())
+	core.AssertTrue(t, c.Action("agentic.auth.login").Exists())
+	core.AssertTrue(t, c.Action("agent.auth.login").Exists())
+	core.AssertTrue(t, c.Action("agentic.fleet.register").Exists())
+	core.AssertTrue(t, c.Action("agent.fleet.register").Exists())
+	core.AssertTrue(t, c.Action("agentic.credits.balance").Exists())
+	core.AssertTrue(t, c.Action("agent.credits.balance").Exists())
+	core.AssertTrue(t, c.Action("agentic.fleet.events").Exists())
+	core.AssertTrue(t, c.Action("agent.fleet.events").Exists())
+	core.AssertTrue(t, c.Action("agentic.subscription.budget.update").Exists())
+	core.AssertTrue(t, c.Action("agent.subscription.budget.update").Exists())
 }
 
 func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
@@ -669,35 +722,35 @@ func TestPrep_OnStartup_Good_RegistersPlatformCommandAlias(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.Contains(t, c.Commands(), "auth/provision")
-	assert.Contains(t, c.Commands(), "agentic:auth/provision")
-	assert.Contains(t, c.Commands(), "auth/revoke")
-	assert.Contains(t, c.Commands(), "agentic:auth/revoke")
-	assert.Contains(t, c.Commands(), "message/send")
-	assert.Contains(t, c.Commands(), "messages/send")
-	assert.Contains(t, c.Commands(), "agentic:message/send")
-	assert.Contains(t, c.Commands(), "agentic:messages/send")
-	assert.Contains(t, c.Commands(), "message/inbox")
-	assert.Contains(t, c.Commands(), "messages/inbox")
-	assert.Contains(t, c.Commands(), "agentic:message/inbox")
-	assert.Contains(t, c.Commands(), "agentic:messages/inbox")
-	assert.Contains(t, c.Commands(), "message/conversation")
-	assert.Contains(t, c.Commands(), "messages/conversation")
-	assert.Contains(t, c.Commands(), "agentic:message/conversation")
-	assert.Contains(t, c.Commands(), "agentic:messages/conversation")
-	assert.Contains(t, c.Commands(), "subscription/budget/update")
-	assert.Contains(t, c.Commands(), "subscription/update-budget")
-	assert.Contains(t, c.Commands(), "agentic:subscription/budget/update")
-	assert.Contains(t, c.Commands(), "agentic:subscription/update-budget")
-	assert.Contains(t, c.Commands(), "fleet/events")
-	assert.Contains(t, c.Commands(), "agentic:fleet/events")
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertContains(t, c.Commands(), "auth/provision")
+	core.AssertContains(t, c.Commands(), "agentic:auth/provision")
+	core.AssertContains(t, c.Commands(), "auth/revoke")
+	core.AssertContains(t, c.Commands(), "agentic:auth/revoke")
+	core.AssertContains(t, c.Commands(), "message/send")
+	core.AssertContains(t, c.Commands(), "messages/send")
+	core.AssertContains(t, c.Commands(), "agentic:message/send")
+	core.AssertContains(t, c.Commands(), "agentic:messages/send")
+	core.AssertContains(t, c.Commands(), "message/inbox")
+	core.AssertContains(t, c.Commands(), "messages/inbox")
+	core.AssertContains(t, c.Commands(), "agentic:message/inbox")
+	core.AssertContains(t, c.Commands(), "agentic:messages/inbox")
+	core.AssertContains(t, c.Commands(), "message/conversation")
+	core.AssertContains(t, c.Commands(), "messages/conversation")
+	core.AssertContains(t, c.Commands(), "agentic:message/conversation")
+	core.AssertContains(t, c.Commands(), "agentic:messages/conversation")
+	core.AssertContains(t, c.Commands(), "subscription/budget/update")
+	core.AssertContains(t, c.Commands(), "subscription/update-budget")
+	core.AssertContains(t, c.Commands(), "agentic:subscription/budget/update")
+	core.AssertContains(t, c.Commands(), "agentic:subscription/update-budget")
+	core.AssertContains(t, c.Commands(), "fleet/events")
+	core.AssertContains(t, c.Commands(), "agentic:fleet/events")
 }
 
-func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
+func TestRegistersCompletionTool_PrepSubsystem_RegisterTools_Good(t *testing.T) {
 	t.Setenv("CORE_MCP_FULL", "1")
 	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	subsystem := &PrepSubsystem{}
 	subsystem.RegisterTools(svc)
@@ -707,46 +760,46 @@ func TestPrep_RegisterTools_Good_RegistersCompletionTool(t *testing.T) {
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
 	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = serverSession.Close() })
 
 	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = clientSession.Close() })
 
 	result, err := clientSession.ListTools(context.Background(), nil)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var toolNames []string
 	for _, tool := range result.Tools {
 		toolNames = append(toolNames, tool.Name)
 	}
 
-	assert.Contains(t, toolNames, "agentic_complete")
-	assert.Contains(t, toolNames, "prompt_version")
-	assert.Contains(t, toolNames, "agentic_prompt_version")
-	assert.Contains(t, toolNames, "agentic_setup")
-	assert.Contains(t, toolNames, "agentic_issue_create")
-	assert.Contains(t, toolNames, "agentic_issue_assign")
-	assert.Contains(t, toolNames, "agentic_session_start")
-	assert.Contains(t, toolNames, "agentic_task_create")
-	assert.Contains(t, toolNames, "agentic_state_set")
-	assert.Contains(t, toolNames, "agentic_sprint_create")
-	assert.Contains(t, toolNames, "agentic_sprint_start")
-	assert.Contains(t, toolNames, "agentic_sprint_complete")
-	assert.Contains(t, toolNames, "session_complete")
-	assert.Contains(t, toolNames, "agentic_message_send")
-	assert.Contains(t, toolNames, "agent_send")
-	assert.Contains(t, toolNames, "agentic_message_inbox")
-	assert.Contains(t, toolNames, "agent_inbox")
-	assert.Contains(t, toolNames, "agentic_message_conversation")
-	assert.Contains(t, toolNames, "agent_conversation")
+	core.AssertContains(t, toolNames, "agentic_complete")
+	core.AssertContains(t, toolNames, "prompt_version")
+	core.AssertContains(t, toolNames, "agentic_prompt_version")
+	core.AssertContains(t, toolNames, "agentic_setup")
+	core.AssertContains(t, toolNames, "agentic_issue_create")
+	core.AssertContains(t, toolNames, "agentic_issue_assign")
+	core.AssertContains(t, toolNames, "agentic_session_start")
+	core.AssertContains(t, toolNames, "agentic_task_create")
+	core.AssertContains(t, toolNames, "agentic_state_set")
+	core.AssertContains(t, toolNames, "agentic_sprint_create")
+	core.AssertContains(t, toolNames, "agentic_sprint_start")
+	core.AssertContains(t, toolNames, "agentic_sprint_complete")
+	core.AssertContains(t, toolNames, "session_complete")
+	core.AssertContains(t, toolNames, "agentic_message_send")
+	core.AssertContains(t, toolNames, "agent_send")
+	core.AssertContains(t, toolNames, "agentic_message_inbox")
+	core.AssertContains(t, toolNames, "agent_inbox")
+	core.AssertContains(t, toolNames, "agentic_message_conversation")
+	core.AssertContains(t, toolNames, "agent_conversation")
 	// RFC §9 pairing-code bootstrap exposes the login flow as an MCP tool so
 	// IDE/CLI callers can exchange a 6-digit code for an AgentApiKey without
 	// shelling out.
-	assert.Contains(t, toolNames, "agentic_auth_login")
-	assert.Contains(t, toolNames, "agentic_auth_provision")
-	assert.Contains(t, toolNames, "agentic_auth_revoke")
+	core.AssertContains(t, toolNames, "agentic_auth_login")
+	core.AssertContains(t, toolNames, "agentic_auth_provision")
+	core.AssertContains(t, toolNames, "agentic_auth_revoke")
 }
 
 func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
@@ -757,70 +810,70 @@ func TestPrep_OnStartup_Good_RegistersGenerateCommand(t *testing.T) {
 	s := NewPrep()
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	require.True(t, s.OnStartup(context.Background()).OK)
-	assert.Contains(t, c.Commands(), "generate")
-	assert.Contains(t, c.Commands(), "agentic:generate")
-	assert.Contains(t, c.Commands(), "complete")
-	assert.Contains(t, c.Commands(), "dispatch/sync")
-	assert.Contains(t, c.Commands(), "agentic:plan")
-	assert.Contains(t, c.Commands(), "prep-workspace")
-	assert.Contains(t, c.Commands(), "setup")
-	assert.Contains(t, c.Commands(), "agentic:setup")
-	assert.True(t, c.Action("agentic.setup").Exists())
-	assert.Contains(t, c.Commands(), "watch")
-	assert.Contains(t, c.Commands(), "workspace/watch")
-	assert.Contains(t, c.Commands(), "agentic:watch")
-	assert.Contains(t, c.Commands(), "dispatch/start")
-	assert.Contains(t, c.Commands(), "agentic:dispatch/start")
-	assert.Contains(t, c.Commands(), "dispatch/shutdown")
-	assert.Contains(t, c.Commands(), "agentic:dispatch/shutdown")
-	assert.Contains(t, c.Commands(), "dispatch/shutdown-now")
-	assert.Contains(t, c.Commands(), "agentic:dispatch/shutdown-now")
-	assert.Contains(t, c.Commands(), "brain/ingest")
-	assert.Contains(t, c.Commands(), "brain/seed-memory")
-	assert.Contains(t, c.Commands(), "brain/list")
-	assert.Contains(t, c.Commands(), "brain/forget")
-	assert.Contains(t, c.Commands(), "lang/detect")
-	assert.Contains(t, c.Commands(), "lang/list")
-	assert.Contains(t, c.Commands(), "epic")
-	assert.Contains(t, c.Commands(), "agentic:epic")
-	assert.Contains(t, c.Commands(), "plan-cleanup")
-	assert.Contains(t, c.Commands(), "commit")
-	assert.Contains(t, c.Commands(), "agentic:commit")
-	assert.Contains(t, c.Commands(), "plan/from-issue")
-	assert.Contains(t, c.Commands(), "session/end")
-	assert.Contains(t, c.Commands(), "agentic:session/end")
-	assert.Contains(t, c.Commands(), "session/resume")
-	assert.Contains(t, c.Commands(), "session/replay")
-	assert.Contains(t, c.Commands(), "review-queue")
-	assert.Contains(t, c.Commands(), "agentic:review-queue")
-	assert.Contains(t, c.Commands(), "flow/preview")
-	assert.Contains(t, c.Commands(), "agentic:flow/preview")
-	assert.Contains(t, c.Commands(), "prompt")
-	assert.Contains(t, c.Commands(), "agentic:prompt")
-	assert.Contains(t, c.Commands(), "prompt/version")
-	assert.Contains(t, c.Commands(), "agentic:prompt/version")
-	assert.True(t, c.Action("agentic.prompt.version").Exists())
-	assert.Contains(t, c.Commands(), "task")
-	assert.Contains(t, c.Commands(), "task/create")
-	assert.Contains(t, c.Commands(), "task/update")
-	assert.Contains(t, c.Commands(), "task/toggle")
-	assert.Contains(t, c.Commands(), "phase")
-	assert.Contains(t, c.Commands(), "agentic:phase")
-	assert.Contains(t, c.Commands(), "phase/get")
-	assert.Contains(t, c.Commands(), "agentic:phase/get")
-	assert.Contains(t, c.Commands(), "phase/update_status")
-	assert.Contains(t, c.Commands(), "agentic:phase/update_status")
-	assert.Contains(t, c.Commands(), "phase/add_checkpoint")
-	assert.Contains(t, c.Commands(), "agentic:phase/add_checkpoint")
-	assert.Contains(t, c.Commands(), "state")
-	assert.Contains(t, c.Commands(), "state/set")
-	assert.Contains(t, c.Commands(), "state/get")
-	assert.Contains(t, c.Commands(), "state/list")
-	assert.Contains(t, c.Commands(), "state/delete")
+	core.RequireTrue(t, s.OnStartup(context.Background()).OK)
+	core.AssertContains(t, c.Commands(), "generate")
+	core.AssertContains(t, c.Commands(), "agentic:generate")
+	core.AssertContains(t, c.Commands(), "complete")
+	core.AssertContains(t, c.Commands(), "dispatch/sync")
+	core.AssertContains(t, c.Commands(), "agentic:plan")
+	core.AssertContains(t, c.Commands(), "prep-workspace")
+	core.AssertContains(t, c.Commands(), "setup")
+	core.AssertContains(t, c.Commands(), "agentic:setup")
+	core.AssertTrue(t, c.Action("agentic.setup").Exists())
+	core.AssertContains(t, c.Commands(), "watch")
+	core.AssertContains(t, c.Commands(), "workspace/watch")
+	core.AssertContains(t, c.Commands(), "agentic:watch")
+	core.AssertContains(t, c.Commands(), "dispatch/start")
+	core.AssertContains(t, c.Commands(), "agentic:dispatch/start")
+	core.AssertContains(t, c.Commands(), "dispatch/shutdown")
+	core.AssertContains(t, c.Commands(), "agentic:dispatch/shutdown")
+	core.AssertContains(t, c.Commands(), "dispatch/shutdown-now")
+	core.AssertContains(t, c.Commands(), "agentic:dispatch/shutdown-now")
+	core.AssertContains(t, c.Commands(), "brain/ingest")
+	core.AssertContains(t, c.Commands(), "brain/seed-memory")
+	core.AssertContains(t, c.Commands(), "brain/list")
+	core.AssertContains(t, c.Commands(), "brain/forget")
+	core.AssertContains(t, c.Commands(), "lang/detect")
+	core.AssertContains(t, c.Commands(), "lang/list")
+	core.AssertContains(t, c.Commands(), "epic")
+	core.AssertContains(t, c.Commands(), "agentic:epic")
+	core.AssertContains(t, c.Commands(), "plan-cleanup")
+	core.AssertContains(t, c.Commands(), "commit")
+	core.AssertContains(t, c.Commands(), "agentic:commit")
+	core.AssertContains(t, c.Commands(), "plan/from-issue")
+	core.AssertContains(t, c.Commands(), "session/end")
+	core.AssertContains(t, c.Commands(), "agentic:session/end")
+	core.AssertContains(t, c.Commands(), "session/resume")
+	core.AssertContains(t, c.Commands(), "session/replay")
+	core.AssertContains(t, c.Commands(), "review-queue")
+	core.AssertContains(t, c.Commands(), "agentic:review-queue")
+	core.AssertContains(t, c.Commands(), "flow/preview")
+	core.AssertContains(t, c.Commands(), "agentic:flow/preview")
+	core.AssertContains(t, c.Commands(), "prompt")
+	core.AssertContains(t, c.Commands(), "agentic:prompt")
+	core.AssertContains(t, c.Commands(), "prompt/version")
+	core.AssertContains(t, c.Commands(), "agentic:prompt/version")
+	core.AssertTrue(t, c.Action("agentic.prompt.version").Exists())
+	core.AssertContains(t, c.Commands(), "task")
+	core.AssertContains(t, c.Commands(), "task/create")
+	core.AssertContains(t, c.Commands(), "task/update")
+	core.AssertContains(t, c.Commands(), "task/toggle")
+	core.AssertContains(t, c.Commands(), "phase")
+	core.AssertContains(t, c.Commands(), "agentic:phase")
+	core.AssertContains(t, c.Commands(), "phase/get")
+	core.AssertContains(t, c.Commands(), "agentic:phase/get")
+	core.AssertContains(t, c.Commands(), "phase/update_status")
+	core.AssertContains(t, c.Commands(), "agentic:phase/update_status")
+	core.AssertContains(t, c.Commands(), "phase/add_checkpoint")
+	core.AssertContains(t, c.Commands(), "agentic:phase/add_checkpoint")
+	core.AssertContains(t, c.Commands(), "state")
+	core.AssertContains(t, c.Commands(), "state/set")
+	core.AssertContains(t, c.Commands(), "state/get")
+	core.AssertContains(t, c.Commands(), "state/list")
+	core.AssertContains(t, c.Commands(), "state/delete")
 }
 
-func TestPrep_OnStartup_Bad(t *testing.T) {
+func TestPrepStartup_PrepSubsystem_OnStartup_Bad(t *testing.T) {
 	// OnStartup with nil ServiceRuntime — panics because
 	// registerCommands calls s.Core().Command().
 	s := &PrepSubsystem{
@@ -828,12 +881,12 @@ func TestPrep_OnStartup_Bad(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.Panics(t, func() {
+	core.AssertPanics(t, func() {
 		_ = s.OnStartup(context.Background())
 	}, "OnStartup without core should panic on registerCommands")
 }
 
-func TestPrep_OnStartup_Ugly(t *testing.T) {
+func TestPrepStartup_PrepSubsystem_OnStartup_Ugly(t *testing.T) {
 	// OnStartup called twice with valid core — second call should not panic
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -843,7 +896,7 @@ func TestPrep_OnStartup_Ugly(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
 
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		_ = s.OnStartup(context.Background())
 		_ = s.OnStartup(context.Background())
 	})
@@ -851,54 +904,56 @@ func TestPrep_OnStartup_Ugly(t *testing.T) {
 
 // --- OnShutdown Good/Bad ---
 
-func TestPrep_OnShutdown_Good_FreezesQueue(t *testing.T) {
+func TestPrepOnShutdown_PrepSubsystem_OnShutdown_Good(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false}
 	r := s.OnShutdown(context.Background())
-	assert.True(t, r.OK)
-	assert.True(t, s.frozen, "OnShutdown must set frozen=true")
+	core.AssertTrue(t, r.OK)
+	core.AssertTrue(t, s.frozen, "OnShutdown must set frozen=true")
 }
 
 func TestPrep_OnShutdown_Good_AlreadyFrozen(t *testing.T) {
 	// Calling OnShutdown twice must be idempotent
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: true}
 	r := s.OnShutdown(context.Background())
-	assert.True(t, r.OK)
-	assert.True(t, s.frozen)
+	core.AssertTrue(t, r.OK)
+	core.AssertTrue(t, s.frozen)
 }
 
 func TestPrep_OnShutdown_Good_NoError(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.True(t, s.OnShutdown(context.Background()).OK)
+	result := s.OnShutdown(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, s.frozen)
 }
 
-func TestPrep_OnShutdown_Ugly_NilCore(t *testing.T) {
+func TestPrepOnShutdown_PrepSubsystem_OnShutdown_Ugly(t *testing.T) {
 	// OnShutdown must not panic even if s.core is nil
 	s := &PrepSubsystem{ServiceRuntime: nil, frozen: false}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		_ = s.OnShutdown(context.Background())
 	})
-	assert.True(t, s.frozen)
+	core.AssertTrue(t, s.frozen)
 }
 
-func TestPrep_OnShutdown_Bad(t *testing.T) {
+func TestPrepOnShutdown_PrepSubsystem_OnShutdown_Bad(t *testing.T) {
 	// OnShutdown without Core
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		r := s.OnShutdown(context.Background())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.True(t, s.frozen)
+	core.AssertTrue(t, s.frozen)
 }
 
 // --- Shutdown Bad/Ugly ---
 
-func TestPrep_Shutdown_Bad(t *testing.T) {
+func TestPrepShutdown_PrepSubsystem_Shutdown_Bad(t *testing.T) {
 	// Shutdown always returns nil
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -906,16 +961,16 @@ func TestPrep_Shutdown_Bad(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	err := s.Shutdown(context.Background())
-	assert.NoError(t, err)
-	assert.Nil(t, err)
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
 }
 
-func TestPrep_Shutdown_Ugly(t *testing.T) {
+func TestPrepShutdown_PrepSubsystem_Shutdown_Ugly(t *testing.T) {
 	// Shutdown on zero-value struct
 	var s PrepSubsystem
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		err := s.Shutdown(context.Background())
-		assert.NoError(t, err)
+		core.AssertNoError(t, err)
 	})
 }
 
@@ -924,13 +979,17 @@ func TestPrep_Shutdown_Ugly(t *testing.T) {
 func TestPrep_EnvOr_Bad(t *testing.T) {
 	// Both env empty and fallback empty
 	t.Setenv("TEST_ENVVAR_EMPTY_ALL", "")
-	assert.Equal(t, "", envOr("TEST_ENVVAR_EMPTY_ALL", ""))
+	want := ""
+	got := envOr("TEST_ENVVAR_EMPTY_ALL", "")
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_EnvOr_Ugly(t *testing.T) {
 	// Env set to whitespace — whitespace is non-empty, so returned as-is
 	t.Setenv("TEST_ENVVAR_WHITESPACE", "   ")
-	assert.Equal(t, "   ", envOr("TEST_ENVVAR_WHITESPACE", "fallback"))
+	want := "   "
+	got := envOr("TEST_ENVVAR_WHITESPACE", "fallback")
+	core.AssertEqual(t, want, got)
 }
 
 // --- DetectLanguage Bad/Ugly ---
@@ -938,35 +997,39 @@ func TestPrep_EnvOr_Ugly(t *testing.T) {
 func TestPrep_DetectLanguage_Bad(t *testing.T) {
 	// Empty dir — defaults to go
 	dir := t.TempDir()
-	assert.Equal(t, "go", detectLanguage(dir))
+	want := "go"
+	got := detectLanguage(dir)
+	core.AssertEqual(t, want, got)
 }
 
 func TestPrep_DetectLanguage_Ugly(t *testing.T) {
 	// Dir with multiple project files (go.mod + package.json) — go wins (first match)
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
-	assert.Equal(t, "go", detectLanguage(dir), "go.mod checked first, so go wins")
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "package.json"), "{}").OK)
+	core.AssertEqual(t, "go", detectLanguage(dir), "go.mod checked first, so go wins")
 }
 
 // --- DetectBuildCmd Bad/Ugly ---
 
 func TestPrep_DetectBuildCmd_Bad(t *testing.T) {
 	// Unknown/non-existent path — defaults to go build
-	assert.Equal(t, "go build ./...", detectBuildCmd("/nonexistent/path/that/does/not/exist"))
+	path := "/nonexistent/path/that/does/not/exist"
+	got := detectBuildCmd(path)
+	core.AssertEqual(t, "go build ./...", got)
 }
 
 func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
 	// Path that doesn't exist at all — defaults to go build
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		result := detectBuildCmd("")
-		assert.Equal(t, "go build ./...", result)
+		core.AssertEqual(t, "go build ./...", result)
 	})
 }
 
 // --- PrepareWorkspace ---
 
-func TestPrep_PrepareWorkspace_Good(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_PrepareWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -983,10 +1046,10 @@ func TestPrep_PrepareWorkspace_Good(t *testing.T) {
 		Issue: 1,
 	})
 	// Error expected (no local clone) but we verified it delegates to prepWorkspace
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestPrep_PrepareWorkspace_Bad(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_PrepareWorkspace_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -996,11 +1059,11 @@ func TestPrep_PrepareWorkspace_Bad(t *testing.T) {
 
 	// Missing repo — should return error
 	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "repo is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "repo is required")
 }
 
-func TestPrep_PrepareWorkspace_Ugly(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_PrepareWorkspace_Ugly(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -1016,15 +1079,15 @@ func TestPrep_PrepareWorkspace_Ugly(t *testing.T) {
 		Repo:  "..",
 		Issue: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid repo name")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "invalid repo name")
 }
 
 // --- BuildPrompt ---
 
-func TestPrep_BuildPrompt_Good(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_BuildPrompt_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -1039,14 +1102,14 @@ func TestPrep_BuildPrompt_Good(t *testing.T) {
 		Repo: "go-io",
 	}, "dev", dir)
 
-	assert.NotEmpty(t, prompt)
-	assert.Contains(t, prompt, "TASK: Review code")
-	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "TASK: Review code")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPrompt_Bad(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_BuildPrompt_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -1056,14 +1119,14 @@ func TestPrep_BuildPrompt_Bad(t *testing.T) {
 
 	// Empty inputs — should still return a prompt string without panicking
 	prompt, memories, consumers := s.BuildPrompt(context.Background(), PrepInput{}, "", "")
-	assert.NotEmpty(t, prompt)
-	assert.Contains(t, prompt, "TASK:")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "TASK:")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPrompt_Ugly(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_BuildPrompt_Ugly(t *testing.T) {
 	dir := t.TempDir()
 
 	s := &PrepSubsystem{
@@ -1080,36 +1143,44 @@ func TestPrep_BuildPrompt_Ugly(t *testing.T) {
 		Repo: "g\u00f6-i\u00f6",
 	}, "\u00e9-branch", dir)
 
-	assert.NotEmpty(t, prompt)
-	assert.Contains(t, prompt, "\u00e9nchantr\u00efx")
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "\u00e9nchantr\u00efx")
 }
 
 // --- collapseRepeatedRune / sanitisePlanSlug / trimRuneEdges Good ---
 
 func TestPrep_CollapseRepeatedRune_Good(t *testing.T) {
-	assert.Equal(t, "hello-world", collapseRepeatedRune("hello---world", '-'))
+	input := "hello---world"
+	got := collapseRepeatedRune(input, '-')
+	core.AssertEqual(t, "hello-world", got)
 }
 
 func TestPrep_SanitisePlanSlug_Good(t *testing.T) {
-	assert.Equal(t, "my-cool-plan", sanitisePlanSlug("My Cool Plan"))
+	input := "My Cool Plan"
+	got := sanitisePlanSlug(input)
+	core.AssertEqual(t, "my-cool-plan", got)
 }
 
 func TestPrep_TrimRuneEdges_Good(t *testing.T) {
-	assert.Equal(t, "hello", trimRuneEdges("--hello--", '-'))
+	input := "--hello--"
+	got := trimRuneEdges(input, '-')
+	core.AssertEqual(t, "hello", got)
 }
 
 // --- DetectTestCmd Bad/Ugly ---
 
 func TestPrep_DetectTestCmd_Bad(t *testing.T) {
 	// Unknown path — defaults to go test
-	assert.Equal(t, "go test ./...", detectTestCmd("/nonexistent/path/that/does/not/exist"))
+	path := "/nonexistent/path/that/does/not/exist"
+	got := detectTestCmd(path)
+	core.AssertEqual(t, "go test ./...", got)
 }
 
 func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
 	// Path that doesn't exist — defaults to go test
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		result := detectTestCmd("")
-		assert.Equal(t, "go test ./...", result)
+		core.AssertEqual(t, "go test ./...", result)
 	})
 }
 
@@ -1121,12 +1192,14 @@ func TestPrep_GetGitLog_Good(t *testing.T) {
 	run := func(args ...string) {
 		t.Helper()
 		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
-		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
+		if !r.OK {
+			t.Fatalf("cmd %v failed: %v", args, r.Value)
+		}
 	}
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.name", "Test")
 	run("git", "config", "user.email", "test@test.com")
-	require.True(t, fs.Write(core.JoinPath(dir, "README.md"), "# Test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "README.md"), "# Test").OK)
 	run("git", "add", "README.md")
 	run("git", "commit", "-m", "initial commit")
 
@@ -1136,8 +1209,8 @@ func TestPrep_GetGitLog_Good(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	log := s.getGitLog(dir)
-	assert.NotEmpty(t, log)
-	assert.Contains(t, log, "initial commit")
+	core.AssertNotEmpty(t, log)
+	core.AssertContains(t, log, "initial commit")
 }
 
 func TestPrep_GetGitLog_Bad(t *testing.T) {
@@ -1149,7 +1222,7 @@ func TestPrep_GetGitLog_Bad(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	log := s.getGitLog(dir)
-	assert.Empty(t, log)
+	core.AssertEmpty(t, log)
 }
 
 func TestPrep_GetGitLog_Ugly(t *testing.T) {
@@ -1163,7 +1236,7 @@ func TestPrep_GetGitLog_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	log := s.getGitLog(dir)
-	assert.Empty(t, log)
+	core.AssertEmpty(t, log)
 }
 
 // --- prepWorkspace Good ---
@@ -1188,13 +1261,15 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 	run := func(dir string, args ...string) {
 		t.Helper()
 		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
-		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
+		if !r.OK {
+			t.Fatalf("cmd %v failed: %v", args, r.Value)
+		}
 	}
-	require.True(t, fs.EnsureDir(srcRepo).OK)
+	core.RequireTrue(t, fs.EnsureDir(srcRepo).OK)
 	run(srcRepo, "git", "init", "-b", "main")
 	run(srcRepo, "git", "config", "user.name", "Test")
 	run(srcRepo, "git", "config", "user.email", "test@test.com")
-	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
 	run(srcRepo, "git", "add", "README.md")
 	run(srcRepo, "git", "commit", "-m", "initial commit")
 
@@ -1211,34 +1286,34 @@ func TestPrep_PrepWorkspace_Good(t *testing.T) {
 		Issue: 1,
 		Task:  "Fix tests",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.WorkspaceDir)
-	assert.NotEmpty(t, out.Branch)
-	assert.Contains(t, out.Branch, "agent/")
-	assert.NotEmpty(t, out.PromptVersion)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.WorkspaceDir)
+	core.AssertNotEmpty(t, out.Branch)
+	core.AssertContains(t, out.Branch, "agent/")
+	core.AssertNotEmpty(t, out.PromptVersion)
 
 	promptIndexPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-version.json")
-	require.True(t, fs.Exists(promptIndexPath))
+	core.RequireTrue(t, fs.Exists(promptIndexPath))
 	promptIndexResult := fs.Read(promptIndexPath)
-	require.True(t, promptIndexResult.OK)
+	core.RequireTrue(t, promptIndexResult.OK)
 
 	var promptSnapshot PromptVersionSnapshot
-	require.True(t, core.JSONUnmarshalString(promptIndexResult.Value.(string), &promptSnapshot).OK)
-	assert.Equal(t, out.PromptVersion, promptSnapshot.Hash)
-	assert.Contains(t, promptSnapshot.Content, "TASK: Fix tests")
+	core.RequireTrue(t, core.JSONUnmarshalString(promptIndexResult.Value.(string), &promptSnapshot).OK)
+	core.AssertEqual(t, out.PromptVersion, promptSnapshot.Hash)
+	core.AssertContains(t, promptSnapshot.Content, "TASK: Fix tests")
 
 	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
-	require.True(t, fs.Exists(promptSnapshotPath))
+	core.RequireTrue(t, fs.Exists(promptSnapshotPath))
 
 	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
-	require.True(t, fs.Exists(todoPath))
+	core.RequireTrue(t, fs.Exists(todoPath))
 	todoResult := fs.Read(todoPath)
-	require.True(t, todoResult.OK)
-	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
+	core.RequireTrue(t, todoResult.OK)
+	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
-func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -1256,13 +1331,15 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 	run := func(dir string, args ...string) {
 		t.Helper()
 		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
-		require.True(t, r.OK, "cmd %v failed: %s", args, r.Value)
+		if !r.OK {
+			t.Fatalf("cmd %v failed: %v", args, r.Value)
+		}
 	}
-	require.True(t, fs.EnsureDir(srcRepo).OK)
+	core.RequireTrue(t, fs.EnsureDir(srcRepo).OK)
 	run(srcRepo, "git", "init", "-b", "main")
 	run(srcRepo, "git", "config", "user.name", "Test")
 	run(srcRepo, "git", "config", "user.email", "test@test.com")
-	require.True(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
 	run(srcRepo, "git", "add", "README.md")
 	run(srcRepo, "git", "commit", "-m", "initial commit")
 
@@ -1279,18 +1356,18 @@ func TestPrep_TestPrepWorkspace_Good(t *testing.T) {
 		Issue: 1,
 		Task:  "Fix tests",
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotEmpty(t, out.WorkspaceDir)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.WorkspaceDir)
 
 	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
-	require.True(t, fs.Exists(todoPath))
+	core.RequireTrue(t, fs.Exists(todoPath))
 	todoResult := fs.Read(todoPath)
-	require.True(t, todoResult.OK)
-	assert.NotEmpty(t, core.Trim(todoResult.Value.(string)))
+	core.RequireTrue(t, todoResult.OK)
+	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))
 }
 
-func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Bad(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
@@ -1298,10 +1375,10 @@ func TestPrep_TestPrepWorkspace_Bad(t *testing.T) {
 	}
 
 	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: "."})
-	require.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
+func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Ugly(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
@@ -1309,11 +1386,11 @@ func TestPrep_TestPrepWorkspace_Ugly(t *testing.T) {
 	}
 
 	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
-	require.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPrep_EnsureWorkspaceTaskFile_Bad(t *testing.T) {
 	err := ensureWorkspaceTaskFile("")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace dir is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "workspace dir is required")
 }

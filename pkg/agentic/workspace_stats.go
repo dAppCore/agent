@@ -5,7 +5,7 @@ package agentic
 import (
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	store "dappco.re/go/store"
 )
 
@@ -84,7 +84,9 @@ func (s *PrepSubsystem) closeWorkspaceStatsStore() {
 		return
 	}
 	if ref.instance != nil {
-		_ = ref.instance.Close()
+		if err := ref.instance.Close(); err != nil {
+			core.Warn("agentic.workspaceStats: failed to close workspace stats store", "path", workspaceStatsPath(), "reason", err)
+		}
 		ref.instance = nil
 	}
 	ref.err = nil
@@ -181,7 +183,9 @@ func (s *PrepSubsystem) recordWorkspaceStats(workspaceDir string, workspaceStatu
 	if payload == "" {
 		return
 	}
-	_ = statsStore.Set(stateWorkspaceStatsGroup, record.Workspace, payload)
+	if err := statsStore.Set(stateWorkspaceStatsGroup, record.Workspace, payload); err != nil {
+		core.Warn("agentic.workspaceStats: failed to persist workspace stats", "workspace", record.Workspace, "reason", err)
+	}
 }
 
 // buildWorkspaceStatsRecord projects the WorkspaceStatus and the dispatch

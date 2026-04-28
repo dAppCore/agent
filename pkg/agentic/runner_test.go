@@ -6,26 +6,29 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 // StartRunner and Poke delegate to pkg/runner.Service when it is registered.
 
 func TestRunner_StartRunner_Good(t *testing.T) {
 	s := newPrepWithProcess()
-	assert.NotPanics(t, func() { s.StartRunner() })
+	core.AssertNotPanics(t, func() { s.StartRunner() })
+	core.AssertNotNil(t, s)
+	core.AssertNotNil(t, s.ServiceRuntime)
 }
 
 func TestRunner_StartRunner_Bad_AlreadyRunning(t *testing.T) {
 	s := newPrepWithProcess()
 	s.StartRunner()
-	assert.NotPanics(t, func() { s.StartRunner() })
+	core.AssertNotPanics(t, func() { s.StartRunner() })
 }
 
 func TestRunner_Poke_Ugly_NilChannel(t *testing.T) {
 	s := newPrepWithProcess()
-	assert.NotPanics(t, func() { s.Poke() })
+	core.AssertNotPanics(t, func() { s.Poke() })
+	core.AssertNil(t, s.pokeCh)
+	core.AssertNotNil(t, s.ServiceRuntime)
 }
 
 func TestRunner_StartRunner_Good_DelegatesToRunnerStartAction(t *testing.T) {
@@ -39,7 +42,7 @@ func TestRunner_StartRunner_Good_DelegatesToRunnerStartAction(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(coreApp, AgentOptions{})}
 	s.StartRunner()
 
-	assert.True(t, called)
+	core.AssertTrue(t, called)
 }
 
 func TestRunner_Poke_Good_DelegatesToRunnerPokeAction(t *testing.T) {
@@ -53,5 +56,5 @@ func TestRunner_Poke_Good_DelegatesToRunnerPokeAction(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(coreApp, AgentOptions{})}
 	s.Poke()
 
-	assert.True(t, called)
+	core.AssertTrue(t, called)
 }

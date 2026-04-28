@@ -7,10 +7,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	store "dappco.re/go/store"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // --- qaWorkspaceName ---
@@ -20,41 +18,53 @@ func TestQa_QaWorkspaceName_Good(t *testing.T) {
 	previous := workspaceRootOverride
 	t.Cleanup(func() { workspaceRootOverride = previous })
 	setWorkspaceRootOverride("/root")
-	assert.Equal(t, "qa-core-go-io-task-5", qaWorkspaceName("/root/core/go-io/task-5"))
-	assert.Equal(t, "qa-simple", qaWorkspaceName("/simple"))
+	core.AssertEqual(t, "qa-core-go-io-task-5", qaWorkspaceName("/root/core/go-io/task-5"))
+	core.AssertEqual(t, "qa-simple", qaWorkspaceName("/simple"))
 }
 
 func TestQa_QaWorkspaceName_Bad(t *testing.T) {
-	assert.Equal(t, "qa-default", qaWorkspaceName(""))
+	core.AssertEqual(
+		t,
+		"qa-default",
+		qaWorkspaceName(""),
+	)
 }
 
 func TestQa_QaWorkspaceName_Ugly(t *testing.T) {
 	// Slashes, colons, and dots collapse to dashes so go-store validation passes.
 	got := qaWorkspaceName("/tmp/workspace/ofm/mobile/bug:42")
-	assert.Contains(t, got, "qa-")
+	core.AssertContains(t, got, "qa-")
 	for _, r := range got {
 		valid := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_'
-		assert.True(t, valid, "unexpected rune %q in %q", r, got)
+		if !valid {
+			t.Fatalf("unexpected rune %q in %q", r, got)
+		}
 	}
 }
 
 // --- sanitiseWorkspaceName ---
 
 func TestQa_SanitiseWorkspaceName_Good(t *testing.T) {
-	assert.Equal(t, "core-go-io-task-5", sanitiseWorkspaceName("core/go-io/task-5"))
-	assert.Equal(t, "safe_name", sanitiseWorkspaceName("safe_name"))
+	first := sanitiseWorkspaceName("core/go-io/task-5")
+	second := sanitiseWorkspaceName("safe_name")
+	core.AssertEqual(t, "core-go-io-task-5", first)
+	core.AssertEqual(t, "safe_name", second)
 }
 
 func TestQa_SanitiseWorkspaceName_Bad(t *testing.T) {
-	assert.Equal(t, "", sanitiseWorkspaceName(""))
+	core.AssertEqual(
+		t,
+		"",
+		sanitiseWorkspaceName(""),
+	)
 }
 
 func TestQa_SanitiseWorkspaceName_Ugly(t *testing.T) {
 	// Non-ASCII and punctuation characters all collapse to dashes.
 	got := sanitiseWorkspaceName("core:📦/go-io")
-	assert.Contains(t, got, "core")
-	assert.NotContains(t, got, ":")
-	assert.NotContains(t, got, "/")
+	core.AssertContains(t, got, "core")
+	core.AssertNotContains(t, got, ":")
+	core.AssertNotContains(t, got, "/")
 }
 
 // --- writeDispatchReport ---
@@ -73,21 +83,23 @@ func TestQa_WriteDispatchReport_Good(t *testing.T) {
 	writeDispatchReport(wsDir, report)
 
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
-	assert.True(t, fs.IsFile(reportPath))
+	core.AssertTrue(t, fs.IsFile(reportPath))
 
 	readResult := fs.Read(reportPath)
-	assert.True(t, readResult.OK)
+	core.AssertTrue(t, readResult.OK)
 
 	var restored DispatchReport
 	parseResult := core.JSONUnmarshalString(readResult.Value.(string), &restored)
-	assert.True(t, parseResult.OK)
-	assert.Equal(t, report.Passed, restored.Passed)
-	assert.Equal(t, report.BuildPassed, restored.BuildPassed)
+	core.AssertTrue(t, parseResult.OK)
+	core.AssertEqual(t, report.Passed, restored.Passed)
+	core.AssertEqual(t, report.BuildPassed, restored.BuildPassed)
 }
 
 func TestQa_WriteDispatchReport_Bad(t *testing.T) {
 	// Empty workspace dir is a no-op — no panic, no file created.
-	writeDispatchReport("", DispatchReport{})
+	workspaceDir := ""
+	report := DispatchReport{}
+	writeDispatchReport(workspaceDir, report)
 }
 
 func TestQa_WriteDispatchReport_Ugly(t *testing.T) {
@@ -101,7 +113,7 @@ func TestQa_WriteDispatchReport_Ugly(t *testing.T) {
 	writeDispatchReport(wsDir, report)
 
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
-	assert.True(t, fs.IsFile(reportPath))
+	core.AssertTrue(t, fs.IsFile(reportPath))
 }
 
 // --- recordBuildResult ---
@@ -109,19 +121,23 @@ func TestQa_WriteDispatchReport_Ugly(t *testing.T) {
 func TestQa_RecordBuildResult_Good(t *testing.T) {
 	// nil workspace is a no-op (graceful degradation path).
 	s := newPrepWithProcess()
-	s.recordBuildResult(nil, "build", true, "ok")
+	workspace := (*store.Workspace)(nil)
+	s.recordBuildResult(workspace, "build", true, "ok")
 }
 
 func TestQa_RecordBuildResult_Bad(t *testing.T) {
 	s := newPrepWithProcess()
 	// Empty kind is skipped so we never insert rows without a kind.
-	s.recordBuildResult(nil, "", true, "ignored")
+	workspace := (*store.Workspace)(nil)
+	s.recordBuildResult(workspace, "", true, "ignored")
 }
 
 func TestQa_RecordBuildResult_Ugly(t *testing.T) {
 	// Ugly path — very large output strings should not crash the nil-ws path.
 	s := newPrepWithProcess()
-	s.recordBuildResult(nil, "test", false, string(make([]byte, 1024*16)))
+	output := string(make([]byte, 1024*16))
+	workspace := (*store.Workspace)(nil)
+	s.recordBuildResult(workspace, "test", false, output)
 }
 
 // --- runLintReport ---
@@ -130,22 +146,22 @@ func TestQa_RunLintReport_Good(t *testing.T) {
 	// No repoDir → empty report, never errors.
 	s := newPrepWithProcess()
 	report := s.runLintReport(context.Background(), "")
-	assert.Empty(t, report.Findings)
-	assert.Empty(t, report.Tools)
+	core.AssertEmpty(t, report.Findings)
+	core.AssertEmpty(t, report.Tools)
 }
 
 func TestQa_RunLintReport_Bad(t *testing.T) {
 	// Nil subsystem → empty report (no panic).
 	var s *PrepSubsystem
 	report := s.runLintReport(context.Background(), t.TempDir())
-	assert.Empty(t, report.Findings)
+	core.AssertEmpty(t, report.Findings)
 }
 
 func TestQa_RunLintReport_Ugly(t *testing.T) {
 	// Missing core-lint binary → empty report; the caller degrades gracefully.
 	s := newPrepWithProcess()
 	report := s.runLintReport(context.Background(), t.TempDir())
-	assert.Empty(t, report.Findings)
+	core.AssertEmpty(t, report.Findings)
 }
 
 // --- runQAWithReport ---
@@ -158,17 +174,17 @@ func TestQa_RunQAWithReport_Good(t *testing.T) {
 	fs.Write(core.JoinPath(repoDir, "main.go"), "package main\nfunc main() {}\n")
 
 	s := newPrepWithProcess()
-	assert.True(t, s.runQAWithReport(context.Background(), wsDir))
+	core.AssertTrue(t, s.runQAWithReport(context.Background(), wsDir))
 
 	// Report file should exist when the state store is available.
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
 	if fs.IsFile(reportPath) {
 		readResult := fs.Read(reportPath)
-		assert.True(t, readResult.OK)
+		core.AssertTrue(t, readResult.OK)
 		var report DispatchReport
 		parseResult := core.JSONUnmarshalString(readResult.Value.(string), &report)
-		assert.True(t, parseResult.OK)
-		assert.True(t, report.Passed)
+		core.AssertTrue(t, parseResult.OK)
+		core.AssertTrue(t, report.Passed)
 	}
 }
 
@@ -177,7 +193,7 @@ func TestQa_RunQAWithReport_Bad(t *testing.T) {
 	// detected under the workspace root. The important assertion is that
 	// runQAWithReport never panics on an empty workspace dir.
 	s := newPrepWithProcess()
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.runQAWithReport(context.Background(), "")
 	})
 }
@@ -188,22 +204,28 @@ func TestQa_RunQAWithReport_Ugly(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsDir, "repo"))
 
 	s := newPrepWithProcess()
-	assert.True(t, s.runQAWithReport(context.Background(), wsDir))
+	core.AssertTrue(t, s.runQAWithReport(context.Background(), wsDir))
 }
 
 // --- stringOutput ---
 
 func TestQa_StringOutput_Good(t *testing.T) {
-	assert.Equal(t, "hello", stringOutput(core.Result{Value: "hello", OK: true}))
+	result := core.Result{Value: "hello", OK: true}
+	output := stringOutput(result)
+	core.AssertEqual(t, "hello", output)
 }
 
 func TestQa_StringOutput_Bad(t *testing.T) {
-	assert.Equal(t, "", stringOutput(core.Result{Value: nil, OK: false}))
-	assert.Equal(t, "", stringOutput(core.Result{Value: 42, OK: true}))
+	nilOutput := stringOutput(core.Result{Value: nil, OK: false})
+	numberOutput := stringOutput(core.Result{Value: 42, OK: true})
+	core.AssertEqual(t, "", nilOutput)
+	core.AssertEqual(t, "", numberOutput)
 }
 
 func TestQa_StringOutput_Ugly(t *testing.T) {
-	assert.Equal(t, "", stringOutput(core.Result{}))
+	result := core.Result{}
+	output := stringOutput(result)
+	core.AssertEqual(t, "", output)
 }
 
 // --- clusterFindings ---
@@ -218,19 +240,20 @@ func TestQa_ClusterFindings_Good(t *testing.T) {
 		{Tool: "staticcheck", Severity: "warning", Code: "SA1000", File: "e.go", Line: 5, Message: "invalid regexp pattern"},
 	}
 	clusters := clusterFindings(findings)
-	if assert.Len(t, clusters, 3) {
-		assert.Equal(t, 3, clusters[0].Count)
-		assert.Equal(t, "gosec", clusters[0].Tool)
-		assert.Len(t, clusters[0].Samples, 3)
-		assert.Equal(t, 1, clusters[1].Count)
-		assert.Equal(t, 1, clusters[2].Count)
+	core.AssertLen(t, clusters, 3)
+	if len(clusters) == 3 {
+		core.AssertEqual(t, 3, clusters[0].Count)
+		core.AssertEqual(t, "gosec", clusters[0].Tool)
+		core.AssertLen(t, clusters[0].Samples, 3)
+		core.AssertEqual(t, 1, clusters[1].Count)
+		core.AssertEqual(t, 1, clusters[2].Count)
 	}
 }
 
 func TestQa_ClusterFindings_Bad(t *testing.T) {
-	assert.NotPanics(t, func() {
-		assert.Nil(t, clusterFindings(nil))
-		assert.Nil(t, clusterFindings([]QAFinding{}))
+	core.AssertNotPanics(t, func() {
+		core.AssertNil(t, clusterFindings(nil))
+		core.AssertNil(t, clusterFindings([]QAFinding{}))
 	})
 }
 
@@ -243,9 +266,10 @@ func TestQa_ClusterFindings_Ugly(t *testing.T) {
 		{Tool: "revive", Severity: "info", Code: "var-naming", File: "e.go", Line: 50, Message: "var name should be camelCase"},
 	}
 	clusters := clusterFindings(findings)
-	if assert.Len(t, clusters, 5) {
+	core.AssertLen(t, clusters, 5)
+	if len(clusters) == 5 {
 		for _, cluster := range clusters {
-			assert.Equal(t, 1, cluster.Count)
+			core.AssertEqual(t, 1, cluster.Count)
 		}
 	}
 }
@@ -257,9 +281,10 @@ func TestQa_ClusterFindings_Ugly_SampleLimit(t *testing.T) {
 		findings[i] = QAFinding{Tool: "gosec", Severity: "error", Code: "G101", File: "same.go", Line: i, Message: "hardcoded password found"}
 	}
 	clusters := clusterFindings(findings)
-	if assert.Len(t, clusters, 1) {
-		assert.Equal(t, 10, clusters[0].Count)
-		assert.LessOrEqual(t, len(clusters[0].Samples), clusterSampleLimit)
+	core.AssertLen(t, clusters, 1)
+	if len(clusters) == 1 {
+		core.AssertEqual(t, 10, clusters[0].Count)
+		core.AssertLessOrEqual(t, len(clusters[0].Samples), clusterSampleLimit)
 	}
 }
 
@@ -269,21 +294,21 @@ func TestQa_FindingFingerprint_Good(t *testing.T) {
 	left := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 10, Code: "G101"})
 	right := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 10, Code: "G101", Message: "different message"})
 	// Fingerprint ignores message — two findings at the same site are the same issue.
-	assert.Equal(t, left, right)
+	core.AssertEqual(t, left, right)
 }
 
 func TestQa_FindingFingerprint_Bad(t *testing.T) {
 	// Different line numbers produce different fingerprints.
 	left := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 10, Code: "G101"})
 	right := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 11, Code: "G101"})
-	assert.NotEqual(t, left, right)
+	core.AssertNotEqual(t, left, right)
 }
 
 func TestQa_FindingFingerprint_Ugly(t *testing.T) {
 	// Missing Code falls back to RuleID so migrations across lint versions don't break diffs.
 	withCode := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 10, Code: "G101"})
 	withRuleID := findingFingerprint(QAFinding{Tool: "gosec", File: "a.go", Line: 10, RuleID: "G101"})
-	assert.Equal(t, withCode, withRuleID)
+	core.AssertEqual(t, withCode, withRuleID)
 }
 
 // --- diffFindingsAgainstJournal ---
@@ -301,17 +326,17 @@ func TestQa_DiffFindingsAgainstJournal_Good(t *testing.T) {
 	}
 	newList, resolved, persistent := diffFindingsAgainstJournal(current, previous)
 	// G102 is new this cycle, G103 resolved, persistent needs more history.
-	assert.Len(t, newList, 1)
-	assert.Len(t, resolved, 1)
-	assert.Nil(t, persistent)
+	core.AssertLen(t, newList, 1)
+	core.AssertLen(t, resolved, 1)
+	core.AssertNil(t, persistent)
 }
 
 func TestQa_DiffFindingsAgainstJournal_Bad(t *testing.T) {
 	// No previous cycles → no diff computed. First cycle baselines silently.
 	newList, resolved, persistent := diffFindingsAgainstJournal([]QAFinding{{Tool: "gosec"}}, nil)
-	assert.Nil(t, newList)
-	assert.Nil(t, resolved)
-	assert.Nil(t, persistent)
+	core.AssertNil(t, newList)
+	core.AssertNil(t, resolved)
+	core.AssertNil(t, persistent)
 }
 
 func TestQa_DiffFindingsAgainstJournal_Ugly(t *testing.T) {
@@ -322,7 +347,7 @@ func TestQa_DiffFindingsAgainstJournal_Ugly(t *testing.T) {
 		history[i] = []map[string]any{{"tool": "gosec", "file": "a.go", "line": 1, "code": "G101"}}
 	}
 	_, _, persistent := diffFindingsAgainstJournal(current, history)
-	assert.Len(t, persistent, 1)
+	core.AssertLen(t, persistent, 1)
 }
 
 // --- publishDispatchReport + readPreviousJournalCycles ---
@@ -331,7 +356,7 @@ func TestQa_PublishDispatchReport_Good(t *testing.T) {
 	// A published dispatch report should round-trip through the journal so the
 	// next cycle can diff against its findings.
 	storeInstance, err := store.New(":memory:")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspaceName := "core/go-io/task-1"
@@ -348,9 +373,10 @@ func TestQa_PublishDispatchReport_Good(t *testing.T) {
 	publishDispatchReport(storeInstance, workspaceName, reportPayload)
 
 	cycles := readPreviousJournalCycles(storeInstance, workspaceName, persistentThreshold)
-	if assert.Len(t, cycles, 1) {
-		assert.Len(t, cycles[0], 1)
-		assert.Equal(t, "gosec", cycles[0][0]["tool"])
+	core.AssertLen(t, cycles, 1)
+	if len(cycles) == 1 {
+		core.AssertLen(t, cycles[0], 1)
+		core.AssertEqual(t, "gosec", cycles[0][0]["tool"])
 	}
 }
 
@@ -359,20 +385,20 @@ func TestQa_PublishDispatchReport_Bad(t *testing.T) {
 	publishDispatchReport(nil, "any", DispatchReport{})
 
 	storeInstance, err := store.New(":memory:")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 	publishDispatchReport(storeInstance, "", DispatchReport{Findings: []QAFinding{{Tool: "gosec"}}})
 
-	assert.Empty(t, readPreviousJournalCycles(nil, "x", 1))
-	assert.Empty(t, readPreviousJournalCycles(storeInstance, "", 1))
-	assert.Empty(t, readPreviousJournalCycles(storeInstance, "unknown-workspace", 1))
+	core.AssertEmpty(t, readPreviousJournalCycles(nil, "x", 1))
+	core.AssertEmpty(t, readPreviousJournalCycles(storeInstance, "", 1))
+	core.AssertEmpty(t, readPreviousJournalCycles(storeInstance, "unknown-workspace", 1))
 }
 
 func TestQa_PublishDispatchReport_Ugly(t *testing.T) {
 	// After N pushes the reader should return at most `limit` cycles ordered
 	// oldest→newest, so persistent detection sees cycles in the right order.
 	storeInstance, err := store.New(":memory:")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspaceName := "core/go-io/task-2"
@@ -390,9 +416,10 @@ func TestQa_PublishDispatchReport_Ugly(t *testing.T) {
 	}
 
 	cycles := readPreviousJournalCycles(storeInstance, workspaceName, persistentThreshold)
-	assert.LessOrEqual(t, len(cycles), persistentThreshold)
+	core.AssertLessOrEqual(t, len(cycles), persistentThreshold)
 	// Oldest returned cycle has the earliest line number surviving in the window.
-	if assert.NotEmpty(t, cycles) {
-		assert.NotEmpty(t, cycles[0])
+	core.AssertNotEmpty(t, cycles)
+	if len(cycles) > 0 {
+		core.AssertNotEmpty(t, cycles[0])
 	}
 }

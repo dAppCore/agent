@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	forge_types "dappco.re/go/forge/types"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

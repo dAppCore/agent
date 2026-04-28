@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	store "dappco.re/go/store"
 	"github.com/gin-gonic/gin"

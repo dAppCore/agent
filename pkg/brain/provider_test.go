@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/ws"
+	core "dappco.re/go"
 	"dappco.re/go/mcp/pkg/mcp/ide"
+	"dappco.re/go/ws"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type bridgeCapture struct {
@@ -87,7 +85,7 @@ func connectedBridge(t *testing.T) (*ide.Bridge, <-chan bridgeCapture, func()) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	bridge.Start(ctx)
-	require.Eventually(t, bridge.Connected, time.Second, 10*time.Millisecond)
+	requireEventually(t, bridge.Connected, time.Second, 10*time.Millisecond)
 
 	cleanup := func() {
 		cancel()
@@ -101,9 +99,9 @@ func connectedBridge(t *testing.T) (*ide.Bridge, <-chan bridgeCapture, func()) {
 func providerResponseData(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 	var response map[string]any
-	require.True(t, core.JSONUnmarshal(w.Body.Bytes(), &response).OK)
+	core.RequireTrue(t, core.JSONUnmarshal(w.Body.Bytes(), &response).OK)
 	data, ok := response["data"].(map[string]any)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	return data
 }
 
@@ -111,7 +109,7 @@ func receiveBridgeMessage(t *testing.T, captures <-chan bridgeCapture) ide.Bridg
 	t.Helper()
 	select {
 	case capture := <-captures:
-		require.NoError(t, capture.err)
+		core.RequireNoError(t, capture.err)
 		return capture.msg
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for bridge message")
@@ -134,102 +132,115 @@ func TestProvider_NewProvider_Good(t *testing.T) {
 
 	p := NewProvider(bridge, hub)
 
-	require.NotNil(t, p)
-	assert.Same(t, bridge, p.bridge)
-	assert.Same(t, hub, p.hub)
+	core.AssertNotNil(t, p)
+	core.AssertSame(t, bridge, p.bridge)
+	core.AssertSame(t, hub, p.hub)
 }
 
-func TestProvider_NewProvider_Bad_NilDependencies(t *testing.T) {
+func TestNilDependencies_NewProvider_Bad(t *testing.T) {
 	p := NewProvider(nil, nil)
 
-	require.NotNil(t, p)
-	assert.Nil(t, p.bridge)
-	assert.Nil(t, p.hub)
+	core.AssertNotNil(t, p)
+	core.AssertNil(t, p.bridge)
+	core.AssertNil(t, p.hub)
 }
 
-func TestProvider_NewProvider_Ugly_MixedDependencies(t *testing.T) {
+func TestMixedDependencies_NewProvider_Ugly(t *testing.T) {
 	bridge := ide.NewBridge(nil, ide.Config{})
 
 	p := NewProvider(bridge, nil)
 
-	require.NotNil(t, p)
-	assert.Same(t, bridge, p.bridge)
-	assert.Nil(t, p.hub)
+	core.AssertNotNil(t, p)
+	core.AssertSame(t, bridge, p.bridge)
+	core.AssertNil(t, p.hub)
 }
 
-func TestProvider_Name_Good(t *testing.T) {
-	assert.Equal(t, "brain", NewProvider(nil, nil).Name())
+func TestDefaultProvider_BrainProvider_Name_Good(t *testing.T) {
+	got := NewProvider(nil, nil).Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotEmpty(t, got)
 }
 
-func TestProvider_Name_Bad_ZeroValueReceiver(t *testing.T) {
-	assert.Equal(t, "brain", (&BrainProvider{}).Name())
+func TestZeroValueProvider_BrainProvider_Name_Bad(t *testing.T) {
+	got := (&BrainProvider{}).Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotContains(t, got, "/")
 }
 
-func TestProvider_Name_Ugly_NilReceiver(t *testing.T) {
+func TestNilProvider_BrainProvider_Name_Ugly(t *testing.T) {
 	var p *BrainProvider
-	assert.Equal(t, "brain", p.Name())
+	got := p.Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertContains(t, got, "brain")
 }
 
-func TestProvider_BasePath_Good(t *testing.T) {
-	assert.Equal(t, "/api/brain", NewProvider(nil, nil).BasePath())
+func TestDefaultProvider_BrainProvider_BasePath_Good(t *testing.T) {
+	got := NewProvider(nil, nil).BasePath()
+	core.AssertEqual(t, "/api/brain", got)
+	core.AssertContains(t, got, "/api/")
 }
 
-func TestProvider_BasePath_Bad_ZeroValueReceiver(t *testing.T) {
-	assert.Equal(t, "/api/brain", (&BrainProvider{}).BasePath())
+func TestZeroValueProvider_BrainProvider_BasePath_Bad(t *testing.T) {
+	got := (&BrainProvider{}).BasePath()
+	core.AssertEqual(t, "/api/brain", got)
+	core.AssertContains(t, got, "brain")
 }
 
-func TestProvider_BasePath_Ugly_NilReceiver(t *testing.T) {
+func TestNilProvider_BrainProvider_BasePath_Ugly(t *testing.T) {
 	var p *BrainProvider
-	assert.Equal(t, "/api/brain", p.BasePath())
+	got := p.BasePath()
+	core.AssertEqual(t, "/api/brain", got)
+	core.AssertNotContains(t, got, "//api")
 }
 
-func TestProvider_Channels_Good(t *testing.T) {
+func TestDefaultProvider_BrainProvider_Channels_Good(t *testing.T) {
 	channels := NewProvider(nil, nil).Channels()
 
-	assert.Equal(t, []string{
+	core.AssertEqual(t, []string{
 		"brain.remember.complete",
 		"brain.recall.complete",
 		"brain.forget.complete",
 	}, channels)
 }
 
-func TestProvider_Channels_Bad_ZeroValueReceiver(t *testing.T) {
+func TestZeroValueProvider_BrainProvider_Channels_Bad(t *testing.T) {
 	channels := (&BrainProvider{}).Channels()
-	assert.Len(t, channels, 3)
+	core.AssertLen(t, channels, 3)
+	core.AssertContains(t, channels, "brain.recall.complete")
 }
 
-func TestProvider_Channels_Ugly_ReturnSliceIsDetached(t *testing.T) {
+func TestDetachedSlice_BrainProvider_Channels_Ugly(t *testing.T) {
 	channels := NewProvider(nil, nil).Channels()
 	channels[0] = "changed"
 
-	assert.Equal(t, "brain.remember.complete", NewProvider(nil, nil).Channels()[0])
+	core.AssertEqual(t, "brain.remember.complete", NewProvider(nil, nil).Channels()[0])
 }
 
-func TestProvider_Element_Good(t *testing.T) {
+func TestDefaultProvider_BrainProvider_Element_Good(t *testing.T) {
 	element := NewProvider(nil, nil).Element()
 
-	assert.Equal(t, "core-brain-panel", element.Tag)
-	assert.Equal(t, "/assets/brain-panel.js", element.Source)
+	core.AssertEqual(t, "core-brain-panel", element.Tag)
+	core.AssertEqual(t, "/assets/brain-panel.js", element.Source)
 }
 
-func TestProvider_Element_Bad_ZeroValueReceiver(t *testing.T) {
+func TestZeroValueProvider_BrainProvider_Element_Bad(t *testing.T) {
 	element := (&BrainProvider{}).Element()
 
-	assert.Equal(t, "core-brain-panel", element.Tag)
-	assert.Equal(t, "/assets/brain-panel.js", element.Source)
+	core.AssertEqual(t, "core-brain-panel", element.Tag)
+	core.AssertEqual(t, "/assets/brain-panel.js", element.Source)
 }
 
-func TestProvider_Element_Ugly_ReturnValueIsDetached(t *testing.T) {
+func TestDetachedValue_BrainProvider_Element_Ugly(t *testing.T) {
 	element := NewProvider(nil, nil).Element()
 	element.Tag = "changed"
 
-	assert.Equal(t, "core-brain-panel", NewProvider(nil, nil).Element().Tag)
+	core.AssertEqual(t, "core-brain-panel", NewProvider(nil, nil).Element().Tag)
 }
 
-func TestProvider_RegisterRoutes_Good(t *testing.T) {
+func TestDefaultProvider_BrainProvider_RegisterRoutes_Good(t *testing.T) {
 	signatures := providerRouteSignatures(setupRouter(NewProvider(nil, nil)))
 
-	assert.ElementsMatch(t, []string{
+	core.AssertElementsMatch(t, []string{
 		"POST /api/brain/remember",
 		"POST /api/brain/recall",
 		"POST /api/brain/forget",
@@ -238,21 +249,21 @@ func TestProvider_RegisterRoutes_Good(t *testing.T) {
 	}, signatures)
 }
 
-func TestProvider_RegisterRoutes_Bad_ZeroValueProvider(t *testing.T) {
+func TestZeroValueProvider_BrainProvider_RegisterRoutes_Bad(t *testing.T) {
 	provider := &BrainProvider{}
 
 	status := providerRequest(t, provider, "GET", "/api/brain/status", nil)
 	list := providerRequest(t, provider, "GET", "/api/brain/list", nil)
 
-	assert.Equal(t, http.StatusOK, status.Code)
-	assert.Equal(t, http.StatusServiceUnavailable, list.Code)
+	core.AssertEqual(t, http.StatusOK, status.Code)
+	core.AssertEqual(t, http.StatusServiceUnavailable, list.Code)
 }
 
-func TestProvider_RegisterRoutes_Ugly_CustomGroup(t *testing.T) {
+func TestCustomGroup_BrainProvider_RegisterRoutes_Ugly(t *testing.T) {
 	r := gin.New()
 	NewProvider(nil, nil).RegisterRoutes(r.Group("/v1/brain"))
 
-	assert.ElementsMatch(t, []string{
+	core.AssertElementsMatch(t, []string{
 		"POST /v1/brain/remember",
 		"POST /v1/brain/recall",
 		"POST /v1/brain/forget",
@@ -261,41 +272,45 @@ func TestProvider_RegisterRoutes_Ugly_CustomGroup(t *testing.T) {
 	}, providerRouteSignatures(r))
 }
 
-func TestProvider_Describe_Good(t *testing.T) {
+func TestDefaultProvider_BrainProvider_Describe_Good(t *testing.T) {
 	descriptions := NewProvider(nil, nil).Describe()
 
-	assert.Len(t, descriptions, 5)
-	assert.Equal(t, "POST", descriptions[0].Method)
-	assert.Equal(t, "/remember", descriptions[0].Path)
-	assert.Equal(t, "GET", descriptions[4].Method)
-	assert.Equal(t, "/status", descriptions[4].Path)
+	core.AssertLen(t, descriptions, 5)
+	core.AssertEqual(t, "POST", descriptions[0].Method)
+	core.AssertEqual(t, "/remember", descriptions[0].Path)
+	core.AssertEqual(t, "GET", descriptions[4].Method)
+	core.AssertEqual(t, "/status", descriptions[4].Path)
 }
 
-func TestProvider_Describe_Bad_ZeroValueReceiver(t *testing.T) {
+func TestZeroValueProvider_BrainProvider_Describe_Bad(t *testing.T) {
 	descriptions := (&BrainProvider{}).Describe()
 
-	assert.Len(t, descriptions, 5)
-	assert.Equal(t, "/list", descriptions[3].Path)
+	core.AssertLen(t, descriptions, 5)
+	core.AssertEqual(t, "/list", descriptions[3].Path)
 }
 
-func TestProvider_Describe_Ugly_ReturnSliceIsDetached(t *testing.T) {
+func TestDetachedSlice_BrainProvider_Describe_Ugly(t *testing.T) {
 	descriptions := NewProvider(nil, nil).Describe()
 	descriptions[0].Path = "/changed"
 
-	assert.Equal(t, "/remember", NewProvider(nil, nil).Describe()[0].Path)
+	core.AssertEqual(t, "/remember", NewProvider(nil, nil).Describe()[0].Path)
 }
 
 func TestProvider_Describe_Good_BrainFields(t *testing.T) {
 	descriptions := NewProvider(nil, nil).Describe()
 
-	rememberProps := descriptions[0].RequestBody["properties"].(map[string]any)
-	assert.Contains(t, rememberProps, "supersedes")
-	assert.Contains(t, rememberProps, "expires_in")
+	rememberBody, ok := descriptions[0].RequestBody.(map[string]any)
+	core.RequireTrue(t, ok)
+	rememberProps := rememberBody["properties"].(map[string]any)
+	core.AssertContains(t, rememberProps, "supersedes")
+	core.AssertContains(t, rememberProps, "expires_in")
 
-	recallProps := descriptions[1].RequestBody["properties"].(map[string]any)
+	recallBody, ok := descriptions[1].RequestBody.(map[string]any)
+	core.RequireTrue(t, ok)
+	recallProps := recallBody["properties"].(map[string]any)
 	filterProps := recallProps["filter"].(map[string]any)["properties"].(map[string]any)
-	assert.Contains(t, filterProps, "agent_id")
-	assert.Contains(t, filterProps, "min_confidence")
+	core.AssertContains(t, filterProps, "agent_id")
+	core.AssertContains(t, filterProps, "min_confidence")
 }
 
 func TestProvider_Status_Good(t *testing.T) {
@@ -304,22 +319,22 @@ func TestProvider_Status_Good(t *testing.T) {
 
 	w := providerRequest(t, NewProvider(bridge, nil), "GET", "/api/brain/status", nil)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, true, providerResponseData(t, w)["connected"])
+	core.AssertEqual(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, true, providerResponseData(t, w)["connected"])
 }
 
 func TestProvider_Status_Bad_NoBridge(t *testing.T) {
 	w := providerRequest(t, NewProvider(nil, nil), "GET", "/api/brain/status", nil)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, false, providerResponseData(t, w)["connected"])
+	core.AssertEqual(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, false, providerResponseData(t, w)["connected"])
 }
 
 func TestProvider_Status_Ugly_DisconnectedBridge(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "GET", "/api/brain/status", nil)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, false, providerResponseData(t, w)["connected"])
+	core.AssertEqual(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, false, providerResponseData(t, w)["connected"])
 }
 
 func TestProvider_Remember_Good(t *testing.T) {
@@ -335,27 +350,28 @@ func TestProvider_Remember_Good(t *testing.T) {
 	}))
 	w := providerRequest(t, NewProvider(bridge, nil), "POST", "/api/brain/remember", body)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, true, providerResponseData(t, w)["success"])
+	core.AssertEqual(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, true, providerResponseData(t, w)["success"])
 
 	msg := receiveBridgeMessage(t, captures)
 	data, ok := msg.Data.(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "brain_remember", msg.Type)
-	assert.Equal(t, "Use core.Env for system paths.", data["content"])
-	assert.Equal(t, "convention", data["type"])
-	assert.Equal(t, "agent", data["project"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "brain_remember", msg.Type)
+	core.AssertEqual(t, "Use core.Env for system paths.", data["content"])
+	core.AssertEqual(t, "convention", data["type"])
+	core.AssertEqual(t, "agent", data["project"])
 }
 
 func TestProvider_Remember_Bad_InvalidInput(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/remember", []byte("not json"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
+	core.AssertNotEmpty(t, w.Body.String())
 }
 
 func TestProvider_Remember_Ugly_DisconnectedBridge(t *testing.T) {
 	body := []byte(core.JSONMarshalString(map[string]any{"content": "test memory", "type": "observation"}))
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/remember", body)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	core.AssertEqual(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestProvider_Recall_Good(t *testing.T) {
@@ -372,32 +388,33 @@ func TestProvider_Recall_Good(t *testing.T) {
 	}))
 	w := providerRequest(t, NewProvider(bridge, nil), "POST", "/api/brain/recall", body)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 	data := providerResponseData(t, w)
-	assert.Equal(t, true, data["success"])
-	assert.Equal(t, 0.0, data["count"])
+	core.AssertEqual(t, true, data["success"])
+	core.AssertEqual(t, 0.0, data["count"])
 
 	msg := receiveBridgeMessage(t, captures)
 	payload, ok := msg.Data.(map[string]any)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	filter, ok := payload["filter"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "brain_recall", msg.Type)
-	assert.Equal(t, "workspace path helpers", payload["query"])
-	assert.Equal(t, 3.0, payload["top_k"])
-	assert.Equal(t, "agent", filter["project"])
-	assert.Equal(t, "convention", filter["type"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "brain_recall", msg.Type)
+	core.AssertEqual(t, "workspace path helpers", payload["query"])
+	core.AssertEqual(t, 3.0, payload["top_k"])
+	core.AssertEqual(t, "agent", filter["project"])
+	core.AssertEqual(t, "convention", filter["type"])
 }
 
 func TestProvider_Recall_Bad_InvalidInput(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/recall", []byte("not json"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
+	core.AssertNotEmpty(t, w.Body.String())
 }
 
 func TestProvider_Recall_Ugly_DisconnectedBridge(t *testing.T) {
 	body := []byte(core.JSONMarshalString(map[string]any{"query": "test"}))
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/recall", body)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	core.AssertEqual(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestProvider_Forget_Good(t *testing.T) {
@@ -407,26 +424,27 @@ func TestProvider_Forget_Good(t *testing.T) {
 	body := []byte(core.JSONMarshalString(map[string]any{"id": "mem-123", "reason": "superseded"}))
 	w := providerRequest(t, NewProvider(bridge, nil), "POST", "/api/brain/forget", body)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "mem-123", providerResponseData(t, w)["forgotten"])
+	core.AssertEqual(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, "mem-123", providerResponseData(t, w)["forgotten"])
 
 	msg := receiveBridgeMessage(t, captures)
 	data, ok := msg.Data.(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "brain_forget", msg.Type)
-	assert.Equal(t, "mem-123", data["id"])
-	assert.Equal(t, "superseded", data["reason"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "brain_forget", msg.Type)
+	core.AssertEqual(t, "mem-123", data["id"])
+	core.AssertEqual(t, "superseded", data["reason"])
 }
 
 func TestProvider_Forget_Bad_InvalidInput(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/forget", []byte("not json"))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
+	core.AssertNotEmpty(t, w.Body.String())
 }
 
 func TestProvider_Forget_Ugly_DisconnectedBridge(t *testing.T) {
 	body := []byte(core.JSONMarshalString(map[string]any{"id": "mem-123"}))
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "POST", "/api/brain/forget", body)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	core.AssertEqual(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestProvider_List_Good(t *testing.T) {
@@ -435,45 +453,47 @@ func TestProvider_List_Good(t *testing.T) {
 
 	w := providerRequest(t, NewProvider(bridge, nil), "GET", "/api/brain/list?project=agent&type=convention&agent_id=codex&limit=2", nil)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	core.AssertEqual(t, http.StatusOK, w.Code)
 	data := providerResponseData(t, w)
-	assert.Equal(t, true, data["success"])
-	assert.Equal(t, 0.0, data["count"])
+	core.AssertEqual(t, true, data["success"])
+	core.AssertEqual(t, 0.0, data["count"])
 
 	msg := receiveBridgeMessage(t, captures)
 	payload, ok := msg.Data.(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "brain_list", msg.Type)
-	assert.Equal(t, "agent", payload["project"])
-	assert.Equal(t, "convention", payload["type"])
-	assert.Equal(t, "codex", payload["agent_id"])
-	assert.Equal(t, 2.0, payload["limit"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "brain_list", msg.Type)
+	core.AssertEqual(t, "agent", payload["project"])
+	core.AssertEqual(t, "convention", payload["type"])
+	core.AssertEqual(t, "codex", payload["agent_id"])
+	core.AssertEqual(t, 2.0, payload["limit"])
 }
 
 func TestProvider_List_Bad_InvalidLimit(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "GET", "/api/brain/list?limit=abc", nil)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	core.AssertEqual(t, http.StatusBadRequest, w.Code)
+	core.AssertNotEmpty(t, w.Body.String())
 }
 
 func TestProvider_List_Ugly_DisconnectedBridge(t *testing.T) {
 	w := providerRequest(t, NewProvider(&ide.Bridge{}, nil), "GET", "/api/brain/list?limit=2", nil)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	core.AssertEqual(t, http.StatusInternalServerError, w.Code)
+	core.AssertNotEmpty(t, w.Body.String())
 }
 
 func TestProvider_EmitEvent_Good(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		NewProvider(nil, ws.NewHub()).emitEvent("brain.test", map[string]any{"foo": "bar"})
 	})
 }
 
 func TestProvider_EmitEvent_Bad_EmptyChannel(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		NewProvider(nil, ws.NewHub()).emitEvent("", map[string]any{"foo": "bar"})
 	})
 }
 
 func TestProvider_EmitEvent_Ugly_NilHub(t *testing.T) {
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		NewProvider(nil, nil).emitEvent("brain.test", map[string]any{"foo": "bar"})
 	})
 }

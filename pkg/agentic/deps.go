@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
@@ -67,7 +67,7 @@ func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, re
 	return nil
 }
 
-// dep := coreDep{module: "dappco.re/go/core", repo: "go", dir: "core-go"}
+// dep := coreDep{module: "dappco.re/go", repo: "go", dir: "core-go"}
 type coreDep struct {
 	module string
 	repo   string
@@ -87,28 +87,40 @@ func parseCoreDeps(gomod string) []coreDep {
 			continue
 		}
 
-		if core.HasPrefix(line, "dappco.re/go/") {
-			parts := core.Split(line, " ")
-			mod := parts[0]
-			if seen[mod] {
-				continue
-			}
-			seen[mod] = true
-
-			suffix := core.TrimPrefix(mod, "dappco.re/go/")
-			repo := suffix
-			if core.HasPrefix(suffix, "core/") {
-				repoSuffix := core.TrimPrefix(suffix, "core/")
-				repo = core.Concat("go-", repoSuffix)
-			} else if suffix == "core" {
-				repo = "go"
-			}
-			dir := core.Concat("core-", core.Replace(repo, "/", "-"))
-			deps = append(deps, coreDep{module: mod, repo: repo, dir: dir})
+		parts := core.Split(line, " ")
+		if len(parts) == 0 {
+			continue
 		}
+
+		mod := normaliseCoreDepModule(parts[0])
+		if mod != "dappco.re/go" && !core.HasPrefix(mod, "dappco.re/go/") {
+			continue
+		}
+		if seen[mod] {
+			continue
+		}
+		seen[mod] = true
+
+		suffix := core.TrimPrefix(core.TrimPrefix(mod, "dappco.re/go"), "/")
+		repo := coreDepRepo(suffix)
+		dir := core.Concat("core-", core.Replace(repo, "/", "-"))
+		deps = append(deps, coreDep{module: mod, repo: repo, dir: dir})
 	}
 
 	return deps
+}
+
+func normaliseCoreDepModule(mod string) string { return mod }
+
+func coreDepRepo(suffix string) string {
+	switch suffix {
+	case "":
+		return "go"
+	case "mcp":
+		return "mcp"
+	default:
+		return core.Concat("go-", suffix)
+	}
 }
 
 // url := forgeSSHURL("core", "go-io")

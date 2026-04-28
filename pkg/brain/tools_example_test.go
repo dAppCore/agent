@@ -2,7 +2,7 @@
 
 package brain
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleForgetInput() {
 	input := ForgetInput{ID: "mem-123", Reason: "outdated"}

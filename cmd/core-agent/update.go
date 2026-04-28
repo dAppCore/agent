@@ -3,8 +3,8 @@
 package main
 
 import (
+	core "dappco.re/go"
 	agentpkg "dappco.re/go/agent"
-	core "dappco.re/go/core"
 )
 
 // agentpkg.Version = "0.15.0"

@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	store "dappco.re/go/store"
 )
 
@@ -67,7 +67,7 @@ func (s *PrepSubsystem) stateStoreErr() error {
 	if ref == nil {
 		return nil
 	}
-	_ = s.stateStoreInstance()
+	s.stateStoreInstance()
 	return ref.err
 }
 
@@ -95,7 +95,9 @@ func (s *PrepSubsystem) closeStateStore() {
 		return
 	}
 	if ref.instance != nil {
-		_ = ref.instance.Close()
+		if err := ref.instance.Close(); err != nil {
+			core.Warn("agentic.stateStore: failed to close state store", "path", stateStorePath(), "reason", err)
+		}
 		ref.instance = nil
 	}
 	ref.err = nil
@@ -136,7 +138,9 @@ func (s *PrepSubsystem) stateStoreSet(group, key string, value any) {
 		return
 	}
 	payload := core.JSONMarshalString(value)
-	_ = st.Set(group, key, payload)
+	if err := st.Set(group, key, payload); err != nil {
+		core.Warn("agentic.stateStore: failed to persist state", "group", group, "key", key, "reason", err)
+	}
 }
 
 // stateStoreDelete removes a key from the given group if the store is
@@ -148,7 +152,9 @@ func (s *PrepSubsystem) stateStoreDelete(group, key string) {
 	if st == nil {
 		return
 	}
-	_ = st.Delete(group, key)
+	if err := st.Delete(group, key); err != nil {
+		core.Warn("agentic.stateStore: failed to delete state", "group", group, "key", key, "reason", err)
+	}
 }
 
 // stateStoreGet returns the JSON-encoded value for the given group+key and

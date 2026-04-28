@@ -3,8 +3,8 @@
 package setup
 
 import (
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
 )
 
 // result := service.Run(setup.Options{Path: ".", Template: "auto", Force: true})

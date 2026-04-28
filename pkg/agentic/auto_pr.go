@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 )
 
 // s.autoCreatePR("/srv/.core/workspace/core/go-io/task-5")

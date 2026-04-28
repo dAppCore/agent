@@ -5,7 +5,7 @@ package agentic
 import (
 	"sort"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // entry := PipelineTrainingEntry{Repo: "go-io", PRNumber: 42, CodeRabbitFindings: 0}

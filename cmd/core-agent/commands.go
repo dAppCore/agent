@@ -5,8 +5,8 @@ package main
 import (
 	"os"
 
+	"dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/core"
 )
 
 type applicationCommandSet struct {

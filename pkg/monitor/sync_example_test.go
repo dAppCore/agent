@@ -2,7 +2,7 @@
 
 package monitor
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleCheckinResponse() {
 	resp := CheckinResponse{Timestamp: 1712345678}

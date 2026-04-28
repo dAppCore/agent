@@ -9,9 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestTemplate_HandleTemplateList_Good(t *testing.T) {
@@ -19,27 +17,27 @@ func TestTemplate_HandleTemplateList_Good(t *testing.T) {
 	result := subsystem.handleTemplateList(context.Background(), core.NewOptions(
 		core.Option{Key: "category", Value: "development"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(TemplateListOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.NotZero(t, output.Total)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	assertNotZero(t, output.Total)
 
 	found := false
 	for _, summary := range output.Templates {
-		assert.Equal(t, "development", summary.Category)
-		assert.Equal(t, 1, summary.Version.Version)
-		assert.NotEmpty(t, summary.Version.ContentHash)
-		assert.NotEmpty(t, summary.Version.Content.Name)
+		core.AssertEqual(t, "development", summary.Category)
+		core.AssertEqual(t, 1, summary.Version.Version)
+		core.AssertNotEmpty(t, summary.Version.ContentHash)
+		core.AssertNotEmpty(t, summary.Version.Content.Name)
 		if summary.Slug == "bug-fix" {
 			found = true
-			assert.Equal(t, "Bug Fix", summary.Name)
-			assert.NotZero(t, summary.PhasesCount)
-			assert.NotEmpty(t, summary.Variables)
+			core.AssertEqual(t, "Bug Fix", summary.Name)
+			assertNotZero(t, summary.PhasesCount)
+			core.AssertNotEmpty(t, summary.Variables)
 		}
 	}
-	assert.True(t, found)
+	core.AssertTrue(t, found)
 }
 
 func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
@@ -48,24 +46,24 @@ func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
 		core.Option{Key: "template", Value: "new-feature"},
 		core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(TemplatePreviewOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, "new-feature", output.Template)
-	assert.Equal(t, 1, output.Version.Version)
-	assert.NotEmpty(t, output.Version.ContentHash)
-	assert.Equal(t, "new-feature", output.Version.Content.Slug)
-	assert.Equal(t, "New Feature", output.Version.Content.Name)
-	assert.Contains(t, output.Preview, "Authentication")
-	assert.Contains(t, output.Preview, "Phase 1")
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "new-feature", output.Template)
+	core.AssertEqual(t, 1, output.Version.Version)
+	core.AssertNotEmpty(t, output.Version.ContentHash)
+	core.AssertEqual(t, "new-feature", output.Version.Content.Slug)
+	core.AssertEqual(t, "New Feature", output.Version.Content.Name)
+	core.AssertContains(t, output.Preview, "Authentication")
+	core.AssertContains(t, output.Preview, "Phase 1")
 }
 
 func TestTemplate_HandleTemplatePreview_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplatePreview(context.Background(), core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestTemplate_HandleTemplatePreview_Ugly_MissingVariables(t *testing.T) {
@@ -73,11 +71,11 @@ func TestTemplate_HandleTemplatePreview_Ugly_MissingVariables(t *testing.T) {
 	result := subsystem.handleTemplatePreview(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "new-feature"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(TemplatePreviewOutput)
-	require.True(t, ok)
-	assert.Contains(t, output.Preview, "{{ feature_name }}")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, output.Preview, "{{ feature_name }}")
 }
 
 func TestTemplate_TemplatePlanTask_Good_FileLineReference(t *testing.T) {
@@ -88,10 +86,10 @@ func TestTemplate_TemplatePlanTask_Good_FileLineReference(t *testing.T) {
 		"line":   411,
 	}, 1)
 
-	assert.Equal(t, "Review RFC", task.Title)
-	assert.Equal(t, "pending", task.Status)
-	assert.Equal(t, "pkg/agentic/template.go", task.File)
-	assert.Equal(t, 411, task.Line)
+	core.AssertEqual(t, "Review RFC", task.Title)
+	core.AssertEqual(t, "pending", task.Status)
+	core.AssertEqual(t, "pkg/agentic/template.go", task.File)
+	core.AssertEqual(t, 411, task.Line)
 }
 
 func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
@@ -103,29 +101,29 @@ func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
 		core.Option{Key: "plan_slug", Value: "auth-rollout"},
 		core.Option{Key: "activate", Value: true},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(TemplateCreatePlanOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, "auth-rollout", output.Plan.Slug)
-	assert.Equal(t, "active", output.Plan.Status)
-	assert.Equal(t, 1, output.Version.Version)
-	assert.NotEmpty(t, output.Version.ContentHash)
-	assert.Equal(t, "new-feature", output.Version.Content.Slug)
-	assert.Equal(t, "New Feature", output.Version.Content.Name)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "auth-rollout", output.Plan.Slug)
+	core.AssertEqual(t, "active", output.Plan.Status)
+	core.AssertEqual(t, 1, output.Version.Version)
+	core.AssertNotEmpty(t, output.Version.ContentHash)
+	core.AssertEqual(t, "new-feature", output.Version.Content.Slug)
+	core.AssertEqual(t, "New Feature", output.Version.Content.Name)
 
 	plan, err := readPlan(PlansRoot(), "auth-rollout")
-	require.NoError(t, err)
-	assert.Equal(t, "Authentication Rollout", plan.Title)
-	assert.Equal(t, "in_progress", plan.Status)
-	assert.Equal(t, 1, plan.TemplateVersion.Version)
-	assert.Equal(t, "new-feature", plan.TemplateVersion.Slug)
-	assert.NotEmpty(t, plan.TemplateVersion.ContentHash)
-	require.NotEmpty(t, plan.Phases)
-	require.NotEmpty(t, plan.Phases[0].Tasks)
-	assert.Equal(t, "pending", plan.Phases[0].Tasks[0].Status)
-	assert.Equal(t, "new-feature", stringValue(plan.Context["template"]))
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Authentication Rollout", plan.Title)
+	core.AssertEqual(t, "in_progress", plan.Status)
+	core.AssertEqual(t, 1, plan.TemplateVersion.Version)
+	core.AssertEqual(t, "new-feature", plan.TemplateVersion.Slug)
+	core.AssertNotEmpty(t, plan.TemplateVersion.ContentHash)
+	core.RequireNotEmpty(t, plan.Phases)
+	core.RequireNotEmpty(t, plan.Phases[0].Tasks)
+	core.AssertEqual(t, "pending", plan.Phases[0].Tasks[0].Status)
+	core.AssertEqual(t, "new-feature", stringValue(plan.Context["template"]))
 }
 
 func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
@@ -133,24 +131,24 @@ func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "api-consistency"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(TemplateCreatePlanOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.NotEmpty(t, output.Plan.Slug)
-	assert.Equal(t, "API Consistency Audit", output.Plan.Title)
-	assert.Equal(t, "draft", output.Plan.Status)
-	assert.Equal(t, 1, output.Version.Version)
-	assert.NotEmpty(t, output.Version.ContentHash)
-	assert.Equal(t, "api-consistency", output.Version.Content.Slug)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertNotEmpty(t, output.Plan.Slug)
+	core.AssertEqual(t, "API Consistency Audit", output.Plan.Title)
+	core.AssertEqual(t, "draft", output.Plan.Status)
+	core.AssertEqual(t, 1, output.Version.Version)
+	core.AssertNotEmpty(t, output.Version.ContentHash)
+	core.AssertEqual(t, "api-consistency", output.Version.Content.Slug)
 
 	plan, err := readPlan(PlansRoot(), output.Plan.Slug)
-	require.NoError(t, err)
-	assert.Equal(t, "api-consistency", stringValue(plan.Context["template"]))
-	assert.Empty(t, plan.Context["variables"])
-	assert.Equal(t, 1, plan.TemplateVersion.Version)
-	assert.Equal(t, "api-consistency", plan.TemplateVersion.Slug)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "api-consistency", stringValue(plan.Context["template"]))
+	core.AssertEmpty(t, plan.Context["variables"])
+	core.AssertEqual(t, 1, plan.TemplateVersion.Version)
+	core.AssertEqual(t, "api-consistency", plan.TemplateVersion.Slug)
 }
 
 func TestTemplate_HandleTemplateCreatePlan_Bad(t *testing.T) {
@@ -158,7 +156,7 @@ func TestTemplate_HandleTemplateCreatePlan_Bad(t *testing.T) {
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "new-feature"},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestTemplate_HandleTemplateCreatePlan_Ugly_UnknownTemplate(t *testing.T) {
@@ -167,7 +165,7 @@ func TestTemplate_HandleTemplateCreatePlan_Ugly_UnknownTemplate(t *testing.T) {
 		core.Option{Key: "template", Value: "unknown-template"},
 		core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
 	))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestTemplate_TemplateVersionFromContent_Good_ReusesExistingVersion(t *testing.T) {
@@ -177,7 +175,7 @@ func TestTemplate_TemplateVersionFromContent_Good_ReusesExistingVersion(t *testi
 	sum := sha256.Sum256([]byte(content))
 	hash := hex.EncodeToString(sum[:])
 
-	require.True(t, writePlanResult(PlansRoot(), &Plan{
+	core.RequireTrue(t, writePlanResult(PlansRoot(), &Plan{
 		ID:     "plan-template-version-good",
 		Slug:   "existing-plan",
 		Title:  "Existing Plan",
@@ -194,10 +192,10 @@ func TestTemplate_TemplateVersionFromContent_Good_ReusesExistingVersion(t *testi
 
 	version := templateVersionFromContent("new-feature", "New Feature", content)
 
-	assert.Equal(t, 3, version.Version)
-	assert.Equal(t, hash, version.ContentHash)
-	assert.Equal(t, "new-feature", version.Content.Slug)
-	assert.Equal(t, "New Feature", version.Content.Name)
+	core.AssertEqual(t, 3, version.Version)
+	core.AssertEqual(t, hash, version.ContentHash)
+	core.AssertEqual(t, "new-feature", version.Content.Slug)
+	core.AssertEqual(t, "New Feature", version.Content.Name)
 }
 
 func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *testing.T) {
@@ -207,7 +205,7 @@ func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *t
 	sum := sha256.Sum256([]byte(existingContent))
 	hash := hex.EncodeToString(sum[:])
 
-	require.True(t, writePlanResult(PlansRoot(), &Plan{
+	core.RequireTrue(t, writePlanResult(PlansRoot(), &Plan{
 		ID:     "plan-template-version-bad",
 		Slug:   "existing-plan",
 		Title:  "Existing Plan",
@@ -224,9 +222,9 @@ func TestTemplate_TemplateVersionFromContent_Bad_IncrementsOnChangedContent(t *t
 
 	version := templateVersionFromContent("new-feature", "New Feature", "name: New Feature\nphases:\n  - name: Discovery\n")
 
-	assert.Equal(t, 4, version.Version)
-	assert.NotEqual(t, hash, version.ContentHash)
-	assert.Equal(t, "new-feature", version.Content.Slug)
+	core.AssertEqual(t, 4, version.Version)
+	core.AssertNotEqual(t, hash, version.ContentHash)
+	core.AssertEqual(t, "new-feature", version.Content.Slug)
 }
 
 func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing.T) {
@@ -236,7 +234,7 @@ func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing
 	sum := sha256.Sum256([]byte(content))
 	hash := hex.EncodeToString(sum[:])
 
-	require.True(t, writePlanResult(PlansRoot(), &Plan{
+	core.RequireTrue(t, writePlanResult(PlansRoot(), &Plan{
 		ID:     "plan-template-version-ugly",
 		Slug:   "existing-plan",
 		Title:  "Existing Plan",
@@ -251,10 +249,10 @@ func TestTemplate_TemplateVersionFromContent_Ugly_IgnoresCorruptPlans(t *testing
 		UpdatedAt: time.Now(),
 	}).OK)
 
-	require.True(t, fs.Write(core.JoinPath(PlansRoot(), "broken.json"), "{").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(PlansRoot(), "broken.json"), "{").OK)
 
 	version := templateVersionFromContent("new-feature", "New Feature", "name: New Feature\nphases:\n  - name: Discovery\n")
 
-	assert.Equal(t, 4, version.Version)
-	assert.Equal(t, "new-feature", version.Content.Slug)
+	core.AssertEqual(t, 4, version.Version)
+	core.AssertEqual(t, "new-feature", version.Content.Slug)
 }

@@ -7,9 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestCommandsSprint_RegisterCommands_Good(t *testing.T) {
@@ -18,33 +16,33 @@ func TestCommandsSprint_RegisterCommands_Good(t *testing.T) {
 
 	s.registerSprintCommands()
 
-	assert.Contains(t, c.Commands(), "sprint")
-	assert.Contains(t, c.Commands(), "agentic:sprint")
-	assert.Contains(t, c.Commands(), "sprint/create")
-	assert.Contains(t, c.Commands(), "agentic:sprint/create")
-	assert.Contains(t, c.Commands(), "sprint/get")
-	assert.Contains(t, c.Commands(), "agentic:sprint/get")
-	assert.Contains(t, c.Commands(), "sprint/list")
-	assert.Contains(t, c.Commands(), "agentic:sprint/list")
-	assert.Contains(t, c.Commands(), "sprint/update")
-	assert.Contains(t, c.Commands(), "agentic:sprint/update")
-	assert.Contains(t, c.Commands(), "sprint/archive")
-	assert.Contains(t, c.Commands(), "agentic:sprint/archive")
+	core.AssertContains(t, c.Commands(), "sprint")
+	core.AssertContains(t, c.Commands(), "agentic:sprint")
+	core.AssertContains(t, c.Commands(), "sprint/create")
+	core.AssertContains(t, c.Commands(), "agentic:sprint/create")
+	core.AssertContains(t, c.Commands(), "sprint/get")
+	core.AssertContains(t, c.Commands(), "agentic:sprint/get")
+	core.AssertContains(t, c.Commands(), "sprint/list")
+	core.AssertContains(t, c.Commands(), "agentic:sprint/list")
+	core.AssertContains(t, c.Commands(), "sprint/update")
+	core.AssertContains(t, c.Commands(), "agentic:sprint/update")
+	core.AssertContains(t, c.Commands(), "sprint/archive")
+	core.AssertContains(t, c.Commands(), "agentic:sprint/archive")
 }
 
 func TestCommandsSprint_CmdSprintCreate_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sprints", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/sprints", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
-		require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
-		require.Equal(t, "AX Follow-up", payload["title"])
-		require.Equal(t, "Finish RFC parity", payload["goal"])
-		require.Equal(t, "active", payload["status"])
+		core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+		core.AssertEqual(t, "AX Follow-up", payload["title"])
+		core.AssertEqual(t, "Finish RFC parity", payload["goal"])
+		core.AssertEqual(t, "active", payload["status"])
 
 		_, _ = w.Write([]byte(`{"data":{"sprint":{"id":7,"slug":"ax-follow-up","title":"AX Follow-up","goal":"Finish RFC parity","status":"active"}}}`))
 	}))
@@ -57,20 +55,20 @@ func TestCommandsSprint_CmdSprintCreate_Good(t *testing.T) {
 			core.Option{Key: "goal", Value: "Finish RFC parity"},
 			core.Option{Key: "status", Value: "active"},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "slug:  ax-follow-up")
-	assert.Contains(t, output, "title: AX Follow-up")
-	assert.Contains(t, output, "status: active")
-	assert.Contains(t, output, "goal:  Finish RFC parity")
+	core.AssertContains(t, output, "slug:  ax-follow-up")
+	core.AssertContains(t, output, "title: AX Follow-up")
+	core.AssertContains(t, output, "status: active")
+	core.AssertContains(t, output, "goal:  Finish RFC parity")
 }
 
 func TestCommandsSprint_CmdSprintList_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/sprints", r.URL.Path)
-		require.Equal(t, "active", r.URL.Query().Get("status"))
-		require.Equal(t, "5", r.URL.Query().Get("limit"))
+		core.AssertEqual(t, "/v1/sprints", r.URL.Path)
+		core.AssertEqual(t, "active", r.URL.Query().Get("status"))
+		core.AssertEqual(t, "5", r.URL.Query().Get("limit"))
 
 		_, _ = w.Write([]byte(`{"data":[{"id":1,"slug":"ax-follow-up","title":"AX Follow-up","status":"active"},{"id":2,"slug":"rfc-parity","title":"RFC Parity","status":"active"}],"count":2}`))
 	}))
@@ -82,12 +80,12 @@ func TestCommandsSprint_CmdSprintList_Good(t *testing.T) {
 			core.Option{Key: "status", Value: "active"},
 			core.Option{Key: "limit", Value: 5},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "ax-follow-up")
-	assert.Contains(t, output, "rfc-parity")
-	assert.Contains(t, output, "2 sprint(s)")
+	core.AssertContains(t, output, "ax-follow-up")
+	core.AssertContains(t, output, "rfc-parity")
+	core.AssertContains(t, output, "2 sprint(s)")
 }
 
 func TestCommandsSprint_CmdSprintArchive_Bad_MissingIdentifier(t *testing.T) {
@@ -95,9 +93,9 @@ func TestCommandsSprint_CmdSprintArchive_Bad_MissingIdentifier(t *testing.T) {
 
 	result := subsystem.cmdSprintArchive(core.NewOptions())
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "id or slug is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "id or slug is required")
 }
 
 func TestCommandsSprint_CmdSprintGet_Ugly_InvalidResponse(t *testing.T) {
@@ -108,5 +106,5 @@ func TestCommandsSprint_CmdSprintGet_Ugly_InvalidResponse(t *testing.T) {
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	result := subsystem.cmdSprintGet(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }

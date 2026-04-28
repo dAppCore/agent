@@ -3,7 +3,7 @@
 package main
 
 import (
-	"dappco.re/go/core"
+	"dappco.re/go"
 	"dappco.re/go/mcp/pkg/mcp"
 )
 

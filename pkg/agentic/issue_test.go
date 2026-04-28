@@ -8,25 +8,23 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestIssue_HandleIssueRecordCreate_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/issues", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "Fix auth", payload["title"])
-		require.Equal(t, "bug", payload["type"])
-		require.Equal(t, "codex", payload["assignee"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "Fix auth", payload["title"])
+		core.AssertEqual(t, "bug", payload["type"])
+		core.AssertEqual(t, "codex", payload["assignee"])
 
 		_, _ = w.Write([]byte(`{"data":{"slug":"fix-auth","title":"Fix auth","type":"bug","status":"open","priority":"high","assignee":"codex","labels":["auth"]}}`))
 	}))
@@ -40,28 +38,28 @@ func TestIssue_HandleIssueRecordCreate_Good(t *testing.T) {
 		core.Option{Key: "assignee", Value: "codex"},
 		core.Option{Key: "labels", Value: "auth"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, "fix-auth", output.Issue.Slug)
-	assert.Equal(t, "open", output.Issue.Status)
-	assert.Equal(t, "codex", output.Issue.Assignee)
-	assert.Equal(t, []string{"auth"}, output.Issue.Labels)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "fix-auth", output.Issue.Slug)
+	core.AssertEqual(t, "open", output.Issue.Status)
+	core.AssertEqual(t, "codex", output.Issue.Assignee)
+	core.AssertEqual(t, []string{"auth"}, output.Issue.Labels)
 }
 
 func TestIssue_HandleIssueRecordGet_Bad(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleIssueRecordGet(context.Background(), core.NewOptions())
-	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueGet: id or slug is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error), "issueGet: id or slug is required")
 }
 
 func TestIssue_HandleIssueRecordGet_Good_IDAlias(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues/42", r.URL.Path)
+		core.AssertEqual(t, "/v1/issues/42", r.URL.Path)
 		_, _ = w.Write([]byte(`{"data":{"id":42,"slug":"fix-auth","title":"Fix auth","status":"open"}}`))
 	}))
 	defer server.Close()
@@ -70,22 +68,22 @@ func TestIssue_HandleIssueRecordGet_Good_IDAlias(t *testing.T) {
 	result := subsystem.handleIssueRecordGet(context.Background(), core.NewOptions(
 		core.Option{Key: "id", Value: "42"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueOutput)
-	require.True(t, ok)
-	assert.Equal(t, 42, output.Issue.ID)
-	assert.Equal(t, "fix-auth", output.Issue.Slug)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 42, output.Issue.ID)
+	core.AssertEqual(t, "fix-auth", output.Issue.Slug)
 }
 
 func TestIssue_HandleIssueRecordList_Good_Filters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues", r.URL.Path)
-		require.Equal(t, "open", r.URL.Query().Get("status"))
-		require.Equal(t, "bug", r.URL.Query().Get("type"))
-		require.Equal(t, "high", r.URL.Query().Get("priority"))
-		require.Equal(t, "codex", r.URL.Query().Get("assignee"))
-		require.Equal(t, []string{"auth", "backend"}, r.URL.Query()["labels"])
+		core.AssertEqual(t, "/v1/issues", r.URL.Path)
+		core.AssertEqual(t, "open", r.URL.Query().Get("status"))
+		core.AssertEqual(t, "bug", r.URL.Query().Get("type"))
+		core.AssertEqual(t, "high", r.URL.Query().Get("priority"))
+		core.AssertEqual(t, "codex", r.URL.Query().Get("assignee"))
+		core.AssertEqual(t, []string{"auth", "backend"}, r.URL.Query()["labels"])
 		_, _ = w.Write([]byte(`{"data":{"issues":[{"id":7,"workspace_id":3,"sprint_id":5,"slug":"fix-auth","title":"Fix auth","labels":["auth","backend"]}],"total":1}}`))
 	}))
 	defer server.Close()
@@ -98,18 +96,18 @@ func TestIssue_HandleIssueRecordList_Good_Filters(t *testing.T) {
 		core.Option{Key: "assignee", Value: "codex"},
 		core.Option{Key: "labels", Value: []string{"auth", "backend"}},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueListOutput)
-	require.True(t, ok)
-	assert.Len(t, output.Issues, 1)
-	assert.Equal(t, 1, output.Count)
-	assert.Equal(t, []string{"auth", "backend"}, output.Issues[0].Labels)
+	core.RequireTrue(t, ok)
+	core.AssertLen(t, output.Issues, 1)
+	core.AssertEqual(t, 1, output.Count)
+	core.AssertEqual(t, []string{"auth", "backend"}, output.Issues[0].Labels)
 }
 
 func TestIssue_HandleIssueRecordList_Bad_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues", r.URL.Path)
+		core.AssertEqual(t, "/v1/issues", r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"error":"backend offline"}`))
 	}))
@@ -119,23 +117,23 @@ func TestIssue_HandleIssueRecordList_Bad_ServerError(t *testing.T) {
 	result := subsystem.handleIssueRecordList(context.Background(), core.NewOptions(
 		core.Option{Key: "status", Value: "open"},
 	))
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "issue.list")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "issue.list")
 }
 
 func TestIssue_HandleIssueRecordAssign_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues/fix-auth", r.URL.Path)
-		require.Equal(t, http.MethodPatch, r.Method)
+		core.AssertEqual(t, "/v1/issues/fix-auth", r.URL.Path)
+		core.AssertEqual(t, http.MethodPatch, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		require.Equal(t, "codex", payload["assignee"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "codex", payload["assignee"])
 
 		_, _ = w.Write([]byte(`{"data":{"issue":{"slug":"fix-auth","title":"Fix auth","status":"assigned","assignee":"codex"}}}`))
 	}))
@@ -146,13 +144,13 @@ func TestIssue_HandleIssueRecordAssign_Good(t *testing.T) {
 		core.Option{Key: "slug", Value: "fix-auth"},
 		core.Option{Key: "assignee", Value: "codex"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, "codex", output.Issue.Assignee)
-	assert.Equal(t, "assigned", output.Issue.Status)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "codex", output.Issue.Assignee)
+	core.AssertEqual(t, "assigned", output.Issue.Status)
 }
 
 func TestIssue_HandleIssueRecordAssign_Bad_MissingAssignee(t *testing.T) {
@@ -161,8 +159,8 @@ func TestIssue_HandleIssueRecordAssign_Bad_MissingAssignee(t *testing.T) {
 	result := subsystem.handleIssueRecordAssign(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "fix-auth"},
 	))
-	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueAssign: assignee is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error), "issueAssign: assignee is required")
 }
 
 func TestIssue_HandleIssueRecordAssign_Ugly_MissingIdentifier(t *testing.T) {
@@ -171,22 +169,22 @@ func TestIssue_HandleIssueRecordAssign_Ugly_MissingIdentifier(t *testing.T) {
 	result := subsystem.handleIssueRecordAssign(context.Background(), core.NewOptions(
 		core.Option{Key: "assignee", Value: "codex"},
 	))
-	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueAssign: id or slug is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error), "issueAssign: id or slug is required")
 }
 
 func TestIssue_HandleIssueRecordReport_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues/fix-auth/comments", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/issues/fix-auth/comments", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		assert.Equal(t, "QA failed: build output changed", payload["body"])
-		assert.Equal(t, "codex", payload["author"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "QA failed: build output changed", payload["body"])
+		core.AssertEqual(t, "codex", payload["author"])
 
 		_, _ = w.Write([]byte(`{"data":{"comment":{"id":88,"issue_id":42,"author":"codex","body":"QA failed: build output changed","metadata":{"source":"qa"}}}}`))
 	}))
@@ -199,15 +197,15 @@ func TestIssue_HandleIssueRecordReport_Good(t *testing.T) {
 		core.Option{Key: "author", Value: "codex"},
 		core.Option{Key: "metadata", Value: map[string]any{"source": "qa"}},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueReportOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, 88, output.Comment.ID)
-	assert.Equal(t, "QA failed: build output changed", output.Comment.Body)
-	assert.Equal(t, "codex", output.Comment.Author)
-	assert.Equal(t, map[string]any{"source": "qa"}, output.Comment.Metadata)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, 88, output.Comment.ID)
+	core.AssertEqual(t, "QA failed: build output changed", output.Comment.Body)
+	core.AssertEqual(t, "codex", output.Comment.Author)
+	core.AssertEqual(t, map[string]any{"source": "qa"}, output.Comment.Metadata)
 }
 
 func TestIssue_HandleIssueRecordReport_Bad_MissingReport(t *testing.T) {
@@ -216,8 +214,8 @@ func TestIssue_HandleIssueRecordReport_Bad_MissingReport(t *testing.T) {
 	result := subsystem.handleIssueRecordReport(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "fix-auth"},
 	))
-	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueReport: report is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error), "issueReport: report is required")
 }
 
 func TestIssue_HandleIssueRecordReport_Ugly_MissingIdentifier(t *testing.T) {
@@ -226,14 +224,14 @@ func TestIssue_HandleIssueRecordReport_Ugly_MissingIdentifier(t *testing.T) {
 	result := subsystem.handleIssueRecordReport(context.Background(), core.NewOptions(
 		core.Option{Key: "report", Value: "QA failed: build output changed"},
 	))
-	assert.False(t, result.OK)
-	assert.EqualError(t, result.Value.(error), "issueReport: issue_id, id, or slug is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error), "issueReport: issue_id, id, or slug is required")
 }
 
 func TestIssue_HandleIssueRecordList_Ugly_NestedEnvelope(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/issues", r.URL.Path)
-		require.Equal(t, "open", r.URL.Query().Get("status"))
+		core.AssertEqual(t, "/v1/issues", r.URL.Path)
+		core.AssertEqual(t, "open", r.URL.Query().Get("status"))
 		_, _ = w.Write([]byte(`{"data":{"issues":[{"id":7,"workspace_id":3,"sprint_id":5,"slug":"fix-auth","title":"Fix auth","labels":["auth","backend"]}],"total":1}}`))
 	}))
 	defer server.Close()
@@ -242,13 +240,13 @@ func TestIssue_HandleIssueRecordList_Ugly_NestedEnvelope(t *testing.T) {
 	result := subsystem.handleIssueRecordList(context.Background(), core.NewOptions(
 		core.Option{Key: "status", Value: "open"},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(IssueListOutput)
-	require.True(t, ok)
-	require.Len(t, output.Issues, 1)
-	assert.Equal(t, 1, output.Count)
-	assert.Equal(t, 3, output.Issues[0].WorkspaceID)
-	assert.Equal(t, 5, output.Issues[0].SprintID)
-	assert.Equal(t, []string{"auth", "backend"}, output.Issues[0].Labels)
+	core.RequireTrue(t, ok)
+	core.AssertLen(t, output.Issues, 1)
+	core.AssertEqual(t, 1, output.Count)
+	core.AssertEqual(t, 3, output.Issues[0].WorkspaceID)
+	core.AssertEqual(t, 5, output.Issues[0].SprintID)
+	core.AssertEqual(t, []string{"auth", "backend"}, output.Issues[0].Labels)
 }

@@ -7,10 +7,8 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
@@ -26,45 +24,45 @@ func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 		core.Option{Key: "subject", Value: "Review"},
 		core.Option{Key: "content", Value: "Please check the prompt."},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(MessageSendOutput)
-	require.True(t, ok)
-	assert.Equal(t, "core/go-io/task-5", output.Message.Workspace)
-	assert.Equal(t, "codex", output.Message.FromAgent)
-	assert.Equal(t, "claude", output.Message.ToAgent)
-	assert.Equal(t, "Review", output.Message.Subject)
-	assert.Equal(t, "Please check the prompt.", output.Message.Content)
-	assert.NotEmpty(t, output.Message.ID)
-	assert.NotEmpty(t, output.Message.CreatedAt)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "core/go-io/task-5", output.Message.Workspace)
+	core.AssertEqual(t, "codex", output.Message.FromAgent)
+	core.AssertEqual(t, "claude", output.Message.ToAgent)
+	core.AssertEqual(t, "Review", output.Message.Subject)
+	core.AssertEqual(t, "Please check the prompt.", output.Message.Content)
+	core.AssertNotEmpty(t, output.Message.ID)
+	core.AssertNotEmpty(t, output.Message.CreatedAt)
 
 	messageStorePath := messagePath("core/go-io/task-5")
-	assert.True(t, fs.Exists(messageStorePath))
+	core.AssertTrue(t, fs.Exists(messageStorePath))
 
 	inboxResult := s.cmdMessageInbox(core.NewOptions(
 		core.Option{Key: "_arg", Value: "core/go-io/task-5"},
 		core.Option{Key: "agent", Value: "claude"},
 	))
-	require.True(t, inboxResult.OK)
+	core.RequireTrue(t, inboxResult.OK)
 
 	inbox, ok := inboxResult.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 1, inbox.Count)
-	require.Len(t, inbox.Messages, 1)
-	assert.Equal(t, output.Message.ID, inbox.Messages[0].ID)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, inbox.Count)
+	core.AssertLen(t, inbox.Messages, 1)
+	core.AssertEqual(t, output.Message.ID, inbox.Messages[0].ID)
 
 	conversationResult := s.cmdMessageConversation(core.NewOptions(
 		core.Option{Key: "_arg", Value: "core/go-io/task-5"},
 		core.Option{Key: "agent", Value: "codex"},
 		core.Option{Key: "with", Value: "claude"},
 	))
-	require.True(t, conversationResult.OK)
+	core.RequireTrue(t, conversationResult.OK)
 
 	conversation, ok := conversationResult.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 1, conversation.Count)
-	require.Len(t, conversation.Messages, 1)
-	assert.Equal(t, output.Message.ID, conversation.Messages[0].ID)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, conversation.Count)
+	core.AssertLen(t, conversation.Messages, 1)
+	core.AssertEqual(t, output.Message.ID, conversation.Messages[0].ID)
 }
 
 func TestMessage_MessageInbox_Good_MarksReadAndEmitsCounts(t *testing.T) {
@@ -92,35 +90,35 @@ func TestMessage_MessageInbox_Good_MarksReadAndEmitsCounts(t *testing.T) {
 		core.Option{Key: "to_agent", Value: "claude"},
 		core.Option{Key: "content", Value: "Please review this."},
 	))
-	require.True(t, sendResult.OK)
+	core.RequireTrue(t, sendResult.OK)
 
 	inboxResult := s.handleMessageInbox(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 		core.Option{Key: "agent", Value: "claude"},
 	))
-	require.True(t, inboxResult.OK)
+	core.RequireTrue(t, inboxResult.OK)
 
 	inbox, ok := inboxResult.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 1, inbox.New)
-	assert.Equal(t, 1, inbox.Count)
-	require.Len(t, inbox.Messages, 1)
-	assert.NotEmpty(t, inbox.Messages[0].ReadAt)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, inbox.New)
+	core.AssertEqual(t, 1, inbox.Count)
+	core.AssertLen(t, inbox.Messages, 1)
+	core.AssertNotEmpty(t, inbox.Messages[0].ReadAt)
 
 	secondResult := s.handleMessageInbox(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 		core.Option{Key: "agent", Value: "claude"},
 	))
-	require.True(t, secondResult.OK)
+	core.RequireTrue(t, secondResult.OK)
 
 	secondInbox, ok := secondResult.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 0, secondInbox.New)
-	assert.Len(t, inboxEvents, 2)
-	assert.Equal(t, 1, inboxEvents[0].New)
-	assert.Equal(t, 1, inboxEvents[0].Total)
-	assert.Equal(t, 0, inboxEvents[1].New)
-	assert.Equal(t, 1, inboxEvents[1].Total)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 0, secondInbox.New)
+	core.AssertLen(t, inboxEvents, 2)
+	core.AssertEqual(t, 1, inboxEvents[0].New)
+	core.AssertEqual(t, 1, inboxEvents[0].Total)
+	core.AssertEqual(t, 0, inboxEvents[1].New)
+	core.AssertEqual(t, 1, inboxEvents[1].Total)
 }
 
 func TestMessage_MessageSend_Bad_MissingRequiredFields(t *testing.T) {
@@ -131,9 +129,9 @@ func TestMessage_MessageSend_Bad_MissingRequiredFields(t *testing.T) {
 		core.Option{Key: "from", Value: "codex"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "required")
 }
 
 func TestMessage_MessageSend_Ugly_WhitespaceContent(t *testing.T) {
@@ -146,9 +144,9 @@ func TestMessage_MessageSend_Ugly_WhitespaceContent(t *testing.T) {
 		core.Option{Key: "content", Value: "   "},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "required")
 }
 
 func TestMessage_MessageInbox_Good_NoMessages(t *testing.T) {
@@ -162,11 +160,11 @@ func TestMessage_MessageInbox_Good_NoMessages(t *testing.T) {
 		core.Option{Key: "agent", Value: "claude"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 0, output.Count)
-	assert.Empty(t, output.Messages)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 0, output.Count)
+	core.AssertEmpty(t, output.Messages)
 }
 
 func TestMessage_MessageInbox_Bad_MissingRequiredFields(t *testing.T) {
@@ -174,17 +172,17 @@ func TestMessage_MessageInbox_Bad_MissingRequiredFields(t *testing.T) {
 
 	result := s.cmdMessageInbox(core.NewOptions())
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "required")
 }
 
 func TestMessage_HandleMessageInbox_Ugly_CorruptStore(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
-	require.True(t, fs.EnsureDir(messageRoot()).OK)
-	require.True(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
+	core.RequireTrue(t, fs.EnsureDir(messageRoot()).OK)
+	core.RequireTrue(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
 
 	s := newTestPrep(t)
 
@@ -193,9 +191,9 @@ func TestMessage_HandleMessageInbox_Ugly_CorruptStore(t *testing.T) {
 		core.Option{Key: "agent", Value: "claude"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "failed to parse message store")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "failed to parse message store")
 }
 
 func TestMessage_MessageConversation_Good_NoMessages(t *testing.T) {
@@ -210,11 +208,11 @@ func TestMessage_MessageConversation_Good_NoMessages(t *testing.T) {
 		core.Option{Key: "with", Value: "claude"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(MessageListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 0, output.Count)
-	assert.Empty(t, output.Messages)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 0, output.Count)
+	core.AssertEmpty(t, output.Messages)
 }
 
 func TestMessage_MessageConversation_Bad_MissingRequiredFields(t *testing.T) {
@@ -222,17 +220,17 @@ func TestMessage_MessageConversation_Bad_MissingRequiredFields(t *testing.T) {
 
 	result := s.cmdMessageConversation(core.NewOptions())
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "required")
 }
 
 func TestMessage_MessageConversation_Ugly_CorruptStore(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
-	require.True(t, fs.EnsureDir(messageRoot()).OK)
-	require.True(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
+	core.RequireTrue(t, fs.EnsureDir(messageRoot()).OK)
+	core.RequireTrue(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
 
 	s := newTestPrep(t)
 
@@ -242,9 +240,9 @@ func TestMessage_MessageConversation_Ugly_CorruptStore(t *testing.T) {
 		core.Option{Key: "with", Value: "claude"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "failed to parse message store")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "failed to parse message store")
 }
 
 func TestMessage_MessageInbox_Ugly_CorruptStore(t *testing.T) {
@@ -252,15 +250,15 @@ func TestMessage_MessageInbox_Ugly_CorruptStore(t *testing.T) {
 	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
-	require.True(t, fs.EnsureDir(messageRoot()).OK)
-	require.True(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
+	core.RequireTrue(t, fs.EnsureDir(messageRoot()).OK)
+	core.RequireTrue(t, fs.Write(messagePath("core/go-io/task-5"), "{broken json").OK)
 
 	result := s.handleMessageInbox(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: "core/go-io/task-5"},
 		core.Option{Key: "agent", Value: "claude"},
 	))
 
-	assert.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "failed to parse message store")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "failed to parse message store")
 }

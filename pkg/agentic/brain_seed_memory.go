@@ -6,7 +6,7 @@ import (
 	"context"
 	"slices"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 const brainSeedMemoryDefaultAgent = "virgil"

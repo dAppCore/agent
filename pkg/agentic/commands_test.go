@@ -11,10 +11,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // testPrepWithCore creates a PrepSubsystem backed by a real Core + Forge mock.
@@ -81,7 +79,7 @@ func captureStdout(t *testing.T, run func()) string {
 func TestCommandsforge_CmdIssueGet_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueGet(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueGet_Good_Success(t *testing.T) {
@@ -98,7 +96,7 @@ func TestCommandsforge_CmdIssueGet_Good_Success(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "42"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueGet_Bad_APIError(t *testing.T) {
@@ -112,13 +110,13 @@ func TestCommandsforge_CmdIssueGet_Bad_APIError(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "42"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueList_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueList(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueList_Good_Success(t *testing.T) {
@@ -132,7 +130,7 @@ func TestCommandsforge_CmdIssueList_Good_Success(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdIssueList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueList_Good_Empty(t *testing.T) {
@@ -143,13 +141,13 @@ func TestCommandsforge_CmdIssueList_Good_Empty(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdIssueList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueComment_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueComment(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueComment_Good_Success(t *testing.T) {
@@ -164,13 +162,13 @@ func TestCommandsforge_CmdIssueComment_Good_Success(t *testing.T) {
 		core.Option{Key: "number", Value: "5"},
 		core.Option{Key: "body", Value: "LGTM"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueCreate_Bad_MissingTitle(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdIssueCreate(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueCreate_Good_Success(t *testing.T) {
@@ -188,7 +186,7 @@ func TestCommandsforge_CmdIssueCreate_Good_Success(t *testing.T) {
 		core.Option{Key: "body", Value: "Details here"},
 		core.Option{Key: "assignee", Value: "virgil"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) {
@@ -222,7 +220,7 @@ func TestCommandsforge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) 
 		core.Option{Key: "milestone", Value: "v0.8.0"},
 		core.Option{Key: "ref", Value: "dev"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_RegisterCommands_Good_BrainRecall(t *testing.T) {
@@ -230,18 +228,18 @@ func TestCommands_RegisterCommands_Good_BrainRecall(t *testing.T) {
 
 	s.registerCommands(context.Background())
 
-	assert.Contains(t, c.Commands(), "brain/recall")
-	assert.Contains(t, c.Commands(), "brain:recall")
-	assert.Contains(t, c.Commands(), "brain/remember")
-	assert.Contains(t, c.Commands(), "brain:remember")
+	core.AssertContains(t, c.Commands(), "brain/recall")
+	core.AssertContains(t, c.Commands(), "brain:recall")
+	core.AssertContains(t, c.Commands(), "brain/remember")
+	core.AssertContains(t, c.Commands(), "brain:remember")
 }
 
 func TestCommands_CmdBrainList_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.list", func(_ context.Context, options core.Options) core.Result {
-		assert.Equal(t, "agent", options.String("project"))
-		assert.Equal(t, "architecture", options.String("type"))
-		assert.Equal(t, "virgil", options.String("agent_id"))
+		core.AssertEqual(t, "agent", options.String("project"))
+		core.AssertEqual(t, "architecture", options.String("type"))
+		core.AssertEqual(t, "virgil", options.String("agent_id"))
 		return core.Result{Value: map[string]any{
 			"success": true,
 			"count":   1,
@@ -267,26 +265,26 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 			core.Option{Key: "type", Value: "architecture"},
 			core.Option{Key: "agent", Value: "virgil"},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "count: 1")
-	assert.Contains(t, output, "mem-1 architecture")
-	assert.Contains(t, output, "supersedes: 3")
-	assert.Contains(t, output, "deleted_at: 2026-03-31T12:30:00Z")
-	assert.Contains(t, output, "Use named actions.")
+	core.AssertContains(t, output, "count: 1")
+	core.AssertContains(t, output, "mem-1 architecture")
+	core.AssertContains(t, output, "supersedes: 3")
+	core.AssertContains(t, output, "deleted_at: 2026-03-31T12:30:00Z")
+	core.AssertContains(t, output, "Use named actions.")
 }
 
 func TestCommands_CmdBrainRemember_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.remember", func(_ context.Context, options core.Options) core.Result {
-		assert.Equal(t, "Use named actions.", options.String("content"))
-		assert.Equal(t, "convention", options.String("type"))
-		assert.Equal(t, []string{"architecture", "history"}, optionStringSliceValue(options, "tags"))
-		assert.Equal(t, "agent", options.String("project"))
-		assert.Equal(t, "0.9", options.String("confidence"))
-		assert.Equal(t, "mem-1", options.String("supersedes"))
-		assert.Equal(t, 24, options.Int("expires_in"))
+		core.AssertEqual(t, "Use named actions.", options.String("content"))
+		core.AssertEqual(t, "convention", options.String("type"))
+		core.AssertEqual(t, []string{"architecture", "history"}, optionStringSliceValue(options, "tags"))
+		core.AssertEqual(t, "agent", options.String("project"))
+		core.AssertEqual(t, "0.9", options.String("confidence"))
+		core.AssertEqual(t, "mem-1", options.String("supersedes"))
+		core.AssertEqual(t, 24, options.Int("expires_in"))
 		return core.Result{Value: map[string]any{
 			"success":   true,
 			"memory_id": "mem-1",
@@ -304,11 +302,11 @@ func TestCommands_CmdBrainRemember_Good(t *testing.T) {
 			core.Option{Key: "supersedes", Value: "mem-1"},
 			core.Option{Key: "expires_in", Value: 24},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "remembered: mem-1")
-	assert.Contains(t, output, "timestamp:  2026-03-31T12:00:00Z")
+	core.AssertContains(t, output, "remembered: mem-1")
+	core.AssertContains(t, output, "timestamp:  2026-03-31T12:00:00Z")
 }
 
 func TestCommands_CmdBrainRemember_Bad_MissingContent(t *testing.T) {
@@ -318,10 +316,10 @@ func TestCommands_CmdBrainRemember_Bad_MissingContent(t *testing.T) {
 		core.Option{Key: "type", Value: "convention"},
 	))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "content and type are required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "content and type are required")
 }
 
 func TestCommands_CmdBrainRemember_Ugly_InvalidOutput(t *testing.T) {
@@ -335,10 +333,10 @@ func TestCommands_CmdBrainRemember_Ugly_InvalidOutput(t *testing.T) {
 		core.Option{Key: "type", Value: "convention"},
 	))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "invalid brain remember output")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "invalid brain remember output")
 }
 
 func TestCommands_CmdBrainList_Bad_MissingAction(t *testing.T) {
@@ -346,10 +344,10 @@ func TestCommands_CmdBrainList_Bad_MissingAction(t *testing.T) {
 
 	result := s.cmdBrainList(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "action not registered")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "action not registered")
 }
 
 func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
@@ -360,21 +358,21 @@ func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
 
 	result := s.cmdBrainList(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "invalid brain list output")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "invalid brain list output")
 }
 
 func TestCommands_CmdBrainRecall_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.recall", func(_ context.Context, options core.Options) core.Result {
-		assert.Equal(t, "workspace handoff context", options.String("query"))
-		assert.Equal(t, 3, options.Int("top_k"))
-		assert.Equal(t, "agent", options.String("project"))
-		assert.Equal(t, "architecture", options.String("type"))
-		assert.Equal(t, "virgil", options.String("agent_id"))
-		assert.Equal(t, "0.75", options.String("min_confidence"))
+		core.AssertEqual(t, "workspace handoff context", options.String("query"))
+		core.AssertEqual(t, 3, options.Int("top_k"))
+		core.AssertEqual(t, "agent", options.String("project"))
+		core.AssertEqual(t, "architecture", options.String("type"))
+		core.AssertEqual(t, "virgil", options.String("agent_id"))
+		core.AssertEqual(t, "0.75", options.String("min_confidence"))
 		return core.Result{Value: map[string]any{
 			"success": true,
 			"count":   1,
@@ -401,12 +399,12 @@ func TestCommands_CmdBrainRecall_Good(t *testing.T) {
 			core.Option{Key: "agent", Value: "virgil"},
 			core.Option{Key: "min_confidence", Value: "0.75"},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "count: 1")
-	assert.Contains(t, output, "mem-1 architecture")
-	assert.Contains(t, output, "Use named actions.")
+	core.AssertContains(t, output, "count: 1")
+	core.AssertContains(t, output, "mem-1 architecture")
+	core.AssertContains(t, output, "Use named actions.")
 }
 
 func TestCommands_CmdBrainRecall_Bad_MissingQuery(t *testing.T) {
@@ -414,10 +412,10 @@ func TestCommands_CmdBrainRecall_Bad_MissingQuery(t *testing.T) {
 
 	result := s.cmdBrainRecall(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "query is required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "query is required")
 }
 
 func TestCommands_CmdBrainRecall_Ugly_InvalidOutput(t *testing.T) {
@@ -428,17 +426,17 @@ func TestCommands_CmdBrainRecall_Ugly_InvalidOutput(t *testing.T) {
 
 	result := s.cmdBrainRecall(core.NewOptions(core.Option{Key: "_arg", Value: "workspace handoff context"}))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "invalid brain recall output")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "invalid brain recall output")
 }
 
 func TestCommands_CmdBrainForget_Good(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.forget", func(_ context.Context, options core.Options) core.Result {
-		assert.Equal(t, "mem-1", options.String("id"))
-		assert.Equal(t, "superseded", options.String("reason"))
+		core.AssertEqual(t, "mem-1", options.String("id"))
+		core.AssertEqual(t, "superseded", options.String("reason"))
 		return core.Result{Value: map[string]any{
 			"success":   true,
 			"forgotten": "mem-1",
@@ -450,11 +448,11 @@ func TestCommands_CmdBrainForget_Good(t *testing.T) {
 			core.Option{Key: "_arg", Value: "mem-1"},
 			core.Option{Key: "reason", Value: "superseded"},
 		))
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "forgotten: mem-1")
-	assert.Contains(t, output, "reason:    superseded")
+	core.AssertContains(t, output, "forgotten: mem-1")
+	core.AssertContains(t, output, "reason:    superseded")
 }
 
 func TestCommands_CmdBrainForget_Bad_MissingID(t *testing.T) {
@@ -462,10 +460,10 @@ func TestCommands_CmdBrainForget_Bad_MissingID(t *testing.T) {
 
 	result := s.cmdBrainForget(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "memory id is required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "memory id is required")
 }
 
 func TestCommands_CmdBrainForget_Ugly_ActionFailure(t *testing.T) {
@@ -476,10 +474,10 @@ func TestCommands_CmdBrainForget_Ugly_ActionFailure(t *testing.T) {
 
 	result := s.cmdBrainForget(core.NewOptions(core.Option{Key: "_arg", Value: "mem-1"}))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "failed to forget memory")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "failed to forget memory")
 }
 
 func TestCommandsforge_CmdIssueCreate_Bad_APIError(t *testing.T) {
@@ -499,13 +497,13 @@ func TestCommandsforge_CmdIssueCreate_Bad_APIError(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "title", Value: "Fail"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRGet_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRGet(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRGet_Good_Success(t *testing.T) {
@@ -523,7 +521,7 @@ func TestCommandsforge_CmdPRGet_Good_Success(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "3"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRGet_Bad_APIError(t *testing.T) {
@@ -537,7 +535,7 @@ func TestCommandsforge_CmdPRGet_Bad_APIError(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "99"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRList_Good_WithPRs(t *testing.T) {
@@ -553,7 +551,7 @@ func TestCommandsforge_CmdPRList_Good_WithPRs(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdPRList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRList_Bad_APIError(t *testing.T) {
@@ -564,7 +562,7 @@ func TestCommandsforge_CmdPRList_Bad_APIError(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdPRList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRMerge_Bad_APIError(t *testing.T) {
@@ -579,7 +577,7 @@ func TestCommandsforge_CmdPRMerge_Bad_APIError(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "5"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRMerge_Good_CustomMethod(t *testing.T) {
@@ -594,23 +592,23 @@ func TestCommandsforge_CmdPRMerge_Good_CustomMethod(t *testing.T) {
 		core.Option{Key: "number", Value: "5"},
 		core.Option{Key: "method", Value: "squash"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRClose_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRClose(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRClose_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPatch, r.Method)
-		assert.Equal(t, "/api/v1/repos/core/go-io/pulls/5", r.URL.Path)
+		core.AssertEqual(t, http.MethodPatch, r.Method)
+		core.AssertEqual(t, "/api/v1/repos/core/go-io/pulls/5", r.URL.Path)
 
 		bodyResult := core.ReadAll(r.Body)
-		assert.True(t, bodyResult.OK)
-		assert.Contains(t, bodyResult.Value.(string), `"state":"closed"`)
+		core.AssertTrue(t, bodyResult.OK)
+		core.AssertContains(t, bodyResult.Value.(string), `"state":"closed"`)
 
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 5,
@@ -624,7 +622,7 @@ func TestCommandsforge_CmdPRClose_Good_Success(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "5"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRClose_Ugly_APIError(t *testing.T) {
@@ -638,7 +636,7 @@ func TestCommandsforge_CmdPRClose_Ugly_APIError(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "5"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueGet_Good_WithBody(t *testing.T) {
@@ -655,7 +653,7 @@ func TestCommandsforge_CmdIssueGet_Good_WithBody(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "1"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueList_Bad_APIError(t *testing.T) {
@@ -666,7 +664,7 @@ func TestCommandsforge_CmdIssueList_Bad_APIError(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdIssueList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdIssueComment_Bad_APIError(t *testing.T) {
@@ -681,7 +679,7 @@ func TestCommandsforge_CmdIssueComment_Bad_APIError(t *testing.T) {
 		core.Option{Key: "number", Value: "1"},
 		core.Option{Key: "body", Value: "test"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdRepoGet_Bad_APIError(t *testing.T) {
@@ -692,7 +690,7 @@ func TestCommandsforge_CmdRepoGet_Bad_APIError(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdRepoGet(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdRepoList_Bad_APIError(t *testing.T) {
@@ -703,13 +701,13 @@ func TestCommandsforge_CmdRepoList_Bad_APIError(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdRepoList(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRList_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRList(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRList_Good_Empty(t *testing.T) {
@@ -720,13 +718,13 @@ func TestCommandsforge_CmdPRList_Good_Empty(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdPRList(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRMerge_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRMerge(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdPRMerge_Good_DefaultMethod(t *testing.T) {
@@ -740,13 +738,13 @@ func TestCommandsforge_CmdPRMerge_Good_DefaultMethod(t *testing.T) {
 		core.Option{Key: "_arg", Value: "go-io"},
 		core.Option{Key: "number", Value: "5"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdRepoGet_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdRepoGet(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsforge_CmdRepoGet_Good_Success(t *testing.T) {
@@ -761,7 +759,7 @@ func TestCommandsforge_CmdRepoGet_Good_Success(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdRepoGet(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsforge_CmdRepoList_Good_Success(t *testing.T) {
@@ -775,7 +773,7 @@ func TestCommandsforge_CmdRepoList_Good_Success(t *testing.T) {
 
 	s, _ := testPrepWithCore(t, srv)
 	r := s.cmdRepoList(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 // --- Workspace command methods ---
@@ -783,7 +781,7 @@ func TestCommandsforge_CmdRepoList_Good_Success(t *testing.T) {
 func TestCommandsworkspace_CmdWorkspaceList_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceList(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceList_Good_WithEntries(t *testing.T) {
@@ -795,13 +793,13 @@ func TestCommandsworkspace_CmdWorkspaceList_Good_WithEntries(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex"}))
 
 	r := s.cmdWorkspaceList(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceClean(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_RemovesCompleted(t *testing.T) {
@@ -813,9 +811,9 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_RemovesCompleted(t *testing.T)
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "completed", Repo: "go-io", Agent: "codex"}))
 
 	r := s.cmdWorkspaceClean(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
-	assert.False(t, fs.Exists(ws))
+	core.AssertFalse(t, fs.Exists(ws))
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
@@ -832,10 +830,10 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
 	}
 
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "failed"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
-	assert.False(t, fs.Exists(core.JoinPath(wsRoot, "ws-bad")))
-	assert.True(t, fs.Exists(core.JoinPath(wsRoot, "ws-ok")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, "ws-bad")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(wsRoot, "ws-ok")))
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
@@ -847,21 +845,21 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
 	fs.Write(core.JoinPath(d, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "blocked", Repo: "test", Agent: "codex"}))
 
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "blocked"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
-	assert.False(t, fs.Exists(d))
+	core.AssertFalse(t, fs.Exists(d))
 }
 
 func TestCommandsworkspace_CmdWorkspaceDispatch_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceDispatch(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceDispatch_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdWorkspaceDispatch(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.False(t, r.OK) // task is required
+	core.AssertFalse(t, r.OK) // task is required
 }
 
 // --- commands.go extracted methods ---
@@ -869,20 +867,20 @@ func TestCommandsworkspace_CmdWorkspaceDispatch_Bad_MissingTask(t *testing.T) {
 func TestCommands_CmdPrep_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrep(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdPrep_Good_DefaultsToDev(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	// Will fail (no local clone) but exercises the default branch logic
 	r := s.cmdPrep(core.NewOptions(core.Option{Key: "_arg", Value: "nonexistent-repo"}))
-	assert.False(t, r.OK) // expected — no local repo
+	core.AssertFalse(t, r.OK) // expected — no local repo
 }
 
 func TestCommands_CmdStatus_Good_Empty(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdStatus(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdStatus_Good_WithWorkspaces(t *testing.T) {
@@ -894,7 +892,7 @@ func TestCommands_CmdStatus_Good_WithWorkspaces(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "completed", Repo: "test", Agent: "codex"}))
 
 	r := s.cmdStatus(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdStatus_Good_DeepWorkspace(t *testing.T) {
@@ -910,13 +908,13 @@ func TestCommands_CmdStatus_Good_DeepWorkspace(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdStatus(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "completed")
-	assert.Contains(t, output, "codex")
-	assert.Contains(t, output, "go-io")
-	assert.Contains(t, output, "core/go-io/task-5")
+	core.AssertContains(t, output, "completed")
+	core.AssertContains(t, output, "codex")
+	core.AssertContains(t, output, "go-io")
+	core.AssertContains(t, output, "core/go-io/task-5")
 }
 
 func TestCommands_CmdStatus_Good_BranchWorkspace(t *testing.T) {
@@ -933,11 +931,11 @@ func TestCommands_CmdStatus_Good_BranchWorkspace(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdStatus(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "completed")
-	assert.Contains(t, output, "core/go-io/feature/new-ui")
+	core.AssertContains(t, output, "completed")
+	core.AssertContains(t, output, "core/go-io/feature/new-ui")
 }
 
 func TestCommands_CmdStatus_Good_BlockedQuestion(t *testing.T) {
@@ -954,13 +952,13 @@ func TestCommands_CmdStatus_Good_BlockedQuestion(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdStatus(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "blocked")
-	assert.Contains(t, output, "gemini")
-	assert.Contains(t, output, "go-io")
-	assert.Contains(t, output, "Which API version?")
+	core.AssertContains(t, output, "blocked")
+	core.AssertContains(t, output, "gemini")
+	core.AssertContains(t, output, "go-io")
+	core.AssertContains(t, output, "Which API version?")
 }
 
 func TestCommands_CmdStatus_Good_WorkspaceFilter(t *testing.T) {
@@ -984,11 +982,11 @@ func TestCommands_CmdStatus_Good_WorkspaceFilter(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdStatus(core.NewOptions(core.Option{Key: "workspace", Value: "core/go-io/task-9"}))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "core/go-io/task-9")
-	assert.NotContains(t, output, "core/go-log/task-4")
+	core.AssertContains(t, output, "core/go-io/task-9")
+	core.AssertNotContains(t, output, "core/go-log/task-4")
 }
 
 func TestCommands_CmdStatus_Good_StatusFilterAndLimit(t *testing.T) {
@@ -1017,24 +1015,24 @@ func TestCommands_CmdStatus_Good_StatusFilterAndLimit(t *testing.T) {
 			core.Option{Key: "status", Value: "blocked"},
 			core.Option{Key: "limit", Value: 1},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "ws-1")
-	assert.NotContains(t, output, "ws-2")
-	assert.NotContains(t, output, "ws-3")
+	core.AssertContains(t, output, "ws-1")
+	core.AssertNotContains(t, output, "ws-2")
+	core.AssertNotContains(t, output, "ws-3")
 }
 
 func TestCommands_CmdPrompt_Bad_MissingRepo(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdPrompt_Good_DefaultTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPrompt(core.NewOptions(core.Option{Key: "_arg", Value: "go-io"}))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdPrompt_Good_PlanTemplateVariables(t *testing.T) {
@@ -1053,23 +1051,23 @@ func TestCommands_CmdPrompt_Good_PlanTemplateVariables(t *testing.T) {
 			core.Option{Key: "plan_template", Value: "new-feature"},
 			core.Option{Key: "variables", Value: `{"feature_name":"Authentication"}`},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "PLAN:")
-	assert.Contains(t, output, "Authentication")
+	core.AssertContains(t, output, "PLAN:")
+	core.AssertContains(t, output, "Authentication")
 }
 
 func TestCommands_CmdGenerate_Bad_MissingPrompt(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdGenerate(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdGenerate_Good(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/content/generate", r.URL.Path)
-		assert.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/content/generate", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 		_, _ = w.Write([]byte(`{"data":{"id":"gen_1","provider":"claude","model":"claude-3.7-sonnet","content":"Release notes draft","input_tokens":12,"output_tokens":48,"status":"completed"}}`))
 	}))
 	defer server.Close()
@@ -1080,28 +1078,28 @@ func TestCommands_CmdGenerate_Good(t *testing.T) {
 			core.Option{Key: "_arg", Value: "Draft a release note"},
 			core.Option{Key: "provider", Value: "claude"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "provider: claude")
-	assert.Contains(t, output, "model:    claude-3.7-sonnet")
-	assert.Contains(t, output, "status:   completed")
-	assert.Contains(t, output, "content:  Release notes draft")
+	core.AssertContains(t, output, "provider: claude")
+	core.AssertContains(t, output, "model:    claude-3.7-sonnet")
+	core.AssertContains(t, output, "status:   completed")
+	core.AssertContains(t, output, "content:  Release notes draft")
 }
 
 func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/content/generate", r.URL.Path)
-		assert.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/content/generate", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		require.True(t, bodyResult.OK)
+		core.RequireTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		require.True(t, parseResult.OK)
-		assert.Equal(t, "brief_1", payload["brief_id"])
-		assert.Equal(t, "help-article", payload["template"])
+		core.RequireTrue(t, parseResult.OK)
+		core.AssertEqual(t, "brief_1", payload["brief_id"])
+		core.AssertEqual(t, "help-article", payload["template"])
 
 		_, _ = w.Write([]byte(`{"data":{"id":"gen_2","provider":"claude","model":"claude-3.7-sonnet","content":"Template draft","status":"completed"}}`))
 	}))
@@ -1114,13 +1112,13 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 			core.Option{Key: "template", Value: "help-article"},
 			core.Option{Key: "provider", Value: "claude"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "provider: claude")
-	assert.Contains(t, output, "model:    claude-3.7-sonnet")
-	assert.Contains(t, output, "status:   completed")
-	assert.Contains(t, output, "content:  Template draft")
+	core.AssertContains(t, output, "provider: claude")
+	core.AssertContains(t, output, "model:    claude-3.7-sonnet")
+	core.AssertContains(t, output, "status:   completed")
+	core.AssertContains(t, output, "content:  Template draft")
 }
 
 func TestCommands_CmdContentSchemaGenerate_Good(t *testing.T) {
@@ -1133,12 +1131,12 @@ func TestCommands_CmdContentSchemaGenerate_Good(t *testing.T) {
 			core.Option{Key: "url", Value: "https://example.test/workspace"},
 			core.Option{Key: "steps", Value: `[{"name":"Clone","text":"Clone the repository."},{"name":"Prepare","text":"Build the prompt."}]`},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "schema type: HowTo")
-	assert.Contains(t, output, `"@type":"HowTo"`)
-	assert.Contains(t, output, `"name":"Set up the workspace"`)
+	core.AssertContains(t, output, "schema type: HowTo")
+	core.AssertContains(t, output, `"@type":"HowTo"`)
+	core.AssertContains(t, output, `"name":"Set up the workspace"`)
 }
 
 func TestCommands_CmdContentSchemaGenerate_Bad_MissingTitle(t *testing.T) {
@@ -1146,7 +1144,7 @@ func TestCommands_CmdContentSchemaGenerate_Bad_MissingTitle(t *testing.T) {
 	r := s.cmdContentSchemaGenerate(core.NewOptions(
 		core.Option{Key: "type", Value: "howto"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdContentSchemaGenerate_Ugly_InvalidSchemaType(t *testing.T) {
@@ -1155,7 +1153,7 @@ func TestCommands_CmdContentSchemaGenerate_Ugly_InvalidSchemaType(t *testing.T) 
 		core.Option{Key: "type", Value: "toast"},
 		core.Option{Key: "title", Value: "Set up the workspace"},
 	))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdComplete_Good(t *testing.T) {
@@ -1174,14 +1172,14 @@ func TestCommands_CmdComplete_Good(t *testing.T) {
 	r := s.cmdComplete(core.NewOptions(
 		core.Option{Key: "workspace", Value: core.JoinPath(WorkspaceRoot(), "core/go-io/task-42")},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdComplete_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	r := s.cmdComplete(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdScan_Good(t *testing.T) {
@@ -1201,12 +1199,12 @@ func TestCommands_CmdScan_Good(t *testing.T) {
 			core.Option{Key: "labels", Value: "agentic,bug"},
 			core.Option{Key: "limit", Value: 5},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "count:")
-	assert.Contains(t, output, "go-io#10")
-	assert.Contains(t, output, "Add missing tests")
+	core.AssertContains(t, output, "count:")
+	core.AssertContains(t, output, "go-io#10")
+	core.AssertContains(t, output, "Add missing tests")
 }
 
 func TestCommands_CmdScan_Bad_NoForgeToken(t *testing.T) {
@@ -1214,7 +1212,7 @@ func TestCommands_CmdScan_Bad_NoForgeToken(t *testing.T) {
 	s.forgeToken = ""
 
 	r := s.cmdScan(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
@@ -1243,10 +1241,10 @@ func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
 			core.Option{Key: "org", Value: "core"},
 			core.Option{Key: "limit", Value: 1},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "count: 0")
+	core.AssertContains(t, output, "count: 0")
 }
 
 func TestCommands_CmdPlanCreate_Good(t *testing.T) {
@@ -1258,20 +1256,20 @@ func TestCommands_CmdPlanCreate_Good(t *testing.T) {
 		core.Option{Key: "objective", Value: "Use Core.Process everywhere"},
 	))
 
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	output, ok := r.Value.(PlanCreateOutput)
-	require.True(t, ok)
-	require.NotEmpty(t, output.ID)
-	require.NotEmpty(t, output.Path)
-	assert.True(t, fs.Exists(output.Path))
+	core.RequireTrue(t, ok)
+	core.RequireNotEmpty(t, output.ID)
+	core.RequireNotEmpty(t, output.Path)
+	core.AssertTrue(t, fs.Exists(output.Path))
 
 	plan, err := readPlan(PlansRoot(), output.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "Migrate Core", plan.Title)
-	assert.Equal(t, "Use Core.Process everywhere", plan.Objective)
-	assert.Equal(t, "draft", plan.Status)
-	assert.Equal(t, "migrate-core", plan.Slug)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Migrate Core", plan.Title)
+	core.AssertEqual(t, "Use Core.Process everywhere", plan.Objective)
+	core.AssertEqual(t, "draft", plan.Status)
+	core.AssertEqual(t, "migrate-core", plan.Slug)
 }
 
 func TestCommands_CmdPlanStatus_Good_GetAndSet(t *testing.T) {
@@ -1281,28 +1279,28 @@ func TestCommands_CmdPlanStatus_Good_GetAndSet(t *testing.T) {
 		Title:     "Status Plan",
 		Objective: "Exercise plan status management",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	getOutput := captureStdout(t, func() {
 		r := s.cmdPlanStatus(core.NewOptions(core.Option{Key: "_arg", Value: created.ID}))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, getOutput, "status:")
-	assert.Contains(t, getOutput, "draft")
+	core.AssertContains(t, getOutput, "status:")
+	core.AssertContains(t, getOutput, "draft")
 
 	setOutput := captureStdout(t, func() {
 		r := s.cmdPlanStatus(core.NewOptions(
 			core.Option{Key: "_arg", Value: created.ID},
 			core.Option{Key: "set", Value: "ready"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, setOutput, "status:")
-	assert.Contains(t, setOutput, "ready")
+	core.AssertContains(t, setOutput, "status:")
+	core.AssertContains(t, setOutput, "ready")
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "ready", plan.Status)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "ready", plan.Status)
 }
 
 func TestCommands_CmdPlanArchive_Good(t *testing.T) {
@@ -1312,21 +1310,21 @@ func TestCommands_CmdPlanArchive_Good(t *testing.T) {
 		Title:     "Archive Plan",
 		Objective: "Exercise archive command",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	output := captureStdout(t, func() {
 		r := s.cmdPlanArchive(core.NewOptions(
 			core.Option{Key: "_arg", Value: created.ID},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "archived:")
+	core.AssertContains(t, output, "archived:")
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "archived", plan.Status)
-	assert.False(t, plan.ArchivedAt.IsZero())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "archived", plan.Status)
+	core.AssertFalse(t, plan.ArchivedAt.IsZero())
 }
 
 func TestCommands_CmdPlanDelete_Good(t *testing.T) {
@@ -1336,22 +1334,22 @@ func TestCommands_CmdPlanDelete_Good(t *testing.T) {
 		Title:     "Delete Plan",
 		Objective: "Exercise delete command",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	output := captureStdout(t, func() {
 		r := s.cmdPlanDelete(core.NewOptions(
 			core.Option{Key: "_arg", Value: created.ID},
 			core.Option{Key: "reason", Value: "RFC contract says soft delete"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "deleted:")
+	core.AssertContains(t, output, "deleted:")
 
-	assert.False(t, fs.Exists(created.Path))
+	core.AssertFalse(t, fs.Exists(created.Path))
 
 	_, readErr := readPlan(PlansRoot(), created.ID)
-	require.Error(t, readErr)
+	core.AssertError(t, readErr)
 }
 
 func TestCommands_CmdExtract_Good(t *testing.T) {
@@ -1361,7 +1359,7 @@ func TestCommands_CmdExtract_Good(t *testing.T) {
 		core.Option{Key: "_arg", Value: "default"},
 		core.Option{Key: "target", Value: target},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdExtract_Good_FromAgentOutput(t *testing.T) {
@@ -1369,32 +1367,32 @@ func TestCommands_CmdExtract_Good_FromAgentOutput(t *testing.T) {
 	dir := t.TempDir()
 	source := core.JoinPath(dir, "agent-output.md")
 	target := core.JoinPath(dir, "extracted.json")
-	require.True(t, fs.Write(source, "Agent run complete.\n\n```json\n{\"summary\":\"done\",\"findings\":2}\n```\n").OK)
+	core.RequireTrue(t, fs.Write(source, "Agent run complete.\n\n```json\n{\"summary\":\"done\",\"findings\":2}\n```\n").OK)
 
 	output := captureStdout(t, func() {
 		r := s.cmdExtract(core.NewOptions(
 			core.Option{Key: "source", Value: source},
 			core.Option{Key: "target", Value: target},
 		))
-		assert.True(t, r.OK)
-		assert.Equal(t, "{\"summary\":\"done\",\"findings\":2}", r.Value)
+		core.AssertTrue(t, r.OK)
+		core.AssertEqual(t, "{\"summary\":\"done\",\"findings\":2}", r.Value)
 	})
 
-	assert.Contains(t, output, "written: ")
-	assert.True(t, fs.Exists(target))
+	core.AssertContains(t, output, "written: ")
+	core.AssertTrue(t, fs.Exists(target))
 	written := fs.Read(target)
-	require.True(t, written.OK)
-	assert.Equal(t, "{\"summary\":\"done\",\"findings\":2}", written.Value)
+	core.RequireTrue(t, written.OK)
+	core.AssertEqual(t, "{\"summary\":\"done\",\"findings\":2}", written.Value)
 }
 
 func TestCommands_CmdExtract_Bad_NoExtractableContent(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	dir := t.TempDir()
 	source := core.JoinPath(dir, "agent-output.md")
-	require.True(t, fs.Write(source, "Agent run complete.\nNothing structured here.\n").OK)
+	core.RequireTrue(t, fs.Write(source, "Agent run complete.\nNothing structured here.\n").OK)
 
 	r := s.cmdExtract(core.NewOptions(core.Option{Key: "source", Value: source}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
@@ -1403,7 +1401,7 @@ func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	defer cancel()
 	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdDispatchSync_Bad_MissingArgs(t *testing.T) {
@@ -1412,7 +1410,7 @@ func TestCommands_CmdDispatchSync_Bad_MissingArgs(t *testing.T) {
 	defer cancel()
 	s.startupContext = ctx
 	r := s.cmdDispatchSync(core.NewOptions())
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
@@ -1421,7 +1419,7 @@ func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	defer cancel()
 	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
@@ -1430,7 +1428,7 @@ func TestCommands_CmdOrchestrator_Good_CancelledCtx(t *testing.T) {
 	cancel() // cancel immediately
 	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdDispatch_Good_CancelledCtx(t *testing.T) {
@@ -1439,7 +1437,7 @@ func TestCommands_CmdDispatch_Good_CancelledCtx(t *testing.T) {
 	cancel()
 	s.startupContext = ctx
 	r := s.cmdDispatch(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdDispatchStart_Good(t *testing.T) {
@@ -1452,11 +1450,11 @@ func TestCommands_CmdDispatchStart_Good(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdDispatchStart(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.True(t, called)
-	assert.Contains(t, output, "dispatch started")
+	core.AssertTrue(t, called)
+	core.AssertContains(t, output, "dispatch started")
 }
 
 func TestCommands_CmdDispatchShutdown_Good(t *testing.T) {
@@ -1469,11 +1467,11 @@ func TestCommands_CmdDispatchShutdown_Good(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdDispatchShutdown(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.True(t, called)
-	assert.Contains(t, output, "queue frozen")
+	core.AssertTrue(t, called)
+	core.AssertContains(t, output, "queue frozen")
 }
 
 func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
@@ -1486,11 +1484,11 @@ func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdDispatchShutdownNow(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.True(t, called)
-	assert.Contains(t, output, "killed all agents")
+	core.AssertTrue(t, called)
+	core.AssertContains(t, output, "killed all agents")
 }
 
 func TestCommands_CmdPoke_Good(t *testing.T) {
@@ -1503,19 +1501,19 @@ func TestCommands_CmdPoke_Good(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		r := s.cmdPoke(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.True(t, called)
-	assert.Contains(t, output, "queue poke requested")
+	core.AssertTrue(t, called)
+	core.AssertContains(t, output, "queue poke requested")
 }
 
 func TestCommands_ParseIntStr_Good(t *testing.T) {
-	assert.Equal(t, 42, parseIntString("42"))
-	assert.Equal(t, 123, parseIntString("issue-123"))
-	assert.Equal(t, 0, parseIntString(""))
-	assert.Equal(t, 0, parseIntString("abc"))
-	assert.Equal(t, 7, parseIntString("#7"))
+	core.AssertEqual(t, 42, parseIntString("42"))
+	core.AssertEqual(t, 123, parseIntString("issue-123"))
+	core.AssertEqual(t, 0, parseIntString(""))
+	core.AssertEqual(t, 0, parseIntString("abc"))
+	core.AssertEqual(t, 7, parseIntString("#7"))
 }
 
 // --- Registration verification ---
@@ -1527,128 +1525,128 @@ func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	s.registerCommands(ctx)
 
 	cmds := c.Commands()
-	assert.Contains(t, cmds, "run/task")
-	assert.Contains(t, cmds, "agentic:run/task")
-	assert.Contains(t, cmds, "run/flow")
-	assert.Contains(t, cmds, "agentic:run/flow")
-	assert.Contains(t, cmds, "flow/preview")
-	assert.Contains(t, cmds, "agentic:flow/preview")
-	assert.Contains(t, cmds, "dispatch/sync")
-	assert.Contains(t, cmds, "agentic:dispatch/sync")
-	assert.Contains(t, cmds, "run/orchestrator")
-	assert.Contains(t, cmds, "agentic:run/orchestrator")
-	assert.Contains(t, cmds, "dispatch")
-	assert.Contains(t, cmds, "agentic:dispatch")
-	assert.Contains(t, cmds, "dispatch/start")
-	assert.Contains(t, cmds, "agentic:dispatch/start")
-	assert.Contains(t, cmds, "dispatch/shutdown")
-	assert.Contains(t, cmds, "agentic:dispatch/shutdown")
-	assert.Contains(t, cmds, "dispatch/shutdown-now")
-	assert.Contains(t, cmds, "agentic:dispatch/shutdown-now")
-	assert.Contains(t, cmds, "poke")
-	assert.Contains(t, cmds, "agentic:poke")
-	assert.Contains(t, cmds, "prep")
-	assert.Contains(t, cmds, "agentic:prep-workspace")
-	assert.Contains(t, cmds, "resume")
-	assert.Contains(t, cmds, "agentic:resume")
-	assert.Contains(t, cmds, "content/generate")
-	assert.Contains(t, cmds, "agentic:content/generate")
-	assert.Contains(t, cmds, "content/schema/generate")
-	assert.Contains(t, cmds, "agentic:content/schema/generate")
-	assert.Contains(t, cmds, "complete")
-	assert.Contains(t, cmds, "agentic:complete")
-	assert.Contains(t, cmds, "scan")
-	assert.Contains(t, cmds, "agentic:scan")
-	assert.Contains(t, cmds, "mirror")
-	assert.Contains(t, cmds, "agentic:mirror")
-	assert.Contains(t, cmds, "brain/ingest")
-	assert.Contains(t, cmds, "brain:ingest")
-	assert.Contains(t, cmds, "brain/seed-memory")
-	assert.Contains(t, cmds, "brain:seed-memory")
-	assert.Contains(t, cmds, "brain/list")
-	assert.Contains(t, cmds, "brain:list")
-	assert.Contains(t, cmds, "brain/forget")
-	assert.Contains(t, cmds, "brain:forget")
-	assert.Contains(t, cmds, "status")
-	assert.Contains(t, cmds, "agentic:status")
-	assert.Contains(t, cmds, "prompt")
-	assert.Contains(t, cmds, "agentic:prompt")
-	assert.Contains(t, cmds, "prompt_version")
-	assert.Contains(t, cmds, "agentic:prompt_version")
-	assert.Contains(t, cmds, "prompt/version")
-	assert.Contains(t, cmds, "extract")
-	assert.Contains(t, cmds, "agentic:extract")
-	assert.Contains(t, cmds, "lang/detect")
-	assert.Contains(t, cmds, "agentic:lang/detect")
-	assert.Contains(t, cmds, "lang/list")
-	assert.Contains(t, cmds, "agentic:lang/list")
-	assert.Contains(t, cmds, "epic")
-	assert.Contains(t, cmds, "agentic:epic")
-	assert.Contains(t, cmds, "plan")
-	assert.Contains(t, cmds, "agentic:plan/create")
-	assert.Contains(t, cmds, "plan/create")
-	assert.Contains(t, cmds, "agentic:plan/list")
-	assert.Contains(t, cmds, "plan/list")
-	assert.Contains(t, cmds, "agentic:plan/read")
-	assert.Contains(t, cmds, "plan/read")
-	assert.Contains(t, cmds, "agentic:plan/show")
-	assert.Contains(t, cmds, "plan/show")
-	assert.Contains(t, cmds, "agentic:plan/status")
-	assert.Contains(t, cmds, "plan/update")
-	assert.Contains(t, cmds, "agentic:plan/update")
-	assert.Contains(t, cmds, "agentic:plan/check")
-	assert.Contains(t, cmds, "plan/status")
-	assert.Contains(t, cmds, "plan/check")
-	assert.Contains(t, cmds, "agentic:plan/archive")
-	assert.Contains(t, cmds, "plan/archive")
-	assert.Contains(t, cmds, "agentic:plan/delete")
-	assert.Contains(t, cmds, "plan/delete")
-	assert.Contains(t, cmds, "agentic:plan-cleanup")
-	assert.Contains(t, cmds, "commit")
-	assert.Contains(t, cmds, "agentic:commit")
-	assert.Contains(t, cmds, "session/start")
-	assert.Contains(t, cmds, "session/get")
-	assert.Contains(t, cmds, "agentic:session/get")
-	assert.Contains(t, cmds, "session/list")
-	assert.Contains(t, cmds, "agentic:session/list")
-	assert.Contains(t, cmds, "agentic:session/start")
-	assert.Contains(t, cmds, "session/continue")
-	assert.Contains(t, cmds, "agentic:session/continue")
-	assert.Contains(t, cmds, "session/end")
-	assert.Contains(t, cmds, "agentic:session/end")
-	assert.Contains(t, cmds, "pr-manage")
-	assert.Contains(t, cmds, "agentic:pr-manage")
-	assert.Contains(t, cmds, "review-queue")
-	assert.Contains(t, cmds, "agentic:review-queue")
-	assert.Contains(t, cmds, "task")
-	assert.Contains(t, cmds, "phase")
-	assert.Contains(t, cmds, "agentic:phase")
-	assert.Contains(t, cmds, "phase/get")
-	assert.Contains(t, cmds, "agentic:phase/get")
-	assert.Contains(t, cmds, "phase/update_status")
-	assert.Contains(t, cmds, "agentic:phase/update_status")
-	assert.Contains(t, cmds, "phase/add_checkpoint")
-	assert.Contains(t, cmds, "agentic:phase/add_checkpoint")
-	assert.Contains(t, cmds, "task/update")
-	assert.Contains(t, cmds, "task/toggle")
-	assert.Contains(t, cmds, "sprint")
-	assert.Contains(t, cmds, "sprint/create")
+	core.AssertContains(t, cmds, "run/task")
+	core.AssertContains(t, cmds, "agentic:run/task")
+	core.AssertContains(t, cmds, "run/flow")
+	core.AssertContains(t, cmds, "agentic:run/flow")
+	core.AssertContains(t, cmds, "flow/preview")
+	core.AssertContains(t, cmds, "agentic:flow/preview")
+	core.AssertContains(t, cmds, "dispatch/sync")
+	core.AssertContains(t, cmds, "agentic:dispatch/sync")
+	core.AssertContains(t, cmds, "run/orchestrator")
+	core.AssertContains(t, cmds, "agentic:run/orchestrator")
+	core.AssertContains(t, cmds, "dispatch")
+	core.AssertContains(t, cmds, "agentic:dispatch")
+	core.AssertContains(t, cmds, "dispatch/start")
+	core.AssertContains(t, cmds, "agentic:dispatch/start")
+	core.AssertContains(t, cmds, "dispatch/shutdown")
+	core.AssertContains(t, cmds, "agentic:dispatch/shutdown")
+	core.AssertContains(t, cmds, "dispatch/shutdown-now")
+	core.AssertContains(t, cmds, "agentic:dispatch/shutdown-now")
+	core.AssertContains(t, cmds, "poke")
+	core.AssertContains(t, cmds, "agentic:poke")
+	core.AssertContains(t, cmds, "prep")
+	core.AssertContains(t, cmds, "agentic:prep-workspace")
+	core.AssertContains(t, cmds, "resume")
+	core.AssertContains(t, cmds, "agentic:resume")
+	core.AssertContains(t, cmds, "content/generate")
+	core.AssertContains(t, cmds, "agentic:content/generate")
+	core.AssertContains(t, cmds, "content/schema/generate")
+	core.AssertContains(t, cmds, "agentic:content/schema/generate")
+	core.AssertContains(t, cmds, "complete")
+	core.AssertContains(t, cmds, "agentic:complete")
+	core.AssertContains(t, cmds, "scan")
+	core.AssertContains(t, cmds, "agentic:scan")
+	core.AssertContains(t, cmds, "mirror")
+	core.AssertContains(t, cmds, "agentic:mirror")
+	core.AssertContains(t, cmds, "brain/ingest")
+	core.AssertContains(t, cmds, "brain:ingest")
+	core.AssertContains(t, cmds, "brain/seed-memory")
+	core.AssertContains(t, cmds, "brain:seed-memory")
+	core.AssertContains(t, cmds, "brain/list")
+	core.AssertContains(t, cmds, "brain:list")
+	core.AssertContains(t, cmds, "brain/forget")
+	core.AssertContains(t, cmds, "brain:forget")
+	core.AssertContains(t, cmds, "status")
+	core.AssertContains(t, cmds, "agentic:status")
+	core.AssertContains(t, cmds, "prompt")
+	core.AssertContains(t, cmds, "agentic:prompt")
+	core.AssertContains(t, cmds, "prompt_version")
+	core.AssertContains(t, cmds, "agentic:prompt_version")
+	core.AssertContains(t, cmds, "prompt/version")
+	core.AssertContains(t, cmds, "extract")
+	core.AssertContains(t, cmds, "agentic:extract")
+	core.AssertContains(t, cmds, "lang/detect")
+	core.AssertContains(t, cmds, "agentic:lang/detect")
+	core.AssertContains(t, cmds, "lang/list")
+	core.AssertContains(t, cmds, "agentic:lang/list")
+	core.AssertContains(t, cmds, "epic")
+	core.AssertContains(t, cmds, "agentic:epic")
+	core.AssertContains(t, cmds, "plan")
+	core.AssertContains(t, cmds, "agentic:plan/create")
+	core.AssertContains(t, cmds, "plan/create")
+	core.AssertContains(t, cmds, "agentic:plan/list")
+	core.AssertContains(t, cmds, "plan/list")
+	core.AssertContains(t, cmds, "agentic:plan/read")
+	core.AssertContains(t, cmds, "plan/read")
+	core.AssertContains(t, cmds, "agentic:plan/show")
+	core.AssertContains(t, cmds, "plan/show")
+	core.AssertContains(t, cmds, "agentic:plan/status")
+	core.AssertContains(t, cmds, "plan/update")
+	core.AssertContains(t, cmds, "agentic:plan/update")
+	core.AssertContains(t, cmds, "agentic:plan/check")
+	core.AssertContains(t, cmds, "plan/status")
+	core.AssertContains(t, cmds, "plan/check")
+	core.AssertContains(t, cmds, "agentic:plan/archive")
+	core.AssertContains(t, cmds, "plan/archive")
+	core.AssertContains(t, cmds, "agentic:plan/delete")
+	core.AssertContains(t, cmds, "plan/delete")
+	core.AssertContains(t, cmds, "agentic:plan-cleanup")
+	core.AssertContains(t, cmds, "commit")
+	core.AssertContains(t, cmds, "agentic:commit")
+	core.AssertContains(t, cmds, "session/start")
+	core.AssertContains(t, cmds, "session/get")
+	core.AssertContains(t, cmds, "agentic:session/get")
+	core.AssertContains(t, cmds, "session/list")
+	core.AssertContains(t, cmds, "agentic:session/list")
+	core.AssertContains(t, cmds, "agentic:session/start")
+	core.AssertContains(t, cmds, "session/continue")
+	core.AssertContains(t, cmds, "agentic:session/continue")
+	core.AssertContains(t, cmds, "session/end")
+	core.AssertContains(t, cmds, "agentic:session/end")
+	core.AssertContains(t, cmds, "pr-manage")
+	core.AssertContains(t, cmds, "agentic:pr-manage")
+	core.AssertContains(t, cmds, "review-queue")
+	core.AssertContains(t, cmds, "agentic:review-queue")
+	core.AssertContains(t, cmds, "task")
+	core.AssertContains(t, cmds, "phase")
+	core.AssertContains(t, cmds, "agentic:phase")
+	core.AssertContains(t, cmds, "phase/get")
+	core.AssertContains(t, cmds, "agentic:phase/get")
+	core.AssertContains(t, cmds, "phase/update_status")
+	core.AssertContains(t, cmds, "agentic:phase/update_status")
+	core.AssertContains(t, cmds, "phase/add_checkpoint")
+	core.AssertContains(t, cmds, "agentic:phase/add_checkpoint")
+	core.AssertContains(t, cmds, "task/update")
+	core.AssertContains(t, cmds, "task/toggle")
+	core.AssertContains(t, cmds, "sprint")
+	core.AssertContains(t, cmds, "sprint/create")
 }
 
 func TestCommands_CmdPRManage_Good_NoCandidates(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPRManage(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdMirror_Good_NoRepos(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	output := captureStdout(t, func() {
 		r := s.cmdMirror(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
 
-	assert.Contains(t, output, "count: 0")
+	core.AssertContains(t, output, "count: 0")
 }
 
 // --- CmdExtract Bad/Ugly ---
@@ -1663,7 +1661,7 @@ func TestCommands_CmdExtract_Bad_TargetDirAlreadyHasFiles(t *testing.T) {
 	r := s.cmdExtract(core.NewOptions(
 		core.Option{Key: "target", Value: target},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestCommands_CmdExtract_Ugly_TargetIsFile(t *testing.T) {
@@ -1676,7 +1674,7 @@ func TestCommands_CmdExtract_Ugly_TargetIsFile(t *testing.T) {
 		core.Option{Key: "target", Value: target},
 	))
 	// Extraction should fail because target is a file, not a directory
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 // --- CmdOrchestrator Bad/Ugly ---
@@ -1687,7 +1685,7 @@ func TestCommands_CmdOrchestrator_Bad_DoneContext(t *testing.T) {
 	defer cancel()
 	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
-	assert.True(t, r.OK) // returns OK after ctx.Done()
+	core.AssertTrue(t, r.OK) // returns OK after ctx.Done()
 }
 
 func TestCommands_CmdOrchestrator_Ugly_CancelledImmediately(t *testing.T) {
@@ -1696,7 +1694,7 @@ func TestCommands_CmdOrchestrator_Ugly_CancelledImmediately(t *testing.T) {
 	cancel()
 	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
-	assert.True(t, r.OK) // exits immediately when context is already cancelled
+	core.AssertTrue(t, r.OK) // exits immediately when context is already cancelled
 }
 
 // --- CmdPrep Ugly ---
@@ -1717,7 +1715,7 @@ func TestCommands_CmdPrep_Ugly_AllOptionalFields(t *testing.T) {
 		core.Option{Key: "dry-run", Value: "true"},
 	))
 	// Will fail (no local clone) but exercises all option parsing paths
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 // --- CmdPrompt Ugly ---
@@ -1731,7 +1729,7 @@ func TestCommands_CmdPrompt_Ugly_AllOptionalFields(t *testing.T) {
 		core.Option{Key: "template", Value: "verify"},
 		core.Option{Key: "persona", Value: "engineering/security"},
 	))
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 // --- CmdRunTask Good/Ugly ---
@@ -1747,7 +1745,7 @@ func TestCommands_CmdRunTask_Good_DefaultsApplied(t *testing.T) {
 		core.Option{Key: "task", Value: "run all tests"},
 	))
 	// Will fail on dispatch but exercises the default-filling path
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
@@ -1761,7 +1759,7 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 		core.Option{Key: "issue", Value: "issue-42abc"},
 	))
 	// Will fail on dispatch but exercises parseIntString with mixed chars
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 // --- CommandContext Good/Bad/Ugly ---
@@ -1771,13 +1769,13 @@ func TestCommands_CommandContext_Good_StoredStartupContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.registerCommands(ctx)
-	assert.Same(t, ctx, s.commandContext())
+	core.AssertSame(t, ctx, s.commandContext())
 }
 
 func TestCommands_CommandContext_Bad_FallsBackToBackground(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	assert.NotNil(t, s.commandContext())
-	assert.NoError(t, s.commandContext().Err())
+	core.AssertNotNil(t, s.commandContext())
+	core.AssertNoError(t, s.commandContext().Err())
 }
 
 func TestCommands_CommandContext_Ugly_CancelledStartupContext(t *testing.T) {
@@ -1786,7 +1784,7 @@ func TestCommands_CommandContext_Ugly_CancelledStartupContext(t *testing.T) {
 	cancel() // pre-cancelled
 	s.startupContext = ctx
 	r := s.cmdOrchestrator(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 // --- CmdStatus Bad/Ugly ---
@@ -1804,7 +1802,7 @@ func TestCommands_CmdStatus_Bad_NoWorkspaceDir(t *testing.T) {
 	}
 
 	r := s.cmdStatus(core.NewOptions())
-	assert.True(t, r.OK) // returns OK with "no workspaces found"
+	core.AssertTrue(t, r.OK) // returns OK with "no workspaces found"
 }
 
 func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
@@ -1821,22 +1819,22 @@ func TestCommands_CmdStatus_Ugly_NonDirEntries(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"}))
 
 	r := s.cmdStatus(core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 // --- ParseIntStr Bad/Ugly ---
 
 func TestCommands_ParseIntStr_Bad_NegativeAndOverflow(t *testing.T) {
 	// parseIntString extracts digits only, ignoring minus signs
-	assert.Equal(t, 5, parseIntString("-5"))  // extracts "5", ignores "-"
-	assert.Equal(t, 0, parseIntString("-"))   // no digits
-	assert.Equal(t, 0, parseIntString("---")) // no digits
+	core.AssertEqual(t, 5, parseIntString("-5"))  // extracts "5", ignores "-"
+	core.AssertEqual(t, 0, parseIntString("-"))   // no digits
+	core.AssertEqual(t, 0, parseIntString("---")) // no digits
 }
 
 func TestCommands_ParseIntStr_Ugly_UnicodeAndMixed(t *testing.T) {
 	// Unicode digits (e.g. Arabic-Indic) are NOT ASCII 0-9 so ignored
-	assert.Equal(t, 0, parseIntString("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
-	assert.Equal(t, 42, parseIntString("abc42xyz"))          // mixed chars
-	assert.Equal(t, 123, parseIntString("1a2b3c"))           // interleaved
-	assert.Equal(t, 0, parseIntString("  \t\n"))             // whitespace only
+	core.AssertEqual(t, 0, parseIntString("\u0661\u0662\u0663")) // ١٢٣ — not ASCII digits
+	core.AssertEqual(t, 42, parseIntString("abc42xyz"))          // mixed chars
+	core.AssertEqual(t, 123, parseIntString("1a2b3c"))           // interleaved
+	core.AssertEqual(t, 0, parseIntString("  \t\n"))             // whitespace only
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var fleetBackoffSchedule = []time.Duration{
@@ -161,7 +161,9 @@ func (s *PrepSubsystem) startFleetPollFallback(ctx context.Context, config fleet
 	pollingDone := make(chan struct{})
 	go func() {
 		defer close(pollingDone)
-		_ = s.runFleetPollFallback(pollingContext, config)
+		if result := s.runFleetPollFallback(pollingContext, config); !result.OK {
+			core.Warn("fleet poll fallback exited", "reason", result.Value)
+		}
 	}()
 	return cancelPolling, pollingDone
 }
@@ -602,7 +604,9 @@ func resetFleetRuntimeState() {
 	fleetRuntimeState.mu.Lock()
 	fleetRuntimeState.snapshot = fleetRuntimeSnapshot{State: "offline"}
 	fleetRuntimeState.mu.Unlock()
-	_ = fs.Delete(fleetStatusSnapshotPath())
+	if deleteResult := fs.Delete(fleetStatusSnapshotPath()); !deleteResult.OK && fs.Exists(fleetStatusSnapshotPath()) {
+		core.Warn("agentic: failed to delete fleet status snapshot", "path", fleetStatusSnapshotPath(), "reason", deleteResult.Value)
+	}
 }
 
 func fleetSnapshotEmpty(snapshot fleetRuntimeSnapshot) bool {
@@ -624,7 +628,9 @@ func persistFleetRuntimeSnapshot(snapshot fleetRuntimeSnapshot) {
 	if ensureResult := fs.EnsureDir(core.PathDir(fleetStatusSnapshotPath())); !ensureResult.OK {
 		return
 	}
-	_ = fs.WriteMode(fleetStatusSnapshotPath(), core.JSONMarshalString(snapshot), 0644)
+	if writeResult := fs.WriteMode(fleetStatusSnapshotPath(), core.JSONMarshalString(snapshot), 0644); !writeResult.OK {
+		core.Warn("agentic: failed to write fleet status snapshot", "path", fleetStatusSnapshotPath(), "reason", writeResult.Value)
+	}
 }
 
 func loadFleetRuntimeSnapshot() fleetRuntimeSnapshot {

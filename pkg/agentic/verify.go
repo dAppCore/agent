@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // s.autoVerifyAndMerge("/srv/core/workspace/core/go-io/task-5")

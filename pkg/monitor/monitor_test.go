@@ -11,13 +11,11 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var testMon *Subsystem
@@ -66,10 +64,10 @@ func startManagedProcess(t *testing.T, c *core.Core) *process.Process {
 		core.Option{Key: "args", Value: []string{"30"}},
 		core.Option{Key: "detach", Value: true},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	proc, ok := r.Value.(*process.Process)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	t.Cleanup(func() {
 		_ = proc.Kill()
 	})
@@ -81,24 +79,27 @@ func startManagedProcess(t *testing.T, c *core.Core) *process.Process {
 func TestMonitor_New_Good_Defaults(t *testing.T) {
 	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New()
-	assert.Equal(t, 2*time.Minute, mon.interval)
-	assert.NotNil(t, mon.poke)
+	core.AssertEqual(t, 2*time.Minute, mon.interval)
+	core.AssertNotNil(t, mon.poke)
 }
 
 func TestMonitor_New_Good_CustomInterval(t *testing.T) {
 	mon := New(Options{Interval: 30 * time.Second})
-	assert.Equal(t, 30*time.Second, mon.interval)
+	core.AssertEqual(t, 30*time.Second, mon.interval)
+	core.AssertNotNil(t, mon.poke)
 }
 
 func TestMonitor_New_Bad_ZeroInterval(t *testing.T) {
 	t.Setenv("MONITOR_INTERVAL", "")
 	mon := New(Options{Interval: 0})
-	assert.Equal(t, 2*time.Minute, mon.interval)
+	core.AssertEqual(t, 2*time.Minute, mon.interval)
 }
 
 func TestMonitor_Name_Good(t *testing.T) {
 	mon := New()
-	assert.Equal(t, "monitor", mon.Name())
+	got := mon.Name()
+	core.AssertEqual(t, "monitor", got)
+	core.AssertNotEmpty(t, got)
 }
 
 // --- Poke ---
@@ -141,13 +142,13 @@ func TestMonitor_StartShutdown_Good(t *testing.T) {
 	mon.Start(ctx)
 
 	err := mon.Shutdown(ctx)
-	assert.NoError(t, err)
+	core.AssertNoError(t, err)
 }
 
 func TestMonitor_Shutdown_Good_NilCancel(t *testing.T) {
 	mon := New()
 	err := mon.Shutdown(context.Background())
-	assert.NoError(t, err)
+	core.AssertNoError(t, err)
 }
 
 // --- handleAgentStarted / handleAgentCompleted ---
@@ -159,18 +160,18 @@ func TestMonitor_HandleAgentStarted_Good(t *testing.T) {
 
 	unlock := mon.monitorLock()
 	defer unlock()
-	assert.True(t, mon.seenRunning["core/go-io/task-1"])
+	core.AssertTrue(t, mon.seenRunning["core/go-io/task-1"])
 }
 
 func TestMonitor_HandleAgentStarted_Bad_EmptyWorkspace(t *testing.T) {
 	mon := New()
 	ev := messages.AgentStarted{}
 
-	assert.NotPanics(t, func() { mon.handleAgentStarted(ev) })
+	core.AssertNotPanics(t, func() { mon.handleAgentStarted(ev) })
 
 	unlock := mon.monitorLock()
 	defer unlock()
-	assert.True(t, mon.seenRunning[""])
+	core.AssertTrue(t, mon.seenRunning[""])
 }
 
 func TestMonitor_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
@@ -181,11 +182,11 @@ func TestMonitor_HandleAgentCompleted_Good_NilRuntime(t *testing.T) {
 	mon := New()
 	ev := messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-1", Status: "completed"}
 
-	assert.NotPanics(t, func() { mon.handleAgentCompleted(ev) })
+	core.AssertNotPanics(t, func() { mon.handleAgentCompleted(ev) })
 
 	unlock := mon.monitorLock()
 	defer unlock()
-	assert.True(t, mon.seenCompleted["ws-1"])
+	core.AssertTrue(t, mon.seenCompleted["ws-1"])
 }
 
 func TestMonitor_HandleAgentCompleted_Good_WithCore(t *testing.T) {
@@ -195,15 +196,15 @@ func TestMonitor_HandleAgentCompleted_Good_WithCore(t *testing.T) {
 
 	c := core.New(core.WithService(Register))
 	service := c.Service("monitor")
-	require.True(t, service.OK)
+	core.RequireTrue(t, service.OK)
 	mon, ok := service.Value.(*Subsystem)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 
 	c.ACTION(messages.AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "ws-2", Status: "completed"})
 
 	unlock := mon.monitorLock()
 	defer unlock()
-	assert.True(t, mon.seenCompleted["ws-2"])
+	core.AssertTrue(t, mon.seenCompleted["ws-2"])
 }
 
 func TestMonitor_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
@@ -213,11 +214,11 @@ func TestMonitor_HandleAgentCompleted_Bad_EmptyFields(t *testing.T) {
 
 	mon := New()
 
-	assert.NotPanics(t, func() { mon.handleAgentCompleted(messages.AgentCompleted{}) })
+	core.AssertNotPanics(t, func() { mon.handleAgentCompleted(messages.AgentCompleted{}) })
 
 	unlock := mon.monitorLock()
 	defer unlock()
-	assert.True(t, mon.seenCompleted[""])
+	core.AssertTrue(t, mon.seenCompleted[""])
 }
 
 // --- checkIdleAfterDelay ---
@@ -263,15 +264,15 @@ func TestMonitor_CheckIdleAfterDelay_Good_EmptyWorkspace(t *testing.T) {
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	running, queued := mon.countLiveWorkspaces()
-	assert.Equal(t, 0, running)
-	assert.Equal(t, 0, queued)
+	core.AssertEqual(t, 0, running)
+	core.AssertEqual(t, 0, queued)
 
 	if running == 0 && queued == 0 {
 		mon.Core().ACTION(messages.QueueDrained{Completed: 0})
 	}
 
-	require.Len(t, captured, 1)
-	assert.Equal(t, 0, captured[0].Completed)
+	core.AssertLen(t, captured, 1)
+	core.AssertEqual(t, 0, captured[0].Completed)
 }
 
 // --- countLiveWorkspaces ---
@@ -283,8 +284,8 @@ func TestMonitor_CountLiveWorkspaces_Good_EmptyWorkspace(t *testing.T) {
 
 	mon := New()
 	running, queued := mon.countLiveWorkspaces()
-	assert.Equal(t, 0, running)
-	assert.Equal(t, 0, queued)
+	core.AssertEqual(t, 0, running)
+	core.AssertEqual(t, 0, queued)
 }
 
 func TestMonitor_CountLiveWorkspaces_Good_QueuedStatus(t *testing.T) {
@@ -299,8 +300,8 @@ func TestMonitor_CountLiveWorkspaces_Good_QueuedStatus(t *testing.T) {
 
 	mon := New()
 	running, queued := mon.countLiveWorkspaces()
-	assert.Equal(t, 0, running)
-	assert.Equal(t, 1, queued)
+	core.AssertEqual(t, 0, running)
+	core.AssertEqual(t, 1, queued)
 }
 
 func TestMonitor_CountLiveWorkspaces_Bad_RunningDeadPID(t *testing.T) {
@@ -316,8 +317,8 @@ func TestMonitor_CountLiveWorkspaces_Bad_RunningDeadPID(t *testing.T) {
 
 	mon := New()
 	running, queued := mon.countLiveWorkspaces()
-	assert.Equal(t, 0, running)
-	assert.Equal(t, 0, queued)
+	core.AssertEqual(t, 0, running)
+	core.AssertEqual(t, 0, queued)
 }
 
 func TestMonitor_CountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
@@ -337,27 +338,37 @@ func TestMonitor_CountLiveWorkspaces_Good_RunningLivePID(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	running, queued := mon.countLiveWorkspaces()
-	assert.Equal(t, 1, running)
-	assert.Equal(t, 0, queued)
+	core.AssertEqual(t, 1, running)
+	core.AssertEqual(t, 0, queued)
 }
 
 // --- processAlive ---
 
 func TestMonitor_ProcessAlive_Good_ManagedProcess(t *testing.T) {
 	proc := startManagedProcess(t, testMon.Core())
-	assert.True(t, processAlive(testMon.Core(), proc.ID, proc.Info().PID), "managed process must be alive")
+	alive := processAlive(testMon.Core(), proc.ID, proc.Info().PID)
+	core.AssertTrue(t, alive, "managed process must be alive")
+	core.AssertGreater(t, proc.Info().PID, 0)
 }
 
 func TestMonitor_ProcessAlive_Bad_DeadPID(t *testing.T) {
-	assert.False(t, processAlive(testMon.Core(), "", 99999999))
+	alive := processAlive(testMon.Core(), "", 99999999)
+	core.AssertFalse(t, alive)
+	core.AssertEqual(t, false, alive)
 }
 
 func TestMonitor_ProcessAlive_Ugly_ZeroPID(t *testing.T) {
-	assert.NotPanics(t, func() { processAlive(testMon.Core(), "", 0) })
+	core.AssertNotPanics(t, func() { processAlive(testMon.Core(), "", 0) })
+	alive := processAlive(testMon.Core(), "", 0)
+	core.AssertFalse(t, alive)
+	core.AssertEqual(t, false, alive)
 }
 
 func TestMonitor_ProcessAlive_Ugly_NegativePID(t *testing.T) {
-	assert.NotPanics(t, func() { processAlive(testMon.Core(), "", -1) })
+	core.AssertNotPanics(t, func() { processAlive(testMon.Core(), "", -1) })
+	alive := processAlive(testMon.Core(), "", -1)
+	core.AssertFalse(t, alive)
+	core.AssertEqual(t, false, alive)
 }
 
 // --- OnStartup / OnShutdown ---
@@ -372,11 +383,11 @@ func TestMonitor_OnStartup_Good_StartsLoop(t *testing.T) {
 
 	mon := New(Options{Interval: 1 * time.Hour})
 	r := mon.OnStartup(context.Background())
-	assert.True(t, r.OK)
-	assert.NotNil(t, mon.cancel)
+	core.AssertTrue(t, r.OK)
+	core.AssertNotNil(t, mon.cancel)
 
 	r2 := mon.OnShutdown(context.Background())
-	assert.True(t, r2.OK)
+	core.AssertTrue(t, r2.OK)
 }
 
 func TestMonitor_OnStartup_Good_NoError(t *testing.T) {
@@ -385,13 +396,15 @@ func TestMonitor_OnStartup_Good_NoError(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New(Options{Interval: 1 * time.Hour})
-	assert.True(t, mon.OnStartup(context.Background()).OK)
+	core.AssertTrue(t, mon.OnStartup(context.Background()).OK)
 	_ = mon.OnShutdown(context.Background())
 }
 
 func TestMonitor_OnShutdown_Good_NoError(t *testing.T) {
 	mon := New(Options{Interval: 1 * time.Hour})
-	assert.True(t, mon.OnShutdown(context.Background()).OK)
+	result := mon.OnShutdown(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
 }
 
 func TestMonitor_OnShutdown_Good_StopsLoop(t *testing.T) {
@@ -403,7 +416,7 @@ func TestMonitor_OnShutdown_Good_StopsLoop(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	mon := New(Options{Interval: 1 * time.Hour})
-	require.True(t, mon.OnStartup(context.Background()).OK)
+	core.RequireTrue(t, mon.OnStartup(context.Background()).OK)
 
 	done := make(chan bool, 1)
 	go func() {
@@ -412,7 +425,7 @@ func TestMonitor_OnShutdown_Good_StopsLoop(t *testing.T) {
 
 	select {
 	case ok := <-done:
-		assert.True(t, ok)
+		core.AssertTrue(t, ok)
 	case <-time.After(5 * time.Second):
 		t.Fatal("OnShutdown did not return in time")
 	}
@@ -420,7 +433,7 @@ func TestMonitor_OnShutdown_Good_StopsLoop(t *testing.T) {
 
 func TestMonitor_OnShutdown_Ugly_NilCancel(t *testing.T) {
 	mon := New()
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		_ = mon.OnShutdown(context.Background())
 	})
 }
@@ -445,7 +458,7 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 
 	mon := New()
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
-	assert.Equal(t, "", mon.checkCompletions())
+	core.AssertEqual(t, "", mon.checkCompletions())
 
 	for i := 0; i < 2; i++ {
 		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
@@ -456,11 +469,11 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	}
 
 	msg := mon.checkCompletions()
-	assert.Contains(t, msg, "2 agent(s) completed")
+	core.AssertContains(t, msg, "2 agent(s) completed")
 
 	// checkCompletions emits QueueDrained via c.ACTION() when running=0 and queued=0
-	require.Len(t, drainEvents, 1)
-	assert.Equal(t, 2, drainEvents[0].Completed)
+	core.AssertLen(t, drainEvents, 1)
+	core.AssertEqual(t, 2, drainEvents[0].Completed)
 }
 
 func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
@@ -470,7 +483,7 @@ func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
-	assert.Equal(t, "", mon.checkCompletions())
+	core.AssertEqual(t, "", mon.checkCompletions())
 
 	for i, status := range []string{"completed", "running", "queued"} {
 		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
@@ -481,9 +494,9 @@ func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
 	}
 
 	msg := mon.checkCompletions()
-	assert.Contains(t, msg, "1 agent(s) completed")
-	assert.Contains(t, msg, "1 still running")
-	assert.Contains(t, msg, "1 queued")
+	core.AssertContains(t, msg, "1 agent(s) completed")
+	core.AssertContains(t, msg, "1 still running")
+	core.AssertContains(t, msg, "1 queued")
 }
 
 func TestMonitor_CheckCompletions_Good_NoNewCompletions(t *testing.T) {
@@ -498,7 +511,7 @@ func TestMonitor_CheckCompletions_Good_NoNewCompletions(t *testing.T) {
 	mon.checkCompletions() // sets baseline
 
 	msg := mon.checkCompletions()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckCompletions_Good_EmptyWorkspace(t *testing.T) {
@@ -508,7 +521,7 @@ func TestMonitor_CheckCompletions_Good_EmptyWorkspace(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkCompletions()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckCompletions_Bad_InvalidJSON(t *testing.T) {
@@ -521,7 +534,7 @@ func TestMonitor_CheckCompletions_Bad_InvalidJSON(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkCompletions()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckCompletions_Good_NilRuntime(t *testing.T) {
@@ -531,14 +544,14 @@ func TestMonitor_CheckCompletions_Good_NilRuntime(t *testing.T) {
 	fs.EnsureDir(core.JoinPath(wsRoot, "workspace"))
 
 	mon := New()
-	assert.Equal(t, "", mon.checkCompletions())
+	core.AssertEqual(t, "", mon.checkCompletions())
 
 	writeWorkspaceStatus(t, wsRoot, "ws-0", map[string]any{
 		"status": "completed", "repo": "r", "agent": "a",
 	})
 
 	msg := mon.checkCompletions()
-	assert.Contains(t, msg, "1 agent(s) completed")
+	core.AssertContains(t, msg, "1 agent(s) completed")
 }
 
 func TestMonitor_CheckCompletions_Good_DeepWorkspaceName(t *testing.T) {
@@ -550,16 +563,16 @@ func TestMonitor_CheckCompletions_Good_DeepWorkspaceName(t *testing.T) {
 	})
 
 	mon := New()
-	assert.Equal(t, "", mon.checkCompletions())
-	assert.True(t, mon.seenCompleted["core/go-io/task-7"])
+	core.AssertEqual(t, "", mon.checkCompletions())
+	core.AssertTrue(t, mon.seenCompleted["core/go-io/task-7"])
 }
 
 // --- checkInbox ---
 
 func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/messages/inbox", r.URL.Path)
-		assert.NotEmpty(t, r.URL.Query().Get("agent"))
+		core.AssertEqual(t, "/v1/messages/inbox", r.URL.Path)
+		core.AssertNotEmpty(t, r.URL.Query().Get("agent"))
 
 		resp := map[string]any{
 			"data": []map[string]any{
@@ -592,18 +605,18 @@ func TestMonitor_CheckInbox_Good_UnreadMessages(t *testing.T) {
 	mon.inboxSeeded = true
 
 	msg := mon.checkInbox()
-	assert.Contains(t, msg, "2 unread message(s) in inbox")
+	core.AssertContains(t, msg, "2 unread message(s) in inbox")
 
-	require.Len(t, inboxEvents, 1)
-	assert.Equal(t, 3, inboxEvents[0].New)
-	assert.Equal(t, 2, inboxEvents[0].Total)
+	core.AssertLen(t, inboxEvents, 1)
+	core.AssertEqual(t, 3, inboxEvents[0].New)
+	core.AssertEqual(t, 2, inboxEvents[0].Total)
 }
 
 func TestMonitor_CheckInbox_Good_EncodesAgentQuery(t *testing.T) {
 	expectedAgent := "test agent+1"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/messages/inbox", r.URL.Path)
-		assert.Equal(t, expectedAgent, r.URL.Query().Get("agent"))
+		core.AssertEqual(t, "/v1/messages/inbox", r.URL.Path)
+		core.AssertEqual(t, expectedAgent, r.URL.Query().Get("agent"))
 		resp := map[string]any{
 			"data": []map[string]any{},
 		}
@@ -620,7 +633,7 @@ func TestMonitor_CheckInbox_Good_EncodesAgentQuery(t *testing.T) {
 	mon.inboxSeeded = true
 
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
@@ -639,7 +652,7 @@ func TestMonitor_CheckInbox_Good_NoUnread(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Good_SameCountNoRepeat(t *testing.T) {
@@ -660,7 +673,7 @@ func TestMonitor_CheckInbox_Good_SameCountNoRepeat(t *testing.T) {
 	mon.checkInbox() // sets baseline
 
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Bad_NoBrainKey(t *testing.T) {
@@ -669,7 +682,7 @@ func TestMonitor_CheckInbox_Bad_NoBrainKey(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Bad_APIError(t *testing.T) {
@@ -682,7 +695,7 @@ func TestMonitor_CheckInbox_Bad_APIError(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Bad_InvalidJSON(t *testing.T) {
@@ -696,7 +709,7 @@ func TestMonitor_CheckInbox_Bad_InvalidJSON(t *testing.T) {
 
 	mon := New()
 	msg := mon.checkInbox()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
@@ -730,11 +743,11 @@ func TestMonitor_CheckInbox_Good_MultipleSameSender(t *testing.T) {
 	mon.inboxSeeded = true
 
 	msg := mon.checkInbox()
-	assert.Contains(t, msg, "3 unread message(s)")
+	core.AssertContains(t, msg, "3 unread message(s)")
 
-	require.Len(t, inboxEvents, 1)
-	assert.Equal(t, 3, inboxEvents[0].New)
-	assert.Equal(t, 3, inboxEvents[0].Total)
+	core.AssertLen(t, inboxEvents, 1)
+	core.AssertEqual(t, 3, inboxEvents[0].New)
+	core.AssertEqual(t, 3, inboxEvents[0].Total)
 }
 
 // --- check (integration of sub-checks) ---
@@ -754,8 +767,8 @@ func TestMonitor_Check_Good_CombinesMessages(t *testing.T) {
 	mon.check(context.Background())
 
 	unlock := mon.monitorLock()
-	assert.True(t, mon.completionsSeeded)
-	assert.True(t, mon.seenCompleted["ws-0"])
+	core.AssertTrue(t, mon.completionsSeeded)
+	core.AssertTrue(t, mon.seenCompleted["ws-0"])
 	unlock()
 }
 
@@ -775,7 +788,10 @@ func TestMonitor_Check_Good_NoMessages(t *testing.T) {
 
 func TestMonitor_Notify_Good_NilServer(t *testing.T) {
 	mon := New()
-	mon.notify(context.Background(), "test message")
+	core.AssertNotPanics(t, func() {
+		mon.notify(context.Background(), "test message")
+	})
+	core.AssertNil(t, mon.svc)
 }
 
 // --- loop ---
@@ -834,7 +850,7 @@ func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 	mon.Poke()
 
 	// Poll until the poke-triggered check updates the count
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		unlock := mon.monitorLock()
 		defer unlock()
 		return mon.seenCompleted["ws-poke"]
@@ -862,13 +878,13 @@ func TestMonitor_AgentStatusResource_Good(t *testing.T) {
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
-	require.NoError(t, err)
-	require.Len(t, result.Contents, 1)
-	assert.Equal(t, "status://agents", result.Contents[0].URI)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, result.Contents, 1)
+	core.AssertEqual(t, "status://agents", result.Contents[0].URI)
 
 	var workspaces []map[string]any
-	require.True(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
-	assert.Len(t, workspaces, 2)
+	core.RequireTrue(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
+	core.AssertLen(t, workspaces, 2)
 }
 
 func TestMonitor_AgentStatusResource_Good_Empty(t *testing.T) {
@@ -878,9 +894,9 @@ func TestMonitor_AgentStatusResource_Good_Empty(t *testing.T) {
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
-	require.NoError(t, err)
-	require.Len(t, result.Contents, 1)
-	assert.Equal(t, "null", result.Contents[0].Text)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, result.Contents, 1)
+	core.AssertEqual(t, "null", result.Contents[0].Text)
 }
 
 func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
@@ -893,8 +909,8 @@ func TestMonitor_AgentStatusResource_Bad_InvalidJSON(t *testing.T) {
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, "null", result.Contents[0].Text)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "null", result.Contents[0].Text)
 }
 
 func TestMonitor_AgentStatusResource_Good_DeepWorkspaceName(t *testing.T) {
@@ -907,10 +923,10 @@ func TestMonitor_AgentStatusResource_Good_DeepWorkspaceName(t *testing.T) {
 
 	mon := New()
 	result, err := mon.agentStatusResource(context.Background(), &mcp.ReadResourceRequest{})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var workspaces []map[string]any
-	require.True(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
-	require.Len(t, workspaces, 1)
-	assert.Equal(t, "core/go-io/task-9", workspaces[0]["name"])
+	core.RequireTrue(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
+	core.AssertLen(t, workspaces, 1)
+	core.AssertEqual(t, "core/go-io/task-9", workspaces[0]["name"])
 }

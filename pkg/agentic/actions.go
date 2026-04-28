@@ -8,9 +8,9 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -193,9 +193,13 @@ func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) c
 //
 // ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
+	if s == nil || s.ServiceRuntime == nil {
+		return core.Fail(core.E("agentic.complete", "core runtime is required", nil))
+	}
+
 	c := s.Core()
 	if c == nil {
-		return core.Result{Value: core.E("agentic.complete", "core runtime is required", nil), OK: false}
+		return core.Fail(core.E("agentic.complete", "core runtime is required", nil))
 	}
 	return c.Task("agent.completion").Run(ctx, c, options)
 }

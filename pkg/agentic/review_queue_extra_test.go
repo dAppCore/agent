@@ -8,9 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- buildReviewCommand ---
@@ -18,25 +16,25 @@ import (
 func TestReviewqueue_BuildReviewCommand_Good_CodeRabbit(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "coderabbit")
-	assert.Equal(t, "coderabbit", cmd)
-	assert.Contains(t, args, "review")
-	assert.Contains(t, args, "--plain")
-	assert.Contains(t, args, "github/main")
+	core.AssertEqual(t, "coderabbit", cmd)
+	core.AssertContains(t, args, "review")
+	core.AssertContains(t, args, "--plain")
+	core.AssertContains(t, args, "github/main")
 }
 
 func TestReviewqueue_BuildReviewCommand_Good_Codex(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "codex")
-	assert.Equal(t, "codex", cmd)
-	assert.Contains(t, args, "review")
-	assert.Contains(t, args, "github/main")
+	core.AssertEqual(t, "codex", cmd)
+	core.AssertContains(t, args, "review")
+	core.AssertContains(t, args, "github/main")
 }
 
 func TestReviewqueue_BuildReviewCommand_Good_DefaultReviewer(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "")
-	assert.Equal(t, "coderabbit", cmd)
-	assert.Contains(t, args, "--plain")
+	core.AssertEqual(t, "coderabbit", cmd)
+	core.AssertContains(t, args, "--plain")
 }
 
 // --- saveRateLimitState / loadRateLimitState ---
@@ -66,8 +64,8 @@ func TestReviewqueue_SaveLoadRateLimitState_Good_Roundtrip(t *testing.T) {
 
 	loaded := s.loadRateLimitState()
 	if loaded != nil {
-		assert.True(t, loaded.Limited)
-		assert.Equal(t, "rate limited", loaded.Message)
+		core.AssertTrue(t, loaded.Limited)
+		core.AssertEqual(t, "rate limited", loaded.Message)
 	}
 	// If loaded is nil it means DIR_HOME path wasn't writable — acceptable in test
 }
@@ -82,7 +80,7 @@ func TestReviewqueue_StoreReviewOutput_Good(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", "No findings — LGTM")
 	})
 }
@@ -103,7 +101,7 @@ func TestReviewqueue_RunPRManageLoop_Good_StopsOnCancel(t *testing.T) {
 	}()
 
 	cancel()
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		select {
 		case <-done:
 			return true
@@ -131,9 +129,9 @@ func TestReviewqueue_NoCandidates_Good(t *testing.T) {
 	}
 
 	_, out, err := s.reviewQueue(context.Background(), nil, ReviewQueueInput{DryRun: true})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Empty(t, out.Processed)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEmpty(t, out.Processed)
 }
 
 // --- status (extended) ---
@@ -166,11 +164,11 @@ func TestReviewqueue_StatusFiltered_Good(t *testing.T) {
 	}
 
 	_, out, err := s.status(context.Background(), nil, StatusInput{})
-	require.NoError(t, err)
-	assert.Equal(t, 4, out.Total)
-	assert.Equal(t, 2, out.Completed)
-	assert.Equal(t, 1, out.Failed)
-	assert.Equal(t, 1, out.Queued)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 4, out.Total)
+	core.AssertEqual(t, 2, out.Completed)
+	core.AssertEqual(t, 1, out.Failed)
+	core.AssertEqual(t, 1, out.Queued)
 }
 
 // --- handlers helpers (resolveWorkspace, findWorkspaceByPR) ---
@@ -185,7 +183,7 @@ func TestHandlers_ResolveWorkspace_Good_Exists(t *testing.T) {
 	fs.EnsureDir(ws)
 
 	result := resolveWorkspace("core/go-io/task-15")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
@@ -193,7 +191,7 @@ func TestHandlers_ResolveWorkspace_Bad_NotExists(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("nonexistent")
-	assert.Empty(t, result)
+	core.AssertEmpty(t, result)
 }
 
 func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
@@ -207,7 +205,7 @@ func TestHandlers_FindWorkspaceByPR_Good_Match(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("go-io", "agent/fix")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
@@ -222,15 +220,13 @@ func TestHandlers_FindWorkspaceByPR_Good_DeepLayout(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("agent", "agent/tests")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 // --- loadRateLimitState (Ugly — corrupt JSON) ---
 
 func TestReviewqueue_LoadRateLimitState_Ugly(t *testing.T) {
-	// core.Env("DIR_HOME") is cached at init, so we must write to the real path.
-	// Save original content, write corrupt JSON, test, then restore.
-	ratePath := core.JoinPath(core.Env("DIR_HOME"), ".core", "coderabbit-ratelimit.json")
+	ratePath := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 
 	// Save original content (may or may not exist)
 	origResult := fs.Read(ratePath)
@@ -260,7 +256,7 @@ func TestReviewqueue_LoadRateLimitState_Ugly(t *testing.T) {
 	}
 
 	result := s.loadRateLimitState()
-	assert.Nil(t, result, "corrupt JSON should return nil")
+	core.AssertNil(t, result, "corrupt JSON should return nil")
 }
 
 // --- buildReviewCommand Bad/Ugly ---
@@ -273,15 +269,15 @@ func TestReviewqueue_BuildReviewCommand_Bad(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "")
-	assert.Equal(t, "coderabbit", cmd)
-	assert.Contains(t, args, "--plain")
+	core.AssertEqual(t, "coderabbit", cmd)
+	core.AssertContains(t, args, "--plain")
 }
 
 func TestReviewqueue_BuildReviewCommand_Ugly(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	cmd, args := s.buildReviewCommand("/tmp/repo", "unknown-reviewer")
-	assert.Equal(t, "coderabbit", cmd)
-	assert.Contains(t, args, "--plain")
+	core.AssertEqual(t, "coderabbit", cmd)
+	core.AssertContains(t, args, "--plain")
 }
 
 // --- countFindings Bad/Ugly ---
@@ -290,23 +286,28 @@ func TestReviewqueue_CountFindings_Bad(t *testing.T) {
 	// Empty string
 	count := countFindings("")
 	// Empty string doesn't contain "No findings" so defaults to 1
-	assert.Equal(t, 1, count)
+	core.AssertEqual(t, 1, count)
+	core.AssertTrue(t, count > 0)
 }
 
 func TestReviewqueue_CountFindings_Ugly(t *testing.T) {
 	// Only whitespace
-	count := countFindings("   \n   \n   ")
+	output := "   \n   \n   "
+	count := countFindings(output)
 	// No markers, no "No findings", so defaults to 1
-	assert.Equal(t, 1, count)
+	core.AssertEqual(t, 1, count)
+	core.AssertNotContains(t, output, "No findings")
 }
 
 // --- parseRetryAfter Ugly ---
 
 func TestReviewqueue_ParseRetryAfter_Ugly(t *testing.T) {
 	// Seconds only "try after 30 seconds" — no minutes match
-	d := parseRetryAfter("try after 30 seconds")
+	message := "try after 30 seconds"
+	d := parseRetryAfter(message)
 	// Regex expects minutes first, so this won't match — defaults to 5 min
-	assert.Equal(t, 5*time.Minute, d)
+	core.AssertEqual(t, 5*time.Minute, d)
+	core.AssertTrue(t, d > time.Minute)
 }
 
 // --- storeReviewOutput Bad/Ugly ---
@@ -318,7 +319,7 @@ func TestReviewqueue_StoreReviewOutput_Bad(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", "")
 	})
 }
@@ -331,7 +332,7 @@ func TestReviewqueue_StoreReviewOutput_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	largeOutput := strings.Repeat("Finding: something is wrong on this line\n", 10000)
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.storeReviewOutput(t.TempDir(), "test-repo", "coderabbit", largeOutput)
 	})
 }
@@ -350,7 +351,7 @@ func TestReviewqueue_SaveRateLimitState_Good(t *testing.T) {
 		RetryAt: time.Now().Add(5 * time.Minute).Truncate(time.Second),
 		Message: "rate limited",
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.saveRateLimitState(info)
 	})
 }
@@ -362,7 +363,7 @@ func TestReviewqueue_SaveRateLimitState_Bad(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.saveRateLimitState(nil)
 	})
 }
@@ -380,7 +381,7 @@ func TestReviewqueue_SaveRateLimitState_Bad_WriteFailure(t *testing.T) {
 		RetryAt: time.Now().Add(5 * time.Minute).Truncate(time.Second),
 		Message: "write failure",
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.saveRateLimitState(info)
 	})
 }
@@ -397,7 +398,7 @@ func TestReviewqueue_SaveRateLimitState_Ugly(t *testing.T) {
 		RetryAt: time.Date(2099, 12, 31, 23, 59, 59, 0, time.UTC),
 		Message: "far future rate limit",
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.saveRateLimitState(info)
 	})
 }
@@ -421,8 +422,8 @@ func TestReviewqueue_LoadRateLimitState_Good(t *testing.T) {
 
 	loaded := s.loadRateLimitState()
 	if loaded != nil {
-		assert.True(t, loaded.Limited)
-		assert.Equal(t, "test rate limit", loaded.Message)
+		core.AssertTrue(t, loaded.Limited)
+		core.AssertEqual(t, "test rate limit", loaded.Message)
 	}
 	// If loaded is nil, DIR_HOME path wasn't writable — acceptable in test
 }

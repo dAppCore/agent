@@ -7,7 +7,7 @@ import (
 	"math"
 	"unicode"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	poindexter "github.com/Snider/Poindexter"
 )
 

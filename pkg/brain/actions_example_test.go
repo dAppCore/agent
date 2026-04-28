@@ -5,7 +5,7 @@ package brain
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func ExampleRegister_actions() {

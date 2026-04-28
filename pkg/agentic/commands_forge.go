@@ -6,7 +6,7 @@ import (
 	"context"
 	"strconv"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/forge"
 	forge_types "dappco.re/go/forge/types"
 )
@@ -239,14 +239,18 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 		labelNames := core.Split(labels, ",")
 		allLabels, err := s.forge.Labels.ListRepoLabels(ctx, org, repo)
 		if err == nil {
+			labelIDs := []int64{}
 			for _, name := range labelNames {
 				name = core.Trim(name)
 				for _, l := range allLabels {
 					if l.Name == name {
-						createOptions.Labels = append(createOptions.Labels, l.ID)
+						labelIDs = append(labelIDs, l.ID)
 						break
 					}
 				}
+			}
+			if len(labelIDs) > 0 {
+				createOptions.Labels = labelIDs
 			}
 		}
 	}

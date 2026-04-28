@@ -8,22 +8,21 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSync_InitSyncTimestamp_Good(t *testing.T) {
 	mon := New()
 	mon.initSyncTimestamp()
-	assert.True(t, mon.lastSyncTimestamp > 0)
+	core.AssertTrue(t, mon.lastSyncTimestamp > 0)
 }
 
 func TestSync_InitSyncTimestamp_Bad_NoOverwrite(t *testing.T) {
 	mon := New()
 	mon.lastSyncTimestamp = 42
 	mon.initSyncTimestamp()
-	assert.Equal(t, int64(42), mon.lastSyncTimestamp)
+	core.AssertEqual(t, int64(42), mon.lastSyncTimestamp)
 }
 
 func TestSync_SyncRepos_Ugly_NoBrainKey(t *testing.T) {
@@ -31,12 +30,12 @@ func TestSync_SyncRepos_Ugly_NoBrainKey(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	result := mon.syncRepos()
-	assert.Equal(t, "", result)
+	core.AssertEqual(t, "", result)
 }
 
 func TestSync_SyncRepos_Good_NoChanges(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
+		core.AssertEqual(t, "/v1/agent/checkin", r.URL.Path)
 		resp := CheckinResponse{Timestamp: time.Now().Unix()}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(resp)))
@@ -47,14 +46,14 @@ func TestSync_SyncRepos_Good_NoChanges(t *testing.T) {
 
 	mon := New()
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Good_EncodesAgentQuery(t *testing.T) {
 	expectedAgent := "test agent+1"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/agent/checkin", r.URL.Path)
-		assert.Equal(t, expectedAgent, r.URL.Query().Get("agent"))
+		core.AssertEqual(t, "/v1/agent/checkin", r.URL.Path)
+		core.AssertEqual(t, expectedAgent, r.URL.Query().Get("agent"))
 		resp := CheckinResponse{Timestamp: time.Now().Unix()}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(core.JSONMarshalString(resp)))
@@ -66,7 +65,7 @@ func TestSync_SyncRepos_Good_EncodesAgentQuery(t *testing.T) {
 
 	mon := New()
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Bad_APIError(t *testing.T) {
@@ -79,7 +78,7 @@ func TestSync_SyncRepos_Bad_APIError(t *testing.T) {
 
 	mon := New()
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
@@ -97,7 +96,7 @@ func TestSync_SyncRepos_Good_UpdatesTimestamp(t *testing.T) {
 	mon.syncRepos()
 
 	unlock := mon.monitorLock()
-	assert.Equal(t, newTS, mon.lastSyncTimestamp)
+	core.AssertEqual(t, newTS, mon.lastSyncTimestamp)
 	unlock()
 }
 
@@ -140,8 +139,8 @@ func TestSync_SyncRepos_Good_PullsChangedRepo(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
-	assert.Contains(t, msg, "Synced 1 repo(s)")
-	assert.Contains(t, msg, "test-repo")
+	core.AssertContains(t, msg, "Synced 1 repo(s)")
+	core.AssertContains(t, msg, "test-repo")
 }
 
 func TestSync_HandleWorkspacePushed_Good_ResetsTrackedRepo(t *testing.T) {
@@ -179,9 +178,9 @@ func TestSync_HandleWorkspacePushed_Good_ResetsTrackedRepo(t *testing.T) {
 		Branch: "main",
 		Org:    "core",
 	})
-	assert.True(t, result.OK)
-	assert.True(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
-	assert.Equal(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	core.AssertEqual(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
 }
 
 func TestSync_HandleWorkspacePushed_Good_SwitchesTrackedRepoBranch(t *testing.T) {
@@ -220,10 +219,10 @@ func TestSync_HandleWorkspacePushed_Good_SwitchesTrackedRepoBranch(t *testing.T)
 		Branch: "main",
 		Org:    "core",
 	})
-	assert.True(t, result.OK)
-	assert.Equal(t, "main", mon.gitOutput(repoDir, "rev-parse", "--abbrev-ref", "HEAD"))
-	assert.True(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
-	assert.Equal(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
+	core.AssertTrue(t, result.OK)
+	core.AssertEqual(t, "main", mon.gitOutput(repoDir, "rev-parse", "--abbrev-ref", "HEAD"))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	core.AssertEqual(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
 }
 
 func TestSync_SyncRepos_Good_NormalisesWindowsRepoPath(t *testing.T) {
@@ -265,8 +264,8 @@ func TestSync_SyncRepos_Good_NormalisesWindowsRepoPath(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
-	assert.Contains(t, msg, "Synced 1 repo(s)")
-	assert.Contains(t, msg, "core\\test-repo")
+	core.AssertContains(t, msg, "Synced 1 repo(s)")
+	core.AssertContains(t, msg, "core\\test-repo")
 }
 
 func TestSync_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
@@ -301,7 +300,7 @@ func TestSync_SyncRepos_Good_SkipsDirtyRepo(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
@@ -335,7 +334,7 @@ func TestSync_SyncRepos_Good_SkipsNonMainBranch(t *testing.T) {
 	mon := New()
 	mon.ServiceRuntime = testMon.ServiceRuntime
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
@@ -354,7 +353,7 @@ func TestSync_SyncRepos_Good_SkipsNonexistentRepo(t *testing.T) {
 
 	mon := New()
 	msg := mon.syncRepos()
-	assert.Equal(t, "", msg)
+	core.AssertEqual(t, "", msg)
 }
 
 func TestSync_SyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
@@ -375,5 +374,5 @@ func TestSync_SyncRepos_Good_UsesEnvBrainKey(t *testing.T) {
 
 	mon := New()
 	mon.syncRepos()
-	assert.Equal(t, "Bearer env-key-value", authHeader)
+	core.AssertEqual(t, "Bearer env-key-value", authHeader)
 }

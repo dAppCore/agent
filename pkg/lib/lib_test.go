@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var testFs = (&core.Fs{}).NewUnrestricted()
@@ -564,11 +564,15 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 }
 
 func TestLib_ExtractWorkspace_Bad(t *testing.T) {
-	requireExtractWorkspaceError(t, ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"}))
+	result := ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"})
+	requireExtractWorkspaceError(t, result)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestLib_ExtractWorkspace_Ugly(t *testing.T) {
-	requireExtractWorkspaceError(t, ExtractWorkspace("default", t.TempDir(), nil))
+	result := ExtractWorkspace("default", t.TempDir(), nil)
+	requireExtractWorkspaceError(t, result)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {

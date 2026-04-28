@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var testFS = (&core.Fs{}).NewUnrestricted()

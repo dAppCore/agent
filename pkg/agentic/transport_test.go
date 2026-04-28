@@ -8,9 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestTransport_RegisterHTTPTransport_Good(t *testing.T) {
@@ -18,37 +16,37 @@ func TestTransport_RegisterHTTPTransport_Good(t *testing.T) {
 
 	RegisterHTTPTransport(c)
 
-	assert.Contains(t, c.API().Protocols(), "http")
-	assert.Contains(t, c.API().Protocols(), "https")
+	core.AssertContains(t, c.API().Protocols(), "http")
+	core.AssertContains(t, c.API().Protocols(), "https")
 }
 
 func TestTransport_HTTPGet_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Equal(t, "token test-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "GET", r.Method)
+		core.AssertEqual(t, "token test-token", r.Header.Get("Authorization"))
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer srv.Close()
 
 	result := HTTPGet(context.Background(), srv.URL, "test-token", "token")
 
-	require.True(t, result.OK)
-	assert.Equal(t, `{"status":"ok"}`, result.Value.(string))
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, `{"status":"ok"}`, result.Value.(string))
 }
 
-func TestTransport_HTTPGet_Bad_InvalidURL(t *testing.T) {
+func TestInvalidURL_HTTPGet_Bad(t *testing.T) {
 	result := HTTPGet(context.Background(), "://bad", "", "")
 
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "create request")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "create request")
 }
 
 func TestTransport_DriveGet_Good(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/repos/core/go-io", r.URL.Path)
-		assert.Equal(t, "Bearer drive-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/repos/core/go-io", r.URL.Path)
+		core.AssertEqual(t, "Bearer drive-token", r.Header.Get("Authorization"))
 		_, _ = w.Write([]byte(`{"repo":"go-io"}`))
 	}))
 	defer srv.Close()
@@ -62,20 +60,20 @@ func TestTransport_DriveGet_Good(t *testing.T) {
 
 	result := DriveGet(c, "forge", "/repos/core/go-io", "Bearer")
 
-	require.True(t, result.OK)
-	assert.Equal(t, `{"repo":"go-io"}`, result.Value.(string))
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, `{"repo":"go-io"}`, result.Value.(string))
 }
 
-func TestTransport_DriveDo_Bad_MissingDrive(t *testing.T) {
+func TestMissingDrive_DriveDo_Bad(t *testing.T) {
 	result := DriveDo(core.New(), "missing", "PATCH", "/repos/core/go-io", `{"title":"AX"}`, "token")
 
-	assert.False(t, result.OK)
-	assert.Error(t, result.Value.(error))
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
 }
 
-func TestTransport_HTTPDo_Ugly_ServerError(t *testing.T) {
+func TestServerError_HTTPDelete_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
+		core.AssertEqual(t, "DELETE", r.Method)
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(`{"error":"upstream"}`))
 	}))
@@ -83,14 +81,14 @@ func TestTransport_HTTPDo_Ugly_ServerError(t *testing.T) {
 
 	result := HTTPDelete(context.Background(), srv.URL, "", "", "")
 
-	assert.False(t, result.OK)
-	assert.Equal(t, `{"error":"upstream"}`, result.Value.(string))
+	core.AssertFalse(t, result.OK)
+	core.AssertEqual(t, `{"error":"upstream"}`, result.Value.(string))
 }
 
-func TestTransport_RegisterHTTPTransport_Ugly_StreamRoundTrip(t *testing.T) {
+func TestStreamRoundTrip_RegisterHTTPTransport_Ugly(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "token api-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "token api-token", r.Header.Get("Authorization"))
 		_, _ = w.Write([]byte(`{"echo":"ok"}`))
 	}))
 	defer srv.Close()
@@ -104,13 +102,13 @@ func TestTransport_RegisterHTTPTransport_Ugly_StreamRoundTrip(t *testing.T) {
 	))
 
 	streamResult := c.API().Stream("remote")
-	require.True(t, streamResult.OK)
+	core.RequireTrue(t, streamResult.OK)
 
 	stream := streamResult.Value.(core.Stream)
-	require.NoError(t, stream.Send([]byte(`{"ping":1}`)))
+	core.RequireNoError(t, stream.Send([]byte(`{"ping":1}`)))
 
 	response, err := stream.Receive()
-	require.NoError(t, err)
-	assert.Equal(t, `{"echo":"ok"}`, string(response))
-	assert.NoError(t, stream.Close())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, `{"echo":"ok"}`, string(response))
+	core.AssertNoError(t, stream.Close())
 }

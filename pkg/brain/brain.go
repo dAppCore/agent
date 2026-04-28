@@ -7,8 +7,8 @@ package brain
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 )

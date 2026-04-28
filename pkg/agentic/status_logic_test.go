@@ -6,9 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- ReadStatusResult ---
@@ -32,46 +30,46 @@ func TestStatus_ReadStatus_Good_AllFields(t *testing.T) {
 		Runs:      2,
 		PRURL:     "",
 	}
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(original)).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(original)).OK)
 
 	st := mustReadStatus(t, dir)
 
-	assert.Equal(t, original.Status, st.Status)
-	assert.Equal(t, original.Agent, st.Agent)
-	assert.Equal(t, original.Repo, st.Repo)
-	assert.Equal(t, original.Org, st.Org)
-	assert.Equal(t, original.Task, st.Task)
-	assert.Equal(t, original.Branch, st.Branch)
-	assert.Equal(t, original.Issue, st.Issue)
-	assert.Equal(t, original.PID, st.PID)
-	assert.Equal(t, original.Runs, st.Runs)
+	core.AssertEqual(t, original.Status, st.Status)
+	core.AssertEqual(t, original.Agent, st.Agent)
+	core.AssertEqual(t, original.Repo, st.Repo)
+	core.AssertEqual(t, original.Org, st.Org)
+	core.AssertEqual(t, original.Task, st.Task)
+	core.AssertEqual(t, original.Branch, st.Branch)
+	core.AssertEqual(t, original.Issue, st.Issue)
+	core.AssertEqual(t, original.PID, st.PID)
+	core.AssertEqual(t, original.Runs, st.Runs)
 }
 
 func TestStatus_ReadStatus_Bad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	result := ReadStatusResult(dir)
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	_, ok := result.Value.(error)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 }
 
 func TestStatus_ReadStatus_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), `{"status": "running", broken`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "status.json"), `{"status": "running", broken`).OK)
 
 	result := ReadStatusResult(dir)
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	_, ok := result.Value.(error)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 }
 
 func TestStatus_ReadStatus_Bad_NullJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "status.json"), "null").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "status.json"), "null").OK)
 
 	// null is valid JSON — ReadStatusResult returns a zero-value struct, not an error
 	st := mustReadStatus(t, dir)
-	assert.Equal(t, "", st.Status)
+	core.AssertEqual(t, "", st.Status)
 }
 
 // --- writeStatus ---
@@ -87,13 +85,13 @@ func TestStatus_WriteStatus_Good_WritesAndReadsBack(t *testing.T) {
 	}
 
 	err := writeStatus(dir, st)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read := mustReadStatus(t, dir)
-	assert.Equal(t, "queued", read.Status)
-	assert.Equal(t, "gemini:pro", read.Agent)
-	assert.Equal(t, "go-log", read.Repo)
-	assert.Equal(t, "improve logging", read.Task)
+	core.AssertEqual(t, "queued", read.Status)
+	core.AssertEqual(t, "gemini:pro", read.Agent)
+	core.AssertEqual(t, "go-log", read.Repo)
+	core.AssertEqual(t, "improve logging", read.Task)
 }
 
 func TestStatus_WriteStatus_Good_SetsUpdatedAt(t *testing.T) {
@@ -102,19 +100,19 @@ func TestStatus_WriteStatus_Good_SetsUpdatedAt(t *testing.T) {
 
 	st := &WorkspaceStatus{Status: "failed", Agent: "codex"}
 	err := writeStatus(dir, st)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.True(t, st.UpdatedAt.After(before), "writeStatus must set UpdatedAt to a recent time")
+	core.AssertTrue(t, st.UpdatedAt.After(before), "writeStatus must set UpdatedAt to a recent time")
 }
 
 func TestStatus_WriteStatus_Good_Overwrites(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{Status: "running", Agent: "gemini"}))
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{Status: "completed", Agent: "gemini"}))
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{Status: "running", Agent: "gemini"}))
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{Status: "completed", Agent: "gemini"}))
 
 	st := mustReadStatus(t, dir)
-	assert.Equal(t, "completed", st.Status)
+	core.AssertEqual(t, "completed", st.Status)
 }
 
 // --- WorkspaceStatus JSON round-trip ---
@@ -140,19 +138,19 @@ func TestStatus_WorkspaceStatus_Good_JSONRoundTrip(t *testing.T) {
 	jsonStr := core.JSONMarshalString(original)
 
 	var decoded WorkspaceStatus
-	require.True(t, core.JSONUnmarshalString(jsonStr, &decoded).OK)
+	core.RequireTrue(t, core.JSONUnmarshalString(jsonStr, &decoded).OK)
 
-	assert.Equal(t, original.Status, decoded.Status)
-	assert.Equal(t, original.Agent, decoded.Agent)
-	assert.Equal(t, original.Repo, decoded.Repo)
-	assert.Equal(t, original.Org, decoded.Org)
-	assert.Equal(t, original.Task, decoded.Task)
-	assert.Equal(t, original.Branch, decoded.Branch)
-	assert.Equal(t, original.Issue, decoded.Issue)
-	assert.Equal(t, original.PID, decoded.PID)
-	assert.Equal(t, original.Question, decoded.Question)
-	assert.Equal(t, original.Runs, decoded.Runs)
-	assert.Equal(t, original.PRURL, decoded.PRURL)
+	core.AssertEqual(t, original.Status, decoded.Status)
+	core.AssertEqual(t, original.Agent, decoded.Agent)
+	core.AssertEqual(t, original.Repo, decoded.Repo)
+	core.AssertEqual(t, original.Org, decoded.Org)
+	core.AssertEqual(t, original.Task, decoded.Task)
+	core.AssertEqual(t, original.Branch, decoded.Branch)
+	core.AssertEqual(t, original.Issue, decoded.Issue)
+	core.AssertEqual(t, original.PID, decoded.PID)
+	core.AssertEqual(t, original.Question, decoded.Question)
+	core.AssertEqual(t, original.Runs, decoded.Runs)
+	core.AssertEqual(t, original.PRURL, decoded.PRURL)
 }
 
 func TestStatus_WorkspaceStatus_Good_OmitemptyFields(t *testing.T) {
@@ -160,10 +158,10 @@ func TestStatus_WorkspaceStatus_Good_OmitemptyFields(t *testing.T) {
 
 	// Optional fields with omitempty must be absent when zero
 	jsonStr := core.JSONMarshalString(st)
-	assert.NotContains(t, jsonStr, `"org"`)
-	assert.NotContains(t, jsonStr, `"branch"`)
-	assert.NotContains(t, jsonStr, `"question"`)
-	assert.NotContains(t, jsonStr, `"pr_url"`)
-	assert.NotContains(t, jsonStr, `"pid"`)
-	assert.NotContains(t, jsonStr, `"issue"`)
+	core.AssertNotContains(t, jsonStr, `"org"`)
+	core.AssertNotContains(t, jsonStr, `"branch"`)
+	core.AssertNotContains(t, jsonStr, `"question"`)
+	core.AssertNotContains(t, jsonStr, `"pr_url"`)
+	core.AssertNotContains(t, jsonStr, `"pid"`)
+	core.AssertNotContains(t, jsonStr, `"issue"`)
 }
