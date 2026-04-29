@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -72,7 +71,7 @@ func mockScanServer(t *testing.T) *httptest.Server {
 
 // --- scan ---
 
-func TestScan_Scan_Good(t *testing.T) {
+func TestScan_Scan_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -95,7 +94,7 @@ func TestScan_Scan_Good(t *testing.T) {
 	core.AssertTrue(t, repos["go-io"] || repos["go-log"], "should contain issues from mock repos")
 }
 
-func TestScan_AllRepos_Good(t *testing.T) {
+func TestScan_AllRepos_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -112,7 +111,7 @@ func TestScan_AllRepos_Good(t *testing.T) {
 	core.AssertGreater(t, out.Count, 0)
 }
 
-func TestScan_WithLimit_Good(t *testing.T) {
+func TestScan_WithLimit_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -129,7 +128,7 @@ func TestScan_WithLimit_Good(t *testing.T) {
 	core.AssertLessOrEqual(t, out.Count, 1)
 }
 
-func TestScan_DefaultLabels_Good(t *testing.T) {
+func TestScan_DefaultLabels_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -146,7 +145,7 @@ func TestScan_DefaultLabels_Good(t *testing.T) {
 	core.AssertTrue(t, out.Success)
 }
 
-func TestScan_CustomLabels_Good(t *testing.T) {
+func TestScan_CustomLabels_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -164,7 +163,7 @@ func TestScan_CustomLabels_Good(t *testing.T) {
 	core.AssertTrue(t, out.Success)
 }
 
-func TestScan_Deduplicates_Good(t *testing.T) {
+func TestScan_Deduplicates_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -192,7 +191,7 @@ func TestScan_Deduplicates_Good(t *testing.T) {
 	}
 }
 
-func TestScan_NoToken_Bad(t *testing.T) {
+func TestScan_NoToken_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken:     "",
@@ -319,7 +318,7 @@ func TestScan_ListRepoIssues_Bad_InvalidJSON(t *testing.T) {
 
 // --- scan Bad/Ugly ---
 
-func TestScan_Scan_Bad(t *testing.T) {
+func TestScan_Scan_Bad_Case(t *testing.T) {
 	// Forge returns error for org repos
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -339,10 +338,10 @@ func TestScan_Scan_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestScan_Scan_Ugly(t *testing.T) {
+func TestScan_Scan_Ugly_Case(t *testing.T) {
 	// Org with no repos
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/orgs/") {
+		if core.Contains(r.URL.Path, "/orgs/") {
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 			return
 		}
@@ -367,7 +366,7 @@ func TestScan_Scan_Ugly(t *testing.T) {
 
 // --- listOrgRepos Good/Bad/Ugly ---
 
-func TestScan_ListOrgRepos_Good(t *testing.T) {
+func TestScan_ListOrgRepos_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -386,7 +385,7 @@ func TestScan_ListOrgRepos_Good(t *testing.T) {
 	core.AssertContains(t, repos, "agent")
 }
 
-func TestScan_ListOrgRepos_Bad(t *testing.T) {
+func TestScan_ListOrgRepos_Bad_Case(t *testing.T) {
 	// Forge returns error
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -406,7 +405,7 @@ func TestScan_ListOrgRepos_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestScan_ListOrgRepos_Ugly(t *testing.T) {
+func TestScan_ListOrgRepos_Ugly_Case(t *testing.T) {
 	// Empty org name
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
@@ -429,10 +428,10 @@ func TestScan_ListOrgRepos_Ugly(t *testing.T) {
 
 // --- listRepoIssues Ugly ---
 
-func TestScan_ListRepoIssues_Ugly(t *testing.T) {
+func TestScan_ListRepoIssues_Ugly_Case(t *testing.T) {
 	// Issues with very long titles
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		longTitle := strings.Repeat("Very Long Issue Title ", 50)
+		longTitle := repeatString("Very Long Issue Title ", 50)
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   1,

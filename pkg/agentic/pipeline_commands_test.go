@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestPipelineCommands_RegisterPipelineCommands_Good(t *testing.T) {
+func TestPipelineCommands_RegisterPipelineCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerPipelineCommands()

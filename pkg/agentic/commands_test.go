@@ -4,10 +4,8 @@ package agentic
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -43,35 +41,6 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 	}
 
 	return s, c
-}
-
-func captureStdout(t *testing.T, run func()) string {
-	t.Helper()
-
-	old := os.Stdout
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe stdout: %v", err)
-	}
-	os.Stdout = writer
-	defer func() {
-		os.Stdout = old
-	}()
-
-	run()
-
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close writer: %v", err)
-	}
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
-	}
-	if err := reader.Close(); err != nil {
-		t.Fatalf("close reader: %v", err)
-	}
-
-	return string(data)
 }
 
 // --- Forge command methods (extracted from closures) ---
@@ -234,7 +203,7 @@ func TestCommands_RegisterCommands_Good_BrainRecall(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "brain:remember")
 }
 
-func TestCommands_CmdBrainList_Good(t *testing.T) {
+func TestCommands_CmdBrainList_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.list", func(_ context.Context, options core.Options) core.Result {
 		core.AssertEqual(t, "agent", options.String("project"))
@@ -275,7 +244,7 @@ func TestCommands_CmdBrainList_Good(t *testing.T) {
 	core.AssertContains(t, output, "Use named actions.")
 }
 
-func TestCommands_CmdBrainRemember_Good(t *testing.T) {
+func TestCommands_CmdBrainRemember_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.remember", func(_ context.Context, options core.Options) core.Result {
 		core.AssertEqual(t, "Use named actions.", options.String("content"))
@@ -364,7 +333,7 @@ func TestCommands_CmdBrainList_Ugly_InvalidOutput(t *testing.T) {
 	core.AssertContains(t, err.Error(), "invalid brain list output")
 }
 
-func TestCommands_CmdBrainRecall_Good(t *testing.T) {
+func TestCommands_CmdBrainRecall_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.recall", func(_ context.Context, options core.Options) core.Result {
 		core.AssertEqual(t, "workspace handoff context", options.String("query"))
@@ -432,7 +401,7 @@ func TestCommands_CmdBrainRecall_Ugly_InvalidOutput(t *testing.T) {
 	core.AssertContains(t, err.Error(), "invalid brain recall output")
 }
 
-func TestCommands_CmdBrainForget_Good(t *testing.T) {
+func TestCommands_CmdBrainForget_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	c.Action("brain.forget", func(_ context.Context, options core.Options) core.Result {
 		core.AssertEqual(t, "mem-1", options.String("id"))
@@ -1064,7 +1033,7 @@ func TestCommands_CmdGenerate_Bad_MissingPrompt(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommands_CmdGenerate_Good(t *testing.T) {
+func TestCommands_CmdGenerate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/generate", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -1121,7 +1090,7 @@ func TestCommands_CmdGenerate_Good_BriefTemplate(t *testing.T) {
 	core.AssertContains(t, output, "content:  Template draft")
 }
 
-func TestCommands_CmdContentSchemaGenerate_Good(t *testing.T) {
+func TestCommands_CmdContentSchemaGenerate_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	output := captureStdout(t, func() {
 		r := s.cmdContentSchemaGenerate(core.NewOptions(
@@ -1156,7 +1125,7 @@ func TestCommands_CmdContentSchemaGenerate_Ugly_InvalidSchemaType(t *testing.T) 
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommands_CmdComplete_Good(t *testing.T) {
+func TestCommands_CmdComplete_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	c.Action("noop", func(_ context.Context, _ core.Options) core.Result {
@@ -1182,7 +1151,7 @@ func TestCommands_CmdComplete_Bad_MissingTask(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommands_CmdScan_Good(t *testing.T) {
+func TestCommands_CmdScan_Good_Case(t *testing.T) {
 	server := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -1247,7 +1216,7 @@ func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
 	core.AssertContains(t, output, "count: 0")
 }
 
-func TestCommands_CmdPlanCreate_Good(t *testing.T) {
+func TestCommands_CmdPlanCreate_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	r := s.cmdPlanCreate(core.NewOptions(
@@ -1303,7 +1272,7 @@ func TestCommands_CmdPlanStatus_Good_GetAndSet(t *testing.T) {
 	core.AssertEqual(t, "ready", plan.Status)
 }
 
-func TestCommands_CmdPlanArchive_Good(t *testing.T) {
+func TestCommands_CmdPlanArchive_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -1327,7 +1296,7 @@ func TestCommands_CmdPlanArchive_Good(t *testing.T) {
 	core.AssertFalse(t, plan.ArchivedAt.IsZero())
 }
 
-func TestCommands_CmdPlanDelete_Good(t *testing.T) {
+func TestCommands_CmdPlanDelete_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
@@ -1352,7 +1321,7 @@ func TestCommands_CmdPlanDelete_Good(t *testing.T) {
 	core.AssertError(t, readErr)
 }
 
-func TestCommands_CmdExtract_Good(t *testing.T) {
+func TestCommands_CmdExtract_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	target := core.JoinPath(t.TempDir(), "extract-test")
 	r := s.cmdExtract(core.NewOptions(
@@ -1440,7 +1409,7 @@ func TestCommands_CmdDispatch_Good_CancelledCtx(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
-func TestCommands_CmdDispatchStart_Good(t *testing.T) {
+func TestCommands_CmdDispatchStart_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	called := false
 	c.Action("runner.start", func(_ context.Context, _ core.Options) core.Result {
@@ -1457,7 +1426,7 @@ func TestCommands_CmdDispatchStart_Good(t *testing.T) {
 	core.AssertContains(t, output, "dispatch started")
 }
 
-func TestCommands_CmdDispatchShutdown_Good(t *testing.T) {
+func TestCommands_CmdDispatchShutdown_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	called := false
 	c.Action("runner.stop", func(_ context.Context, _ core.Options) core.Result {
@@ -1474,7 +1443,7 @@ func TestCommands_CmdDispatchShutdown_Good(t *testing.T) {
 	core.AssertContains(t, output, "queue frozen")
 }
 
-func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
+func TestCommands_CmdDispatchShutdownNow_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	called := false
 	c.Action("runner.kill", func(_ context.Context, _ core.Options) core.Result {
@@ -1491,7 +1460,7 @@ func TestCommands_CmdDispatchShutdownNow_Good(t *testing.T) {
 	core.AssertContains(t, output, "killed all agents")
 }
 
-func TestCommands_CmdPoke_Good(t *testing.T) {
+func TestCommands_CmdPoke_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 	called := false
 	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result {
@@ -1508,7 +1477,7 @@ func TestCommands_CmdPoke_Good(t *testing.T) {
 	core.AssertContains(t, output, "queue poke requested")
 }
 
-func TestCommands_ParseIntStr_Good(t *testing.T) {
+func TestCommands_ParseIntStr_Good_Case(t *testing.T) {
 	core.AssertEqual(t, 42, parseIntString("42"))
 	core.AssertEqual(t, 123, parseIntString("issue-123"))
 	core.AssertEqual(t, 0, parseIntString(""))

@@ -3,7 +3,6 @@
 package flow
 
 import (
-	"bytes"
 	"embed"
 	"io"
 
@@ -88,7 +87,7 @@ func ParseFile(path string) (Flow, error) {
 		return Flow{}, core.E(parseFileContext, core.Concat("read ", path), nil)
 	}
 
-	return Parse(bytes.NewBufferString(content))
+	return Parse(core.NewBufferString(content))
 }
 
 // LoadEmbedded loads a Flow definition baked into the binary via go:embed.
@@ -118,10 +117,10 @@ func LoadEmbedded(name string) (Flow, error) {
 			if !ok {
 				return Flow{}, core.E("flow.LoadEmbedded", core.Concat("embedded markdown is not a YAML flow: ", candidate), nil)
 			}
-			return Parse(bytes.NewReader(frontMatter))
+			return Parse(core.NewReader(frontMatter))
 		}
 
-		return Parse(bytes.NewReader(content))
+		return Parse(core.NewReader(string(content)))
 	}
 
 	return Flow{}, core.E("flow.LoadEmbedded", core.Concat("embedded flow not found: ", name), nil)
@@ -172,17 +171,17 @@ func isMarkdown(name string) bool {
 	return core.HasSuffix(name, ".md")
 }
 
-func markdownFrontMatter(content []byte) ([]byte, bool) {
-	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
-	if !bytes.HasPrefix(content, []byte("---\n")) {
-		return nil, false
+func markdownFrontMatter(content []byte) (string, bool) {
+	text := core.Replace(string(content), "\r\n", "\n")
+	if !core.HasPrefix(text, "---\n") {
+		return "", false
 	}
 
-	content = content[len("---\n"):]
-	index := bytes.Index(content, []byte("\n---\n"))
-	if index < 0 {
-		return nil, false
+	text = text[len("---\n"):]
+	parts := core.SplitN(text, "\n---\n", 2)
+	if len(parts) != 2 {
+		return "", false
 	}
 
-	return content[:index], true
+	return parts[0], true
 }

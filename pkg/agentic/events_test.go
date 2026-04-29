@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestEvents_EmitEvent_Good(t *testing.T) {
+func TestEvents_EmitEvent_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))

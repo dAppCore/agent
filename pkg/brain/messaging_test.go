@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	core "dappco.re/go"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 )
 
 // localDirect returns a DirectSubsystem that never hits the network.
@@ -19,7 +20,7 @@ func localDirect() *DirectSubsystem {
 
 // --- sendMessage ---
 
-func TestMessaging_SendMessage_Good(t *testing.T) {
+func TestMessaging_SendMessage_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "POST", r.Method)
 		core.AssertEqual(t, "/v1/messages/send", r.URL.Path)
@@ -150,7 +151,7 @@ func TestMessaging_Inbox_Bad_APIError(t *testing.T) {
 
 // --- conversation ---
 
-func TestMessaging_Conversation_Good(t *testing.T) {
+func TestMessaging_Conversation_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "GET", r.Method)
 		core.AssertContains(t, r.URL.Path, "/v1/messages/conversation/charon")
@@ -202,7 +203,7 @@ func TestMessaging_Conversation_Bad_APIError(t *testing.T) {
 
 // --- parseMessages ---
 
-func TestMessaging_ParseMessages_Good(t *testing.T) {
+func TestMessaging_ParseMessages_Good_Case(t *testing.T) {
 	result := map[string]any{
 		"data": []any{
 			map[string]any{
@@ -324,4 +325,26 @@ func TestMessaging_ConversationOutput_Good_RoundTrip(t *testing.T) {
 	roundTrip(t, in, &out)
 	core.AssertTrue(t, out.Success)
 	core.AssertLen(t, out.Messages, 1)
+}
+
+func TestMessaging_DirectSubsystem_RegisterMessagingTools_Good(t *testing.T) {
+	names := listedToolNames(t, NewDirect().RegisterMessagingTools)
+	core.AssertContains(t, names, "agent_send")
+	core.AssertContains(t, names, "agent_conversation")
+}
+
+func TestMessaging_DirectSubsystem_RegisterMessagingTools_Bad(t *testing.T) {
+	names := listedToolNames(t, (&DirectSubsystem{}).RegisterMessagingTools)
+	core.AssertContains(t, names, "agent_send")
+	core.AssertContains(t, names, "agent_inbox")
+}
+
+func TestMessaging_DirectSubsystem_RegisterMessagingTools_Ugly(t *testing.T) {
+	names := listedToolNames(t, func(svc *coremcp.Service) {
+		sub := &DirectSubsystem{}
+		sub.RegisterMessagingTools(svc)
+		sub.RegisterMessagingTools(svc)
+	})
+	core.AssertContains(t, names, "agent_inbox")
+	core.AssertContains(t, names, "agent_conversation")
 }

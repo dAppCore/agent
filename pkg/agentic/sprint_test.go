@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestSprint_HandleSprintCreate_Good(t *testing.T) {
+func TestSprint_HandleSprintCreate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sprints", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -43,7 +43,7 @@ func TestSprint_HandleSprintCreate_Good(t *testing.T) {
 	core.AssertEqual(t, "active", output.Sprint.Status)
 }
 
-func TestSprint_HandleSprintGet_Bad(t *testing.T) {
+func TestSprint_HandleSprintGet_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleSprintGet(context.Background(), core.NewOptions())
@@ -92,7 +92,7 @@ func TestSprint_HandleSprintList_Ugly_NestedEnvelope(t *testing.T) {
 	core.AssertEqual(t, "Finish RFC parity", output.Sprints[0].Goal)
 }
 
-func TestSprint_SprintStart_Good(t *testing.T) {
+func TestSprint_SprintStart_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sprints/ax-follow-up/start", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -108,7 +108,7 @@ func TestSprint_SprintStart_Good(t *testing.T) {
 	core.AssertEqual(t, "active", output.Sprint.Status)
 }
 
-func TestSprint_SprintComplete_Good(t *testing.T) {
+func TestSprint_SprintComplete_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sprints/7/complete", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)

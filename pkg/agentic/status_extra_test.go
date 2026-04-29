@@ -25,7 +25,7 @@ func coreWithRunnerActions() *core.Core {
 
 // --- status tool ---
 
-func TestStatus_EmptyWorkspace_Good(t *testing.T) {
+func TestStatus_EmptyWorkspace_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -44,7 +44,7 @@ func TestStatus_EmptyWorkspace_Good(t *testing.T) {
 	core.AssertEqual(t, 0, out.Completed)
 }
 
-func TestStatus_MixedWorkspaces_Good(t *testing.T) {
+func TestStatus_MixedWorkspaces_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -104,7 +104,7 @@ func TestStatus_MixedWorkspaces_Good(t *testing.T) {
 	core.AssertEqual(t, "agent", out.Blocked[0].Repo)
 }
 
-func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
+func TestStatus_FilteredWorkspaces_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -155,7 +155,7 @@ func TestStatus_FilteredWorkspaces_Good(t *testing.T) {
 	core.AssertEqual(t, "Which log format?", out.Blocked[0].Question)
 }
 
-func TestStatus_DeepLayout_Good(t *testing.T) {
+func TestStatus_DeepLayout_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -182,7 +182,7 @@ func TestStatus_DeepLayout_Good(t *testing.T) {
 	core.AssertEqual(t, 1, out.Completed)
 }
 
-func TestStatus_CorruptStatus_Good(t *testing.T) {
+func TestStatus_CorruptStatus_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -206,7 +206,7 @@ func TestStatus_CorruptStatus_Good(t *testing.T) {
 
 // --- shutdown tools ---
 
-func TestShutdown_DispatchStart_Good(t *testing.T) {
+func TestShutdown_DispatchStart_Good_Case(t *testing.T) {
 	// dispatchStart delegates to runner.start Action — verify it calls the Action and returns success.
 	c := coreWithRunnerActions()
 	s := &PrepSubsystem{
@@ -223,7 +223,7 @@ func TestShutdown_DispatchStart_Good(t *testing.T) {
 	core.AssertContains(t, out.Message, "started")
 }
 
-func TestShutdown_ShutdownGraceful_Good(t *testing.T) {
+func TestShutdown_ShutdownGraceful_Good_Case(t *testing.T) {
 	// shutdownGraceful delegates to runner.stop Action — verify it returns success and frozen message.
 	root := t.TempDir()
 	setTestWorkspace(t, root)

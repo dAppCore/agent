@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	"os"
+	"syscall"
 
 	core "dappco.re/go"
 )
@@ -13,14 +13,14 @@ func ExamplePrepSubsystem_cmdWorkspaceClean() {
 	root := fsys.TempDir("agentic-workspace-clean-example")
 	defer fsys.DeleteAll(root)
 
-	previous, hadPrevious := os.LookupEnv("CORE_WORKSPACE")
-	_ = os.Setenv("CORE_WORKSPACE", root)
+	previous, hadPrevious := syscall.Getenv("CORE_WORKSPACE")
+	_ = syscall.Setenv("CORE_WORKSPACE", root)
 	defer func() {
 		if hadPrevious {
-			_ = os.Setenv("CORE_WORKSPACE", previous)
+			_ = syscall.Setenv("CORE_WORKSPACE", previous)
 			return
 		}
-		_ = os.Unsetenv("CORE_WORKSPACE")
+		_ = syscall.Unsetenv("CORE_WORKSPACE")
 	}()
 
 	s := &PrepSubsystem{

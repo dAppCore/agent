@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsCommit_RegisterCommitCommands_Good(t *testing.T) {
+func TestCommandsCommit_RegisterCommitCommands_Good_Case(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
 
@@ -18,7 +18,7 @@ func TestCommandsCommit_RegisterCommitCommands_Good(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "agentic:commit")
 }
 
-func TestCommandsCommit_CmdCommit_Good(t *testing.T) {
+func TestCommandsCommit_CmdCommit_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 

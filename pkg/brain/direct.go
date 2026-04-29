@@ -40,13 +40,13 @@ func NewDirect() *DirectSubsystem {
 			if readResult := fs.Read(keyPath); readResult.OK {
 				apiKey = core.Trim(readResult.Value.(string))
 				if apiKey != "" {
-					core.Info("brain direct subsystem loaded API key from file", "path", keyPath)
+					core.Info("brain direct subsystem loaded API key from file", `path`, keyPath)
 				}
 			}
 		}
 	}
 	if apiKey == "" {
-		core.Warn("brain direct subsystem has no API key configured", "path", keyPath)
+		core.Warn("brain direct subsystem has no API key configured", `path`, keyPath)
 	}
 
 	return &DirectSubsystem{

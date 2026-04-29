@@ -10,6 +10,7 @@ import (
 	"time"
 
 	core "dappco.re/go"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
 )
 
@@ -213,7 +214,7 @@ func TestDirect_ApiCall_Bad_BadRequest(t *testing.T) {
 
 // --- remember ---
 
-func TestDirect_Remember_Good(t *testing.T) {
+func TestDirect_Remember_Good_Case(t *testing.T) {
 	t.Setenv("CORE_BRAIN_AGENT_ID", "codex")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -411,7 +412,7 @@ func TestDirect_Recall_Bad_APIError(t *testing.T) {
 
 // --- forget ---
 
-func TestDirect_Forget_Good(t *testing.T) {
+func TestDirect_Forget_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "DELETE", r.Method)
 		core.AssertEqual(t, "/v1/brain/forget/mem-123", r.URL.Path)
@@ -534,4 +535,103 @@ func TestDirect_List_Bad_APIError(t *testing.T) {
 	_, out, err := newTestDirect(srv).list(context.Background(), nil, ListInput{Project: "agent"})
 	core.AssertError(t, err)
 	core.AssertFalse(t, out.Success)
+}
+
+func TestDirect_NewDirect_Good(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+
+	sub := NewDirect()
+	core.AssertEqual(t, "https://api.lthn.sh", sub.apiURL)
+	core.AssertNotEmpty(t, sub.apiURL)
+}
+
+func TestDirect_NewDirect_Bad(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("CORE_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+
+	sub := NewDirect()
+	core.AssertEqual(t, "https://api.lthn.sh", sub.apiURL)
+	core.AssertEmpty(t, sub.apiKey)
+}
+
+func TestDirect_NewDirect_Ugly(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("CORE_HOME", "")
+	t.Setenv("DIR_HOME", "")
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	keyDir := core.JoinPath(tmpHome, ".claude")
+	core.RequireTrue(t, fs.EnsureDir(keyDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(keyDir, "brain.key"), "  home-key-789  \n").OK)
+
+	sub := NewDirect()
+	core.AssertEqual(t, "home-key-789", sub.apiKey)
+	core.AssertNotNil(t, sub.apiClient)
+}
+
+func TestDirect_DirectSubsystem_Name_Good(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "https://custom.api.test")
+	t.Setenv("CORE_BRAIN_KEY", "test-key")
+	got := NewDirect().Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotEmpty(t, got)
+}
+
+func TestDirect_DirectSubsystem_Name_Bad(t *testing.T) {
+	got := (&DirectSubsystem{}).Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertContains(t, got, "brain")
+}
+
+func TestDirect_DirectSubsystem_Name_Ugly(t *testing.T) {
+	var sub *DirectSubsystem
+	got := sub.Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotContains(t, got, "/")
+}
+
+func TestDirect_DirectSubsystem_RegisterTools_Good(t *testing.T) {
+	names := listedToolNames(t, NewDirect().RegisterTools)
+	core.AssertContains(t, names, "brain_remember")
+	core.AssertContains(t, names, "agent_send")
+}
+
+func TestDirect_DirectSubsystem_RegisterTools_Bad(t *testing.T) {
+	names := listedToolNames(t, (&DirectSubsystem{}).RegisterTools)
+	core.AssertContains(t, names, "brain_list")
+	core.AssertContains(t, names, "agent_inbox")
+}
+
+func TestDirect_DirectSubsystem_RegisterTools_Ugly(t *testing.T) {
+	names := listedToolNames(t, func(svc *coremcp.Service) {
+		sub := &DirectSubsystem{}
+		sub.RegisterTools(svc)
+		sub.RegisterTools(svc)
+	})
+	core.AssertContains(t, names, "brain_recall")
+	core.AssertContains(t, names, "agent_conversation")
+}
+
+func TestDirect_DirectSubsystem_Shutdown_Good(t *testing.T) {
+	err := NewDirect().Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestDirect_DirectSubsystem_Shutdown_Bad(t *testing.T) {
+	err := (&DirectSubsystem{}).Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestDirect_DirectSubsystem_Shutdown_Ugly(t *testing.T) {
+	var sub *DirectSubsystem
+	core.AssertNotPanics(t, func() {
+		core.AssertNoError(t, sub.Shutdown(context.Background()))
+	})
 }

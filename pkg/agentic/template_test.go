@@ -12,7 +12,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestTemplate_HandleTemplateList_Good(t *testing.T) {
+func TestTemplate_HandleTemplateList_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplateList(context.Background(), core.NewOptions(
 		core.Option{Key: "category", Value: "development"},
@@ -40,7 +40,7 @@ func TestTemplate_HandleTemplateList_Good(t *testing.T) {
 	core.AssertTrue(t, found)
 }
 
-func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
+func TestTemplate_HandleTemplatePreview_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplatePreview(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "new-feature"},
@@ -60,7 +60,7 @@ func TestTemplate_HandleTemplatePreview_Good(t *testing.T) {
 	core.AssertContains(t, output.Preview, "Phase 1")
 }
 
-func TestTemplate_HandleTemplatePreview_Bad(t *testing.T) {
+func TestTemplate_HandleTemplatePreview_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplatePreview(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
@@ -92,7 +92,7 @@ func TestTemplate_TemplatePlanTask_Good_FileLineReference(t *testing.T) {
 	core.AssertEqual(t, 411, task.Line)
 }
 
-func TestTemplate_HandleTemplateCreatePlan_Good(t *testing.T) {
+func TestTemplate_HandleTemplateCreatePlan_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "new-feature"},
@@ -151,7 +151,7 @@ func TestTemplate_HandleTemplateCreatePlan_Good_NoVariables(t *testing.T) {
 	core.AssertEqual(t, "api-consistency", plan.TemplateVersion.Slug)
 }
 
-func TestTemplate_HandleTemplateCreatePlan_Bad(t *testing.T) {
+func TestTemplate_HandleTemplateCreatePlan_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleTemplateCreatePlan(context.Background(), core.NewOptions(
 		core.Option{Key: "template", Value: "new-feature"},

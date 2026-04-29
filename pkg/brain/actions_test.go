@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestActions_OnStartup_Good(t *testing.T) {
+func TestActions_OnStartup_Good_Case(t *testing.T) {
 	t.Setenv("CORE_BRAIN_URL", "https://api.lthn.sh")
 	t.Setenv("CORE_BRAIN_KEY", "test-key")
 
@@ -31,7 +31,7 @@ func TestActions_OnStartup_Good(t *testing.T) {
 	core.AssertTrue(t, c.Action("agent.conversation").Exists())
 }
 
-func TestActions_HandleList_Good(t *testing.T) {
+func TestActions_HandleList_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "GET", r.Method)
 		core.AssertEqual(t, "/v1/brain/list", r.URL.Path)
@@ -85,7 +85,7 @@ func TestActions_HandleList_Good(t *testing.T) {
 	core.AssertEqual(t, "manual", output.Memories[0].Source)
 }
 
-func TestActions_HandleList_Bad(t *testing.T) {
+func TestActions_HandleList_Bad_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error":"down"}`))
@@ -150,4 +150,29 @@ func TestActions_HandleRecall_Ugly_FilterMap(t *testing.T) {
 	core.RequireTrue(t, ok)
 	core.AssertTrue(t, output.Success)
 	core.AssertEqual(t, 0, output.Count)
+}
+
+func TestActions_DirectSubsystem_OnStartup_Good(t *testing.T) {
+	t.Setenv("CORE_BRAIN_URL", "https://api.lthn.sh")
+	t.Setenv("CORE_BRAIN_KEY", "test-key")
+	c := core.New()
+	sub := NewDirect()
+	sub.ServiceRuntime = core.NewServiceRuntime(c, DirectOptions{})
+
+	result := sub.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, c.Action("brain.remember").Exists())
+}
+
+func TestActions_DirectSubsystem_OnStartup_Bad(t *testing.T) {
+	result := (&DirectSubsystem{}).OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestActions_DirectSubsystem_OnStartup_Ugly(t *testing.T) {
+	sub := &DirectSubsystem{ServiceRuntime: core.NewServiceRuntime(nil, DirectOptions{})}
+	result := sub.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
 }

@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"strings"
 	"testing"
 
 	core "dappco.re/go"
@@ -133,38 +132,38 @@ func TestDispatch_AgentCommand_Good_CodexLemrd(t *testing.T) {
 	core.AssertContains(t, args, "lemrd")
 }
 
-func TestDispatch_IsLEMProfile_Good(t *testing.T) {
+func TestDispatch_IsLEMProfile_Good_Case(t *testing.T) {
 	core.AssertTrue(t, isLEMProfile("lemer"))
 	core.AssertTrue(t, isLEMProfile("lemma"))
 	core.AssertTrue(t, isLEMProfile("lemmy"))
 	core.AssertTrue(t, isLEMProfile("lemrd"))
 }
 
-func TestDispatch_IsLEMProfile_Bad(t *testing.T) {
+func TestDispatch_IsLEMProfile_Bad_Case(t *testing.T) {
 	core.AssertFalse(t, isLEMProfile("gpt-5.4"))
 	core.AssertFalse(t, isLEMProfile("gemini-2.5-flash"))
 	core.AssertFalse(t, isLEMProfile(""))
 }
 
-func TestDispatch_IsLEMProfile_Ugly(t *testing.T) {
+func TestDispatch_IsLEMProfile_Ugly_Case(t *testing.T) {
 	core.AssertFalse(t, isLEMProfile("Lemmy"))
 	core.AssertFalse(t, isLEMProfile("LEMRD"))
 	core.AssertFalse(t, isLEMProfile("lem"))
 }
 
-func TestDispatch_IsNativeAgent_Good(t *testing.T) {
+func TestDispatch_IsNativeAgent_Good_Case(t *testing.T) {
 	core.AssertTrue(t, isNativeAgent("claude"))
 	core.AssertTrue(t, isNativeAgent("claude:opus"))
 	core.AssertTrue(t, isNativeAgent("claude:haiku"))
 }
 
-func TestDispatch_IsNativeAgent_Bad(t *testing.T) {
+func TestDispatch_IsNativeAgent_Bad_Case(t *testing.T) {
 	core.AssertFalse(t, isNativeAgent("codex"))
 	core.AssertFalse(t, isNativeAgent("codex:gpt-5.4"))
 	core.AssertFalse(t, isNativeAgent("gemini"))
 }
 
-func TestDispatch_IsNativeAgent_Ugly(t *testing.T) {
+func TestDispatch_IsNativeAgent_Ugly_Case(t *testing.T) {
 	core.AssertFalse(t, isNativeAgent(""))
 	core.AssertFalse(t, isNativeAgent("codex:lemmy"))
 	core.AssertFalse(t, isNativeAgent("local:mistral"))
@@ -219,7 +218,7 @@ func TestDispatch_ContainerCommand_Good_ClaudeMountsConfig(t *testing.T) {
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	_, args := containerCommand("claude", []string{"-p", "do it"}, "/ws", "/ws/.meta")
-	joined := strings.Join(args, " ")
+	joined := core.Join(" ", args...)
 	core.AssertContains(t, joined, ".claude:/home/agent/.claude:ro")
 }
 
@@ -228,7 +227,7 @@ func TestDispatch_ContainerCommand_Good_GeminiMountsConfig(t *testing.T) {
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	_, args := containerCommand("gemini", []string{"-p", "do it"}, "/ws", "/ws/.meta")
-	joined := strings.Join(args, " ")
+	joined := core.Join(" ", args...)
 	core.AssertContains(t, joined, ".gemini:/home/agent/.gemini:ro")
 }
 
@@ -237,7 +236,7 @@ func TestDispatch_ContainerCommand_Good_CodexNoClaudeMount(t *testing.T) {
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
-	joined := strings.Join(args, " ")
+	joined := core.Join(" ", args...)
 	// codex agent must NOT mount .claude config
 	core.AssertNotContains(t, joined, ".claude:/home/agent/.claude:ro")
 }
@@ -247,7 +246,7 @@ func TestDispatch_ContainerCommand_Good_APIKeysPassedByRef(t *testing.T) {
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	_, args := containerCommand("codex", []string{"exec"}, "/ws", "/ws/.meta")
-	joined := strings.Join(args, " ")
+	joined := core.Join(" ", args...)
 	core.AssertContains(t, joined, "OPENAI_API_KEY")
 	core.AssertContains(t, joined, "ANTHROPIC_API_KEY")
 	core.AssertContains(t, joined, "GEMINI_API_KEY")
@@ -386,7 +385,7 @@ func TestEvents_EmitEvent_Good_Appends(t *testing.T) {
 	core.RequireTrue(t, r.OK)
 
 	lines := 0
-	for _, line := range strings.Split(strings.TrimSpace(r.Value.(string)), "\n") {
+	for _, line := range core.Split(core.Trim(r.Value.(string)), "\n") {
 		if line != "" {
 			lines++
 		}
@@ -446,7 +445,7 @@ func TestEvents_EmitEvent_Ugly_EmptyFields(t *testing.T) {
 
 // --- emitStartEvent/emitCompletionEvent (Good/Bad/Ugly) ---
 
-func TestEvents_EmitStartEvent_Good(t *testing.T) {
+func TestEvents_EmitStartEvent_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
@@ -462,7 +461,7 @@ func TestEvents_EmitStartEvent_Good(t *testing.T) {
 	core.AssertContains(t, content, "core/go-io/task-10")
 }
 
-func TestEvents_EmitStartEvent_Bad(t *testing.T) {
+func TestEvents_EmitStartEvent_Bad_Case(t *testing.T) {
 	// Empty agent name
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -479,13 +478,13 @@ func TestEvents_EmitStartEvent_Bad(t *testing.T) {
 	core.AssertContains(t, content, "agent_started")
 }
 
-func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
+func TestEvents_EmitStartEvent_Ugly_Case(t *testing.T) {
 	// Very long workspace name
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
-	longName := strings.Repeat("very-long-workspace-name-", 50)
+	longName := repeatString("very-long-workspace-name-", 50)
 	core.AssertNotPanics(t, func() {
 		emitStartEvent("claude", longName)
 	})
@@ -496,7 +495,7 @@ func TestEvents_EmitStartEvent_Ugly(t *testing.T) {
 	core.AssertContains(t, r.Value.(string), "agent_started")
 }
 
-func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
+func TestEvents_EmitCompletionEvent_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
@@ -512,7 +511,7 @@ func TestEvents_EmitCompletionEvent_Good(t *testing.T) {
 	core.AssertContains(t, content, "completed")
 }
 
-func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
+func TestEvents_EmitCompletionEvent_Bad_Case(t *testing.T) {
 	// Empty status
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -528,7 +527,7 @@ func TestEvents_EmitCompletionEvent_Bad(t *testing.T) {
 	core.AssertContains(t, r.Value.(string), "agent_completed")
 }
 
-func TestEvents_EmitCompletionEvent_Ugly(t *testing.T) {
+func TestEvents_EmitCompletionEvent_Ugly_Case(t *testing.T) {
 	// Unicode in agent name
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -619,7 +618,7 @@ func TestIngest_CountFileRefs_Ugly_MalformedBackticks(t *testing.T) {
 
 func TestIngest_CountFileRefs_Ugly_LongRef(t *testing.T) {
 	// Reference longer than 100 chars should not be counted (loop limit)
-	longRef := "`" + strings.Repeat("a", 101) + ".go:1`"
+	longRef := "`" + repeatString("a", 101) + ".go:1`"
 	core.AssertEqual(
 		t,
 		0,

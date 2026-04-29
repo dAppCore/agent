@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestContent_HandleContentGenerate_Good(t *testing.T) {
+func TestContent_HandleContentGenerate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/generate", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -84,14 +84,14 @@ func TestContent_HandleContentGenerate_Good_BriefTemplate(t *testing.T) {
 	core.AssertEqual(t, "Template draft", output.Result.Content)
 }
 
-func TestContent_HandleContentGenerate_Bad(t *testing.T) {
+func TestContent_HandleContentGenerate_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleContentGenerate(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestContent_HandleContentGenerate_Ugly(t *testing.T) {
+func TestContent_HandleContentGenerate_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":`))
 	}))
@@ -104,7 +104,7 @@ func TestContent_HandleContentGenerate_Ugly(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestContent_HandleContentBriefCreate_Good(t *testing.T) {
+func TestContent_HandleContentBriefCreate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/briefs", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -138,7 +138,7 @@ func TestContent_HandleContentBriefCreate_Good(t *testing.T) {
 	core.AssertEqual(t, "LinkHost", output.Brief.Product)
 }
 
-func TestContent_HandleContentBriefList_Good(t *testing.T) {
+func TestContent_HandleContentBriefList_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/briefs", r.URL.Path)
 		core.AssertEqual(t, "product", r.URL.Query().Get("category"))
@@ -161,7 +161,7 @@ func TestContent_HandleContentBriefList_Good(t *testing.T) {
 	core.AssertEqual(t, "host-link", output.Briefs[0].Slug)
 }
 
-func TestContent_HandleContentStatus_Good(t *testing.T) {
+func TestContent_HandleContentStatus_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/status/batch_123", r.URL.Path)
 		_, _ = w.Write([]byte(`{"data":{"status":"running","batch_id":"batch_123","queued":2}}`))
@@ -180,7 +180,7 @@ func TestContent_HandleContentStatus_Good(t *testing.T) {
 	core.AssertEqual(t, "batch_123", stringValue(output.Status["batch_id"]))
 }
 
-func TestContent_HandleContentUsageStats_Good(t *testing.T) {
+func TestContent_HandleContentUsageStats_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/usage/stats", r.URL.Path)
 		core.AssertEqual(t, "claude", r.URL.Query().Get("provider"))
@@ -202,7 +202,7 @@ func TestContent_HandleContentUsageStats_Good(t *testing.T) {
 	core.AssertEqual(t, 1200, intValue(output.Usage["tokens"]))
 }
 
-func TestContent_HandleContentFromPlan_Good(t *testing.T) {
+func TestContent_HandleContentFromPlan_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/content/from-plan", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -305,7 +305,7 @@ func TestContent_HandleContentSchemaGenerate_Good_HowTo(t *testing.T) {
 	core.AssertEqual(t, "Clone the repo", steps[0]["text"])
 }
 
-func TestContent_HandleContentSchemaGenerate_Bad(t *testing.T) {
+func TestContent_HandleContentSchemaGenerate_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
 		core.Option{Key: "type", Value: "article"},
@@ -313,7 +313,7 @@ func TestContent_HandleContentSchemaGenerate_Bad(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestContent_HandleContentSchemaGenerate_Ugly(t *testing.T) {
+func TestContent_HandleContentSchemaGenerate_Ugly_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 	result := subsystem.handleContentSchemaGenerate(context.Background(), core.NewOptions(
 		core.Option{Key: "kind", Value: "faq"},
@@ -323,19 +323,19 @@ func TestContent_HandleContentSchemaGenerate_Ugly(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestContent_contentSchemaType_Good(t *testing.T) {
+func TestContent_contentSchemaType_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "BlogPosting", contentSchemaType("article"))
 	core.AssertEqual(t, "FAQPage", contentSchemaType("faq"))
 	core.AssertEqual(t, "HowTo", contentSchemaType("how-to"))
 }
 
-func TestContent_contentSchemaType_Bad(t *testing.T) {
+func TestContent_contentSchemaType_Bad_Case(t *testing.T) {
 	result := contentSchemaType("press-release")
 	core.AssertEmpty(t, result)
 	core.AssertEqual(t, "", result)
 }
 
-func TestContent_contentSchemaType_Ugly(t *testing.T) {
+func TestContent_contentSchemaType_Ugly_Case(t *testing.T) {
 	techArticle := contentSchemaType("  TECH-ARTICLE  ")
 	empty := contentSchemaType("")
 	core.AssertEqual(t, "TechArticle", techArticle)

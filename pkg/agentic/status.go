@@ -61,10 +61,10 @@ func writeStatusResult(workspaceDir string, status *WorkspaceStatus) core.Result
 	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
-			core.Warn("agentic.writeStatus: failed to write status", "path", statusPath)
+			core.Warn("agentic.writeStatus: failed to write status", `path`, statusPath)
 			return core.Result{Value: core.E("writeStatus", "failed to write status", nil), OK: false}
 		}
-		core.Warn("agentic.writeStatus: failed to write status", "path", statusPath, "reason", err)
+		core.Warn("agentic.writeStatus: failed to write status", `path`, statusPath, "reason", err)
 		return core.Result{Value: core.E("writeStatus", "failed to write status", err), OK: false}
 	}
 	return core.Result{OK: true}

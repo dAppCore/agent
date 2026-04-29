@@ -8,11 +8,13 @@ import (
 	"time"
 
 	core "dappco.re/go"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"dappco.re/go/mcp/pkg/mcp/ide"
 )
 
 // --- Nil bridge tests (headless mode) ---
 
-func TestBrain_Remember_Bad(t *testing.T) {
+func TestBrain_Remember_Bad_Case(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainRemember(context.Background(), nil, RememberInput{
 		Content: "test memory",
@@ -21,7 +23,7 @@ func TestBrain_Remember_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestBrain_Recall_Bad(t *testing.T) {
+func TestBrain_Recall_Bad_Case(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainRecall(context.Background(), nil, RecallInput{
 		Query: "how does scoring work?",
@@ -29,7 +31,7 @@ func TestBrain_Recall_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestBrain_Forget_Bad(t *testing.T) {
+func TestBrain_Forget_Bad_Case(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainForget(context.Background(), nil, ForgetInput{
 		ID: "550e8400-e29b-41d4-a716-446655440000",
@@ -37,7 +39,7 @@ func TestBrain_Forget_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestBrain_List_Bad(t *testing.T) {
+func TestBrain_List_Bad_Case(t *testing.T) {
 	sub := New(nil)
 	_, _, err := sub.brainList(context.Background(), nil, ListInput{
 		Project: "eaas",
@@ -173,4 +175,84 @@ func TestBrain_ListOutput_Good(t *testing.T) {
 	core.AssertTrue(t, out.Success)
 	core.AssertEqual(t, 2, out.Count)
 	core.AssertLen(t, out.Memories, 2)
+}
+
+func TestBrain_New_Good(t *testing.T) {
+	bridge := ide.NewBridge(nil, ide.Config{})
+	sub := New(bridge)
+	core.AssertNotNil(t, sub)
+	core.AssertSame(t, bridge, sub.bridge)
+}
+
+func TestBrain_New_Bad(t *testing.T) {
+	sub := New(nil)
+	core.AssertNotNil(t, sub)
+	core.AssertNil(t, sub.bridge)
+}
+
+func TestBrain_New_Ugly(t *testing.T) {
+	first := New(nil)
+	second := New(nil)
+	core.AssertTrue(t, first != second)
+	core.AssertEqual(t, "brain", first.Name())
+}
+
+func TestBrain_Subsystem_Name_Good(t *testing.T) {
+	got := New(nil).Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotEmpty(t, got)
+}
+
+func TestBrain_Subsystem_Name_Bad(t *testing.T) {
+	got := (&Subsystem{}).Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertContains(t, got, "brain")
+}
+
+func TestBrain_Subsystem_Name_Ugly(t *testing.T) {
+	var sub *Subsystem
+	got := sub.Name()
+	core.AssertEqual(t, "brain", got)
+	core.AssertNotContains(t, got, "/")
+}
+
+func TestBrain_Subsystem_RegisterTools_Good(t *testing.T) {
+	names := listedToolNames(t, New(nil).RegisterTools)
+	core.AssertContains(t, names, "brain_remember")
+	core.AssertContains(t, names, "brain_list")
+}
+
+func TestBrain_Subsystem_RegisterTools_Bad(t *testing.T) {
+	names := listedToolNames(t, (&Subsystem{}).RegisterTools)
+	core.AssertContains(t, names, "brain_recall")
+	core.AssertContains(t, names, "brain_forget")
+}
+
+func TestBrain_Subsystem_RegisterTools_Ugly(t *testing.T) {
+	names := listedToolNames(t, func(svc *coremcp.Service) {
+		sub := New(nil)
+		sub.RegisterTools(svc)
+		sub.RegisterTools(svc)
+	})
+	core.AssertContains(t, names, "brain_remember")
+	core.AssertContains(t, names, "brain_recall")
+}
+
+func TestBrain_Subsystem_Shutdown_Good(t *testing.T) {
+	err := New(nil).Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestBrain_Subsystem_Shutdown_Bad(t *testing.T) {
+	err := (&Subsystem{}).Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestBrain_Subsystem_Shutdown_Ugly(t *testing.T) {
+	var sub *Subsystem
+	core.AssertNotPanics(t, func() {
+		core.AssertNoError(t, sub.Shutdown(context.Background()))
+	})
 }

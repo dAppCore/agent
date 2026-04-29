@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
+func TestBrainSeedMemory_CmdBrainSeedMemory_Good_Case(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CORE_HOME", home)
 
@@ -41,7 +41,7 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good(t *testing.T) {
 
 	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
 		core.Option{Key: "workspace", Value: "42"},
-		core.Option{Key: "path", Value: projectsDir},
+		core.Option{Key: `path`, Value: projectsDir},
 		core.Option{Key: "agent", Value: "virgil"},
 	))
 
@@ -101,7 +101,7 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good_GlobPath(t *testing.T) {
 
 	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
 		core.Option{Key: "workspace", Value: "42"},
-		core.Option{Key: "path", Value: core.JoinPath(projectsDir, "*", "memory")},
+		core.Option{Key: `path`, Value: core.JoinPath(projectsDir, "*", "memory")},
 	))
 
 	core.RequireTrue(t, result.OK)
@@ -118,7 +118,7 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Good_GlobPath(t *testing.T) {
 	core.AssertElementsMatch(t, []any{"architecture", "decision"}, []any{bodies[0]["type"], bodies[1]["type"]})
 }
 
-func TestBrainSeedMemory_CmdBrainIngest_Good(t *testing.T) {
+func TestBrainSeedMemory_CmdBrainIngest_Good_Case(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CORE_HOME", home)
 
@@ -146,7 +146,7 @@ func TestBrainSeedMemory_CmdBrainIngest_Good(t *testing.T) {
 
 	result := subsystem.cmdBrainIngest(core.NewOptions(
 		core.Option{Key: "workspace", Value: "42"},
-		core.Option{Key: "path", Value: memoryDir},
+		core.Option{Key: `path`, Value: memoryDir},
 	))
 
 	core.RequireTrue(t, result.OK)
@@ -190,7 +190,7 @@ func TestBrainSeedMemory_CmdBrainIngest_Good_DirectMarkdownFile(t *testing.T) {
 
 	result := subsystem.cmdBrainIngest(core.NewOptions(
 		core.Option{Key: "workspace", Value: "42"},
-		core.Option{Key: "path", Value: memoryFile},
+		core.Option{Key: `path`, Value: memoryFile},
 	))
 
 	core.RequireTrue(t, result.OK)
@@ -212,7 +212,7 @@ func TestBrainSeedMemory_CmdBrainSeedMemory_Bad_MissingWorkspace(t *testing.T) {
 	subsystem := &PrepSubsystem{brainURL: "https://example.com", brainKey: "brain-key"}
 
 	result := subsystem.cmdBrainSeedMemory(core.NewOptions(
-		core.Option{Key: "path", Value: "/tmp/memory"},
+		core.Option{Key: `path`, Value: "/tmp/memory"},
 	))
 
 	core.AssertFalse(t, result.OK)
@@ -225,7 +225,7 @@ func TestBrainSeedMemory_CmdBrainIngest_Bad_MissingWorkspace(t *testing.T) {
 	subsystem := &PrepSubsystem{brainURL: "https://example.com", brainKey: "brain-key"}
 
 	result := subsystem.cmdBrainIngest(core.NewOptions(
-		core.Option{Key: "path", Value: "/tmp/memory"},
+		core.Option{Key: `path`, Value: "/tmp/memory"},
 	))
 
 	core.AssertFalse(t, result.OK)

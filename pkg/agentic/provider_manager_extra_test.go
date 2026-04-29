@@ -234,10 +234,12 @@ func TestMissingStream_Provider_Stream_Bad(t *testing.T) {
 }
 
 func TestNilCallback_Provider_Stream_Ugly(t *testing.T) {
+	calls := 0
 	provider := newContentProvider("claude", "claude-3.7-sonnet", true, func(_ context.Context, _ string, _ map[string]any) (string, error) {
+		calls++
 		return "Draft ready", nil
 	})
 	err := provider.Stream(context.Background(), "Write a release note", nil, nil)
 	core.RequireNoError(t, err)
-	core.AssertTrue(t, true)
+	core.AssertEqual(t, 1, calls)
 }

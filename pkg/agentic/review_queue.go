@@ -390,7 +390,7 @@ func (s *PrepSubsystem) buildReviewCommand(repoDir, reviewer string) (string, []
 func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string) {
 	dataDir := core.JoinPath(HomeDir(), ".core", "training", "reviews")
 	if ensureResult := fs.EnsureDir(dataDir); !ensureResult.OK {
-		core.Warn("reviewQueue: failed to prepare review output directory", "path", dataDir, "reason", ensureResult.Value)
+		core.Warn("reviewQueue: failed to prepare review output directory", `path`, dataDir, "reason", ensureResult.Value)
 		return
 	}
 
@@ -398,7 +398,7 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	filename := core.Sprintf("%s_%s_%s.txt", repo, reviewer, timestamp)
 	outputPath := core.JoinPath(dataDir, filename)
 	if writeResult := fs.Write(outputPath, output); !writeResult.OK {
-		core.Warn("reviewQueue: failed to write review output", "path", outputPath, "reason", writeResult.Value)
+		core.Warn("reviewQueue: failed to write review output", `path`, outputPath, "reason", writeResult.Value)
 	}
 
 	entry := map[string]string{
@@ -416,11 +416,11 @@ func (s *PrepSubsystem) storeReviewOutput(repoDir, repo, reviewer, output string
 	jsonlPath := core.JoinPath(dataDir, "reviews.jsonl")
 	r := fs.Append(jsonlPath)
 	if !r.OK {
-		core.Warn("reviewQueue: failed to open review journal", "path", jsonlPath, "reason", r.Value)
+		core.Warn("reviewQueue: failed to open review journal", `path`, jsonlPath, "reason", r.Value)
 		return
 	}
 	if writeResult := core.WriteAll(r.Value, core.Concat(jsonLine, "\n")); !writeResult.OK {
-		core.Warn("reviewQueue: failed to append review journal entry", "path", jsonlPath, "reason", writeResult.Value)
+		core.Warn("reviewQueue: failed to append review journal entry", `path`, jsonlPath, "reason", writeResult.Value)
 	}
 }
 
@@ -429,10 +429,10 @@ func (s *PrepSubsystem) saveRateLimitState(info *RateLimitInfo) {
 	path := core.JoinPath(HomeDir(), ".core", "coderabbit-ratelimit.json")
 	if r := fs.WriteAtomic(path, core.JSONMarshalString(info)); !r.OK {
 		if err, ok := r.Value.(error); ok {
-			core.Warn("reviewQueue: failed to persist rate limit state", "path", path, "reason", err)
+			core.Warn("reviewQueue: failed to persist rate limit state", `path`, path, "reason", err)
 			return
 		}
-		core.Warn("reviewQueue: failed to persist rate limit state", "path", path)
+		core.Warn("reviewQueue: failed to persist rate limit state", `path`, path)
 	}
 }
 

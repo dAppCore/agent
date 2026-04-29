@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestSession_HandleSessionStart_Good(t *testing.T) {
+func TestSession_HandleSessionStart_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -78,7 +78,7 @@ func TestSession_HandleSessionStart_Good_CanonicalAlias(t *testing.T) {
 	core.AssertEqual(t, "opus", output.Session.AgentType)
 }
 
-func TestSession_HandleSessionStart_Bad(t *testing.T) {
+func TestSession_HandleSessionStart_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleSessionStart(context.Background(), core.NewOptions())
@@ -95,7 +95,7 @@ func TestSession_HandleSessionStart_Bad_InvalidAgentType(t *testing.T) {
 	core.AssertContains(t, result.Value.(error).Error(), "claude:opus")
 }
 
-func TestSession_HandleSessionStart_Ugly(t *testing.T) {
+func TestSession_HandleSessionStart_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":`))
 	}))
@@ -108,7 +108,7 @@ func TestSession_HandleSessionStart_Ugly(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionGet_Good(t *testing.T) {
+func TestSession_HandleSessionGet_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions/ses_abc123", r.URL.Path)
 		core.AssertEqual(t, http.MethodGet, r.Method)
@@ -146,7 +146,7 @@ func TestSession_HandleSessionGet_Good_NestedEnvelope(t *testing.T) {
 	core.AssertEqual(t, "active", output.Session.Status)
 }
 
-func TestSession_HandleSessionList_Good(t *testing.T) {
+func TestSession_HandleSessionList_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
 		core.AssertEqual(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
@@ -190,7 +190,7 @@ func TestSession_HandleSessionList_Good_NestedEnvelope(t *testing.T) {
 	core.AssertEqual(t, "ses_1", output.Sessions[0].SessionID)
 }
 
-func TestSession_HandleSessionContinue_Good(t *testing.T) {
+func TestSession_HandleSessionContinue_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions/ses_abc123/continue", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -221,7 +221,7 @@ func TestSession_HandleSessionContinue_Good(t *testing.T) {
 	core.AssertEqual(t, "active", output.Session.Status)
 }
 
-func TestSession_HandleSessionEnd_Good(t *testing.T) {
+func TestSession_HandleSessionEnd_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions/ses_abc123/end", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -347,7 +347,7 @@ func TestSession_HandleSessionEnd_Ugly_InvalidResponse(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionLog_Good(t *testing.T) {
+func TestSession_HandleSessionLog_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_log",
@@ -370,7 +370,7 @@ func TestSession_HandleSessionLog_Good(t *testing.T) {
 	core.AssertEqual(t, "checkpoint", session.WorkLog[0]["type"])
 }
 
-func TestSession_HandleSessionLog_Bad(t *testing.T) {
+func TestSession_HandleSessionLog_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionLog(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_log"},
@@ -387,7 +387,7 @@ func TestSession_HandleSessionLog_Ugly_MissingSession(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionArtifact_Good(t *testing.T) {
+func TestSession_HandleSessionArtifact_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_artifact",
@@ -397,7 +397,7 @@ func TestSession_HandleSessionArtifact_Good(t *testing.T) {
 
 	result := subsystem.handleSessionArtifact(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_artifact"},
-		core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+		core.Option{Key: `path`, Value: "pkg/agentic/session.go"},
 		core.Option{Key: "action", Value: "modified"},
 		core.Option{Key: "metadata", Value: `{"insertions":12}`},
 	))
@@ -406,11 +406,11 @@ func TestSession_HandleSessionArtifact_Good(t *testing.T) {
 	session, err := readSessionCache("ses_artifact")
 	core.RequireNoError(t, err)
 	core.AssertLen(t, session.Artifacts, 1)
-	core.AssertEqual(t, "pkg/agentic/session.go", session.Artifacts[0]["path"])
+	core.AssertEqual(t, "pkg/agentic/session.go", session.Artifacts[0][`path`])
 	core.AssertEqual(t, "modified", session.Artifacts[0]["action"])
 }
 
-func TestSession_HandleSessionArtifact_Bad(t *testing.T) {
+func TestSession_HandleSessionArtifact_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionArtifact(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_artifact"},
@@ -422,13 +422,13 @@ func TestSession_HandleSessionArtifact_Ugly_MissingSession(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionArtifact(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_artifact"},
-		core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+		core.Option{Key: `path`, Value: "pkg/agentic/session.go"},
 		core.Option{Key: "action", Value: "modified"},
 	))
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionHandoff_Good(t *testing.T) {
+func TestSession_HandleSessionHandoff_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_handoff",
@@ -453,7 +453,7 @@ func TestSession_HandleSessionHandoff_Good(t *testing.T) {
 	core.AssertEqual(t, "Ready for review", session.Handoff["summary"])
 }
 
-func TestSession_HandleSessionHandoff_Bad(t *testing.T) {
+func TestSession_HandleSessionHandoff_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionHandoff(context.Background(), core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses_handoff"},
@@ -470,7 +470,7 @@ func TestSession_HandleSessionHandoff_Ugly_MissingSession(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionResume_Good(t *testing.T) {
+func TestSession_HandleSessionResume_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_resume",
@@ -483,7 +483,7 @@ func TestSession_HandleSessionResume_Good(t *testing.T) {
 			{"message": "Checked build", "type": "checkpoint", "timestamp": "2026-03-31T10:00:00Z"},
 		},
 		Artifacts: []map[string]any{
-			{"path": "pkg/agentic/session.go", "action": "modified"},
+			{`path`: "pkg/agentic/session.go", "action": "modified"},
 		},
 	}))
 
@@ -502,7 +502,7 @@ func TestSession_HandleSessionResume_Good(t *testing.T) {
 	core.AssertLen(t, output.RecentActions, 1)
 }
 
-func TestSession_HandleSessionResume_Bad(t *testing.T) {
+func TestSession_HandleSessionResume_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionResume(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
@@ -516,7 +516,7 @@ func TestSession_HandleSessionResume_Ugly_MissingSession(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestSession_HandleSessionReplay_Good(t *testing.T) {
+func TestSession_HandleSessionReplay_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	core.RequireNoError(t, writeSessionCache(&Session{
 		SessionID: "ses_replay",
@@ -529,7 +529,7 @@ func TestSession_HandleSessionReplay_Good(t *testing.T) {
 			{"message": "CI failed", "type": "error", "timestamp": "2026-03-31T10:15:00Z"},
 		},
 		Artifacts: []map[string]any{
-			{"path": "pkg/agentic/session.go", "action": "modified"},
+			{`path`: "pkg/agentic/session.go", "action": "modified"},
 		},
 		Handoff: map[string]any{
 			"summary": "Ready for review",
@@ -551,7 +551,7 @@ func TestSession_HandleSessionReplay_Good(t *testing.T) {
 	core.AssertLen(t, output.ReplayContext["work_log_by_type"].(map[string]any)["error"].([]map[string]any), 1)
 }
 
-func TestSession_HandleSessionReplay_Bad(t *testing.T) {
+func TestSession_HandleSessionReplay_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleSessionReplay(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)

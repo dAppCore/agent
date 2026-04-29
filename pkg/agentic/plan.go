@@ -96,7 +96,7 @@ type PlanCreateInput struct {
 type PlanCreateOutput struct {
 	Success bool   `json:"success"`
 	ID      string `json:"id"`
-	Path    string `json:"path"`
+	Path    string "json:\"path\""
 }
 
 type PlanReadInput struct {

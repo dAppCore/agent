@@ -3,7 +3,6 @@
 package flow
 
 import (
-	"bytes"
 	"testing"
 
 	core "dappco.re/go"
@@ -12,7 +11,7 @@ import (
 var testFS = (&core.Fs{}).NewUnrestricted()
 
 func TestFlow_Parse_Good(t *testing.T) {
-	definition, err := Parse(bytes.NewBufferString(
+	definition, err := Parse(core.NewBufferString(
 		"name: go-qa\n" +
 			"description: Build and test\n" +
 			"steps:\n" +
@@ -47,8 +46,8 @@ func TestFlow_Parse_Good(t *testing.T) {
 	}
 }
 
-func TestFlow_ParseContinueOnError_Good(t *testing.T) {
-	definition, err := Parse(bytes.NewBufferString(
+func TestFlow_ParseContinueOnError_Good_Case(t *testing.T) {
+	definition, err := Parse(core.NewBufferString(
 		"steps:\n" +
 			"  - cmd: verify\n" +
 			"    continueOnError: true\n",
@@ -65,8 +64,8 @@ func TestFlow_ParseContinueOnError_Good(t *testing.T) {
 	}
 }
 
-func TestFlow_ParseEmpty_Good(t *testing.T) {
-	definition, err := Parse(bytes.NewBuffer(nil))
+func TestFlow_ParseEmpty_Good_Case(t *testing.T) {
+	definition, err := Parse(core.NewBuffer())
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
@@ -83,14 +82,14 @@ func TestFlow_ParseEmpty_Good(t *testing.T) {
 }
 
 func TestFlow_Parse_Bad(t *testing.T) {
-	_, err := Parse(bytes.NewBufferString("steps: ["))
+	_, err := Parse(core.NewBufferString("steps: ["))
 	if err == nil {
 		t.Fatal("Parse unexpectedly succeeded for malformed YAML")
 	}
 }
 
 func TestFlow_Parse_Ugly(t *testing.T) {
-	_, err := Parse(bytes.NewBufferString(
+	_, err := Parse(core.NewBufferString(
 		"steps:\n" +
 			"  - name: build\n",
 	))

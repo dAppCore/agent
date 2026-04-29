@@ -2,6 +2,10 @@
 
 // Generic slice operations for the Core framework.
 // Based on leaanthony/slicer, rewritten with Go 1.18+ generics.
+//
+//	arr := core.NewArray("prep", "dispatch")
+//	arr.Add("verify", "merge")
+//	arr.AddUnique("verify", "verify", "merge")
 
 package core
 

@@ -287,16 +287,16 @@ func readSyncLedger() map[string]string {
 func writeSyncLedger(ledger map[string]string) {
 	if len(ledger) == 0 {
 		if deleteResult := fs.Delete(syncLedgerPath()); !deleteResult.OK {
-			core.Warn("agentic: failed to delete sync ledger", "path", syncLedgerPath(), "reason", deleteResult.Value)
+			core.Warn("agentic: failed to delete sync ledger", `path`, syncLedgerPath(), "reason", deleteResult.Value)
 		}
 		return
 	}
 	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare sync ledger directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare sync ledger directory", `path`, syncStateDir(), "reason", ensureResult.Value)
 		return
 	}
 	if writeResult := fs.WriteAtomic(syncLedgerPath(), core.JSONMarshalString(ledger)); !writeResult.OK {
-		core.Warn("agentic: failed to write sync ledger", "path", syncLedgerPath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write sync ledger", `path`, syncLedgerPath(), "reason", writeResult.Value)
 	}
 }
 
@@ -397,16 +397,16 @@ func readSyncQueue() []syncQueuedPush {
 func writeSyncQueue(queued []syncQueuedPush) {
 	if len(queued) == 0 {
 		if deleteResult := fs.Delete(syncQueuePath()); !deleteResult.OK {
-			core.Warn("agentic: failed to delete sync queue", "path", syncQueuePath(), "reason", deleteResult.Value)
+			core.Warn("agentic: failed to delete sync queue", `path`, syncQueuePath(), "reason", deleteResult.Value)
 		}
 		return
 	}
 	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare sync queue directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare sync queue directory", `path`, syncStateDir(), "reason", ensureResult.Value)
 		return
 	}
 	if writeResult := fs.WriteAtomic(syncQueuePath(), core.JSONMarshalString(queued)); !writeResult.OK {
-		core.Warn("agentic: failed to write sync queue", "path", syncQueuePath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write sync queue", `path`, syncQueuePath(), "reason", writeResult.Value)
 	}
 }
 
@@ -465,11 +465,11 @@ func readSyncContext() []map[string]any {
 
 func writeSyncContext(contextData []map[string]any) {
 	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare sync context directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare sync context directory", `path`, syncStateDir(), "reason", ensureResult.Value)
 		return
 	}
 	if writeResult := fs.WriteAtomic(syncContextPath(), core.JSONMarshalString(contextData)); !writeResult.OK {
-		core.Warn("agentic: failed to write sync context", "path", syncContextPath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write sync context", `path`, syncContextPath(), "reason", writeResult.Value)
 	}
 }
 
@@ -522,9 +522,9 @@ func readSyncWorkspaceReport(workspaceDir string) map[string]any {
 	parseResult := core.JSONUnmarshalString(result.Value.(string), &report)
 	if !parseResult.OK {
 		backupPath := core.Concat(reportPath, ".corrupt-", time.Now().UTC().Format("20060102T150405Z"))
-		core.Warn("agentic: corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", parseResult.Value)
+		core.Warn("agentic: corrupt dispatch report", `path`, reportPath, "backup", backupPath, "reason", parseResult.Value)
 		if renameResult := fs.Rename(reportPath, backupPath); !renameResult.OK {
-			core.Warn("agentic: failed to preserve corrupt dispatch report", "path", reportPath, "backup", backupPath, "reason", renameResult.Value)
+			core.Warn("agentic: failed to preserve corrupt dispatch report", `path`, reportPath, "backup", backupPath, "reason", renameResult.Value)
 		}
 		return nil
 	}
@@ -549,11 +549,11 @@ func readSyncStatusState() syncStatusState {
 
 func writeSyncStatusState(state syncStatusState) {
 	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare sync status directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare sync status directory", `path`, syncStateDir(), "reason", ensureResult.Value)
 		return
 	}
 	if writeResult := fs.WriteAtomic(syncStatusPath(), core.JSONMarshalString(state)); !writeResult.OK {
-		core.Warn("agentic: failed to write sync status", "path", syncStatusPath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write sync status", `path`, syncStatusPath(), "reason", writeResult.Value)
 	}
 }
 
@@ -578,11 +578,11 @@ func readSyncRecords() []SyncRecord {
 
 func writeSyncRecords(records []SyncRecord) {
 	if ensureResult := fs.EnsureDir(syncStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare sync records directory", "path", syncStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare sync records directory", `path`, syncStateDir(), "reason", ensureResult.Value)
 		return
 	}
 	if writeResult := fs.WriteAtomic(syncRecordsPath(), core.JSONMarshalString(records)); !writeResult.OK {
-		core.Warn("agentic: failed to write sync records", "path", syncRecordsPath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write sync records", `path`, syncRecordsPath(), "reason", writeResult.Value)
 	}
 }
 

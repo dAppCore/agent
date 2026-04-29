@@ -12,7 +12,7 @@ import (
 	"dappco.re/go/agent/pkg/messages"
 )
 
-func TestSync_InitSyncTimestamp_Good(t *testing.T) {
+func TestSync_InitSyncTimestamp_Good_Case(t *testing.T) {
 	mon := New()
 	mon.initSyncTimestamp()
 	core.AssertTrue(t, mon.lastSyncTimestamp > 0)

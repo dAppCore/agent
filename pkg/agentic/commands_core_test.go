@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsCore_RegisterCoreCommands_Good(t *testing.T) {
+func TestCommandsCore_RegisterCoreCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerCoreCommands()

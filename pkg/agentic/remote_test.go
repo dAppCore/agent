@@ -61,14 +61,14 @@ func TestRemote_RemoteToken_Good_TrimmedInput(t *testing.T) {
 
 // --- resolveHost Bad/Ugly ---
 
-func TestRemote_ResolveHost_Bad(t *testing.T) {
+func TestRemote_ResolveHost_Bad_Case(t *testing.T) {
 	// Empty string — returns empty host with default port appended
 	result := resolveHost("")
 	core.AssertEqual(t, ":9101", result)
 	core.AssertContains(t, result, ":9101")
 }
 
-func TestRemote_ResolveHost_Ugly(t *testing.T) {
+func TestRemote_ResolveHost_Ugly_Case(t *testing.T) {
 	// Unicode host name — not an alias, no colon, so default port appended
 	result := resolveHost("\u00e9nchantr\u00efx")
 	core.AssertEqual(t, "\u00e9nchantr\u00efx:9101", result)
@@ -77,7 +77,7 @@ func TestRemote_ResolveHost_Ugly(t *testing.T) {
 
 // --- remoteToken Bad/Ugly ---
 
-func TestRemote_RemoteToken_Bad(t *testing.T) {
+func TestRemote_RemoteToken_Bad_Case(t *testing.T) {
 	// Host with no matching env var and no file — returns empty
 	t.Setenv("AGENT_TOKEN_NOHOST", "")
 	t.Setenv("MCP_AUTH_TOKEN", "")
@@ -86,7 +86,7 @@ func TestRemote_RemoteToken_Bad(t *testing.T) {
 	core.AssertEqual(t, "", token)
 }
 
-func TestRemote_RemoteToken_Ugly(t *testing.T) {
+func TestRemote_RemoteToken_Ugly_Case(t *testing.T) {
 	// Host name with dashes and dots — creates odd env key like AGENT_TOKEN_MY-HOST.LOCAL
 	// Env lookup will use the exact uppercased key
 	t.Setenv("AGENT_TOKEN_MY-HOST.LOCAL", "")

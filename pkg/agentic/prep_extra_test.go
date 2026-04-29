@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 
 // --- Shutdown ---
 
-func TestPrepShutdown_PrepSubsystem_Shutdown_Good(t *testing.T) {
+func TestPrepShutdown_PrepSubsystem_Shutdown_Good_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
@@ -119,7 +118,7 @@ func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 
 // --- copyRepoSpecs ---
 
-func TestPrep_CopyRepoSpecs_Good(t *testing.T) {
+func TestPrep_CopyRepoSpecs_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	codePath := core.JoinPath(root, "src")
 	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
@@ -221,7 +220,7 @@ func TestPrep_RunWorkspaceLanguagePrep_Good_Polyglot(t *testing.T) {
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
@@ -257,7 +256,7 @@ func TestPrep_RunWorkspaceLanguagePrep_Bad_NoLanguageManifests(t *testing.T) {
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
@@ -288,7 +287,7 @@ func TestPrep_RunWorkspaceLanguagePrep_Ugly_CommandFailure(t *testing.T) {
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 1)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
@@ -368,7 +367,7 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 
 // --- getIssueBody ---
 
-func TestPrep_GetIssueBody_Good(t *testing.T) {
+func TestPrep_GetIssueBody_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 15,
@@ -435,7 +434,7 @@ func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 	core.AssertEqual(t, 0, consumers)
 }
 
-func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Good(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
@@ -491,7 +490,7 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 	core.AssertContains(t, prompt, "Steps to reproduce")
 }
 
-func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Bad(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -510,7 +509,7 @@ func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Bad(t *testing.T) {
 	core.AssertEqual(t, 0, consumers)
 }
 
-func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Ugly(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Ugly_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -527,7 +526,7 @@ func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Ugly(t *testing.T) {
 
 // --- buildPrompt (naming convention tests) ---
 
-func TestPrep_BuildPromptNaming_Good(t *testing.T) {
+func TestPrep_BuildPromptNaming_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language as "go"
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
@@ -555,7 +554,7 @@ func TestPrep_BuildPromptNaming_Good(t *testing.T) {
 	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPromptNaming_Bad(t *testing.T) {
+func TestPrep_BuildPromptNaming_Bad_Case(t *testing.T) {
 	// Empty repo path — still produces a prompt (no crash)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -576,7 +575,7 @@ func TestPrep_BuildPromptNaming_Bad(t *testing.T) {
 	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPromptNaming_Ugly(t *testing.T) {
+func TestPrep_BuildPromptNaming_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
@@ -661,7 +660,7 @@ func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 
 // --- pullWikiContent Bad/Ugly ---
 
-func TestPrep_PullWikiContent_Bad(t *testing.T) {
+func TestPrep_PullWikiContent_Bad_Case(t *testing.T) {
 	// Forge returns error on wiki pages
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -679,7 +678,7 @@ func TestPrep_PullWikiContent_Bad(t *testing.T) {
 	core.AssertEmpty(t, content)
 }
 
-func TestPrep_PullWikiContent_Ugly(t *testing.T) {
+func TestPrep_PullWikiContent_Ugly_Case(t *testing.T) {
 	// Forge returns pages with empty content
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -712,7 +711,7 @@ func TestPrep_PullWikiContent_Ugly(t *testing.T) {
 
 // --- renderPlan Ugly ---
 
-func TestPrep_RenderPlan_Ugly(t *testing.T) {
+func TestPrep_RenderPlan_Ugly_Case(t *testing.T) {
 	// Template with variables that don't exist in template — variables just won't match
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -732,7 +731,7 @@ func TestPrep_RenderPlan_Ugly(t *testing.T) {
 
 // --- brainRecall Ugly ---
 
-func TestPrep_BrainRecall_Ugly(t *testing.T) {
+func TestPrep_BrainRecall_Ugly_Case(t *testing.T) {
 	// Server returns unexpected JSON structure
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -759,7 +758,7 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 
 // --- PrepWorkspace Ugly ---
 
-func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
+func TestPrep_PrepWorkspace_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -789,7 +788,7 @@ func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
 
 // --- findConsumersList Ugly ---
 
-func TestPrep_FindConsumersList_Ugly(t *testing.T) {
+func TestPrep_FindConsumersList_Ugly_Case(t *testing.T) {
 	// go.work with modules that don't have go.mod
 	dir := t.TempDir()
 
@@ -819,7 +818,7 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 
 // --- getIssueBody Ugly ---
 
-func TestPrep_GetIssueBody_Ugly(t *testing.T) {
+func TestPrep_GetIssueBody_Ugly_Case(t *testing.T) {
 	// Issue body with HTML/special chars
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{

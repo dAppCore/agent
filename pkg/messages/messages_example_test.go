@@ -2,9 +2,7 @@
 
 package messages
 
-import (
-	"fmt"
-)
+import core "dappco.re/go"
 
 func ExampleAgentCompleted() {
 	ev := AgentCompleted{
@@ -13,7 +11,7 @@ func ExampleAgentCompleted() {
 		Workspace: "core/go-io/task-5",
 		Status:    "completed",
 	}
-	fmt.Println(ev.Agent, ev.Status)
+	core.Println(ev.Agent, ev.Status)
 	// Output: codex completed
 }
 
@@ -23,18 +21,18 @@ func ExampleQAResult() {
 		Repo:      "go-io",
 		Passed:    true,
 	}
-	fmt.Println(ev.Repo, ev.Passed)
+	core.Println(ev.Repo, ev.Passed)
 	// Output: go-io true
 }
 
 func ExampleQueueDrained() {
 	ev := QueueDrained{Completed: 3}
-	fmt.Println(ev.Completed)
+	core.Println(ev.Completed)
 	// Output: 3
 }
 
 func ExampleWorkspacePushed() {
 	ev := WorkspacePushed{Repo: "go-io", Branch: "agent/fix-tests", Org: "core"}
-	fmt.Println(ev.Repo, ev.Org)
+	core.Println(ev.Repo, ev.Org)
 	// Output: go-io core
 }

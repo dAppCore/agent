@@ -45,7 +45,7 @@ type QAToolRun struct {
 // Usage example: `summary := QASummary{Total: 12, Errors: 3, Warnings: 5, Info: 4, Passed: false}`
 type QASummary struct {
 	Total    int  `json:"total"`
-	Errors   int  `json:"errors"`
+	Errors   int  "json:\"errors\""
 	Warnings int  `json:"warnings"`
 	Info     int  `json:"info"`
 	Passed   bool `json:"passed"`
@@ -465,7 +465,7 @@ func writeDispatchReport(workspaceDir string, report DispatchReport) {
 	}
 	metaDir := WorkspaceMetaDir(workspaceDir)
 	if ensureResult := fs.EnsureDir(metaDir); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare dispatch report directory", "path", metaDir, "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare dispatch report directory", `path`, metaDir, "reason", ensureResult.Value)
 		return
 	}
 	payload := core.JSONMarshalString(report)
@@ -474,7 +474,7 @@ func writeDispatchReport(workspaceDir string, report DispatchReport) {
 	}
 	reportPath := core.JoinPath(metaDir, "report.json")
 	if writeResult := fs.WriteAtomic(reportPath, payload); !writeResult.OK {
-		core.Warn("agentic: failed to write dispatch report", "path", reportPath, "reason", writeResult.Value)
+		core.Warn("agentic: failed to write dispatch report", `path`, reportPath, "reason", writeResult.Value)
 	}
 }
 

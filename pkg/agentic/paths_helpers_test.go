@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go"
 )
 
-func ax7WorkspaceDir(t *testing.T) string {
+func pathsWorkspaceDir(t *testing.T) string {
 	t.Helper()
 
 	root := t.TempDir()
@@ -19,7 +19,7 @@ func ax7WorkspaceDir(t *testing.T) string {
 	return wsDir
 }
 
-func ax7WriteStatus(t *testing.T, workspaceDir string) {
+func pathsWriteStatus(t *testing.T, workspaceDir string) {
 	t.Helper()
 
 	core.RequireTrue(t, fs.Write(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(&WorkspaceStatus{
@@ -185,7 +185,7 @@ func TestEmptyPath_LocalFs_Ugly(t *testing.T) {
 }
 
 func TestWorkspaceStatusFile_WorkspaceStatusPath_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceStatusPath(wsDir)
 	core.AssertEqual(t, core.JoinPath(wsDir, "status.json"), got)
 	core.AssertContains(t, got, "status.json")
@@ -204,7 +204,7 @@ func TestUnicodeDir_WorkspaceStatusPath_Ugly(t *testing.T) {
 }
 
 func TestStandardName_WorkspaceName_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceName(wsDir)
 	core.AssertEqual(t, "core/go-io/task-5", got)
 	core.AssertContains(t, got, "go-io")
@@ -228,7 +228,7 @@ func TestSlashName_WorkspaceName_Ugly(t *testing.T) {
 }
 
 func TestRepoPath_WorkspaceRepoDir_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceRepoDir(wsDir)
 	core.AssertEqual(t, core.JoinPath(wsDir, "repo"), got)
 	core.AssertContains(t, got, "/repo")
@@ -247,7 +247,7 @@ func TestUnicodeDir_WorkspaceRepoDir_Ugly(t *testing.T) {
 }
 
 func TestMetaPath_WorkspaceMetaDir_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceMetaDir(wsDir)
 	core.AssertEqual(t, core.JoinPath(wsDir, ".meta"), got)
 	core.AssertContains(t, got, ".meta")
@@ -266,7 +266,7 @@ func TestUnicodeDir_WorkspaceMetaDir_Ugly(t *testing.T) {
 }
 
 func TestBlockedPath_WorkspaceBlockedPath_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceBlockedPath(wsDir)
 	core.AssertEqual(t, core.JoinPath(wsDir, "repo", "BLOCKED.md"), got)
 	core.AssertContains(t, got, "BLOCKED.md")
@@ -285,7 +285,7 @@ func TestUnicodeDir_WorkspaceBlockedPath_Ugly(t *testing.T) {
 }
 
 func TestAnswerPath_WorkspaceAnswerPath_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceAnswerPath(wsDir)
 	core.AssertEqual(t, core.JoinPath(wsDir, "repo", "ANSWER.md"), got)
 	core.AssertContains(t, got, "ANSWER.md")
@@ -304,7 +304,7 @@ func TestUnicodeDir_WorkspaceAnswerPath_Ugly(t *testing.T) {
 }
 
 func TestExistingLogs_WorkspaceLogFiles_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	logPath := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-codex.log")
 	core.RequireTrue(t, fs.Write(logPath, "done").OK)
 
@@ -314,14 +314,14 @@ func TestExistingLogs_WorkspaceLogFiles_Good(t *testing.T) {
 }
 
 func TestMissingLogs_WorkspaceLogFiles_Bad(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	got := WorkspaceLogFiles(wsDir)
 	core.AssertEmpty(t, got)
 	core.AssertLen(t, got, 0)
 }
 
 func TestMultipleLogs_WorkspaceLogFiles_Ugly(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	first := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-codex.log")
 	second := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-claude.log")
 	core.RequireTrue(t, fs.Write(first, "done").OK)
@@ -338,7 +338,7 @@ func TestWorkspaceTree_WorkspaceStatusPaths_Good(t *testing.T) {
 	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
 	core.RequireTrue(t, fs.EnsureDir(WorkspaceRepoDir(wsDir)).OK)
 	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(wsDir)).OK)
-	ax7WriteStatus(t, wsDir)
+	pathsWriteStatus(t, wsDir)
 
 	got := WorkspaceStatusPaths()
 	core.AssertContains(t, got, WorkspaceStatusPath(wsDir))
@@ -362,7 +362,7 @@ func TestDeepTree_WorkspaceStatusPaths_Ugly(t *testing.T) {
 	core.RequireTrue(t, fs.EnsureDir(WorkspaceRepoDir(deep)).OK)
 	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(deep)).OK)
 	core.RequireTrue(t, fs.Write(WorkspaceStatusPath(shallow), "{}").OK)
-	ax7WriteStatus(t, deep)
+	pathsWriteStatus(t, deep)
 
 	got := WorkspaceStatusPaths()
 	core.AssertContains(t, got, WorkspaceStatusPath(shallow))
@@ -370,8 +370,8 @@ func TestDeepTree_WorkspaceStatusPaths_Ugly(t *testing.T) {
 }
 
 func TestStatusFile_ReadStatusResult_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
-	ax7WriteStatus(t, wsDir)
+	wsDir := pathsWorkspaceDir(t)
+	pathsWriteStatus(t, wsDir)
 
 	result := ReadStatusResult(wsDir)
 	core.RequireTrue(t, result.OK)
@@ -387,7 +387,7 @@ func TestMissingStatus_ReadStatusResult_Bad(t *testing.T) {
 }
 
 func TestInvalidJSON_ReadStatusResult_Ugly(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	core.RequireTrue(t, fs.Write(WorkspaceStatusPath(wsDir), "{not-json").OK)
 
 	result := ReadStatusResult(wsDir)
@@ -396,8 +396,8 @@ func TestInvalidJSON_ReadStatusResult_Ugly(t *testing.T) {
 }
 
 func TestStatusFile_ReadStatus_Good(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
-	ax7WriteStatus(t, wsDir)
+	wsDir := pathsWorkspaceDir(t)
+	pathsWriteStatus(t, wsDir)
 
 	status, err := ReadStatus(wsDir)
 	core.RequireNoError(t, err)
@@ -411,7 +411,7 @@ func TestMissingStatus_ReadStatus_Bad(t *testing.T) {
 }
 
 func TestInvalidJSON_ReadStatus_Ugly(t *testing.T) {
-	wsDir := ax7WorkspaceDir(t)
+	wsDir := pathsWorkspaceDir(t)
 	core.RequireTrue(t, fs.Write(WorkspaceStatusPath(wsDir), "{not-json").OK)
 
 	status, err := ReadStatus(wsDir)

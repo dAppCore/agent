@@ -5,11 +5,14 @@
 //	core.SetLevel(core.LevelDebug)
 //	core.Info("server started", "port", 8080)
 //	core.Error("failed to connect", "err", err)
+//	log := core.NewLog(core.LogOptions{Level: core.LevelDebug, Output: os.Stdout})
+//	core.SetRedactKeys("token", "password")
+//	core.Security("entitlement.denied", "action", "process.run")
 package core
 
 import (
+	coreos "dappco.re/go"
 	goio "io"
-	"os"
 	"os/user"
 	"slices"
 	"sync"
@@ -110,8 +113,6 @@ type LogOptions struct {
 var RotationWriterFactory func(RotationLogOptions) goio.WriteCloser
 
 // New creates a new Log with the given options.
-//
-//	log := core.NewLog(core.LogOptions{Level: core.LevelDebug, Output: os.Stdout})
 func NewLog(opts LogOptions) *Log {
 	output := opts.Output
 	if opts.Rotation != nil && opts.Rotation.Filename != "" && RotationWriterFactory != nil {
@@ -288,8 +289,6 @@ func (l *Log) Security(msg string, keyvals ...any) {
 
 // Username returns the current system username.
 // It uses os/user for reliability and falls back to environment variables.
-//
-//	user := core.Username()
 func Username() string {
 	if u, err := user.Current(); err == nil {
 		return u.Username
@@ -311,64 +310,46 @@ func init() {
 }
 
 // Default returns the default logger.
-//
-//	log := core.Default()
 func Default() *Log {
 	return defaultLogPtr.Load()
 }
 
 // SetDefault sets the default logger.
-//
-//	core.SetDefault(core.NewLog(core.LogOptions{Level: core.LevelWarn}))
 func SetDefault(l *Log) {
 	defaultLogPtr.Store(l)
 }
 
 // SetLevel sets the default logger's level.
-//
-//	core.SetLevel(core.LevelDebug)
 func SetLevel(level Level) {
 	Default().SetLevel(level)
 }
 
 // SetRedactKeys sets the default logger's redaction keys.
-//
-//	core.SetRedactKeys("token", "password")
 func SetRedactKeys(keys ...string) {
 	Default().SetRedactKeys(keys...)
 }
 
 // Debug logs to the default logger.
-//
-//	core.Debug("agent dispatched", "repo", "core/agent")
 func Debug(msg string, keyvals ...any) {
 	Default().Debug(msg, keyvals...)
 }
 
 // Info logs to the default logger.
-//
-//	core.Info("workspace ready", "path", "/srv/ws-42")
 func Info(msg string, keyvals ...any) {
 	Default().Info(msg, keyvals...)
 }
 
 // Warn logs to the default logger.
-//
-//	core.Warn("queue delay increased", "seconds", 30)
 func Warn(msg string, keyvals ...any) {
 	Default().Warn(msg, keyvals...)
 }
 
 // Error logs to the default logger.
-//
-//	core.Error("dispatch failed", "err", err)
 func Error(msg string, keyvals ...any) {
 	Default().Error(msg, keyvals...)
 }
 
 // Security logs to the default logger.
-//
-//	core.Security("entitlement.denied", "action", "process.run")
 func Security(msg string, keyvals ...any) {
 	Default().Security(msg, keyvals...)
 }
@@ -382,8 +363,6 @@ type LogErr struct {
 }
 
 // NewLogErr creates a LogErr bound to the given logger.
-//
-//	logErr := core.NewLogErr(core.Default())
 func NewLogErr(log *Log) *LogErr {
 	return &LogErr{log: log}
 }
@@ -405,8 +384,6 @@ type LogPanic struct {
 }
 
 // NewLogPanic creates a LogPanic bound to the given logger.
-//
-//	panicLog := core.NewLogPanic(core.Default())
 func NewLogPanic(log *Log) *LogPanic {
 	return &LogPanic{log: log}
 }

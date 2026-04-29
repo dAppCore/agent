@@ -59,7 +59,7 @@ func TestCommandsResume_CmdResume_Ugly_CorruptStatus(t *testing.T) {
 	core.AssertContains(t, result.Value.(error).Error(), "no status.json in workspace")
 }
 
-func TestCommandsResume_RegisterCommands_Good(t *testing.T) {
+func TestCommandsResume_RegisterCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerCommands(c.Context())

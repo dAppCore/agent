@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
+func TestCommandsSession_RegisterSessionCommands_Good_Case(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
 
@@ -41,11 +41,24 @@ func TestCommandsSession_RegisterSessionCommands_Good(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "agentic:session/replay")
 }
 
-func TestCommandsSession_CmdSessionGet_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionGet_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions/ses-get", r.URL.Path)
 		core.AssertEqual(t, http.MethodGet, r.Method)
-		_, _ = w.Write([]byte(`{"data":{"session_id":"ses-get","plan_slug":"ax-follow-up","agent_type":"codex","status":"active","summary":"Working","created_at":"2026-03-31T12:00:00Z","updated_at":"2026-03-31T12:30:00Z","work_log":[{"type":"checkpoint","message":"started"}],"artifacts":[{"path":"pkg/agentic/session.go","action":"modified"}]}}`))
+		payload := map[string]any{
+			`data`: map[string]any{
+				`session_id`: `ses-get`,
+				`plan_slug`:  `ax-follow-up`,
+				`agent_type`: `codex`,
+				`status`:     `active`,
+				`summary`:    `Working`,
+				`created_at`: `2026-03-31T12:00:00Z`,
+				`updated_at`: `2026-03-31T12:30:00Z`,
+				`work_log`:   []map[string]any{{`type`: `checkpoint`, `message`: `started`}},
+				`artifacts`:  []map[string]any{{`path`: `pkg/agentic/session.go`, `action`: `modified`}},
+			},
+		}
+		_, _ = w.Write([]byte(core.JSONMarshalString(payload)))
 	}))
 	defer server.Close()
 
@@ -62,7 +75,7 @@ func TestCommandsSession_CmdSessionGet_Good(t *testing.T) {
 	core.AssertContains(t, output, "artifacts: 1 item(s)")
 }
 
-func TestCommandsSession_CmdSessionList_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionList_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
 		core.AssertEqual(t, "ax-follow-up", r.URL.Query().Get("plan_slug"))
@@ -89,7 +102,7 @@ func TestCommandsSession_CmdSessionList_Good(t *testing.T) {
 	core.AssertContains(t, output, "2 session(s)")
 }
 
-func TestCommandsSession_CmdSessionStart_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionStart_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -189,7 +202,7 @@ func TestCommandsSession_CmdSessionStart_Ugly_InvalidResponse(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsSession_CmdSessionContinue_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionContinue_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sessions/ses-continue/continue", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -245,7 +258,7 @@ func TestCommandsSession_CmdSessionContinue_Ugly_InvalidResponse(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsSession_CmdSessionHandoff_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionHandoff_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -312,7 +325,7 @@ func TestCommandsSession_CmdSessionHandoff_Ugly_CorruptedCacheFallsBackToRemoteE
 	core.AssertContains(t, result.Value.(error).Error(), "no platform API key configured")
 }
 
-func TestCommandsSession_CmdSessionEnd_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionEnd_Good_Case(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -401,7 +414,7 @@ func TestCommandsSession_CmdSessionEnd_Ugly_InvalidResponse(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsSession_CmdSessionLog_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionLog_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -464,7 +477,7 @@ func TestCommandsSession_CmdSessionLog_Ugly_CorruptedCacheFallsBackToRemoteError
 	core.AssertContains(t, result.Value.(error).Error(), "no platform API key configured")
 }
 
-func TestCommandsSession_CmdSessionArtifact_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionArtifact_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -477,7 +490,7 @@ func TestCommandsSession_CmdSessionArtifact_Good(t *testing.T) {
 
 	result := s.cmdSessionArtifact(core.NewOptions(
 		core.Option{Key: "session_id", Value: "ses-artifact"},
-		core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+		core.Option{Key: `path`, Value: "pkg/agentic/session.go"},
 		core.Option{Key: "action", Value: "modified"},
 		core.Option{Key: "description", Value: "Tracked session metadata"},
 		core.Option{Key: "metadata", Value: map[string]any{"repo": "go-agent"}},
@@ -494,7 +507,7 @@ func TestCommandsSession_CmdSessionArtifact_Good(t *testing.T) {
 	core.AssertNotNil(t, cached)
 	core.AssertLen(t, cached.Artifacts, 1)
 	core.AssertEqual(t, "modified", cached.Artifacts[0]["action"])
-	core.AssertEqual(t, "pkg/agentic/session.go", cached.Artifacts[0]["path"])
+	core.AssertEqual(t, "pkg/agentic/session.go", cached.Artifacts[0][`path`])
 	metadata, ok := cached.Artifacts[0]["metadata"].(map[string]any)
 	core.RequireTrue(t, ok)
 	core.AssertEqual(t, "Tracked session metadata", metadata["description"])
@@ -514,7 +527,7 @@ func TestCommandsSession_CmdSessionArtifact_Bad_MissingPath(t *testing.T) {
 	core.AssertContains(t, result.Value.(error).Error(), "path is required")
 }
 
-func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionResume_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -529,7 +542,7 @@ func TestCommandsSession_CmdSessionResume_Good(t *testing.T) {
 			{"type": "decision", "message": "open PR"},
 		},
 		Artifacts: []map[string]any{
-			{"path": "pkg/agentic/session.go", "action": "modified"},
+			{`path`: "pkg/agentic/session.go", `action`: "modified"},
 		},
 		Handoff: map[string]any{
 			"summary": "Ready for review",
@@ -577,7 +590,7 @@ func TestCommandsSession_CmdSessionResume_Ugly_CorruptedCacheFallsBackToRemoteEr
 	core.AssertContains(t, result.Value.(error).Error(), "no platform API key configured")
 }
 
-func TestCommandsSession_CmdSessionReplay_Good(t *testing.T) {
+func TestCommandsSession_CmdSessionReplay_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -592,7 +605,7 @@ func TestCommandsSession_CmdSessionReplay_Good(t *testing.T) {
 			{"type": "error", "message": "flaky test", "timestamp": time.Now().Format(time.RFC3339)},
 		},
 		Artifacts: []map[string]any{
-			{"path": "pkg/agentic/commands_session.go", "action": "created"},
+			{`path`: "pkg/agentic/commands_session.go", `action`: "created"},
 		},
 	}))
 
@@ -605,7 +618,7 @@ func TestCommandsSession_CmdSessionReplay_Good(t *testing.T) {
 	core.AssertEqual(t, "ses-replay", output.ReplayContext["session_id"])
 	core.AssertContains(t, output.ReplayContext, "checkpoints")
 	core.AssertContains(t, output.ReplayContext, "decisions")
-	core.AssertContains(t, output.ReplayContext, "errors")
+	core.AssertContains(t, output.ReplayContext, `errors`)
 }
 
 func TestCommandsSession_CmdSessionReplay_Bad_MissingSessionID(t *testing.T) {

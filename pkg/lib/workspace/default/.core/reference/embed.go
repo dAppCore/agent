@@ -19,21 +19,23 @@
 //
 //	refs, _ := core.ScanAssets([]string{"main.go"})
 //	source, _ := core.GeneratePack(refs)
+//	core.AddAsset("docs", "RFC.md", packed)
+//	r := core.GeneratePack(pkg)
 package core
 
 import (
-	"bytes"
 	"compress/gzip"
+	corebytes "dappco.re/go"
+	corefilepath "dappco.re/go"
+	corefmt "dappco.re/go"
+	coreos "dappco.re/go"
 	"embed"
 	"encoding/base64"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sync"
 	"text/template"
 )
@@ -51,8 +53,6 @@ var (
 )
 
 // AddAsset registers a packed asset at runtime (called from generated init()).
-//
-//	core.AddAsset("docs", "RFC.md", packed)
 func AddAsset(group, name, data string) {
 	assetGroupsMu.Lock()
 	defer assetGroupsMu.Unlock()
@@ -216,8 +216,6 @@ func ScanAssets(filenames []string) Result {
 }
 
 // GeneratePack creates Go source code that embeds the scanned assets.
-//
-//	r := core.GeneratePack(pkg)
 func GeneratePack(pkg ScannedPackage) Result {
 	b := NewBuilder()
 
@@ -645,7 +643,7 @@ func renderPath(path string, data any) string {
 	if data == nil {
 		return path
 	}
-	tmpl, err := template.New("path").Parse(path)
+	tmpl, err := template.New(`path`).Parse(path)
 	if err != nil {
 		return path
 	}

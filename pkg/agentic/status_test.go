@@ -21,7 +21,7 @@ func mustReadStatus(t *testing.T, dir string) *WorkspaceStatus {
 	return status
 }
 
-func TestStatus_WriteStatus_Good(t *testing.T) {
+func TestStatus_WriteStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	status := &WorkspaceStatus{
 		Status:    "running",
@@ -68,7 +68,7 @@ func TestStatus_WriteStatus_Good_UpdatesTimestamp(t *testing.T) {
 	core.AssertTrue(t, status.UpdatedAt.After(before), "UpdatedAt should be after the start time")
 }
 
-func TestStatus_ReadStatus_Good(t *testing.T) {
+func TestStatus_ReadStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	status := &WorkspaceStatus{
@@ -127,7 +127,7 @@ func TestStatus_ReadStatusResult_Good(t *testing.T) {
 	core.AssertEqual(t, "https://forge.lthn.ai/core/go-log/pulls/5", read.PRURL)
 }
 
-func TestStatus_ReadStatusResult_Bad_NoFile(t *testing.T) {
+func TestStatus_ReadStatusResult_Bad(t *testing.T) {
 	result := ReadStatusResult(t.TempDir())
 	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
@@ -135,7 +135,7 @@ func TestStatus_ReadStatusResult_Bad_NoFile(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestStatus_ReadStatusResult_Ugly_InvalidJSON(t *testing.T) {
+func TestStatus_ReadStatusResult_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "status.json"), "{not-json").OK)
 
@@ -182,7 +182,7 @@ func TestStatus_ReadStatus_Good_BlockedWithQuestion(t *testing.T) {
 	core.AssertEqual(t, "Which interface should I implement?", read.Question)
 }
 
-func TestStatus_ReadStatus_Good_Wrapper(t *testing.T) {
+func TestStatus_ReadStatus_Good(t *testing.T) {
 	dir := t.TempDir()
 
 	status := &WorkspaceStatus{
@@ -207,7 +207,13 @@ func TestStatus_ReadStatus_Bad_NoFile_Wrapper(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestStatus_ReadStatus_Ugly_InvalidJSON_Wrapper(t *testing.T) {
+func TestStatus_ReadStatus_Bad(t *testing.T) {
+	read, err := ReadStatus(t.TempDir())
+	core.AssertNil(t, read)
+	core.AssertError(t, err)
+}
+
+func TestStatus_ReadStatus_Ugly(t *testing.T) {
 	dir := t.TempDir()
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "status.json"), "not json{").OK)
 

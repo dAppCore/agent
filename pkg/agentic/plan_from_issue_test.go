@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestPlanFromIssue_PlanFromIssue_Good(t *testing.T) {
+func TestPlanFromIssue_PlanFromIssue_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -110,7 +110,7 @@ func TestPlanFromIssue_PlanFromIssue_Good_NoChecklistKeepsTasksEmpty(t *testing.
 	core.AssertEmpty(t, output.Plan.Phases[0].Tasks)
 }
 
-func TestPlanFromIssue_CmdPlanFromIssue_Good(t *testing.T) {
+func TestPlanFromIssue_CmdPlanFromIssue_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")

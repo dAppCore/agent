@@ -3,6 +3,8 @@
 package setup
 
 import (
+	"context"
+
 	core "dappco.re/go"
 )
 
@@ -21,8 +23,12 @@ func ExampleService_DetectGitRemote() {
 	c := core.New()
 	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
-	// Non-git dir returns empty
 	remote := service.DetectGitRemote((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	core.Println(remote == "")
+	// Output: true
+}
+
+func ExampleService_OnStartup() {
+	core.Println((&Service{}).OnStartup(context.Background()).OK)
 	// Output: true
 }

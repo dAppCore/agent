@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestDeps_ParseCoreDeps_Good(t *testing.T) {
+func TestDeps_ParseCoreDeps_Good_Case(t *testing.T) {
 	goMod := `module dappco.re/go/agent
 
 go 1.26.0
@@ -57,7 +57,7 @@ require (
 	}, parseCoreDeps(goMod))
 }
 
-func TestDeps_ForgeSSHURL_Good(t *testing.T) {
+func TestDeps_ForgeSSHURL_Good_Case(t *testing.T) {
 	url := forgeSSHURL("core", "go-io")
 	core.AssertEqual(t, "ssh://git@forge.lthn.ai:2223/core/go-io.git", url)
 	core.AssertContains(t, url, "/core/go-io.git")

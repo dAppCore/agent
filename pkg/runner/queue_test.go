@@ -86,7 +86,7 @@ func TestQueue_BaseAgent_Ugly_MultipleColons(t *testing.T) {
 
 // --- modelVariant ---
 
-func TestQueue_ModelVariant_Good(t *testing.T) {
+func TestQueue_ModelVariant_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "gpt-5.4", modelVariant("codex:gpt-5.4"))
 	core.AssertEqual(t, "haiku", modelVariant("claude:haiku"))
 	core.AssertNotEmpty(t, modelVariant("codex:gpt-5.4"))
@@ -376,4 +376,31 @@ agents:
 	core.AssertEmpty(t, cfg.Agents["ghost"].Runner)
 	core.AssertFalse(t, cfg.Agents["ghost"].Active)
 	core.AssertEmpty(t, cfg.Agents["ghost"].Roles)
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Good(t *testing.T) {
+	var cl ConcurrencyLimit
+	node := &yaml.Node{Kind: yaml.ScalarNode, Value: "5", Tag: "!!int"}
+	err := cl.UnmarshalYAML(node)
+	core.AssertNoError(t, err)
+	core.AssertEqual(t, 5, cl.Total)
+	core.AssertNil(t, cl.Models)
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Bad(t *testing.T) {
+	node := &yaml.Node{Kind: yaml.SequenceNode}
+	var cl ConcurrencyLimit
+	err := cl.UnmarshalYAML(node)
+	core.AssertError(t, err)
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Ugly(t *testing.T) {
+	input := `
+total: 0
+gpt-5.4: 1
+`
+	var cl ConcurrencyLimit
+	err := yaml.Unmarshal([]byte(input), &cl)
+	core.AssertNoError(t, err)
+	core.AssertEqual(t, 0, cl.Total)
 }

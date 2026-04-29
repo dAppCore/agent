@@ -58,7 +58,7 @@ func TestProcessRegister_ProcessRegister_Ugly_PreRegisteredService(t *testing.T)
 	core.AssertTrue(t, c.Action("process.kill").Exists(), "existing process service should still register actions")
 }
 
-func TestProcessRegister_HandleRun_Good(t *testing.T) {
+func TestProcessRegister_HandleRun_Good_Case(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	c := core.New()
@@ -118,7 +118,7 @@ func TestProcessRegister_HandleStart_Ugly_StartAndKill(t *testing.T) {
 // agent's pid/queue helpers. The override service reapplies agent handlers
 // after ServiceStartup so the custom `*process.Process`-returning handlers win.
 
-func TestProcessRegisterHandlers_OverrideService_OnStartup_Good(t *testing.T) {
+func TestProcessRegisterHandlers_OverrideService_OnStartup_Good_Case(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	c := core.New(core.WithService(ProcessRegister))
@@ -145,6 +145,49 @@ func TestNilHandlers_OverrideService_OnStartup_Bad(t *testing.T) {
 }
 
 func TestNilCore_OverrideService_OnStartup_Ugly(t *testing.T) {
+	svc := &processOverrideService{handlers: &processActionHandlers{}, core: nil}
+	result := svc.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK, "OnStartup with nil core should no-op without panic")
+}
+
+func TestProcessRegister_ProcessRegister_Bad(t *testing.T) {
+	result := ProcessRegister(nil)
+	core.AssertFalse(t, result.OK)
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "core is required")
+}
+
+func TestProcessRegister_ProcessRegister_Ugly(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	c := core.New()
+	r1 := ProcessRegister(c)
+	core.AssertTrue(t, r1.OK)
+
+	r2 := ProcessRegister(c)
+	core.AssertTrue(t, r2.OK, "second ProcessRegister call should not fail")
+}
+
+func TestProcessRegister_OverrideService_OnStartup_Good(t *testing.T) {
+	c := core.New()
+	svc := &processOverrideService{
+		handlers: &processActionHandlers{},
+		core:     c,
+	}
+
+	result := svc.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, c.Action("process.start").Exists())
+}
+
+func TestProcessRegister_OverrideService_OnStartup_Bad(t *testing.T) {
+	svc := &processOverrideService{}
+	result := svc.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK, "OnStartup with nil handlers should succeed without panicking")
+}
+
+func TestProcessRegister_OverrideService_OnStartup_Ugly(t *testing.T) {
 	svc := &processOverrideService{handlers: &processActionHandlers{}, core: nil}
 	result := svc.OnStartup(context.Background())
 	core.AssertTrue(t, result.OK, "OnStartup with nil core should no-op without panic")

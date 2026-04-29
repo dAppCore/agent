@@ -10,19 +10,19 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsplatform_CmdFleetRegister_Bad(t *testing.T) {
+func TestCommandsplatform_CmdFleetRegister_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdFleetRegister(core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthProvision_Bad(t *testing.T) {
+func TestCommandsplatform_CmdAuthProvision_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdAuthProvision(core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthProvision_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthProvision_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/auth/provision", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -56,7 +56,7 @@ func TestCommandsplatform_CmdAuthProvision_Good(t *testing.T) {
 	core.AssertContains(t, output, "prefix:      ak_live")
 }
 
-func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthRevoke_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"key_id":"7","revoked":true}}`))
 	}))
@@ -71,7 +71,7 @@ func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
 	core.AssertContains(t, output, "revoked: 7")
 }
 
-func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
+func TestCommandsplatform_CmdFleetNodes_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":1,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}`))
 	}))
@@ -87,7 +87,7 @@ func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
 	core.AssertContains(t, output, "total: 1")
 }
 
-func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
+func TestCommandsplatform_CmdFleetEvents_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/fleet/events":
@@ -135,7 +135,7 @@ func TestCommandsplatform_CmdFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
 	core.AssertContains(t, output, "repo:        core/go-io")
 }
 
-func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
+func TestCommandsplatform_CmdSyncStatus_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"agent_id":"charon","status":"online","last_push_at":"2026-03-31T08:00:00Z"}}`))
 	}))
@@ -151,13 +151,13 @@ func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
 	core.AssertContains(t, output, "status:        online")
 }
 
-func TestCommandsplatform_CmdAuthLogin_Bad(t *testing.T) {
+func TestCommandsplatform_CmdAuthLogin_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdAuthLogin(core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthLogin_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthLogin_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/auth/login", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -199,7 +199,7 @@ func TestCommandsplatform_CmdAuthLogin_Good(t *testing.T) {
 	core.AssertEqual(t, "ak_live_xyz", core.Trim(readResult.Value.(string)))
 }
 
-func TestCommandsplatform_CmdSubscriptionDetect_Good(t *testing.T) {
+func TestCommandsplatform_CmdSubscriptionDetect_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"providers":{"claude":true},"available":["claude"]}}`))
 	}))

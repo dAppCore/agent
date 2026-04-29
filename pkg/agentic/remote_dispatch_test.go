@@ -16,7 +16,7 @@ import (
 
 // --- dispatchRemote ---
 
-func TestRemote_DispatchRemote_Good(t *testing.T) {
+func TestRemote_DispatchRemote_Good_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -49,7 +49,7 @@ func TestRemote_DispatchRemote_Good(t *testing.T) {
 	core.AssertEqual(t, "go-io", out.Repo)
 }
 
-func TestRemote_DispatchRemote_Bad(t *testing.T) {
+func TestRemote_DispatchRemote_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
@@ -73,7 +73,7 @@ func TestRemote_DispatchRemote_Bad(t *testing.T) {
 	core.AssertContains(t, err.Error(), "MCP initialize failed")
 }
 
-func TestRemote_DispatchRemote_Ugly(t *testing.T) {
+func TestRemote_DispatchRemote_Ugly_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++

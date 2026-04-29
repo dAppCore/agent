@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestPlancompat_PlanCreateCompat_Good(t *testing.T) {
+func TestPlancompat_PlanCreateCompat_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -54,7 +54,7 @@ func TestPlancompat_PlanGetCompat_Good_BySlug(t *testing.T) {
 	core.AssertEqual(t, 50, output.Plan.Progress.Percentage)
 }
 
-func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
+func TestPlancompat_PlanUpdateStatusCompat_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -77,7 +77,7 @@ func TestPlancompat_PlanUpdateStatusCompat_Good(t *testing.T) {
 	core.AssertEqual(t, "active", output.Plan.Status)
 }
 
-func TestPlancompat_PlanArchiveCompat_Good(t *testing.T) {
+func TestPlancompat_PlanArchiveCompat_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 

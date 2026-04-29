@@ -18,3 +18,9 @@ func ExampleRegister_actions() {
 	// true
 	// true
 }
+
+func ExampleDirectSubsystem_OnStartup() {
+	sub := &DirectSubsystem{ServiceRuntime: core.NewServiceRuntime(core.New(), DirectOptions{})}
+	core.Println(sub.OnStartup(context.Background()).OK)
+	// Output: true
+}

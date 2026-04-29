@@ -111,7 +111,7 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	return &harvestResult{repo: workspaceStatus.Repo, branch: branch, files: files}
 }
 
-// output := m.gitOutput("/srv/.core/workspace/core/go-io/task-5/repo", "log", "--oneline")
+// output := m.gitOutput("/srv/.core/workspace/core/go-io/task-5/repo", `log`, "--oneline")
 func (m *Subsystem) gitOutput(repoDir string, args ...string) string {
 	processResult := m.Core().Process().RunIn(context.Background(), repoDir, "git", args...)
 	if !processResult.OK {
@@ -151,7 +151,7 @@ func (m *Subsystem) countUnpushed(repoDir, branch string) int {
 	base := m.defaultBranch(repoDir)
 	out := m.gitOutput(repoDir, "rev-list", "--count", core.Concat("origin/", base, "..", branch))
 	if out == "" {
-		out2 := m.gitOutput(repoDir, "log", "--oneline", core.Concat(base, "..", branch))
+		out2 := m.gitOutput(repoDir, `log`, "--oneline", core.Concat(base, "..", branch))
 		if out2 == "" {
 			return 0
 		}
@@ -255,9 +255,9 @@ func updateStatus(workspaceDir, status, question string) {
 	statusPath := agentic.WorkspaceStatusPath(workspaceDir)
 	if writeResult := fs.WriteAtomic(statusPath, core.JSONMarshalString(workspaceStatus)); !writeResult.OK {
 		if err, ok := writeResult.Value.(error); ok {
-			core.Warn("monitor.updateStatus: failed to write status", "path", statusPath, "reason", err)
+			core.Warn("monitor.updateStatus: failed to write status", `path`, statusPath, "reason", err)
 			return
 		}
-		core.Warn("monitor.updateStatus: failed to write status", "path", statusPath)
+		core.Warn("monitor.updateStatus: failed to write status", `path`, statusPath)
 	}
 }

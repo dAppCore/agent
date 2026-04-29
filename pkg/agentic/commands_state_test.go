@@ -8,7 +8,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsState_RegisterStateCommands_Good(t *testing.T) {
+func TestCommandsState_RegisterStateCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerStateCommands()
@@ -21,7 +21,7 @@ func TestCommandsState_RegisterStateCommands_Good(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "state/delete")
 }
 
-func TestCommandsState_CmdStateSet_Good(t *testing.T) {
+func TestCommandsState_CmdStateSet_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	result := s.cmdStateSet(core.NewOptions(
@@ -53,7 +53,7 @@ func TestCommandsState_CmdStateSet_Bad_MissingValue(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsState_CmdStateGet_Good(t *testing.T) {
+func TestCommandsState_CmdStateGet_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, output, err := s.stateSet(s.commandContext(), nil, StateSetInput{
@@ -85,7 +85,7 @@ func TestCommandsState_CmdStateGet_Bad_MissingKey(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsState_CmdStateList_Good(t *testing.T) {
+func TestCommandsState_CmdStateList_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{
@@ -117,7 +117,7 @@ func TestCommandsState_CmdStateList_Ugly_EmptyPlan(t *testing.T) {
 	core.AssertEmpty(t, listOutput.States)
 }
 
-func TestCommandsState_CmdStateDelete_Good(t *testing.T) {
+func TestCommandsState_CmdStateDelete_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{

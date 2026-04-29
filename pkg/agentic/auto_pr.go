@@ -24,7 +24,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 
 	defaultBranch := "dev"
 
-	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
+	processResult := process.RunIn(ctx, repoDir, "git", `log`, "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
 	if !processResult.OK {
 		return
 	}

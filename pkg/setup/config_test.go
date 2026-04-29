@@ -84,7 +84,7 @@ func TestConfig_ParseGitRemote_Ugly_WhitespaceAndTrailingSlash(t *testing.T) {
 	core.AssertNotContains(t, got, ".git")
 }
 
-func TestConfig_TrimRemotePath_Good(t *testing.T) {
+func TestConfig_TrimRemotePath_Good_Case(t *testing.T) {
 	got := trimRemotePath("/core/go-io.git")
 	core.AssertEqual(t, "core/go-io", got)
 	core.AssertNotContains(t, got, ".git")
@@ -124,4 +124,52 @@ func TestConfig_RenderConfig_Ugly_EmptySections(t *testing.T) {
 	result := renderConfig("", nil)
 	core.RequireTrue(t, result.OK)
 	core.AssertEqual(t, "", result.Value.(string))
+}
+
+func TestConfig_GenerateBuildConfig_Good(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/myapp", TypeGo)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "# myapp build configuration")
+	core.AssertContains(t, text, "type: go")
+	core.AssertContains(t, text, "name: myapp")
+	core.AssertContains(t, text, "main: ./cmd/myapp")
+	core.AssertContains(t, text, "cgo: false")
+}
+
+func TestConfig_GenerateBuildConfig_Bad(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/myapp", TypeUnknown)
+	core.RequireTrue(t, config.OK)
+	core.AssertNotEmpty(t, config.Value.(string))
+}
+
+func TestConfig_GenerateBuildConfig_Ugly(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/workspaces/team-console", TypeWails)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "name: team-console")
+	core.AssertContains(t, text, "type: wails")
+	core.AssertContains(t, text, "main: ./cmd/team-console")
+}
+
+func TestConfig_GenerateTestConfig_Good(t *testing.T) {
+	config := GenerateTestConfig(TypeGo)
+	core.RequireTrue(t, config.OK)
+	core.AssertContains(t, config.Value.(string), "go test")
+}
+
+func TestConfig_GenerateTestConfig_Bad(t *testing.T) {
+	config := GenerateTestConfig(TypeUnknown)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "# Test configuration")
+	core.AssertNotContains(t, text, "commands:")
+}
+
+func TestConfig_GenerateTestConfig_Ugly(t *testing.T) {
+	config := GenerateTestConfig(TypeWails)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "go test ./...")
+	core.AssertContains(t, text, "go test -race ./...")
 }

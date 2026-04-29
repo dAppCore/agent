@@ -63,7 +63,7 @@ func testPrepWithPlatformServer(t *testing.T, srv *httptest.Server, token string
 	return subsystem
 }
 
-func TestPlatform_HandleFleetRegister_Good(t *testing.T) {
+func TestPlatform_HandleFleetRegister_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/fleet/register", r.URL.Path)
 		core.AssertEqual(t, "Bearer secret-token", r.Header.Get("Authorization"))
@@ -196,7 +196,7 @@ func TestPlatform_HandleFleetHeartbeat_Good_ComputeBudget(t *testing.T) {
 	core.AssertEqual(t, []string{"gpt-4.1"}, node.ComputeBudget.AvoidModels)
 }
 
-func TestPlatform_HandleFleetRegister_Bad(t *testing.T) {
+func TestPlatform_HandleFleetRegister_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 
 	result := subsystem.handleFleetRegister(context.Background(), core.NewOptions(
@@ -206,7 +206,7 @@ func TestPlatform_HandleFleetRegister_Bad(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestPlatform_HandleFleetRegister_Ugly(t *testing.T) {
+func TestPlatform_HandleFleetRegister_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{broken json`))
 	}))
@@ -220,7 +220,7 @@ func TestPlatform_HandleFleetRegister_Ugly(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestPlatform_HandleFleetNextTask_Good(t *testing.T) {
+func TestPlatform_HandleFleetNextTask_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/fleet/task/next", r.URL.Path)
 		core.AssertEqual(t, "charon", r.URL.Query().Get("agent_id"))
@@ -244,7 +244,7 @@ func TestPlatform_HandleFleetNextTask_Good(t *testing.T) {
 	core.AssertLen(t, task.Findings, 1)
 }
 
-func TestPlatform_HandleFleetNextTask_Bad(t *testing.T) {
+func TestPlatform_HandleFleetNextTask_Bad_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":"queue unavailable"}`))
@@ -258,7 +258,7 @@ func TestPlatform_HandleFleetNextTask_Bad(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestPlatform_HandleFleetNextTask_Ugly(t *testing.T) {
+func TestPlatform_HandleFleetNextTask_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":null}`))
 	}))
@@ -308,7 +308,7 @@ func TestPlatform_ParseFleetNode_Ugly_CurrentTaskIDNull(t *testing.T) {
 	core.AssertNil(t, node.CurrentTaskID)
 }
 
-func TestPlatform_HandleFleetEvents_Good(t *testing.T) {
+func TestPlatform_HandleFleetEvents_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/fleet/events", r.URL.Path)
 		core.AssertEqual(t, "charon", r.URL.Query().Get("agent_id"))
@@ -445,7 +445,7 @@ func TestPlatform_HandleFleetEvents_Bad_NoTaskAvailable(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestPlatform_HandleFleetEvents_Ugly(t *testing.T) {
+func TestPlatform_HandleFleetEvents_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/fleet/events":
@@ -517,7 +517,7 @@ func TestPlatform_HandleFleetCompleteTask_Good_AwardsCredits(t *testing.T) {
 	core.AssertEqual(t, "completed", task.Status)
 }
 
-func TestPlatform_HandleSyncStatus_Good(t *testing.T) {
+func TestPlatform_HandleSyncStatus_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/status", r.URL.Path)
 		core.AssertEqual(t, "charon", r.URL.Query().Get("agent_id"))
@@ -539,7 +539,7 @@ func TestPlatform_HandleSyncStatus_Good(t *testing.T) {
 	core.AssertEmpty(t, status.RemoteError)
 }
 
-func TestPlatform_HandleCreditsHistory_Good(t *testing.T) {
+func TestPlatform_HandleCreditsHistory_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/credits/history/charon", r.URL.Path)
 		core.AssertEqual(t, "5", r.URL.Query().Get("limit"))
@@ -602,7 +602,7 @@ func TestPlatform_HandleCreditsHistory_Good_NestedEnvelope(t *testing.T) {
 	core.AssertEqual(t, 9, output.Entries[0].FleetNodeID)
 }
 
-func TestPlatform_HandleSubscriptionDetect_Good(t *testing.T) {
+func TestPlatform_HandleSubscriptionDetect_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/subscription/detect", r.URL.Path)
 		bodyResult := core.ReadAll(r.Body)

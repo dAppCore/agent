@@ -3,6 +3,10 @@
 // Runtime helpers for the Core framework.
 // ServiceRuntime is embedded by consumer services.
 // Runtime is the GUI binding container (e.g., Wails).
+//
+//	r := c.ServiceStartup(context.Background(), nil)
+//	r := core.NewRuntime(app)
+//	name := runtime.ServiceName()
 
 package core
 

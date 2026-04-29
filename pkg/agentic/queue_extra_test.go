@@ -268,7 +268,7 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 
 // --- canDispatchAgent (Ugly — with Core.Config concurrency) ---
 
-func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
+func TestQueue_CanDispatchAgent_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
@@ -295,7 +295,7 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 
 // --- drainQueue (Ugly — with Core lock path) ---
 
-func TestQueue_DrainQueue_Ugly(t *testing.T) {
+func TestQueue_DrainQueue_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
@@ -584,7 +584,7 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 
 // --- UnmarshalYAML (renamed convention) ---
 
-func TestQueue_UnmarshalYAML_Good(t *testing.T) {
+func TestQueue_UnmarshalYAML_Good_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
@@ -594,7 +594,7 @@ func TestQueue_UnmarshalYAML_Good(t *testing.T) {
 	core.AssertNil(t, cfg.Limit.Models)
 }
 
-func TestQueue_UnmarshalYAML_Bad(t *testing.T) {
+func TestQueue_UnmarshalYAML_Bad_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
@@ -603,7 +603,7 @@ func TestQueue_UnmarshalYAML_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestQueue_UnmarshalYAML_Ugly(t *testing.T) {
+func TestQueue_UnmarshalYAML_Ugly_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
@@ -616,7 +616,7 @@ func TestQueue_UnmarshalYAML_Ugly(t *testing.T) {
 
 // --- loadAgentsConfig ---
 
-func TestQueue_LoadAgentsConfig_Good(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -644,7 +644,7 @@ rates:
 	core.AssertEqual(t, 60, loaded.Rates["codex"].SustainedDelay)
 }
 
-func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -664,7 +664,7 @@ func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 	core.AssertEqual(t, "claude", loaded.Dispatch.DefaultAgent)
 }
 
-func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	// No agents.yaml file at all — should return defaults

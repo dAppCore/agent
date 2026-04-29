@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"errors"
 	"syscall"
 	"time"
 
@@ -227,7 +226,7 @@ func (s *PrepSubsystem) pidAlive(processID string, pid int) bool {
 		return true
 	}
 
-	return errors.Is(err, syscall.EPERM)
+	return core.Is(err, syscall.EPERM)
 }
 
 func (s *PrepSubsystem) pruneStateGroup(group string, keep map[string]struct{}) {
@@ -256,7 +255,7 @@ func (s *PrepSubsystem) writePersistedWorkspaceStatus(workspaceDir string, works
 		workspaceStatus.UpdatedAt = time.Now().UTC()
 	}
 	if writeResult := fs.WriteAtomic(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(workspaceStatus)); !writeResult.OK {
-		core.Warn("agentic.persist: failed to write persisted workspace status", "path", WorkspaceStatusPath(workspaceDir), "reason", writeResult.Value)
+		core.Warn("agentic.persist: failed to write persisted workspace status", `path`, WorkspaceStatusPath(workspaceDir), "reason", writeResult.Value)
 	}
 }
 

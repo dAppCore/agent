@@ -2,7 +2,7 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_templateVariableList() {
 	variables := templateVariableList(planTemplateDefinition{
@@ -12,8 +12,8 @@ func Example_templateVariableList() {
 		},
 	})
 
-	fmt.Println(variables[0].Name, variables[0].Required)
-	fmt.Println(variables[1].Name, variables[1].Required)
+	core.Println(variables[0].Name, variables[0].Required)
+	core.Println(variables[1].Name, variables[1].Required)
 	// Output:
 	// description false
 	// feature_name true

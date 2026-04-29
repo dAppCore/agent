@@ -94,7 +94,7 @@ func (s *PrepSubsystem) fetchRegisteredRepos(ctx context.Context) {
 		name := fetchLoopRepoName(ref)
 		repoDir := s.localRepoDir(ref.Org, ref.Repo)
 		if repoDir == "" || !fs.IsDir(core.JoinPath(repoDir, ".git")) {
-			core.Warn("agentic fetch loop skipped repo", "repo", name, "path", repoDir)
+			core.Warn("agentic fetch loop skipped repo", "repo", name, `path`, repoDir)
 			continue
 		}
 		if seen[repoDir] {

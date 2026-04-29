@@ -4,7 +4,7 @@ package agentic
 
 import (
 	"context"
-	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -19,18 +19,19 @@ var testCore *core.Core
 
 // TestMain sets up a PrepSubsystem with go-process registered for all tests in the package.
 func TestMain(m *testing.M) {
-	testRoot, err := os.MkdirTemp("", "agentic-tests-*")
-	if err != nil {
-		panic(err)
+	testRootResult := core.MkdirTemp("", "agentic-tests-*")
+	if !testRootResult.OK {
+		panic(testRootResult.Value)
 	}
+	testRoot := testRootResult.Value.(string)
 	homeDir := core.JoinPath(testRoot, "home")
-	_ = os.MkdirAll(homeDir, 0o755)
-	_ = os.MkdirAll(core.JoinPath(homeDir, "Code", ".core"), 0o755)
+	_ = core.MkdirAll(homeDir, 0o755)
+	_ = core.MkdirAll(core.JoinPath(homeDir, "Code", ".core"), 0o755)
 
-	_ = os.Setenv("CORE_BRAIN_INSECURE", "true")
-	_ = os.Setenv("CORE_HOME", homeDir)
-	_ = os.Setenv("HOME", homeDir)
-	_ = os.Setenv("DIR_HOME", homeDir)
+	_ = syscall.Setenv("CORE_BRAIN_INSECURE", "true")
+	_ = syscall.Setenv("CORE_HOME", homeDir)
+	_ = syscall.Setenv("HOME", homeDir)
+	_ = syscall.Setenv("DIR_HOME", homeDir)
 	testCore = core.New(
 		core.WithService(ProcessRegister),
 	)
@@ -47,7 +48,7 @@ func TestMain(m *testing.M) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	os.Exit(m.Run())
+	core.Exit(m.Run())
 }
 
 // newPrepWithProcess creates a PrepSubsystem wired to testCore for tests that

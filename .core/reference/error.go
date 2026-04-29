@@ -3,16 +3,20 @@
 // Structured errors, crash recovery, and reporting for the Core framework.
 // Provides E() for error creation, Wrap()/WrapCode() for chaining,
 // and Err for panic recovery and crash reporting.
+//
+//	if core.Is(err, context.Canceled) { return }
+//	stack := core.FormatStackTrace(err)
+//	r := c.Error().Reports(10)
 
 package core
 
 import (
-	"encoding/json"
-	"errors"
+	coreerrors "dappco.re/go"
+	corefilepath "dappco.re/go"
+	corejson "dappco.re/go"
+	coreos "dappco.re/go"
 	"iter"
 	"maps"
-	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"sync"

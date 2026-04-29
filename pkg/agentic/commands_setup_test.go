@@ -22,7 +22,7 @@ func TestCommandsSetup_CmdSetup_Good_WritesCoreConfigs(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	result := s.cmdSetup(core.NewOptions(core.Option{Key: "path", Value: dir}))
+	result := s.cmdSetup(core.NewOptions(core.Option{Key: `path`, Value: dir}))
 	core.RequireTrue(t, result.OK)
 
 	build := fs.Read(core.JoinPath(dir, ".core", "build.yaml"))
@@ -55,7 +55,7 @@ func TestCommandsSetup_CmdSetup_Ugly_DryRunDoesNotWrite(t *testing.T) {
 	}
 
 	result := s.cmdSetup(core.NewOptions(
-		core.Option{Key: "path", Value: dir},
+		core.Option{Key: `path`, Value: dir},
 		core.Option{Key: "dry-run", Value: true},
 		core.Option{Key: "template", Value: "agent"},
 	))
@@ -75,7 +75,7 @@ func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	result := s.handleSetup(context.Background(), core.NewOptions(core.Option{Key: "path", Value: dir}))
+	result := s.handleSetup(context.Background(), core.NewOptions(core.Option{Key: `path`, Value: dir}))
 	core.RequireTrue(t, result.OK)
 
 	createdPath, ok := result.Value.(string)

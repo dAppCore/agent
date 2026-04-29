@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestPromptVersion_ReadPromptSnapshot_Good(t *testing.T) {
+func TestPromptVersion_ReadPromptSnapshot_Good_Case(t *testing.T) {
 	workspaceDir := t.TempDir()
 	prompt := "TASK: Fix tests\n\nRead CODEX.md and commit when done."
 
@@ -41,7 +41,7 @@ func TestPromptVersion_ReadPromptSnapshot_Ugly_InvalidJson(t *testing.T) {
 	core.AssertContains(t, err.Error(), "failed to parse prompt snapshot")
 }
 
-func TestPromptVersion_PromptVersionTool_Good(t *testing.T) {
+func TestPromptVersion_PromptVersionTool_Good_Case(t *testing.T) {
 	workspaceDir := t.TempDir()
 	prompt := "TASK: Fix tests\n\nRead CODEX.md and commit when done."
 

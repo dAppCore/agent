@@ -55,7 +55,7 @@ func TestLang_LangDetect_Good_PHP(t *testing.T) {
 	core.AssertEqual(t, "php", output.Language)
 }
 
-func TestLang_LangList_Good(t *testing.T) {
+func TestLang_LangList_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	_, output, err := s.langList(context.Background(), (*mcp.CallToolRequest)(nil), LanguageListInput{})

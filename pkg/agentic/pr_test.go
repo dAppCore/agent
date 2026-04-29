@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -356,7 +355,7 @@ func TestPr_PRGet_Bad_NoToken(t *testing.T) {
 func TestPr_PRMerge_Good_Success(t *testing.T) {
 	mergeCalled := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/merge") {
+		if r.Method == http.MethodPost && core.Contains(r.URL.Path, "/merge") {
 			mergeCalled = true
 			core.AssertEqual(t, "/api/v1/repos/core/test-repo/pulls/42/merge", r.URL.Path)
 			_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -446,7 +445,7 @@ func TestPr_CommentOnIssue_Good_PostsComment(t *testing.T) {
 
 // --- buildPRBody ---
 
-func TestPr_BuildPRBody_Good(t *testing.T) {
+func TestPr_BuildPRBody_Good_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{
 		Status: "completed",
@@ -465,7 +464,7 @@ func TestPr_BuildPRBody_Good(t *testing.T) {
 	core.AssertContains(t, body, "**Runs:** 3")
 }
 
-func TestPr_BuildPRBody_Bad(t *testing.T) {
+func TestPr_BuildPRBody_Bad_Case(t *testing.T) {
 	// Empty status struct
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
 	st := &WorkspaceStatus{}
@@ -475,10 +474,10 @@ func TestPr_BuildPRBody_Bad(t *testing.T) {
 	core.AssertNotContains(t, body, "Closes #")
 }
 
-func TestPr_BuildPRBody_Ugly(t *testing.T) {
+func TestPr_BuildPRBody_Ugly_Case(t *testing.T) {
 	// Very long task string
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	longTask := strings.Repeat("This is a very long task description. ", 100)
+	longTask := repeatString("This is a very long task description. ", 100)
 	st := &WorkspaceStatus{
 		Task:  longTask,
 		Agent: "claude",
@@ -491,7 +490,7 @@ func TestPr_BuildPRBody_Ugly(t *testing.T) {
 
 // --- commentOnIssue Bad/Ugly ---
 
-func TestPr_CommentOnIssue_Bad(t *testing.T) {
+func TestPr_CommentOnIssue_Bad_Case(t *testing.T) {
 	// Forge returns error (500)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -513,7 +512,7 @@ func TestPr_CommentOnIssue_Bad(t *testing.T) {
 	})
 }
 
-func TestPr_CommentOnIssue_Ugly(t *testing.T) {
+func TestPr_CommentOnIssue_Ugly_Case(t *testing.T) {
 	// Very long comment body
 	commentPosted := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -533,14 +532,14 @@ func TestPr_CommentOnIssue_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	longComment := strings.Repeat("This is a very long comment with details. ", 1000)
+	longComment := repeatString("This is a very long comment with details. ", 1000)
 	s.commentOnIssue(context.Background(), "core", "go-io", 42, longComment)
 	core.AssertTrue(t, commentPosted)
 }
 
 // --- createPR Ugly ---
 
-func TestPr_CreatePR_Ugly(t *testing.T) {
+func TestPr_CreatePR_Ugly_Case(t *testing.T) {
 	// Workspace with no branch in status (auto-detect from git)
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -582,7 +581,7 @@ func TestPr_CreatePR_Ugly(t *testing.T) {
 
 // --- forgeCreatePR Ugly ---
 
-func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
+func TestPr_ForgeCreatePR_Ugly_Case(t *testing.T) {
 	// Server returns 201 with unexpected JSON
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
@@ -619,7 +618,7 @@ func TestPr_ForgeCreatePR_Ugly(t *testing.T) {
 
 // --- listPRs Ugly ---
 
-func TestPr_ListPRs_Ugly(t *testing.T) {
+func TestPr_ListPRs_Ugly_Case(t *testing.T) {
 	// State filter "all"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if containsStr(r.URL.Path, "/repos") && !containsStr(r.URL.Path, "/pulls") {
@@ -650,7 +649,7 @@ func TestPr_ListPRs_Ugly(t *testing.T) {
 
 // --- listRepoPRs Good/Bad/Ugly ---
 
-func TestPr_ListRepoPRs_Good(t *testing.T) {
+func TestPr_ListRepoPRs_Good_Case(t *testing.T) {
 	// Specific repo with PRs
 	srv := mockPRForgeServer(t)
 	s := &PrepSubsystem{
@@ -668,7 +667,7 @@ func TestPr_ListRepoPRs_Good(t *testing.T) {
 	_ = prs
 }
 
-func TestPr_ListRepoPRs_Bad(t *testing.T) {
+func TestPr_ListRepoPRs_Bad_Case(t *testing.T) {
 	// Forge returns error
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -688,7 +687,7 @@ func TestPr_ListRepoPRs_Bad(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestPr_ListRepoPRs_Ugly(t *testing.T) {
+func TestPr_ListRepoPRs_Ugly_Case(t *testing.T) {
 	// Repo with no PRs
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))

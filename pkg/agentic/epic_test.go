@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -394,13 +393,13 @@ func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
 
 // --- Ugly tests ---
 
-func TestEpic_CreateEpic_Ugly(t *testing.T) {
+func TestEpic_CreateEpic_Ugly_Case(t *testing.T) {
 	// Very long title/description
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	longTitle := strings.Repeat("Very Long Epic Title ", 50)
-	longBody := strings.Repeat("Detailed description of the epic work to be done. ", 100)
+	longTitle := repeatString("Very Long Epic Title ", 50)
+	longBody := repeatString("Detailed description of the epic work to be done. ", 100)
 
 	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
@@ -413,7 +412,7 @@ func TestEpic_CreateEpic_Ugly(t *testing.T) {
 	assertNotZero(t, out.EpicNumber)
 }
 
-func TestEpic_CreateIssue_Ugly(t *testing.T) {
+func TestEpic_CreateIssue_Ugly_Case(t *testing.T) {
 	// Issue with HTML in body
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
@@ -425,7 +424,7 @@ func TestEpic_CreateIssue_Ugly(t *testing.T) {
 	assertNotZero(t, child.Number)
 }
 
-func TestEpic_ResolveLabelIDs_Ugly(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Ugly_Case(t *testing.T) {
 	// Label names with special chars
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
@@ -435,7 +434,7 @@ func TestEpic_ResolveLabelIDs_Ugly(t *testing.T) {
 	core.AssertNotNil(t, ids)
 }
 
-func TestEpic_CreateLabel_Ugly(t *testing.T) {
+func TestEpic_CreateLabel_Ugly_Case(t *testing.T) {
 	// Label with unicode name
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)

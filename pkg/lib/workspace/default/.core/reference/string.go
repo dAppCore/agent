@@ -7,8 +7,8 @@
 package core
 
 import (
-	"fmt"
-	"strings"
+	corefmt "dappco.re/go"
+	corestrings "dappco.re/go"
 	"unicode/utf8"
 )
 

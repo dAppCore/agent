@@ -128,7 +128,7 @@ func (s *PrepSubsystem) cmdPipelineBudget(options core.Options) core.Result {
 		return core.Result{OK: true}
 	case "plan":
 		return s.cmdPipelineBudgetPlan(options)
-	case "log":
+	case `log`:
 		return s.cmdPipelineBudgetLog(options)
 	default:
 		printPipelineBudgetUsage()
@@ -193,7 +193,7 @@ func pipelineWorkspaceDir(options core.Options) string {
 	if workspace != "" {
 		return core.JoinPath(WorkspaceRoot(), workspace, "repo")
 	}
-	return optionStringValue(options, "repo_dir", "repo-dir", "path")
+	return optionStringValue(options, "repo_dir", "repo-dir", `path`)
 }
 
 func pipelineSlug(value string) string {

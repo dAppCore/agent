@@ -255,7 +255,7 @@ func TestCanRead_Agentic_LocalFs_Good(t *testing.T) {
 
 // --- RunLoop ---
 
-func TestRunner_RunLoop_Good(t *testing.T) {
+func TestRunner_RunLoop_Good_Case(t *testing.T) {
 	coreApp := core.New(core.WithOption("name", "test"))
 	called := false
 	coreApp.Action("runner.start", func(_ context.Context, _ core.Options) core.Result {
@@ -268,13 +268,13 @@ func TestRunner_RunLoop_Good(t *testing.T) {
 	core.AssertTrue(t, called)
 }
 
-func TestRunner_RunLoop_Bad(t *testing.T) {
+func TestRunner_RunLoop_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(core.New(), AgentOptions{})}
 	core.AssertNotPanics(t, func() { s.StartRunner() })
 	core.AssertNil(t, s.pokeCh)
 }
 
-func TestRunner_RunLoop_Ugly(t *testing.T) {
+func TestRunner_RunLoop_Ugly_Case(t *testing.T) {
 	var s *PrepSubsystem
 	core.AssertNotPanics(t, func() { s.StartRunner() })
 	core.AssertNil(t, s)

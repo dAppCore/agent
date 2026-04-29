@@ -76,3 +76,32 @@ func TestRegister_Register_Good_TracksCompletedIPC(t *testing.T) {
 	defer unlock()
 	core.AssertTrue(t, svc.seenCompleted["ws-done"])
 }
+
+func TestRegister_Register_Good(t *testing.T) {
+	wsRoot := t.TempDir()
+	t.Setenv("CORE_WORKSPACE", wsRoot)
+
+	c := core.New(core.WithService(Register))
+	service := c.Service("monitor")
+	core.AssertTrue(t, service.OK)
+	svc, ok := service.Value.(*Subsystem)
+	core.AssertTrue(t, ok)
+	core.AssertNotNil(t, svc)
+}
+
+func TestRegister_Register_Bad(t *testing.T) {
+	result := Register(nil)
+	core.AssertTrue(t, result.OK)
+	mon, ok := result.Value.(*Subsystem)
+	core.RequireTrue(t, ok)
+	core.AssertNil(t, mon.Core())
+}
+
+func TestRegister_Register_Ugly(t *testing.T) {
+	c := core.New()
+	first := Register(c)
+	second := Register(c)
+	core.RequireTrue(t, first.OK)
+	core.RequireTrue(t, second.OK)
+	core.AssertTrue(t, first.Value != second.Value)
+}

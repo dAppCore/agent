@@ -4,7 +4,6 @@ package monitor
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	core "dappco.re/go"
@@ -61,7 +60,7 @@ func writeStatus(t *testing.T, wsDir, status, repo, branch string) {
 
 // --- Tests ---
 
-func TestHarvest_DetectBranch_Good(t *testing.T) {
+func TestHarvest_DetectBranch_Good_Case(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	repoDir := core.JoinPath(wsDir, "repo")
 
@@ -75,7 +74,7 @@ func TestHarvest_DetectBranch_Bad_NoRepo(t *testing.T) {
 	core.AssertEmpty(t, branch)
 }
 
-func TestHarvest_CountUnpushed_Good(t *testing.T) {
+func TestHarvest_CountUnpushed_Good_Case(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	repoDir := core.JoinPath(wsDir, "repo")
 
@@ -83,7 +82,7 @@ func TestHarvest_CountUnpushed_Good(t *testing.T) {
 	core.AssertEqual(t, 1, count)
 }
 
-func TestHarvest_CountChangedFiles_Good(t *testing.T) {
+func TestHarvest_CountChangedFiles_Good_Case(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	repoDir := core.JoinPath(wsDir, "repo")
 
@@ -134,7 +133,7 @@ func TestHarvest_UpdateStatus_Bad_WriteFailure(t *testing.T) {
 	})
 }
 
-func TestHarvest_HarvestWorkspace_Good(t *testing.T) {
+func TestHarvest_HarvestWorkspace_Good_Case(t *testing.T) {
 	_, wsDir := initTestRepo(t)
 	writeStatus(t, wsDir, "completed", "test-repo", "agent/test-task")
 
@@ -240,10 +239,10 @@ func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	for i := 0; i < 2; i++ {
-		name := fmt.Sprintf("ws-%d", i)
+		name := core.Sprintf("ws-%d", i)
 		wsDir := core.JoinPath(wsRoot, "workspace", name)
 
-		sourceDir := core.JoinPath(wsRoot, fmt.Sprintf("source-%d", i))
+		sourceDir := core.JoinPath(wsRoot, core.Sprintf("source-%d", i))
 		fs.EnsureDir(sourceDir)
 		run(t, sourceDir, "git", "init")
 		run(t, sourceDir, "git", "checkout", "-b", "main")
@@ -259,7 +258,7 @@ func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 		run(t, repoDir, "git", "add", ".")
 		run(t, repoDir, "git", "commit", "-m", "agent work")
 
-		writeStatus(t, wsDir, "completed", fmt.Sprintf("repo-%d", i), "agent/test-task")
+		writeStatus(t, wsDir, "completed", core.Sprintf("repo-%d", i), "agent/test-task")
 	}
 
 	var harvests []messages.HarvestComplete
@@ -341,7 +340,7 @@ func TestHarvest_HarvestCompleted_Good_RejectedWorkspace(t *testing.T) {
 	core.AssertContains(t, rejections[0].Reason, "binary file added")
 }
 
-func TestHarvest_UpdateStatus_Good(t *testing.T) {
+func TestHarvest_UpdateStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	initial := map[string]any{"status": "completed", "repo": "test"}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(initial))

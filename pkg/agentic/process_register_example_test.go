@@ -22,3 +22,9 @@ func ExampleProcessRegister() {
 
 	// Output: ok
 }
+
+func ExampleOverrideService_OnStartup() {
+	svc := &processOverrideService{handlers: &processActionHandlers{}, core: core.New()}
+	core.Println(svc.OnStartup(context.Background()).OK)
+	// Output: true
+}

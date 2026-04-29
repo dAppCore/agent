@@ -9,3 +9,8 @@ func ExampleSendInput() {
 	core.Println(input.To)
 	// Output: charon
 }
+
+func ExampleDirectSubsystem_RegisterMessagingTools() {
+	core.Println(brainExampleToolCount((&DirectSubsystem{}).RegisterMessagingTools) > 0)
+	// Output: true
+}

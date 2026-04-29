@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -86,7 +85,7 @@ func TestPrep_DetectLanguage_Good_DefaultsToGo(t *testing.T) {
 	core.AssertEqual(t, want, got)
 }
 
-func TestPrep_DetectBuildCmd_Good(t *testing.T) {
+func TestPrep_DetectBuildCmd_Good_Case(t *testing.T) {
 	tests := []struct {
 		file     string
 		content  string
@@ -116,7 +115,7 @@ func TestPrep_DetectBuildCmd_Good_DefaultsToGo(t *testing.T) {
 	core.AssertEqual(t, want, got)
 }
 
-func TestPrep_DetectTestCmd_Good(t *testing.T) {
+func TestPrep_DetectTestCmd_Good_Case(t *testing.T) {
 	tests := []struct {
 		file     string
 		content  string
@@ -146,7 +145,7 @@ func TestPrep_DetectTestCmd_Good_DefaultsToGo(t *testing.T) {
 	core.AssertEqual(t, want, got)
 }
 
-func TestSanitise_SanitiseBranchSlug_Good(t *testing.T) {
+func TestSanitise_SanitiseBranchSlug_Good_Case(t *testing.T) {
 	first := sanitiseBranchSlug("Fix login bug!", 40)
 	second := sanitiseBranchSlug("---Trim Me---", 40)
 	core.AssertEqual(t, "fix-login-bug", first)
@@ -159,7 +158,7 @@ func TestSanitise_SanitiseBranchSlug_Good_Truncates(t *testing.T) {
 	core.AssertEqual(t, "feature", got)
 }
 
-func TestSanitise_SanitiseFilename_Good(t *testing.T) {
+func TestSanitise_SanitiseFilename_Good_Case(t *testing.T) {
 	input := "Core / Agent:Notes"
 	got := sanitiseFilename(input)
 	core.AssertEqual(t, "Core---Agent-Notes", got)
@@ -276,7 +275,7 @@ func TestSanitise_SanitiseBranchSlug_Bad_OnlyDashes(t *testing.T) {
 }
 
 func TestSanitise_SanitiseBranchSlug_Ugly_VeryLongString(t *testing.T) {
-	long := strings.Repeat("abcdefghij", 100)
+	long := repeatString("abcdefghij", 100)
 	result := sanitiseBranchSlug(long, 50)
 	core.AssertLessOrEqual(t, len(result), 50)
 }
@@ -318,7 +317,7 @@ func TestSanitise_SanitisePlanSlug_Bad_OnlySpaces(t *testing.T) {
 }
 
 func TestSanitise_SanitisePlanSlug_Ugly_VeryLongString(t *testing.T) {
-	long := strings.Repeat("abcdefghij ", 20)
+	long := repeatString("abcdefghij ", 20)
 	result := sanitisePlanSlug(long)
 	core.AssertLessOrEqual(t, len(result), 30)
 }
@@ -351,7 +350,7 @@ func TestSanitise_SanitiseFilename_Bad_OnlySpecialChars(t *testing.T) {
 }
 
 func TestSanitise_SanitiseFilename_Ugly_VeryLongString(t *testing.T) {
-	long := strings.Repeat("a", 1000)
+	long := repeatString("a", 1000)
 	result := sanitiseFilename(long)
 	core.AssertEqual(t, 1000, len(result))
 }
@@ -391,7 +390,7 @@ func TestSanitise_CollapseRepeatedRune_Ugly_Unicode(t *testing.T) {
 }
 
 func TestSanitise_CollapseRepeatedRune_Ugly_VeryLong(t *testing.T) {
-	long := strings.Repeat("--a", 500)
+	long := repeatString("--a", 500)
 	result := collapseRepeatedRune(long, '-')
 	core.AssertNotContains(t, result, "--")
 }
@@ -976,7 +975,7 @@ func TestPrepShutdown_PrepSubsystem_Shutdown_Ugly(t *testing.T) {
 
 // --- EnvOr Bad/Ugly ---
 
-func TestPrep_EnvOr_Bad(t *testing.T) {
+func TestPrep_EnvOr_Bad_Case(t *testing.T) {
 	// Both env empty and fallback empty
 	t.Setenv("TEST_ENVVAR_EMPTY_ALL", "")
 	want := ""
@@ -984,7 +983,7 @@ func TestPrep_EnvOr_Bad(t *testing.T) {
 	core.AssertEqual(t, want, got)
 }
 
-func TestPrep_EnvOr_Ugly(t *testing.T) {
+func TestPrep_EnvOr_Ugly_Case(t *testing.T) {
 	// Env set to whitespace — whitespace is non-empty, so returned as-is
 	t.Setenv("TEST_ENVVAR_WHITESPACE", "   ")
 	want := "   "
@@ -994,7 +993,7 @@ func TestPrep_EnvOr_Ugly(t *testing.T) {
 
 // --- DetectLanguage Bad/Ugly ---
 
-func TestPrep_DetectLanguage_Bad(t *testing.T) {
+func TestPrep_DetectLanguage_Bad_Case(t *testing.T) {
 	// Empty dir — defaults to go
 	dir := t.TempDir()
 	want := "go"
@@ -1002,7 +1001,7 @@ func TestPrep_DetectLanguage_Bad(t *testing.T) {
 	core.AssertEqual(t, want, got)
 }
 
-func TestPrep_DetectLanguage_Ugly(t *testing.T) {
+func TestPrep_DetectLanguage_Ugly_Case(t *testing.T) {
 	// Dir with multiple project files (go.mod + package.json) — go wins (first match)
 	dir := t.TempDir()
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
@@ -1012,14 +1011,14 @@ func TestPrep_DetectLanguage_Ugly(t *testing.T) {
 
 // --- DetectBuildCmd Bad/Ugly ---
 
-func TestPrep_DetectBuildCmd_Bad(t *testing.T) {
+func TestPrep_DetectBuildCmd_Bad_Case(t *testing.T) {
 	// Unknown/non-existent path — defaults to go build
 	path := "/nonexistent/path/that/does/not/exist"
 	got := detectBuildCmd(path)
 	core.AssertEqual(t, "go build ./...", got)
 }
 
-func TestPrep_DetectBuildCmd_Ugly(t *testing.T) {
+func TestPrep_DetectBuildCmd_Ugly_Case(t *testing.T) {
 	// Path that doesn't exist at all — defaults to go build
 	core.AssertNotPanics(t, func() {
 		result := detectBuildCmd("")
@@ -1149,19 +1148,19 @@ func TestBuildPrompt_PrepSubsystem_BuildPrompt_Ugly(t *testing.T) {
 
 // --- collapseRepeatedRune / sanitisePlanSlug / trimRuneEdges Good ---
 
-func TestPrep_CollapseRepeatedRune_Good(t *testing.T) {
+func TestPrep_CollapseRepeatedRune_Good_Case(t *testing.T) {
 	input := "hello---world"
 	got := collapseRepeatedRune(input, '-')
 	core.AssertEqual(t, "hello-world", got)
 }
 
-func TestPrep_SanitisePlanSlug_Good(t *testing.T) {
+func TestPrep_SanitisePlanSlug_Good_Case(t *testing.T) {
 	input := "My Cool Plan"
 	got := sanitisePlanSlug(input)
 	core.AssertEqual(t, "my-cool-plan", got)
 }
 
-func TestPrep_TrimRuneEdges_Good(t *testing.T) {
+func TestPrep_TrimRuneEdges_Good_Case(t *testing.T) {
 	input := "--hello--"
 	got := trimRuneEdges(input, '-')
 	core.AssertEqual(t, "hello", got)
@@ -1169,14 +1168,14 @@ func TestPrep_TrimRuneEdges_Good(t *testing.T) {
 
 // --- DetectTestCmd Bad/Ugly ---
 
-func TestPrep_DetectTestCmd_Bad(t *testing.T) {
+func TestPrep_DetectTestCmd_Bad_Case(t *testing.T) {
 	// Unknown path — defaults to go test
 	path := "/nonexistent/path/that/does/not/exist"
 	got := detectTestCmd(path)
 	core.AssertEqual(t, "go test ./...", got)
 }
 
-func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
+func TestPrep_DetectTestCmd_Ugly_Case(t *testing.T) {
 	// Path that doesn't exist — defaults to go test
 	core.AssertNotPanics(t, func() {
 		result := detectTestCmd("")
@@ -1186,7 +1185,7 @@ func TestPrep_DetectTestCmd_Ugly(t *testing.T) {
 
 // --- getGitLog ---
 
-func TestPrep_GetGitLog_Good(t *testing.T) {
+func TestPrep_GetGitLog_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
 	run := func(args ...string) {
@@ -1213,7 +1212,7 @@ func TestPrep_GetGitLog_Good(t *testing.T) {
 	core.AssertContains(t, log, "initial commit")
 }
 
-func TestPrep_GetGitLog_Bad(t *testing.T) {
+func TestPrep_GetGitLog_Bad_Case(t *testing.T) {
 	// Non-git dir returns empty
 	dir := t.TempDir()
 	s := &PrepSubsystem{
@@ -1225,7 +1224,7 @@ func TestPrep_GetGitLog_Bad(t *testing.T) {
 	core.AssertEmpty(t, log)
 }
 
-func TestPrep_GetGitLog_Ugly(t *testing.T) {
+func TestPrep_GetGitLog_Ugly_Case(t *testing.T) {
 	// Git repo with no commits — git log should fail, returns empty
 	dir := t.TempDir()
 	testCore.Process().RunIn(context.Background(), dir, "git", "init", "-b", "main")
@@ -1241,7 +1240,7 @@ func TestPrep_GetGitLog_Ugly(t *testing.T) {
 
 // --- prepWorkspace Good ---
 
-func TestPrep_PrepWorkspace_Good(t *testing.T) {
+func TestPrep_PrepWorkspace_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -1389,8 +1388,616 @@ func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Ugly(t *testing.T) {
 	core.AssertError(t, err)
 }
 
-func TestPrep_EnsureWorkspaceTaskFile_Bad(t *testing.T) {
+func TestPrep_EnsureWorkspaceTaskFile_Bad_Case(t *testing.T) {
 	err := ensureWorkspaceTaskFile("")
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "workspace dir is required")
+}
+
+func TestPrep_NewPrep_Good(t *testing.T) {
+	t.Setenv("FORGE_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("FORGE_URL", "")
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("SPECS_PATH", "")
+	t.Setenv("CODE_PATH", "")
+
+	s := NewPrep()
+	core.AssertEqual(t, "https://forge.lthn.ai", s.forgeURL)
+	core.AssertEqual(t, "https://api.lthn.sh", s.brainURL)
+	core.AssertNotEmpty(t, s.codePath)
+}
+
+func TestPrep_NewPrep_Bad(t *testing.T) {
+	// Call without any env — verify doesn't panic, returns valid struct
+	t.Setenv("FORGE_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+	t.Setenv("CORE_BRAIN_KEY", "")
+	t.Setenv("FORGE_URL", "")
+	t.Setenv("CORE_BRAIN_URL", "")
+	t.Setenv("SPECS_PATH", "")
+	t.Setenv("CODE_PATH", "")
+
+	core.AssertNotPanics(t, func() {
+		s := NewPrep()
+		core.AssertNotNil(t, s)
+	})
+}
+
+func TestPrep_NewPrep_Ugly(t *testing.T) {
+	// Verify returned struct has non-nil backoff/failCount maps
+	t.Setenv("FORGE_TOKEN", "")
+	t.Setenv("GITEA_TOKEN", "")
+
+	s := NewPrep()
+	core.AssertNotNil(t, s.backoff, "backoff map must not be nil")
+	core.AssertNotNil(t, s.failCount, "failCount map must not be nil")
+	core.AssertNotNil(t, s.forge, "Forge client must not be nil")
+}
+
+func TestPrep_PrepSubsystem_OnStartup_Good(t *testing.T) {
+	// StartRunner is now a no-op — pokeCh is no longer initialised by OnStartup.
+	// Verify OnStartup succeeds and pokeCh remains nil.
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+	t.Setenv("CORE_AGENT_DISPATCH", "")
+
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	core.AssertNil(t, s.pokeCh, "pokeCh should be nil before OnStartup")
+
+	r := s.OnStartup(context.Background())
+	core.AssertTrue(t, r.OK)
+
+	core.AssertNil(t, s.pokeCh, "pokeCh should remain nil — queue drain is owned by pkg/runner")
+}
+
+func TestPrep_PrepSubsystem_OnStartup_Bad(t *testing.T) {
+	// OnStartup with nil ServiceRuntime — panics because
+	// registerCommands calls s.Core().Command().
+	s := &PrepSubsystem{
+		ServiceRuntime: nil,
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	core.AssertPanics(t, func() {
+		_ = s.OnStartup(context.Background())
+	}, "OnStartup without core should panic on registerCommands")
+}
+
+func TestPrep_PrepSubsystem_OnStartup_Ugly(t *testing.T) {
+	// OnStartup called twice with valid core — second call should not panic
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	c := core.New(core.WithOption("name", "test"))
+	s.ServiceRuntime = core.NewServiceRuntime(c, AgentOptions{})
+
+	core.AssertNotPanics(t, func() {
+		_ = s.OnStartup(context.Background())
+		_ = s.OnStartup(context.Background())
+	})
+}
+
+func TestPrep_PrepSubsystem_OnShutdown_Good(t *testing.T) {
+	t.Setenv("CORE_WORKSPACE", t.TempDir())
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), frozen: false}
+	r := s.OnShutdown(context.Background())
+	core.AssertTrue(t, r.OK)
+	core.AssertTrue(t, s.frozen, "OnShutdown must set frozen=true")
+}
+
+func TestPrep_PrepSubsystem_OnShutdown_Bad(t *testing.T) {
+	// OnShutdown without Core
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	core.AssertNotPanics(t, func() {
+		r := s.OnShutdown(context.Background())
+		core.AssertTrue(t, r.OK)
+	})
+	core.AssertTrue(t, s.frozen)
+}
+
+func TestPrep_PrepSubsystem_OnShutdown_Ugly(t *testing.T) {
+	// OnShutdown must not panic even if s.core is nil
+	s := &PrepSubsystem{ServiceRuntime: nil, frozen: false}
+	core.AssertNotPanics(t, func() {
+		_ = s.OnShutdown(context.Background())
+	})
+	core.AssertTrue(t, s.frozen)
+}
+
+func TestPrep_PrepSubsystem_TrackWorkspace_Good(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{workspaces: core.NewRegistry[*WorkspaceStatus]()}
+	defer subsystem.closeStateStore()
+
+	status := &WorkspaceStatus{
+		Status:    "queued",
+		Agent:     "codex:gpt-5.4",
+		Repo:      "go-io",
+		Branch:    "agent/fix-tests",
+		StartedAt: time.Now(),
+	}
+	subsystem.TrackWorkspace("core/go-io/task-5", status)
+
+	registryResult := subsystem.Workspaces().Get("core/go-io/task-5")
+	core.RequireTrue(t, registryResult.OK)
+	core.AssertEqual(t, "queued", registryResult.Value.(*WorkspaceStatus).Status)
+	core.AssertEqual(t, 1, subsystem.stateStoreCount(stateQueueGroup))
+}
+
+func TestPrep_PrepSubsystem_TrackWorkspace_Bad(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{workspaces: core.NewRegistry[*WorkspaceStatus]()}
+	defer subsystem.closeStateStore()
+	subsystem.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "queued", Agent: "codex", Repo: "go-io", Branch: "agent/fix"})
+	subsystem.TrackWorkspace("core/go-io/task-5", nil)
+
+	core.AssertEqual(t, 0, subsystem.stateStoreCount(stateQueueGroup))
+	core.AssertFalse(t, subsystem.Workspaces().Get("core/go-io/task-5").OK)
+}
+
+func TestPrep_PrepSubsystem_TrackWorkspace_Ugly(t *testing.T) {
+	withStateStoreTempDir(t)
+
+	subsystem := &PrepSubsystem{workspaces: core.NewRegistry[*WorkspaceStatus]()}
+	defer subsystem.closeStateStore()
+	subsystem.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex:gpt-5.4", Repo: "go-io"})
+
+	value, ok := subsystem.stateStoreGet(stateConcurrencyGroup, "codex")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, value, "\"running\":1")
+}
+
+func TestPrep_PrepSubsystem_Workspaces_Good(t *testing.T) {
+	registry := core.NewRegistry[*WorkspaceStatus]()
+	registry.Set("core/go-io/task-5", &WorkspaceStatus{Status: "queued"})
+
+	subsystem := &PrepSubsystem{workspaces: registry}
+	result := subsystem.Workspaces().Get("core/go-io/task-5")
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, "queued", result.Value.(*WorkspaceStatus).Status)
+}
+
+func TestPrep_PrepSubsystem_Workspaces_Bad(t *testing.T) {
+	subsystem := &PrepSubsystem{}
+	workspaces := subsystem.Workspaces()
+
+	core.AssertNil(t, workspaces)
+	core.AssertEqual(t, (*core.Registry[*WorkspaceStatus])(nil), workspaces)
+}
+
+func TestPrep_PrepSubsystem_Workspaces_Ugly(t *testing.T) {
+	subsystem := &PrepSubsystem{workspaces: core.NewRegistry[*WorkspaceStatus]()}
+	workspaces := subsystem.Workspaces()
+	workspaces.Set("core/go-store/task-2", &WorkspaceStatus{Status: "running"})
+
+	result := subsystem.workspaces.Get("core/go-store/task-2")
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, "running", result.Value.(*WorkspaceStatus).Status)
+}
+
+func TestPrep_PrepSubsystem_Name_Good(t *testing.T) {
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	name := s.Name()
+	core.AssertNotEmpty(t, name)
+	core.AssertEqual(t, "agentic", name)
+}
+
+func TestPrep_PrepSubsystem_Name_Bad(t *testing.T) {
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	name := s.Name()
+	core.AssertNotEmpty(t, name, "Name should never return empty")
+	core.AssertEqual(t, "agentic", name)
+}
+
+func TestPrep_PrepSubsystem_Name_Ugly(t *testing.T) {
+	// Zero-value struct — Name() should still work
+	var s PrepSubsystem
+	core.AssertNotPanics(t, func() {
+		name := s.Name()
+		core.AssertEqual(t, "agentic", name)
+	})
+}
+
+func TestPrep_PrepSubsystem_SetCore_Good(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	s := NewPrep()
+
+	s.SetCore(c)
+
+	core.AssertNotNil(t, s.ServiceRuntime)
+	core.AssertEqual(t, c, s.Core())
+}
+
+func TestPrep_PrepSubsystem_SetCore_Bad(t *testing.T) {
+	s := &PrepSubsystem{}
+
+	s.SetCore(nil)
+
+	core.AssertNil(t, s.ServiceRuntime)
+}
+
+func TestPrep_PrepSubsystem_SetCore_Ugly(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+
+	core.AssertNotPanics(t, func() {
+		var s *PrepSubsystem
+		s.SetCore(c)
+	})
+}
+
+func TestPrep_PrepSubsystem_RegisterTools_Good(t *testing.T) {
+	t.Setenv("CORE_MCP_FULL", "1")
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	core.RequireNoError(t, err)
+
+	subsystem := &PrepSubsystem{}
+	subsystem.RegisterTools(svc)
+
+	server := svc.Server()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	core.RequireNoError(t, err)
+	t.Cleanup(func() { _ = serverSession.Close() })
+
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	core.RequireNoError(t, err)
+	t.Cleanup(func() { _ = clientSession.Close() })
+
+	result, err := clientSession.ListTools(context.Background(), nil)
+	core.RequireNoError(t, err)
+
+	var toolNames []string
+	for _, tool := range result.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+
+	core.AssertContains(t, toolNames, "agentic_complete")
+	core.AssertContains(t, toolNames, "prompt_version")
+	core.AssertContains(t, toolNames, "agentic_prompt_version")
+	core.AssertContains(t, toolNames, "agentic_setup")
+	core.AssertContains(t, toolNames, "agentic_issue_create")
+	core.AssertContains(t, toolNames, "agentic_issue_assign")
+	core.AssertContains(t, toolNames, "agentic_session_start")
+	core.AssertContains(t, toolNames, "agentic_task_create")
+	core.AssertContains(t, toolNames, "agentic_state_set")
+	core.AssertContains(t, toolNames, "agentic_sprint_create")
+	core.AssertContains(t, toolNames, "agentic_sprint_start")
+	core.AssertContains(t, toolNames, "agentic_sprint_complete")
+	core.AssertContains(t, toolNames, "session_complete")
+	core.AssertContains(t, toolNames, "agentic_message_send")
+	core.AssertContains(t, toolNames, "agent_send")
+	core.AssertContains(t, toolNames, "agentic_message_inbox")
+	core.AssertContains(t, toolNames, "agent_inbox")
+	core.AssertContains(t, toolNames, "agentic_message_conversation")
+	core.AssertContains(t, toolNames, "agent_conversation")
+	// RFC §9 pairing-code bootstrap exposes the login flow as an MCP tool so
+	// IDE/CLI callers can exchange a 6-digit code for an AgentApiKey without
+	// shelling out.
+	core.AssertContains(t, toolNames, "agentic_auth_login")
+	core.AssertContains(t, toolNames, "agentic_auth_provision")
+	core.AssertContains(t, toolNames, "agentic_auth_revoke")
+}
+
+func TestPrep_PrepSubsystem_RegisterTools_Bad(t *testing.T) {
+	t.Setenv("CORE_MCP_FULL", "")
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	core.RequireNoError(t, err)
+
+	subsystem := &PrepSubsystem{}
+	subsystem.RegisterTools(svc)
+	toolNames := registerToolNames(t, svc)
+
+	core.AssertContains(t, toolNames, "agentic_prep_workspace")
+	core.AssertNotContains(t, toolNames, "agentic_session_start")
+}
+
+func TestPrep_PrepSubsystem_RegisterTools_Ugly(t *testing.T) {
+	t.Setenv("CORE_MCP_FULL", "1")
+	svc, err := coremcp.New(coremcp.Options{Unrestricted: true})
+	core.RequireNoError(t, err)
+
+	subsystem := &PrepSubsystem{}
+	subsystem.RegisterTools(svc)
+	subsystem.RegisterTools(svc)
+	toolNames := registerToolNames(t, svc)
+
+	core.AssertContains(t, toolNames, "agentic_prep_workspace")
+	core.AssertContains(t, toolNames, "agentic_session_start")
+}
+
+func TestPrep_PrepSubsystem_Shutdown_Good(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	err := s.Shutdown(context.Background())
+	core.AssertNoError(t, err)
+}
+
+func TestPrep_PrepSubsystem_Shutdown_Bad(t *testing.T) {
+	// Shutdown always returns nil
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+	err := s.Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestPrep_PrepSubsystem_Shutdown_Ugly(t *testing.T) {
+	// Shutdown on zero-value struct
+	var s PrepSubsystem
+	core.AssertNotPanics(t, func() {
+		err := s.Shutdown(context.Background())
+		core.AssertNoError(t, err)
+	})
+}
+
+func TestPrep_PrepSubsystem_PrepareWorkspace_Good(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	// Valid input but repo won't exist — still exercises the public wrapper delegation
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{
+		Repo:  "go-io",
+		Issue: 1,
+	})
+	// Error expected (no local clone) but we verified it delegates to prepWorkspace
+	core.AssertError(t, err)
+}
+
+func TestPrep_PrepSubsystem_PrepareWorkspace_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	// Missing repo — should return error
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{})
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "repo is required")
+}
+
+func TestPrep_PrepSubsystem_PrepareWorkspace_Ugly(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	// Bare ".." is caught as invalid repo name by PathBase check
+	_, _, err := s.PrepareWorkspace(context.Background(), PrepInput{
+		Repo:  "..",
+		Issue: 1,
+	})
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "invalid repo name")
+}
+
+func TestPrep_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(core.JSONMarshalString(map[string]any{
+			"number": 1,
+			"title":  "Fix tests",
+			"body":   "Tests are broken",
+		})))
+	}))
+	t.Cleanup(srv.Close)
+
+	srcRepo := core.JoinPath(root, "src", "core", "test-repo")
+	gitEnv := []string{"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com"}
+	run := func(dir string, args ...string) {
+		t.Helper()
+		r := testCore.Process().RunWithEnv(context.Background(), dir, gitEnv, args[0], args[1:]...)
+		if !r.OK {
+			t.Fatalf("cmd %v failed: %v", args, r.Value)
+		}
+	}
+	core.RequireTrue(t, fs.EnsureDir(srcRepo).OK)
+	run(srcRepo, "git", "init", "-b", "main")
+	run(srcRepo, "git", "config", "user.name", "Test")
+	run(srcRepo, "git", "config", "user.email", "test@test.com")
+	core.RequireTrue(t, fs.Write(core.JoinPath(srcRepo, "README.md"), "# Test").OK)
+	run(srcRepo, "git", "add", "README.md")
+	run(srcRepo, "git", "commit", "-m", "initial commit")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		forge:          forge.NewForge(srv.URL, "test-token"),
+		codePath:       core.JoinPath(root, "src"),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, out, err := s.TestPrepWorkspace(context.Background(), PrepInput{
+		Repo:  "test-repo",
+		Issue: 1,
+		Task:  "Fix tests",
+	})
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertNotEmpty(t, out.WorkspaceDir)
+
+	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
+	core.RequireTrue(t, fs.Exists(todoPath))
+	todoResult := fs.Read(todoPath)
+	core.RequireTrue(t, todoResult.OK)
+	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))
+}
+
+func TestPrep_PrepSubsystem_TestPrepWorkspace_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: "."})
+	core.AssertError(t, err)
+}
+
+func TestPrep_PrepSubsystem_TestPrepWorkspace_Ugly(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	_, _, err := s.TestPrepWorkspace(context.Background(), PrepInput{Repo: ".."})
+	core.AssertError(t, err)
+}
+
+func TestPrep_PrepSubsystem_BuildPrompt_Good(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.BuildPrompt(context.Background(), PrepInput{
+		Task: "Review code",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", dir)
+
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "TASK: Review code")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
+}
+
+func TestPrep_PrepSubsystem_BuildPrompt_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	// Empty inputs — should still return a prompt string without panicking
+	prompt, memories, consumers := s.BuildPrompt(context.Background(), PrepInput{}, "", "")
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "TASK:")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
+}
+
+func TestPrep_PrepSubsystem_BuildPrompt_Ugly(t *testing.T) {
+	dir := t.TempDir()
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	// Unicode in all fields — should not panic
+	prompt, _, _ := s.BuildPrompt(context.Background(), PrepInput{
+		Task: "\u00e9nchantr\u00efx \u2603 \U0001f600",
+		Org:  "c\u00f6re",
+		Repo: "g\u00f6-i\u00f6",
+	}, "\u00e9-branch", dir)
+
+	core.AssertNotEmpty(t, prompt)
+	core.AssertContains(t, prompt, "\u00e9nchantr\u00efx")
+}
+
+func TestPrep_PrepSubsystem_TestBuildPrompt_Good(t *testing.T) {
+	dir := t.TempDir()
+	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
+
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "Fix the tests",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", dir)
+
+	core.AssertContains(t, prompt, "TASK: Fix the tests")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertContains(t, prompt, "LANGUAGE: go")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
+}
+
+func TestPrep_PrepSubsystem_TestBuildPrompt_Bad(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{
+		Task: "Add unit tests",
+		Org:  "core",
+		Repo: "go-io",
+	}, "dev", "")
+
+	core.AssertContains(t, prompt, "TASK: Add unit tests")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
+}
+
+func TestPrep_PrepSubsystem_TestBuildPrompt_Ugly(t *testing.T) {
+	s := &PrepSubsystem{
+		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
+	}
+
+	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{}, "", "")
+
+	core.AssertContains(t, prompt, "TASK:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }

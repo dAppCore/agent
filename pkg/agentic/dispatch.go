@@ -386,7 +386,7 @@ func dispatchTimeoutReasonFromWorkspace(workspaceDir string) string {
 func clearDispatchTimeoutReason(workspaceDir string) {
 	deleteResult := fs.Delete(workspaceTimeoutPath(workspaceDir))
 	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)) {
-		core.Warn("agentic: failed to remove timeout marker", "path", workspaceTimeoutPath(workspaceDir), "reason", deleteResult.Value)
+		core.Warn("agentic: failed to remove timeout marker", `path`, workspaceTimeoutPath(workspaceDir), "reason", deleteResult.Value)
 	}
 }
 
@@ -410,7 +410,7 @@ func startDispatchTimeoutWatch(workspaceDir string, timeout time.Duration, proc 
 			}
 			writeResult := fs.WriteAtomic(workspaceTimeoutPath(workspaceDir), dispatchTimeoutReason(timeout))
 			if !writeResult.OK {
-				core.Warn("agentic: failed to write timeout marker", "path", workspaceTimeoutPath(workspaceDir), "reason", writeResult.Value)
+				core.Warn("agentic: failed to write timeout marker", `path`, workspaceTimeoutPath(workspaceDir), "reason", writeResult.Value)
 			}
 		}
 	}()
@@ -681,7 +681,7 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 	outputFile := agentOutputFile(workspaceDir, agent)
 
 	if deleteResult := fs.Delete(WorkspaceBlockedPath(workspaceDir)); !deleteResult.OK {
-		core.Warn("agentic: failed to remove blocked marker", "path", WorkspaceBlockedPath(workspaceDir), "reason", deleteResult.Value)
+		core.Warn("agentic: failed to remove blocked marker", `path`, WorkspaceBlockedPath(workspaceDir), "reason", deleteResult.Value)
 	}
 	clearDispatchTimeoutReason(workspaceDir)
 

@@ -4,16 +4,15 @@ package monitor
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
+	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -25,7 +24,7 @@ func TestMain(m *testing.M) {
 	c.ServiceStartup(context.Background(), nil)
 	testMon = New()
 	testMon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
-	os.Exit(m.Run())
+	core.Exit(m.Run())
 }
 
 // setupBrainKey creates a ~/.claude/brain.key file for API auth tests.
@@ -135,7 +134,7 @@ func TestMonitor_Poke_Good_NonBlocking(t *testing.T) {
 
 // --- Start / Shutdown ---
 
-func TestMonitor_StartShutdown_Good(t *testing.T) {
+func TestMonitor_StartShutdown_Good_Case(t *testing.T) {
 	mon := New(Options{Interval: 1 * time.Hour})
 
 	ctx := context.Background()
@@ -153,7 +152,7 @@ func TestMonitor_Shutdown_Good_NilCancel(t *testing.T) {
 
 // --- handleAgentStarted / handleAgentCompleted ---
 
-func TestMonitor_HandleAgentStarted_Good(t *testing.T) {
+func TestMonitor_HandleAgentStarted_Good_Case(t *testing.T) {
 	mon := New()
 	ev := messages.AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-1"}
 	mon.handleAgentStarted(ev)
@@ -461,9 +460,9 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	core.AssertEqual(t, "", mon.checkCompletions())
 
 	for i := 0; i < 2; i++ {
-		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
+		writeWorkspaceStatus(t, wsRoot, core.Sprintf("ws-%d", i), map[string]any{
 			"status": "completed",
-			"repo":   fmt.Sprintf("repo-%d", i),
+			"repo":   core.Sprintf("repo-%d", i),
 			"agent":  "claude:sonnet",
 		})
 	}
@@ -486,9 +485,9 @@ func TestMonitor_CheckCompletions_Good_MixedStatuses(t *testing.T) {
 	core.AssertEqual(t, "", mon.checkCompletions())
 
 	for i, status := range []string{"completed", "running", "queued"} {
-		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
+		writeWorkspaceStatus(t, wsRoot, core.Sprintf("ws-%d", i), map[string]any{
 			"status": status,
-			"repo":   fmt.Sprintf("repo-%d", i),
+			"repo":   core.Sprintf("repo-%d", i),
 			"agent":  "claude:sonnet",
 		})
 	}
@@ -864,14 +863,14 @@ func TestMonitor_Loop_Good_PokeTriggersCheck(t *testing.T) {
 
 // --- agentStatusResource ---
 
-func TestMonitor_AgentStatusResource_Good(t *testing.T) {
+func TestMonitor_AgentStatusResource_Good_Case(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
 	for i, status := range []string{"completed", "running"} {
-		writeWorkspaceStatus(t, wsRoot, fmt.Sprintf("ws-%d", i), map[string]any{
+		writeWorkspaceStatus(t, wsRoot, core.Sprintf("ws-%d", i), map[string]any{
 			"status": status,
-			"repo":   fmt.Sprintf("repo-%d", i),
+			"repo":   core.Sprintf("repo-%d", i),
 			"agent":  "claude:sonnet",
 		})
 	}
@@ -929,4 +928,202 @@ func TestMonitor_AgentStatusResource_Good_DeepWorkspaceName(t *testing.T) {
 	core.RequireTrue(t, core.JSONUnmarshalString(result.Contents[0].Text, &workspaces).OK)
 	core.AssertLen(t, workspaces, 1)
 	core.AssertEqual(t, "core/go-io/task-9", workspaces[0]["name"])
+}
+
+func TestMonitor_Subsystem_HandleIPCEvents_Good(t *testing.T) {
+	mon := New()
+	result := mon.HandleIPCEvents(nil, "unknown")
+	core.AssertTrue(t, result.OK)
+	core.AssertLen(t, mon.seenRunning, 0)
+}
+
+func TestMonitor_Subsystem_HandleIPCEvents_Bad(t *testing.T) {
+	mon := New()
+	result := mon.HandleIPCEvents(nil, messages.AgentStarted{})
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, mon.seenRunning[""])
+}
+
+func TestMonitor_Subsystem_HandleIPCEvents_Ugly(t *testing.T) {
+	mon := New()
+	result := mon.HandleIPCEvents(nil, messages.AgentCompleted{Workspace: "ws-1", Status: "completed"})
+	core.AssertTrue(t, result.OK)
+	core.AssertTrue(t, mon.seenCompleted["ws-1"])
+}
+
+func TestMonitor_New_Good(t *testing.T) {
+	t.Setenv("MONITOR_INTERVAL", "")
+	mon := New()
+	core.AssertEqual(t, 2*time.Minute, mon.interval)
+	core.AssertNotNil(t, mon.poke)
+}
+
+func TestMonitor_New_Bad(t *testing.T) {
+	t.Setenv("MONITOR_INTERVAL", "")
+	mon := New(Options{Interval: 0})
+	core.AssertEqual(t, 2*time.Minute, mon.interval)
+}
+
+func TestMonitor_New_Ugly(t *testing.T) {
+	t.Setenv("MONITOR_INTERVAL", "45s")
+	mon := New()
+	core.AssertEqual(t, 45*time.Second, mon.interval)
+	core.AssertNotNil(t, mon.poke)
+}
+
+func TestMonitor_Subsystem_Name_Good(t *testing.T) {
+	got := New().Name()
+	core.AssertEqual(t, "monitor", got)
+	core.AssertNotEmpty(t, got)
+}
+
+func TestMonitor_Subsystem_Name_Bad(t *testing.T) {
+	got := (&Subsystem{}).Name()
+	core.AssertEqual(t, "monitor", got)
+	core.AssertContains(t, got, "monitor")
+}
+
+func TestMonitor_Subsystem_Name_Ugly(t *testing.T) {
+	var mon *Subsystem
+	got := mon.Name()
+	core.AssertEqual(t, "monitor", got)
+	core.AssertNotContains(t, got, "/")
+}
+
+func TestMonitor_Subsystem_RegisterTools_Good(t *testing.T) {
+	names := listedResourceURIs(t, New().RegisterTools)
+	core.AssertContains(t, names, "status://agents")
+	core.AssertLen(t, names, 1)
+}
+
+func TestMonitor_Subsystem_RegisterTools_Bad(t *testing.T) {
+	names := listedResourceURIs(t, (&Subsystem{}).RegisterTools)
+	core.AssertContains(t, names, "status://agents")
+	core.AssertLen(t, names, 1)
+}
+
+func TestMonitor_Subsystem_RegisterTools_Ugly(t *testing.T) {
+	names := listedResourceURIs(t, func(svc *coremcp.Service) {
+		mon := New()
+		mon.RegisterTools(svc)
+		mon.RegisterTools(svc)
+	})
+	core.AssertContains(t, names, "status://agents")
+	core.AssertGreaterOrEqual(t, len(names), 1)
+}
+
+func TestMonitor_Subsystem_Start_Good(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	mon.Start(context.Background())
+	core.AssertNotNil(t, mon.done)
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_Start_Bad(t *testing.T) {
+	mon := &Subsystem{}
+	core.AssertNotPanics(t, func() {
+		mon.Start(context.Background())
+	})
+	core.AssertNotNil(t, mon.done)
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_Start_Ugly(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	core.AssertNotPanics(t, func() {
+		mon.Start(ctx)
+	})
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_OnStartup_Good(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	result := mon.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNotNil(t, mon.done)
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_OnStartup_Bad(t *testing.T) {
+	mon := &Subsystem{}
+	result := mon.OnStartup(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNotNil(t, mon.done)
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_OnStartup_Ugly(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := mon.OnStartup(ctx)
+	core.AssertTrue(t, result.OK)
+	core.RequireNoError(t, mon.Shutdown(context.Background()))
+}
+
+func TestMonitor_Subsystem_OnShutdown_Good(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	mon.Start(context.Background())
+	result := mon.OnShutdown(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestMonitor_Subsystem_OnShutdown_Bad(t *testing.T) {
+	result := (&Subsystem{}).OnShutdown(context.Background())
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestMonitor_Subsystem_OnShutdown_Ugly(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	mon.Start(context.Background())
+	core.RequireTrue(t, mon.OnShutdown(context.Background()).OK)
+	core.AssertTrue(t, mon.OnShutdown(context.Background()).OK)
+}
+
+func TestMonitor_Subsystem_Shutdown_Good(t *testing.T) {
+	mon := New(Options{Interval: time.Hour})
+	mon.Start(context.Background())
+	err := mon.Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestMonitor_Subsystem_Shutdown_Bad(t *testing.T) {
+	err := (&Subsystem{}).Shutdown(context.Background())
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
+}
+
+func TestMonitor_Subsystem_Shutdown_Ugly(t *testing.T) {
+	var mon *Subsystem
+	core.AssertPanics(t, func() {
+		_ = mon.Shutdown(context.Background())
+	})
+}
+
+func TestMonitor_Subsystem_Poke_Good(t *testing.T) {
+	mon := New()
+	mon.Poke()
+	core.AssertLen(t, mon.poke, 1)
+	core.AssertNotNil(t, mon.poke)
+}
+
+func TestMonitor_Subsystem_Poke_Bad(t *testing.T) {
+	core.AssertNotPanics(t, func() {
+		(&Subsystem{}).Poke()
+	})
+}
+
+func TestMonitor_Subsystem_Poke_Ugly(t *testing.T) {
+	mon := New()
+	mon.Poke()
+	mon.Poke()
+	core.AssertLen(t, mon.poke, 1)
+	core.AssertNotNil(t, mon.poke)
 }

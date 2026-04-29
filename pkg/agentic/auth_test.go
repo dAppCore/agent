@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestAuth_HandleAuthProvision_Good(t *testing.T) {
+func TestAuth_HandleAuthProvision_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/auth/provision", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -65,13 +65,13 @@ func TestAuth_HandleAuthProvision_Good(t *testing.T) {
 	core.AssertEqual(t, 2, output.Key.CallCount)
 }
 
-func TestAuth_HandleAuthProvision_Bad(t *testing.T) {
+func TestAuth_HandleAuthProvision_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 	result := subsystem.handleAuthProvision(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestAuth_HandleAuthProvision_Ugly(t *testing.T) {
+func TestAuth_HandleAuthProvision_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{broken json`))
 	}))
@@ -84,7 +84,7 @@ func TestAuth_HandleAuthProvision_Ugly(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestAuth_HandleAuthRevoke_Good(t *testing.T) {
+func TestAuth_HandleAuthRevoke_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/auth/revoke/7", r.URL.Path)
 		core.AssertEqual(t, http.MethodDelete, r.Method)
@@ -106,13 +106,13 @@ func TestAuth_HandleAuthRevoke_Good(t *testing.T) {
 	core.AssertTrue(t, output.Revoked)
 }
 
-func TestAuth_HandleAuthRevoke_Bad(t *testing.T) {
+func TestAuth_HandleAuthRevoke_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 	result := subsystem.handleAuthRevoke(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestAuth_HandleAuthRevoke_Ugly(t *testing.T) {
+func TestAuth_HandleAuthRevoke_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":true}`))
 	}))
@@ -131,7 +131,7 @@ func TestAuth_HandleAuthRevoke_Ugly(t *testing.T) {
 	core.AssertTrue(t, output.Revoked)
 }
 
-func TestAuth_HandleAuthLogin_Good(t *testing.T) {
+func TestAuth_HandleAuthLogin_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/agent/auth/login", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -168,13 +168,13 @@ func TestAuth_HandleAuthLogin_Good(t *testing.T) {
 	core.AssertEqual(t, []string{"fleet:run"}, output.Key.Permissions)
 }
 
-func TestAuth_HandleAuthLogin_Bad(t *testing.T) {
+func TestAuth_HandleAuthLogin_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.handleAuthLogin(context.Background(), core.NewOptions())
 	core.AssertFalse(t, result.OK)
 }
 
-func TestAuth_HandleAuthLogin_Ugly(t *testing.T) {
+func TestAuth_HandleAuthLogin_Ugly_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Server returns a malformed payload: missing key field entirely.
 		_, _ = w.Write([]byte(`{"data":{}}`))

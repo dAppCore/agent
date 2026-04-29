@@ -25,7 +25,7 @@ func withStateStoreTempDir(t *testing.T) {
 // returned on subsequent calls (lazy once semantics).
 //
 // Usage example: `go test ./pkg/agentic -run TestStatestore_StateStoreInstance_Good`
-func TestStatestore_StateStoreInstance_Good(t *testing.T) {
+func TestStatestore_StateStoreInstance_Good_Case(t *testing.T) {
 	withStateStoreTempDir(t)
 
 	subsystem := &PrepSubsystem{}

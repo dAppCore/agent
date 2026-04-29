@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	core "dappco.re/go"
@@ -54,7 +53,7 @@ func TestPaths_WorkspaceRoot_Good(t *testing.T) {
 	)
 }
 
-func TestPaths_WorkspaceHelpers_Good(t *testing.T) {
+func TestPaths_WorkspaceHelpers_Good_Case(t *testing.T) {
 	setTestWorkspace(t, "/tmp/test-core")
 	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
 	metaDir := WorkspaceMetaDir(wsDir)
@@ -170,7 +169,7 @@ func TestDefaultBranchMaster_PrepSubsystem_DefaultBranch_Ugly(t *testing.T) {
 
 func TestPaths_LocalFs_Bad_ReadNonExistent(t *testing.T) {
 	f := LocalFs()
-	r := f.Read("/tmp/nonexistent-path-" + strings.Repeat("x", 20) + "/file.txt")
+	r := f.Read("/tmp/nonexistent-path-" + repeatString("x", 20) + "/file.txt")
 	core.AssertFalse(t, r.OK, "reading a non-existent file should fail")
 }
 
@@ -190,7 +189,7 @@ func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
 	core.AssertEqual(t, home+"/Code/.core/workspace", WorkspaceRoot())
 }
 
-func TestPaths_WorkspaceHelpers_Bad(t *testing.T) {
+func TestPaths_WorkspaceHelpers_Bad_Case(t *testing.T) {
 	setTestWorkspace(t, "/tmp/test-core")
 	core.AssertEqual(t, "/status.json", WorkspaceStatusPath(""))
 	core.AssertEqual(t, "/repo", WorkspaceRepoDir(""))
@@ -207,7 +206,7 @@ func TestPaths_WorkspaceRoot_Ugly_TrailingSlash(t *testing.T) {
 	core.AssertContains(t, ws, "workspace")
 }
 
-func TestPaths_WorkspaceHelpers_Ugly(t *testing.T) {
+func TestPaths_WorkspaceHelpers_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	wsRoot := WorkspaceRoot()
@@ -363,9 +362,380 @@ func TestPaths_Fs_Good_Unrestricted(t *testing.T) {
 
 // --- parseInt Good ---
 
-func TestPaths_ParseInt_Good(t *testing.T) {
+func TestPaths_ParseInt_Good_Case(t *testing.T) {
 	first := parseInt("42")
 	second := parseInt("0")
 	core.AssertEqual(t, 42, first)
 	core.AssertEqual(t, 0, second)
+}
+
+func TestPaths_LocalFs_Good(t *testing.T) {
+	got := LocalFs()
+	core.AssertNotNil(t, got)
+	assertIsType(t, &core.Fs{}, got)
+}
+
+func TestPaths_LocalFs_Bad(t *testing.T) {
+	f := LocalFs()
+	r := f.Read("/tmp/nonexistent-path-" + repeatString("x", 20) + "/file.txt")
+	core.AssertFalse(t, r.OK, "reading a non-existent file should fail")
+}
+
+func TestPaths_LocalFs_Ugly(t *testing.T) {
+	f := LocalFs()
+	core.AssertNotPanics(t, func() {
+		f.Read("")
+	})
+}
+
+func TestPaths_WorkspaceRoot_Bad(t *testing.T) {
+	setTestWorkspace(t, "")
+	home := HomeDir()
+	// Should fall back to ~/Code/.core/workspace
+	core.AssertEqual(t, home+"/Code/.core/workspace", WorkspaceRoot())
+}
+
+func TestPaths_WorkspaceRoot_Ugly(t *testing.T) {
+	setTestWorkspace(t, "/tmp/test-core/")
+	// Verify it still constructs a valid path (JoinPath handles trailing slash)
+	ws := WorkspaceRoot()
+	core.AssertNotEmpty(t, ws)
+	core.AssertContains(t, ws, "workspace")
+}
+
+func TestPaths_WorkspaceStatusPaths_Good(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-5")
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceRepoDir(wsDir)).OK)
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(wsDir)).OK)
+	pathsWriteStatus(t, wsDir)
+
+	got := WorkspaceStatusPaths()
+	core.AssertContains(t, got, WorkspaceStatusPath(wsDir))
+	core.AssertLen(t, got, 1)
+}
+
+func TestPaths_WorkspaceStatusPaths_Bad(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	got := WorkspaceStatusPaths()
+	core.AssertEmpty(t, got)
+	core.AssertLen(t, got, 0)
+}
+
+func TestPaths_WorkspaceStatusPaths_Ugly(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	shallow := core.JoinPath(WorkspaceRoot(), "ws-flat")
+	deep := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-12")
+	core.RequireTrue(t, fs.EnsureDir(shallow).OK)
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceRepoDir(deep)).OK)
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(deep)).OK)
+	core.RequireTrue(t, fs.Write(WorkspaceStatusPath(shallow), "{}").OK)
+	pathsWriteStatus(t, deep)
+
+	got := WorkspaceStatusPaths()
+	core.AssertContains(t, got, WorkspaceStatusPath(shallow))
+	core.AssertContains(t, got, WorkspaceStatusPath(deep))
+}
+
+func TestPaths_WorkspaceStatusPath_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceStatusPath(wsDir)
+	core.AssertEqual(t, core.JoinPath(wsDir, "status.json"), got)
+	core.AssertContains(t, got, "status.json")
+}
+
+func TestPaths_WorkspaceStatusPath_Bad(t *testing.T) {
+	got := WorkspaceStatusPath("")
+	core.AssertEqual(t, "/status.json", got)
+	core.AssertContains(t, got, "status.json")
+}
+
+func TestPaths_WorkspaceStatusPath_Ugly(t *testing.T) {
+	got := WorkspaceStatusPath("/tmp/\u00e9")
+	core.AssertEqual(t, "/tmp/\u00e9/status.json", got)
+	core.AssertContains(t, got, "\u00e9")
+}
+
+func TestPaths_WorkspaceName_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceName(wsDir)
+	core.AssertEqual(t, "core/go-io/task-5", got)
+	core.AssertContains(t, got, "go-io")
+}
+
+func TestPaths_WorkspaceName_Bad(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	got := WorkspaceName(WorkspaceRoot())
+	core.AssertEqual(t, "workspace", got)
+	core.AssertContains(t, got, "workspace")
+}
+
+func TestPaths_WorkspaceName_Ugly(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "feature", "new-ui")
+	got := WorkspaceName(wsDir)
+	core.AssertEqual(t, "core/go-io/feature/new-ui", got)
+	core.AssertContains(t, got, "feature")
+}
+
+func TestPaths_CoreRoot_Good(t *testing.T) {
+	setTestWorkspace(t, "/tmp/test-core")
+	core.AssertEqual(
+		t,
+		"/tmp/test-core",
+		CoreRoot(),
+	)
+}
+
+func TestPaths_CoreRoot_Bad(t *testing.T) {
+	setTestWorkspace(t, "   ")
+	// Non-empty string (whitespace) will be used as-is
+	root := CoreRoot()
+	core.AssertEqual(t, "   ", root)
+}
+
+func TestPaths_CoreRoot_Ugly(t *testing.T) {
+	setTestWorkspace(t, "/tmp/\u00e9\u00e0\u00fc")
+	core.AssertNotPanics(t, func() {
+		root := CoreRoot()
+		core.AssertEqual(t, "/tmp/\u00e9\u00e0\u00fc", root)
+	})
+}
+
+func TestPaths_HomeDir_Good(t *testing.T) {
+	t.Setenv("CORE_HOME", "/tmp/core-home")
+	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("DIR_HOME", "/tmp/dir-home")
+	core.AssertEqual(t, "/tmp/core-home", HomeDir())
+}
+
+func TestPaths_HomeDir_Bad(t *testing.T) {
+	t.Setenv("CORE_HOME", "")
+	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("DIR_HOME", "/tmp/dir-home")
+
+	got := HomeDir()
+	core.AssertEqual(t, "/tmp/home", got)
+	core.AssertContains(t, got, "home")
+}
+
+func TestPaths_HomeDir_Ugly(t *testing.T) {
+	t.Setenv("CORE_HOME", "")
+	t.Setenv("HOME", "")
+	t.Setenv("DIR_HOME", "/tmp/dir-home")
+
+	got := HomeDir()
+	core.AssertEqual(t, "/tmp/dir-home", got)
+	core.AssertContains(t, got, "dir-home")
+}
+
+func TestPaths_WorkspaceRepoDir_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceRepoDir(wsDir)
+	core.AssertEqual(t, core.JoinPath(wsDir, "repo"), got)
+	core.AssertContains(t, got, "/repo")
+}
+
+func TestPaths_WorkspaceRepoDir_Bad(t *testing.T) {
+	got := WorkspaceRepoDir("")
+	core.AssertEqual(t, "/repo", got)
+	core.AssertContains(t, got, "repo")
+}
+
+func TestPaths_WorkspaceRepoDir_Ugly(t *testing.T) {
+	got := WorkspaceRepoDir("/tmp/\u00e9")
+	core.AssertEqual(t, "/tmp/\u00e9/repo", got)
+	core.AssertContains(t, got, "\u00e9")
+}
+
+func TestPaths_WorkspaceMetaDir_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceMetaDir(wsDir)
+	core.AssertEqual(t, core.JoinPath(wsDir, ".meta"), got)
+	core.AssertContains(t, got, ".meta")
+}
+
+func TestPaths_WorkspaceMetaDir_Bad(t *testing.T) {
+	got := WorkspaceMetaDir("")
+	core.AssertEqual(t, "/.meta", got)
+	core.AssertContains(t, got, ".meta")
+}
+
+func TestPaths_WorkspaceMetaDir_Ugly(t *testing.T) {
+	got := WorkspaceMetaDir("/tmp/\u00e9")
+	core.AssertEqual(t, "/tmp/\u00e9/.meta", got)
+	core.AssertContains(t, got, "\u00e9")
+}
+
+func TestPaths_WorkspaceBlockedPath_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceBlockedPath(wsDir)
+	core.AssertEqual(t, core.JoinPath(wsDir, "repo", "BLOCKED.md"), got)
+	core.AssertContains(t, got, "BLOCKED.md")
+}
+
+func TestPaths_WorkspaceBlockedPath_Bad(t *testing.T) {
+	got := WorkspaceBlockedPath("")
+	core.AssertEqual(t, "/repo/BLOCKED.md", got)
+	core.AssertContains(t, got, "BLOCKED.md")
+}
+
+func TestPaths_WorkspaceBlockedPath_Ugly(t *testing.T) {
+	got := WorkspaceBlockedPath("/tmp/\u00e9")
+	core.AssertEqual(t, "/tmp/\u00e9/repo/BLOCKED.md", got)
+	core.AssertContains(t, got, "\u00e9")
+}
+
+func TestPaths_WorkspaceAnswerPath_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceAnswerPath(wsDir)
+	core.AssertEqual(t, core.JoinPath(wsDir, "repo", "ANSWER.md"), got)
+	core.AssertContains(t, got, "ANSWER.md")
+}
+
+func TestPaths_WorkspaceAnswerPath_Bad(t *testing.T) {
+	got := WorkspaceAnswerPath("")
+	core.AssertEqual(t, "/repo/ANSWER.md", got)
+	core.AssertContains(t, got, "ANSWER.md")
+}
+
+func TestPaths_WorkspaceAnswerPath_Ugly(t *testing.T) {
+	got := WorkspaceAnswerPath("/tmp/\u00e9")
+	core.AssertEqual(t, "/tmp/\u00e9/repo/ANSWER.md", got)
+	core.AssertContains(t, got, "\u00e9")
+}
+
+func TestPaths_WorkspaceLogFiles_Good(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	logPath := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-codex.log")
+	core.RequireTrue(t, fs.Write(logPath, "done").OK)
+
+	got := WorkspaceLogFiles(wsDir)
+	core.AssertContains(t, got, logPath)
+	core.AssertLen(t, got, 1)
+}
+
+func TestPaths_WorkspaceLogFiles_Bad(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	got := WorkspaceLogFiles(wsDir)
+	core.AssertEmpty(t, got)
+	core.AssertLen(t, got, 0)
+}
+
+func TestPaths_WorkspaceLogFiles_Ugly(t *testing.T) {
+	wsDir := pathsWorkspaceDir(t)
+	first := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-codex.log")
+	second := core.JoinPath(WorkspaceMetaDir(wsDir), "agent-claude.log")
+	core.RequireTrue(t, fs.Write(first, "done").OK)
+	core.RequireTrue(t, fs.Write(second, "done").OK)
+
+	got := WorkspaceLogFiles(wsDir)
+	core.AssertContains(t, got, first)
+	core.AssertContains(t, got, second)
+}
+
+func TestPaths_PlansRoot_Bad(t *testing.T) {
+	setTestWorkspace(t, "")
+	home := HomeDir()
+	core.AssertEqual(t, home+"/Code/.core/plans", PlansRoot())
+}
+
+func TestPaths_PlansRoot_Ugly(t *testing.T) {
+	setTestWorkspace(t, "/a/b/c/d/e/f")
+	core.AssertEqual(
+		t,
+		"/a/b/c/d/e/f/plans",
+		PlansRoot(),
+	)
+}
+
+func TestPaths_AgentName_Good(t *testing.T) {
+	t.Setenv("AGENT_NAME", "clotho")
+	core.AssertEqual(
+		t,
+		"clotho",
+		AgentName(),
+	)
+}
+
+func TestPaths_AgentName_Bad(t *testing.T) {
+	t.Setenv("AGENT_NAME", "   ")
+	// Whitespace is non-empty, so returned as-is
+	core.AssertEqual(
+		t,
+		"   ",
+		AgentName(),
+	)
+}
+
+func TestPaths_AgentName_Ugly(t *testing.T) {
+	t.Setenv("AGENT_NAME", "\u00e9nchantr\u00efx")
+	core.AssertNotPanics(t, func() {
+		name := AgentName()
+		core.AssertEqual(t, "\u00e9nchantr\u00efx", name)
+	})
+}
+
+func TestPaths_PrepSubsystem_DefaultBranch_Good(t *testing.T) {
+	dir := t.TempDir()
+	// Init a real git repo with a main branch
+	core.RequireNoError(t, runGitInit(dir))
+
+	branch := testPrep.DefaultBranch(dir)
+	// Any valid branch name — just must not panic or be empty
+	core.AssertNotEmpty(t, branch)
+}
+
+func TestPaths_PrepSubsystem_DefaultBranch_Bad(t *testing.T) {
+	// Non-git temp dir — git commands fail, fallback is "main"
+	dir := t.TempDir()
+	branch := testPrep.DefaultBranch(dir)
+	core.AssertEqual(t, "main", branch)
+}
+
+func TestPaths_PrepSubsystem_DefaultBranch_Ugly(t *testing.T) {
+	dir := t.TempDir()
+
+	// Init git repo with "master" branch
+	testCore.Process().Run(context.Background(), "git", "init", "-b", "master", dir)
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.name", "Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "config", "user.email", "test@test.com")
+
+	fs.Write(dir+"/README.md", "# Test")
+	testCore.Process().RunIn(context.Background(), dir, "git", "add", ".")
+	testCore.Process().RunIn(context.Background(), dir, "git", "commit", "-m", "init")
+
+	branch := testPrep.DefaultBranch(dir)
+	core.AssertEqual(t, "master", branch)
+}
+
+func TestPaths_GitHubOrg_Good(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "myorg")
+	core.AssertEqual(
+		t,
+		"myorg",
+		GitHubOrg(),
+	)
+}
+
+func TestPaths_GitHubOrg_Bad(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "   ")
+	core.AssertEqual(
+		t,
+		"   ",
+		GitHubOrg(),
+	)
+}
+
+func TestPaths_GitHubOrg_Ugly(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "org/with/slashes")
+	core.AssertNotPanics(t, func() {
+		org := GitHubOrg()
+		core.AssertEqual(t, "org/with/slashes", org)
+	})
 }

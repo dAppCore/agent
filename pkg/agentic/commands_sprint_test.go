@@ -10,7 +10,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestCommandsSprint_RegisterCommands_Good(t *testing.T) {
+func TestCommandsSprint_RegisterCommands_Good_Case(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
 
@@ -30,7 +30,7 @@ func TestCommandsSprint_RegisterCommands_Good(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "agentic:sprint/archive")
 }
 
-func TestCommandsSprint_CmdSprintCreate_Good(t *testing.T) {
+func TestCommandsSprint_CmdSprintCreate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sprints", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -64,7 +64,7 @@ func TestCommandsSprint_CmdSprintCreate_Good(t *testing.T) {
 	core.AssertContains(t, output, "goal:  Finish RFC parity")
 }
 
-func TestCommandsSprint_CmdSprintList_Good(t *testing.T) {
+func TestCommandsSprint_CmdSprintList_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/sprints", r.URL.Path)
 		core.AssertEqual(t, "active", r.URL.Query().Get("status"))

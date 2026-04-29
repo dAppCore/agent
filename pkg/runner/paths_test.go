@@ -61,7 +61,7 @@ func TestPaths_WorkspaceRoot_Ugly(t *testing.T) {
 	core.AssertContains(t, got, "tenant-a")
 }
 
-func TestPaths_ReadStatus_Good(t *testing.T) {
+func TestPaths_ReadStatus_Good_Case(t *testing.T) {
 	wsDir := t.TempDir()
 	status := &agentic.WorkspaceStatus{
 		Status:    "completed",
@@ -130,6 +130,104 @@ func TestNoFile_ReadStatusResult_Bad(t *testing.T) {
 }
 
 func TestInvalidJSON_ReadStatusResult_Ugly(t *testing.T) {
+	wsDir := t.TempDir()
+	core.RequireTrue(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
+
+	result := ReadStatusResult(wsDir)
+	core.AssertFalse(t, result.OK)
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertError(t, err)
+}
+
+func TestPaths_ReadStatus_Bad_Case(t *testing.T) {
+	wsDir := t.TempDir()
+	core.RequireTrue(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
+
+	result := ReadStatusResult(wsDir)
+	core.AssertFalse(t, result.OK)
+	_, ok := result.Value.(error)
+	core.AssertTrue(t, ok)
+}
+
+func TestPaths_ReadStatus_Ugly_Case(t *testing.T) {
+	result := ReadStatusResult(t.TempDir())
+	core.AssertFalse(t, result.OK)
+	_, ok := result.Value.(error)
+	core.AssertTrue(t, ok)
+}
+
+func TestPaths_WriteStatus_Good_Case(t *testing.T) {
+	wsDir := t.TempDir()
+
+	result := WriteStatus(wsDir, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Task:   "Track workspace",
+		Branch: "agent/ax-cleanup",
+		Runs:   1,
+	})
+	core.AssertTrue(t, result.OK)
+
+	st := mustReadStatus(t, wsDir)
+	core.AssertEqual(t, "running", st.Status)
+	core.AssertEqual(t, "codex", st.Agent)
+	core.AssertEqual(t, "go-io", st.Repo)
+	core.AssertEqual(t, "agent/ax-cleanup", st.Branch)
+	core.AssertEqual(t, 1, st.Runs)
+
+	agenticResult := agentic.ReadStatusResult(wsDir)
+	core.RequireTrue(t, agenticResult.OK)
+	agenticStatus, ok := agenticResult.Value.(*agentic.WorkspaceStatus)
+	core.RequireTrue(t, ok)
+	core.AssertFalse(t, agenticStatus.UpdatedAt.IsZero())
+}
+
+func TestPaths_WriteStatus_Bad_Case(t *testing.T) {
+	wsDir := t.TempDir()
+
+	result := WriteStatus(wsDir, nil)
+	core.AssertFalse(t, result.OK)
+
+	core.AssertFalse(t, agentic.LocalFs().Read(agentic.WorkspaceStatusPath(wsDir)).OK)
+}
+
+func TestPaths_WriteStatus_Ugly_Case(t *testing.T) {
+	wsDir := t.TempDir()
+
+	core.AssertTrue(t, WriteStatus(wsDir, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex",
+		Repo:   "go-io",
+		Task:   "First run",
+	}).OK)
+	core.AssertTrue(t, WriteStatus(wsDir, &WorkspaceStatus{
+		Status:    "completed",
+		Agent:     "claude",
+		Repo:      "go-io",
+		Task:      "Second run",
+		Branch:    "agent/ax-cleanup",
+		StartedAt: time.Now(),
+		Runs:      3,
+	}).OK)
+
+	st := mustReadStatus(t, wsDir)
+	core.AssertEqual(t, "completed", st.Status)
+	core.AssertEqual(t, "claude", st.Agent)
+	core.AssertEqual(t, "agent/ax-cleanup", st.Branch)
+	core.AssertEqual(t, 3, st.Runs)
+}
+
+func TestPaths_ReadStatusResult_Bad(t *testing.T) {
+	result := ReadStatusResult(t.TempDir())
+	core.AssertFalse(t, result.OK)
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertError(t, err)
+}
+
+func TestPaths_ReadStatusResult_Ugly(t *testing.T) {
 	wsDir := t.TempDir()
 	core.RequireTrue(t, agentic.LocalFs().WriteAtomic(agentic.WorkspaceStatusPath(wsDir), "{not-json").OK)
 

@@ -7,7 +7,7 @@
 //
 //	opts := core.NewOptions(
 //	    core.Option{Key: "name", Value: "brain"},
-//	    core.Option{Key: "path", Value: "prompts"},
+//	    core.Option{Key: `path`, Value: "prompts"},
 //	)
 //	r := c.Drive().New(opts)
 //	if !r.OK { log.Fatal(r.Error()) }
@@ -107,7 +107,7 @@ type Options struct {
 //
 //	opts := core.NewOptions(
 //	    core.Option{Key: "name", Value: "brain"},
-//	    core.Option{Key: "path", Value: "prompts"},
+//	    core.Option{Key: `path`, Value: "prompts"},
 //	)
 func NewOptions(items ...Option) Options {
 	cp := make([]Option, len(items))

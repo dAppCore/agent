@@ -16,7 +16,7 @@ import (
 
 // --- statusRemote ---
 
-func TestRemotestatus_StatusRemote_Good(t *testing.T) {
+func TestRemotestatus_StatusRemote_Good_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -50,7 +50,7 @@ func TestRemotestatus_StatusRemote_Good(t *testing.T) {
 	core.AssertEqual(t, 2, out.Stats.Running)
 }
 
-func TestRemotestatus_StatusRemote_Bad(t *testing.T) {
+func TestRemotestatus_StatusRemote_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
@@ -84,7 +84,7 @@ func TestRemotestatus_StatusRemote_Bad(t *testing.T) {
 	core.AssertContains(t, out2.Error, "call failed")
 }
 
-func TestRemotestatus_StatusRemote_Ugly(t *testing.T) {
+func TestRemotestatus_StatusRemote_Ugly_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++

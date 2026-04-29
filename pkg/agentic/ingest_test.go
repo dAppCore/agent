@@ -295,7 +295,7 @@ func TestIngest_CountFileRefs_Good_SecurityFindings(t *testing.T) {
 
 // --- IngestFindings Ugly ---
 
-func TestIngest_IngestFindings_Ugly(t *testing.T) {
+func TestIngest_IngestFindings_Ugly_Case(t *testing.T) {
 	// Workspace with no findings file (completed but empty meta dir)
 	wsDir := t.TempDir()
 	core.RequireNoError(t, writeStatus(wsDir, &WorkspaceStatus{
@@ -319,7 +319,7 @@ func TestIngest_IngestFindings_Ugly(t *testing.T) {
 
 // --- CreateIssueViaAPI Ugly ---
 
-func TestIngest_CreateIssueViaAPI_Ugly(t *testing.T) {
+func TestIngest_CreateIssueViaAPI_Ugly_Case(t *testing.T) {
 	// Issue body with HTML injection chars — should be passed as-is without panic
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

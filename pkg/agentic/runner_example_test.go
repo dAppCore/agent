@@ -2,16 +2,19 @@
 
 package agentic
 
-import (
-	core "dappco.re/go"
-)
+import core "dappco.re/go"
 
 func ExamplePrepSubsystem_Poke() {
-	// Poke is now a no-op — queue poke is owned by pkg/runner.Service.
 	s := newPrepWithProcess()
 	s.pokeCh = make(chan struct{}, 1)
 
 	s.Poke()
 	core.Println(len(s.pokeCh))
 	// Output: 0
+}
+
+func ExamplePrepSubsystem_StartRunner() {
+	(&PrepSubsystem{}).StartRunner()
+	core.Println(true)
+	// Output: true
 }

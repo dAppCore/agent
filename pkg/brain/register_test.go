@@ -25,3 +25,15 @@ func TestRegister_Register_Ugly_ServiceAccessible(t *testing.T) {
 	svc := c.Service("brain")
 	core.AssertTrue(t, svc.OK)
 }
+
+func TestRegister_Register_Bad(t *testing.T) {
+	c := core.New(core.WithService(Register))
+	core.AssertContains(t, c.Services(), "brain")
+	core.AssertNotContains(t, c.Services(), "memory")
+}
+
+func TestRegister_Register_Ugly(t *testing.T) {
+	c := core.New(core.WithService(Register))
+	svc := c.Service("brain")
+	core.AssertTrue(t, svc.OK)
+}

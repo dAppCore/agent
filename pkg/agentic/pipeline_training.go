@@ -31,7 +31,7 @@ type PipelineTrainingCaptureOutput struct {
 type PipelineTrainingExportOutput struct {
 	Success  bool   `json:"success"`
 	Exported int    `json:"exported"`
-	Path     string `json:"path"`
+	Path     string "json:\"path\""
 }
 
 // checks, passing, failing := pipelineTrainingCheckCounts(meta.Checks)

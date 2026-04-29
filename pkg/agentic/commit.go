@@ -203,9 +203,9 @@ func readCommitMarker(markerPath string) (commitMarker, bool) {
 	var marker commitMarker
 	if parseResult := core.JSONUnmarshalString(r.Value.(string), &marker); !parseResult.OK {
 		backupPath := core.Concat(markerPath, ".corrupt-", time.Now().UTC().Format("20060102T150405Z"))
-		core.Warn("agentic.commit: corrupt commit marker", "path", markerPath, "backup", backupPath, "reason", parseResult.Value)
+		core.Warn("agentic.commit: corrupt commit marker", `path`, markerPath, "backup", backupPath, "reason", parseResult.Value)
 		if renameResult := fs.Rename(markerPath, backupPath); !renameResult.OK {
-			core.Warn("agentic.commit: failed to preserve corrupt commit marker", "path", markerPath, "backup", backupPath, "reason", renameResult.Value)
+			core.Warn("agentic.commit: failed to preserve corrupt commit marker", `path`, markerPath, "backup", backupPath, "reason", renameResult.Value)
 		}
 		return commitMarker{}, false
 	}

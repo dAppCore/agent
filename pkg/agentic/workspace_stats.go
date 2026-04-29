@@ -85,7 +85,7 @@ func (s *PrepSubsystem) closeWorkspaceStatsStore() {
 	}
 	if ref.instance != nil {
 		if err := ref.instance.Close(); err != nil {
-			core.Warn("agentic.workspaceStats: failed to close workspace stats store", "path", workspaceStatsPath(), "reason", err)
+			core.Warn("agentic.workspaceStats: failed to close workspace stats store", `path`, workspaceStatsPath(), "reason", err)
 		}
 		ref.instance = nil
 	}

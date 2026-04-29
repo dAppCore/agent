@@ -5,6 +5,7 @@ package agentic
 import (
 	"reflect"
 	"regexp"
+	"syscall"
 	"testing"
 	"time"
 
@@ -74,4 +75,37 @@ func requireEventually(t *testing.T, condition func() bool, waitFor, tick time.D
 		t.Fatal(msg[0])
 	}
 	t.Fatalf("condition not satisfied within %s", waitFor)
+}
+
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+
+	stdoutFile, ok := core.Stdout().(*core.OSFile)
+	core.RequireTrue(t, ok)
+
+	stdoutReadFD, stdoutWriteFD, err := newPipe()
+	core.RequireNoError(t, err)
+	restoreFD, err := syscall.Dup(int(stdoutFile.Fd()))
+	core.RequireNoError(t, err)
+
+	defer closeFD(stdoutReadFD)
+	defer closeFD(stdoutWriteFD)
+	defer closeFD(restoreFD)
+
+	core.RequireNoError(t, syscall.Dup2(stdoutWriteFD, int(stdoutFile.Fd())))
+	run()
+	core.RequireNoError(t, syscall.Dup2(restoreFD, int(stdoutFile.Fd())))
+	closeFD(stdoutWriteFD)
+
+	output, err := readFD(stdoutReadFD)
+	core.RequireNoError(t, err)
+	return string(output)
+}
+
+func repeatString(part string, count int) string {
+	builder := core.NewBuilder()
+	for i := 0; i < count; i++ {
+		_, _ = builder.WriteString(part)
+	}
+	return builder.String()
 }

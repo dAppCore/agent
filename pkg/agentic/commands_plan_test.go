@@ -221,7 +221,7 @@ func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 	core.AssertEqual(t, plan.Slug, output.Plan.Slug)
 }
 
-func TestCommandsPlan_CmdPlanTemplates_Good(t *testing.T) {
+func TestCommandsPlan_CmdPlanTemplates_Good_Case(t *testing.T) {
 	s := testPrepWithPlatformServer(t, nil, "")
 
 	r := s.cmdPlanTemplates(core.NewOptions(

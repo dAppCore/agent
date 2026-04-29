@@ -102,7 +102,7 @@ func (s *PrepSubsystem) persistRuntimeState() {
 
 	if len(state.Backoff) == 0 && len(state.FailCount) == 0 {
 		if deleteResult := fs.Delete(runtimeStatePath()); !deleteResult.OK {
-			core.Warn("agentic: failed to delete runtime state file", "path", runtimeStatePath(), "reason", deleteResult.Value)
+			core.Warn("agentic: failed to delete runtime state file", `path`, runtimeStatePath(), "reason", deleteResult.Value)
 		}
 		s.stateStoreDelete(stateRuntimeGroup, "backoff")
 		s.stateStoreDelete(stateRuntimeGroup, "fail_count")
@@ -110,10 +110,10 @@ func (s *PrepSubsystem) persistRuntimeState() {
 	}
 
 	if ensureResult := fs.EnsureDir(runtimeStateDir()); !ensureResult.OK {
-		core.Warn("agentic: failed to prepare runtime state directory", "path", runtimeStateDir(), "reason", ensureResult.Value)
+		core.Warn("agentic: failed to prepare runtime state directory", `path`, runtimeStateDir(), "reason", ensureResult.Value)
 	}
 	if writeResult := fs.WriteAtomic(runtimeStatePath(), core.JSONMarshalString(state)); !writeResult.OK {
-		core.Warn("agentic: failed to write runtime state", "path", runtimeStatePath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write runtime state", `path`, runtimeStatePath(), "reason", writeResult.Value)
 	}
 
 	// Mirror the authoritative JSON to the go-store cache so restarts see

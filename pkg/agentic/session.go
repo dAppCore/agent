@@ -102,7 +102,7 @@ type SessionLogOutput struct {
 // input := agentic.SessionArtifactInput{SessionID: "ses_abc123", Path: "pkg/agentic/session.go", Action: "modified"}
 type SessionArtifactInput struct {
 	SessionID   string         `json:"session_id"`
-	Path        string         `json:"path"`
+	Path        string         "json:\"path\""
 	Action      string         `json:"action"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 	Description string         `json:"description,omitempty"`
@@ -248,13 +248,13 @@ func (s *PrepSubsystem) handleSessionLog(ctx context.Context, options core.Optio
 // result := c.Action("session.artifact").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "session_id", Value: "ses_abc123"},
-//	core.Option{Key: "path", Value: "pkg/agentic/session.go"},
+//	core.Option{Key: `path`, Value: "pkg/agentic/session.go"},
 //
 // ))
 func (s *PrepSubsystem) handleSessionArtifact(ctx context.Context, options core.Options) core.Result {
 	_, output, err := s.sessionArtifact(ctx, nil, SessionArtifactInput{
 		SessionID:   optionStringValue(options, "session_id", "id", "_arg"),
-		Path:        optionStringValue(options, "path"),
+		Path:        optionStringValue(options, `path`),
 		Action:      optionStringValue(options, "action"),
 		Metadata:    optionAnyMapValue(options, "metadata"),
 		Description: optionStringValue(options, "description"),
@@ -602,7 +602,7 @@ func (s *PrepSubsystem) sessionArtifact(ctx context.Context, _ *mcp.CallToolRequ
 	}
 
 	artifact := map[string]any{
-		"path":      input.Path,
+		`path`:      input.Path,
 		"action":    input.Action,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
@@ -1079,7 +1079,7 @@ func sessionReplayContext(session Session) map[string]any {
 		"last_checkpoint":  lastCheckpoint,
 		"checkpoints":      checkpoints,
 		"decisions":        decisions,
-		"errors":           errors,
+		`errors`:           errors,
 		"work_log_by_type": map[string]any{
 			"checkpoint": checkpoints,
 			"decision":   decisions,

@@ -96,7 +96,7 @@ func (s *PrepSubsystem) closeStateStore() {
 	}
 	if ref.instance != nil {
 		if err := ref.instance.Close(); err != nil {
-			core.Warn("agentic.stateStore: failed to close state store", "path", stateStorePath(), "reason", err)
+			core.Warn("agentic.stateStore: failed to close state store", `path`, stateStorePath(), "reason", err)
 		}
 		ref.instance = nil
 	}

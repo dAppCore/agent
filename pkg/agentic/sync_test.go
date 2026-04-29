@@ -12,7 +12,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestSync_HandleSyncPush_Good(t *testing.T) {
+func TestSync_HandleSyncPush_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -105,7 +105,7 @@ func TestSync_HandleSyncPush_Good_UsesProvidedDispatches(t *testing.T) {
 	core.AssertEmpty(t, readSyncQueue())
 }
 
-func TestSync_HandleSyncPush_Bad(t *testing.T) {
+func TestSync_HandleSyncPush_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "")
@@ -158,7 +158,7 @@ func TestSync_HandleSyncPush_Bad_QueuesProvidedDispatchesWhenOffline(t *testing.
 	core.AssertEqual(t, "external-1", queued[0].Dispatches[0]["workspace"])
 }
 
-func TestSync_HandleSyncPush_Ugly(t *testing.T) {
+func TestSync_HandleSyncPush_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -198,7 +198,7 @@ func TestSync_HandleSyncPush_Ugly(t *testing.T) {
 	core.AssertLen(t, queued[0].Dispatches, 1)
 }
 
-func TestSync_HandleSyncPull_Good(t *testing.T) {
+func TestSync_HandleSyncPull_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -255,7 +255,7 @@ func TestSync_HandleSyncPull_Good_SinceQuery(t *testing.T) {
 	core.AssertEqual(t, "mem-2", output.Context[0]["id"])
 }
 
-func TestSync_RecordSyncHistory_Good(t *testing.T) {
+func TestSync_RecordSyncHistory_Good_Case(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 
 	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
@@ -407,7 +407,7 @@ func TestSync_HandleSyncPull_Good_NestedEnvelope(t *testing.T) {
 	core.AssertEqual(t, "ctx-1", output.Context[0]["id"])
 }
 
-func TestSync_HandleSyncPull_Bad(t *testing.T) {
+func TestSync_HandleSyncPull_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -434,7 +434,7 @@ func TestSync_HandleSyncPull_Bad(t *testing.T) {
 	core.AssertEqual(t, "cached-1", output.Context[0]["id"])
 }
 
-func TestSync_HandleSyncPull_Ugly(t *testing.T) {
+func TestSync_HandleSyncPull_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	t.Setenv("CORE_AGENT_API_KEY", "secret-token")
@@ -462,7 +462,7 @@ func TestSync_HandleSyncPull_Ugly(t *testing.T) {
 }
 
 // schedule := syncBackoffSchedule(3) // 15s
-func TestSync_SyncBackoffSchedule_Good(t *testing.T) {
+func TestSync_SyncBackoffSchedule_Good_Case(t *testing.T) {
 	core.AssertEqual(t, time.Duration(0), syncBackoffSchedule(0))
 	core.AssertEqual(t, time.Second, syncBackoffSchedule(1))
 	core.AssertEqual(t, 5*time.Second, syncBackoffSchedule(2))
@@ -670,21 +670,21 @@ func TestSync_HandleSyncPush_Ugly_RespectsBackoffWindow(t *testing.T) {
 	core.AssertEqual(t, 3, queued[0].Attempts)
 }
 
-func TestSync_syncBackoffSchedule_Good(t *testing.T) {
+func TestSync_syncBackoffSchedule_Good_Case(t *testing.T) {
 	core.AssertEqual(t, time.Second, syncBackoffSchedule(1))
 	core.AssertEqual(t, 5*time.Second, syncBackoffSchedule(2))
 	core.AssertEqual(t, 15*time.Second, syncBackoffSchedule(3))
 	core.AssertEqual(t, 60*time.Second, syncBackoffSchedule(4))
 }
 
-func TestSync_syncBackoffSchedule_Bad(t *testing.T) {
+func TestSync_syncBackoffSchedule_Bad_Case(t *testing.T) {
 	first := syncBackoffSchedule(-1)
 	second := syncBackoffSchedule(-42)
 	core.AssertEqual(t, time.Duration(0), first)
 	core.AssertEqual(t, time.Duration(0), second)
 }
 
-func TestSync_syncBackoffSchedule_Ugly(t *testing.T) {
+func TestSync_syncBackoffSchedule_Ugly_Case(t *testing.T) {
 	core.AssertEqual(t, time.Duration(0), syncBackoffSchedule(0))
 	core.AssertEqual(t, 5*time.Minute, syncBackoffSchedule(5))
 	core.AssertEqual(t, 5*time.Minute, syncBackoffSchedule(999))

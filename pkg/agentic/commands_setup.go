@@ -23,7 +23,7 @@ func (s *PrepSubsystem) cmdSetup(options core.Options) core.Result {
 
 // result := c.Action("agentic.setup").Run(ctx, core.NewOptions(
 //
-//	core.Option{Key: "path", Value: "."},
+//	core.Option{Key: `path`, Value: "."},
 //	core.Option{Key: "template", Value: "auto"},
 //
 // ))
@@ -42,7 +42,7 @@ func (s *PrepSubsystem) handleSetup(_ context.Context, options core.Options) cor
 	}
 
 	result := service.Run(setup.Options{
-		Path:     optionStringValue(options, "path", "_arg"),
+		Path:     optionStringValue(options, `path`, "_arg"),
 		DryRun:   optionBoolValue(options, "dry_run", "dry-run"),
 		Force:    optionBoolValue(options, "force"),
 		Template: optionStringValue(options, "template", "template_slug", "template-slug", "slug"),
@@ -70,12 +70,12 @@ type SetupInput struct {
 
 type SetupOutput struct {
 	Success bool   `json:"success"`
-	Path    string `json:"path"`
+	Path    string "json:\"path\""
 }
 
 func (s *PrepSubsystem) setupTool(ctx context.Context, _ *mcp.CallToolRequest, input SetupInput) (*mcp.CallToolResult, SetupOutput, error) {
 	result := s.handleSetup(ctx, core.NewOptions(
-		core.Option{Key: "path", Value: input.Path},
+		core.Option{Key: `path`, Value: input.Path},
 		core.Option{Key: "dry_run", Value: input.DryRun},
 		core.Option{Key: "force", Value: input.Force},
 		core.Option{Key: "template", Value: input.Template},

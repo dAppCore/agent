@@ -25,7 +25,7 @@ func TestMCP_Register_Good(t *testing.T) {
 	core.AssertTrue(t, ok)
 }
 
-func TestMCP_Register_Bad(t *testing.T) {
+func TestMCP_Register_Bad_Case(t *testing.T) {
 	c := core.New(core.WithOption("name", "core-agent"))
 
 	result := c.Service("mcp")

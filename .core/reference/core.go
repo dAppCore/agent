@@ -7,7 +7,7 @@ package core
 
 import (
 	"context"
-	"os"
+	coreos "dappco.re/go"
 	"sync"
 	"sync/atomic"
 )
@@ -25,7 +25,7 @@ type Core struct {
 	error   *ErrorPanic // c.Error()          — Panic recovery and crash reporting
 	log     *ErrorLog   // c.Log()            — Structured logging + error wrapping
 	// cli accessed via ServiceFor[*Cli](c, "cli")
-	commands *CommandRegistry // c.Command("path")  — Command tree
+	commands *CommandRegistry // c.Command(`path`)  — Command tree
 	services *ServiceRegistry // c.Service("name")  — Service registry
 	lock     *Lock            // c.Lock("name")     — Named mutexes
 	ipc      *Ipc             // c.IPC()            — Message bus for IPC

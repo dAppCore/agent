@@ -12,7 +12,7 @@ import (
 
 // --- resume ---
 
-func TestResume_Resume_Good(t *testing.T) {
+func TestResume_Resume_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -57,7 +57,7 @@ func TestResume_Resume_Good(t *testing.T) {
 	core.AssertTrue(t, out3.Success)
 }
 
-func TestResume_Resume_Bad(t *testing.T) {
+func TestResume_Resume_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -85,7 +85,7 @@ func TestResume_Resume_Bad(t *testing.T) {
 	core.AssertContains(t, err.Error(), "not resumable")
 }
 
-func TestResume_Resume_Ugly(t *testing.T) {
+func TestResume_Resume_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 

@@ -111,7 +111,7 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 
 // --- findActiveWorkspaces Bad/Ugly ---
 
-func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Bad_Case(t *testing.T) {
 	// Workspace dir doesn't exist
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", core.JoinPath(root, "nonexistent"))
@@ -127,7 +127,7 @@ func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 	})
 }
 
-func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Ugly_Case(t *testing.T) {
 	// Workspaces with corrupt status.json
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -157,7 +157,7 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 
 // --- resolveWorkspaceDir Bad/Ugly ---
 
-func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Bad_Case(t *testing.T) {
 	// Empty name
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -169,7 +169,7 @@ func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 	core.AssertTrue(t, core.PathIsAbs(dir))
 }
 
-func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Ugly_Case(t *testing.T) {
 	// Name with path traversal "../.."
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

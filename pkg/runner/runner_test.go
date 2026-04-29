@@ -171,7 +171,7 @@ func TestDoublePoke_Service_Poke_Ugly(t *testing.T) {
 
 // --- Actions ---
 
-func TestRunner_ActionStatus_Good(t *testing.T) {
+func TestRunner_ActionStatus_Good_Case(t *testing.T) {
 	svc := New()
 	svc.TrackWorkspace("ws-1", &WorkspaceStatus{Status: "running"})
 	svc.TrackWorkspace("ws-2", &WorkspaceStatus{Status: "completed"})
@@ -206,7 +206,7 @@ func TestRunner_ActionStatus_Ugly_AllStatuses(t *testing.T) {
 	core.AssertEqual(t, 2, m["failed"])    // failed + blocked
 }
 
-func TestRunner_ActionStart_Good(t *testing.T) {
+func TestRunner_ActionStart_Good_Case(t *testing.T) {
 	svc := New()
 	svc.frozen = true
 	svc.pokeCh = make(chan struct{}, 1)
@@ -216,7 +216,7 @@ func TestRunner_ActionStart_Good(t *testing.T) {
 	core.AssertFalse(t, svc.IsFrozen())
 }
 
-func TestRunner_ActionStop_Good(t *testing.T) {
+func TestRunner_ActionStop_Good_Case(t *testing.T) {
 	svc := New()
 	svc.frozen = false
 	r := svc.actionStop(context.Background(), core.NewOptions())
@@ -300,7 +300,7 @@ func TestRunner_ActionDispatch_Good_Unfrozen(t *testing.T) {
 
 // --- OnStartup ---
 
-func TestRegisterActions_Service_OnStartup_Good(t *testing.T) {
+func TestRunner_Service_OnStartup_Good(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	svc := New()
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -316,7 +316,7 @@ func TestRegisterActions_Service_OnStartup_Good(t *testing.T) {
 	core.AssertNotNil(t, c.Action("runner.poke"))
 }
 
-func TestNilCore_Service_OnStartup_Bad(t *testing.T) {
+func TestRunner_Service_OnStartup_Bad(t *testing.T) {
 	svc := New()
 	// No ServiceRuntime — OnStartup should panic on s.Core()
 	core.AssertPanics(t, func() {
@@ -324,7 +324,7 @@ func TestNilCore_Service_OnStartup_Bad(t *testing.T) {
 	})
 }
 
-func TestStartsRunnerLoop_Service_OnStartup_Ugly(t *testing.T) {
+func TestRunner_Service_OnStartup_Ugly(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	svc := New()
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -335,7 +335,7 @@ func TestStartsRunnerLoop_Service_OnStartup_Ugly(t *testing.T) {
 
 // --- OnShutdown ---
 
-func TestFreezeQueue_Service_OnShutdown_Good(t *testing.T) {
+func TestRunner_Service_OnShutdown_Good(t *testing.T) {
 	svc := New()
 	svc.frozen = false
 	r := svc.OnShutdown(context.Background())
@@ -343,14 +343,14 @@ func TestFreezeQueue_Service_OnShutdown_Good(t *testing.T) {
 	core.AssertTrue(t, svc.IsFrozen())
 }
 
-func TestAlreadyFrozen_Service_OnShutdown_Bad(t *testing.T) {
+func TestRunner_Service_OnShutdown_Bad(t *testing.T) {
 	svc := New()
 	r := svc.OnShutdown(context.Background())
 	core.AssertTrue(t, r.OK)
 	core.AssertTrue(t, svc.IsFrozen())
 }
 
-func TestNoPanic_Service_OnShutdown_Ugly(t *testing.T) {
+func TestRunner_Service_OnShutdown_Ugly(t *testing.T) {
 	svc := New()
 	core.AssertNotPanics(t, func() {
 		svc.OnShutdown(context.Background())
@@ -359,7 +359,7 @@ func TestNoPanic_Service_OnShutdown_Ugly(t *testing.T) {
 
 // --- HandleIPCEvents ---
 
-func TestUnknownMessage_Service_HandleIPCEvents_Good(t *testing.T) {
+func TestRunner_Service_HandleIPCEvents_Good(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	svc := New()
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -369,7 +369,7 @@ func TestUnknownMessage_Service_HandleIPCEvents_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
-func TestMatchingWorkspace_Service_HandleIPCEvents_Bad(t *testing.T) {
+func TestRunner_Service_HandleIPCEvents_Bad(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	svc := New()
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -393,7 +393,7 @@ func TestMatchingWorkspace_Service_HandleIPCEvents_Bad(t *testing.T) {
 	core.AssertEqual(t, 222, second.PID)
 }
 
-func TestQueueDrained_Service_HandleIPCEvents_Ugly(t *testing.T) {
+func TestRunner_Service_HandleIPCEvents_Ugly(t *testing.T) {
 	c := core.New(core.WithOption("name", "test"))
 	svc := New()
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
@@ -437,7 +437,7 @@ func TestRunner_HydrateWorkspaces_Good_DeepWorkspaceName(t *testing.T) {
 
 // --- WriteStatus / ReadStatusResult ---
 
-func TestRunner_WriteReadStatus_Good(t *testing.T) {
+func TestRunner_WriteReadStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 999}
 	core.RequireTrue(t, WriteStatus(dir, st).OK)
@@ -462,4 +462,125 @@ func TestRunner_WriteReadStatus_Ugly_OverwriteExisting(t *testing.T) {
 
 	got := mustReadStatus(t, dir)
 	core.AssertEqual(t, "completed", got.Status)
+}
+
+func TestRunner_New_Bad(t *testing.T) {
+	svc := New()
+	core.AssertNil(t, svc.ServiceRuntime)
+	core.AssertFalse(t, svc.IsFrozen(), "New() doesn't set frozen — startRunner does")
+}
+
+func TestRunner_New_Ugly(t *testing.T) {
+	a := New()
+	b := New()
+	assertNotSame(t, a, b, "each call returns a fresh instance")
+	assertNotSame(t, a.workspaces, b.workspaces)
+}
+
+func TestRunner_Register_Bad(t *testing.T) {
+	core.AssertPanics(t, func() {
+		Register(nil)
+	})
+}
+
+func TestRunner_Register_Ugly(t *testing.T) {
+	c := core.New(core.WithOption("name", "test"))
+	Register(c)
+	// Config should have agents.concurrency set (even if defaults)
+	r := c.Config().Get("agents.dispatch")
+	core.AssertNotNil(t, r)
+}
+
+func TestRunner_Service_IsFrozen_Good(t *testing.T) {
+	svc := New()
+	svc.frozen = true
+	core.AssertTrue(t, svc.IsFrozen())
+}
+
+func TestRunner_Service_IsFrozen_Bad(t *testing.T) {
+	svc := New()
+	svc.frozen = false
+	core.AssertFalse(t, svc.IsFrozen())
+}
+
+func TestRunner_Service_IsFrozen_Ugly(t *testing.T) {
+	svc := New()
+	for i := 0; i < 100; i++ {
+		svc.frozen = i%2 == 0
+	}
+	// i=99 → 99%2==1 → false. Last write wins.
+	core.AssertFalse(t, svc.IsFrozen(), "last toggle wins")
+}
+
+func TestRunner_Service_Poke_Good(t *testing.T) {
+	svc := New()
+	svc.pokeCh = make(chan struct{}, 1)
+	svc.Poke()
+	core.AssertLen(t, svc.pokeCh, 1)
+}
+
+func TestRunner_Service_Poke_Bad(t *testing.T) {
+	svc := New()
+	core.AssertNotPanics(t, func() {
+		svc.Poke()
+	})
+}
+
+func TestRunner_Service_Poke_Ugly(t *testing.T) {
+	svc := New()
+	svc.pokeCh = make(chan struct{}, 1)
+	svc.Poke()
+	svc.Poke() // second poke is a no-op (channel full)
+	core.AssertLen(t, svc.pokeCh, 1)
+}
+
+func TestRunner_Service_TrackWorkspace_Good(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("core/go-io/dev", &WorkspaceStatus{
+		Status: "running", Agent: "codex", Repo: "go-io", PID: 12345,
+	})
+	r := svc.workspaces.Get("core/go-io/dev")
+	core.AssertTrue(t, r.OK)
+}
+
+func TestRunner_Service_TrackWorkspace_Bad(t *testing.T) {
+	svc := &Service{}
+	core.AssertNotPanics(t, func() {
+		svc.TrackWorkspace("test", &WorkspaceStatus{Status: "running"})
+	})
+}
+
+func TestRunner_Service_TrackWorkspace_Ugly(t *testing.T) {
+	svc := New()
+	// TrackWorkspace accepts any — JSON round-trip converts
+	svc.TrackWorkspace("test", map[string]any{
+		"status": "running", "agent": "codex", "repo": "go-io",
+	})
+	r := svc.workspaces.Get("test")
+	core.AssertTrue(t, r.OK)
+	ws := r.Value.(*WorkspaceStatus)
+	core.AssertEqual(t, "running", ws.Status)
+	core.AssertEqual(t, "codex", ws.Agent)
+}
+
+func TestRunner_Service_Workspaces_Good(t *testing.T) {
+	svc := New()
+	core.AssertNotNil(t, svc.Workspaces())
+	core.AssertEqual(t, 0, svc.Workspaces().Len())
+}
+
+func TestRunner_Service_Workspaces_Bad(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("ws-1", &WorkspaceStatus{Status: "running"})
+	core.AssertEqual(t, 1, svc.Workspaces().Len())
+}
+
+func TestRunner_Service_Workspaces_Ugly(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("ws-1", &WorkspaceStatus{Status: "running"})
+	svc.TrackWorkspace("ws-1", &WorkspaceStatus{Status: "completed"})
+	core.AssertEqual(t, 1, svc.Workspaces().Len())
+	r := svc.workspaces.Get("ws-1")
+	ws := r.Value.(*WorkspaceStatus)
+	core.AssertEqual(t, "completed", ws.Status)
 }

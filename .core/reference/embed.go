@@ -19,21 +19,23 @@
 //
 //	refs, _ := core.ScanAssets([]string{"main.go"})
 //	source, _ := core.GeneratePack(refs)
+//	core.AddAsset("docs", "RFC.md", packed)
+//	r := core.GeneratePack(pkg)
 package core
 
 import (
-	"bytes"
 	"compress/gzip"
+	corebytes "dappco.re/go"
+	corefilepath "dappco.re/go"
+	corefmt "dappco.re/go"
+	coreos "dappco.re/go"
 	"embed"
 	"encoding/base64"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sync"
 	"text/template"
 )
@@ -641,7 +643,7 @@ func renderPath(path string, data any) string {
 	if data == nil {
 		return path
 	}
-	tmpl, err := template.New("path").Parse(path)
+	tmpl, err := template.New(`path`).Parse(path)
 	if err != nil {
 		return path
 	}

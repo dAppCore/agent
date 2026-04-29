@@ -71,7 +71,7 @@ func TestDuplicateRegistration_RegisterHTTPTransport_Bad(t *testing.T) {
 	core.AssertEqual(t, `{"status":"ok"}`, string(response))
 }
 
-func TestTransport_HTTPPost_Good(t *testing.T) {
+func TestTransport_HTTPPost_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, http.MethodPost, r.Method)
 		core.AssertEqual(t, "Bearer post-token", r.Header.Get("Authorization"))
@@ -88,7 +88,7 @@ func TestTransport_HTTPPost_Good(t *testing.T) {
 	core.AssertEqual(t, `{"created":true}`, result.Value.(string))
 }
 
-func TestTransport_HTTPPatch_Good(t *testing.T) {
+func TestTransport_HTTPPatch_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, http.MethodPatch, r.Method)
 		core.AssertEqual(t, "token patch-token", r.Header.Get("Authorization"))
@@ -105,7 +105,7 @@ func TestTransport_HTTPPatch_Good(t *testing.T) {
 	core.AssertEqual(t, `{"updated":true}`, result.Value.(string))
 }
 
-func TestTransport_HTTPDelete_Good(t *testing.T) {
+func TestTransport_HTTPDelete_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, http.MethodDelete, r.Method)
 		core.AssertEqual(t, "Bearer delete-token", r.Header.Get("Authorization"))
@@ -122,7 +122,7 @@ func TestTransport_HTTPDelete_Good(t *testing.T) {
 	core.AssertEqual(t, `{"deleted":true}`, result.Value.(string))
 }
 
-func TestTransport_HTTPDo_Good(t *testing.T) {
+func TestTransport_HTTPDo_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, http.MethodPut, r.Method)
 		core.AssertEqual(t, "token do-token", r.Header.Get("Authorization"))
@@ -139,7 +139,7 @@ func TestTransport_HTTPDo_Good(t *testing.T) {
 	core.AssertEqual(t, `{"ok":true}`, result.Value.(string))
 }
 
-func TestTransport_DrivePost_Good(t *testing.T) {
+func TestTransport_DrivePost_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/issues", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -164,7 +164,7 @@ func TestTransport_DrivePost_Good(t *testing.T) {
 	core.AssertEqual(t, `{"number":9}`, result.Value.(string))
 }
 
-func TestTransport_DriveDo_Good(t *testing.T) {
+func TestTransport_DriveDo_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/pulls/3", r.URL.Path)
 		core.AssertEqual(t, http.MethodPatch, r.Method)
@@ -199,7 +199,7 @@ func TestMissingDrive_DriveGet_Bad(t *testing.T) {
 	core.AssertContains(t, err.Error(), "drive not found")
 }
 
-func TestTransport_Stream_Send_Good(t *testing.T) {
+func TestTransport_Stream_Send_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, http.MethodPost, r.Method)
 		core.AssertEqual(t, "token send-token", r.Header.Get("Authorization"))
@@ -217,7 +217,7 @@ func TestTransport_Stream_Send_Good(t *testing.T) {
 	core.AssertEqual(t, `{"pong":1}`, string(stream.response))
 }
 
-func TestTransport_Stream_Receive_Good(t *testing.T) {
+func TestTransport_Stream_Receive_Good_Case(t *testing.T) {
 	stream := &httpStream{response: []byte(`{"cached":true}`)}
 	response, err := stream.Receive()
 
@@ -225,7 +225,7 @@ func TestTransport_Stream_Receive_Good(t *testing.T) {
 	core.AssertEqual(t, `{"cached":true}`, string(response))
 }
 
-func TestTransport_Stream_Close_Good(t *testing.T) {
+func TestTransport_Stream_Close_Good_Case(t *testing.T) {
 	stream := &httpStream{}
 	err := stream.Close()
 
@@ -317,7 +317,7 @@ func TestMirrorsQueueState_PrepSubsystem_TrackWorkspace_Good(t *testing.T) {
 	core.AssertEqual(t, 1, subsystem.stateStoreCount(stateQueueGroup))
 }
 
-func TestDispatchSync_PrepSubsystem_DispatchSync_Good(t *testing.T) {
+func TestDispatchSync_PrepSubsystem_DispatchSync_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 

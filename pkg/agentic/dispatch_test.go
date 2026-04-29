@@ -37,13 +37,13 @@ func (p *fakeCompletionProcess) Output() string        { return p.output }
 
 // --- agentOutputFile ---
 
-func TestDispatch_AgentOutputFile_Good(t *testing.T) {
+func TestDispatch_AgentOutputFile_Good_Case(t *testing.T) {
 	core.AssertContains(t, agentOutputFile("/ws", "codex"), ".meta/agent-codex.log")
 	core.AssertContains(t, agentOutputFile("/ws", "claude:opus"), ".meta/agent-claude.log")
 	core.AssertContains(t, agentOutputFile("/ws", "gemini:flash"), ".meta/agent-gemini.log")
 }
 
-func TestDispatch_AgentOutputFile_Bad(t *testing.T) {
+func TestDispatch_AgentOutputFile_Bad_Case(t *testing.T) {
 	// Empty agent — still produces a path (no crash)
 	result := agentOutputFile("/ws", "")
 	core.AssertContains(
@@ -53,7 +53,7 @@ func TestDispatch_AgentOutputFile_Bad(t *testing.T) {
 	)
 }
 
-func TestDispatch_AgentOutputFile_Ugly(t *testing.T) {
+func TestDispatch_AgentOutputFile_Ugly_Case(t *testing.T) {
 	// Agent with multiple colons — only splits on first
 	result := agentOutputFile("/ws", "claude:opus:latest")
 	core.AssertContains(
@@ -65,7 +65,7 @@ func TestDispatch_AgentOutputFile_Ugly(t *testing.T) {
 
 // --- detectFinalStatus ---
 
-func TestDispatch_DetectFinalStatus_Good(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// Clean exit = completed
@@ -74,7 +74,7 @@ func TestDispatch_DetectFinalStatus_Good(t *testing.T) {
 	core.AssertEmpty(t, question)
 }
 
-func TestDispatch_DetectFinalStatus_Bad(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Bad_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// Non-zero exit code
@@ -91,7 +91,7 @@ func TestDispatch_DetectFinalStatus_Bad(t *testing.T) {
 	core.AssertEqual(t, "failed", status3)
 }
 
-func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// BLOCKED.md exists but is whitespace only — NOT blocked
@@ -108,7 +108,7 @@ func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
 
 // --- trackFailureRate ---
 
-func TestDispatch_TrackFailureRate_Good(t *testing.T) {
+func TestDispatch_TrackFailureRate_Good_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
 
 	// Success resets count
@@ -117,7 +117,7 @@ func TestDispatch_TrackFailureRate_Good(t *testing.T) {
 	core.AssertEqual(t, 0, s.failCount["codex"])
 }
 
-func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
+func TestDispatch_TrackFailureRate_Bad_Case(t *testing.T) {
 	c := core.New()
 	var captured []messages.RateLimitDetected
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
@@ -138,7 +138,7 @@ func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
 	core.AssertEqual(t, "30m0s", captured[0].Duration)
 }
 
-func TestDispatch_TrackFailureRate_Ugly(t *testing.T) {
+func TestDispatch_TrackFailureRate_Ugly_Case(t *testing.T) {
 	s := newPrepWithProcess()
 
 	// Slow failure (>60s) resets count instead of incrementing
@@ -153,7 +153,7 @@ func TestDispatch_TrackFailureRate_Ugly(t *testing.T) {
 
 // --- startIssueTracking ---
 
-func TestDispatch_StartIssueTracking_Good(t *testing.T) {
+func TestDispatch_StartIssueTracking_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 	}))
@@ -167,7 +167,7 @@ func TestDispatch_StartIssueTracking_Good(t *testing.T) {
 	s.startIssueTracking(dir)
 }
 
-func TestDispatch_StartIssueTracking_Bad(t *testing.T) {
+func TestDispatch_StartIssueTracking_Bad_Case(t *testing.T) {
 	// No forge — returns early
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(t.TempDir())
@@ -177,7 +177,7 @@ func TestDispatch_StartIssueTracking_Bad(t *testing.T) {
 	s2.startIssueTracking(t.TempDir())
 }
 
-func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
+func TestDispatch_StartIssueTracking_Ugly_Case(t *testing.T) {
 	// Status has no issue — early return
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "test"}
@@ -189,7 +189,7 @@ func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
 
 // --- stopIssueTracking ---
 
-func TestDispatch_StopIssueTracking_Good(t *testing.T) {
+func TestDispatch_StopIssueTracking_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	}))
@@ -203,13 +203,13 @@ func TestDispatch_StopIssueTracking_Good(t *testing.T) {
 	s.stopIssueTracking(dir)
 }
 
-func TestDispatch_StopIssueTracking_Bad(t *testing.T) {
+func TestDispatch_StopIssueTracking_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(t.TempDir())
 	core.AssertNil(t, s.forge)
 }
 
-func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
+func TestDispatch_StopIssueTracking_Ugly_Case(t *testing.T) {
 	// Status has no issue
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "test"}
@@ -221,7 +221,7 @@ func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
 
 // --- broadcastStart ---
 
-func TestDispatch_BroadcastStart_Good(t *testing.T) {
+func TestDispatch_BroadcastStart_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -234,14 +234,14 @@ func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	s.broadcastStart("codex", wsDir)
 }
 
-func TestDispatch_BroadcastStart_Bad(t *testing.T) {
+func TestDispatch_BroadcastStart_Bad_Case(t *testing.T) {
 	// No Core — should not panic
 	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastStart("codex", t.TempDir())
 	core.AssertNil(t, s.ServiceRuntime)
 }
 
-func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
+func TestDispatch_BroadcastStart_Ugly_Case(t *testing.T) {
 	// No status file — broadcasts with empty repo
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -250,7 +250,7 @@ func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
 
 // --- broadcastComplete ---
 
-func TestDispatch_BroadcastComplete_Good(t *testing.T) {
+func TestDispatch_BroadcastComplete_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -263,13 +263,13 @@ func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	s.broadcastComplete("codex", wsDir, "completed")
 }
 
-func TestDispatch_BroadcastComplete_Bad(t *testing.T) {
+func TestDispatch_BroadcastComplete_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", t.TempDir(), "failed")
 	core.AssertNil(t, s.ServiceRuntime)
 }
 
-func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
+func TestDispatch_BroadcastComplete_Ugly_Case(t *testing.T) {
 	// No status file
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -278,7 +278,7 @@ func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 
 // --- agentCompletionMonitor ---
 
-func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -319,7 +319,7 @@ func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
 	core.AssertEqual(t, "monitor output", output.Value.(string))
 }
 
-func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	monitor := &agentCompletionMonitor{
 		service:      s,
@@ -333,7 +333,7 @@ func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
 	core.AssertContains(t, r.Value.(error).Error(), "process is required")
 }
 
-func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -374,7 +374,7 @@ func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 
 // --- onAgentComplete ---
 
-func TestDispatch_OnAgentComplete_Good(t *testing.T) {
+func TestDispatch_OnAgentComplete_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -400,7 +400,7 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	core.AssertEqual(t, "test output", r.Value.(string))
 }
 
-func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
+func TestDispatch_OnAgentComplete_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -421,7 +421,7 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	core.AssertContains(t, updated.Question, "code 1")
 }
 
-func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
+func TestDispatch_OnAgentComplete_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -515,7 +515,7 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 
 // --- runQA ---
 
-func TestDispatch_RunQA_Good(t *testing.T) {
+func TestDispatch_RunQA_Good_Case(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
 	fs.EnsureDir(repoDir)
@@ -526,7 +526,7 @@ func TestDispatch_RunQA_Good(t *testing.T) {
 	core.AssertTrue(t, s.runQA(wsDir))
 }
 
-func TestDispatch_RunQA_Bad(t *testing.T) {
+func TestDispatch_RunQA_Bad_Case(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
 	fs.EnsureDir(repoDir)
@@ -547,7 +547,7 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 	core.AssertFalse(t, s.runQA(wsDir2))
 }
 
-func TestDispatch_RunQA_Ugly(t *testing.T) {
+func TestDispatch_RunQA_Ugly_Case(t *testing.T) {
 	// Unknown language — passes QA (no checks)
 	wsDir := t.TempDir()
 	fs.EnsureDir(core.JoinPath(wsDir, "repo"))
@@ -573,7 +573,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 
 // --- dispatch ---
 
-func TestDispatch_Dispatch_Good(t *testing.T) {
+func TestDispatch_Dispatch_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -603,7 +603,7 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	core.AssertNotEmpty(t, out.Prompt)
 }
 
-func TestDispatch_Dispatch_Bad(t *testing.T) {
+func TestDispatch_Dispatch_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 
 	// No repo
@@ -617,7 +617,7 @@ func TestDispatch_Dispatch_Bad(t *testing.T) {
 	core.AssertContains(t, err.Error(), "task is required")
 }
 
-func TestDispatch_Dispatch_Ugly(t *testing.T) {
+func TestDispatch_Dispatch_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -632,7 +632,7 @@ func TestDispatch_Dispatch_Ugly(t *testing.T) {
 
 // --- workspaceDir ---
 
-func TestDispatch_WorkspaceDir_Good(t *testing.T) {
+func TestDispatch_WorkspaceDir_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -650,13 +650,13 @@ func TestDispatch_WorkspaceDir_Good(t *testing.T) {
 	core.AssertContains(t, dir4, "v1.0.0")
 }
 
-func TestDispatch_WorkspaceDir_Bad(t *testing.T) {
+func TestDispatch_WorkspaceDir_Bad_Case(t *testing.T) {
 	_, err := workspaceDir("core", "go-io", PrepInput{})
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "one of issue, pr, branch, or tag")
 }
 
-func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
+func TestDispatch_WorkspaceDir_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -668,7 +668,7 @@ func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
 
 // --- containerCommand ---
 
-func TestDispatch_ContainerCommand_Bad(t *testing.T) {
+func TestDispatch_ContainerCommand_Bad_Case(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
@@ -689,7 +689,7 @@ func TestDispatch_ContainerCommand_Bad(t *testing.T) {
 
 // --- agentCommand AX-10 ---
 
-func TestDispatch_agentCommand_Good(t *testing.T) {
+func TestDispatch_agentCommand_Good_Case(t *testing.T) {
 	command, args, err := agentCommand("codex:gpt-5.4-mini", "Implement AX-10 unit tests for Mantis #169")
 	core.RequireNoError(t, err)
 	core.AssertEqual(t, "codex", command)
@@ -702,7 +702,7 @@ func TestDispatch_agentCommand_Good(t *testing.T) {
 	}, args)
 }
 
-func TestDispatch_agentCommand_Bad(t *testing.T) {
+func TestDispatch_agentCommand_Bad_Case(t *testing.T) {
 	command, args, err := agentCommand("mantis", "Investigate a failing dispatch")
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "unknown agent: mantis")
@@ -710,7 +710,7 @@ func TestDispatch_agentCommand_Bad(t *testing.T) {
 	core.AssertNil(t, args)
 }
 
-func TestDispatch_agentCommand_Ugly(t *testing.T) {
+func TestDispatch_agentCommand_Ugly_Case(t *testing.T) {
 	command, args, err := agentCommand("", "Investigate a failing dispatch")
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "unknown agent")

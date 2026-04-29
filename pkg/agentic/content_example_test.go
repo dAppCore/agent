@@ -2,7 +2,7 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_parseContentResult() {
 	result := parseContentResult(map[string]any{
@@ -13,6 +13,6 @@ func Example_parseContentResult() {
 		"output_tokens": 64,
 	})
 
-	fmt.Println(result.BatchID, result.Provider, result.Model, result.OutputTokens)
+	core.Println(result.BatchID, result.Provider, result.Model, result.OutputTokens)
 	// Output: batch_123 claude claude-3.7-sonnet 64
 }

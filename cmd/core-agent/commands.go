@@ -3,8 +3,6 @@
 package main
 
 import (
-	"os"
-
 	"dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 )
@@ -13,10 +11,16 @@ type applicationCommandSet struct {
 	coreApp *core.Core
 }
 
+var startupArgv = core.Args
+
+var applicationPrint = func(format string, args ...any) {
+	core.Print(nil, format, args...)
+}
+
 // args := startupArgs()
 // _ = c.Cli().Run("version")
 func startupArgs() []string {
-	return applyLogLevel(core.FilterArgs(os.Args[1:]))
+	return applyLogLevel(core.FilterArgs(startupArgv()[1:]))
 }
 
 // args := applyLogLevel([]string{"version", "-q"})
@@ -60,50 +64,50 @@ func registerApplicationCommands(c *core.Core) {
 }
 
 func (commands applicationCommandSet) version(_ core.Options) core.Result {
-	core.Print(nil, "core-agent %s", commands.coreApp.App().Version)
-	core.Print(nil, "  go:       %s", core.Env("GO"))
-	core.Print(nil, "  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
-	core.Print(nil, "  home:     %s", agentic.HomeDir())
-	core.Print(nil, "  hostname: %s", core.Env("HOSTNAME"))
-	core.Print(nil, "  pid:      %s", core.Env("PID"))
-	core.Print(nil, "  channel:  %s", updateChannel())
+	applicationPrint("core-agent %s", commands.coreApp.App().Version)
+	applicationPrint("  go:       %s", core.Env("GO"))
+	applicationPrint("  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
+	applicationPrint("  home:     %s", agentic.HomeDir())
+	applicationPrint("  hostname: %s", core.Env("HOSTNAME"))
+	applicationPrint("  pid:      %s", core.Env("PID"))
+	applicationPrint("  channel:  %s", updateChannel())
 	return core.Result{OK: true}
 }
 
 func (commands applicationCommandSet) check(_ core.Options) core.Result {
 	fs := commands.coreApp.Fs()
-	core.Print(nil, "core-agent %s health check", commands.coreApp.App().Version)
-	core.Print(nil, "")
-	core.Print(nil, "  binary:    core-agent")
+	applicationPrint("core-agent %s health check", commands.coreApp.App().Version)
+	applicationPrint("")
+	applicationPrint("  binary:    core-agent")
 
 	agentsPath := core.JoinPath(agentic.CoreRoot(), "agents.yaml")
 	if fs.IsFile(agentsPath) {
-		core.Print(nil, "  agents:    %s (ok)", agentsPath)
+		applicationPrint("  agents:    %s (ok)", agentsPath)
 	} else {
-		core.Print(nil, "  agents:    %s (MISSING)", agentsPath)
+		applicationPrint("  agents:    %s (MISSING)", agentsPath)
 	}
 
 	workspaceRoot := agentic.WorkspaceRoot()
 	if fs.IsDir(workspaceRoot) {
 		statusFiles := agentic.WorkspaceStatusPaths()
-		core.Print(nil, "  workspace: %s (%d workspaces)", workspaceRoot, len(statusFiles))
+		applicationPrint("  workspace: %s (%d workspaces)", workspaceRoot, len(statusFiles))
 	} else {
-		core.Print(nil, "  workspace: %s (MISSING)", workspaceRoot)
+		applicationPrint("  workspace: %s (MISSING)", workspaceRoot)
 	}
 
-	core.Print(nil, "  services:  %d registered", len(commands.coreApp.Services()))
-	core.Print(nil, "  actions:   %d registered", len(commands.coreApp.Actions()))
-	core.Print(nil, "  commands:  %d registered", len(commands.coreApp.Commands()))
-	core.Print(nil, "  env keys:  %d loaded", len(core.EnvKeys()))
-	core.Print(nil, "")
-	core.Print(nil, "ok")
+	applicationPrint("  services:  %d registered", len(commands.coreApp.Services()))
+	applicationPrint("  actions:   %d registered", len(commands.coreApp.Actions()))
+	applicationPrint("  commands:  %d registered", len(commands.coreApp.Commands()))
+	applicationPrint("  env keys:  %d loaded", len(core.EnvKeys()))
+	applicationPrint("")
+	applicationPrint("ok")
 	return core.Result{OK: true}
 }
 
 func (commands applicationCommandSet) env(_ core.Options) core.Result {
 	keys := core.EnvKeys()
 	for _, key := range keys {
-		core.Print(nil, "  %-15s %s", key, core.Env(key))
+		applicationPrint("  %-15s %s", key, core.Env(key))
 	}
 	return core.Result{OK: true}
 }

@@ -2,7 +2,7 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_parseSession() {
 	session := parseSession(map[string]any{
@@ -12,6 +12,6 @@ func Example_parseSession() {
 		"status":     "active",
 	})
 
-	fmt.Println(session.SessionID, session.PlanSlug, session.AgentType, session.Status)
+	core.Println(session.SessionID, session.PlanSlug, session.AgentType, session.Status)
 	// Output: ses_abc123 ax-follow-up codex active
 }

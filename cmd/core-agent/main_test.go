@@ -22,7 +22,7 @@ func withVersion(t *testing.T, value string) {
 	t.Cleanup(func() { agentpkg.Version = oldVersion })
 }
 
-func TestMain_NewCoreAgent_Good(t *testing.T) {
+func TestMain_NewCoreAgent_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
@@ -61,7 +61,7 @@ func TestMain_NewCoreAgent_Good(t *testing.T) {
 	assertIsType(t, &mcp.Service{}, service.Value)
 }
 
-func TestMain_NewCoreAgentBanner_Good(t *testing.T) {
+func TestMain_NewCoreAgentBanner_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
@@ -69,7 +69,7 @@ func TestMain_NewCoreAgentBanner_Good(t *testing.T) {
 	core.AssertEqual(t, "core-agent 0.15.0 — agentic orchestration for the Core ecosystem", c.Cli().Banner())
 }
 
-func TestMain_RunApp_Good(t *testing.T) {
+func TestMain_RunApp_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	err := runApp(newTestCore(t), []string{"version"})
@@ -77,19 +77,19 @@ func TestMain_RunApp_Good(t *testing.T) {
 	core.AssertNil(t, err)
 }
 
-func TestMain_RunApp_Bad(t *testing.T) {
+func TestMain_RunApp_Bad_Case(t *testing.T) {
 	err := runApp(nil, []string{"version"})
 	core.AssertError(t, err, "main.runApp: core is required")
 	core.AssertContains(t, err.Error(), "core is required")
 }
 
-func TestMain_ResultError_Ugly(t *testing.T) {
+func TestMain_ResultError_Ugly_Case(t *testing.T) {
 	err := resultError("main.runApp", "cli failed", core.Result{})
 	core.AssertError(t, err, "main.runApp: cli failed")
 	core.AssertContains(t, err.Error(), "cli failed")
 }
 
-func TestMain_NewCoreAgentFallback_Ugly(t *testing.T) {
+func TestMain_NewCoreAgentFallback_Ugly_Case(t *testing.T) {
 	withVersion(t, "")
 
 	c := newCoreAgent()

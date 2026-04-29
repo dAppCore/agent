@@ -538,7 +538,7 @@ func TestAutopr_Truncate_Ugly_EmptyString(t *testing.T) {
 
 // --- autoVerifyAndMerge (extended Ugly) ---
 
-func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Ugly_Case(t *testing.T) {
 	// Workspace with status=completed, repo=test, PRURL="not-a-url"
 	// extractPullRequestNumber returns 0 for "not-a-url" → early return, no panic
 	dir := t.TempDir()
@@ -567,7 +567,7 @@ func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 
 // --- attemptVerifyAndMerge (Ugly — Go project that fails build) ---
 
-func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
+func TestVerify_AttemptVerifyAndMerge_Ugly_Case(t *testing.T) {
 	// Go project that fails build (go.mod but no valid Go code)
 	// with httptest Forge mock for comment API → returns testFailed
 	commentCalled := false
@@ -603,7 +603,7 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 
 // --- extractPullRequestNumber (extended Ugly) ---
 
-func TestVerify_ExtractPullRequestNumber_Ugly(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Ugly_Case(t *testing.T) {
 	// Just a bare number "5" → last segment is "5" → returns 5
 	core.AssertEqual(t, 5, extractPullRequestNumber("5"))
 
@@ -796,7 +796,7 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 
 // --- runGoTests ---
 
-func TestVerify_RunGoTests_Good(t *testing.T) {
+func TestVerify_RunGoTests_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create a valid Go project with a passing test
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
@@ -824,7 +824,7 @@ func TestVerify_Add_Good(t *testing.T) {
 	core.AssertEqual(t, 0, result.exitCode)
 }
 
-func TestVerify_RunGoTests_Bad(t *testing.T) {
+func TestVerify_RunGoTests_Bad_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create a broken Go project — compilation error
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
@@ -842,7 +842,7 @@ func TestVerify_RunGoTests_Bad(t *testing.T) {
 	core.AssertEqual(t, 1, result.exitCode)
 }
 
-func TestVerify_RunGoTests_Ugly(t *testing.T) {
+func TestVerify_RunGoTests_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 	// go.mod but no test files — Go considers this a pass
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)

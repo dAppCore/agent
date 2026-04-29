@@ -54,7 +54,7 @@ func TestCommandsforge_ParseForgeArgs_Bad_InvalidNumber(t *testing.T) {
 
 // --- formatIndex ---
 
-func TestCommandsforge_FormatIndex_Good(t *testing.T) {
+func TestCommandsforge_FormatIndex_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "1", formatIndex(1))
 	core.AssertEqual(t, "42", formatIndex(42))
 	core.AssertEqual(t, "0", formatIndex(0))
@@ -115,7 +115,7 @@ func TestCommandsforge_FormatIndex_Ugly_MaxInt64(t *testing.T) {
 
 // --- Forge commands Ugly (special chars → API returns 404/error) ---
 
-func TestCommandsforge_CmdIssueGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueGet_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -126,7 +126,7 @@ func TestCommandsforge_CmdIssueGet_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdIssueList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueList_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -134,7 +134,7 @@ func TestCommandsforge_CmdIssueList_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdIssueComment_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueComment_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -146,7 +146,7 @@ func TestCommandsforge_CmdIssueComment_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdIssueCreate_Ugly(t *testing.T) {
+func TestCommandsforge_CmdIssueCreate_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -157,7 +157,7 @@ func TestCommandsforge_CmdIssueCreate_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdIssueUpdate_Good(t *testing.T) {
+func TestCommandsforge_CmdIssueUpdate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth", r.URL.Path)
 		core.AssertEqual(t, http.MethodPatch, r.Method)
@@ -199,7 +199,7 @@ func TestCommandsforge_CmdIssueUpdate_Bad_MissingSlug(t *testing.T) {
 	core.AssertError(t, result.Value.(error), "agentic.cmdIssueUpdate: slug or id is required")
 }
 
-func TestCommandsforge_CmdIssueAssign_Good(t *testing.T) {
+func TestCommandsforge_CmdIssueAssign_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth", r.URL.Path)
 		core.AssertEqual(t, http.MethodPatch, r.Method)
@@ -236,7 +236,7 @@ func TestCommandsforge_CmdIssueAssign_Bad_MissingAssignee(t *testing.T) {
 	core.AssertError(t, result.Value.(error), "agentic.cmdIssueAssign: slug or id and assignee are required")
 }
 
-func TestCommandsforge_CmdIssueReport_Good(t *testing.T) {
+func TestCommandsforge_CmdIssueReport_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth/comments", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -279,7 +279,7 @@ func TestCommandsforge_CmdIssueReport_Bad_MissingSlug(t *testing.T) {
 	core.AssertError(t, result.Value.(error), "agentic.cmdIssueReport: slug or id is required")
 }
 
-func TestCommandsforge_CmdIssueArchive_Good(t *testing.T) {
+func TestCommandsforge_CmdIssueArchive_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth", r.URL.Path)
 		core.AssertEqual(t, http.MethodDelete, r.Method)
@@ -313,7 +313,7 @@ func TestCommandsforge_CmdIssueArchive_Ugly_ServerError(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsforge_CmdPRGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRGet_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -324,7 +324,7 @@ func TestCommandsforge_CmdPRGet_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdPRList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRList_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -332,7 +332,7 @@ func TestCommandsforge_CmdPRList_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdPRMerge_Ugly(t *testing.T) {
+func TestCommandsforge_CmdPRMerge_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(422) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -344,7 +344,7 @@ func TestCommandsforge_CmdPRMerge_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdRepoGet_Ugly(t *testing.T) {
+func TestCommandsforge_CmdRepoGet_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)
@@ -355,7 +355,7 @@ func TestCommandsforge_CmdRepoGet_Ugly(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestCommandsforge_CmdRepoList_Ugly(t *testing.T) {
+func TestCommandsforge_CmdRepoList_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
 	s, _ := testPrepWithCore(t, srv)

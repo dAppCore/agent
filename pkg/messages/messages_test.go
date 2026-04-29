@@ -8,9 +8,9 @@ import (
 	core "dappco.re/go"
 )
 
-// TestMessages_AllSatisfyMessage_Good verifies every message type can be
+// TestMessages_AllSatisfyMessage_Good_Case verifies every message type can be
 // used as a core.Message (which is `any`). Compile-time + runtime check.
-func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
+func TestMessages_AllSatisfyMessage_Good_Case(t *testing.T) {
 	msgs := []core.Message{
 		AgentStarted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5"},
 		AgentCompleted{Agent: "codex", Repo: "go-io", Workspace: "core/go-io/task-5", Status: "completed"},
@@ -33,8 +33,8 @@ func TestMessages_AllSatisfyMessage_Good(t *testing.T) {
 	}
 }
 
-// TestMessages_TypeSwitch_Good verifies the IPC dispatch pattern works.
-func TestMessages_TypeSwitch_Good(t *testing.T) {
+// TestMessages_TypeSwitch_Good_Case verifies the IPC dispatch pattern works.
+func TestMessages_TypeSwitch_Good_Case(t *testing.T) {
 	var msg core.Message = AgentCompleted{
 		Agent:     "codex",
 		Repo:      "go-io",
@@ -53,8 +53,8 @@ func TestMessages_TypeSwitch_Good(t *testing.T) {
 	core.AssertTrue(t, handled)
 }
 
-// TestMessages_EmptySignal_Good verifies zero-field messages work as signals.
-func TestMessages_EmptySignal_Good(t *testing.T) {
+// TestMessages_EmptySignal_Good_Case verifies zero-field messages work as signals.
+func TestMessages_EmptySignal_Good_Case(t *testing.T) {
 	var msg core.Message = PokeQueue{}
 	_, ok := msg.(PokeQueue)
 	core.AssertTrue(t, ok)

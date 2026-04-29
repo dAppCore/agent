@@ -3,14 +3,16 @@
 package brain
 
 import (
-	"os"
+	"syscall"
 	"testing"
+
+	core "dappco.re/go"
 )
 
 func TestMain(m *testing.M) {
-	_ = os.Setenv("CORE_BRAIN_INSECURE", "true")
-	if os.Getenv("CORE_BRAIN_INSECURE") != "true" {
-		os.Exit(1)
+	_ = syscall.Setenv("CORE_BRAIN_INSECURE", "true")
+	if value, ok := syscall.Getenv("CORE_BRAIN_INSECURE"); !ok || value != "true" {
+		core.Exit(1)
 	}
-	os.Exit(m.Run())
+	core.Exit(m.Run())
 }

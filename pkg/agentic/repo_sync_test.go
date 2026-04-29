@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -13,7 +11,7 @@ import (
 	"dappco.re/go/agent/pkg/messages"
 )
 
-func TestRepoSync_OnWorkspacePushed_Good(t *testing.T) {
+func TestRepoSync_OnWorkspacePushed_Good_Case(t *testing.T) {
 	s, c, _ := repoSyncTestPrep(t)
 	remoteDir, repoDir := repoSyncCreateTrackedRepo(t, c, s.codePath, "core", "test-repo")
 	_, remoteHead := repoSyncPushCommit(t, c, remoteDir, "main", "new.go", "package main\n")
@@ -29,7 +27,7 @@ func TestRepoSync_OnWorkspacePushed_Good(t *testing.T) {
 	core.AssertEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "HEAD"))
 }
 
-func TestRepoSync_OnWorkspacePushed_Bad(t *testing.T) {
+func TestRepoSync_OnWorkspacePushed_Bad_Case(t *testing.T) {
 	s, _, _ := repoSyncTestPrep(t)
 	result := s.onWorkspacePushed(context.Background(), messages.WorkspacePushed{
 		Repo:   "missing-repo",
@@ -39,7 +37,7 @@ func TestRepoSync_OnWorkspacePushed_Bad(t *testing.T) {
 	core.AssertFalse(t, result.OK)
 }
 
-func TestRepoSync_OnWorkspacePushed_Ugly(t *testing.T) {
+func TestRepoSync_OnWorkspacePushed_Ugly_Case(t *testing.T) {
 	s, c, _ := repoSyncTestPrep(t)
 	remoteDir, repoDir := repoSyncCreateTrackedRepo(t, c, s.codePath, "core", "test-repo")
 	core.RequireTrue(t, c.Process().RunIn(context.Background(), repoDir, "git", "checkout", "-b", "feature/wip").OK)
@@ -58,7 +56,7 @@ func TestRepoSync_OnWorkspacePushed_Ugly(t *testing.T) {
 	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "edge.go")))
 }
 
-func TestRepoSync_BackgroundFetch_Good(t *testing.T) {
+func TestRepoSync_BackgroundFetch_Good_Case(t *testing.T) {
 	s, c, root := repoSyncTestPrep(t)
 	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
 		"version: 1\n",
@@ -78,7 +76,7 @@ func TestRepoSync_BackgroundFetch_Good(t *testing.T) {
 	core.AssertFalse(t, fs.Exists(core.JoinPath(repoDir, "fetched.go")))
 }
 
-func TestRepoSync_Command_Good(t *testing.T) {
+func TestRepoSync_Command_Good_Case(t *testing.T) {
 	s, c, _ := repoSyncTestPrep(t)
 	remoteDir, repoDir := repoSyncCreateTrackedRepo(t, c, s.codePath, "core", "test-repo")
 	_, remoteHead := repoSyncPushCommit(t, c, remoteDir, "main", "command.go", "package command\n")
@@ -87,7 +85,7 @@ func TestRepoSync_Command_Good(t *testing.T) {
 	commandResult := c.Command("repo/sync")
 	core.RequireTrue(t, commandResult.OK)
 
-	output := repoSyncCaptureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result := commandResult.Value.(*core.Command).Run(core.NewOptions(
 			core.Option{Key: "repo", Value: "test-repo"},
 			core.Option{Key: "reset", Value: true},
@@ -178,24 +176,4 @@ func repoSyncGitOutput(t *testing.T, c *core.Core, repoDir string, args ...strin
 	result := c.Process().RunIn(context.Background(), repoDir, "git", args...)
 	core.RequireTrue(t, result.OK)
 	return core.Trim(result.Value.(string))
-}
-
-func repoSyncCaptureStdout(t *testing.T, run func()) string {
-	t.Helper()
-
-	old := os.Stdout
-	reader, writer, err := os.Pipe()
-	core.RequireNoError(t, err)
-	os.Stdout = writer
-	defer func() {
-		os.Stdout = old
-	}()
-
-	run()
-
-	core.RequireNoError(t, writer.Close())
-	data, err := io.ReadAll(reader)
-	core.RequireNoError(t, err)
-	core.RequireNoError(t, reader.Close())
-	return string(data)
 }

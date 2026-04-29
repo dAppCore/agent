@@ -137,7 +137,7 @@ func TestSetup_DefaultTestCommand_Ugly_WailsMatchesGo(t *testing.T) {
 	core.AssertContains(t, wailsCmd, "go test")
 }
 
-func TestSetup_FormatFlow_Good(t *testing.T) {
+func TestSetup_FormatFlow_Good_Case(t *testing.T) {
 	goFlow := formatFlow(TypeGo)
 	core.AssertContains(t, goFlow, "go build ./...")
 	core.AssertContains(t, goFlow, "go test ./...")
@@ -161,4 +161,40 @@ func TestSetup_FormatFlow_Ugly_Wails(t *testing.T) {
 	wailsFlow := formatFlow(TypeWails)
 	core.AssertEqual(t, goFlow, wailsFlow)
 	core.AssertContains(t, wailsFlow, "go build ./...")
+}
+
+func TestSetup_Service_Run_Good(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+
+	result := newSetupService().Run(Options{Path: dir})
+	core.RequireTrue(t, result.OK)
+
+	build := fs.Read(core.JoinPath(dir, ".core", "build.yaml"))
+	core.RequireTrue(t, build.OK)
+	core.AssertContains(t, build.Value.(string), "type: go")
+
+	test := fs.Read(core.JoinPath(dir, ".core", "test.yaml"))
+	core.RequireTrue(t, test.OK)
+	core.AssertContains(t, test.Value.(string), "go test ./...")
+}
+
+func TestSetup_Service_Run_Bad(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+
+	result := newSetupService().Run(Options{Path: dir, Template: "missing-template"})
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
+}
+
+func TestSetup_Service_Run_Ugly(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+
+	result := newSetupService().Run(Options{Path: dir, Template: "agent", DryRun: true})
+	core.RequireTrue(t, result.OK)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
 }

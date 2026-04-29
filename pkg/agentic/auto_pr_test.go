@@ -13,7 +13,7 @@ import (
 	"dappco.re/go/forge"
 )
 
-func TestAutopr_AutoCreatePR_Good(t *testing.T) {
+func TestAutopr_AutoCreatePR_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -99,7 +99,7 @@ func TestAutopr_AutoCreatePR_Good(t *testing.T) {
 	core.AssertNotContains(t, remoteHeads.Value.(string), "agent/fix-tests")
 }
 
-func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
+func TestAutopr_AutoCreatePR_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -137,7 +137,7 @@ func TestAutopr_AutoCreatePR_Bad(t *testing.T) {
 	})
 }
 
-func TestAutopr_AutoCreatePR_Ugly(t *testing.T) {
+func TestAutopr_AutoCreatePR_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 

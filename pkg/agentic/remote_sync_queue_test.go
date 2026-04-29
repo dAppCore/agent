@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -69,7 +68,7 @@ func TestRemotesyncqueue_Run_Bad_RetriesWithBackoff(t *testing.T) {
 			calls++
 			attempts <- calls
 			if calls < 3 {
-				return errors.New("offline")
+				return core.NewError("offline")
 			}
 			return nil
 		},
@@ -161,7 +160,7 @@ func TestRemotesyncqueue_DrainReady_Ugly_MaxAttemptsExhaustedLogsAndDrops(t *tes
 		read:        store.read,
 		write:       store.write,
 		push: func(_ context.Context, _ syncQueuedPush) error {
-			return errors.New("offline")
+			return core.NewError("offline")
 		},
 		onDrop: func(queued syncQueuedPush, err error, at time.Time) {
 			recordSyncDrop(queued.AgentID, queued.FleetNodeID, queued.Dispatches, queued.Attempts, err, at)
@@ -317,5 +316,67 @@ func remoteSyncQueueAssertNoAttempt(t *testing.T, attempts <-chan int) {
 	case attempt := <-attempts:
 		t.Fatalf("unexpected remote sync attempt %d", attempt)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Good(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	before := time.Now()
+	now := clock.Now()
+	after := time.Now()
+
+	core.AssertFalse(t, now.Before(before))
+	core.AssertFalse(t, now.After(after))
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Bad(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	now := clock.Now()
+
+	core.AssertFalse(t, now.IsZero())
+	core.AssertEqual(t, now.Location(), time.Now().Location())
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Ugly(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	first := clock.Now()
+	second := clock.Now()
+
+	core.AssertFalse(t, second.Before(first))
+	core.AssertFalse(t, first.IsZero())
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Good(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	start := time.Now()
+	ch := clock.After(time.Millisecond)
+
+	select {
+	case firedAt := <-ch:
+		core.AssertFalse(t, firedAt.Before(start))
+	case <-time.After(time.Second):
+		t.Fatal("expected remoteSyncRealClock.After to fire")
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Bad(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	ch := clock.After(0)
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("expected immediate After(0) notification")
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Ugly(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	ch := clock.After(-time.Millisecond)
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("expected After on negative delay to fire")
 	}
 }

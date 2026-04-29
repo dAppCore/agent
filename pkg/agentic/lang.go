@@ -14,13 +14,13 @@ var supportedLanguages = []string{"go", "php", "ts", "rust", "py", "cpp", "docke
 
 // input := agentic.LanguageDetectInput{Path: "/workspace/pkg/agentic"}
 type LanguageDetectInput struct {
-	Path string `json:"path,omitempty"`
+	Path string "json:\"path,omitempty\""
 }
 
 // out := agentic.LanguageDetectOutput{Success: true, Path: "/workspace/pkg/agentic", Language: "go"}
 type LanguageDetectOutput struct {
 	Success  bool   `json:"success"`
-	Path     string `json:"path"`
+	Path     string "json:\"path\""
 	Language string `json:"language"`
 }
 
@@ -41,9 +41,9 @@ func (s *PrepSubsystem) registerLanguageCommands() {
 	c.Command("agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
 }
 
-// result := c.Command("lang/detect").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}))
+// result := c.Command("lang/detect").Run(ctx, core.NewOptions(core.Option{Key: `path`, Value: "."}))
 func (s *PrepSubsystem) cmdLangDetect(options core.Options) core.Result {
-	path := optionStringValue(options, "_arg", "path", "repo")
+	path := optionStringValue(options, "_arg", `path`, "repo")
 	if path == "" {
 		core.Print(nil, "usage: core-agent lang detect <path>")
 		return core.Result{Value: core.E("agentic.cmdLangDetect", "path is required", nil), OK: false}

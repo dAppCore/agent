@@ -405,7 +405,7 @@ func TestPaths_GitHubOrg_Good_Custom(t *testing.T) {
 
 // --- listLocalRepos Ugly ---
 
-func TestMirror_ListLocalRepos_Ugly(t *testing.T) {
+func TestMirror_ListLocalRepos_Ugly_Case(t *testing.T) {
 	base := t.TempDir()
 
 	// Create two git repos

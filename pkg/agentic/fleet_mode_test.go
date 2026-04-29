@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestFleetMode_RegisterFleetCommands_Good(t *testing.T) {
+func TestFleetMode_RegisterFleetCommands_Good_Case(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	c := core.New(core.WithOption("name", "test"))
 	subsystem := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
@@ -24,7 +24,7 @@ func TestFleetMode_RegisterFleetCommands_Good(t *testing.T) {
 	core.AssertContains(t, c.Commands(), "fleet/status")
 }
 
-func TestFleetMode_CmdFleetNodes_Good(t *testing.T) {
+func TestFleetMode_CmdFleetNodes_Good_Case(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":1,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}`))
@@ -41,7 +41,7 @@ func TestFleetMode_CmdFleetNodes_Good(t *testing.T) {
 	core.AssertContains(t, output, "total: 1")
 }
 
-func TestFleetMode_CmdFleetStatus_Good(t *testing.T) {
+func TestFleetMode_CmdFleetStatus_Good_Case(t *testing.T) {
 	t.Setenv("CORE_HOME", t.TempDir())
 	resetFleetRuntimeState()
 	t.Cleanup(resetFleetRuntimeState)

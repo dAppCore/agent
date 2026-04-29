@@ -4,8 +4,6 @@ package agentic
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -71,8 +69,8 @@ func TestReviewqueue_ReviewRepo_Good_CodexBypassesCodeRabbitRateLimit(t *testing
 	home := t.TempDir()
 	t.Setenv("CORE_HOME", home)
 
-	ratePath := filepath.Join(home, ".core", "coderabbit-ratelimit.json")
-	fs.EnsureDir(filepath.Dir(ratePath))
+	ratePath := core.JoinPath(home, ".core", "coderabbit-ratelimit.json")
+	fs.EnsureDir(core.PathDir(ratePath))
 	fs.Write(ratePath, core.JSONMarshalString(&RateLimitInfo{
 		Limited: true,
 		RetryAt: time.Now().Add(time.Hour),
@@ -80,9 +78,9 @@ func TestReviewqueue_ReviewRepo_Good_CodexBypassesCodeRabbitRateLimit(t *testing
 	}))
 
 	binDir := t.TempDir()
-	scriptPath := filepath.Join(binDir, "codex")
-	core.RequireNoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\necho 'No findings'\n"), 0o755))
-	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	scriptPath := core.JoinPath(binDir, "codex")
+	core.RequireTrue(t, core.WriteFile(scriptPath, []byte("#!/bin/sh\necho 'No findings'\n"), 0o755).OK)
+	t.Setenv("PATH", binDir+string(core.PathListSeparator)+core.Getenv("PATH"))
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),

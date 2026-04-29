@@ -11,7 +11,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestIssue_HandleIssueRecordCreate_Good(t *testing.T) {
+func TestIssue_HandleIssueRecordCreate_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)
@@ -49,7 +49,7 @@ func TestIssue_HandleIssueRecordCreate_Good(t *testing.T) {
 	core.AssertEqual(t, []string{"auth"}, output.Issue.Labels)
 }
 
-func TestIssue_HandleIssueRecordGet_Bad(t *testing.T) {
+func TestIssue_HandleIssueRecordGet_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "secret-token")
 
 	result := subsystem.handleIssueRecordGet(context.Background(), core.NewOptions())
@@ -122,7 +122,7 @@ func TestIssue_HandleIssueRecordList_Bad_ServerError(t *testing.T) {
 	core.AssertContains(t, result.Value.(error).Error(), "issue.list")
 }
 
-func TestIssue_HandleIssueRecordAssign_Good(t *testing.T) {
+func TestIssue_HandleIssueRecordAssign_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth", r.URL.Path)
 		core.AssertEqual(t, http.MethodPatch, r.Method)
@@ -173,7 +173,7 @@ func TestIssue_HandleIssueRecordAssign_Ugly_MissingIdentifier(t *testing.T) {
 	core.AssertError(t, result.Value.(error), "issueAssign: id or slug is required")
 }
 
-func TestIssue_HandleIssueRecordReport_Good(t *testing.T) {
+func TestIssue_HandleIssueRecordReport_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		core.AssertEqual(t, "/v1/issues/fix-auth/comments", r.URL.Path)
 		core.AssertEqual(t, http.MethodPost, r.Method)

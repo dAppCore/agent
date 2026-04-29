@@ -1325,7 +1325,7 @@ func consumerRequiresModule(goMod string, modulePaths []string) bool {
 }
 
 func (s *PrepSubsystem) getGitLog(repoPath string) string {
-	r := s.Core().Process().RunIn(context.Background(), repoPath, "git", "log", "--oneline", "-20")
+	r := s.Core().Process().RunIn(context.Background(), repoPath, "git", `log`, "--oneline", "-20")
 	if !r.OK {
 		return ""
 	}

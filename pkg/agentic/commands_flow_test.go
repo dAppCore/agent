@@ -3,7 +3,6 @@
 package agentic
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -83,7 +82,7 @@ func TestCommandsFlow_CmdRunFlow_Good_ExecutesSequentialSteps(t *testing.T) {
 	core.RequireTrue(t, c.Command("flow/test-second", core.Command{Action: func(options core.Options) core.Result {
 		invoked = append(invoked, "second")
 		core.AssertEqual(t, "fast", options.String("mode"))
-		_, _ = os.Stderr.WriteString("second stderr\n")
+		_ = core.WriteString(core.Stderr(), "second stderr\n")
 		return core.Result{OK: true}
 	}}).OK)
 	core.RequireTrue(t, c.Command("flow/test-third", core.Command{Action: func(options core.Options) core.Result {

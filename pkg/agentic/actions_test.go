@@ -14,7 +14,7 @@ import (
 	"dappco.re/go/forge"
 )
 
-func TestActions_HandleDispatch_Good(t *testing.T) {
+func TestActions_HandleDispatch_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleDispatch(context.Background(), core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
@@ -108,14 +108,14 @@ func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 	core.AssertEqual(t, 1, recorded)
 }
 
-func TestActions_HandleStatus_Good(t *testing.T) {
+func TestActions_HandleStatus_Good_Case(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	s := newPrepWithProcess()
 	r := s.handleStatus(context.Background(), core.NewOptions())
 	core.AssertTrue(t, r.OK)
 }
 
-func TestActions_HandlePrompt_Good(t *testing.T) {
+func TestActions_HandlePrompt_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handlePrompt(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "coding"},
@@ -123,7 +123,7 @@ func TestActions_HandlePrompt_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
-func TestActions_HandlePrompt_Bad(t *testing.T) {
+func TestActions_HandlePrompt_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handlePrompt(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "does-not-exist"},
@@ -131,7 +131,7 @@ func TestActions_HandlePrompt_Bad(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 }
 
-func TestActions_HandleTask_Good(t *testing.T) {
+func TestActions_HandleTask_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleTask(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "bug-fix"},
@@ -139,7 +139,7 @@ func TestActions_HandleTask_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
-func TestActions_HandleFlow_Good(t *testing.T) {
+func TestActions_HandleFlow_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleFlow(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: "go"},
@@ -147,7 +147,7 @@ func TestActions_HandleFlow_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
-func TestActions_HandlePersona_Good(t *testing.T) {
+func TestActions_HandlePersona_Good_Case(t *testing.T) {
 	personas := lib.ListPersonas()
 	if len(personas) == 0 {
 		t.Skip("no personas embedded")
@@ -155,12 +155,12 @@ func TestActions_HandlePersona_Good(t *testing.T) {
 
 	s := newPrepWithProcess()
 	r := s.handlePersona(context.Background(), core.NewOptions(
-		core.Option{Key: "path", Value: personas[0]},
+		core.Option{Key: `path`, Value: personas[0]},
 	))
 	core.AssertTrue(t, r.OK)
 }
 
-func TestActions_HandlePoke_Good(t *testing.T) {
+func TestActions_HandlePoke_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	s.pokeCh = make(chan struct{}, 1)
 	r := s.handlePoke(context.Background(), core.NewOptions())
@@ -212,7 +212,7 @@ func TestActions_HandleComplete_Bad_NoCore(t *testing.T) {
 	core.AssertContains(t, err.Error(), "core runtime is required")
 }
 
-func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {
+func TestActions_HandleWorkspaceQuery_Good_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	s.workspaces.Set("core/go-io/task-42", &WorkspaceStatus{Status: "blocked", Repo: "go-io"})
@@ -226,7 +226,7 @@ func TestActions_HandleWorkspaceQuery_Good(t *testing.T) {
 	core.AssertEqual(t, "core/go-io/task-42", names[0])
 }
 
-func TestActions_HandleWorkspaceQuery_Bad(t *testing.T) {
+func TestActions_HandleWorkspaceQuery_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	r := s.handleWorkspaceQuery(nil, "not-a-workspace-query")
 	core.AssertFalse(t, r.OK)

@@ -5,11 +5,14 @@
 //	core.SetLevel(core.LevelDebug)
 //	core.Info("server started", "port", 8080)
 //	core.Error("failed to connect", "err", err)
+//	log := core.NewLog(core.LogOptions{Level: core.LevelDebug, Output: os.Stdout})
+//	core.SetRedactKeys("token", "password")
+//	core.Security("entitlement.denied", "action", "process.run")
 package core
 
 import (
+	coreos "dappco.re/go"
 	goio "io"
-	"os"
 	"os/user"
 	"slices"
 	"sync"

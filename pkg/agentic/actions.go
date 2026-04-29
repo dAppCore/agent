@@ -180,11 +180,11 @@ func (s *PrepSubsystem) handleFlow(_ context.Context, options core.Options) core
 
 // result := c.Action("agentic.persona").Run(ctx, core.NewOptions(
 //
-//	core.Option{Key: "path", Value: "code/backend-architect"},
+//	core.Option{Key: `path`, Value: "code/backend-architect"},
 //
 // ))
 func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) core.Result {
-	return lib.Persona(options.String("path"))
+	return lib.Persona(options.String(`path`))
 }
 
 // result := c.Action("agentic.complete").Run(ctx, core.NewOptions(

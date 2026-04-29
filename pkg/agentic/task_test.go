@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestTask_TaskUpdate_Good(t *testing.T) {
+func TestTask_TaskUpdate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -47,7 +47,7 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 	core.AssertEqual(t, 128, output.Task.Line)
 }
 
-func TestTask_TaskCreate_Good(t *testing.T) {
+func TestTask_TaskCreate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -175,7 +175,7 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 	assertZero(t, updated.Phases[0].Tasks[1].Line)
 }
 
-func TestTask_TaskFileRefAliases_Good(t *testing.T) {
+func TestTask_TaskFileRefAliases_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 

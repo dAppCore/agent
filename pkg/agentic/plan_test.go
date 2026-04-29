@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	core "dappco.re/go"
@@ -14,7 +13,7 @@ import (
 
 func assertCoreIDFormat(t *testing.T, id string) {
 	t.Helper()
-	parts := strings.Split(id, "-")
+	parts := core.Split(id, "-")
 	core.AssertLen(t, parts, 3)
 	if len(parts) != 3 {
 		return
@@ -25,14 +24,14 @@ func assertCoreIDFormat(t *testing.T, id string) {
 	assertRegexp(t, "^[0-9a-f]{6}$", parts[2])
 }
 
-func TestPlan_PlanPath_Good(t *testing.T) {
+func TestPlan_PlanPath_Good_Case(t *testing.T) {
 	first := planPath("/tmp/plans", "my-plan-abc123")
 	second := planPath("/data", "test")
 	core.AssertEqual(t, "/tmp/plans/my-plan-abc123.json", first)
 	core.AssertEqual(t, "/data/test.json", second)
 }
 
-func TestPlan_WritePlan_Good(t *testing.T) {
+func TestPlan_WritePlan_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	plan := &Plan{
 		ID:        "test-plan-abc123",
@@ -65,7 +64,7 @@ func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {
 	core.AssertContains(t, path, "nested-plan-abc123.json")
 }
 
-func TestPlan_ReadPlan_Good(t *testing.T) {
+func TestPlan_ReadPlan_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	original := &Plan{
 		ID:        "read-test-abc123",

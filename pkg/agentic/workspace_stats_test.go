@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestWorkspacestats_ExtractModelFromAgent_Good(t *testing.T) {
+func TestWorkspacestats_ExtractModelFromAgent_Good_Case(t *testing.T) {
 	codexModel := extractModelFromAgent("codex:gpt-5.4-mini")
 	claudeModel := extractModelFromAgent("claude:sonnet")
 	core.AssertEqual(t, "gpt-5.4-mini", codexModel)
@@ -30,7 +30,7 @@ func TestWorkspacestats_ExtractModelFromAgent_Ugly_EmptyAndMultipleColons(t *tes
 	core.AssertEqual(t, "gpt:5.4:mini", model)
 }
 
-func TestWorkspacestats_DispatchDurationMS_Good(t *testing.T) {
+func TestWorkspacestats_DispatchDurationMS_Good_Case(t *testing.T) {
 	started := time.Now()
 	updated := started.Add(2500 * time.Millisecond)
 	core.AssertEqual(t, int64(2500), dispatchDurationMS(started, updated))
@@ -50,7 +50,7 @@ func TestWorkspacestats_DispatchDurationMS_Ugly_UpdatedBeforeStarted(t *testing.
 	core.AssertEqual(t, int64(0), dispatchDurationMS(started, updated))
 }
 
-func TestWorkspacestats_CountFindingsBy_Good(t *testing.T) {
+func TestWorkspacestats_CountFindingsBy_Good_Case(t *testing.T) {
 	findings := []map[string]any{
 		{"severity": "error", "tool": "gosec"},
 		{"severity": "error", "tool": "gosec"},
@@ -235,7 +235,7 @@ func TestWorkspacestats_RecordWorkspaceStats_Bad_NilInputs(t *testing.T) {
 	s.recordWorkspaceStats("/tmp/workspace", nil)
 }
 
-func TestWorkspacestats_WorkspaceStatsPath_Good(t *testing.T) {
+func TestWorkspacestats_WorkspaceStatsPath_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -243,7 +243,7 @@ func TestWorkspacestats_WorkspaceStatsPath_Good(t *testing.T) {
 	core.AssertEqual(t, expected, workspaceStatsPath())
 }
 
-func TestWorkspacestats_WorkspaceStatsMatches_Good(t *testing.T) {
+func TestWorkspacestats_WorkspaceStatsMatches_Good_Case(t *testing.T) {
 	record := workspaceStatsRecord{Repo: "go-io", Status: "completed"}
 	core.AssertTrue(t, workspaceStatsMatches(record, "", ""))
 	core.AssertTrue(t, workspaceStatsMatches(record, "go-io", ""))
@@ -439,7 +439,7 @@ func TestWorkspacestats_CmdWorkspaceStats_Good_PrintsTable(t *testing.T) {
 	core.AssertTrue(t, result.OK)
 }
 
-func TestWorkspacestats_RegisterWorkspaceStatsCommand_Good(t *testing.T) {
+func TestWorkspacestats_RegisterWorkspaceStatsCommand_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerWorkspaceCommands()

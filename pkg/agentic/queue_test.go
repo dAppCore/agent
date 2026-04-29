@@ -4,6 +4,7 @@ package agentic
 
 import (
 	core "dappco.re/go"
+	"gopkg.in/yaml.v3"
 	"testing"
 )
 
@@ -231,4 +232,31 @@ func TestQueue_DelayForAgent_Good_NoConfig(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", t.TempDir())
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir()}
 	core.AssertEqual(t, 0, int(s.delayForAgent("gemini").Seconds()))
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Good(t *testing.T) {
+	var limit ConcurrencyLimit
+	err := yaml.Unmarshal([]byte("total: 3\ngpt-5.4: 2\ngpt-5.3-codex-spark: 1\n"), &limit)
+
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 3, limit.Total)
+	core.AssertEqual(t, 2, limit.Models["gpt-5.4"])
+	core.AssertEqual(t, 1, limit.Models["gpt-5.3-codex-spark"])
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Bad(t *testing.T) {
+	var limit ConcurrencyLimit
+	err := yaml.Unmarshal([]byte("2\n"), &limit)
+
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 2, limit.Total)
+	core.AssertNil(t, limit.Models)
+}
+
+func TestQueue_ConcurrencyLimit_UnmarshalYAML_Ugly(t *testing.T) {
+	var limit ConcurrencyLimit
+	err := yaml.Unmarshal([]byte("total: nope\n"), &limit)
+
+	core.AssertError(t, err)
+	core.AssertEqual(t, 0, limit.Total)
 }

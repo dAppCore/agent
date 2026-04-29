@@ -4,7 +4,6 @@ package agentic
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ func newTestPrep(t *testing.T) *PrepSubsystem {
 
 // --- planCreate (MCP handler) ---
 
-func TestPlan_PlanCreate_Good(t *testing.T) {
+func TestPlan_PlanCreate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -108,7 +107,7 @@ func TestPlan_PlanCreate_Good_DefaultPhaseStatus(t *testing.T) {
 
 // --- planRead (MCP handler) ---
 
-func TestPlan_PlanRead_Good(t *testing.T) {
+func TestPlan_PlanRead_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -252,7 +251,7 @@ func TestPlan_PlanUpdate_Good_ReplacePhases(t *testing.T) {
 
 // --- planDelete (MCP handler) ---
 
-func TestPlan_PlanDelete_Good(t *testing.T) {
+func TestPlan_PlanDelete_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -341,7 +340,7 @@ func TestPlan_PlanList_Good_FilterByRepo(t *testing.T) {
 	core.AssertEqual(t, 2, out.Count)
 }
 
-func TestPlan_HandlePlanCreate_Good(t *testing.T) {
+func TestPlan_HandlePlanCreate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -474,7 +473,7 @@ func TestPlan_PlanCreate_Ugly_VeryLongTitle(t *testing.T) {
 	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
-	longTitle := strings.Repeat("Long Title With Many Words ", 20)
+	longTitle := repeatString("Long Title With Many Words ", 20)
 	_, out, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 		Title:     longTitle,
 		Objective: "Test very long title handling",
@@ -598,7 +597,7 @@ func TestPlan_PlanPath_Ugly_UnicodeID(t *testing.T) {
 }
 
 func TestPlan_PlanPath_Ugly_VeryLongID(t *testing.T) {
-	longID := strings.Repeat("a", 500)
+	longID := repeatString("a", 500)
 	result := planPath("/tmp/plans", longID)
 	core.AssertContains(t, result, ".json")
 	core.AssertNotEmpty(t, result)
@@ -622,7 +621,7 @@ func TestPlan_ValidPlanStatus_Ugly_NearMissStatus(t *testing.T) {
 
 // --- planList Bad/Ugly ---
 
-func TestPlan_PlanList_Bad(t *testing.T) {
+func TestPlan_PlanList_Bad_Case(t *testing.T) {
 	// Plans dir doesn't exist yet — should create it
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
@@ -634,7 +633,7 @@ func TestPlan_PlanList_Bad(t *testing.T) {
 	core.AssertEqual(t, 0, out.Count)
 }
 
-func TestPlan_PlanList_Ugly(t *testing.T) {
+func TestPlan_PlanList_Ugly_Case(t *testing.T) {
 	// Plans dir has corrupt JSON files
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
@@ -654,7 +653,7 @@ func TestPlan_PlanList_Ugly(t *testing.T) {
 
 // --- writePlan Bad/Ugly ---
 
-func TestPlan_WritePlan_Bad(t *testing.T) {
+func TestPlan_WritePlan_Bad_Case(t *testing.T) {
 	// Plan with empty ID
 	dir := t.TempDir()
 	plan := &Plan{
@@ -671,10 +670,10 @@ func TestPlan_WritePlan_Bad(t *testing.T) {
 	core.AssertContains(t, path, "invalid.json")
 }
 
-func TestPlan_WritePlan_Ugly(t *testing.T) {
+func TestPlan_WritePlan_Ugly_Case(t *testing.T) {
 	// Plan with moderately long ID (within filesystem limits)
 	dir := t.TempDir()
-	longID := strings.Repeat("a", 100)
+	longID := repeatString("a", 100)
 	plan := &Plan{
 		ID:        longID,
 		Title:     "Long ID Plan",

@@ -9,7 +9,7 @@ import (
 	core "dappco.re/go"
 )
 
-func TestPhase_PhaseGet_Good(t *testing.T) {
+func TestPhase_PhaseGet_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 

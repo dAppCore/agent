@@ -605,7 +605,7 @@ func resetFleetRuntimeState() {
 	fleetRuntimeState.snapshot = fleetRuntimeSnapshot{State: "offline"}
 	fleetRuntimeState.mu.Unlock()
 	if deleteResult := fs.Delete(fleetStatusSnapshotPath()); !deleteResult.OK && fs.Exists(fleetStatusSnapshotPath()) {
-		core.Warn("agentic: failed to delete fleet status snapshot", "path", fleetStatusSnapshotPath(), "reason", deleteResult.Value)
+		core.Warn("agentic: failed to delete fleet status snapshot", `path`, fleetStatusSnapshotPath(), "reason", deleteResult.Value)
 	}
 }
 
@@ -629,7 +629,7 @@ func persistFleetRuntimeSnapshot(snapshot fleetRuntimeSnapshot) {
 		return
 	}
 	if writeResult := fs.WriteMode(fleetStatusSnapshotPath(), core.JSONMarshalString(snapshot), 0644); !writeResult.OK {
-		core.Warn("agentic: failed to write fleet status snapshot", "path", fleetStatusSnapshotPath(), "reason", writeResult.Value)
+		core.Warn("agentic: failed to write fleet status snapshot", `path`, fleetStatusSnapshotPath(), "reason", writeResult.Value)
 	}
 }
 
