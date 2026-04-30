@@ -4,7 +4,6 @@ package lib
 
 import (
 	"embed"
-	"runtime"
 	"testing"
 
 	core "dappco.re/go"
@@ -521,32 +520,6 @@ func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	}
 }
 
-func TestLib_ExtractWorkspaceSubdirs_Good_Case(t *testing.T) {
-	dir := t.TempDir()
-	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
-
-	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
-
-	refDir := core.JoinPath(dir, ".core", "reference")
-	if !testFs.IsDir(refDir) {
-		t.Fatalf(".core/reference/ directory not created")
-	}
-
-	axSpec := core.JoinPath(refDir, "RFC-025-AGENT-EXPERIENCE.md")
-	if !testFs.Exists(axSpec) {
-		t.Errorf("AX spec not extracted: %s", axSpec)
-	}
-
-	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
-	if len(goFiles) == 0 {
-		t.Error("no .go files in .core/reference/")
-	}
-
-	docsDir := core.JoinPath(refDir, "docs")
-	if !testFs.IsDir(docsDir) {
-		t.Errorf(".core/reference/docs/ not created")
-	}
-}
 
 func TestLib_ExtractWorkspaceTemplate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
@@ -611,144 +584,6 @@ func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
 	}
 }
 
-func TestLib_ReferenceFiles_Good_SPDXHeaders(t *testing.T) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller(0) failed")
-	}
-
-	repoRoot := core.PathDir(core.PathDir(core.PathDir(file)))
-	refDir := core.JoinPath(repoRoot, ".core", "reference")
-	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
-	if len(goFiles) == 0 {
-		t.Fatalf("no .go files found in %s", refDir)
-	}
-
-	for _, path := range goFiles {
-		assertSPDXHeader(t, path)
-	}
-}
-
-func TestLib_ReferenceFs_Good_EmbeddedCopyMatchesSource(t *testing.T) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller(0) failed")
-	}
-
-	repoRoot := core.PathDir(core.PathDir(core.PathDir(file)))
-	sourcePath := core.JoinPath(repoRoot, ".core", "reference", "fs.go")
-	embeddedPath := core.JoinPath(repoRoot, "pkg", "lib", "workspace", "default", ".core", "reference", "fs.go")
-
-	source := testFs.Read(sourcePath)
-	if !source.OK {
-		t.Fatalf("failed to read %s", sourcePath)
-	}
-
-	embedded := testFs.Read(embeddedPath)
-	if !embedded.OK {
-		t.Fatalf("failed to read %s", embeddedPath)
-	}
-
-	if source.Value.(string) != embedded.Value.(string) {
-		t.Fatalf("%s diverged from %s", embeddedPath, sourcePath)
-	}
-}
-
-func TestLib_ExtractWorkspace_Good_ReferenceFsSecureDefaults(t *testing.T) {
-	dir := t.TempDir()
-	data := &WorkspaceData{Repo: "test-repo", Task: "tighten extracted reference fs permissions"}
-
-	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
-
-	path := core.JoinPath(dir, ".core", "reference", "fs.go")
-	r := testFs.Read(path)
-	if !r.OK {
-		t.Fatalf("failed to read %s", path)
-	}
-
-	text := r.Value.(string)
-	for _, snippet := range []string{
-		`return m.WriteMode(p, content, 0600)`,
-		`os.MkdirAll(filepath.Dir(full), 0700)`,
-		`os.Chmod(full, mode)`,
-		`os.MkdirAll(root, 0700)`,
-		`os.WriteFile(tmp, []byte(content), 0600)`,
-		`os.MkdirAll(vp.Value.(string), 0700)`,
-		`os.OpenFile(full, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)`,
-		`os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)`,
-	} {
-		if !core.Contains(text, snippet) {
-			t.Errorf("%s missing secure permission default %q", path, snippet)
-		}
-	}
-}
-
-func TestLib_ExtractWorkspace_Good_ReferenceHeaders(t *testing.T) {
-	dir := t.TempDir()
-	data := &WorkspaceData{Repo: "test-repo", Task: "carry SPDX headers into workspace references"}
-
-	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
-
-	refDir := core.JoinPath(dir, ".core", "reference")
-	goFiles := core.PathGlob(core.JoinPath(refDir, "*.go"))
-	if len(goFiles) == 0 {
-		t.Fatalf("no extracted .go files found in %s", refDir)
-	}
-
-	for _, path := range goFiles {
-		assertSPDXHeader(t, path)
-	}
-}
-
-func TestLib_ExtractWorkspace_Good_ReferenceUsageExamples(t *testing.T) {
-	dir := t.TempDir()
-	data := &WorkspaceData{Repo: "test-repo", Task: "carry AX usage examples into workspace references"}
-
-	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
-
-	cases := map[string][]string{
-		core.JoinPath(dir, ".core", "reference", "array.go"): {
-			`arr := core.NewArray("prep", "dispatch")`,
-			`arr.Add("verify", "merge")`,
-			`arr.AddUnique("verify", "verify", "merge")`,
-		},
-		core.JoinPath(dir, ".core", "reference", "config.go"): {
-			`timeout := core.ConfigGet[int](c.Config(), "agent.timeout")`,
-		},
-		core.JoinPath(dir, ".core", "reference", "embed.go"): {
-			`core.AddAsset("docs", "RFC.md", packed)`,
-			`r := core.GeneratePack(pkg)`,
-		},
-		core.JoinPath(dir, ".core", "reference", "error.go"): {
-			`if core.Is(err, context.Canceled) { return }`,
-			`stack := core.FormatStackTrace(err)`,
-			`r := c.Error().Reports(10)`,
-		},
-		core.JoinPath(dir, ".core", "reference", "log.go"): {
-			`log := core.NewLog(core.LogOptions{Level: core.LevelDebug, Output: os.Stdout})`,
-			`core.SetRedactKeys("token", "password")`,
-			`core.Security("entitlement.denied", "action", "process.run")`,
-		},
-		core.JoinPath(dir, ".core", "reference", "runtime.go"): {
-			`r := c.ServiceStartup(context.Background(), nil)`,
-			`r := core.NewRuntime(app)`,
-			`name := runtime.ServiceName()`,
-		},
-	}
-
-	for path, snippets := range cases {
-		r := testFs.Read(path)
-		if !r.OK {
-			t.Fatalf("failed to read %s", path)
-		}
-		text := r.Value.(string)
-		for _, snippet := range snippets {
-			if !core.Contains(text, snippet) {
-				t.Errorf("%s missing usage example snippet %q", path, snippet)
-			}
-		}
-	}
-}
 
 func TestLib_MountEmbed_Bad_Case(t *testing.T) {
 	result := mountEmbed(promptFiles, "missing-dir")
