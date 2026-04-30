@@ -199,7 +199,7 @@ func (s *PrepSubsystem) fetchLoopConfigPaths() []string {
 
 	add(core.JoinPath(CoreRoot(), "agents.yaml"))
 	if s != nil {
-		add(core.JoinPath(s.codePath, "core", "agent", "config", "agents.yaml"))
+		add(core.JoinPath(s.codePath, "core", "agent", ".core", "agents.yaml"))
 	}
 
 	return paths
