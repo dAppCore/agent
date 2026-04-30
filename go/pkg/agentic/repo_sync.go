@@ -43,17 +43,17 @@ const (
 )
 
 // s.registerRepoSyncSupport()
-func (s *PrepSubsystem) registerRepoSyncSupport() {
+func (s *PrepSubsystem) registerRepoSyncSupport() core.Result {
 	if s == nil || s.ServiceRuntime == nil {
-		return
+		return core.Result{OK: true}
 	}
 
 	c := s.Core()
 	if c == nil {
-		return
+		return core.Result{OK: true}
 	}
 	if c.Config().Bool("agentic.repo_sync.registered") {
-		return
+		return core.Result{OK: true}
 	}
 
 	c.Config().Set("agentic.repo_sync.registered", true)
@@ -70,17 +70,22 @@ func (s *PrepSubsystem) registerRepoSyncSupport() {
 	})
 
 	if !c.Command("repo/sync").OK {
-		c.Command("repo/sync", core.Command{
+		if result := c.Command("repo/sync", core.Command{
 			Description: "Fetch and optionally reset tracked local repos from origin",
 			Action:      s.cmdRepoSyncLocal,
-		})
+		}); !result.OK {
+			return result
+		}
 	}
 	if !c.Command("agentic:repo/sync").OK {
-		c.Command("agentic:repo/sync", core.Command{
+		if result := c.Command("agentic:repo/sync", core.Command{
 			Description: "Fetch and optionally reset tracked local repos from origin",
 			Action:      s.cmdRepoSyncLocal,
-		})
+		}); !result.OK {
+			return result
+		}
 	}
+	return core.Result{OK: true}
 }
 
 func (s *PrepSubsystem) handleRepoSyncIPC(_ *core.Core, msg core.Message) core.Result {

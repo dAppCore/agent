@@ -4,10 +4,15 @@ package agentic
 
 import core "dappco.re/go"
 
-func (s *PrepSubsystem) registerCommitCommands() {
+func (s *PrepSubsystem) registerCommitCommands() core.Result {
 	c := s.Core()
-	c.Command("commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit})
-	c.Command("agentic:commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit})
+	if r := c.Command("commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}); !r.OK {
+		return r
+	}
+	return core.Ok(nil)
 }
 
 // core-agent commit core/go-io/task-42

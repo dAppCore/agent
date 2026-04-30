@@ -40,27 +40,32 @@ func applyLogLevel(args []string) []string {
 	return cleaned
 }
 
-// c.Command("version", core.Command{Description: "Print version and build info", Action: commands.version})
-// c.Command("check", core.Command{Description: "Verify workspace, deps, and config", Action: commands.check})
-// c.Command("env", core.Command{Description: "Show all core.Env() keys and values", Action: commands.env})
-func registerApplicationCommands(c *core.Core) {
+// result := registerApplicationCommands(c)
+// core.Println(result.OK)
+func registerApplicationCommands(c *core.Core) core.Result {
 	commands := applicationCommandSet{coreApp: c}
 
-	c.Command("version", core.Command{
+	if result := c.Command("version", core.Command{
 		Description: "Print version and build info",
 		Action:      commands.version,
-	})
+	}); !result.OK {
+		return result
+	}
 
-	c.Command("check", core.Command{
+	if result := c.Command("check", core.Command{
 		Description: "Verify workspace, deps, and config",
 		Action:      commands.check,
-	})
+	}); !result.OK {
+		return result
+	}
 
-	c.Command("env", core.Command{
+	if result := c.Command("env", core.Command{
 		Description: "Show all core.Env() keys and values",
 		Action:      commands.env,
-	})
-
+	}); !result.OK {
+		return result
+	}
+	return core.Result{OK: true}
 }
 
 func (commands applicationCommandSet) version(_ core.Options) core.Result {

@@ -98,7 +98,8 @@ type processOverrideService struct {
 // booted. The override is reapplied at the tail of the lifecycle so
 // the agent-side handlers win.
 //
-// Usage: `_ = svc.OnStartup(ctx)`
+// result := svc.OnStartup(context.Background())
+// core.Println(result.OK)
 func (s *processOverrideService) OnStartup(context.Context) core.Result {
 	if s == nil || s.handlers == nil {
 		return core.Result{OK: true}

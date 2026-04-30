@@ -42,20 +42,30 @@ var (
 	mountResult core.Result
 )
 
-// lib.MountData(c)
+// result := lib.MountData(c)
 // r := c.Data().ReadString("prompts/coding.md")
 // r := c.Data().ListNames("flows")
-func MountData(c *core.Core) {
+func MountData(c *core.Core) core.Result {
 	if result := ensureMounted(); !result.OK {
-		return
+		return result
 	}
 
 	d := c.Data()
-	_ = d.Set("prompts", promptFS)
-	_ = d.Set("tasks", taskFS)
-	_ = d.Set("flows", flowFS)
-	_ = d.Set("personas", personaFS)
-	_ = d.Set("workspaces", workspaceFS)
+	for _, item := range []struct {
+		name  string
+		mount *core.Embed
+	}{
+		{name: "prompts", mount: promptFS},
+		{name: "tasks", mount: taskFS},
+		{name: "flows", mount: flowFS},
+		{name: "personas", mount: personaFS},
+		{name: "workspaces", mount: workspaceFS},
+	} {
+		if result := d.Set(item.name, item.mount); !result.OK {
+			return result
+		}
+	}
+	return core.Result{OK: true}
 }
 
 func ensureMounted() core.Result {

@@ -113,19 +113,25 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 		return core.Entitlement{Allowed: true}
 	})
 
-	lib.MountData(c)
+	if result := lib.MountData(c); !result.OK {
+		return result
+	}
 
 	RegisterHTTPTransport(c)
-	c.Drive().New(core.NewOptions(
+	if result := c.Drive().New(core.NewOptions(
 		core.Option{Key: "name", Value: "forge"},
 		core.Option{Key: "transport", Value: s.forgeURL},
 		core.Option{Key: "token", Value: s.forgeToken},
-	))
-	c.Drive().New(core.NewOptions(
+	)); !result.OK {
+		return result
+	}
+	if result := c.Drive().New(core.NewOptions(
 		core.Option{Key: "name", Value: "brain"},
 		core.Option{Key: "transport", Value: s.brainURL},
 		core.Option{Key: "token", Value: s.brainKey},
-	))
+	)); !result.OK {
+		return result
+	}
 
 	c.Action("agentic.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
 	c.Action("agent.sync.push", s.handleSyncPush).Description = "Push completed dispatch state to the platform API"
@@ -373,10 +379,18 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.RegisterQuery(s.handleWorkspaceQuery)
 
 	s.StartRunner()
-	s.registerCommands(ctx)
-	s.registerWorkspaceCommands()
-	s.registerForgeCommands()
-	s.registerPlatformCommands()
+	if result := s.registerCommands(ctx); !result.OK {
+		return result
+	}
+	if result := s.registerWorkspaceCommands(); !result.OK {
+		return result
+	}
+	if result := s.registerForgeCommands(); !result.OK {
+		return result
+	}
+	if result := s.registerPlatformCommands(); !result.OK {
+		return result
+	}
 	return core.Result{OK: true}
 }
 
