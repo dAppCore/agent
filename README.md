@@ -1,4 +1,20 @@
+<!-- SPDX-License-Identifier: EUPL-1.2 -->
+
 # core-agent
+
+> Agent orchestrator — codex/claude/google fan-out, dispatch, fleet, sync, QA
+
+[![CI](https://github.com/dappcore/agent/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/dappcore/agent/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=alert_status)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Coverage](https://codecov.io/gh/dappcore/agent/branch/dev/graph/badge.svg)](https://codecov.io/gh/dappcore/agent)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=security_rating)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=code_smells)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=ncloc)](https://sonarcloud.io/dashboard?id=dappcore_agent)
+[![Go Reference](https://pkg.go.dev/badge/dappco.re/go/agent.svg)](https://pkg.go.dev/dappco.re/go/agent)
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](https://eupl.eu/1.2/en/)
+
 
 A monorepo of [Claude Code](https://claude.ai/code) plugins for the Host UK federated monorepo.
 
