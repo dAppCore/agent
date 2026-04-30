@@ -8,38 +8,36 @@ import (
 	"sort"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestPipelineCommands_RegisterPipelineCommands_Good(t *testing.T) {
+func TestPipelineCommands_RegisterPipelineCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerPipelineCommands()
 
 	commands := c.Commands()
-	assert.Contains(t, commands, "pipeline")
-	assert.Contains(t, commands, "pipeline/audit")
-	assert.Contains(t, commands, "pipeline/epic")
-	assert.Contains(t, commands, "pipeline/epic/create")
-	assert.Contains(t, commands, "pipeline/epic/run")
-	assert.Contains(t, commands, "pipeline/epic/status")
-	assert.Contains(t, commands, "pipeline/epic/sync")
-	assert.Contains(t, commands, "pipeline/monitor")
-	assert.Contains(t, commands, "pipeline/fix")
-	assert.Contains(t, commands, "pipeline/fix/reviews")
-	assert.Contains(t, commands, "pipeline/fix/conflicts")
-	assert.Contains(t, commands, "pipeline/fix/format")
-	assert.Contains(t, commands, "pipeline/fix/threads")
-	assert.Contains(t, commands, "pipeline/onboard")
-	assert.Contains(t, commands, "pipeline/budget")
-	assert.Contains(t, commands, "pipeline/budget/plan")
-	assert.Contains(t, commands, "pipeline/budget/log")
-	assert.Contains(t, commands, "pipeline/training")
-	assert.Contains(t, commands, "pipeline/training/capture")
-	assert.Contains(t, commands, "pipeline/training/stats")
-	assert.Contains(t, commands, "pipeline/training/export")
+	core.AssertContains(t, commands, "pipeline")
+	core.AssertContains(t, commands, "pipeline/audit")
+	core.AssertContains(t, commands, "pipeline/epic")
+	core.AssertContains(t, commands, "pipeline/epic/create")
+	core.AssertContains(t, commands, "pipeline/epic/run")
+	core.AssertContains(t, commands, "pipeline/epic/status")
+	core.AssertContains(t, commands, "pipeline/epic/sync")
+	core.AssertContains(t, commands, "pipeline/monitor")
+	core.AssertContains(t, commands, "pipeline/fix")
+	core.AssertContains(t, commands, "pipeline/fix/reviews")
+	core.AssertContains(t, commands, "pipeline/fix/conflicts")
+	core.AssertContains(t, commands, "pipeline/fix/format")
+	core.AssertContains(t, commands, "pipeline/fix/threads")
+	core.AssertContains(t, commands, "pipeline/onboard")
+	core.AssertContains(t, commands, "pipeline/budget")
+	core.AssertContains(t, commands, "pipeline/budget/plan")
+	core.AssertContains(t, commands, "pipeline/budget/log")
+	core.AssertContains(t, commands, "pipeline/training")
+	core.AssertContains(t, commands, "pipeline/training/capture")
+	core.AssertContains(t, commands, "pipeline/training/stats")
+	core.AssertContains(t, commands, "pipeline/training/export")
 }
 
 func TestPipelineCommands_CmdPipeline_Good_Help(t *testing.T) {
@@ -47,12 +45,12 @@ func TestPipelineCommands_CmdPipeline_Good_Help(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		result := s.cmdPipeline(core.NewOptions())
-		require.True(t, result.OK)
+		core.RequireTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "core-agent pipeline/audit <repo>")
-	assert.Contains(t, output, "core-agent pipeline/epic/create <repo>")
-	assert.Contains(t, output, "core-agent pipeline/onboard <repo>")
+	core.AssertContains(t, output, "core-agent pipeline/audit <repo>")
+	core.AssertContains(t, output, "core-agent pipeline/epic/create <repo>")
+	core.AssertContains(t, output, "core-agent pipeline/onboard <repo>")
 }
 
 func TestPipelineCommands_CmdPipeline_Bad_UnknownCommand(t *testing.T) {
@@ -60,10 +58,10 @@ func TestPipelineCommands_CmdPipeline_Bad_UnknownCommand(t *testing.T) {
 
 	result := s.cmdPipeline(core.NewOptions(core.Option{Key: "_arg", Value: "unknown"}))
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "unknown pipeline command")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "unknown pipeline command")
 }
 
 type pipelineTestIssue struct {
@@ -201,9 +199,9 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				return
 			case http.MethodPost:
 				bodyResult := core.ReadAll(r.Body)
-				require.True(t, bodyResult.OK)
+				core.RequireTrue(t, bodyResult.OK)
 				var payload map[string]any
-				require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+				core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
 				name := payload["name"].(string)
 				repo.Labels[name] = int64(len(repo.Labels) + 1)
 				w.WriteHeader(http.StatusCreated)
@@ -236,9 +234,9 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				return
 			case len(parts) == 6 && r.Method == http.MethodPost:
 				bodyResult := core.ReadAll(r.Body)
-				require.True(t, bodyResult.OK)
+				core.RequireTrue(t, bodyResult.OK)
 				var payload map[string]any
-				require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+				core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
 				next := 1
 				for number := range repo.Issues {
 					if number >= next {
@@ -282,9 +280,9 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 					return
 				}
 				bodyResult := core.ReadAll(r.Body)
-				require.True(t, bodyResult.OK)
+				core.RequireTrue(t, bodyResult.OK)
 				var payload map[string]any
-				require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+				core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
 				if state, ok := payload["state"].(string); ok {
 					issue.State = state
 				}
@@ -297,9 +295,9 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 			case len(parts) == 8 && parts[7] == "comments" && r.Method == http.MethodPost:
 				number := parseIntString(parts[6])
 				bodyResult := core.ReadAll(r.Body)
-				require.True(t, bodyResult.OK)
+				core.RequireTrue(t, bodyResult.OK)
 				var payload map[string]any
-				require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+				core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
 				repo.Comments[number] = append(repo.Comments[number], payload["body"].(string))
 				w.WriteHeader(http.StatusCreated)
 				_, _ = w.Write([]byte(core.JSONMarshalString(map[string]any{"id": len(repo.Comments[number])})))
@@ -366,7 +364,7 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 			return
 		}
 
-		if len(parts) >= 8 && parts[5] == "git" && parts[6] == "refs" {
+		if len(parts) >= 7 && parts[5] == "git" && parts[6] == "refs" {
 			switch {
 			case len(parts) >= 9 && parts[7] == "heads" && r.Method == http.MethodGet:
 				branch := core.Join("/", parts[8:]...)
@@ -379,9 +377,9 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				return
 			case len(parts) == 7 && r.Method == http.MethodPost:
 				bodyResult := core.ReadAll(r.Body)
-				require.True(t, bodyResult.OK)
+				core.RequireTrue(t, bodyResult.OK)
 				var payload map[string]any
-				require.True(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
+				core.RequireTrue(t, core.JSONUnmarshalString(bodyResult.Value.(string), &payload).OK)
 				ref := payload["ref"].(string)
 				sha := payload["sha"].(string)
 				branch := ref[len("refs/heads/"):]

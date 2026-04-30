@@ -3,7 +3,7 @@
 package setup
 
 import (
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func ExampleDetect_go() {

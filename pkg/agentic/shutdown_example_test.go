@@ -2,9 +2,9 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
-func ExamplePrepSubsystem_Shutdown() {
+func ExamplePrepSubsystem_Shutdown_process() {
 	s := newPrepWithProcess()
 	err := s.Shutdown(nil)
 	core.Println(err == nil)

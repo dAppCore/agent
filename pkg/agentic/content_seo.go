@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	store "dappco.re/go/store"
 	"github.com/gin-gonic/gin"
@@ -61,11 +61,13 @@ func (s *PrepSubsystem) registerContentSEOTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_seo_schedule",
 		Description: "Create a pending Natural Progression SEO revision that stays unpublished until a Googlebot visit schedules it.",
-	}, s.contentSEOScheduleTool)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ContentSEOScheduleInput) (*mcp.CallToolResult, ContentSEOScheduleOutput, error) {
+		return contentSEOScheduleTool(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) contentSEOScheduleTool(ctx context.Context, _ *mcp.CallToolRequest, input ContentSEOScheduleInput) (*mcp.CallToolResult, ContentSEOScheduleOutput, error) {
-	revision, err := s.ScheduleRevision(ctx, input.PageID, input.Content)
+var contentSEOScheduleTool = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ContentSEOScheduleInput) (*mcp.CallToolResult, ContentSEOScheduleOutput, error) {
+	revision, err := ScheduleRevision(s, ctx, input.PageID, input.Content)
 	if err != nil {
 		return nil, ContentSEOScheduleOutput{}, err
 	}
@@ -77,7 +79,7 @@ func (s *PrepSubsystem) contentSEOScheduleTool(ctx context.Context, _ *mcp.CallT
 }
 
 // revision, err := subsystem.ScheduleRevision(ctx, "/help/hosting", "Updated copy")
-func (s *PrepSubsystem) ScheduleRevision(ctx context.Context, pageID, content string) (SEORevision, error) {
+var ScheduleRevision = func(s *PrepSubsystem, ctx context.Context, pageID, content string) (SEORevision, error) {
 	if err := contentSEOContextErr("scheduleRevision", ctx); err != nil {
 		return SEORevision{}, err
 	}
@@ -87,7 +89,7 @@ func (s *PrepSubsystem) ScheduleRevision(ctx context.Context, pageID, content st
 		return SEORevision{}, core.E("scheduleRevision", contentSEOPageIDRequired, nil)
 	}
 
-	storeInstance, err := s.contentSEOStore()
+	storeInstance, err := contentSEOStore(s)
 	if err != nil {
 		return SEORevision{}, err
 	}
@@ -106,18 +108,18 @@ func (s *PrepSubsystem) ScheduleRevision(ctx context.Context, pageID, content st
 }
 
 // revisions, err := subsystem.GetPendingRevisions("/help/hosting")
-func (s *PrepSubsystem) GetPendingRevisions(pageID string) ([]SEORevision, error) {
+var GetPendingRevisions = func(s *PrepSubsystem, pageID string) ([]SEORevision, error) {
 	pageID = core.Trim(pageID)
 	if pageID == "" {
 		return nil, core.E("getPendingRevisions", contentSEOPageIDRequired, nil)
 	}
 
-	storeInstance, err := s.contentSEOStore()
+	storeInstance, err := contentSEOStore(s)
 	if err != nil {
 		return nil, err
 	}
 
-	records, err := s.contentSEORevisionRecords(storeInstance, pageID, true)
+	records, err := contentSEORevisionRecords(s, storeInstance, pageID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +132,7 @@ func (s *PrepSubsystem) GetPendingRevisions(pageID string) ([]SEORevision, error
 }
 
 // err := subsystem.OnGooglebotVisit(ctx, "/help/hosting")
-func (s *PrepSubsystem) OnGooglebotVisit(ctx context.Context, pageID string) error {
+var OnGooglebotVisit = func(s *PrepSubsystem, ctx context.Context, pageID string) error {
 	if err := contentSEOContextErr("onGooglebotVisit", ctx); err != nil {
 		return err
 	}
@@ -140,12 +142,12 @@ func (s *PrepSubsystem) OnGooglebotVisit(ctx context.Context, pageID string) err
 		return core.E("onGooglebotVisit", contentSEOPageIDRequired, nil)
 	}
 
-	storeInstance, err := s.contentSEOStore()
+	storeInstance, err := contentSEOStore(s)
 	if err != nil {
 		return err
 	}
 
-	records, err := s.contentSEORevisionRecords(storeInstance, pageID, true)
+	records, err := contentSEORevisionRecords(s, storeInstance, pageID, true)
 	if err != nil {
 		return err
 	}
@@ -180,11 +182,11 @@ func (s *PrepSubsystem) OnGooglebotVisit(ctx context.Context, pageID string) err
 }
 
 // err := subsystem.HandleGooglebotVisit(ctx, "/help/hosting", request.UserAgent())
-func (s *PrepSubsystem) HandleGooglebotVisit(ctx context.Context, pageID, userAgent string) error {
+var HandleGooglebotVisit = func(s *PrepSubsystem, ctx context.Context, pageID, userAgent string) error {
 	if !contentSEOIsGooglebot(userAgent) {
 		return nil
 	}
-	return s.OnGooglebotVisit(ctx, pageID)
+	return OnGooglebotVisit(s, ctx, pageID)
 }
 
 // middleware := subsystem.ContentSEOGooglebotMiddleware(nil)
@@ -214,13 +216,13 @@ func (s *PrepSubsystem) ContentSEOGooglebotMiddleware(resolvePageID func(*gin.Co
 			return
 		}
 
-		if err := s.OnGooglebotVisit(c.Request.Context(), pageID); err != nil {
+		if err := OnGooglebotVisit(s, c.Request.Context(), pageID); err != nil {
 			core.Warn("content seo googlebot trigger failed", "page_id", pageID, "error", err)
 		}
 	}
 }
 
-func (s *PrepSubsystem) contentSEOStore() (*store.Store, error) {
+var contentSEOStore = func(s *PrepSubsystem) (*store.Store, error) {
 	if s == nil {
 		return nil, core.E("contentSEOStore", "subsystem is nil", nil)
 	}
@@ -229,13 +231,13 @@ func (s *PrepSubsystem) contentSEOStore() (*store.Store, error) {
 	if storeInstance != nil {
 		return storeInstance, nil
 	}
-	if err := s.stateStoreErr(); err != nil {
+	if err := stateStoreErr(s); err != nil {
 		return nil, core.E("contentSEOStore", "state store unavailable", err)
 	}
 	return nil, core.E("contentSEOStore", "state store unavailable", nil)
 }
 
-func (s *PrepSubsystem) contentSEORevisionRecords(storeInstance *store.Store, pageID string, pendingOnly bool) ([]seoRevisionRecord, error) {
+var contentSEORevisionRecords = func(_ *PrepSubsystem, storeInstance *store.Store, pageID string, pendingOnly bool) ([]seoRevisionRecord, error) {
 	pageID = core.Trim(pageID)
 	records := make([]seoRevisionRecord, 0)
 
@@ -264,7 +266,7 @@ func (s *PrepSubsystem) contentSEORevisionRecords(storeInstance *store.Store, pa
 	return records, nil
 }
 
-func contentSEORevisionValue(value string) (SEORevision, error) {
+var contentSEORevisionValue = func(value string) (SEORevision, error) {
 	var revision SEORevision
 	result := core.JSONUnmarshalString(value, &revision)
 	if !result.OK {
@@ -291,7 +293,7 @@ func contentSEORandomHex() string {
 	return hex.EncodeToString(bytes)
 }
 
-func contentSEOContextErr(operation string, ctx context.Context) error {
+var contentSEOContextErr = func(operation string, ctx context.Context) error {
 	if ctx == nil || ctx.Err() == nil {
 		return nil
 	}

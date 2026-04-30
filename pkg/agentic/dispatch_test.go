@@ -9,12 +9,9 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
 	"dappco.re/go/process"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type fakeCompletionProcess struct {
@@ -39,79 +36,87 @@ func (p *fakeCompletionProcess) Output() string        { return p.output }
 
 // --- agentOutputFile ---
 
-func TestDispatch_AgentOutputFile_Good(t *testing.T) {
-	assert.Contains(t, agentOutputFile("/ws", "codex"), ".meta/agent-codex.log")
-	assert.Contains(t, agentOutputFile("/ws", "claude:opus"), ".meta/agent-claude.log")
-	assert.Contains(t, agentOutputFile("/ws", "gemini:flash"), ".meta/agent-gemini.log")
+func TestDispatch_AgentOutputFile_Good_Case(t *testing.T) {
+	core.AssertContains(t, agentOutputFile("/ws", "codex"), ".meta/agent-codex.log")
+	core.AssertContains(t, agentOutputFile("/ws", "claude:opus"), ".meta/agent-claude.log")
+	core.AssertContains(t, agentOutputFile("/ws", "gemini:flash"), ".meta/agent-gemini.log")
 }
 
-func TestDispatch_AgentOutputFile_Bad(t *testing.T) {
+func TestDispatch_AgentOutputFile_Bad_Case(t *testing.T) {
 	// Empty agent — still produces a path (no crash)
 	result := agentOutputFile("/ws", "")
-	assert.Contains(t, result, ".meta/agent-.log")
+	core.AssertContains(
+		t,
+		result,
+		".meta/agent-.log",
+	)
 }
 
-func TestDispatch_AgentOutputFile_Ugly(t *testing.T) {
+func TestDispatch_AgentOutputFile_Ugly_Case(t *testing.T) {
 	// Agent with multiple colons — only splits on first
 	result := agentOutputFile("/ws", "claude:opus:latest")
-	assert.Contains(t, result, "agent-claude.log")
+	core.AssertContains(
+		t,
+		result,
+		"agent-claude.log",
+	)
 }
 
 // --- detectFinalStatus ---
 
-func TestDispatch_DetectFinalStatus_Good(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// Clean exit = completed
 	status, question := detectFinalStatus(dir, 0, "completed")
-	assert.Equal(t, "completed", status)
-	assert.Empty(t, question)
+	core.AssertEqual(t, "completed", status)
+	core.AssertEmpty(t, question)
 }
 
-func TestDispatch_DetectFinalStatus_Bad(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Bad_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// Non-zero exit code
 	status, question := detectFinalStatus(dir, 1, "completed")
-	assert.Equal(t, "failed", status)
-	assert.Contains(t, question, "code 1")
+	core.AssertEqual(t, "failed", status)
+	core.AssertContains(t, question, "code 1")
 
 	// Process killed
 	status2, _ := detectFinalStatus(dir, 0, "killed")
-	assert.Equal(t, "failed", status2)
+	core.AssertEqual(t, "failed", status2)
 
 	// Process status "failed"
 	status3, _ := detectFinalStatus(dir, 0, "failed")
-	assert.Equal(t, "failed", status3)
+	core.AssertEqual(t, "failed", status3)
 }
 
-func TestDispatch_DetectFinalStatus_Ugly(t *testing.T) {
+func TestDispatch_DetectFinalStatus_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 
 	// BLOCKED.md exists but is whitespace only — NOT blocked
 	fs.Write(core.JoinPath(dir, "BLOCKED.md"), "  \n  ")
 	status, _ := detectFinalStatus(dir, 0, "completed")
-	assert.Equal(t, "completed", status)
+	core.AssertEqual(t, "completed", status)
 
 	// BLOCKED.md takes precedence over non-zero exit
 	fs.Write(core.JoinPath(dir, "BLOCKED.md"), "Need credentials")
 	status2, question2 := detectFinalStatus(dir, 1, "failed")
-	assert.Equal(t, "blocked", status2)
-	assert.Equal(t, "Need credentials", question2)
+	core.AssertEqual(t, "blocked", status2)
+	core.AssertEqual(t, "Need credentials", question2)
 }
 
 // --- trackFailureRate ---
 
-func TestDispatch_TrackFailureRate_Good(t *testing.T) {
+func TestDispatch_TrackFailureRate_Good_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: map[string]int{"codex": 2}}
 
 	// Success resets count
 	triggered := s.trackFailureRate("codex", "completed", time.Now().Add(-10*time.Second))
-	assert.False(t, triggered)
-	assert.Equal(t, 0, s.failCount["codex"])
+	core.AssertFalse(t, triggered)
+	core.AssertEqual(t, 0, s.failCount["codex"])
 }
 
-func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
+func TestDispatch_TrackFailureRate_Bad_Case(t *testing.T) {
 	c := core.New()
 	var captured []messages.RateLimitDetected
 	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
@@ -125,29 +130,29 @@ func TestDispatch_TrackFailureRate_Bad(t *testing.T) {
 
 	// 3rd fast failure triggers backoff
 	triggered := s.trackFailureRate("codex", "failed", time.Now().Add(-10*time.Second))
-	assert.True(t, triggered)
-	assert.True(t, time.Now().Before(s.backoff["codex"]))
-	require.Len(t, captured, 1)
-	assert.Equal(t, "codex", captured[0].Pool)
-	assert.Equal(t, "30m0s", captured[0].Duration)
+	core.AssertTrue(t, triggered)
+	core.AssertTrue(t, time.Now().Before(s.backoff["codex"]))
+	core.AssertLen(t, captured, 1)
+	core.AssertEqual(t, "codex", captured[0].Pool)
+	core.AssertEqual(t, "30m0s", captured[0].Duration)
 }
 
-func TestDispatch_TrackFailureRate_Ugly(t *testing.T) {
+func TestDispatch_TrackFailureRate_Ugly_Case(t *testing.T) {
 	s := newPrepWithProcess()
 
 	// Slow failure (>60s) resets count instead of incrementing
 	s.failCount["codex"] = 2
 	s.trackFailureRate("codex", "failed", time.Now().Add(-5*time.Minute))
-	assert.Equal(t, 0, s.failCount["codex"])
+	core.AssertEqual(t, 0, s.failCount["codex"])
 
 	// Model variant tracks by base pool
 	s.trackFailureRate("codex:gpt-5.4", "failed", time.Now().Add(-10*time.Second))
-	assert.Equal(t, 1, s.failCount["codex"])
+	core.AssertEqual(t, 1, s.failCount["codex"])
 }
 
 // --- startIssueTracking ---
 
-func TestDispatch_StartIssueTracking_Good(t *testing.T) {
+func TestDispatch_StartIssueTracking_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 	}))
@@ -157,11 +162,11 @@ func TestDispatch_StartIssueTracking_Good(t *testing.T) {
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Org: "core", Issue: 15}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir)
 }
 
-func TestDispatch_StartIssueTracking_Bad(t *testing.T) {
+func TestDispatch_StartIssueTracking_Bad_Case(t *testing.T) {
 	// No forge — returns early
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(t.TempDir())
@@ -171,19 +176,19 @@ func TestDispatch_StartIssueTracking_Bad(t *testing.T) {
 	s2.startIssueTracking(t.TempDir())
 }
 
-func TestDispatch_StartIssueTracking_Ugly(t *testing.T) {
+func TestDispatch_StartIssueTracking_Ugly_Case(t *testing.T) {
 	// Status has no issue — early return
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "running", Repo: "test"}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir) // no issue → skips API call
 }
 
 // --- stopIssueTracking ---
 
-func TestDispatch_StopIssueTracking_Good(t *testing.T) {
+func TestDispatch_StopIssueTracking_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	}))
@@ -193,28 +198,29 @@ func TestDispatch_StopIssueTracking_Good(t *testing.T) {
 	st := &WorkspaceStatus{Status: "completed", Repo: "go-io", Issue: 10}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
-func TestDispatch_StopIssueTracking_Bad(t *testing.T) {
+func TestDispatch_StopIssueTracking_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(t.TempDir())
+	core.AssertNil(t, s.forge)
 }
 
-func TestDispatch_StopIssueTracking_Ugly(t *testing.T) {
+func TestDispatch_StopIssueTracking_Ugly_Case(t *testing.T) {
 	// Status has no issue
 	dir := t.TempDir()
 	st := &WorkspaceStatus{Status: "completed", Repo: "test"}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
 // --- broadcastStart ---
 
-func TestDispatch_BroadcastStart_Good(t *testing.T) {
+func TestDispatch_BroadcastStart_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -227,13 +233,14 @@ func TestDispatch_BroadcastStart_Good(t *testing.T) {
 	s.broadcastStart("codex", wsDir)
 }
 
-func TestDispatch_BroadcastStart_Bad(t *testing.T) {
+func TestDispatch_BroadcastStart_Bad_Case(t *testing.T) {
 	// No Core — should not panic
 	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastStart("codex", t.TempDir())
+	core.AssertNil(t, s.ServiceRuntime)
 }
 
-func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
+func TestDispatch_BroadcastStart_Ugly_Case(t *testing.T) {
 	// No status file — broadcasts with empty repo
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -242,7 +249,7 @@ func TestDispatch_BroadcastStart_Ugly(t *testing.T) {
 
 // --- broadcastComplete ---
 
-func TestDispatch_BroadcastComplete_Good(t *testing.T) {
+func TestDispatch_BroadcastComplete_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -255,12 +262,13 @@ func TestDispatch_BroadcastComplete_Good(t *testing.T) {
 	s.broadcastComplete("codex", wsDir, "completed")
 }
 
-func TestDispatch_BroadcastComplete_Bad(t *testing.T) {
+func TestDispatch_BroadcastComplete_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: nil, backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.broadcastComplete("codex", t.TempDir(), "failed")
+	core.AssertNil(t, s.ServiceRuntime)
 }
 
-func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
+func TestDispatch_BroadcastComplete_Ugly_Case(t *testing.T) {
 	// No status file
 	c := core.New()
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
@@ -269,7 +277,7 @@ func TestDispatch_BroadcastComplete_Ugly(t *testing.T) {
 
 // --- agentCompletionMonitor ---
 
-func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -299,18 +307,18 @@ func TestDispatch_AgentCompletionMonitor_Good(t *testing.T) {
 	}
 
 	r := monitor.run(context.Background(), core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "completed", updated.Status)
-	assert.Equal(t, 0, updated.PID)
+	core.AssertEqual(t, "completed", updated.Status)
+	core.AssertEqual(t, 0, updated.PID)
 
 	output := fs.Read(core.JoinPath(metaDir, "agent-codex.log"))
-	require.True(t, output.OK)
-	assert.Equal(t, "monitor output", output.Value.(string))
+	core.RequireTrue(t, output.OK)
+	core.AssertEqual(t, "monitor output", output.Value.(string))
 }
 
-func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 	monitor := &agentCompletionMonitor{
 		service:      s,
@@ -319,12 +327,12 @@ func TestDispatch_AgentCompletionMonitor_Bad(t *testing.T) {
 	}
 
 	r := monitor.run(context.Background(), core.NewOptions())
-	assert.False(t, r.OK)
-	require.Error(t, r.Value.(error))
-	assert.Contains(t, r.Value.(error).Error(), "process is required")
+	core.AssertFalse(t, r.OK)
+	core.AssertError(t, r.Value.(error))
+	core.AssertContains(t, r.Value.(error).Error(), "process is required")
 }
 
-func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
+func TestDispatch_AgentCompletionMonitor_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -355,17 +363,17 @@ func TestDispatch_AgentCompletionMonitor_Ugly(t *testing.T) {
 	}
 
 	r := monitor.run(context.Background(), core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "blocked", updated.Status)
-	assert.Equal(t, "Need credentials", updated.Question)
-	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
+	core.AssertEqual(t, "blocked", updated.Status)
+	core.AssertEqual(t, "Need credentials", updated.Question)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
 }
 
 // --- onAgentComplete ---
 
-func TestDispatch_OnAgentComplete_Good(t *testing.T) {
+func TestDispatch_OnAgentComplete_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -383,15 +391,15 @@ func TestDispatch_OnAgentComplete_Good(t *testing.T) {
 	s.onAgentComplete("codex", wsDir, outputFile, 0, "completed", "test output")
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "completed", updated.Status)
-	assert.Equal(t, 0, updated.PID)
+	core.AssertEqual(t, "completed", updated.Status)
+	core.AssertEqual(t, 0, updated.PID)
 
 	r := fs.Read(outputFile)
-	assert.True(t, r.OK)
-	assert.Equal(t, "test output", r.Value.(string))
+	core.AssertTrue(t, r.OK)
+	core.AssertEqual(t, "test output", r.Value.(string))
 }
 
-func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
+func TestDispatch_OnAgentComplete_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -408,11 +416,11 @@ func TestDispatch_OnAgentComplete_Bad(t *testing.T) {
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 1, "failed", "error")
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "failed", updated.Status)
-	assert.Contains(t, updated.Question, "code 1")
+	core.AssertEqual(t, "failed", updated.Status)
+	core.AssertContains(t, updated.Question, "code 1")
 }
 
-func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
+func TestDispatch_OnAgentComplete_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -430,11 +438,11 @@ func TestDispatch_OnAgentComplete_Ugly(t *testing.T) {
 	s.onAgentComplete("codex", wsDir, core.JoinPath(metaDir, "agent-codex.log"), 0, "completed", "")
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "blocked", updated.Status)
-	assert.Equal(t, "Need credentials", updated.Question)
+	core.AssertEqual(t, "blocked", updated.Status)
+	core.AssertEqual(t, "Need credentials", updated.Question)
 
 	// Empty output should NOT create log file
-	assert.False(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
 }
 
 func TestDispatch_Run_Bad_Timeout(t *testing.T) {
@@ -444,8 +452,8 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 	wsDir := core.JoinPath(root, "ws-timeout")
 	repoDir := core.JoinPath(wsDir, "repo")
 	metaDir := core.JoinPath(wsDir, ".meta")
-	require.True(t, fs.EnsureDir(repoDir).OK)
-	require.True(t, fs.EnsureDir(metaDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(repoDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(metaDir).OK)
 
 	st := &WorkspaceStatus{
 		Status:    "running",
@@ -453,22 +461,24 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 		Repo:      "go-io",
 		StartedAt: time.Now(),
 	}
-	require.NoError(t, writeStatus(wsDir, st))
+	core.RequireNoError(t, writeStatus(wsDir, st))
 
 	processResult := testCore.Service("process")
-	require.True(t, processResult.OK)
+	core.RequireTrue(t, processResult.OK)
 	procSvc, ok := processResult.Value.(*process.Service)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 
 	timeout := 100 * time.Millisecond
 	opts := dispatchRunOptions("sleep", []string{"60"}, repoDir, timeout)
-	assert.Equal(t, timeout, opts.Timeout)
-	assert.Equal(t, dispatchGracePeriod, opts.GracePeriod)
-	assert.True(t, opts.KillGroup)
-	assert.True(t, opts.Detach)
+	core.AssertEqual(t, timeout, opts.Timeout)
+	core.AssertEqual(t, dispatchGracePeriod, opts.GracePeriod)
+	core.AssertTrue(t, opts.KillGroup)
+	core.AssertTrue(t, opts.Detach)
 
-	proc, err := procSvc.StartWithOptions(context.Background(), opts)
-	require.NoError(t, err)
+	startResult := procSvc.StartWithOptions(context.Background(), opts)
+	core.RequireTrue(t, startResult.OK)
+	proc, ok := startResult.Value.(*process.Process)
+	core.RequireTrue(t, ok)
 	proc.CloseStdin()
 
 	s := newPrepWithProcess()
@@ -484,29 +494,29 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 	}
 
 	r := monitor.run(context.Background(), core.NewOptions())
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 
 	info := proc.Info()
-	assert.Equal(t, process.StatusKilled, info.Status)
+	core.AssertEqual(t, process.StatusKilled, info.Status)
 
 	updated := mustReadStatus(t, wsDir)
-	assert.Equal(t, "failed", updated.Status)
-	assert.Equal(t, dispatchTimeoutReason(timeout), updated.Question)
-	assert.Equal(t, 0, updated.PID)
+	core.AssertEqual(t, "failed", updated.Status)
+	core.AssertEqual(t, dispatchTimeoutReason(timeout), updated.Question)
+	core.AssertEqual(t, 0, updated.PID)
 
 	registryResult := s.workspaces.Get(WorkspaceName(wsDir))
-	require.True(t, registryResult.OK)
+	core.RequireTrue(t, registryResult.OK)
 	registryStatus, ok := registryResult.Value.(*WorkspaceStatus)
-	require.True(t, ok)
-	assert.Equal(t, "failed", registryStatus.Status)
-	assert.Equal(t, dispatchTimeoutReason(timeout), registryStatus.Question)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "failed", registryStatus.Status)
+	core.AssertEqual(t, dispatchTimeoutReason(timeout), registryStatus.Question)
 
-	assert.False(t, fs.Exists(workspaceTimeoutPath(wsDir)))
+	core.AssertFalse(t, fs.Exists(workspaceTimeoutPath(wsDir)))
 }
 
 // --- runQA ---
 
-func TestDispatch_RunQA_Good(t *testing.T) {
+func TestDispatch_RunQA_Good_Case(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
 	fs.EnsureDir(repoDir)
@@ -514,10 +524,10 @@ func TestDispatch_RunQA_Good(t *testing.T) {
 	fs.Write(core.JoinPath(repoDir, "main.go"), "package main\nfunc main() {}\n")
 
 	s := newPrepWithProcess()
-	assert.True(t, s.runQA(wsDir))
+	core.AssertTrue(t, s.runQA(wsDir))
 }
 
-func TestDispatch_RunQA_Bad(t *testing.T) {
+func TestDispatch_RunQA_Bad_Case(t *testing.T) {
 	wsDir := t.TempDir()
 	repoDir := core.JoinPath(wsDir, "repo")
 	fs.EnsureDir(repoDir)
@@ -527,7 +537,7 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 	fs.Write(core.JoinPath(repoDir, "main.go"), "package main\nfunc main( {\n}\n")
 
 	s := newPrepWithProcess()
-	assert.False(t, s.runQA(wsDir))
+	core.AssertFalse(t, s.runQA(wsDir))
 
 	// PHP project — composer not available
 	wsDir2 := t.TempDir()
@@ -535,16 +545,16 @@ func TestDispatch_RunQA_Bad(t *testing.T) {
 	fs.EnsureDir(repoDir2)
 	fs.Write(core.JoinPath(repoDir2, "composer.json"), `{"name":"test"}`)
 
-	assert.False(t, s.runQA(wsDir2))
+	core.AssertFalse(t, s.runQA(wsDir2))
 }
 
-func TestDispatch_RunQA_Ugly(t *testing.T) {
+func TestDispatch_RunQA_Ugly_Case(t *testing.T) {
 	// Unknown language — passes QA (no checks)
 	wsDir := t.TempDir()
 	fs.EnsureDir(core.JoinPath(wsDir, "repo"))
 
 	s := newPrepWithProcess()
-	assert.True(t, s.runQA(wsDir))
+	core.AssertTrue(t, s.runQA(wsDir))
 
 	// Go vet failure (compiles but bad printf)
 	wsDir2 := t.TempDir()
@@ -552,7 +562,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 	fs.EnsureDir(repoDir2)
 	fs.Write(core.JoinPath(repoDir2, "go.mod"), "module testmod\n\ngo 1.22\n")
 	fs.Write(core.JoinPath(repoDir2, "main.go"), "package main\nimport \"fmt\"\nfunc main() { fmt.Printf(\"%d\", \"x\") }\n")
-	assert.False(t, s.runQA(wsDir2))
+	core.AssertFalse(t, s.runQA(wsDir2))
 
 	// Node project — npm install likely fails
 	wsDir3 := t.TempDir()
@@ -564,7 +574,7 @@ func TestDispatch_RunQA_Ugly(t *testing.T) {
 
 // --- dispatch ---
 
-func TestDispatch_Dispatch_Good(t *testing.T) {
+func TestDispatch_Dispatch_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -582,95 +592,95 @@ func TestDispatch_Dispatch_Good(t *testing.T) {
 	testCore.Process().RunIn(context.Background(), srcRepo, "git", "commit", "-m", "init")
 
 	s := newPrepWithProcess()
-	s.forge = forge.NewForge(forgeSrv.URL, "tok")
+	s.forge = newForgeClient(forgeSrv.URL, "tok")
 	s.codePath = core.PathDir(core.PathDir(srcRepo))
 
-	_, out, err := s.dispatch(context.Background(), nil, DispatchInput{
+	_, out, err := dispatch(s, context.Background(), nil, DispatchInput{
 		Repo: "go-io", Task: "Fix stuff", Issue: 42, DryRun: true,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, "codex", out.Agent)
-	assert.NotEmpty(t, out.Prompt)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, "codex", out.Agent)
+	core.AssertNotEmpty(t, out.Prompt)
 }
 
-func TestDispatch_Dispatch_Bad(t *testing.T) {
+func TestDispatch_Dispatch_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 
 	// No repo
-	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{Task: "do"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "repo is required")
+	_, _, err := dispatch(s, context.Background(), nil, DispatchInput{Task: "do"})
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "repo is required")
 
 	// No task
-	_, _, err = s.dispatch(context.Background(), nil, DispatchInput{Repo: "go-io"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "task is required")
+	_, _, err = dispatch(s, context.Background(), nil, DispatchInput{Repo: "go-io"})
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "task is required")
 }
 
-func TestDispatch_Dispatch_Ugly(t *testing.T) {
+func TestDispatch_Dispatch_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	// Prep fails (no local clone)
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{
+	_, _, err := dispatch(s, context.Background(), nil, DispatchInput{
 		Repo: "nonexistent", Task: "do", Issue: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "prep workspace failed")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "prep workspace failed")
 }
 
 // --- workspaceDir ---
 
-func TestDispatch_WorkspaceDir_Good(t *testing.T) {
+func TestDispatch_WorkspaceDir_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	dir, err := workspaceDir("core", "go-io", PrepInput{Issue: 42})
-	require.NoError(t, err)
-	assert.Contains(t, dir, "task-42")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, dir, "task-42")
 
 	dir2, _ := workspaceDir("core", "go-io", PrepInput{PR: 7})
-	assert.Contains(t, dir2, "pr-7")
+	core.AssertContains(t, dir2, "pr-7")
 
 	dir3, _ := workspaceDir("core", "go-io", PrepInput{Branch: "feat/new"})
-	assert.Contains(t, dir3, "feat/new")
+	core.AssertContains(t, dir3, "feat/new")
 
 	dir4, _ := workspaceDir("core", "go-io", PrepInput{Tag: "v1.0.0"})
-	assert.Contains(t, dir4, "v1.0.0")
+	core.AssertContains(t, dir4, "v1.0.0")
 }
 
-func TestDispatch_WorkspaceDir_Bad(t *testing.T) {
+func TestDispatch_WorkspaceDir_Bad_Case(t *testing.T) {
 	_, err := workspaceDir("core", "go-io", PrepInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "one of issue, pr, branch, or tag")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "one of issue, pr, branch, or tag")
 }
 
-func TestDispatch_WorkspaceDir_Ugly(t *testing.T) {
+func TestDispatch_WorkspaceDir_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	// PR takes precedence when multiple set (first match)
 	dir, err := workspaceDir("core", "go-io", PrepInput{PR: 3, Issue: 5})
-	require.NoError(t, err)
-	assert.Contains(t, dir, "pr-3")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, dir, "pr-3")
 }
 
 // --- containerCommand ---
 
-func TestDispatch_ContainerCommand_Bad(t *testing.T) {
+func TestDispatch_ContainerCommand_Bad_Case(t *testing.T) {
 	t.Setenv("AGENT_DOCKER_IMAGE", "")
 	t.Setenv("DIR_HOME", "/home/dev")
 
 	// Empty command string — docker still runs, just with no command after image
 	cmd, args := containerCommand("", []string{}, "/ws", "/ws/.meta")
-	assert.Equal(t, "docker", cmd)
-	assert.Contains(t, args, "run")
+	core.AssertEqual(t, "docker", cmd)
+	core.AssertContains(t, args, "run")
 	// The image should still be present in args
-	assert.Contains(t, args, defaultDockerImage)
-	assert.Contains(t, args, "/ws:/workspace")
-	assert.Contains(t, args, "/workspace/repo")
+	core.AssertContains(t, args, defaultDockerImage)
+	core.AssertContains(t, args, "/ws:/workspace")
+	core.AssertContains(t, args, "/workspace/repo")
 }
 
 // --- canDispatchAgent ---
@@ -680,11 +690,11 @@ func TestDispatch_ContainerCommand_Bad(t *testing.T) {
 
 // --- agentCommand AX-10 ---
 
-func TestDispatch_agentCommand_Good(t *testing.T) {
+func TestDispatch_agentCommand_Good_Case(t *testing.T) {
 	command, args, err := agentCommand("codex:gpt-5.4-mini", "Implement AX-10 unit tests for Mantis #169")
-	require.NoError(t, err)
-	assert.Equal(t, "codex", command)
-	assert.Equal(t, []string{
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "codex", command)
+	core.AssertEqual(t, []string{
 		"exec",
 		"--dangerously-bypass-approvals-and-sandbox",
 		"-o", "../.meta/agent-codex.log",
@@ -693,18 +703,18 @@ func TestDispatch_agentCommand_Good(t *testing.T) {
 	}, args)
 }
 
-func TestDispatch_agentCommand_Bad(t *testing.T) {
+func TestDispatch_agentCommand_Bad_Case(t *testing.T) {
 	command, args, err := agentCommand("mantis", "Investigate a failing dispatch")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown agent: mantis")
-	assert.Empty(t, command)
-	assert.Nil(t, args)
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "unknown agent: mantis")
+	core.AssertEmpty(t, command)
+	core.AssertNil(t, args)
 }
 
-func TestDispatch_agentCommand_Ugly(t *testing.T) {
+func TestDispatch_agentCommand_Ugly_Case(t *testing.T) {
 	command, args, err := agentCommand("", "Investigate a failing dispatch")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown agent")
-	assert.Empty(t, command)
-	assert.Nil(t, args)
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "unknown agent")
+	core.AssertEmpty(t, command)
+	core.AssertNil(t, args)
 }

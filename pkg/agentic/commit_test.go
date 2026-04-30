@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestCommit_HandleCommit_Good_WritesJournal(t *testing.T) {
@@ -18,8 +16,8 @@ func TestCommit_HandleCommit_Good_WritesJournal(t *testing.T) {
 	workspaceName := "core/go-io/task-42"
 	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)
 	metaDir := WorkspaceMetaDir(workspaceDir)
-	require.True(t, fs.EnsureDir(metaDir).OK)
-	require.True(t, writeStatus(workspaceDir, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(metaDir).OK)
+	core.RequireTrue(t, writeStatus(workspaceDir, &WorkspaceStatus{
 		Status: "merged",
 		Agent:  "codex",
 		Repo:   "go-io",
@@ -28,36 +26,36 @@ func TestCommit_HandleCommit_Good_WritesJournal(t *testing.T) {
 		Branch: "agent/fix-tests",
 		Runs:   3,
 	}) == nil)
-	require.True(t, fs.Write(core.JoinPath(metaDir, "report.json"), `{"findings":[{"file":"main.go"}],"changes":{"files_changed":1}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(metaDir, "report.json"), `{"findings":[{"file":"main.go"}],"changes":{"files_changed":1}}`).OK)
 
 	s := &PrepSubsystem{}
 	result := s.handleCommit(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: workspaceName},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(CommitOutput)
-	require.True(t, ok)
-	assert.Equal(t, workspaceName, output.Workspace)
-	assert.False(t, output.Skipped)
-	assert.NotEmpty(t, output.CommittedAt)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, workspaceName, output.Workspace)
+	core.AssertFalse(t, output.Skipped)
+	core.AssertNotEmpty(t, output.CommittedAt)
 
 	journal := fs.Read(output.JournalPath)
-	require.True(t, journal.OK)
-	assert.Contains(t, journal.Value.(string), `"repo":"go-io"`)
-	assert.Contains(t, journal.Value.(string), `"committed_at"`)
+	core.RequireTrue(t, journal.OK)
+	core.AssertContains(t, journal.Value.(string), `"repo":"go-io"`)
+	core.AssertContains(t, journal.Value.(string), `"committed_at"`)
 
 	marker := fs.Read(output.MarkerPath)
-	require.True(t, marker.OK)
-	assert.Contains(t, marker.Value.(string), `"workspace":"core/go-io/task-42"`)
+	core.RequireTrue(t, marker.OK)
+	core.AssertContains(t, marker.Value.(string), `"workspace":"core/go-io/task-42"`)
 }
 
 func TestCommit_HandleCommit_Bad_MissingWorkspace(t *testing.T) {
 	s := &PrepSubsystem{}
 	result := s.handleCommit(context.Background(), core.NewOptions())
 
-	assert.False(t, result.OK)
-	assert.Error(t, result.Value.(error))
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
 }
 
 func TestCommit_HandleCommit_Ugly_Idempotent(t *testing.T) {
@@ -66,8 +64,8 @@ func TestCommit_HandleCommit_Ugly_Idempotent(t *testing.T) {
 
 	workspaceName := "core/go-io/task-43"
 	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)
-	require.True(t, fs.EnsureDir(WorkspaceMetaDir(workspaceDir)).OK)
-	require.True(t, writeStatus(workspaceDir, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(workspaceDir)).OK)
+	core.RequireTrue(t, writeStatus(workspaceDir, &WorkspaceStatus{
 		Status: "completed",
 		Agent:  "codex",
 		Repo:   "go-io",
@@ -81,21 +79,21 @@ func TestCommit_HandleCommit_Ugly_Idempotent(t *testing.T) {
 	first := s.handleCommit(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: workspaceName},
 	))
-	require.True(t, first.OK)
+	core.RequireTrue(t, first.OK)
 
 	second := s.handleCommit(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: workspaceName},
 	))
-	require.True(t, second.OK)
+	core.RequireTrue(t, second.OK)
 
 	output, ok := second.Value.(CommitOutput)
-	require.True(t, ok)
-	assert.True(t, output.Skipped)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Skipped)
 
 	journal := fs.Read(output.JournalPath)
-	require.True(t, journal.OK)
+	core.RequireTrue(t, journal.OK)
 	lines := len(core.Split(core.Trim(journal.Value.(string)), "\n"))
-	assert.Equal(t, 1, lines)
+	core.AssertEqual(t, 1, lines)
 }
 
 func TestCommit_HandleCommit_Ugly_CorruptMarkerIsPreserved(t *testing.T) {
@@ -105,8 +103,8 @@ func TestCommit_HandleCommit_Ugly_CorruptMarkerIsPreserved(t *testing.T) {
 	workspaceName := "core/go-io/task-44"
 	workspaceDir := core.JoinPath(WorkspaceRoot(), workspaceName)
 	metaDir := WorkspaceMetaDir(workspaceDir)
-	require.True(t, fs.EnsureDir(metaDir).OK)
-	require.True(t, writeStatus(workspaceDir, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(metaDir).OK)
+	core.RequireTrue(t, writeStatus(workspaceDir, &WorkspaceStatus{
 		Status: "completed",
 		Agent:  "codex",
 		Repo:   "go-io",
@@ -115,21 +113,21 @@ func TestCommit_HandleCommit_Ugly_CorruptMarkerIsPreserved(t *testing.T) {
 		Branch: "agent/fix-tests",
 		Runs:   2,
 	}) == nil)
-	require.True(t, fs.Write(core.JoinPath(metaDir, "commit.json"), "{not-json").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(metaDir, "commit.json"), "{not-json").OK)
 
 	s := &PrepSubsystem{}
 	result := s.handleCommit(context.Background(), core.NewOptions(
 		core.Option{Key: "workspace", Value: workspaceName},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	output, ok := result.Value.(CommitOutput)
-	require.True(t, ok)
-	assert.False(t, output.Skipped)
+	core.RequireTrue(t, ok)
+	core.AssertFalse(t, output.Skipped)
 
 	marker := fs.Read(output.MarkerPath)
-	require.True(t, marker.OK)
-	assert.Contains(t, marker.Value.(string), `"workspace":"core/go-io/task-44"`)
+	core.RequireTrue(t, marker.OK)
+	core.AssertContains(t, marker.Value.(string), `"workspace":"core/go-io/task-44"`)
 
 	entries := listDirNames(fs.List(metaDir))
 	var backupPath string
@@ -139,9 +137,9 @@ func TestCommit_HandleCommit_Ugly_CorruptMarkerIsPreserved(t *testing.T) {
 			break
 		}
 	}
-	require.NotEmpty(t, backupPath)
+	core.RequireNotEmpty(t, backupPath)
 
 	backup := fs.Read(backupPath)
-	require.True(t, backup.OK)
-	assert.Equal(t, "{not-json", backup.Value.(string))
+	core.RequireTrue(t, backup.OK)
+	core.AssertEqual(t, "{not-json", backup.Value.(string))
 }

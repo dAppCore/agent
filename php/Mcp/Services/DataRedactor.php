@@ -6,6 +6,13 @@ declare(strict_types=1);
 
 namespace Core\Mcp\Services;
 
+/**
+ * Redact sensitive values from MCP payloads before they are logged or shown.
+ *
+ * @example
+ * $redactor = new DataRedactor();
+ * $safe = $redactor->redact(['token' => 'sk_live_secret']);
+ */
 final class DataRedactor
 {
     protected const REDACTED = '[REDACTED]';
@@ -62,6 +69,12 @@ final class DataRedactor
         'licence',
     ];
 
+    /**
+     * Recursively redact secrets and personal data from a value.
+     *
+     * @example
+     * $safe = $redactor->redact(['authorization' => 'Bearer sk_live_secret']);
+     */
     public function redact(mixed $data, int $maxDepth = 10): mixed
     {
         if ($maxDepth <= 0) {
@@ -83,6 +96,12 @@ final class DataRedactor
         return $data;
     }
 
+    /**
+     * Produce a shortened, redacted preview of a value for dashboards.
+     *
+     * @example
+     * $preview = $redactor->summarize(['email' => 'agent@example.com', 'notes' => 'Long body text']);
+     */
     public function summarize(mixed $data, int $maxDepth = 3): mixed
     {
         if ($maxDepth <= 0) {
@@ -135,6 +154,12 @@ final class DataRedactor
         return $data;
     }
 
+    /**
+     * Redact a structured object after normalising it to array-like data.
+     *
+     * @example
+     * $safe = $this->redactObject((object) ['token' => 'sk_live_secret'], 3);
+     */
     protected function redactObject(object $data, int $maxDepth): mixed
     {
         $normalised = $this->normaliseObject($data);
@@ -152,6 +177,12 @@ final class DataRedactor
             : $normalised;
     }
 
+    /**
+     * Summarise a structured object after normalising it to array-like data.
+     *
+     * @example
+     * $summary = $this->summarizeObject((object) ['email' => 'agent@example.com'], 2);
+     */
     protected function summarizeObject(object $data, int $maxDepth): mixed
     {
         $normalised = $this->normaliseObject($data);
@@ -163,6 +194,12 @@ final class DataRedactor
         return $this->summarize($normalised, $maxDepth);
     }
 
+    /**
+     * Redact one associative array while preserving non-sensitive keys.
+     *
+     * @example
+     * $safe = $this->redactArray(['password' => 'secret', 'status' => 'ok'], 2);
+     */
     protected function redactArray(array $data, int $maxDepth): array
     {
         $result = [];
@@ -198,6 +235,12 @@ final class DataRedactor
         return $result;
     }
 
+    /**
+     * Decide whether an array key should always be fully redacted.
+     *
+     * @example
+     * $sensitive = $this->isSensitiveKey('api_key');
+     */
     protected function isSensitiveKey(string $key): bool
     {
         foreach (self::SENSITIVE_KEYS as $sensitiveKey) {
@@ -209,6 +252,12 @@ final class DataRedactor
         return false;
     }
 
+    /**
+     * Decide whether an array key should receive partial personal-data redaction.
+     *
+     * @example
+     * $pii = $this->isPiiKey('email');
+     */
     protected function isPiiKey(string $key): bool
     {
         foreach (self::PII_KEYS as $piiKey) {
@@ -220,6 +269,12 @@ final class DataRedactor
         return false;
     }
 
+    /**
+     * Scrub sensitive token formats from a free-form string.
+     *
+     * @example
+     * $safe = $this->redactString('Bearer sk_live_secret');
+     */
     protected function redactString(string $value): string
     {
         $value = preg_replace('/Bearer\s+[A-Za-z0-9\-_\.]+/i', 'Bearer '.self::REDACTED, $value) ?? $value;
@@ -232,6 +287,12 @@ final class DataRedactor
         return $value;
     }
 
+    /**
+     * Partially mask a personally identifiable string while leaving a hint.
+     *
+     * @example
+     * $masked = $this->partialRedact('agent@example.com');
+     */
     protected function partialRedact(string $value): string
     {
         $length = strlen($value);
@@ -249,6 +310,12 @@ final class DataRedactor
         return substr($value, 0, $visible).'***'.substr($value, -$visible);
     }
 
+    /**
+     * Convert an object into data that can be traversed by the redactor.
+     *
+     * @example
+     * $normalised = $this->normaliseObject((object) ['token' => 'sk_live_secret']);
+     */
     protected function normaliseObject(object $data): mixed
     {
         if ($data instanceof \JsonSerializable) {

@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func ExampleProcessRegister() {
@@ -21,4 +21,10 @@ func ExampleProcessRegister() {
 	}
 
 	// Output: ok
+}
+
+func ExampleOverrideService_OnStartup() {
+	svc := &processOverrideService{handlers: &processActionHandlers{}, core: core.New()}
+	core.Println(svc.OnStartup(context.Background()).OK)
+	// Output: true
 }

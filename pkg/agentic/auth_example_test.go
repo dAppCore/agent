@@ -2,7 +2,7 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_parseAgentApiKey() {
 	key := parseAgentApiKey(map[string]any{
@@ -12,6 +12,6 @@ func Example_parseAgentApiKey() {
 		"permissions": []any{"plans:read", "plans:write"},
 	})
 
-	fmt.Println(key.ID, key.Name, key.Prefix, len(key.Permissions))
+	core.Println(key.ID, key.Name, key.Prefix, len(key.Permissions))
 	// Output: 7 codex local ak_live 2
 }

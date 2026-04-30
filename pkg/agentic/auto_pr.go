@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 )
 
 // s.autoCreatePR("/srv/.core/workspace/core/go-io/task-5")
@@ -24,7 +24,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 
 	defaultBranch := "dev"
 
-	processResult := process.RunIn(ctx, repoDir, "git", "log", "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
+	processResult := process.RunIn(ctx, repoDir, "git", `log`, "--oneline", core.Concat("origin/", defaultBranch, "..HEAD"))
 	if !processResult.OK {
 		return
 	}
@@ -66,7 +66,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pullRequestURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, defaultBranch, title, body)
+	pullRequestURL, _, err := forgeCreatePR(s, ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, defaultBranch, title, body)
 	if err != nil {
 		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatusUpdate, ok := workspaceStatusValue(result)

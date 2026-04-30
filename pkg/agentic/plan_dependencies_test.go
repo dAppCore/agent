@@ -6,8 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPlanDependencies_PlanCreate_Good_PreservesPhaseDependencies(t *testing.T) {
@@ -26,22 +25,23 @@ func TestPlanDependencies_PlanCreate_Good_PreservesPhaseDependencies(t *testing.
 			},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
-	require.Len(t, plan.Phases, 1)
-	assert.Equal(t, []string{"Setup", "Lint"}, plan.Phases[0].Dependencies)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, plan.Phases, 1)
+	core.AssertEqual(t, []string{"Setup", "Lint"}, plan.Phases[0].Dependencies)
 }
 
 func TestPlanDependencies_PhaseDependenciesValue_Bad_MixedTypesReturnsNil(t *testing.T) {
 	dependencies := phaseDependenciesValue([]any{"Setup", 7})
-
-	assert.Nil(t, dependencies)
+	valid := phaseDependenciesValue([]any{"Setup", "Lint"})
+	core.AssertNil(t, dependencies)
+	core.AssertEqual(t, []string{"Setup", "Lint"}, valid)
 }
 
 func TestPlanDependencies_PhaseDependenciesValue_Ugly_NilInputReturnsNil(t *testing.T) {
 	dependencies := phaseDependenciesValue(nil)
-
-	assert.Nil(t, dependencies)
+	core.AssertNil(t, dependencies)
+	core.AssertEqual(t, 0, len(dependencies))
 }

@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleMirrorInput() {
 	input := MirrorInput{Repo: "go-io"}

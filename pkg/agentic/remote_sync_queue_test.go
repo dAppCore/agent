@@ -4,14 +4,11 @@ package agentic
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestRemotesyncqueue_DrainReady_Good_EnqueueAndDrain(t *testing.T) {
@@ -35,14 +32,14 @@ func TestRemotesyncqueue_DrainReady_Good_EnqueueAndDrain(t *testing.T) {
 	}
 
 	synced := controller.drainReady(context.Background())
-	require.Equal(t, 1, synced)
-	assert.Empty(t, store.snapshot())
+	core.AssertEqual(t, 1, synced)
+	core.AssertEmpty(t, store.snapshot())
 
 	select {
 	case queued := <-pushed:
-		assert.Equal(t, "charon", queued.AgentID)
-		require.Len(t, queued.Dispatches, 1)
-		assert.Equal(t, "core/go-io/task-5", queued.Dispatches[0]["workspace"])
+		core.AssertEqual(t, "charon", queued.AgentID)
+		core.AssertLen(t, queued.Dispatches, 1)
+		core.AssertEqual(t, "core/go-io/task-5", queued.Dispatches[0]["workspace"])
 	case <-time.After(time.Second):
 		t.Fatal("expected queued push to be drained")
 	}
@@ -71,7 +68,7 @@ func TestRemotesyncqueue_Run_Bad_RetriesWithBackoff(t *testing.T) {
 			calls++
 			attempts <- calls
 			if calls < 3 {
-				return errors.New("offline")
+				return core.NewError("offline")
 			}
 			return nil
 		},
@@ -84,31 +81,31 @@ func TestRemotesyncqueue_Run_Bad_RetriesWithBackoff(t *testing.T) {
 		close(done)
 	}()
 
-	assert.Equal(t, 1, remoteSyncQueueReceiveAttempt(t, attempts))
-	require.Eventually(t, func() bool {
+	core.AssertEqual(t, 1, remoteSyncQueueReceiveAttempt(t, attempts))
+	requireEventually(t, func() bool {
 		queued := store.snapshot()
 		return len(queued) == 1 &&
 			queued[0].Attempts == 1 &&
 			queued[0].NextAttempt.Equal(start.Add(time.Second))
 	}, time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
 
 	clock.Advance(999 * time.Millisecond)
 	remoteSyncQueueAssertNoAttempt(t, attempts)
 
 	clock.Advance(time.Millisecond)
-	assert.Equal(t, 2, remoteSyncQueueReceiveAttempt(t, attempts))
-	require.Eventually(t, func() bool {
+	core.AssertEqual(t, 2, remoteSyncQueueReceiveAttempt(t, attempts))
+	requireEventually(t, func() bool {
 		queued := store.snapshot()
 		return len(queued) == 1 &&
 			queued[0].Attempts == 2 &&
 			queued[0].NextAttempt.Equal(start.Add(3*time.Second))
 	}, time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
 
 	clock.Advance(2 * time.Second)
-	assert.Equal(t, 3, remoteSyncQueueReceiveAttempt(t, attempts))
-	require.Eventually(t, func() bool { return len(store.snapshot()) == 0 }, time.Second, 10*time.Millisecond)
+	core.AssertEqual(t, 3, remoteSyncQueueReceiveAttempt(t, attempts))
+	requireEventually(t, func() bool { return len(store.snapshot()) == 0 }, time.Second, 10*time.Millisecond)
 
 	cancel()
 	select {
@@ -134,7 +131,7 @@ func TestRemotesyncqueue_Run_Ugly_ContextCancellationStopsDrainer(t *testing.T) 
 		close(done)
 	}()
 
-	require.Eventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return clock.WaiterCount() == 1 }, time.Second, 10*time.Millisecond)
 	cancel()
 
 	select {
@@ -163,7 +160,7 @@ func TestRemotesyncqueue_DrainReady_Ugly_MaxAttemptsExhaustedLogsAndDrops(t *tes
 		read:        store.read,
 		write:       store.write,
 		push: func(_ context.Context, _ syncQueuedPush) error {
-			return errors.New("offline")
+			return core.NewError("offline")
 		},
 		onDrop: func(queued syncQueuedPush, err error, at time.Time) {
 			recordSyncDrop(queued.AgentID, queued.FleetNodeID, queued.Dispatches, queued.Attempts, err, at)
@@ -174,17 +171,17 @@ func TestRemotesyncqueue_DrainReady_Ugly_MaxAttemptsExhaustedLogsAndDrops(t *tes
 	}
 
 	synced := controller.drainReady(context.Background())
-	require.Equal(t, 0, synced)
-	assert.Empty(t, store.snapshot())
-	require.Len(t, warnings, 1)
-	assert.Contains(t, warnings[0], "dropping sync queue entry")
+	core.AssertEqual(t, 0, synced)
+	core.AssertEmpty(t, store.snapshot())
+	core.AssertLen(t, warnings, 1)
+	core.AssertContains(t, warnings[0], "dropping sync queue entry")
 
 	records := readSyncRecords()
-	require.Len(t, records, 1)
-	assert.Equal(t, "drop", records[0].Direction)
-	assert.Equal(t, 2, records[0].Attempts)
-	assert.Equal(t, 1, records[0].ItemsCount)
-	assert.Contains(t, records[0].Reason, "offline")
+	core.AssertLen(t, records, 1)
+	core.AssertEqual(t, "drop", records[0].Direction)
+	core.AssertEqual(t, 2, records[0].Attempts)
+	core.AssertEqual(t, 1, records[0].ItemsCount)
+	core.AssertContains(t, records[0].Reason, "offline")
 }
 
 func TestRemotesyncqueue_FileQueue_Good_PersistsAcrossRestart(t *testing.T) {
@@ -197,13 +194,13 @@ func TestRemotesyncqueue_FileQueue_Good_PersistsAcrossRestart(t *testing.T) {
 		Dispatches: []map[string]any{{"workspace": "core/go-io/task-5", "status": "completed"}},
 	}})
 
-	assert.True(t, fs.Exists(syncQueuePath()))
+	core.AssertTrue(t, fs.Exists(syncQueuePath()))
 
 	restarted := readSyncQueue()
-	require.Len(t, restarted, 1)
-	assert.Equal(t, "charon", restarted[0].AgentID)
-	require.Len(t, restarted[0].Dispatches, 1)
-	assert.Equal(t, "core/go-io/task-5", restarted[0].Dispatches[0]["workspace"])
+	core.AssertLen(t, restarted, 1)
+	core.AssertEqual(t, "charon", restarted[0].AgentID)
+	core.AssertLen(t, restarted[0].Dispatches, 1)
+	core.AssertEqual(t, "core/go-io/task-5", restarted[0].Dispatches[0]["workspace"])
 }
 
 type remoteSyncQueueTestStore struct {
@@ -319,5 +316,67 @@ func remoteSyncQueueAssertNoAttempt(t *testing.T, attempts <-chan int) {
 	case attempt := <-attempts:
 		t.Fatalf("unexpected remote sync attempt %d", attempt)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Good(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	before := time.Now()
+	now := clock.Now()
+	after := time.Now()
+
+	core.AssertFalse(t, now.Before(before))
+	core.AssertFalse(t, now.After(after))
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Bad(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	now := clock.Now()
+
+	core.AssertFalse(t, now.IsZero())
+	core.AssertEqual(t, now.Location(), time.Now().Location())
+}
+
+func TestRemoteSyncQueue_SyncRealClock_Now_Ugly(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	first := clock.Now()
+	second := clock.Now()
+
+	core.AssertFalse(t, second.Before(first))
+	core.AssertFalse(t, first.IsZero())
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Good(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	start := time.Now()
+	ch := clock.After(time.Millisecond)
+
+	select {
+	case firedAt := <-ch:
+		core.AssertFalse(t, firedAt.Before(start))
+	case <-time.After(time.Second):
+		t.Fatal("expected remoteSyncRealClock.After to fire")
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Bad(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	ch := clock.After(0)
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("expected immediate After(0) notification")
+	}
+}
+
+func TestRemoteSyncQueue_SyncRealClock_After_Ugly(t *testing.T) {
+	clock := remoteSyncRealClock{}
+	ch := clock.After(-time.Millisecond)
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("expected After on negative delay to fire")
 	}
 }

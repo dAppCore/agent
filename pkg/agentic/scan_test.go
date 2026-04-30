@@ -6,14 +6,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // mockScanServer creates a server that handles repo listing and issue listing.
@@ -74,11 +70,11 @@ func mockScanServer(t *testing.T) *httptest.Server {
 
 // --- scan ---
 
-func TestScan_Scan_Good(t *testing.T) {
+func TestScan_Scan_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -86,22 +82,22 @@ func TestScan_Scan_Good(t *testing.T) {
 	}
 
 	_, out, err := s.scan(context.Background(), nil, ScanInput{Org: "core"})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Greater(t, out.Count, 0)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertGreater(t, out.Count, 0)
 	// Verify issues contain repos from mock server
 	repos := make(map[string]bool)
 	for _, iss := range out.Issues {
 		repos[iss.Repo] = true
 	}
-	assert.True(t, repos["go-io"] || repos["go-log"], "should contain issues from mock repos")
+	core.AssertTrue(t, repos["go-io"] || repos["go-log"], "should contain issues from mock repos")
 }
 
-func TestScan_AllRepos_Good(t *testing.T) {
+func TestScan_AllRepos_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -109,16 +105,16 @@ func TestScan_AllRepos_Good(t *testing.T) {
 	}
 
 	_, out, err := s.scan(context.Background(), nil, ScanInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Greater(t, out.Count, 0)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertGreater(t, out.Count, 0)
 }
 
-func TestScan_WithLimit_Good(t *testing.T) {
+func TestScan_WithLimit_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -126,16 +122,16 @@ func TestScan_WithLimit_Good(t *testing.T) {
 	}
 
 	_, out, err := s.scan(context.Background(), nil, ScanInput{Limit: 1})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.LessOrEqual(t, out.Count, 1)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertLessOrEqual(t, out.Count, 1)
 }
 
-func TestScan_DefaultLabels_Good(t *testing.T) {
+func TestScan_DefaultLabels_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -144,15 +140,15 @@ func TestScan_DefaultLabels_Good(t *testing.T) {
 
 	// Default labels: agentic, help-wanted, bug
 	_, out, err := s.scan(context.Background(), nil, ScanInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
-func TestScan_CustomLabels_Good(t *testing.T) {
+func TestScan_CustomLabels_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -162,15 +158,15 @@ func TestScan_CustomLabels_Good(t *testing.T) {
 	_, out, err := s.scan(context.Background(), nil, ScanInput{
 		Labels: []string{"bug"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
-func TestScan_Deduplicates_Good(t *testing.T) {
+func TestScan_Deduplicates_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -182,19 +178,19 @@ func TestScan_Deduplicates_Good(t *testing.T) {
 		Labels: []string{"agentic", "help-wanted"},
 		Limit:  50,
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 
 	// Check no duplicates (same repo+number)
 	seen := make(map[string]bool)
 	for _, issue := range out.Issues {
 		key := issue.Repo + "#" + itoa(issue.Number)
-		assert.False(t, seen[key], "duplicate issue: %s", key)
+		core.AssertFalse(t, seen[key], "duplicate issue: %s", key)
 		seen[key] = true
 	}
 }
 
-func TestScan_NoToken_Bad(t *testing.T) {
+func TestScan_NoToken_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		forgeToken:     "",
@@ -203,8 +199,8 @@ func TestScan_NoToken_Bad(t *testing.T) {
 	}
 
 	_, _, err := s.scan(context.Background(), nil, ScanInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token")
 }
 
 // --- listRepoIssues ---
@@ -220,11 +216,11 @@ func TestScan_ListRepoIssues_Good_ReturnsIssues(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "go-io", "agentic")
-	require.NoError(t, err)
-	assert.Len(t, issues, 2)
-	assert.Equal(t, "go-io", issues[0].Repo)
-	assert.Equal(t, 10, issues[0].Number)
-	assert.Contains(t, issues[0].Labels, "agentic")
+	core.RequireNoError(t, err)
+	core.AssertLen(t, issues, 2)
+	core.AssertEqual(t, "go-io", issues[0].Repo)
+	core.AssertEqual(t, 10, issues[0].Number)
+	core.AssertContains(t, issues[0].Labels, "agentic")
 }
 
 func TestScan_ListRepoIssues_Good_EmptyResult(t *testing.T) {
@@ -238,8 +234,8 @@ func TestScan_ListRepoIssues_Good_EmptyResult(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "agent", "agentic")
-	require.NoError(t, err)
-	assert.Empty(t, issues)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, issues)
 }
 
 func TestScan_ListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
@@ -253,17 +249,17 @@ func TestScan_ListRepoIssues_Good_AssigneeExtracted(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "go-io", "agentic")
-	require.NoError(t, err)
-	require.Len(t, issues, 2)
-	assert.Equal(t, "", issues[0].Assignee)
-	assert.Equal(t, "virgil", issues[1].Assignee)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, issues, 2)
+	core.AssertEqual(t, "", issues[0].Assignee)
+	core.AssertEqual(t, "virgil", issues[1].Assignee)
 }
 
 func TestScan_ListRepoIssues_Good_EncodesLabelQuery(t *testing.T) {
 	expectedLabel := "bug+urgent & review"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/repos/core/go-io/issues", r.URL.Path)
-		assert.Equal(t, expectedLabel, r.URL.Query().Get("labels"))
+		core.AssertEqual(t, "/api/v1/repos/core/go-io/issues", r.URL.Path)
+		core.AssertEqual(t, expectedLabel, r.URL.Query().Get("labels"))
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 	}))
 	t.Cleanup(srv.Close)
@@ -277,8 +273,8 @@ func TestScan_ListRepoIssues_Good_EncodesLabelQuery(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "go-io", expectedLabel)
-	require.NoError(t, err)
-	assert.Empty(t, issues)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, issues)
 }
 
 func TestScan_ListRepoIssues_Bad_ServerError(t *testing.T) {
@@ -296,7 +292,7 @@ func TestScan_ListRepoIssues_Bad_ServerError(t *testing.T) {
 	}
 
 	_, err := s.listRepoIssues(context.Background(), "core", "go-io", "agentic")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestScan_ListRepoIssues_Bad_InvalidJSON(t *testing.T) {
@@ -315,13 +311,13 @@ func TestScan_ListRepoIssues_Bad_InvalidJSON(t *testing.T) {
 	}
 
 	_, err := s.listRepoIssues(context.Background(), "core", "go-io", "agentic")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "parse issues response")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "parse issues response")
 }
 
 // --- scan Bad/Ugly ---
 
-func TestScan_Scan_Bad(t *testing.T) {
+func TestScan_Scan_Bad_Case(t *testing.T) {
 	// Forge returns error for org repos
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -330,7 +326,7 @@ func TestScan_Scan_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -338,13 +334,13 @@ func TestScan_Scan_Bad(t *testing.T) {
 	}
 
 	_, _, err := s.scan(context.Background(), nil, ScanInput{})
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestScan_Scan_Ugly(t *testing.T) {
+func TestScan_Scan_Ugly_Case(t *testing.T) {
 	// Org with no repos
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/orgs/") {
+		if core.Contains(r.URL.Path, "/orgs/") {
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
 			return
 		}
@@ -354,7 +350,7 @@ func TestScan_Scan_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -362,18 +358,18 @@ func TestScan_Scan_Ugly(t *testing.T) {
 	}
 
 	_, out, err := s.scan(context.Background(), nil, ScanInput{})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 0, out.Count)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 0, out.Count)
 }
 
 // --- listOrgRepos Good/Bad/Ugly ---
 
-func TestScan_ListOrgRepos_Good(t *testing.T) {
+func TestScan_ListOrgRepos_Good_Case(t *testing.T) {
 	srv := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -381,14 +377,14 @@ func TestScan_ListOrgRepos_Good(t *testing.T) {
 	}
 
 	repos, err := s.listOrgRepos(context.Background(), "core")
-	require.NoError(t, err)
-	assert.Len(t, repos, 3)
-	assert.Contains(t, repos, "go-io")
-	assert.Contains(t, repos, "go-log")
-	assert.Contains(t, repos, "agent")
+	core.RequireNoError(t, err)
+	core.AssertLen(t, repos, 3)
+	core.AssertContains(t, repos, "go-io")
+	core.AssertContains(t, repos, "go-log")
+	core.AssertContains(t, repos, "agent")
 }
 
-func TestScan_ListOrgRepos_Bad(t *testing.T) {
+func TestScan_ListOrgRepos_Bad_Case(t *testing.T) {
 	// Forge returns error
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -397,7 +393,7 @@ func TestScan_ListOrgRepos_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -405,10 +401,10 @@ func TestScan_ListOrgRepos_Bad(t *testing.T) {
 	}
 
 	_, err := s.listOrgRepos(context.Background(), "core")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestScan_ListOrgRepos_Ugly(t *testing.T) {
+func TestScan_ListOrgRepos_Ugly_Case(t *testing.T) {
 	// Empty org name
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{})))
@@ -417,7 +413,7 @@ func TestScan_ListOrgRepos_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -425,16 +421,16 @@ func TestScan_ListOrgRepos_Ugly(t *testing.T) {
 	}
 
 	repos, err := s.listOrgRepos(context.Background(), "")
-	require.NoError(t, err)
-	assert.Empty(t, repos)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, repos)
 }
 
 // --- listRepoIssues Ugly ---
 
-func TestScan_ListRepoIssues_Ugly(t *testing.T) {
+func TestScan_ListRepoIssues_Ugly_Case(t *testing.T) {
 	// Issues with very long titles
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		longTitle := strings.Repeat("Very Long Issue Title ", 50)
+		longTitle := repeatString("Very Long Issue Title ", 50)
 		w.Write([]byte(core.JSONMarshalString([]map[string]any{
 			{
 				"number":   1,
@@ -456,9 +452,9 @@ func TestScan_ListRepoIssues_Ugly(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "go-io", "agentic")
-	require.NoError(t, err)
-	assert.Len(t, issues, 1)
-	assert.True(t, len(issues[0].Title) > 100)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, issues, 1)
+	core.AssertTrue(t, len(issues[0].Title) > 100)
 }
 
 func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
@@ -484,8 +480,8 @@ func TestScan_ListRepoIssues_Good_URLRewrite(t *testing.T) {
 	}
 
 	issues, err := s.listRepoIssues(context.Background(), "core", "go-io", "")
-	require.NoError(t, err)
-	require.Len(t, issues, 1)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, issues, 1)
 	// URL should be rewritten to use the mock server URL
-	assert.Contains(t, issues[0].URL, srv.URL)
+	core.AssertContains(t, issues[0].URL, srv.URL)
 }

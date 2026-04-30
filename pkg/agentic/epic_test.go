@@ -6,15 +6,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // mockForgeServer creates an httptest server that handles Forge API calls
@@ -129,14 +125,14 @@ func newTestSubsystem(t *testing.T, srv *httptest.Server) *PrepSubsystem {
 	t.Helper()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:      forge.NewForge(srv.URL, "test-token"),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		brainURL:   srv.URL,
-		brainKey:   "test-brain-key",
-		codePath:   t.TempDir(),
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forge:          newForgeClient(srv.URL, "test-token"),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		brainURL:       srv.URL,
+		brainKey:       "test-brain-key",
+		codePath:       t.TempDir(),
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 	return s
 }
@@ -148,11 +144,11 @@ func TestEpic_CreateIssue_Good_Success(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	child, err := s.createIssue(context.Background(), "core", "test-repo", "Fix the bug", "Description", []int64{1})
-	require.NoError(t, err)
-	assert.Equal(t, 1, child.Number)
-	assert.Equal(t, "Fix the bug", child.Title)
-	assert.Contains(t, child.URL, "issues/1")
-	assert.Equal(t, int32(1), counter.Load())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, child.Number)
+	core.AssertEqual(t, "Fix the bug", child.Title)
+	core.AssertContains(t, child.URL, "issues/1")
+	core.AssertEqual(t, int32(1), counter.Load())
 }
 
 func TestEpic_CreateIssue_Good_NoLabels(t *testing.T) {
@@ -160,8 +156,8 @@ func TestEpic_CreateIssue_Good_NoLabels(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	child, err := s.createIssue(context.Background(), "core", "test-repo", "No labels task", "", nil)
-	require.NoError(t, err)
-	assert.Equal(t, "No labels task", child.Title)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "No labels task", child.Title)
 }
 
 func TestEpic_CreateIssue_Good_WithBody(t *testing.T) {
@@ -169,8 +165,8 @@ func TestEpic_CreateIssue_Good_WithBody(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	child, err := s.createIssue(context.Background(), "core", "test-repo", "Task with body", "Detailed description", []int64{1, 2})
-	require.NoError(t, err)
-	assert.NotZero(t, child.Number)
+	core.RequireNoError(t, err)
+	assertNotZero(t, child.Number)
 }
 
 func TestEpic_CreateIssue_Bad_ServerDown(t *testing.T) {
@@ -179,14 +175,14 @@ func TestEpic_CreateIssue_Bad_ServerDown(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, err := s.createIssue(context.Background(), "core", "test-repo", "Title", "", nil)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestEpic_CreateIssue_Bad_Non201Response(t *testing.T) {
@@ -197,14 +193,14 @@ func TestEpic_CreateIssue_Bad_Non201Response(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	_, err := s.createIssue(context.Background(), "core", "test-repo", "Title", "", nil)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 // --- resolveLabelIDs ---
@@ -214,9 +210,9 @@ func TestEpic_ResolveLabelIDs_Good_ExistingLabels(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", []string{"agentic", "bug"})
-	assert.Len(t, ids, 2)
-	assert.Contains(t, ids, int64(1))
-	assert.Contains(t, ids, int64(2))
+	core.AssertLen(t, ids, 2)
+	core.AssertContains(t, ids, int64(1))
+	core.AssertContains(t, ids, int64(2))
 }
 
 func TestEpic_ResolveLabelIDs_Good_NewLabel(t *testing.T) {
@@ -225,7 +221,7 @@ func TestEpic_ResolveLabelIDs_Good_NewLabel(t *testing.T) {
 
 	// "new-label" doesn't exist in mock, so it will be created
 	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", []string{"new-label"})
-	assert.NotEmpty(t, ids)
+	core.AssertNotEmpty(t, ids)
 }
 
 func TestEpic_ResolveLabelIDs_Good_EmptyNames(t *testing.T) {
@@ -233,7 +229,7 @@ func TestEpic_ResolveLabelIDs_Good_EmptyNames(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", nil)
-	assert.Nil(t, ids)
+	core.AssertNil(t, ids)
 }
 
 func TestEpic_ResolveLabelIDs_Bad_ServerError(t *testing.T) {
@@ -244,14 +240,14 @@ func TestEpic_ResolveLabelIDs_Bad_ServerError(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", []string{"agentic"})
-	assert.Nil(t, ids)
+	core.AssertNil(t, ids)
 }
 
 // --- createLabel ---
@@ -261,7 +257,7 @@ func TestEpic_CreateLabel_Good_Known(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	id := s.createLabel(context.Background(), "core", "test-repo", "agentic")
-	assert.NotZero(t, id)
+	assertNotZero(t, id)
 }
 
 func TestEpic_CreateLabel_Good_Unknown(t *testing.T) {
@@ -270,7 +266,7 @@ func TestEpic_CreateLabel_Good_Unknown(t *testing.T) {
 
 	// Unknown label uses default colour
 	id := s.createLabel(context.Background(), "core", "test-repo", "custom-label")
-	assert.NotZero(t, id)
+	assertNotZero(t, id)
 }
 
 func TestEpic_CreateLabel_Bad_ServerDown(t *testing.T) {
@@ -279,14 +275,14 @@ func TestEpic_CreateLabel_Bad_ServerDown(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeURL:   srv.URL,
-		forgeToken: "test-token",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeURL:       srv.URL,
+		forgeToken:     "test-token",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
 	id := s.createLabel(context.Background(), "core", "test-repo", "agentic")
-	assert.Zero(t, id)
+	assertZero(t, id)
 }
 
 // --- createEpic (validation only, not full dispatch) ---
@@ -295,74 +291,74 @@ func TestEpic_CreateEpic_Bad_NoTitle(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Tasks: []string{"Task 1"},
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "title is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "title is required")
 }
 
 func TestEpic_CreateEpic_Bad_NoTasks(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Epic Title",
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one task")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "at least one task")
 }
 
 func TestEpic_CreateEpic_Bad_NoToken(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forgeToken: "",
-		backoff:    make(map[string]time.Time),
-		failCount:  make(map[string]int),
+		forgeToken:     "",
+		backoff:        make(map[string]time.Time),
+		failCount:      make(map[string]int),
 	}
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Epic",
 		Tasks: []string{"Task"},
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no Forge token")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no Forge token")
 }
 
 func TestEpic_CreateEpic_Good_WithTasks(t *testing.T) {
 	srv, counter := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Test Epic",
 		Tasks: []string{"Task 1", "Task 2"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotZero(t, out.EpicNumber)
-	assert.Len(t, out.Children, 2)
-	assert.Equal(t, "Task 1", out.Children[0].Title)
-	assert.Equal(t, "Task 2", out.Children[1].Title)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	assertNotZero(t, out.EpicNumber)
+	core.AssertLen(t, out.Children, 2)
+	core.AssertEqual(t, "Task 1", out.Children[0].Title)
+	core.AssertEqual(t, "Task 2", out.Children[1].Title)
 	// 2 children + 1 epic = 3 issues
-	assert.Equal(t, int32(3), counter.Load())
+	core.AssertEqual(t, int32(3), counter.Load())
 }
 
 func TestEpic_CreateEpic_Good_WithLabels(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:   "test-repo",
 		Title:  "Labelled Epic",
 		Tasks:  []string{"Do it"},
 		Labels: []string{"bug"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
 func TestEpic_CreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
@@ -370,13 +366,13 @@ func TestEpic_CreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	// No labels specified — "agentic" should be auto-added
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Auto-labelled",
 		Tasks: []string{"Task"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
 func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
@@ -384,64 +380,64 @@ func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	// agentic already present — should not be duplicated
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:   "test-repo",
 		Title:  "With agentic",
 		Tasks:  []string{"Task"},
 		Labels: []string{"agentic"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
 }
 
 // --- Ugly tests ---
 
-func TestEpic_CreateEpic_Ugly(t *testing.T) {
+func TestEpic_CreateEpic_Ugly_Case(t *testing.T) {
 	// Very long title/description
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	longTitle := strings.Repeat("Very Long Epic Title ", 50)
-	longBody := strings.Repeat("Detailed description of the epic work to be done. ", 100)
+	longTitle := repeatString("Very Long Epic Title ", 50)
+	longBody := repeatString("Detailed description of the epic work to be done. ", 100)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: longTitle,
 		Body:  longBody,
 		Tasks: []string{"Task 1"},
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.NotZero(t, out.EpicNumber)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	assertNotZero(t, out.EpicNumber)
 }
 
-func TestEpic_CreateIssue_Ugly(t *testing.T) {
+func TestEpic_CreateIssue_Ugly_Case(t *testing.T) {
 	// Issue with HTML in body
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
 	htmlBody := "<h1>Issue</h1><p>This has <b>bold</b> and <script>alert('xss')</script></p>"
 	child, err := s.createIssue(context.Background(), "core", "test-repo", "HTML Issue", htmlBody, []int64{1})
-	require.NoError(t, err)
-	assert.Equal(t, "HTML Issue", child.Title)
-	assert.NotZero(t, child.Number)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "HTML Issue", child.Title)
+	assertNotZero(t, child.Number)
 }
 
-func TestEpic_ResolveLabelIDs_Ugly(t *testing.T) {
+func TestEpic_ResolveLabelIDs_Ugly_Case(t *testing.T) {
 	// Label names with special chars
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
 	ids := s.resolveLabelIDs(context.Background(), "core", "test-repo", []string{"bug/fix", "feature:new", "label with spaces"})
 	// These will all be created as new labels since they don't match existing ones
-	assert.NotNil(t, ids)
+	core.AssertNotNil(t, ids)
 }
 
-func TestEpic_CreateLabel_Ugly(t *testing.T) {
+func TestEpic_CreateLabel_Ugly_Case(t *testing.T) {
 	// Label with unicode name
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
 	id := s.createLabel(context.Background(), "core", "test-repo", "\u00e9nhancement-\u00fc\u00f1ic\u00f6de")
-	assert.NotZero(t, id)
+	assertNotZero(t, id)
 }

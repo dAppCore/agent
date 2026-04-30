@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -40,10 +40,12 @@ func (s *PrepSubsystem) registerEpicTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_create_epic",
 		Description: "Create an epic issue with child issues on Forge. Each task becomes a child issue linked via checklist. Optionally auto-dispatch agents to work each child.",
-	}, s.createEpic)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
+		return createEpic(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
+var createEpic = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
 	if input.Title == "" {
 		return nil, EpicOutput{}, core.E("createEpic", "title is required", nil)
 	}
@@ -79,7 +81,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 
 	var children []ChildRef
 	for _, task := range input.Tasks {
-		child, err := s.createIssue(ctx, input.Org, input.Repo, task, "", labelIDs)
+		child, err := createIssue(s, ctx, input.Org, input.Repo, task, "", labelIDs)
 		if err != nil {
 			continue
 		}
@@ -97,7 +99,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 	}
 
 	epicLabels := append(labelIDs, s.resolveLabelIDs(ctx, input.Org, input.Repo, []string{"epic"})...)
-	epic, err := s.createIssue(ctx, input.Org, input.Repo, input.Title, body.String(), epicLabels)
+	epic, err := createIssue(s, ctx, input.Org, input.Repo, input.Title, body.String(), epicLabels)
 	if err != nil {
 		return nil, EpicOutput{}, core.E("createEpic", "failed to create epic", err)
 	}
@@ -111,7 +113,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 
 	if input.Dispatch {
 		for _, child := range children {
-			_, _, err := s.dispatch(ctx, callRequest, DispatchInput{
+			_, _, err := dispatch(s, ctx, callRequest, DispatchInput{
 				Repo:     input.Repo,
 				Org:      input.Org,
 				Task:     child.Title,
@@ -129,7 +131,7 @@ func (s *PrepSubsystem) createEpic(ctx context.Context, callRequest *mcp.CallToo
 }
 
 // child, err := s.createIssue(ctx, "core", "go-scm", "Port agentic plans", "", nil)
-func (s *PrepSubsystem) createIssue(ctx context.Context, org, repo, title, body string, labelIDs []int64) (ChildRef, error) {
+var createIssue = func(s *PrepSubsystem, ctx context.Context, org, repo, title, body string, labelIDs []int64) (ChildRef, error) {
 	payload := map[string]any{
 		"title": title,
 	}

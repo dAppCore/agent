@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,15 +17,15 @@ import (
 //	    Type:    "convention",
 //	}
 type RememberInput struct {
-	Content    string   `json:"content"`
-	Type       string   `json:"type"`
-	Tags       []string `json:"tags,omitempty"`
+	Content string   `json:"content"`
+	Type    string   `json:"type"`
+	Tags    []string `json:"tags,omitempty"`
 	// Usage example: `input := brain.RememberInput{Org: "core"}` — optional organisation scope; empty = global.
-	Org        string   `json:"org,omitempty"`
-	Project    string   `json:"project,omitempty"`
-	Confidence float64  `json:"confidence,omitempty"`
-	Supersedes string   `json:"supersedes,omitempty"`
-	ExpiresIn  int      `json:"expires_in,omitempty"`
+	Org        string  `json:"org,omitempty"`
+	Project    string  `json:"project,omitempty"`
+	Confidence float64 `json:"confidence,omitempty"`
+	Supersedes string  `json:"supersedes,omitempty"`
+	ExpiresIn  int     `json:"expires_in,omitempty"`
 }
 
 //	output := brain.RememberOutput{
@@ -53,9 +53,9 @@ type RecallInput struct {
 //	    Type:    "convention",
 //	}
 type RecallFilter struct {
-	Project       string  `json:"project,omitempty"`
-	Type          any     `json:"type,omitempty"`
-	AgentID       string  `json:"agent_id,omitempty"`
+	Project string `json:"project,omitempty"`
+	Type    any    `json:"type,omitempty"`
+	AgentID string `json:"agent_id,omitempty"`
 	// Usage example: `filter := brain.RecallFilter{Org: "core"}` — scope recall to a specific org; empty = all.
 	Org           string  `json:"org,omitempty"`
 	MinConfidence float64 `json:"min_confidence,omitempty"`
@@ -77,25 +77,25 @@ type RecallOutput struct {
 //	    Content: "Use core.Env for system paths.",
 //	}
 type Memory struct {
-	ID              string   `json:"id"`
-	WorkspaceID     string   `json:"workspace_id,omitempty"`
-	AgentID         string   `json:"agent_id"`
-	Type            string   `json:"type"`
-	Content         string   `json:"content"`
-	Tags            []string `json:"tags,omitempty"`
+	ID          string   `json:"id"`
+	WorkspaceID string   `json:"workspace_id,omitempty"`
+	AgentID     string   `json:"agent_id"`
+	Type        string   `json:"type"`
+	Content     string   `json:"content"`
+	Tags        []string `json:"tags,omitempty"`
 	// Usage example: `memory := brain.Memory{Org: "core"}` — optional organisation scope (null/empty = global).
-	Org             string   `json:"org,omitempty"`
-	Project         string   `json:"project,omitempty"`
-	Source          string   `json:"source,omitempty"`
-	Confidence      float64  `json:"confidence"`
-	SupersedesID    string   `json:"supersedes_id,omitempty"`
-	SupersedesCount int      `json:"supersedes_count,omitempty"`
+	Org             string  `json:"org,omitempty"`
+	Project         string  `json:"project,omitempty"`
+	Source          string  `json:"source,omitempty"`
+	Confidence      float64 `json:"confidence"`
+	SupersedesID    string  `json:"supersedes_id,omitempty"`
+	SupersedesCount int     `json:"supersedes_count,omitempty"`
 	// Usage example: `memory := brain.Memory{IndexedAt: "2026-04-14T10:00:00Z"}` — when Qdrant/ES indexing finished (empty = pending).
-	IndexedAt       string   `json:"indexed_at,omitempty"`
-	ExpiresAt       string   `json:"expires_at,omitempty"`
-	DeletedAt       string   `json:"deleted_at,omitempty"`
-	CreatedAt       string   `json:"created_at"`
-	UpdatedAt       string   `json:"updated_at"`
+	IndexedAt string `json:"indexed_at,omitempty"`
+	ExpiresAt string `json:"expires_at,omitempty"`
+	DeletedAt string `json:"deleted_at,omitempty"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // memory := brain.BrainMemory{ID: "mem_123", Type: "convention", Content: "Use core.Trim for clean input."}
@@ -129,8 +129,8 @@ type ListInput struct {
 	Type    string `json:"type,omitempty"`
 	AgentID string `json:"agent_id,omitempty"`
 	// Usage example: `input := brain.ListInput{Org: "core"}` — filter by org; empty = all.
-	Org     string `json:"org,omitempty"`
-	Limit   int    `json:"limit,omitempty"`
+	Org   string `json:"org,omitempty"`
+	Limit int    `json:"limit,omitempty"`
 }
 
 //	output := brain.ListOutput{
@@ -147,25 +147,33 @@ func (s *Subsystem) registerBrainTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in the shared OpenBrain knowledge store. Persists decisions, observations, conventions, research, plans, bugs, or architecture knowledge for other agents.",
-	}, s.brainRemember)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+		return brainRemember(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across the shared OpenBrain knowledge store. Returns memories ranked by similarity to your query, with optional filtering.",
-	}, s.brainRecall)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+		return brainRecall(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from the shared OpenBrain knowledge store. Permanently deletes from both database and vector index.",
-	}, s.brainForget)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+		return brainForget(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.",
-	}, s.brainList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+		return brainList(s, ctx, request, input)
+	})
 }
 
-func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+var brainRemember = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
 	if s.bridge == nil {
 		return nil, RememberOutput{}, errBridgeNotAvailable
 	}
@@ -193,7 +201,7 @@ func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, inp
 	}, nil
 }
 
-func (s *Subsystem) brainRecall(_ context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+var brainRecall = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
 	if s.bridge == nil {
 		return nil, RecallOutput{}, errBridgeNotAvailable
 	}
@@ -216,7 +224,7 @@ func (s *Subsystem) brainRecall(_ context.Context, _ *mcp.CallToolRequest, input
 	}, nil
 }
 
-func (s *Subsystem) brainForget(_ context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+var brainForget = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
 	if s.bridge == nil {
 		return nil, ForgetOutput{}, errBridgeNotAvailable
 	}
@@ -239,7 +247,7 @@ func (s *Subsystem) brainForget(_ context.Context, _ *mcp.CallToolRequest, input
 	}, nil
 }
 
-func (s *Subsystem) brainList(_ context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+var brainList = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
 	if s.bridge == nil {
 		return nil, ListOutput{}, errBridgeNotAvailable
 	}

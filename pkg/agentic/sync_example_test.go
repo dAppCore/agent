@@ -2,22 +2,22 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_shouldSyncStatus() {
-	fmt.Println(shouldSyncStatus("completed"))
-	fmt.Println(shouldSyncStatus("running"))
+	core.Println(shouldSyncStatus("completed"))
+	core.Println(shouldSyncStatus("running"))
 	// Output:
 	// true
 	// false
 }
 
 func Example_syncBackoffSchedule() {
-	fmt.Println(syncBackoffSchedule(1))
-	fmt.Println(syncBackoffSchedule(2))
-	fmt.Println(syncBackoffSchedule(3))
-	fmt.Println(syncBackoffSchedule(4))
-	fmt.Println(syncBackoffSchedule(5))
+	core.Println(syncBackoffSchedule(1))
+	core.Println(syncBackoffSchedule(2))
+	core.Println(syncBackoffSchedule(3))
+	core.Println(syncBackoffSchedule(4))
+	core.Println(syncBackoffSchedule(5))
 	// Output:
 	// 1s
 	// 5s

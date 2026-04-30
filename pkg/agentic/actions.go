@@ -8,10 +8,9 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(
@@ -33,7 +32,7 @@ func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options
 	}
 
 	input := dispatchInputFromOptions(options)
-	_, out, err := s.dispatch(ctx, nil, input)
+	_, out, err := dispatch(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -51,7 +50,7 @@ func (s *PrepSubsystem) handleDispatch(ctx context.Context, options core.Options
 // ))
 func (s *PrepSubsystem) handlePrep(ctx context.Context, options core.Options) core.Result {
 	input := prepInputFromOptions(options)
-	_, out, err := s.prepWorkspace(ctx, nil, input)
+	_, out, err := prepWorkspace(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -65,7 +64,7 @@ func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) 
 		Limit:     options.Int("limit"),
 		Status:    options.String("status"),
 	}
-	_, out, err := s.status(ctx, nil, input)
+	_, out, err := status(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -79,17 +78,13 @@ func (s *PrepSubsystem) handleStatus(ctx context.Context, options core.Options) 
 // ))
 func (s *PrepSubsystem) handleResume(ctx context.Context, options core.Options) core.Result {
 	input := resumeInputFromOptions(options)
-	_, out, err := s.resume(ctx, nil, input)
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: out, OK: true}
+	return typedResultValue[ResumeOutput]("agentic.resume", "invalid resume output", s.resume(ctx, input))
 }
 
 // result := c.Action("agentic.scan").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleScan(ctx context.Context, options core.Options) core.Result {
 	input := scanInputFromOptions(options)
-	_, out, err := s.scan(ctx, nil, input)
+	_, out, err := scan(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -144,7 +139,7 @@ func (s *PrepSubsystem) handleWorkspaceStats(_ context.Context, options core.Opt
 // ))
 func (s *PrepSubsystem) handleWatch(ctx context.Context, options core.Options) core.Result {
 	input := watchInputFromOptions(options)
-	_, out, err := s.watch(ctx, nil, input)
+	_, out, err := watch(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -180,11 +175,11 @@ func (s *PrepSubsystem) handleFlow(_ context.Context, options core.Options) core
 
 // result := c.Action("agentic.persona").Run(ctx, core.NewOptions(
 //
-//	core.Option{Key: "path", Value: "code/backend-architect"},
+//	core.Option{Key: `path`, Value: "code/backend-architect"},
 //
 // ))
 func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) core.Result {
-	return lib.Persona(options.String("path"))
+	return lib.Persona(options.String(`path`))
 }
 
 // result := c.Action("agentic.complete").Run(ctx, core.NewOptions(
@@ -193,9 +188,13 @@ func (s *PrepSubsystem) handlePersona(_ context.Context, options core.Options) c
 //
 // ))
 func (s *PrepSubsystem) handleComplete(ctx context.Context, options core.Options) core.Result {
+	if s == nil || s.ServiceRuntime == nil {
+		return core.Fail(core.E("agentic.complete", "core runtime is required", nil))
+	}
+
 	c := s.Core()
 	if c == nil {
-		return core.Result{Value: core.E("agentic.complete", "core runtime is required", nil), OK: false}
+		return core.Fail(core.E("agentic.complete", "core runtime is required", nil))
 	}
 	return c.Task("agent.completion").Run(ctx, c, options)
 }
@@ -211,20 +210,20 @@ type CompleteOutput struct {
 	Workspace string `json:"workspace"`
 }
 
-func (s *PrepSubsystem) completeTool(ctx context.Context, _ *mcp.CallToolRequest, input CompleteInput) (*mcp.CallToolResult, CompleteOutput, error) {
+func (s *PrepSubsystem) completeTool(ctx context.Context, input CompleteInput) core.Result {
 	if input.Workspace == "" {
-		return nil, CompleteOutput{}, core.E("agentic.complete", "workspace is required", nil)
+		return core.Fail(core.E("agentic.complete", "workspace is required", nil))
 	}
 
 	result := s.handleComplete(ctx, core.NewOptions(core.Option{Key: "workspace", Value: input.Workspace}))
 	if !result.OK {
-		return nil, CompleteOutput{}, resultErrorValue("agentic.complete", result)
+		return failureResult("agentic.complete", "request failed", result)
 	}
 
-	return nil, CompleteOutput{
+	return core.Ok(CompleteOutput{
 		Success:   true,
 		Workspace: input.Workspace,
-	}, nil
+	})
 }
 
 // result := c.Action("agentic.qa").Run(ctx, core.NewOptions(
@@ -365,11 +364,7 @@ func (s *PrepSubsystem) handlePoke(ctx context.Context, _ core.Options) core.Res
 // ))
 func (s *PrepSubsystem) handleMirror(ctx context.Context, options core.Options) core.Result {
 	input := mirrorInputFromOptions(options)
-	_, out, err := s.mirror(ctx, nil, input)
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: out, OK: true}
+	return typedResultValue[MirrorOutput]("agentic.mirror", "invalid mirror output", s.mirror(ctx, input))
 }
 
 // result := c.Action("agentic.issue.get").Run(ctx, core.NewOptions(
@@ -452,7 +447,7 @@ func (s *PrepSubsystem) handleBranchDelete(ctx context.Context, options core.Opt
 		Repo:   optionStringValue(options, "repo", "_arg"),
 		Branch: optionStringValue(options, "branch"),
 	}
-	_, out, err := s.deleteBranch(ctx, nil, input)
+	_, out, err := deleteBranch(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -466,7 +461,7 @@ func (s *PrepSubsystem) handleBranchDelete(ctx context.Context, options core.Opt
 // ))
 func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Options) core.Result {
 	input := reviewQueueInputFromOptions(options)
-	_, out, err := s.reviewQueue(ctx, nil, input)
+	_, out, err := reviewQueue(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -480,7 +475,7 @@ func (s *PrepSubsystem) handleReviewQueue(ctx context.Context, options core.Opti
 // ))
 func (s *PrepSubsystem) handleEpic(ctx context.Context, options core.Options) core.Result {
 	input := epicInputFromOptions(options)
-	_, out, err := s.createEpic(ctx, nil, input)
+	_, out, err := createEpic(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}

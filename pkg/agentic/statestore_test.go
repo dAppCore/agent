@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // withStateStoreTempDir redirects CORE_WORKSPACE to a fresh temporary
@@ -25,7 +25,7 @@ func withStateStoreTempDir(t *testing.T) {
 // returned on subsequent calls (lazy once semantics).
 //
 // Usage example: `go test ./pkg/agentic -run TestStatestore_StateStoreInstance_Good`
-func TestStatestore_StateStoreInstance_Good(t *testing.T) {
+func TestStatestore_StateStoreInstance_Good_Case(t *testing.T) {
 	withStateStoreTempDir(t)
 
 	subsystem := &PrepSubsystem{}
@@ -399,6 +399,9 @@ func TestStatestore_RecoverStateOrphans_Bad_MissingStateDir(t *testing.T) {
 func TestStatestore_RecoverStateOrphans_Ugly_NilSubsystem(t *testing.T) {
 	var subsystem *PrepSubsystem
 	subsystem.recoverStateOrphans()
+	store := subsystem.stateStoreInstance()
+	core.AssertNil(t, store)
+	core.AssertNil(t, subsystem.stateStoreErr())
 }
 
 // TestStatestore_SyncQueue_Good_PersistsViaStore verifies RFC §16.5 —

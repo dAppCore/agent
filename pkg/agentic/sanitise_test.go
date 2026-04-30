@@ -5,18 +5,23 @@ package agentic
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 func TestSanitise_SanitiseBranchSlug_Good_Basic(t *testing.T) {
-	assert.Equal(t, "fix-broken-tests", sanitiseBranchSlug("Fix broken tests", 40))
+	result := sanitiseBranchSlug("Fix broken tests", 40)
+	core.AssertEqual(t, "fix-broken-tests", result)
+	core.AssertNotContains(t, result, " ")
 }
 
 func TestSanitise_SanitiseBranchSlug_Bad_Empty(t *testing.T) {
-	assert.Equal(t, "", sanitiseBranchSlug("", 40))
+	result := sanitiseBranchSlug("", 40)
+	core.AssertEqual(t, "", result)
+	core.AssertEmpty(t, result)
 }
 
 func TestSanitise_SanitiseBranchSlug_Ugly_Truncate(t *testing.T) {
 	result := sanitiseBranchSlug("a very long description that exceeds the limit", 10)
-	assert.True(t, len(result) <= 10)
+	core.AssertTrue(t, len(result) <= 10)
+	core.AssertNotEmpty(t, result)
 }

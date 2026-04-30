@@ -4,37 +4,33 @@ package agentic
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- mcpInitialize ---
 
-func TestRemoteclient_McpInitialize_Good(t *testing.T) {
+func TestMcpInitialize_RemoteClient_Initialize_Good(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "application/json", r.Header.Get("Content-Type"))
+		core.AssertEqual(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		if callCount == 1 {
 			// Initialize request
 			var body map[string]any
 			bodyStr := core.ReadAll(r.Body)
 			core.JSONUnmarshalString(bodyStr.Value.(string), &body)
-			assert.Equal(t, "initialize", body["method"])
+			core.AssertEqual(t, "initialize", body["method"])
 
 			w.Header().Set("Mcp-Session-Id", "session-abc")
 			w.Header().Set("Content-Type", "text/event-stream")
-			fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+			_ = core.WriteString(w, "data: {\"result\":{}}\n\n")
 		} else {
 			// Initialized notification
 			w.WriteHeader(200)
@@ -43,9 +39,9 @@ func TestRemoteclient_McpInitialize_Good(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	sessionID, err := mcpInitialize(context.Background(), srv.URL, "test-token")
-	require.NoError(t, err)
-	assert.Equal(t, "session-abc", sessionID)
-	assert.Equal(t, 2, callCount, "should make init + notification requests")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "session-abc", sessionID)
+	core.AssertEqual(t, 2, callCount, "should make init + notification requests")
 }
 
 func TestRemoteclient_McpInitialize_Bad_ServerError(t *testing.T) {
@@ -55,67 +51,67 @@ func TestRemoteclient_McpInitialize_Bad_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	_, err := mcpInitialize(context.Background(), srv.URL, "")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "HTTP 500")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "HTTP 500")
 }
 
-func TestRemoteclient_McpInitialize_Bad_MissingSessionID(t *testing.T) {
+func TestMcpInitialize_RemoteClient_Initialize_Bad_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "data: {\"result\":{}}\n\n")
+		_ = core.WriteString(w, "data: {\"result\":{}}\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	_, err := mcpInitialize(context.Background(), srv.URL, "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing session id")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "missing session id")
 }
 
 func TestRemoteclient_McpInitialize_Bad_Unreachable(t *testing.T) {
 	_, err := mcpInitialize(context.Background(), "http://127.0.0.1:1", "")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "request failed")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "request failed")
 }
 
 // --- mcpCall ---
 
-func TestRemoteclient_McpCall_Good(t *testing.T) {
+func TestMcpCall_RemoteClient_Call_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer mytoken", r.Header.Get("Authorization"))
-		assert.Equal(t, "sess-123", r.Header.Get("Mcp-Session-Id"))
+		core.AssertEqual(t, "Bearer mytoken", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "sess-123", r.Header.Get("Mcp-Session-Id"))
 
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "event: message\ndata: {\"result\":{\"content\":[{\"text\":\"hello\"}]}}\n\n")
+		_ = core.WriteString(w, "event: message\ndata: {\"result\":{\"content\":[{\"text\":\"hello\"}]}}\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
 	result, err := mcpCall(context.Background(), srv.URL, "mytoken", "sess-123", body)
-	require.NoError(t, err)
-	assert.Contains(t, string(result), "hello")
+	core.RequireNoError(t, err)
+	core.AssertContains(t, string(result), "hello")
 }
 
-func TestRemoteclient_McpCall_Bad_HTTP500(t *testing.T) {
+func TestMcpCall_RemoteClient_Call_Bad_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
 	t.Cleanup(srv.Close)
 
 	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "HTTP 500")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "HTTP 500")
 }
 
 func TestRemoteclient_McpCall_Bad_NoSSEData(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "event: ping\n\n") // No data: line
+		_ = core.WriteString(w, "event: ping\n\n") // No data: line
 	}))
 	t.Cleanup(srv.Close)
 
 	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no data")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no data")
 }
 
 // --- setHeaders ---
@@ -124,76 +120,76 @@ func TestRemoteclient_SetHeaders_Good_All(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	mcpHeaders(req, "my-token", "my-session")
 
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-	assert.Equal(t, "application/json, text/event-stream", req.Header.Get("Accept"))
-	assert.Equal(t, "Bearer my-token", req.Header.Get("Authorization"))
-	assert.Equal(t, "my-session", req.Header.Get("Mcp-Session-Id"))
+	core.AssertEqual(t, "application/json", req.Header.Get("Content-Type"))
+	core.AssertEqual(t, "application/json, text/event-stream", req.Header.Get("Accept"))
+	core.AssertEqual(t, "Bearer my-token", req.Header.Get("Authorization"))
+	core.AssertEqual(t, "my-session", req.Header.Get("Mcp-Session-Id"))
 }
 
 func TestRemoteclient_SetHeaders_Good_NoToken(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	mcpHeaders(req, "", "")
 
-	assert.Empty(t, req.Header.Get("Authorization"))
-	assert.Empty(t, req.Header.Get("Mcp-Session-Id"))
+	core.AssertEmpty(t, req.Header.Get("Authorization"))
+	core.AssertEmpty(t, req.Header.Get("Mcp-Session-Id"))
 }
 
 // --- setHeaders Bad ---
 
-func TestRemoteclient_SetHeaders_Bad(t *testing.T) {
+func TestRemoteclient_SetHeaders_Bad_Case(t *testing.T) {
 	// Both token and session empty — only Content-Type and Accept are set
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
 	mcpHeaders(req, "", "")
 
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-	assert.Equal(t, "application/json, text/event-stream", req.Header.Get("Accept"))
-	assert.Empty(t, req.Header.Get("Authorization"), "no auth header when token is empty")
-	assert.Empty(t, req.Header.Get("Mcp-Session-Id"), "no session header when session is empty")
+	core.AssertEqual(t, "application/json", req.Header.Get("Content-Type"))
+	core.AssertEqual(t, "application/json, text/event-stream", req.Header.Get("Accept"))
+	core.AssertEmpty(t, req.Header.Get("Authorization"), "no auth header when token is empty")
+	core.AssertEmpty(t, req.Header.Get("Mcp-Session-Id"), "no session header when session is empty")
 }
 
 // --- readSSEData ---
 
-func TestRemoteclient_ReadSSEData_Good(t *testing.T) {
+func TestRemoteclient_ReadSSEData_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "event: message\ndata: {\"key\":\"value\"}\n\n")
+		_ = core.WriteString(w, "event: message\ndata: {\"key\":\"value\"}\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	data, err := readSSEData(resp)
-	require.NoError(t, err)
-	assert.Equal(t, `{"key":"value"}`, string(data))
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, `{"key":"value"}`, string(data))
 }
 
 func TestRemoteclient_ReadSSEData_Bad_NoData(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "event: ping\n\n")
+		_ = core.WriteString(w, "event: ping\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	_, err = readSSEData(resp)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no data")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no data")
 }
 
 // --- drainSSE ---
 
-func TestRemoteclient_DrainSSE_Good(t *testing.T) {
+func TestRemoteclient_DrainSSE_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "data: line1\ndata: line2\n\n")
+		_ = core.WriteString(w, "data: line1\ndata: line2\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	// Should not panic
@@ -202,24 +198,24 @@ func TestRemoteclient_DrainSSE_Good(t *testing.T) {
 
 // --- McpInitialize Ugly ---
 
-func TestRemoteclient_McpInitialize_Ugly_NonJSONSSE(t *testing.T) {
+func TestMcpInitialize_RemoteClient_Initialize_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Mcp-Session-Id", "sess-ugly")
 		w.Header().Set("Content-Type", "text/event-stream")
 		// Return non-JSON in SSE data line
-		fmt.Fprintf(w, "data: this is not json at all\n\n")
+		_ = core.WriteString(w, "data: this is not json at all\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	// mcpInitialize drains the SSE body but doesn't parse it — should succeed
 	sessionID, err := mcpInitialize(context.Background(), srv.URL, "tok")
-	require.NoError(t, err)
-	assert.Equal(t, "sess-ugly", sessionID)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "sess-ugly", sessionID)
 }
 
 // --- McpCall Ugly ---
 
-func TestRemoteclient_McpCall_Ugly_EmptyResponseBody(t *testing.T) {
+func TestMcpCall_RemoteClient_Call_Ugly_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		// Write nothing — empty body
@@ -227,8 +223,8 @@ func TestRemoteclient_McpCall_Ugly_EmptyResponseBody(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	_, err := mcpCall(context.Background(), srv.URL, "", "", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no data")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no data")
 }
 
 // --- ReadSSEData Ugly ---
@@ -237,29 +233,29 @@ func TestRemoteclient_ReadSSEData_Ugly_OnlyEventLines(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		// Only event: lines, no data: lines
-		fmt.Fprintf(w, "event: message\nevent: done\n\n")
+		_ = core.WriteString(w, "event: message\nevent: done\n\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	_, err = readSSEData(resp)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no data")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no data")
 }
 
 // --- SetHeaders Ugly ---
 
 func TestRemoteclient_SetHeaders_Ugly_VeryLongToken(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	longToken := strings.Repeat("a", 10000)
+	longToken := repeatString("a", 10000)
 	mcpHeaders(req, longToken, "sess-123")
 
-	assert.Equal(t, "Bearer "+longToken, req.Header.Get("Authorization"))
-	assert.Equal(t, "sess-123", req.Header.Get("Mcp-Session-Id"))
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
+	core.AssertEqual(t, "Bearer "+longToken, req.Header.Get("Authorization"))
+	core.AssertEqual(t, "sess-123", req.Header.Get("Mcp-Session-Id"))
+	core.AssertEqual(t, "application/json", req.Header.Get("Content-Type"))
 }
 
 // --- DrainSSE Bad/Ugly ---
@@ -271,29 +267,29 @@ func TestRemoteclient_DrainSSE_Bad_EmptyBody(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	// Should not panic on empty body
-	assert.NotPanics(t, func() { drainSSE(resp) })
+	core.AssertNotPanics(t, func() { drainSSE(resp) })
 }
 
 func TestRemoteclient_DrainSSE_Ugly_VeryLargeResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Write many SSE lines
 		for i := 0; i < 1000; i++ {
-			fmt.Fprintf(w, "data: line-%d padding-text-to-make-it-bigger-and-test-scanner-handling\n", i)
+			_ = core.WriteString(w, core.Sprintf("data: line-%d padding-text-to-make-it-bigger-and-test-scanner-handling\n", i))
 		}
-		fmt.Fprintf(w, "\n")
+		_ = core.WriteString(w, "\n")
 	}))
 	t.Cleanup(srv.Close)
 
 	resp, err := http.Get(srv.URL)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	defer resp.Body.Close()
 
 	// Should drain all lines without panic
-	assert.NotPanics(t, func() { drainSSE(resp) })
+	core.AssertNotPanics(t, func() { drainSSE(resp) })
 }
 
 // --- RemoteClient ---
@@ -303,24 +299,24 @@ func TestRemoteClient_NewRemoteClient_Good(t *testing.T) {
 
 	client := NewRemoteClient("charon")
 
-	assert.Equal(t, "charon", client.Host)
-	assert.Equal(t, "10.69.69.165:9101", client.Address)
-	assert.Equal(t, "token-123", client.Token)
-	assert.Equal(t, "http://10.69.69.165:9101/mcp", client.URL)
+	core.AssertEqual(t, "charon", client.Host)
+	core.AssertEqual(t, "10.69.69.165:9101", client.Address)
+	core.AssertEqual(t, "token-123", client.Token)
+	core.AssertEqual(t, "http://10.69.69.165:9101/mcp", client.URL)
 }
 
-func TestRemoteClient_NewRemoteClient_Good_TrimmedInput(t *testing.T) {
+func TestTrimmedInput_NewRemoteClient_Ugly(t *testing.T) {
 	t.Setenv("AGENT_TOKEN_CHARON", "token-123")
 
 	client := NewRemoteClient("  charon  ")
 
-	assert.Equal(t, "charon", client.Host)
-	assert.Equal(t, "10.69.69.165:9101", client.Address)
-	assert.Equal(t, "token-123", client.Token)
-	assert.Equal(t, "http://10.69.69.165:9101/mcp", client.URL)
+	core.AssertEqual(t, "charon", client.Host)
+	core.AssertEqual(t, "10.69.69.165:9101", client.Address)
+	core.AssertEqual(t, "token-123", client.Token)
+	core.AssertEqual(t, "http://10.69.69.165:9101/mcp", client.URL)
 }
 
-func TestRemoteClient_ToolCallBody_Good(t *testing.T) {
+func TestToolCallBody_RemoteClient_ToolCallBody_Good(t *testing.T) {
 	client := NewRemoteClient("local")
 
 	body := client.ToolCallBody(7, "agentic_status", map[string]any{
@@ -329,32 +325,193 @@ func TestRemoteClient_ToolCallBody_Good(t *testing.T) {
 
 	var payload map[string]any
 	result := core.JSONUnmarshal(body, &payload)
-	require.True(t, result.OK)
-	assert.Equal(t, "2.0", payload["jsonrpc"])
-	assert.Equal(t, float64(7), payload["id"])
-	assert.Equal(t, "tools/call", payload["method"])
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, "2.0", payload["jsonrpc"])
+	core.AssertEqual(t, float64(7), payload["id"])
+	core.AssertEqual(t, "tools/call", payload["method"])
 	params, ok := payload["params"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "agentic_status", params["name"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "agentic_status", params["name"])
 }
 
 func TestRemoteClient_NewRemoteClient_Bad(t *testing.T) {
 	client := NewRemoteClient("")
 
-	assert.Equal(t, ":9101", client.Address)
-	assert.Equal(t, "http://:9101/mcp", client.URL)
+	core.AssertEqual(t, ":9101", client.Address)
+	core.AssertEqual(t, "http://:9101/mcp", client.URL)
 }
 
-func TestRemoteClient_ToolCallBody_Ugly(t *testing.T) {
+func TestToolCallBody_RemoteClient_ToolCallBody_Ugly(t *testing.T) {
 	client := NewRemoteClient("my-host.local")
 
 	body := client.ToolCallBody(0, "", nil)
 
 	var payload map[string]any
 	result := core.JSONUnmarshal(body, &payload)
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	params, ok := payload["params"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "", params["name"])
-	assert.Nil(t, params["arguments"])
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "", params["name"])
+	core.AssertNil(t, params["arguments"])
+}
+
+func TestRemoteClient_NewRemoteClient_Ugly(t *testing.T) {
+	t.Setenv("AGENT_TOKEN_CHARON", "token-123")
+
+	client := NewRemoteClient("  charon  ")
+
+	core.AssertEqual(t, "charon", client.Host)
+	core.AssertEqual(t, "10.69.69.165:9101", client.Address)
+	core.AssertEqual(t, "token-123", client.Token)
+	core.AssertEqual(t, "http://10.69.69.165:9101/mcp", client.URL)
+}
+
+func TestRemoteClient_RemoteClient_Initialize_Good(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertEqual(t, "application/json", r.Header.Get("Content-Type"))
+		core.AssertEqual(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		if callCount == 1 {
+			// Initialize request
+			var body map[string]any
+			bodyStr := core.ReadAll(r.Body)
+			core.JSONUnmarshalString(bodyStr.Value.(string), &body)
+			core.AssertEqual(t, "initialize", body["method"])
+
+			w.Header().Set("Mcp-Session-Id", "session-abc")
+			w.Header().Set("Content-Type", "text/event-stream")
+			_ = core.WriteString(w, "data: {\"result\":{}}\n\n")
+		} else {
+			// Initialized notification
+			w.WriteHeader(200)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL, Token: "test-token"}
+	sessionID, err := client.Initialize(context.Background())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "session-abc", sessionID)
+	core.AssertEqual(t, 2, callCount, "should make init + notification requests")
+}
+
+func TestRemoteClient_RemoteClient_Initialize_Bad(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_ = core.WriteString(w, "data: {\"result\":{}}\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL}
+	_, err := client.Initialize(context.Background())
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "missing session id")
+}
+
+func TestRemoteClient_RemoteClient_Initialize_Ugly(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Mcp-Session-Id", "sess-ugly")
+		w.Header().Set("Content-Type", "text/event-stream")
+		// Return non-JSON in SSE data line
+		_ = core.WriteString(w, "data: this is not json at all\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL, Token: "tok"}
+	sessionID, err := client.Initialize(context.Background())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "sess-ugly", sessionID)
+}
+
+func TestRemoteClient_RemoteClient_Call_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		core.AssertEqual(t, "Bearer mytoken", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "sess-123", r.Header.Get("Mcp-Session-Id"))
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		_ = core.WriteString(w, "event: message\ndata: {\"result\":{\"content\":[{\"text\":\"hello\"}]}}\n\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL, Token: "mytoken"}
+	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+	result, err := client.Call(context.Background(), "sess-123", body)
+	core.RequireNoError(t, err)
+	core.AssertContains(t, string(result), "hello")
+}
+
+func TestRemoteClient_RemoteClient_Call_Bad(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL}
+	_, err := client.Call(context.Background(), "", nil)
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "HTTP 500")
+}
+
+func TestRemoteClient_RemoteClient_Call_Ugly(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		// Write nothing — empty body
+	}))
+	t.Cleanup(srv.Close)
+
+	client := RemoteClient{URL: srv.URL}
+	_, err := client.Call(context.Background(), "", nil)
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "no data")
+}
+
+func TestRemoteClient_RemoteClient_ToolCallBody_Good(t *testing.T) {
+	client := NewRemoteClient("local")
+
+	body := client.ToolCallBody(7, "agentic_status", map[string]any{
+		"workspace": "core/go-io/task-5",
+	})
+
+	var payload map[string]any
+	result := core.JSONUnmarshal(body, &payload)
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, "2.0", payload["jsonrpc"])
+	core.AssertEqual(t, float64(7), payload["id"])
+	core.AssertEqual(t, "tools/call", payload["method"])
+	params, ok := payload["params"].(map[string]any)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "agentic_status", params["name"])
+}
+
+func TestRemoteClient_RemoteClient_ToolCallBody_Bad(t *testing.T) {
+	client := NewRemoteClient("local")
+	body := client.ToolCallBody(-1, "agentic_dispatch", map[string]any{})
+
+	var payload map[string]any
+	result := core.JSONUnmarshal(body, &payload)
+	core.RequireTrue(t, result.OK)
+
+	params, ok := payload["params"].(map[string]any)
+	core.RequireTrue(t, ok)
+	arguments, ok := params["arguments"].(map[string]any)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, float64(-1), payload["id"])
+	core.AssertLen(t, arguments, 0)
+}
+
+func TestRemoteClient_RemoteClient_ToolCallBody_Ugly(t *testing.T) {
+	client := NewRemoteClient("my-host.local")
+
+	body := client.ToolCallBody(0, "", nil)
+
+	var payload map[string]any
+	result := core.JSONUnmarshal(body, &payload)
+	core.RequireTrue(t, result.OK)
+	params, ok := payload["params"].(map[string]any)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "", params["name"])
+	core.AssertNil(t, params["arguments"])
 }

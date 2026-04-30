@@ -6,25 +6,24 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
-func TestDeps_ParseCoreDeps_Good(t *testing.T) {
+func TestDeps_ParseCoreDeps_Good_Case(t *testing.T) {
 	goMod := `module dappco.re/go/agent
 
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.8.0
-	dappco.re/go/core/process v0.3.0
+	dappco.re/go v0.8.0
+	dappco.re/go/process v0.3.0
 	dappco.re/go/mcp v0.4.0
 )`
 
 	deps := parseCoreDeps(goMod)
 
-	assert.Equal(t, []coreDep{
-		{module: "dappco.re/go/core", repo: "go", dir: "core-go"},
+	core.AssertEqual(t, []coreDep{
+		{module: "dappco.re/go", repo: "go", dir: "core-go"},
 		{module: "dappco.re/go/process", repo: "go-process", dir: "core-go-process"},
 		{module: "dappco.re/go/mcp", repo: "mcp", dir: "core-mcp"},
 	}, deps)
@@ -37,7 +36,7 @@ go 1.26.0
 
 require github.com/stretchr/testify v1.11.1`
 
-	assert.Empty(t, parseCoreDeps(goMod))
+	core.AssertEmpty(t, parseCoreDeps(goMod))
 }
 
 func TestDeps_ParseCoreDeps_Ugly_DeduplicatesAndSkipsIndirect(t *testing.T) {
@@ -46,20 +45,22 @@ func TestDeps_ParseCoreDeps_Ugly_DeduplicatesAndSkipsIndirect(t *testing.T) {
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.8.0
-	dappco.re/go/core v0.8.0
-	dappco.re/go/core/ws v0.2.0 // indirect
-	dappco.re/go/core/process v0.3.0
+	dappco.re/go v0.8.0
+	dappco.re/go v0.8.0
+	dappco.re/go/ws v0.2.0 // indirect
+	dappco.re/go/process v0.3.0
 )`
 
-	assert.Equal(t, []coreDep{
-		{module: "dappco.re/go/core", repo: "go", dir: "core-go"},
+	core.AssertEqual(t, []coreDep{
+		{module: "dappco.re/go", repo: "go", dir: "core-go"},
 		{module: "dappco.re/go/process", repo: "go-process", dir: "core-go-process"},
 	}, parseCoreDeps(goMod))
 }
 
-func TestDeps_ForgeSSHURL_Good(t *testing.T) {
-	assert.Equal(t, "ssh://git@forge.lthn.ai:2223/core/go-io.git", forgeSSHURL("core", "go-io"))
+func TestDeps_ForgeSSHURL_Good_Case(t *testing.T) {
+	url := forgeSSHURL("core", "go-io")
+	core.AssertEqual(t, "ssh://git@forge.lthn.ai:2223/core/go-io.git", url)
+	core.AssertContains(t, url, "/core/go-io.git")
 }
 
 func TestDeps_CloneWorkspaceDeps_Bad_NoGoMod(t *testing.T) {
@@ -74,7 +75,7 @@ func TestDeps_CloneWorkspaceDeps_Bad_NoGoMod(t *testing.T) {
 		t.Fatalf("clone workspace deps: %v", err)
 	}
 
-	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
+	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }
 
 func TestDeps_CloneWorkspaceDeps_Ugly_NoDirectCoreDeps(t *testing.T) {
@@ -89,7 +90,7 @@ func TestDeps_CloneWorkspaceDeps_Ugly_NoDirectCoreDeps(t *testing.T) {
 go 1.26.0
 
 require (
-	dappco.re/go/core/process v0.3.0 // indirect
+	dappco.re/go/process v0.3.0 // indirect
 	github.com/stretchr/testify v1.11.1
 )`
 	if r := fs.Write(core.JoinPath(repoDir, "go.mod"), goMod); !r.OK {
@@ -101,5 +102,5 @@ require (
 		t.Fatalf("clone workspace deps: %v", err)
 	}
 
-	assert.False(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
+	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
 }

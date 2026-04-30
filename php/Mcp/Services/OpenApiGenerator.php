@@ -9,12 +9,25 @@ namespace Core\Mcp\Services;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
+/**
+ * Generate an OpenAPI document for the MCP HTTP surface.
+ *
+ * @example
+ * $generator = new OpenApiGenerator();
+ * $schema = $generator->generate();
+ */
 final class OpenApiGenerator
 {
     protected array $registry = ['servers' => []];
 
     protected array $servers = [];
 
+    /**
+     * Build the full OpenAPI document from the MCP registry.
+     *
+     * @example
+     * $schema = $generator->generate();
+     */
     public function generate(): array
     {
         $this->loadRegistry();
@@ -30,16 +43,34 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Encode the generated OpenAPI document as formatted JSON.
+     *
+     * @example
+     * $json = $generator->toJson();
+     */
     public function toJson(): string
     {
         return (string) json_encode($this->generate(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
+    /**
+     * Encode the generated OpenAPI document as YAML.
+     *
+     * @example
+     * $yaml = $generator->toYaml();
+     */
     public function toYaml(): string
     {
         return Yaml::dump($this->generate(), 10, 2);
     }
 
+    /**
+     * Load the MCP registry file that declares available servers.
+     *
+     * @example
+     * $this->loadRegistry();
+     */
     protected function loadRegistry(): void
     {
         $path = resource_path('mcp/registry.yaml');
@@ -56,6 +87,12 @@ final class OpenApiGenerator
         }
     }
 
+    /**
+     * Load server definition files referenced by the MCP registry.
+     *
+     * @example
+     * $this->loadServers();
+     */
     protected function loadServers(): void
     {
         $this->servers = [];
@@ -81,6 +118,12 @@ final class OpenApiGenerator
         }
     }
 
+    /**
+     * Build the OpenAPI info block for the MCP HTTP API.
+     *
+     * @example
+     * $info = $this->buildInfo();
+     */
     protected function buildInfo(): array
     {
         return [
@@ -98,6 +141,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Return the OpenAPI server list for production and local environments.
+     *
+     * @example
+     * $servers = $this->buildServers();
+     */
     protected function buildServers(): array
     {
         return [
@@ -112,6 +161,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Build tag definitions for discovery and execution endpoints.
+     *
+     * @example
+     * $tags = $this->buildTags();
+     */
     protected function buildTags(): array
     {
         $tags = [
@@ -129,6 +184,12 @@ final class OpenApiGenerator
         return $tags;
     }
 
+    /**
+     * Build the path map for the MCP HTTP API.
+     *
+     * @example
+     * $paths = $this->buildPaths();
+     */
     protected function buildPaths(): array
     {
         return [
@@ -223,6 +284,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Build a secured GET operation definition for the OpenAPI document.
+     *
+     * @example
+     * $operation = $this->authenticatedGet('Discovery', 'List all MCP servers', 'listServers', ['200' => ['description' => 'OK']]);
+     */
     protected function authenticatedGet(
         string $tag,
         string $summary,
@@ -245,6 +312,12 @@ final class OpenApiGenerator
         return $operation;
     }
 
+    /**
+     * Build a secured POST operation definition for the OpenAPI document.
+     *
+     * @example
+     * $operation = $this->authenticatedPost('Execution', 'Execute an MCP tool', 'callTool', '#/components/schemas/ToolCallRequest', ['200' => ['description' => 'OK']]);
+     */
     protected function authenticatedPost(
         string $tag,
         string $summary,
@@ -265,11 +338,23 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Return the supported authentication schemes for every endpoint.
+     *
+     * @example
+     * $security = $this->securityRequirements();
+     */
     protected function securityRequirements(): array
     {
         return [['bearerAuth' => []], ['apiKeyAuth' => []]];
     }
 
+    /**
+     * Build a required string parameter schema for a path or query field.
+     *
+     * @example
+     * $parameter = $this->requiredStringParameter('serverId', 'path');
+     */
     protected function requiredStringParameter(string $name, string $location): array
     {
         return [
@@ -280,6 +365,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Build a response definition that points to a shared schema reference.
+     *
+     * @example
+     * $response = $this->schemaResponse('Server details', '#/components/schemas/Server');
+     */
     protected function schemaResponse(string $description, string $schemaRef): array
     {
         return [
@@ -288,6 +379,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Build an `application/json` content block for a schema reference.
+     *
+     * @example
+     * $content = $this->jsonSchemaContent('#/components/schemas/ToolCallResponse');
+     */
     protected function jsonSchemaContent(string $schemaRef): array
     {
         return [
@@ -297,6 +394,12 @@ final class OpenApiGenerator
         ];
     }
 
+    /**
+     * Build shared schema and security component definitions.
+     *
+     * @example
+     * $components = $this->buildComponents();
+     */
     protected function buildComponents(): array
     {
         return [

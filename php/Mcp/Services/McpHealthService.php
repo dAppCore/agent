@@ -9,6 +9,13 @@ namespace Core\Mcp\Services;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Yaml\Yaml;
 
+/**
+ * Check registered MCP servers and cache their health status.
+ *
+ * @example
+ * $service = new McpHealthService();
+ * $status = $service->check('host-hub');
+ */
 final class McpHealthService
 {
     public const STATUS_ONLINE = 'online';
@@ -23,6 +30,12 @@ final class McpHealthService
 
     protected int $timeout = 5;
 
+    /**
+     * Check one MCP server and optionally bypass the cached status.
+     *
+     * @example
+     * $status = $service->check('host-hub', true);
+     */
     public function check(string $serverId, bool $forceRefresh = false): array
     {
         $cacheKey = sprintf('mcp:health:%s', $serverId);
@@ -46,6 +59,12 @@ final class McpHealthService
         return $result;
     }
 
+    /**
+     * Check every registered MCP server and return their status map.
+     *
+     * @example
+     * $statuses = $service->checkAll();
+     */
     public function checkAll(bool $forceRefresh = false): array
     {
         $results = [];
@@ -57,6 +76,12 @@ final class McpHealthService
         return $results;
     }
 
+    /**
+     * Return a cached health result for one MCP server when present.
+     *
+     * @example
+     * $cached = $service->getCachedStatus('host-hub');
+     */
     public function getCachedStatus(string $serverId): ?array
     {
         $status = Cache::get(sprintf('mcp:health:%s', $serverId));
@@ -64,11 +89,23 @@ final class McpHealthService
         return is_array($status) ? $status : null;
     }
 
+    /**
+     * Remove the cached health entry for one MCP server.
+     *
+     * @example
+     * $service->clearCache('host-hub');
+     */
     public function clearCache(string $serverId): void
     {
         Cache::forget(sprintf('mcp:health:%s', $serverId));
     }
 
+    /**
+     * Remove cached health entries for all registered MCP servers.
+     *
+     * @example
+     * $service->clearAllCache();
+     */
     public function clearAllCache(): void
     {
         foreach ($this->registeredServers() as $serverId) {
@@ -76,6 +113,12 @@ final class McpHealthService
         }
     }
 
+    /**
+     * Render an HTML badge for a resolved MCP server status.
+     *
+     * @example
+     * $badge = $service->getStatusBadge(McpHealthService::STATUS_ONLINE);
+     */
     public function getStatusBadge(string $status): string
     {
         return match ($status) {
@@ -86,6 +129,12 @@ final class McpHealthService
         };
     }
 
+    /**
+     * Map a server status to the dashboard colour token.
+     *
+     * @example
+     * $colour = $service->getStatusColour(McpHealthService::STATUS_DEGRADED);
+     */
     public function getStatusColour(string $status): string
     {
         return match ($status) {
@@ -96,6 +145,12 @@ final class McpHealthService
         };
     }
 
+    /**
+     * Probe one server definition and derive its health result.
+     *
+     * @example
+     * $result = $this->pingServer(['connection' => ['type' => 'stdio', 'command' => 'php', 'args' => ['artisan', 'mcp:agent-server']]]);
+     */
     protected function pingServer(array $server): array
     {
         $connection = (array) ($server['connection'] ?? []);
@@ -164,6 +219,12 @@ final class McpHealthService
         ]);
     }
 
+    /**
+     * Execute a server process and capture its output, error, and timing.
+     *
+     * @example
+     * $result = $this->executeProcess(['php', 'artisan', 'mcp:agent-server'], base_path(), "{\"jsonrpc\":\"2.0\",\"method\":\"ping\",\"id\":1}\n");
+     */
     protected function executeProcess(array $command, string $cwd, string $input): array
     {
         $descriptors = [
@@ -229,6 +290,12 @@ final class McpHealthService
         ];
     }
 
+    /**
+     * Build a normalised health result payload for dashboard consumers.
+     *
+     * @example
+     * $result = $this->buildResult(self::STATUS_ONLINE, 'Server responding', ['response_time_ms' => 42]);
+     */
     protected function buildResult(string $status, string $message, array $extra = []): array
     {
         return array_merge([
@@ -238,6 +305,12 @@ final class McpHealthService
         ], array_filter($extra, static fn (mixed $value): bool => $value !== null));
     }
 
+    /**
+     * Return the server identifiers listed in the MCP registry.
+     *
+     * @example
+     * $serverIds = $this->registeredServers();
+     */
     protected function registeredServers(): array
     {
         $servers = $this->loadRegistry()['servers'] ?? [];
@@ -248,6 +321,12 @@ final class McpHealthService
         )));
     }
 
+    /**
+     * Load the top-level MCP registry document from resources.
+     *
+     * @example
+     * $registry = $this->loadRegistry();
+     */
     protected function loadRegistry(): array
     {
         $path = resource_path('mcp/registry.yaml');
@@ -255,6 +334,12 @@ final class McpHealthService
         return file_exists($path) ? (array) Yaml::parseFile($path) : ['servers' => []];
     }
 
+    /**
+     * Load one server definition from the MCP resources directory.
+     *
+     * @example
+     * $server = $this->loadServerConfig('host-hub');
+     */
     protected function loadServerConfig(string $serverId): ?array
     {
         $path = resource_path(sprintf('mcp/servers/%s.yaml', $serverId));
@@ -262,6 +347,12 @@ final class McpHealthService
         return file_exists($path) ? (array) Yaml::parseFile($path) : null;
     }
 
+    /**
+     * Resolve `${NAME}` placeholders inside registry values from the environment.
+     *
+     * @example
+     * $command = $this->resolveEnvVars('${PHP_BINARY:-php}');
+     */
     protected function resolveEnvVars(string $value): string
     {
         return preg_replace_callback('/\$\{([^}]+)\}/', static function (array $matches): string {

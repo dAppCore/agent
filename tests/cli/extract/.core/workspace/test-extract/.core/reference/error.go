@@ -3,16 +3,20 @@
 // Structured errors, crash recovery, and reporting for the Core framework.
 // Provides E() for error creation, Wrap()/WrapCode() for chaining,
 // and Err for panic recovery and crash reporting.
+//
+//	if core.Is(err, context.Canceled) { return }
+//	stack := core.FormatStackTrace(err)
+//	r := c.Error().Reports(10)
 
 package core
 
 import (
-	"encoding/json"
-	"errors"
+	coreerrors "dappco.re/go"
+	corefilepath "dappco.re/go"
+	corejson "dappco.re/go"
+	coreos "dappco.re/go"
 	"iter"
 	"maps"
-	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -56,7 +60,7 @@ func (e *Err) Error() string {
 }
 
 // Unwrap returns the underlying error for use with errors.Is and errors.As.
-func (e *Err) Unwrap() error {
+func (e *Err) Unwrap() any {
 	return e.Cause
 }
 
@@ -69,7 +73,7 @@ func (e *Err) Unwrap() error {
 //
 //	return log.E("user.Save", "failed to save user", err)
 //	return log.E("api.Call", "rate limited", nil)  // No underlying cause
-func E(op, msg string, err error) error {
+func E(op, msg string, err error) any {
 	return &Err{Operation: op, Message: msg, Cause: err}
 }
 
@@ -80,7 +84,7 @@ func E(op, msg string, err error) error {
 // Example:
 //
 //	return log.Wrap(err, "db.Query", "database query failed")
-func Wrap(err error, op, msg string) error {
+func Wrap(err any, op, msg string) any {
 	if err == nil {
 		return nil
 	}
@@ -99,7 +103,7 @@ func Wrap(err error, op, msg string) error {
 // Example:
 //
 //	return log.WrapCode(err, "VALIDATION_ERROR", "user.Validate", "invalid email")
-func WrapCode(err error, code, op, msg string) error {
+func WrapCode(err any, code, op, msg string) any {
 	if err == nil && code == "" {
 		return nil
 	}
@@ -112,7 +116,7 @@ func WrapCode(err error, code, op, msg string) error {
 // Example:
 //
 //	var ErrNotFound = log.NewCode("NOT_FOUND", "resource not found")
-func NewCode(code, msg string) error {
+func NewCode(code, msg string) any {
 	return &Err{Message: msg, Code: code}
 }
 
@@ -120,33 +124,26 @@ func NewCode(code, msg string) error {
 
 // Is reports whether any error in err's tree matches target.
 // Wrapper around errors.Is for convenience.
-//
-//	if core.Is(err, context.Canceled) { return }
-func Is(err, target error) bool {
+func Is(err, target any) bool {
 	return errors.Is(err, target)
 }
 
 // As finds the first error in err's tree that matches target.
 // Wrapper around errors.As for convenience.
-//
-//	var typed *core.Err
-//	if core.As(err, &typed) { core.Println(typed.Operation) }
-func As(err error, target any) bool {
+func As(err any, target any) bool {
 	return errors.As(err, target)
 }
 
 // NewError creates a simple error with the given text.
 // Wrapper around errors.New for convenience.
-//
-//	err := core.NewError("workspace not found")
-func NewError(text string) error {
+func NewError(text string) any {
 	return errors.New(text)
 }
 
 // ErrorJoin combines multiple errors into one.
 //
 //	core.ErrorJoin(err1, err2, err3)
-func ErrorJoin(errs ...error) error {
+func ErrorJoin(errs ...any) any {
 	return errors.Join(errs...)
 }
 
@@ -154,9 +151,7 @@ func ErrorJoin(errs ...error) error {
 
 // Operation extracts the operation name from an error.
 // Returns empty string if the error is not an *Err.
-//
-//	op := core.Operation(err)
-func Operation(err error) string {
+func Operation(err any) string {
 	var e *Err
 	if As(err, &e) {
 		return e.Operation
@@ -166,9 +161,7 @@ func Operation(err error) string {
 
 // ErrorCode extracts the error code from an error.
 // Returns empty string if the error is not an *Err or has no code.
-//
-//	code := core.ErrorCode(err)
-func ErrorCode(err error) string {
+func ErrorCode(err any) string {
 	var e *Err
 	if As(err, &e) {
 		return e.Code
@@ -178,7 +171,7 @@ func ErrorCode(err error) string {
 
 // Message extracts the message from an error.
 // Returns the error's Error() string if not an *Err.
-func ErrorMessage(err error) string {
+func ErrorMessage(err any) string {
 	if err == nil {
 		return ""
 	}
@@ -191,9 +184,7 @@ func ErrorMessage(err error) string {
 
 // Root returns the root cause of an error chain.
 // Unwraps until no more wrapped errors are found.
-//
-//	cause := core.Root(err)
-func Root(err error) error {
+func Root(err any) any {
 	if err == nil {
 		return nil
 	}
@@ -208,7 +199,7 @@ func Root(err error) error {
 
 // AllOperations returns an iterator over all operational contexts in the error chain.
 // It traverses the error tree using errors.Unwrap.
-func AllOperations(err error) iter.Seq[string] {
+func AllOperations(err any) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		for err != nil {
 			if e, ok := err.(*Err); ok {
@@ -225,9 +216,7 @@ func AllOperations(err error) iter.Seq[string] {
 
 // StackTrace returns the logical stack trace (chain of operations) from an error.
 // It returns an empty slice if no operational context is found.
-//
-//	trace := core.StackTrace(err)
-func StackTrace(err error) []string {
+func StackTrace(err any) []string {
 	var stack []string
 	for op := range AllOperations(err) {
 		stack = append(stack, op)
@@ -236,9 +225,7 @@ func StackTrace(err error) []string {
 }
 
 // FormatStackTrace returns a pretty-printed logical stack trace.
-//
-//	stack := core.FormatStackTrace(err)
-func FormatStackTrace(err error) string {
+func FormatStackTrace(err any) string {
 	var ops []string
 	for op := range AllOperations(err) {
 		ops = append(ops, op)
@@ -265,7 +252,7 @@ func (el *ErrorLog) logger() *Log {
 }
 
 // Error logs at Error level and returns a Result with the wrapped error.
-func (el *ErrorLog) Error(err error, op, msg string) Result {
+func (el *ErrorLog) Error(err any, op, msg string) Result {
 	if err == nil {
 		return Result{OK: true}
 	}
@@ -275,7 +262,7 @@ func (el *ErrorLog) Error(err error, op, msg string) Result {
 }
 
 // Warn logs at Warn level and returns a Result with the wrapped error.
-func (el *ErrorLog) Warn(err error, op, msg string) Result {
+func (el *ErrorLog) Warn(err any, op, msg string) Result {
 	if err == nil {
 		return Result{OK: true}
 	}
@@ -285,7 +272,7 @@ func (el *ErrorLog) Warn(err error, op, msg string) Result {
 }
 
 // Must logs and panics if err is not nil.
-func (el *ErrorLog) Must(err error, op, msg string) {
+func (el *ErrorLog) Must(err any, op, msg string) {
 	if err != nil {
 		el.logger().Error(msg, "op", op, "err", err)
 		panic(Wrap(err, op, msg))
@@ -355,8 +342,6 @@ func (h *ErrorPanic) Recover() {
 }
 
 // SafeGo runs a function in a goroutine with panic recovery.
-//
-//	c.Error().SafeGo(func() { runWorker() })
 func (h *ErrorPanic) SafeGo(fn func()) {
 	go func() {
 		defer h.Recover()
@@ -365,8 +350,6 @@ func (h *ErrorPanic) SafeGo(fn func()) {
 }
 
 // Reports returns the last n crash reports from the file.
-//
-//	r := c.Error().Reports(10)
 func (h *ErrorPanic) Reports(n int) Result {
 	if h.filePath == "" {
 		return Result{}
@@ -411,7 +394,7 @@ func (h *ErrorPanic) appendReport(report CrashReport) {
 		Default().Error(Concat("crash report marshal failed: ", err.Error()))
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(h.filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(h.filePath), 0700); err != nil {
 		Default().Error(Concat("crash report dir failed: ", err.Error()))
 		return
 	}

@@ -4,12 +4,11 @@ package agentic
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestFetchLoop_RunFetchLoop_Good_TicksAtConfiguredInterval(t *testing.T) {
@@ -17,10 +16,8 @@ func TestFetchLoop_RunFetchLoop_Good_TicksAtConfiguredInterval(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	codePath := t.TempDir()
-	logPath := core.JoinPath(t.TempDir(), "git.log")
-	fetchLoopWriteGitScript(t, logPath, "bad-repo")
 	fetchLoopCreateRepo(t, codePath, "core", "good-repo")
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
 		"version: 1\n",
 		"dispatch:\n",
 		"  fetch_interval: 25ms\n",
@@ -30,7 +27,8 @@ func TestFetchLoop_RunFetchLoop_Good_TicksAtConfiguredInterval(t *testing.T) {
 
 	subsystem := fetchLoopTestPrep(codePath)
 	interval := subsystem.fetchLoopInterval()
-	assert.Equal(t, 25*time.Millisecond, interval)
+	core.AssertEqual(t, 25*time.Millisecond, interval)
+	state := stubFetchLoop(t, "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -40,9 +38,9 @@ func TestFetchLoop_RunFetchLoop_Good_TicksAtConfiguredInterval(t *testing.T) {
 	}()
 
 	time.Sleep(10 * time.Millisecond)
-	assert.Equal(t, 0, fetchLoopLogCount(logPath, "good-repo", "fetch origin dev"))
+	core.AssertEqual(t, 0, state.count("good-repo"))
 
-	fetchLoopWaitForCount(t, logPath, "good-repo", "fetch origin dev", 2, 250*time.Millisecond)
+	waitForFetchLoopCalls(t, state, "good-repo", 2, 250*time.Millisecond)
 
 	cancel()
 	fetchLoopWaitForDone(t, done)
@@ -53,11 +51,9 @@ func TestFetchLoop_RunFetchLoop_Bad_SurvivesFailingFetch(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	codePath := t.TempDir()
-	logPath := core.JoinPath(t.TempDir(), "git.log")
-	fetchLoopWriteGitScript(t, logPath, "bad-repo")
 	fetchLoopCreateRepo(t, codePath, "core", "good-repo")
 	fetchLoopCreateRepo(t, codePath, "core", "bad-repo")
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
 		"version: 1\n",
 		"dispatch:\n",
 		"  fetch_interval: 15ms\n",
@@ -67,6 +63,7 @@ func TestFetchLoop_RunFetchLoop_Bad_SurvivesFailingFetch(t *testing.T) {
 	)).OK)
 
 	subsystem := fetchLoopTestPrep(codePath)
+	state := stubFetchLoop(t, "bad-repo")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -74,8 +71,8 @@ func TestFetchLoop_RunFetchLoop_Bad_SurvivesFailingFetch(t *testing.T) {
 		close(done)
 	}()
 
-	fetchLoopWaitForCount(t, logPath, "bad-repo", "fetch origin dev", 1, 250*time.Millisecond)
-	fetchLoopWaitForCount(t, logPath, "good-repo", "fetch origin dev", 2, 250*time.Millisecond)
+	waitForFetchLoopCalls(t, state, "bad-repo", 1, 250*time.Millisecond)
+	waitForFetchLoopCalls(t, state, "good-repo", 2, 250*time.Millisecond)
 
 	cancel()
 	fetchLoopWaitForDone(t, done)
@@ -86,10 +83,8 @@ func TestFetchLoop_RunFetchLoop_Ugly_StopsOnContextCancel(t *testing.T) {
 	setTestWorkspace(t, root)
 
 	codePath := t.TempDir()
-	logPath := core.JoinPath(t.TempDir(), "git.log")
-	fetchLoopWriteGitScript(t, logPath, "bad-repo")
 	fetchLoopCreateRepo(t, codePath, "core", "good-repo")
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), core.Concat(
 		"version: 1\n",
 		"dispatch:\n",
 		"  fetch_interval: 15ms\n",
@@ -98,6 +93,7 @@ func TestFetchLoop_RunFetchLoop_Ugly_StopsOnContextCancel(t *testing.T) {
 	)).OK)
 
 	subsystem := fetchLoopTestPrep(codePath)
+	state := stubFetchLoop(t, "")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -105,14 +101,14 @@ func TestFetchLoop_RunFetchLoop_Ugly_StopsOnContextCancel(t *testing.T) {
 		close(done)
 	}()
 
-	fetchLoopWaitForCount(t, logPath, "good-repo", "fetch origin dev", 1, 250*time.Millisecond)
+	waitForFetchLoopCalls(t, state, "good-repo", 1, 250*time.Millisecond)
 
 	cancel()
 	fetchLoopWaitForDone(t, done)
 
-	countAfterCancel := fetchLoopLogCount(logPath, "good-repo", "fetch origin dev")
+	countAfterCancel := state.count("good-repo")
 	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, countAfterCancel, fetchLoopLogCount(logPath, "good-repo", "fetch origin dev"))
+	core.AssertEqual(t, countAfterCancel, state.count("good-repo"))
 }
 
 func fetchLoopTestPrep(codePath string) *PrepSubsystem {
@@ -124,6 +120,67 @@ func fetchLoopTestPrep(codePath string) *PrepSubsystem {
 	}
 }
 
+type fetchLoopCallState struct {
+	mu    sync.Mutex
+	calls map[string]int
+	fail  string
+}
+
+func stubFetchLoop(t *testing.T, failRepo string) *fetchLoopCallState {
+	t.Helper()
+
+	state := &fetchLoopCallState{
+		calls: map[string]int{},
+		fail:  failRepo,
+	}
+	previousBranch := fetchLoopDefaultBranchFunc
+	previousFetch := fetchLoopRunFetchFunc
+
+	fetchLoopDefaultBranchFunc = func(_ *PrepSubsystem, _ string) string {
+		return "dev"
+	}
+	fetchLoopRunFetchFunc = func(_ *PrepSubsystem, ctx context.Context, repoDir, _ string) core.Result {
+		repo := core.PathBase(repoDir)
+		state.mu.Lock()
+		state.calls[repo]++
+		state.mu.Unlock()
+		if err := ctx.Err(); err != nil {
+			return core.Fail(core.E("fetchLoopRunFetch", "context canceled", err))
+		}
+		if repo == state.fail {
+			return core.Fail(core.E("fetchLoopRunFetch", "fetch failed", nil))
+		}
+		return core.Ok(nil)
+	}
+
+	t.Cleanup(func() {
+		fetchLoopDefaultBranchFunc = previousBranch
+		fetchLoopRunFetchFunc = previousFetch
+	})
+
+	return state
+}
+
+func (s *fetchLoopCallState) count(repo string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls[repo]
+}
+
+func waitForFetchLoopCalls(t *testing.T, state *fetchLoopCallState, repo string, want int, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if state.count(repo) >= want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	core.AssertGreaterOrEqual(t, state.count(repo), want)
+}
+
 func fetchLoopWriteGitScript(t *testing.T, logPath, badRepo string) {
 	t.Helper()
 
@@ -131,7 +188,7 @@ func fetchLoopWriteGitScript(t *testing.T, logPath, badRepo string) {
 	gitPath := core.JoinPath(binDir, "git")
 	script := core.Concat(
 		"#!/bin/sh\n",
-		"repo=$(basename \"$PWD\")\n",
+		"repo=$(basename \"$(pwd)\")\n",
 		"printf '%s|%s\\n' \"$repo\" \"$*\" >> ", logPath, "\n",
 		"if [ \"$1\" = \"symbolic-ref\" ]; then\n",
 		"  printf 'origin/dev\\n'\n",
@@ -142,15 +199,15 @@ func fetchLoopWriteGitScript(t *testing.T, logPath, badRepo string) {
 		"fi\n",
 		"exit 0\n",
 	)
-	require.True(t, fs.Write(gitPath, script).OK)
-	require.True(t, testCore.Process().RunIn(context.Background(), binDir, "chmod", "+x", gitPath).OK)
+	core.RequireTrue(t, fs.Write(gitPath, script).OK)
+	core.RequireTrue(t, testCore.Process().RunIn(context.Background(), binDir, "chmod", "+x", gitPath).OK)
 	t.Setenv("PATH", core.Concat(binDir, ":", core.Env("PATH")))
 }
 
 func fetchLoopCreateRepo(t *testing.T, codePath, org, repo string) {
 	t.Helper()
 	repoDir := core.JoinPath(codePath, org, repo)
-	require.True(t, fs.EnsureDir(core.JoinPath(repoDir, ".git")).OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(repoDir, ".git")).OK)
 }
 
 func fetchLoopWaitForCount(t *testing.T, logPath, repo, snippet string, want int, timeout time.Duration) {
@@ -164,7 +221,7 @@ func fetchLoopWaitForCount(t *testing.T, logPath, repo, snippet string, want int
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	require.GreaterOrEqual(t, fetchLoopLogCount(logPath, repo, snippet), want)
+	core.AssertGreaterOrEqual(t, fetchLoopLogCount(logPath, repo, snippet), want)
 }
 
 func fetchLoopWaitForDone(t *testing.T, done <-chan struct{}) {

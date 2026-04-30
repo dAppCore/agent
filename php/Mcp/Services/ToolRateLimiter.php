@@ -64,6 +64,12 @@ final class ToolRateLimiter
         ];
     }
 
+    /**
+     * Increment the rate-limit counter for a (caller, tool) pair.
+     *
+     * @example
+     * $rl->hit($apiKey, 'agent.brain.recall');
+     */
     public function hit(string $identifier, string $toolName): void
     {
         if (! config('mcp.rate_limiting.enabled', true)) {
@@ -80,6 +86,12 @@ final class ToolRateLimiter
         Cache::increment($cacheKey);
     }
 
+    /**
+     * Clear one rate-limit bucket or every configured bucket for a caller.
+     *
+     * @example
+     * $rl->clear($apiKey, 'agent.brain.recall');
+     */
     public function clear(string $identifier, ?string $toolName = null): void
     {
         if ($toolName !== null) {
@@ -95,6 +107,12 @@ final class ToolRateLimiter
         Cache::forget($this->cacheKey($identifier, '*'));
     }
 
+    /**
+     * Return the current limit, remaining calls, and reset timestamp.
+     *
+     * @example
+     * $status = $rl->getStatus($apiKey, 'agent.brain.recall');
+     */
     public function getStatus(string $identifier, string $toolName): array
     {
         $limit = $this->limitForTool($toolName);
@@ -109,6 +127,12 @@ final class ToolRateLimiter
         ];
     }
 
+    /**
+     * Resolve the configured call limit for one tool name.
+     *
+     * @example
+     * $limit = $this->limitForTool('agent.brain.recall');
+     */
     protected function limitForTool(string $toolName): int
     {
         $perTool = (array) config('mcp.rate_limiting.per_tool', []);
@@ -120,11 +144,23 @@ final class ToolRateLimiter
         return (int) config('mcp.rate_limiting.calls_per_minute', 60);
     }
 
+    /**
+     * Build the cache key used for one caller and tool bucket.
+     *
+     * @example
+     * $key = $this->cacheKey($apiKey, 'agent.brain.recall');
+     */
     protected function cacheKey(string $identifier, string $toolName): string
     {
         return self::CACHE_PREFIX.$identifier.':'.$toolName;
     }
 
+    /**
+     * Read the remaining time-to-live for a cached rate-limit bucket.
+     *
+     * @example
+     * $ttl = $this->ttl($this->cacheKey($apiKey, 'agent.brain.recall'), 60);
+     */
     protected function ttl(string $cacheKey, int $default): int
     {
         try {

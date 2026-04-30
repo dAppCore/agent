@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T) {
@@ -40,23 +38,23 @@ func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T
 	}
 
 	_, err := writePlan(PlansRoot(), oldPlan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	_, err = writePlan(PlansRoot(), recentPlan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	_, err = writePlan(PlansRoot(), activePlan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	result := s.planCleanup(core.NewOptions(core.Option{Key: "days", Value: 90}))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(PlanCleanupOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, 1, output.Deleted)
-	assert.Equal(t, 1, output.Matched)
-	assert.False(t, fs.Exists(core.JoinPath(PlansRoot(), "old-plan-abc123.json")))
-	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "recent-plan-abc123.json")))
-	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "active-plan-abc123.json")))
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, 1, output.Deleted)
+	core.AssertEqual(t, 1, output.Matched)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(PlansRoot(), "old-plan-abc123.json")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "recent-plan-abc123.json")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "active-plan-abc123.json")))
 }
 
 func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing.T) {
@@ -74,23 +72,23 @@ func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing
 	}
 
 	_, err := writePlan(PlansRoot(), plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	result := s.planCleanup(core.NewOptions(core.Option{Key: "days", Value: 90}))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(PlanCleanupOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, 1, output.Archived)
-	assert.Equal(t, 0, output.Deleted)
-	assert.Equal(t, 1, output.Matched)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, 1, output.Archived)
+	core.AssertEqual(t, 0, output.Deleted)
+	core.AssertEqual(t, 1, output.Matched)
 
 	updated, err := readPlan(PlansRoot(), plan.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "archived", updated.Status)
-	assert.False(t, updated.ArchivedAt.IsZero())
-	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "completed-plan-abc123.json")))
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "archived", updated.Status)
+	core.AssertFalse(t, updated.ArchivedAt.IsZero())
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "completed-plan-abc123.json")))
 }
 
 func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
@@ -108,21 +106,21 @@ func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
 	}
 
 	_, err := writePlan(PlansRoot(), plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	result := s.planCleanup(core.NewOptions(
 		core.Option{Key: "days", Value: 90},
 		core.Option{Key: "dry-run", Value: true},
 	))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(PlanCleanupOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.True(t, output.DryRun)
-	assert.Equal(t, 1, output.Matched)
-	assert.Equal(t, 0, output.Deleted)
-	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "dry-run-plan-abc123.json")))
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertTrue(t, output.DryRun)
+	core.AssertEqual(t, 1, output.Matched)
+	core.AssertEqual(t, 0, output.Deleted)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "dry-run-plan-abc123.json")))
 }
 
 func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) {
@@ -140,17 +138,17 @@ func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) 
 	}
 
 	_, err := writePlan(PlansRoot(), plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	result := s.planCleanup(core.NewOptions(core.Option{Key: "days", Value: 0}))
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(PlanCleanupOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.True(t, output.Disabled)
-	assert.Equal(t, 0, output.Deleted)
-	assert.True(t, fs.Exists(core.JoinPath(PlansRoot(), "disabled-plan-abc123.json")))
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertTrue(t, output.Disabled)
+	core.AssertEqual(t, 0, output.Deleted)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "disabled-plan-abc123.json")))
 }
 
 func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testing.T) {
@@ -158,10 +156,10 @@ func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testin
 	setTestWorkspace(t, dir)
 
 	path := core.JoinPath(PlansRoot(), "fallback-plan-abc123.json")
-	require.True(t, fs.Write(path, `{"id":"fallback-plan-abc123","title":"Fallback","status":"archived","objective":"Fallback"}`).OK)
+	core.RequireTrue(t, fs.Write(path, `{"id":"fallback-plan-abc123","title":"Fallback","status":"archived","objective":"Fallback"}`).OK)
 
 	stat := fs.Stat(path)
-	require.True(t, stat.OK)
+	core.RequireTrue(t, stat.OK)
 
 	plan := &Plan{
 		ID:        "fallback-plan-abc123",
@@ -171,10 +169,10 @@ func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testin
 	}
 
 	archivedAt := planArchivedAt(path, plan)
-	assert.False(t, archivedAt.IsZero())
+	core.AssertFalse(t, archivedAt.IsZero())
 
 	_, ok := stat.Value.(interface{ ModTime() time.Time })
-	assert.True(t, ok)
+	core.AssertTrue(t, ok)
 }
 
 func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T) {
@@ -192,7 +190,7 @@ func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T)
 	}
 
 	_, err := writePlan(PlansRoot(), plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -202,12 +200,12 @@ func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T)
 		close(done)
 	}()
 
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		return !fs.Exists(core.JoinPath(PlansRoot(), "scheduled-plan-abc123.json"))
 	}, time.Second, 5*time.Millisecond)
 
 	cancel()
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		select {
 		case <-done:
 			return true

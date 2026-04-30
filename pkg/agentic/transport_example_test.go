@@ -1,51 +1,162 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-package agentic_test
+package agentic
 
 import (
-	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
+	"context"
+	"net/http"
+	"net/http/httptest"
+
+	core "dappco.re/go"
 )
 
 func ExampleRegisterHTTPTransport() {
 	c := core.New()
-	agentic.RegisterHTTPTransport(c)
+	RegisterHTTPTransport(c)
 
-	// HTTP and HTTPS protocols are now registered with Core API.
-	core.Println(c.API().Protocols())
-	// Output: [http https]
+	protocols := c.API().Protocols()
+	core.Println(len(protocols))
+	core.Println(protocols[0])
+	core.Println(protocols[1])
+	// Output:
+	// 2
+	// http
+	// https
+}
+
+func ExampleStream_Send() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	stream := &httpStream{Client: srv.Client(), URL: srv.URL, Token: "token-123", Method: http.MethodPost}
+	err := stream.Send([]byte(`{"ping":1}`))
+	core.Println(err == nil)
+	core.Println(string(stream.Response))
+	// Output:
+	// true
+	// {"ok":true}
+}
+
+func ExampleStream_Receive() {
+	stream := &httpStream{Response: []byte(`{"result":"pong"}`)}
+	response, _ := stream.Receive()
+	core.Println(string(response))
+	// Output: {"result":"pong"}
+}
+
+func ExampleStream_Close() {
+	stream := &httpStream{}
+	core.Println(stream.Close() == nil)
+	// Output: true
+}
+
+func ExampleHTTPGet() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"method":"GET"}`))
+	}))
+	defer srv.Close()
+
+	result := HTTPGet(context.Background(), srv.URL, "token-123", "token")
+	core.Println(result.Value.(string))
+	// Output: {"method":"GET"}
+}
+
+func ExampleHTTPPost() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"method":"POST"}`))
+	}))
+	defer srv.Close()
+
+	result := HTTPPost(context.Background(), srv.URL, `{"title":"demo"}`, "token-123", "token")
+	core.Println(result.Value.(string))
+	// Output: {"method":"POST"}
+}
+
+func ExampleHTTPPatch() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"method":"PATCH"}`))
+	}))
+	defer srv.Close()
+
+	result := HTTPPatch(context.Background(), srv.URL, `{"title":"demo"}`, "token-123", "token")
+	core.Println(result.Value.(string))
+	// Output: {"method":"PATCH"}
+}
+
+func ExampleHTTPDelete() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"method":"DELETE"}`))
+	}))
+	defer srv.Close()
+
+	result := HTTPDelete(context.Background(), srv.URL, `{"delete":true}`, "token-123", "Bearer")
+	core.Println(result.Value.(string))
+	// Output: {"method":"DELETE"}
+}
+
+func ExampleHTTPDo() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"method":"PUT"}`))
+	}))
+	defer srv.Close()
+
+	result := HTTPDo(context.Background(), http.MethodPut, srv.URL, `{"title":"demo"}`, "token-123", "token")
+	core.Println(result.Value.(string))
+	// Output: {"method":"PUT"}
 }
 
 func ExampleDriveGet() {
-	c := core.New()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"repo":"go-io"}`))
+	}))
+	defer srv.Close()
 
-	// Register a Drive endpoint
+	c := core.New()
 	c.Drive().New(core.NewOptions(
 		core.Option{Key: "name", Value: "forge"},
-		core.Option{Key: "transport", Value: "https://forge.lthn.ai"},
-		core.Option{Key: "token", Value: "my-token"},
+		core.Option{Key: "transport", Value: srv.URL},
+		core.Option{Key: "token", Value: "drive-token"},
 	))
 
-	// DriveGet reads base URL + token from the Drive handle.
-	// r := agentic.DriveGet(c, "forge", "/api/v1/repos/core/go-io", "token")
-	// if r.OK { body := r.Value.(string) }
-
-	// Verify Drive is registered
-	core.Println(c.Drive().Has("forge"))
-	// Output: true
+	result := DriveGet(c, "forge", "/repos/core/go-io", "Bearer")
+	core.Println(result.Value.(string))
+	// Output: {"repo":"go-io"}
 }
 
 func ExampleDrivePost() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"created":true}`))
+	}))
+	defer srv.Close()
+
 	c := core.New()
 	c.Drive().New(core.NewOptions(
 		core.Option{Key: "name", Value: "brain"},
-		core.Option{Key: "transport", Value: "https://api.lthn.sh"},
+		core.Option{Key: "transport", Value: srv.URL},
 		core.Option{Key: "token", Value: "brain-key"},
 	))
 
-	// DrivePost reads base URL + token from the Drive handle.
-	// r := agentic.DrivePost(c, "brain", "/v1/brain/recall", body, "Bearer")
+	result := DrivePost(c, "brain", "/v1/brain/recall", `{"query":"build"}`, "Bearer")
+	core.Println(result.Value.(string))
+	// Output: {"created":true}
+}
 
-	core.Println(c.Drive().Has("brain"))
-	// Output: true
+func ExampleDriveDo() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"updated":true}`))
+	}))
+	defer srv.Close()
+
+	c := core.New()
+	c.Drive().New(core.NewOptions(
+		core.Option{Key: "name", Value: "forge"},
+		core.Option{Key: "transport", Value: srv.URL},
+		core.Option{Key: "token", Value: "drive-token"},
+	))
+
+	result := DriveDo(c, "forge", http.MethodPatch, "/repos/core/go-io/pulls/5", `{"title":"AX"}`, "Bearer")
+	core.Println(result.Value.(string))
+	// Output: {"updated":true}
 }

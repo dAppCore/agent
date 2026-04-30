@@ -9,7 +9,7 @@
 //	c.Data().New(core.NewOptions(
 //	    core.Option{Key: "name", Value: "brain"},
 //	    core.Option{Key: "source", Value: brainFS},
-//	    core.Option{Key: "path", Value: "prompts"},
+//	    core.Option{Key: `path`, Value: "prompts"},
 //	))
 //
 // Read from any mounted path:
@@ -23,8 +23,8 @@
 package core
 
 import (
+	corefilepath "dappco.re/go"
 	"io/fs"
-	"path/filepath"
 )
 
 // Data manages mounted embedded filesystems from core packages.
@@ -38,7 +38,7 @@ type Data struct {
 //	c.Data().New(core.NewOptions(
 //	    core.Option{Key: "name", Value: "brain"},
 //	    core.Option{Key: "source", Value: brainFS},
-//	    core.Option{Key: "path", Value: "prompts"},
+//	    core.Option{Key: `path`, Value: "prompts"},
 //	))
 func (d *Data) New(opts Options) Result {
 	name := opts.String("name")
@@ -56,7 +56,7 @@ func (d *Data) New(opts Options) Result {
 		return Result{E("data.New", "source is not fs.FS", nil), false}
 	}
 
-	path := opts.String("path")
+	path := opts.String(`path`)
 	if path == "" {
 		path = "."
 	}

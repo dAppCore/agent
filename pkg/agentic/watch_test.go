@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
 func writeWatchStatus(root, name string, status WorkspaceStatus) string {
@@ -27,8 +26,8 @@ func TestWatch_ResolveWorkspaceDir_Good_RelativeName(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	dir := s.resolveWorkspaceDir("go-io-abc123")
-	assert.Contains(t, dir, "go-io-abc123")
-	assert.True(t, core.PathIsAbs(dir))
+	core.AssertContains(t, dir, "go-io-abc123")
+	core.AssertTrue(t, core.PathIsAbs(dir))
 }
 
 func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
@@ -38,7 +37,7 @@ func TestWatch_ResolveWorkspaceDir_Good_AbsolutePath(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	abs := "/some/absolute/path"
-	assert.Equal(t, abs, s.resolveWorkspaceDir(abs))
+	core.AssertEqual(t, abs, s.resolveWorkspaceDir(abs))
 }
 
 // --- findActiveWorkspaces ---
@@ -70,9 +69,9 @@ func TestWatch_FindActiveWorkspaces_Good_WithActive(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	active := s.findActiveWorkspaces()
-	assert.Contains(t, active, "ws-running")
-	assert.Contains(t, active, "ws-queued")
-	assert.NotContains(t, active, "ws-done")
+	core.AssertContains(t, active, "ws-running")
+	core.AssertContains(t, active, "ws-queued")
+	core.AssertNotContains(t, active, "ws-done")
 }
 
 func TestWatch_FindActiveWorkspaces_Good_DeepLayout(t *testing.T) {
@@ -91,7 +90,7 @@ func TestWatch_FindActiveWorkspaces_Good_DeepLayout(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	active := s.findActiveWorkspaces()
-	assert.Contains(t, active, "core/go-io/task-15")
+	core.AssertContains(t, active, "core/go-io/task-15")
 }
 
 func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
@@ -107,12 +106,12 @@ func TestWatch_FindActiveWorkspaces_Good_Empty(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	active := s.findActiveWorkspaces()
-	assert.Empty(t, active)
+	core.AssertEmpty(t, active)
 }
 
 // --- findActiveWorkspaces Bad/Ugly ---
 
-func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Bad_Case(t *testing.T) {
 	// Workspace dir doesn't exist
 	root := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", core.JoinPath(root, "nonexistent"))
@@ -122,13 +121,13 @@ func TestWatch_FindActiveWorkspaces_Bad(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		active := s.findActiveWorkspaces()
-		assert.Empty(t, active)
+		core.AssertEmpty(t, active)
 	})
 }
 
-func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
+func TestWatch_FindActiveWorkspaces_Ugly_Case(t *testing.T) {
 	// Workspaces with corrupt status.json
 	root := t.TempDir()
 	setTestWorkspace(t, root)
@@ -152,13 +151,13 @@ func TestWatch_FindActiveWorkspaces_Ugly(t *testing.T) {
 
 	active := s.findActiveWorkspaces()
 	// Corrupt workspace should be skipped, valid one should be found
-	assert.Contains(t, active, "ws-valid")
-	assert.NotContains(t, active, "ws-corrupt")
+	core.AssertContains(t, active, "ws-valid")
+	core.AssertNotContains(t, active, "ws-corrupt")
 }
 
 // --- resolveWorkspaceDir Bad/Ugly ---
 
-func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Bad_Case(t *testing.T) {
 	// Empty name
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -166,21 +165,21 @@ func TestWatch_ResolveWorkspaceDir_Bad(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	dir := s.resolveWorkspaceDir("")
-	assert.NotEmpty(t, dir, "empty name should still resolve to workspace root")
-	assert.True(t, core.PathIsAbs(dir))
+	core.AssertNotEmpty(t, dir, "empty name should still resolve to workspace root")
+	core.AssertTrue(t, core.PathIsAbs(dir))
 }
 
-func TestWatch_ResolveWorkspaceDir_Ugly(t *testing.T) {
+func TestWatch_ResolveWorkspaceDir_Ugly_Case(t *testing.T) {
 	// Name with path traversal "../.."
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		dir := s.resolveWorkspaceDir("../..")
 		// JoinPath handles traversal; result should be absolute
-		assert.True(t, core.PathIsAbs(dir))
+		core.AssertTrue(t, core.PathIsAbs(dir))
 	})
 }
 
@@ -207,17 +206,17 @@ func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
 	}()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		PollInterval: 1,
 		Timeout:      2,
 	})
-	assert.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Len(t, out.Completed, 1)
-	assert.Empty(t, out.Failed)
-	assert.Equal(t, "core/go-io/task-42", out.Completed[0].Workspace)
-	assert.Equal(t, "ready-for-review", out.Completed[0].Status)
-	assert.Equal(t, "https://forge.lthn.ai/core/go-io/pulls/42", out.Completed[0].PRURL)
+	core.AssertNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertLen(t, out.Completed, 1)
+	core.AssertEmpty(t, out.Failed)
+	core.AssertEqual(t, "core/go-io/task-42", out.Completed[0].Workspace)
+	core.AssertEqual(t, "ready-for-review", out.Completed[0].Status)
+	core.AssertEqual(t, "https://forge.lthn.ai/core/go-io/pulls/42", out.Completed[0].PRURL)
 }
 
 func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
@@ -251,16 +250,16 @@ func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
 	}()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		Workspaces:   []string{"core/go-io"},
 		PollInterval: 1,
 		Timeout:      2,
 	})
-	assert.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Empty(t, out.Failed)
-	assert.Len(t, out.Completed, 2)
-	assert.ElementsMatch(t, []string{"core/go-io/task-41", "core/go-io/task-42"}, []string{
+	core.AssertNoError(t, err)
+	core.AssertTrue(t, out.Success)
+	core.AssertEmpty(t, out.Failed)
+	core.AssertLen(t, out.Completed, 2)
+	core.AssertElementsMatch(t, []string{"core/go-io/task-41", "core/go-io/task-42"}, []string{
 		out.Completed[0].Workspace,
 		out.Completed[1].Workspace,
 	})
@@ -280,15 +279,15 @@ func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
 	cancel()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(ctx, nil, WatchInput{
+	_, out, err := watch(s, ctx, nil, WatchInput{
 		Workspaces:   []string{"ws-running"},
 		PollInterval: 1,
 		Timeout:      2,
 	})
-	assert.Error(t, err)
-	assert.False(t, out.Success)
-	assert.Empty(t, out.Completed)
-	assert.Empty(t, out.Failed)
+	core.AssertError(t, err)
+	core.AssertFalse(t, out.Success)
+	core.AssertEmpty(t, out.Completed)
+	core.AssertEmpty(t, out.Failed)
 }
 
 func TestWatch_Watch_Ugly_TimeoutMarksRemainingFailed(t *testing.T) {
@@ -302,15 +301,15 @@ func TestWatch_Watch_Ugly_TimeoutMarksRemainingFailed(t *testing.T) {
 	})
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		Workspaces:   []string{"ws-stuck"},
 		PollInterval: 1,
 		Timeout:      1,
 	})
-	assert.NoError(t, err)
-	assert.False(t, out.Success)
-	assert.Empty(t, out.Completed)
-	assert.Len(t, out.Failed, 1)
-	assert.Equal(t, "ws-stuck", out.Failed[0].Workspace)
-	assert.Equal(t, "timeout", out.Failed[0].Status)
+	core.AssertNoError(t, err)
+	core.AssertFalse(t, out.Success)
+	core.AssertEmpty(t, out.Completed)
+	core.AssertLen(t, out.Failed, 1)
+	core.AssertEqual(t, "ws-stuck", out.Failed[0].Workspace)
+	core.AssertEqual(t, "timeout", out.Failed[0].Status)
 }

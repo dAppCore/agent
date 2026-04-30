@@ -2,7 +2,7 @@
 
 package brain
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func ExampleNewProvider() {
 	p := NewProvider(nil, nil)
@@ -20,4 +20,25 @@ func ExampleBrainProvider_Channels() {
 	provider := NewProvider(nil, nil)
 	core.Println(len(provider.Channels()))
 	// Output: 3
+}
+
+func ExampleBrainProvider_Name() {
+	core.Println(NewProvider(nil, nil).Name())
+	// Output: brain
+}
+
+func ExampleBrainProvider_Element() {
+	core.Println(NewProvider(nil, nil).Element().Tag)
+	// Output: core-brain-panel
+}
+
+func ExampleBrainProvider_RegisterRoutes() {
+	r := setupRouter(NewProvider(nil, nil))
+	core.Println(len(providerRouteSignatures(r)))
+	// Output: 5
+}
+
+func ExampleBrainProvider_Describe() {
+	core.Println(len(NewProvider(nil, nil).Describe()))
+	// Output: 5
 }

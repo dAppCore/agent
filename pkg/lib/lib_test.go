@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var testFs = (&core.Fs{}).NewUnrestricted()
@@ -114,7 +114,7 @@ func TestLib_Task_Good(t *testing.T) {
 	}
 }
 
-func TestLib_TaskNested_Good(t *testing.T) {
+func TestLib_TaskNested_Good_Case(t *testing.T) {
 	r := Task("code/review")
 	if !r.OK {
 		t.Fatal("Task('code/review') returned !OK")
@@ -236,7 +236,7 @@ func TestLib_Template_Good(t *testing.T) {
 	}
 }
 
-func TestLib_TemplateFallback_Good(t *testing.T) {
+func TestLib_TemplateFallback_Good_Case(t *testing.T) {
 	r := Template("bug-fix")
 	if !r.OK {
 		t.Fatal("Template('bug-fix') returned !OK — should fall through to Task")
@@ -521,7 +521,7 @@ func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	}
 }
 
-func TestLib_ExtractWorkspaceSubdirs_Good(t *testing.T) {
+func TestLib_ExtractWorkspaceSubdirs_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "test-repo", Task: "test task"}
 
@@ -548,7 +548,7 @@ func TestLib_ExtractWorkspaceSubdirs_Good(t *testing.T) {
 	}
 }
 
-func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
+func TestLib_ExtractWorkspaceTemplate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "my-repo", Task: "fix the bug"}
 
@@ -564,11 +564,15 @@ func TestLib_ExtractWorkspaceTemplate_Good(t *testing.T) {
 }
 
 func TestLib_ExtractWorkspace_Bad(t *testing.T) {
-	requireExtractWorkspaceError(t, ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"}))
+	result := ExtractWorkspace("missing-template", t.TempDir(), &WorkspaceData{Repo: "test-repo"})
+	requireExtractWorkspaceError(t, result)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestLib_ExtractWorkspace_Ugly(t *testing.T) {
-	requireExtractWorkspaceError(t, ExtractWorkspace("default", t.TempDir(), nil))
+	result := ExtractWorkspace("default", t.TempDir(), nil)
+	requireExtractWorkspaceError(t, result)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
@@ -746,7 +750,7 @@ func TestLib_ExtractWorkspace_Good_ReferenceUsageExamples(t *testing.T) {
 	}
 }
 
-func TestLib_MountEmbed_Bad(t *testing.T) {
+func TestLib_MountEmbed_Bad_Case(t *testing.T) {
 	result := mountEmbed(promptFiles, "missing-dir")
 	if result.OK {
 		t.Fatal("mountEmbed should fail for a missing embedded directory")

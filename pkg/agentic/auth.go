@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // key := agentic.AgentApiKey{ID: 7, Name: "codex local", Prefix: "ak_abcd", IPRestrictions: []string{"10.0.0.0/8"}, RateLimit: 60}

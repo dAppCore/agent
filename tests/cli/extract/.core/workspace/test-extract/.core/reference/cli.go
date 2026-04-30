@@ -8,8 +8,8 @@
 package core
 
 import (
+	coreos "dappco.re/go"
 	"io"
-	"os"
 )
 
 // CliOptions holds configuration for the Cli service.
@@ -107,14 +107,14 @@ func (cl *Cli) Run(args ...string) Result {
 				opts.Set("_arg", arg)
 			}
 			argsResult := opts.Get("_args")
-			resultArgs := []string{}
+			args := []string{}
 			if argsResult.OK {
 				if existing, ok := argsResult.Value.([]string); ok {
-					resultArgs = append(resultArgs, existing...)
+					args = append(args, existing...)
 				}
 			}
-			resultArgs = append(resultArgs, arg)
-			opts.Set("_args", resultArgs)
+			args = append(args, arg)
+			opts.Set("_args", args)
 		}
 	}
 

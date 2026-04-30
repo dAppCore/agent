@@ -5,7 +5,7 @@ package agentic
 import (
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func Example_writeStatus() {

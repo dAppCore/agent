@@ -10,9 +10,8 @@ import (
 	"encoding/hex"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -23,7 +22,7 @@ type AgentOptions struct{}
 // core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge              *forge.Forge
+	forge              *forgeClient
 	forgeURL           string
 	forgeToken         string
 	brainURL           string
@@ -70,7 +69,7 @@ func NewPrep() *PrepSubsystem {
 	forgeURL := envOr("FORGE_URL", "https://forge.lthn.ai")
 
 	subsystem := &PrepSubsystem{
-		forge:      forge.NewForge(forgeURL, forgeToken),
+		forge:      newForgeClient(forgeURL, forgeToken),
 		forgeURL:   forgeURL,
 		forgeToken: forgeToken,
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
@@ -457,7 +456,11 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 // dispatch state described in RFC §15.3.
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
-		s.workspaces.Set(name, st)
+		if st == nil {
+			s.workspaces.Delete(name)
+		} else {
+			s.workspaces.Set(name, st)
+		}
 	}
 	if st == nil {
 		s.stateStoreDelete(stateRegistryGroup, name)
@@ -566,12 +569,16 @@ func (s *PrepSubsystem) refreshConcurrencySnapshot() {
 
 	// Drop entries for agent types we no longer track so the snapshot
 	// never grows beyond active dispatch pools.
+	stale := make([]string, 0)
 	s.stateStoreRestore(stateConcurrencyGroup, func(key, _ string) bool {
 		if _, alive := totals[key]; !alive {
-			s.stateStoreDelete(stateConcurrencyGroup, key)
+			stale = append(stale, key)
 		}
 		return true
 	})
+	for _, key := range stale {
+		s.stateStoreDelete(stateConcurrencyGroup, key)
+	}
 }
 
 // s.Workspaces().Names()                        // all workspace names
@@ -608,14 +615,16 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
-	}, s.prepWorkspace)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+		return prepWorkspace(s, ctx, request, input)
+	})
 	s.registerDispatchTool(svc)
 	s.registerStatusTool(svc)
 	s.registerResumeTool(svc)
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_complete",
 		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
-	}, s.completeTool)
+	}, toolHandlerFor[CompleteInput, CompleteOutput]("agentic.complete", "invalid complete output", s.completeTool))
 	s.registerCommitTool(svc)
 	s.registerCreatePRTool(svc)
 	s.registerListPRsTool(svc)
@@ -630,7 +639,9 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
-	}, s.scan)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ScanInput) (*mcp.CallToolResult, ScanOutput, error) {
+		return scan(s, ctx, request, input)
+	})
 
 	// Extended tools — only when CORE_MCP_FULL=1
 	if core.Env("CORE_MCP_FULL") != "1" {
@@ -690,7 +701,7 @@ type PrepOutput struct {
 
 // dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
 // dir == ".core/workspace/core/go-io/task-15"
-func workspaceDir(org, repo string, input PrepInput) (string, error) {
+var workspaceDir = func(org, repo string, input PrepInput) (string, error) {
 	r := workspaceDirResult(org, repo, input)
 	if !r.OK {
 		err, _ := r.Value.(error)
@@ -734,7 +745,7 @@ func workspaceDirResult(org, repo string, input PrepInput) core.Result {
 	}
 }
 
-func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
 	if input.Repo == "" {
 		return nil, PrepOutput{}, core.E("prepWorkspace", "repo is required", nil)
 	}
@@ -848,10 +859,10 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	if err := s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org); err != nil {
+	if err := cloneWorkspaceDeps(s, ctx, workspaceDir, repoDir, input.Org); err != nil {
 		return nil, PrepOutput{}, err
 	}
-	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
+	if err := runWorkspaceLanguagePrep(s, ctx, workspaceDir, repoDir); err != nil {
 		return nil, PrepOutput{}, err
 	}
 
@@ -863,7 +874,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	if err := s.copyRepoSpecs(workspaceDir, input.Repo); err != nil {
+	if err := copyRepoSpecs(s, workspaceDir, input.Repo); err != nil {
 		return nil, PrepOutput{}, err
 	}
 
@@ -884,7 +895,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 // s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
 // s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
-func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
+var copyRepoSpecs = func(s *PrepSubsystem, workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
@@ -944,13 +955,13 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
 }
 
 // _, out, err := prep.PrepareWorkspace(ctx, input)
-func (s *PrepSubsystem) PrepareWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-	return s.prepWorkspace(ctx, nil, input)
+var PrepareWorkspace = func(s *PrepSubsystem, ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return prepWorkspace(s, ctx, nil, input)
 }
 
 // _, out, err := prep.TestPrepWorkspace(ctx, input)
-func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-	return s.prepWorkspace(ctx, nil, input)
+var TestPrepWorkspace = func(s *PrepSubsystem, ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return prepWorkspace(s, ctx, nil, input)
 }
 
 // prompt, memories, consumers := prep.BuildPrompt(ctx, input, "dev", repoPath)
@@ -1040,7 +1051,7 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 
 // ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
 // keeps TODO.md present for the prompt and the local agent shell wrapper.
-func ensureWorkspaceTaskFile(workspaceDir string) error {
+var ensureWorkspaceTaskFile = func(workspaceDir string) error {
 	if workspaceDir == "" {
 		return core.E("prepWorkspace", "workspace dir is required", nil)
 	}
@@ -1116,7 +1127,7 @@ func writePromptSnapshot(workspaceDir, prompt string) core.Result {
 }
 
 // snapshot := readPromptSnapshot("/srv/.core/workspace/core/go-io/task-42")
-func readPromptSnapshot(workspaceDir string) (PromptVersionSnapshot, error) {
+var readPromptSnapshot = func(workspaceDir string) (PromptVersionSnapshot, error) {
 	if workspaceDir == "" {
 		return PromptVersionSnapshot{}, core.E("readPromptSnapshot", "workspace is required", nil)
 	}
@@ -1152,7 +1163,7 @@ func promptSnapshotHash(prompt string) string {
 }
 
 // _ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
-func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
+var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
 	goEnv := []string{
@@ -1198,8 +1209,8 @@ func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceD
 }
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
-	idx := core.Sprintf("%d", issue)
-	iss, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": idx})
+	var iss issueView
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, issue), &iss)
 	if err != nil {
 		return ""
 	}
@@ -1250,7 +1261,7 @@ func (s *PrepSubsystem) brainRecall(ctx context.Context, repo string) (string, i
 
 func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	goWorkPath := core.JoinPath(s.codePath, "go.work")
-	modulePath := core.Concat("dappco.re/go/core/", repo)
+	modulePaths := consumerModulePaths(repo)
 
 	r := fs.Read(goWorkPath)
 	if !r.OK {
@@ -1271,7 +1282,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 			continue
 		}
 		modData := mr.Value.(string)
-		if core.Contains(modData, modulePath) && !core.HasPrefix(modData, core.Concat("module ", modulePath)) {
+		if consumerRequiresModule(modData, modulePaths) {
 			consumers = append(consumers, core.PathBase(dir))
 		}
 	}
@@ -1289,8 +1300,35 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 	return b.String(), len(consumers)
 }
 
+func consumerModulePaths(repo string) []string {
+	if repo == "go" {
+		return []string{"dappco.re/go"}
+	}
+	return []string{
+		core.Concat("dappco.re/go/", repo),
+	}
+}
+
+func consumerRequiresModule(goMod string, modulePaths []string) bool {
+	lines := core.Split(goMod, "\n")
+	for _, modulePath := range modulePaths {
+		for _, line := range lines {
+			line = core.Trim(line)
+			if line == "" || core.HasPrefix(line, "module ") {
+				continue
+			}
+			if line == modulePath ||
+				core.HasPrefix(line, core.Concat(modulePath, " ")) ||
+				core.HasPrefix(line, core.Concat("require ", modulePath, " ")) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (s *PrepSubsystem) getGitLog(repoPath string) string {
-	r := s.Core().Process().RunIn(context.Background(), repoPath, "git", "log", "--oneline", "-20")
+	r := s.Core().Process().RunIn(context.Background(), repoPath, "git", `log`, "--oneline", "-20")
 	if !r.OK {
 		return ""
 	}
@@ -1298,7 +1336,7 @@ func (s *PrepSubsystem) getGitLog(repoPath string) string {
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
-	pages, err := s.forge.Wiki.ListPages(ctx, org, repo)
+	pages, err := s.forge.listWikiPages(ctx, org, repo)
 	if err != nil || len(pages) == 0 {
 		return ""
 	}
@@ -1309,7 +1347,7 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 		if name == "" {
 			name = meta.Title
 		}
-		page, pageErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
+		page, pageErr := s.forge.getWikiPage(ctx, org, repo, name)
 		if pageErr != nil || page.ContentBase64 == "" {
 			continue
 		}

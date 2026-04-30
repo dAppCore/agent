@@ -5,25 +5,23 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestCommandsState_RegisterStateCommands_Good(t *testing.T) {
+func TestCommandsState_RegisterStateCommands_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
 	s.registerStateCommands()
 
-	assert.Contains(t, c.Commands(), "state")
-	assert.Contains(t, c.Commands(), "agentic:state")
-	assert.Contains(t, c.Commands(), "state/set")
-	assert.Contains(t, c.Commands(), "state/get")
-	assert.Contains(t, c.Commands(), "state/list")
-	assert.Contains(t, c.Commands(), "state/delete")
+	core.AssertContains(t, c.Commands(), "state")
+	core.AssertContains(t, c.Commands(), "agentic:state")
+	core.AssertContains(t, c.Commands(), "state/set")
+	core.AssertContains(t, c.Commands(), "state/get")
+	core.AssertContains(t, c.Commands(), "state/list")
+	core.AssertContains(t, c.Commands(), "state/delete")
 }
 
-func TestCommandsState_CmdStateSet_Good(t *testing.T) {
+func TestCommandsState_CmdStateSet_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	result := s.cmdStateSet(core.NewOptions(
@@ -34,14 +32,14 @@ func TestCommandsState_CmdStateSet_Good(t *testing.T) {
 		core.Option{Key: "description", Value: "Shared across sessions"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	output, ok := result.Value.(StateOutput)
-	require.True(t, ok)
-	assert.Equal(t, "pattern", output.State.Key)
-	assert.Equal(t, "general", output.State.Type)
-	assert.Equal(t, "observer", output.State.Value)
-	assert.Equal(t, "Shared across sessions", output.State.Description)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "pattern", output.State.Key)
+	core.AssertEqual(t, "general", output.State.Type)
+	core.AssertEqual(t, "observer", output.State.Value)
+	core.AssertEqual(t, "Shared across sessions", output.State.Description)
 }
 
 func TestCommandsState_CmdStateSet_Bad_MissingValue(t *testing.T) {
@@ -52,31 +50,33 @@ func TestCommandsState_CmdStateSet_Bad_MissingValue(t *testing.T) {
 		core.Option{Key: "key", Value: "pattern"},
 	))
 
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsState_CmdStateGet_Good(t *testing.T) {
+func TestCommandsState_CmdStateGet_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, output, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	require.NoError(t, err)
-	require.Equal(t, "pattern", output.State.Key)
+	core.RequireTrue(t, setResult.OK)
+	output, ok := setResult.Value.(StateOutput)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "pattern", output.State.Key)
 
 	result := s.cmdStateGet(core.NewOptions(
 		core.Option{Key: "_arg", Value: "ax-follow-up"},
 		core.Option{Key: "key", Value: "pattern"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	stateOutput, ok := result.Value.(StateOutput)
-	require.True(t, ok)
-	assert.Equal(t, "pattern", stateOutput.State.Key)
-	assert.Equal(t, "observer", stateOutput.State.Value)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "pattern", stateOutput.State.Key)
+	core.AssertEqual(t, "observer", stateOutput.State.Value)
 }
 
 func TestCommandsState_CmdStateGet_Bad_MissingKey(t *testing.T) {
@@ -84,27 +84,27 @@ func TestCommandsState_CmdStateGet_Bad_MissingKey(t *testing.T) {
 
 	result := s.cmdStateGet(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
 
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsState_CmdStateList_Good(t *testing.T) {
+func TestCommandsState_CmdStateList_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	require.NoError(t, err)
+	core.RequireTrue(t, setResult.OK)
 
 	result := s.cmdStateList(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	listOutput, ok := result.Value.(StateListOutput)
-	require.True(t, ok)
-	assert.Equal(t, 1, listOutput.Total)
-	assert.Len(t, listOutput.States, 1)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, 1, listOutput.Total)
+	core.AssertLen(t, listOutput.States, 1)
 }
 
 func TestCommandsState_CmdStateList_Ugly_EmptyPlan(t *testing.T) {
@@ -112,34 +112,34 @@ func TestCommandsState_CmdStateList_Ugly_EmptyPlan(t *testing.T) {
 
 	result := s.cmdStateList(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	listOutput, ok := result.Value.(StateListOutput)
-	require.True(t, ok)
-	assert.Zero(t, listOutput.Total)
-	assert.Empty(t, listOutput.States)
+	core.RequireTrue(t, ok)
+	assertZero(t, listOutput.Total)
+	core.AssertEmpty(t, listOutput.States)
 }
 
-func TestCommandsState_CmdStateDelete_Good(t *testing.T) {
+func TestCommandsState_CmdStateDelete_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	require.NoError(t, err)
+	core.RequireTrue(t, setResult.OK)
 
 	result := s.cmdStateDelete(core.NewOptions(
 		core.Option{Key: "_arg", Value: "ax-follow-up"},
 		core.Option{Key: "key", Value: "pattern"},
 	))
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	deleteOutput, ok := result.Value.(StateDeleteOutput)
-	require.True(t, ok)
-	assert.Equal(t, "pattern", deleteOutput.Deleted.Key)
-	assert.False(t, fs.Exists(statePath("ax-follow-up")))
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "pattern", deleteOutput.Deleted.Key)
+	core.AssertFalse(t, fs.Exists(statePath("ax-follow-up")))
 }
 
 func TestCommandsState_CmdStateDelete_Bad_MissingKey(t *testing.T) {
@@ -147,5 +147,5 @@ func TestCommandsState_CmdStateDelete_Bad_MissingKey(t *testing.T) {
 
 	result := s.cmdStateDelete(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
 
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }

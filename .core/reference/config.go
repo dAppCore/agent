@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 // Settings, feature flags, and typed configuration for the Core framework.
+//
+//	timeout := core.ConfigGet[int](c.Config(), "agent.timeout")
 
 package core
 

@@ -11,14 +11,12 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- statusRemote ---
 
-func TestRemotestatus_StatusRemote_Good(t *testing.T) {
+func TestRemotestatus_StatusRemote_Good_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -43,27 +41,33 @@ func TestRemotestatus_StatusRemote_Good(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, out, err := s.statusRemote(context.Background(), nil, RemoteStatusInput{
+	result := s.statusRemote(context.Background(), RemoteStatusInput{
 		Host: srv.Listener.Addr().String(),
 	})
-	require.NoError(t, err)
-	assert.True(t, out.Success)
-	assert.Equal(t, 5, out.Stats.Total)
-	assert.Equal(t, 2, out.Stats.Running)
+	core.RequireTrue(t, result.OK)
+	out, ok := result.Value.(RemoteStatusOutput)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, out.Success)
+	core.AssertEqual(t, 5, out.Stats.Total)
+	core.AssertEqual(t, 2, out.Stats.Running)
 }
 
-func TestRemotestatus_StatusRemote_Bad(t *testing.T) {
+func TestRemotestatus_StatusRemote_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Missing host
-	_, _, err := s.statusRemote(context.Background(), nil, RemoteStatusInput{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "host is required")
+	result := s.statusRemote(context.Background(), RemoteStatusInput{})
+	core.AssertFalse(t, result.OK)
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "host is required")
 
 	// Unreachable
-	_, out, err := s.statusRemote(context.Background(), nil, RemoteStatusInput{Host: "127.0.0.1:1"})
-	assert.NoError(t, err)
-	assert.Contains(t, out.Error, "unreachable")
+	result = s.statusRemote(context.Background(), RemoteStatusInput{Host: "127.0.0.1:1"})
+	core.RequireTrue(t, result.OK)
+	out, ok := result.Value.(RemoteStatusOutput)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, out.Error, "unreachable")
 
 	// Call fails after init
 	callCount := 0
@@ -82,11 +86,14 @@ func TestRemotestatus_StatusRemote_Bad(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, out2, _ := s.statusRemote(context.Background(), nil, RemoteStatusInput{Host: srv.Listener.Addr().String()})
-	assert.Contains(t, out2.Error, "call failed")
+	result = s.statusRemote(context.Background(), RemoteStatusInput{Host: srv.Listener.Addr().String()})
+	core.RequireTrue(t, result.OK)
+	out2, ok := result.Value.(RemoteStatusOutput)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, out2.Error, "call failed")
 }
 
-func TestRemotestatus_StatusRemote_Ugly(t *testing.T) {
+func TestRemotestatus_StatusRemote_Ugly_Case(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -106,9 +113,12 @@ func TestRemotestatus_StatusRemote_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, out, _ := s.statusRemote(context.Background(), nil, RemoteStatusInput{Host: srv.Listener.Addr().String()})
-	assert.False(t, out.Success)
-	assert.Contains(t, out.Error, "internal error")
+	result := s.statusRemote(context.Background(), RemoteStatusInput{Host: srv.Listener.Addr().String()})
+	core.RequireTrue(t, result.OK)
+	out, ok := result.Value.(RemoteStatusOutput)
+	core.RequireTrue(t, ok)
+	core.AssertFalse(t, out.Success)
+	core.AssertContains(t, out.Error, "internal error")
 
 	// Unparseable response
 	callCount2 := 0
@@ -127,7 +137,10 @@ func TestRemotestatus_StatusRemote_Ugly(t *testing.T) {
 	}))
 	t.Cleanup(srv2.Close)
 
-	_, out2, _ := s.statusRemote(context.Background(), nil, RemoteStatusInput{Host: srv2.Listener.Addr().String()})
-	assert.False(t, out2.Success)
-	assert.Contains(t, out2.Error, "failed to parse")
+	result = s.statusRemote(context.Background(), RemoteStatusInput{Host: srv2.Listener.Addr().String()})
+	core.RequireTrue(t, result.OK)
+	out2, ok := result.Value.(RemoteStatusOutput)
+	core.RequireTrue(t, ok)
+	core.AssertFalse(t, out2.Success)
+	core.AssertContains(t, out2.Error, "failed to parse")
 }

@@ -8,10 +8,8 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // newCoreForHandlerTests creates a Core with PrepSubsystem registered via
@@ -41,15 +39,15 @@ func newCoreForHandlerTests(t *testing.T) (*core.Core, *PrepSubsystem) {
 
 // --- HandleIPCEvents ---
 
-func TestHandlers_HandleIPCEvents_Good(t *testing.T) {
+func TestHandlers_PrepSubsystem_HandleIPCEvents_Good(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 	// HandleIPCEvents was auto-registered — Core should not panic on ACTION
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		c.ACTION(messages.AgentCompleted{Workspace: "nonexistent", Repo: "test", Status: "completed"})
 	})
 }
 
-func TestHandlers_PokeOnCompletion_Good(t *testing.T) {
+func TestHandlers_PokeOnCompletion_Good_Case(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	poked := make(chan struct{}, 1)
@@ -68,10 +66,10 @@ func TestHandlers_PokeOnCompletion_Good(t *testing.T) {
 		Workspace: "ws-test", Repo: "go-io", Status: "completed",
 	})
 
-	require.Eventually(t, func() bool { return len(poked) == 1 }, time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return len(poked) == 1 }, time.Second, 10*time.Millisecond)
 }
 
-func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
+func TestHandlers_IngestOnCompletion_Good_Case(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	root := WorkspaceRoot()
@@ -96,11 +94,11 @@ func TestHandlers_IngestOnCompletion_Good(t *testing.T) {
 	})
 }
 
-func TestHandlers_IgnoresNonCompleted_Good(t *testing.T) {
+func TestHandlers_IgnoresNonCompleted_Good_Case(t *testing.T) {
 	c, _ := newCoreForHandlerTests(t)
 
 	// Non-completed status — ingest still runs (it handles all completions)
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		c.ACTION(messages.AgentCompleted{
 			Workspace: "nonexistent",
 			Repo:      "test",
@@ -118,14 +116,14 @@ func TestHandlers_PokeQueue_Good(t *testing.T) {
 	// Should call drainQueue without panic
 }
 
-func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
+func TestCompletionPipeline_RegisterHandlers_Good(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	workspaceName := "core/go-io/task-5"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
-	require.True(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
-	require.NoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
+	core.RequireNoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix-tests",
@@ -194,7 +192,7 @@ func TestHandlers_RegisterHandlers_Good_CompletionPipeline(t *testing.T) {
 		Status:    "completed",
 	})
 
-	require.Eventually(t, func() bool {
+	requireEventually(t, func() bool {
 		return seen("qa") && seen("auto-pr") && seen("verify") && seen("ingest") && seen("poke")
 	}, time.Second, 10*time.Millisecond)
 }
@@ -205,16 +203,16 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 
 	firstWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-1")
 	secondWorkspace := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-2")
-	require.True(t, fs.EnsureDir(firstWorkspace).OK)
-	require.True(t, fs.EnsureDir(secondWorkspace).OK)
+	core.RequireTrue(t, fs.EnsureDir(firstWorkspace).OK)
+	core.RequireTrue(t, fs.EnsureDir(secondWorkspace).OK)
 
-	require.NoError(t, writeStatus(firstWorkspace, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(firstWorkspace, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/first",
 		PRURL:  "https://forge.lthn.ai/core/go-io/pulls/12",
 	}))
-	require.NoError(t, writeStatus(secondWorkspace, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(secondWorkspace, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/second",
@@ -222,10 +220,10 @@ func TestHandlers_FindWorkspaceByPR_Good_MatchesPRNumber(t *testing.T) {
 	}))
 
 	result := findWorkspaceByPRWithInfo("go-io", "", 13, "https://forge.lthn.ai/core/go-io/pulls/13")
-	assert.Equal(t, secondWorkspace, result)
+	core.AssertEqual(t, secondWorkspace, result)
 }
 
-func TestHandlers_IngestDisabled_Bad(t *testing.T) {
+func TestHandlers_IngestDisabled_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -249,7 +247,7 @@ func TestHandlers_IngestDisabled_Bad(t *testing.T) {
 	c.ACTION(messages.AgentCompleted{Workspace: "ws-test", Repo: "test", Status: "completed"})
 }
 
-func TestHandlers_ResolveWorkspace_Good(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -258,18 +256,18 @@ func TestHandlers_ResolveWorkspace_Good(t *testing.T) {
 	fs.EnsureDir(ws)
 
 	result := resolveWorkspace("core/go-io/task-15")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
-func TestHandlers_ResolveWorkspace_Bad(t *testing.T) {
+func TestHandlers_ResolveWorkspace_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	result := resolveWorkspace("nonexistent")
-	assert.Empty(t, result)
+	core.AssertEmpty(t, result)
 }
 
-func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -280,10 +278,10 @@ func TestHandlers_FindWorkspaceByPR_Good(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("go-io", "agent/fix")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
-func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
+func TestHandlers_FindWorkspaceByPR_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	wsRoot := core.JoinPath(root, "workspace")
@@ -295,12 +293,12 @@ func TestHandlers_FindWorkspaceByPR_Ugly(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	result := findWorkspaceByPR("agent", "agent/tests")
-	assert.Equal(t, ws, result)
+	core.AssertEqual(t, ws, result)
 }
 
 // --- command registration ---
 
-func TestHandlers_Commandsforge_Good(t *testing.T) {
+func TestHandlers_Commandsforge_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -309,10 +307,10 @@ func TestHandlers_Commandsforge_Good(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() { s.registerForgeCommands() })
+	core.AssertNotPanics(t, func() { s.registerForgeCommands() })
 }
 
-func TestHandlers_Commandsworkspace_Good(t *testing.T) {
+func TestHandlers_Commandsworkspace_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -321,5 +319,167 @@ func TestHandlers_Commandsworkspace_Good(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() { s.registerWorkspaceCommands() })
+	core.AssertNotPanics(t, func() { s.registerWorkspaceCommands() })
+}
+
+func TestHandlers_RegisterHandlers_Good(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	workspaceName := "core/go-io/task-5"
+	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-5")
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(workspaceDir, "repo")).OK)
+	core.RequireNoError(t, writeStatus(workspaceDir, &WorkspaceStatus{
+		Status: "completed",
+		Repo:   "go-io",
+		Branch: "agent/fix-tests",
+		Agent:  "codex",
+	}))
+
+	var mu sync.Mutex
+	called := make(map[string]bool)
+	mark := func(name string) {
+		mu.Lock()
+		called[name] = true
+		mu.Unlock()
+	}
+	seen := func(name string) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return called[name]
+	}
+
+	c := core.New()
+	c.Config().Enable("auto-ingest")
+	RegisterHandlers(c, &PrepSubsystem{})
+
+	c.Action("agentic.qa", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("qa")
+		}
+		c.ACTION(messages.QAResult{Workspace: workspaceName, Repo: "go-io", Passed: true})
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.auto-pr", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("auto-pr")
+		}
+		c.ACTION(messages.PRCreated{
+			Repo:   "go-io",
+			Branch: "agent/fix-tests",
+			PRURL:  "https://forge.lthn.ai/core/go-io/pulls/12",
+			PRNum:  12,
+		})
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.verify", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("verify")
+		}
+		return core.Result{OK: true}
+	})
+	c.Action("agentic.ingest", func(_ context.Context, options core.Options) core.Result {
+		if options.String("workspace") == workspaceDir {
+			mark("ingest")
+		}
+		return core.Result{OK: true}
+	})
+	c.RegisterAction(func(_ *core.Core, msg core.Message) core.Result {
+		if _, ok := msg.(messages.PokeQueue); ok {
+			mark("poke")
+		}
+		return core.Result{OK: true}
+	})
+	c.Action("runner.poke", func(_ context.Context, _ core.Options) core.Result { return core.Result{OK: true} })
+
+	c.ACTION(messages.AgentCompleted{
+		Workspace: workspaceName,
+		Repo:      "go-io",
+		Status:    "completed",
+	})
+
+	requireEventually(t, func() bool {
+		return seen("qa") && seen("auto-pr") && seen("verify") && seen("ingest") && seen("poke")
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestHandlers_RegisterHandlers_Bad(t *testing.T) {
+	core.AssertNotPanics(t, func() {
+		RegisterHandlers(nil, nil)
+	})
+}
+
+func TestHandlers_RegisterHandlers_Ugly(t *testing.T) {
+	c := core.New()
+	c.Action("runner.poke", func(context.Context, core.Options) core.Result { return core.Result{OK: true} })
+
+	RegisterHandlers(c, &PrepSubsystem{})
+	RegisterHandlers(c, &PrepSubsystem{})
+	core.AssertNotPanics(t, func() {
+		c.ACTION(messages.AgentCompleted{})
+	})
+}
+
+func TestHandlers_PrepSubsystem_HandleIPCEvents_Bad(t *testing.T) {
+	c, subsystem := newCoreForHandlerTests(t)
+	result := subsystem.HandleIPCEvents(c, messages.PokeQueue{})
+
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestHandlers_PrepSubsystem_HandleIPCEvents_Ugly(t *testing.T) {
+	c, subsystem := newCoreForHandlerTests(t)
+	result := subsystem.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "missing", Agent: "claude", Task: "Write docs"})
+
+	core.AssertTrue(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestHandlers_PrepSubsystem_SpawnFromQueue_Good(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	writeFakeAgentBinary(t, "claude")
+
+	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-3")
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceRepoDir(workspaceDir)).OK)
+	core.RequireTrue(t, fs.EnsureDir(WorkspaceMetaDir(workspaceDir)).OK)
+
+	subsystem := newPrepWithProcess()
+	result := subsystem.SpawnFromQueue("claude", "Write docs", workspaceDir)
+	core.RequireTrue(t, result.OK)
+
+	pid, ok := result.Value.(int)
+	core.RequireTrue(t, ok)
+	if pid <= 0 {
+		t.Fatalf("expected positive pid, got %d", pid)
+	}
+
+	outputPath := agentOutputFile(workspaceDir, "claude")
+	requireEventually(t, func() bool { return fs.IsFile(outputPath) }, 5*time.Second, 10*time.Millisecond)
+	outputResult := fs.Read(outputPath)
+	core.RequireTrue(t, outputResult.OK)
+	output := core.Trim(outputResult.Value.(string))
+	core.AssertEqual(t, "done", output)
+}
+
+func TestHandlers_PrepSubsystem_SpawnFromQueue_Bad(t *testing.T) {
+	subsystem := newPrepWithProcess()
+	result := subsystem.SpawnFromQueue("robot-from-the-future", "Write docs", t.TempDir())
+
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "unknown agent")
+}
+
+func TestHandlers_PrepSubsystem_SpawnFromQueue_Ugly(t *testing.T) {
+	writeFakeAgentBinary(t, "claude")
+
+	c := core.New()
+	subsystem := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{})}
+	result := subsystem.SpawnFromQueue("claude", "Write docs", t.TempDir())
+
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "process service not registered")
 }

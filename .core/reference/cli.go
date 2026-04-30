@@ -8,8 +8,8 @@
 package core
 
 import (
+	coreos "dappco.re/go"
 	"io"
-	"os"
 )
 
 // CliOptions holds configuration for the Cli service.

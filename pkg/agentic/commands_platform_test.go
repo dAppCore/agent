@@ -7,34 +7,33 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
+	core "dappco.re/go"
 )
 
-func TestCommandsplatform_CmdFleetRegister_Bad(t *testing.T) {
+func TestCommandsplatform_CmdFleetRegister_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdFleetRegister(core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthProvision_Bad(t *testing.T) {
+func TestCommandsplatform_CmdAuthProvision_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdAuthProvision(core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthProvision_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthProvision_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/agent/auth/provision", r.URL.Path)
-		assert.Equal(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "/v1/agent/auth/provision", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
 
 		bodyResult := core.ReadAll(r.Body)
-		assert.True(t, bodyResult.OK)
+		core.AssertTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		assert.True(t, parseResult.OK)
-		assert.Equal(t, []any{"10.0.0.0/8", "192.168.0.0/16"}, payload["ip_restrictions"])
+		core.AssertTrue(t, parseResult.OK)
+		core.AssertEqual(t, []any{"10.0.0.0/8", "192.168.0.0/16"}, payload["ip_restrictions"])
 
 		_, _ = w.Write([]byte(`{"data":{"id":7,"workspace_id":3,"name":"codex local","key":"ak_live_secret","prefix":"ak_live","permissions":["plans:read","plans:write"],"ip_restrictions":["10.0.0.0/8","192.168.0.0/16"],"rate_limit":60,"call_count":2,"expires_at":"2026-04-01T00:00:00Z"}}`))
 	}))
@@ -50,14 +49,14 @@ func TestCommandsplatform_CmdAuthProvision_Good(t *testing.T) {
 			core.Option{Key: "rate_limit", Value: 60},
 			core.Option{Key: "expires_at", Value: "2026-04-01T00:00:00Z"},
 		))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "ip restrictions: 10.0.0.0/8,192.168.0.0/16")
-	assert.Contains(t, output, "prefix:      ak_live")
+	core.AssertContains(t, output, "ip restrictions: 10.0.0.0/8,192.168.0.0/16")
+	core.AssertContains(t, output, "prefix:      ak_live")
 }
 
-func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthRevoke_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"key_id":"7","revoked":true}}`))
 	}))
@@ -66,13 +65,13 @@ func TestCommandsplatform_CmdAuthRevoke_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdAuthRevoke(core.NewOptions(core.Option{Key: "_arg", Value: "7"}))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "revoked: 7")
+	core.AssertContains(t, output, "revoked: 7")
 }
 
-func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
+func TestCommandsplatform_CmdFleetNodes_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":1,"agent_id":"charon","platform":"linux","models":["codex"],"status":"online"}],"total":1}`))
 	}))
@@ -81,14 +80,14 @@ func TestCommandsplatform_CmdFleetNodes_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetNodes(core.NewOptions())
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "charon")
-	assert.Contains(t, output, "total: 1")
+	core.AssertContains(t, output, "charon")
+	core.AssertContains(t, output, "total: 1")
 }
 
-func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
+func TestCommandsplatform_CmdFleetEvents_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/fleet/events":
@@ -102,12 +101,12 @@ func TestCommandsplatform_CmdFleetEvents_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetEvents(core.NewOptions(core.Option{Key: "_arg", Value: "charon"}))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "event:       task.assigned")
-	assert.Contains(t, output, "agent:       charon")
-	assert.Contains(t, output, "repo:        core/go-io")
+	core.AssertContains(t, output, "event:       task.assigned")
+	core.AssertContains(t, output, "agent:       charon")
+	core.AssertContains(t, output, "repo:        core/go-io")
 }
 
 func TestCommandsplatform_CmdFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
@@ -127,16 +126,16 @@ func TestCommandsplatform_CmdFleetEvents_Good_FallbackToTaskNext(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdFleetEvents(core.NewOptions(core.Option{Key: "_arg", Value: "charon"}))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "event:       task.assigned")
-	assert.Contains(t, output, "agent:       charon")
-	assert.Contains(t, output, "task id:     11")
-	assert.Contains(t, output, "repo:        core/go-io")
+	core.AssertContains(t, output, "event:       task.assigned")
+	core.AssertContains(t, output, "agent:       charon")
+	core.AssertContains(t, output, "task id:     11")
+	core.AssertContains(t, output, "repo:        core/go-io")
 }
 
-func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
+func TestCommandsplatform_CmdSyncStatus_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"agent_id":"charon","status":"online","last_push_at":"2026-03-31T08:00:00Z"}}`))
 	}))
@@ -145,32 +144,32 @@ func TestCommandsplatform_CmdSyncStatus_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdSyncStatus(core.NewOptions(core.Option{Key: "_arg", Value: "charon"}))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "agent:         charon")
-	assert.Contains(t, output, "status:        online")
+	core.AssertContains(t, output, "agent:         charon")
+	core.AssertContains(t, output, "status:        online")
 }
 
-func TestCommandsplatform_CmdAuthLogin_Bad(t *testing.T) {
+func TestCommandsplatform_CmdAuthLogin_Bad_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
 	result := subsystem.cmdAuthLogin(core.NewOptions())
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
-func TestCommandsplatform_CmdAuthLogin_Good(t *testing.T) {
+func TestCommandsplatform_CmdAuthLogin_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/agent/auth/login", r.URL.Path)
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "/v1/agent/auth/login", r.URL.Path)
+		core.AssertEqual(t, http.MethodPost, r.Method)
+		core.AssertEqual(t, "", r.Header.Get("Authorization"))
 
 		bodyResult := core.ReadAll(r.Body)
-		assert.True(t, bodyResult.OK)
+		core.AssertTrue(t, bodyResult.OK)
 
 		var payload map[string]any
 		parseResult := core.JSONUnmarshalString(bodyResult.Value.(string), &payload)
-		assert.True(t, parseResult.OK)
-		assert.Equal(t, "654321", payload["code"])
+		core.AssertTrue(t, parseResult.OK)
+		core.AssertEqual(t, "654321", payload["code"])
 
 		_, _ = w.Write([]byte(`{"data":{"key":{"id":42,"name":"charon","key":"ak_live_xyz","prefix":"ak_live","expires_at":"2027-01-01T00:00:00Z"}}}`))
 	}))
@@ -186,21 +185,21 @@ func TestCommandsplatform_CmdAuthLogin_Good(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		result := subsystem.cmdAuthLogin(core.NewOptions(core.Option{Key: "_arg", Value: "654321"}))
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "logged in")
-	assert.Contains(t, output, "key prefix: ak_live")
-	assert.Contains(t, output, "saved to:")
+	core.AssertContains(t, output, "logged in")
+	core.AssertContains(t, output, "key prefix: ak_live")
+	core.AssertContains(t, output, "saved to:")
 
 	// Verify the key was persisted so the next dispatch authenticates.
 	keyPath := core.JoinPath(homeDir, ".claude", "brain.key")
 	readResult := fs.Read(keyPath)
-	assert.True(t, readResult.OK)
-	assert.Equal(t, "ak_live_xyz", core.Trim(readResult.Value.(string)))
+	core.AssertTrue(t, readResult.OK)
+	core.AssertEqual(t, "ak_live_xyz", core.Trim(readResult.Value.(string)))
 }
 
-func TestCommandsplatform_CmdSubscriptionDetect_Good(t *testing.T) {
+func TestCommandsplatform_CmdSubscriptionDetect_Good_Case(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"providers":{"claude":true},"available":["claude"]}}`))
 	}))
@@ -209,8 +208,8 @@ func TestCommandsplatform_CmdSubscriptionDetect_Good(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
 	output := captureStdout(t, func() {
 		result := subsystem.cmdSubscriptionDetect(core.NewOptions())
-		assert.True(t, result.OK)
+		core.AssertTrue(t, result.OK)
 	})
 
-	assert.Contains(t, output, "available: claude")
+	core.AssertContains(t, output, "available: claude")
 }

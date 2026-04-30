@@ -8,9 +8,9 @@ import (
 	"context"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/messages"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -183,7 +183,9 @@ func (m *Subsystem) RegisterTools(svc *coremcp.Service) {
 		URI:         "status://agents",
 		Description: "Current status of all agent workspaces",
 		MIMEType:    "application/json",
-	}, m.agentStatusResource)
+	}, func(ctx context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		return agentStatusResource(m, ctx, request)
+	})
 }
 
 // service.Start(ctx)
@@ -210,12 +212,14 @@ func (m *Subsystem) OnStartup(ctx context.Context) core.Result {
 // result := service.OnShutdown(context.Background())
 // core.Println(result.OK)
 func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
-	_ = m.Shutdown(ctx)
+	if err := Shutdown(m, ctx); err != nil {
+		return core.Fail(err)
+	}
 	return core.Result{OK: true}
 }
 
 // _ = service.Shutdown(ctx)
-func (m *Subsystem) Shutdown(_ context.Context) error {
+var Shutdown = func(m *Subsystem, _ context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
 	}
@@ -509,7 +513,7 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 	}
 }
 
-func (m *Subsystem) agentStatusResource(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+var agentStatusResource = func(m *Subsystem, _ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	entries := agentic.WorkspaceStatusPaths()
 
 	type workspaceInfo struct {

@@ -5,80 +5,134 @@ package setup
 import (
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestDetect_Detect_Good_Go(t *testing.T) {
+func TestGo_Detect_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
-	assert.Equal(t, TypeGo, Detect(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.AssertEqual(t, TypeGo, Detect(dir))
 }
 
-func TestDetect_Detect_Good_PHP(t *testing.T) {
+func TestPHP_Detect_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "composer.json"), "{}", 0644).OK)
-	assert.Equal(t, TypePHP, Detect(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "composer.json"), "{}", 0644).OK)
+	core.AssertEqual(t, TypePHP, Detect(dir))
 }
 
-func TestDetect_Detect_Good_Node(t *testing.T) {
+func TestNode_Detect_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
-	assert.Equal(t, TypeNode, Detect(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
+	core.AssertEqual(t, TypeNode, Detect(dir))
 }
 
-func TestDetect_Detect_Good_Wails(t *testing.T) {
+func TestWails_Detect_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
-	assert.Equal(t, TypeWails, Detect(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
+	core.AssertEqual(t, TypeWails, Detect(dir))
 }
 
-func TestDetect_Detect_Bad_Unknown(t *testing.T) {
+func TestUnknown_Detect_Bad(t *testing.T) {
 	dir := t.TempDir()
-	assert.Equal(t, TypeUnknown, Detect(dir))
+	got := Detect(dir)
+	core.AssertEqual(t, TypeUnknown, got)
+	core.AssertNotEqual(t, TypeGo, got)
 }
 
-func TestDetect_Detect_Ugly_WailsWinsOverGo(t *testing.T) {
+func TestWailsWins_Detect_Ugly(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
-	assert.Equal(t, TypeWails, Detect(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
+	core.AssertEqual(t, TypeWails, Detect(dir))
 }
 
-func TestDetect_DetectAll_Good_Polyglot(t *testing.T) {
+func TestPolyglot_DetectAll_Good(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
 	types := DetectAll(dir)
-	assert.Contains(t, types, TypeGo)
-	assert.Contains(t, types, TypeNode)
-	assert.NotContains(t, types, TypePHP)
+	core.AssertContains(t, types, TypeGo)
+	core.AssertContains(t, types, TypeNode)
+	core.AssertNotContains(t, types, TypePHP)
 }
 
-func TestDetect_DetectAll_Bad_Empty(t *testing.T) {
+func TestEmpty_DetectAll_Bad(t *testing.T) {
 	dir := t.TempDir()
-	assert.Empty(t, DetectAll(dir))
+	types := DetectAll(dir)
+	core.AssertEmpty(t, types)
+	core.AssertLen(t, types, 0)
 }
 
-func TestDetect_DetectAll_Ugly_StableOrder(t *testing.T) {
+func TestStableOrder_DetectAll_Ugly(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "composer.json"), "{}", 0644).OK)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
-	assert.Equal(t, []ProjectType{TypeGo, TypePHP, TypeNode, TypeWails}, DetectAll(dir))
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "composer.json"), "{}", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
+	core.AssertEqual(t, []ProjectType{TypeGo, TypePHP, TypeNode, TypeWails}, DetectAll(dir))
 }
 
 func TestDetect_AbsolutePath_Good_ExplicitPath(t *testing.T) {
 	dir := t.TempDir()
-	assert.Equal(t, core.Path(dir), absolutePath(dir))
+	got := absolutePath(dir)
+	core.AssertEqual(t, core.Path(dir), got)
+	core.AssertNotEmpty(t, got)
 }
 
 func TestDetect_AbsolutePath_Bad_EmptyUsesDirCWD(t *testing.T) {
-	assert.Equal(t, core.Env("DIR_CWD"), absolutePath(""))
+	got := absolutePath("")
+	core.AssertEqual(t, core.Env("DIR_CWD"), got)
+	core.AssertNotEmpty(t, got)
 }
 
 func TestDetect_AbsolutePath_Ugly_RelativeSegments(t *testing.T) {
-	assert.Equal(t, core.Path("./repo/../repo"), absolutePath("./repo/../repo"))
+	got := absolutePath("./repo/../repo")
+	core.AssertEqual(t, core.Path("./repo/../repo"), got)
+	core.AssertContains(t, got, "repo")
+}
+
+func TestDetect_Detect_Good(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.AssertEqual(t, TypeGo, Detect(dir))
+}
+
+func TestDetect_Detect_Bad(t *testing.T) {
+	dir := t.TempDir()
+	got := Detect(dir)
+	core.AssertEqual(t, TypeUnknown, got)
+	core.AssertNotEqual(t, TypeGo, got)
+}
+
+func TestDetect_Detect_Ugly(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
+	core.AssertEqual(t, TypeWails, Detect(dir))
+}
+
+func TestDetect_DetectAll_Good(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
+	types := DetectAll(dir)
+	core.AssertContains(t, types, TypeGo)
+	core.AssertContains(t, types, TypeNode)
+	core.AssertNotContains(t, types, TypePHP)
+}
+
+func TestDetect_DetectAll_Bad(t *testing.T) {
+	dir := t.TempDir()
+	types := DetectAll(dir)
+	core.AssertEmpty(t, types)
+	core.AssertLen(t, types, 0)
+}
+
+func TestDetect_DetectAll_Ugly(t *testing.T) {
+	dir := t.TempDir()
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "composer.json"), "{}", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "package.json"), `{"name":"test"}`, 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "wails.json"), `{}`, 0644).OK)
+	core.AssertEqual(t, []ProjectType{TypeGo, TypePHP, TypeNode, TypeWails}, DetectAll(dir))
 }

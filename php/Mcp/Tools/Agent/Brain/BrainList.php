@@ -22,6 +22,12 @@ class BrainList extends AgentTool
 
     protected array $scopes = ['read'];
 
+    /**
+     * Declare the workspace context required before memories can be listed.
+     *
+     * @example
+     * $dependencies = $tool->dependencies();
+     */
     public function dependencies(): array
     {
         return [
@@ -29,16 +35,34 @@ class BrainList extends AgentTool
         ];
     }
 
+    /**
+     * Return the MCP tool name exposed to callers.
+     *
+     * @example
+     * $name = $tool->name();
+     */
     public function name(): string
     {
         return 'brain_list';
     }
 
+    /**
+     * Describe what the brain list tool returns and how it can be filtered.
+     *
+     * @example
+     * $description = $tool->description();
+     */
     public function description(): string
     {
         return 'List memories in the shared OpenBrain knowledge store. Supports filtering by organisation, project, type, and agent. No vector search -- use brain_recall for semantic queries.';
     }
 
+    /**
+     * Return the JSON schema for the tool's supported filter arguments.
+     *
+     * @example
+     * $schema = $tool->inputSchema();
+     */
     public function inputSchema(): array
     {
         return [
@@ -73,6 +97,12 @@ class BrainList extends AgentTool
         ];
     }
 
+    /**
+     * Query the workspace brain and return matching memory entries.
+     *
+     * @example
+     * $response = $tool->handle(['limit' => 10, 'type' => 'context'], ['workspace_id' => 42]);
+     */
     public function handle(array $args, array $context = []): array
     {
         $workspaceId = $context['workspace_id'] ?? null;

@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestCommandsPlan_CmdPlanCheck_Good_CompletePlan(t *testing.T) {
@@ -28,20 +26,20 @@ func TestCommandsPlan_CmdPlanCheck_Good_CompletePlan(t *testing.T) {
 			},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdPlanCheck(core.NewOptions(core.Option{Key: "_arg", Value: plan.Slug}))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(PlanCheckOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.True(t, output.Complete)
-	assert.Empty(t, output.Pending)
-	assert.Equal(t, plan.Slug, output.Plan.Slug)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertTrue(t, output.Complete)
+	core.AssertEmpty(t, output.Pending)
+	core.AssertEqual(t, plan.Slug, output.Plan.Slug)
 }
 
 func TestCommandsPlan_CmdPlanCheck_Bad_MissingSlug(t *testing.T) {
@@ -49,9 +47,9 @@ func TestCommandsPlan_CmdPlanCheck_Bad_MissingSlug(t *testing.T) {
 
 	r := s.cmdPlanCheck(core.NewOptions())
 
-	assert.False(t, r.OK)
-	require.Error(t, r.Value.(error))
-	assert.Contains(t, r.Value.(error).Error(), "slug is required")
+	core.AssertFalse(t, r.OK)
+	core.AssertError(t, r.Value.(error))
+	core.AssertContains(t, r.Value.(error).Error(), "slug is required")
 }
 
 func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
@@ -73,23 +71,23 @@ func TestCommandsPlan_CmdPlanCheck_Ugly_IncompletePhase(t *testing.T) {
 			},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdPlanCheck(core.NewOptions(
 		core.Option{Key: "slug", Value: plan.Slug},
 		core.Option{Key: "phase", Value: 1},
 	))
 
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 	output, ok := r.Value.(PlanCheckOutput)
-	require.True(t, ok)
-	assert.False(t, output.Complete)
-	assert.Equal(t, 1, output.Phase)
-	assert.Equal(t, "Setup", output.PhaseName)
-	assert.Equal(t, []string{"Patch code"}, output.Pending)
+	core.RequireTrue(t, ok)
+	core.AssertFalse(t, output.Complete)
+	core.AssertEqual(t, 1, output.Phase)
+	core.AssertEqual(t, "Setup", output.PhaseName)
+	core.AssertEqual(t, []string{"Patch code"}, output.Pending)
 }
 
 func TestCommandsPlan_CmdPlan_Good_RoutesCreate(t *testing.T) {
@@ -105,12 +103,12 @@ func TestCommandsPlan_CmdPlan_Good_RoutesCreate(t *testing.T) {
 		core.Option{Key: "objective", Value: "Exercise the root plan router"},
 	))
 
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 	output, ok := r.Value.(PlanCreateOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.NotEmpty(t, output.ID)
-	assert.NotEmpty(t, output.Path)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertNotEmpty(t, output.ID)
+	core.AssertNotEmpty(t, output.Path)
 }
 
 func TestCommandsPlan_CmdPlan_Good_RoutesStatus(t *testing.T) {
@@ -122,21 +120,21 @@ func TestCommandsPlan_CmdPlan_Good_RoutesStatus(t *testing.T) {
 		Title:       "Status Route Plan",
 		Description: "Exercise the root plan router status action",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdPlan(core.NewOptions(
 		core.Option{Key: "action", Value: "status"},
 		core.Option{Key: "slug", Value: plan.Slug},
 	))
 
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 	output, ok := r.Value.(PlanCompatibilityGetOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, plan.Slug, output.Plan.Slug)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, plan.Slug, output.Plan.Slug)
 }
 
 func TestCommandsPlan_CmdPlan_Bad_UnknownAction(t *testing.T) {
@@ -146,9 +144,9 @@ func TestCommandsPlan_CmdPlan_Bad_UnknownAction(t *testing.T) {
 		core.Option{Key: "action", Value: "does-not-exist"},
 	))
 
-	require.False(t, r.OK)
-	require.Error(t, r.Value.(error))
-	assert.Contains(t, r.Value.(error).Error(), "unknown plan command")
+	core.AssertFalse(t, r.OK)
+	core.AssertError(t, r.Value.(error))
+	core.AssertContains(t, r.Value.(error).Error(), "unknown plan command")
 }
 
 func TestCommandsPlan_CmdPlanUpdate_Good_StatusAndAgent(t *testing.T) {
@@ -160,21 +158,21 @@ func TestCommandsPlan_CmdPlanUpdate_Good_StatusAndAgent(t *testing.T) {
 		Title:     "Update Command",
 		Objective: "Verify the plan update command",
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.cmdPlanUpdate(core.NewOptions(
 		core.Option{Key: "_arg", Value: created.ID},
 		core.Option{Key: "status", Value: "ready"},
 		core.Option{Key: "agent", Value: "codex"},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(PlanUpdateOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Equal(t, created.ID, output.Plan.ID)
-	assert.Equal(t, "ready", output.Plan.Status)
-	assert.Equal(t, "codex", output.Plan.Agent)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, created.ID, output.Plan.ID)
+	core.AssertEqual(t, "ready", output.Plan.Status)
+	core.AssertEqual(t, "codex", output.Plan.Agent)
 }
 
 func TestCommandsPlan_CmdPlanUpdate_Bad_MissingFields(t *testing.T) {
@@ -184,9 +182,9 @@ func TestCommandsPlan_CmdPlanUpdate_Bad_MissingFields(t *testing.T) {
 		core.Option{Key: "_arg", Value: "plan-123"},
 	))
 
-	assert.False(t, r.OK)
-	require.Error(t, r.Value.(error))
-	assert.Contains(t, r.Value.(error).Error(), "at least one update field is required")
+	core.AssertFalse(t, r.OK)
+	core.AssertError(t, r.Value.(error))
+	core.AssertContains(t, r.Value.(error).Error(), "at least one update field is required")
 }
 
 func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
@@ -206,36 +204,36 @@ func TestCommandsPlan_HandlePlanCheck_Good_CompletePlan(t *testing.T) {
 			},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	r := s.handlePlanCheck(context.Background(), core.NewOptions(
 		core.Option{Key: "slug", Value: plan.Slug},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(PlanCheckOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.True(t, output.Complete)
-	assert.Equal(t, plan.Slug, output.Plan.Slug)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	core.AssertTrue(t, output.Complete)
+	core.AssertEqual(t, plan.Slug, output.Plan.Slug)
 }
 
-func TestCommandsPlan_CmdPlanTemplates_Good(t *testing.T) {
+func TestCommandsPlan_CmdPlanTemplates_Good_Case(t *testing.T) {
 	s := testPrepWithPlatformServer(t, nil, "")
 
 	r := s.cmdPlanTemplates(core.NewOptions(
 		core.Option{Key: "category", Value: "development"},
 	))
 
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TemplateListOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.NotZero(t, output.Total)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	assertNotZero(t, output.Total)
 }
 
 func TestCommandsPlan_CmdPlanTemplates_Ugly_NoMatchingCategory(t *testing.T) {
@@ -245,13 +243,13 @@ func TestCommandsPlan_CmdPlanTemplates_Ugly_NoMatchingCategory(t *testing.T) {
 		core.Option{Key: "category", Value: "does-not-exist"},
 	))
 
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	output, ok := r.Value.(TemplateListOutput)
-	require.True(t, ok)
-	assert.True(t, output.Success)
-	assert.Zero(t, output.Total)
-	assert.Empty(t, output.Templates)
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, output.Success)
+	assertZero(t, output.Total)
+	core.AssertEmpty(t, output.Templates)
 }
 
 func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T) {
@@ -260,28 +258,28 @@ func TestCommandsPlan_RegisterPlanCommands_Good_SpecAliasRegistered(t *testing.T
 
 	s.registerPlanCommands()
 
-	assert.Contains(t, c.Commands(), "agentic:plan")
-	assert.Contains(t, c.Commands(), "plan")
-	assert.Contains(t, c.Commands(), "agentic:plan/templates")
-	assert.Contains(t, c.Commands(), "plan/templates")
-	assert.Contains(t, c.Commands(), "agentic:plan/create")
-	assert.Contains(t, c.Commands(), "agentic:plan/get")
-	assert.Contains(t, c.Commands(), "plan/get")
-	assert.Contains(t, c.Commands(), "agentic:plan/list")
-	assert.Contains(t, c.Commands(), "agentic:plan/read")
-	assert.Contains(t, c.Commands(), "plan/read")
-	assert.Contains(t, c.Commands(), "agentic:plan/show")
-	assert.Contains(t, c.Commands(), "plan/show")
-	assert.Contains(t, c.Commands(), "agentic:plan/status")
-	assert.Contains(t, c.Commands(), "plan/update")
-	assert.Contains(t, c.Commands(), "agentic:plan/update")
-	assert.Contains(t, c.Commands(), "plan/status")
-	assert.Contains(t, c.Commands(), "plan/update_status")
-	assert.Contains(t, c.Commands(), "agentic:plan/update_status")
-	assert.Contains(t, c.Commands(), "agentic:plan/check")
-	assert.Contains(t, c.Commands(), "plan/check")
-	assert.Contains(t, c.Commands(), "agentic:plan/archive")
-	assert.Contains(t, c.Commands(), "plan/archive")
-	assert.Contains(t, c.Commands(), "agentic:plan/delete")
-	assert.Contains(t, c.Commands(), "plan/delete")
+	core.AssertContains(t, c.Commands(), "agentic:plan")
+	core.AssertContains(t, c.Commands(), "plan")
+	core.AssertContains(t, c.Commands(), "agentic:plan/templates")
+	core.AssertContains(t, c.Commands(), "plan/templates")
+	core.AssertContains(t, c.Commands(), "agentic:plan/create")
+	core.AssertContains(t, c.Commands(), "agentic:plan/get")
+	core.AssertContains(t, c.Commands(), "plan/get")
+	core.AssertContains(t, c.Commands(), "agentic:plan/list")
+	core.AssertContains(t, c.Commands(), "agentic:plan/read")
+	core.AssertContains(t, c.Commands(), "plan/read")
+	core.AssertContains(t, c.Commands(), "agentic:plan/show")
+	core.AssertContains(t, c.Commands(), "plan/show")
+	core.AssertContains(t, c.Commands(), "agentic:plan/status")
+	core.AssertContains(t, c.Commands(), "plan/update")
+	core.AssertContains(t, c.Commands(), "agentic:plan/update")
+	core.AssertContains(t, c.Commands(), "plan/status")
+	core.AssertContains(t, c.Commands(), "plan/update_status")
+	core.AssertContains(t, c.Commands(), "agentic:plan/update_status")
+	core.AssertContains(t, c.Commands(), "agentic:plan/check")
+	core.AssertContains(t, c.Commands(), "plan/check")
+	core.AssertContains(t, c.Commands(), "agentic:plan/archive")
+	core.AssertContains(t, c.Commands(), "plan/archive")
+	core.AssertContains(t, c.Commands(), "agentic:plan/delete")
+	core.AssertContains(t, c.Commands(), "plan/delete")
 }

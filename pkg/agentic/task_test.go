@@ -6,11 +6,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestTask_TaskUpdate_Good(t *testing.T) {
+func TestTask_TaskUpdate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -22,10 +21,10 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.taskUpdate(context.Background(), nil, TaskUpdateInput{
 		PlanSlug:       plan.Slug,
@@ -38,17 +37,17 @@ func TestTask_TaskUpdate_Good(t *testing.T) {
 		File:           "pkg/agentic/task.go",
 		Line:           128,
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, "completed", output.Task.Status)
-	assert.Equal(t, "Done", output.Task.Notes)
-	assert.Equal(t, "high", output.Task.Priority)
-	assert.Equal(t, "security", output.Task.Category)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
-	assert.Equal(t, 128, output.Task.Line)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "completed", output.Task.Status)
+	core.AssertEqual(t, "Done", output.Task.Notes)
+	core.AssertEqual(t, "high", output.Task.Priority)
+	core.AssertEqual(t, "security", output.Task.Category)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.File)
+	core.AssertEqual(t, 128, output.Task.Line)
 }
 
-func TestTask_TaskCreate_Good(t *testing.T) {
+func TestTask_TaskCreate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -60,10 +59,10 @@ func TestTask_TaskCreate_Good(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
 		PlanSlug:    plan.Slug,
@@ -77,15 +76,15 @@ func TestTask_TaskCreate_Good(t *testing.T) {
 		File:        "pkg/agentic/task.go",
 		Line:        153,
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, "Patch code", output.Task.Title)
-	assert.Equal(t, "pending", output.Task.Status)
-	assert.Equal(t, "Do this first", output.Task.Notes)
-	assert.Equal(t, "high", output.Task.Priority)
-	assert.Equal(t, "implementation", output.Task.Category)
-	assert.Equal(t, "pkg/agentic/task.go", output.Task.File)
-	assert.Equal(t, 153, output.Task.Line)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "Patch code", output.Task.Title)
+	core.AssertEqual(t, "pending", output.Task.Status)
+	core.AssertEqual(t, "Do this first", output.Task.Notes)
+	core.AssertEqual(t, "high", output.Task.Priority)
+	core.AssertEqual(t, "implementation", output.Task.Category)
+	core.AssertEqual(t, "pkg/agentic/task.go", output.Task.File)
+	core.AssertEqual(t, 153, output.Task.Line)
 }
 
 func TestTask_TaskCreate_Bad_MissingTitle(t *testing.T) {
@@ -95,8 +94,8 @@ func TestTask_TaskCreate_Bad_MissingTitle(t *testing.T) {
 		PlanSlug:   "my-plan",
 		PhaseOrder: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "title is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "title is required")
 }
 
 func TestTask_TaskToggle_Bad_MissingIdentifier(t *testing.T) {
@@ -105,8 +104,8 @@ func TestTask_TaskToggle_Bad_MissingIdentifier(t *testing.T) {
 		PlanSlug:   "my-plan",
 		PhaseOrder: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "task_identifier is required")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "task_identifier is required")
 }
 
 func TestTask_TaskToggle_Ugly_CriteriaFallback(t *testing.T) {
@@ -121,20 +120,20 @@ func TestTask_TaskToggle_Ugly_CriteriaFallback(t *testing.T) {
 			{Name: "Setup", Criteria: []string{"Review RFC"}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.taskToggle(context.Background(), nil, TaskToggleInput{
 		PlanSlug:       plan.Slug,
 		PhaseOrder:     1,
 		TaskIdentifier: 1,
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, "completed", output.Task.Status)
-	assert.Equal(t, "Review RFC", output.Task.Title)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "completed", output.Task.Status)
+	core.AssertEqual(t, "Review RFC", output.Task.Title)
 }
 
 func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
@@ -149,10 +148,10 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 			{Name: "Setup", Criteria: []string{"Review RFC"}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, output, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
 		PlanSlug:   plan.Slug,
@@ -161,22 +160,22 @@ func TestTask_TaskCreate_Ugly_CriteriaFallback(t *testing.T) {
 		Priority:   "medium",
 		Category:   "research",
 	})
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Equal(t, "Patch code", output.Task.Title)
-	assert.Equal(t, "medium", output.Task.Priority)
-	assert.Equal(t, "research", output.Task.Category)
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertEqual(t, "Patch code", output.Task.Title)
+	core.AssertEqual(t, "medium", output.Task.Priority)
+	core.AssertEqual(t, "research", output.Task.Category)
 
 	updated, err := readPlan(PlansRoot(), plan.ID)
-	require.NoError(t, err)
-	require.Len(t, updated.Phases[0].Tasks, 2)
-	assert.Equal(t, "Review RFC", updated.Phases[0].Tasks[0].Title)
-	assert.Equal(t, "Patch code", updated.Phases[0].Tasks[1].Title)
-	assert.Empty(t, updated.Phases[0].Tasks[1].File)
-	assert.Zero(t, updated.Phases[0].Tasks[1].Line)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, updated.Phases[0].Tasks, 2)
+	core.AssertEqual(t, "Review RFC", updated.Phases[0].Tasks[0].Title)
+	core.AssertEqual(t, "Patch code", updated.Phases[0].Tasks[1].Title)
+	core.AssertEmpty(t, updated.Phases[0].Tasks[1].File)
+	assertZero(t, updated.Phases[0].Tasks[1].Line)
 }
 
-func TestTask_TaskFileRefAliases_Good(t *testing.T) {
+func TestTask_TaskFileRefAliases_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
 
@@ -188,10 +187,10 @@ func TestTask_TaskFileRefAliases_Good(t *testing.T) {
 			{Name: "Setup", Tasks: []PlanTask{{ID: "1", Title: "Review RFC"}}},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan, err := readPlan(PlansRoot(), created.ID)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, createdOutput, err := s.taskCreate(context.Background(), nil, TaskCreateInput{
 		PlanSlug:   plan.Slug,
@@ -200,11 +199,11 @@ func TestTask_TaskFileRefAliases_Good(t *testing.T) {
 		FileRef:    "pkg/agentic/task.go",
 		LineRef:    153,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "pkg/agentic/task.go", createdOutput.Task.FileRef)
-	assert.Equal(t, 153, createdOutput.Task.LineRef)
-	assert.Equal(t, "pkg/agentic/task.go", createdOutput.Task.File)
-	assert.Equal(t, 153, createdOutput.Task.Line)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "pkg/agentic/task.go", createdOutput.Task.FileRef)
+	core.AssertEqual(t, 153, createdOutput.Task.LineRef)
+	core.AssertEqual(t, "pkg/agentic/task.go", createdOutput.Task.File)
+	core.AssertEqual(t, 153, createdOutput.Task.Line)
 
 	_, updatedOutput, err := s.taskUpdate(context.Background(), nil, TaskUpdateInput{
 		PlanSlug:       plan.Slug,
@@ -213,9 +212,9 @@ func TestTask_TaskFileRefAliases_Good(t *testing.T) {
 		FileRef:        "pkg/agentic/task.go",
 		LineRef:        171,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "pkg/agentic/task.go", updatedOutput.Task.FileRef)
-	assert.Equal(t, 171, updatedOutput.Task.LineRef)
-	assert.Equal(t, "pkg/agentic/task.go", updatedOutput.Task.File)
-	assert.Equal(t, 171, updatedOutput.Task.Line)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "pkg/agentic/task.go", updatedOutput.Task.FileRef)
+	core.AssertEqual(t, 171, updatedOutput.Task.LineRef)
+	core.AssertEqual(t, "pkg/agentic/task.go", updatedOutput.Task.File)
+	core.AssertEqual(t, 171, updatedOutput.Task.Line)
 }

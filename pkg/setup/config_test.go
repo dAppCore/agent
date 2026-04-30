@@ -5,56 +5,55 @@ package setup
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestConfig_GenerateBuildConfig_Good_Go(t *testing.T) {
+func TestGo_GenerateBuildConfig_Good(t *testing.T) {
 	config := GenerateBuildConfig("/tmp/myapp", TypeGo)
-	require.True(t, config.OK)
+	core.RequireTrue(t, config.OK)
 	text := config.Value.(string)
-	assert.Contains(t, text, "# myapp build configuration")
-	assert.Contains(t, text, "type: go")
-	assert.Contains(t, text, "name: myapp")
-	assert.Contains(t, text, "main: ./cmd/myapp")
-	assert.Contains(t, text, "cgo: false")
+	core.AssertContains(t, text, "# myapp build configuration")
+	core.AssertContains(t, text, "type: go")
+	core.AssertContains(t, text, "name: myapp")
+	core.AssertContains(t, text, "main: ./cmd/myapp")
+	core.AssertContains(t, text, "cgo: false")
 }
 
-func TestConfig_GenerateBuildConfig_Bad_Unknown(t *testing.T) {
+func TestUnknown_GenerateBuildConfig_Bad(t *testing.T) {
 	config := GenerateBuildConfig("/tmp/myapp", TypeUnknown)
-	require.True(t, config.OK)
-	assert.NotEmpty(t, config.Value.(string))
+	core.RequireTrue(t, config.OK)
+	core.AssertNotEmpty(t, config.Value.(string))
 }
 
-func TestConfig_GenerateBuildConfig_Ugly_WailsNestedPath(t *testing.T) {
+func TestWailsNestedPath_GenerateBuildConfig_Ugly(t *testing.T) {
 	config := GenerateBuildConfig("/tmp/workspaces/team-console", TypeWails)
-	require.True(t, config.OK)
+	core.RequireTrue(t, config.OK)
 	text := config.Value.(string)
-	assert.Contains(t, text, "name: team-console")
-	assert.Contains(t, text, "type: wails")
-	assert.Contains(t, text, "main: ./cmd/team-console")
+	core.AssertContains(t, text, "name: team-console")
+	core.AssertContains(t, text, "type: wails")
+	core.AssertContains(t, text, "main: ./cmd/team-console")
 }
 
-func TestConfig_GenerateTestConfig_Good_Go(t *testing.T) {
+func TestGo_GenerateTestConfig_Good(t *testing.T) {
 	config := GenerateTestConfig(TypeGo)
-	require.True(t, config.OK)
-	assert.Contains(t, config.Value.(string), "go test")
+	core.RequireTrue(t, config.OK)
+	core.AssertContains(t, config.Value.(string), "go test")
 }
 
-func TestConfig_GenerateTestConfig_Bad_Unknown(t *testing.T) {
+func TestUnknown_GenerateTestConfig_Bad(t *testing.T) {
 	config := GenerateTestConfig(TypeUnknown)
-	require.True(t, config.OK)
+	core.RequireTrue(t, config.OK)
 	text := config.Value.(string)
-	assert.Contains(t, text, "# Test configuration")
-	assert.NotContains(t, text, "commands:")
+	core.AssertContains(t, text, "# Test configuration")
+	core.AssertNotContains(t, text, "commands:")
 }
 
-func TestConfig_GenerateTestConfig_Ugly_WailsUsesGoSuite(t *testing.T) {
+func TestWailsSuite_GenerateTestConfig_Ugly(t *testing.T) {
 	config := GenerateTestConfig(TypeWails)
-	require.True(t, config.OK)
+	core.RequireTrue(t, config.OK)
 	text := config.Value.(string)
-	assert.Contains(t, text, "go test ./...")
-	assert.Contains(t, text, "go test -race ./...")
+	core.AssertContains(t, text, "go test ./...")
+	core.AssertContains(t, text, "go test -race ./...")
 }
 
 func TestConfig_ParseGitRemote_Good_CommonFormats(t *testing.T) {
@@ -68,30 +67,39 @@ func TestConfig_ParseGitRemote_Good_CommonFormats(t *testing.T) {
 	}
 
 	for remote, want := range tests {
-		assert.Equal(t, want, parseGitRemote(remote), remote)
+		core.AssertEqual(t, want, parseGitRemote(remote), remote)
 	}
 }
 
 func TestConfig_ParseGitRemote_Bad_Empty(t *testing.T) {
-	assert.Equal(t, "", parseGitRemote(""))
-	assert.Equal(t, "", parseGitRemote("origin"))
+	core.AssertEqual(t, "", parseGitRemote(""))
+	core.AssertEqual(t, "", parseGitRemote("origin"))
+	core.AssertEqual(t, "", parseGitRemote("   "))
 }
 
 func TestConfig_ParseGitRemote_Ugly_WhitespaceAndTrailingSlash(t *testing.T) {
 	remote := "  https://github.com/dAppCore/go-io.git/  "
-	assert.Equal(t, "dAppCore/go-io", parseGitRemote(remote))
+	got := parseGitRemote(remote)
+	core.AssertEqual(t, "dAppCore/go-io", got)
+	core.AssertNotContains(t, got, ".git")
 }
 
-func TestConfig_TrimRemotePath_Good(t *testing.T) {
-	assert.Equal(t, "core/go-io", trimRemotePath("/core/go-io.git"))
+func TestConfig_TrimRemotePath_Good_Case(t *testing.T) {
+	got := trimRemotePath("/core/go-io.git")
+	core.AssertEqual(t, "core/go-io", got)
+	core.AssertNotContains(t, got, ".git")
 }
 
 func TestConfig_TrimRemotePath_Bad_Empty(t *testing.T) {
-	assert.Equal(t, "", trimRemotePath(""))
+	got := trimRemotePath("")
+	core.AssertEqual(t, "", got)
+	core.AssertEmpty(t, got)
 }
 
 func TestConfig_TrimRemotePath_Ugly_RepeatedSlashes(t *testing.T) {
-	assert.Equal(t, "core/go-io", trimRemotePath("///core/go-io.git///"))
+	got := trimRemotePath("///core/go-io.git///")
+	core.AssertEqual(t, "core/go-io", got)
+	core.AssertNotContains(t, got, "//")
 }
 
 func TestConfig_RenderConfig_Good_SingleSection(t *testing.T) {
@@ -99,8 +107,8 @@ func TestConfig_RenderConfig_Good_SingleSection(t *testing.T) {
 		{Key: "project", Values: []configValue{{Key: "name", Value: "test"}}},
 	}
 	result := renderConfig("Test", sections)
-	require.True(t, result.OK)
-	assert.Contains(t, result.Value.(string), "name: test")
+	core.RequireTrue(t, result.OK)
+	core.AssertContains(t, result.Value.(string), "name: test")
 }
 
 func TestConfig_RenderConfig_Bad_UnsupportedValue(t *testing.T) {
@@ -108,12 +116,60 @@ func TestConfig_RenderConfig_Bad_UnsupportedValue(t *testing.T) {
 		{Key: "project", Values: []configValue{{Key: "name", Value: func() {}}}},
 	}
 	result := renderConfig("Test", sections)
-	assert.False(t, result.OK)
-	assert.Error(t, result.Value.(error))
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
 }
 
 func TestConfig_RenderConfig_Ugly_EmptySections(t *testing.T) {
 	result := renderConfig("", nil)
-	require.True(t, result.OK)
-	assert.Equal(t, "", result.Value.(string))
+	core.RequireTrue(t, result.OK)
+	core.AssertEqual(t, "", result.Value.(string))
+}
+
+func TestConfig_GenerateBuildConfig_Good(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/myapp", TypeGo)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "# myapp build configuration")
+	core.AssertContains(t, text, "type: go")
+	core.AssertContains(t, text, "name: myapp")
+	core.AssertContains(t, text, "main: ./cmd/myapp")
+	core.AssertContains(t, text, "cgo: false")
+}
+
+func TestConfig_GenerateBuildConfig_Bad(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/myapp", TypeUnknown)
+	core.RequireTrue(t, config.OK)
+	core.AssertNotEmpty(t, config.Value.(string))
+}
+
+func TestConfig_GenerateBuildConfig_Ugly(t *testing.T) {
+	config := GenerateBuildConfig("/tmp/workspaces/team-console", TypeWails)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "name: team-console")
+	core.AssertContains(t, text, "type: wails")
+	core.AssertContains(t, text, "main: ./cmd/team-console")
+}
+
+func TestConfig_GenerateTestConfig_Good(t *testing.T) {
+	config := GenerateTestConfig(TypeGo)
+	core.RequireTrue(t, config.OK)
+	core.AssertContains(t, config.Value.(string), "go test")
+}
+
+func TestConfig_GenerateTestConfig_Bad(t *testing.T) {
+	config := GenerateTestConfig(TypeUnknown)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "# Test configuration")
+	core.AssertNotContains(t, text, "commands:")
+}
+
+func TestConfig_GenerateTestConfig_Ugly(t *testing.T) {
+	config := GenerateTestConfig(TypeWails)
+	core.RequireTrue(t, config.OK)
+	text := config.Value.(string)
+	core.AssertContains(t, text, "go test ./...")
+	core.AssertContains(t, text, "go test -race ./...")
 }

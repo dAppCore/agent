@@ -5,7 +5,7 @@ package brain
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func ExampleRegister_actions() {
@@ -17,4 +17,10 @@ func ExampleRegister_actions() {
 	// Output:
 	// true
 	// true
+}
+
+func ExampleDirectSubsystem_OnStartup() {
+	sub := &DirectSubsystem{ServiceRuntime: core.NewServiceRuntime(core.New(), DirectOptions{})}
+	core.Println(sub.OnStartup(context.Background()).OK)
+	// Output: true
 }

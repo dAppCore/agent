@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func (s *PrepSubsystem) registerSessionCommands() {
@@ -332,7 +332,7 @@ func (s *PrepSubsystem) cmdSessionLog(options core.Options) core.Result {
 // core-agent session artifact ses-abc123 --path="pkg/agentic/session.go" --action=modified --description="Tracked session metadata"
 func (s *PrepSubsystem) cmdSessionArtifact(options core.Options) core.Result {
 	sessionID := optionStringValue(options, "session_id", "session-id", "id", "_arg")
-	path := optionStringValue(options, "path")
+	path := optionStringValue(options, `path`)
 	action := optionStringValue(options, "action")
 	if sessionID == "" {
 		core.Print(nil, "usage: core-agent session artifact <session-id> --path=\"pkg/agentic/session.go\" --action=modified [--description=\"...\"] [--metadata='{\"key\":\"value\"}']")
@@ -349,7 +349,7 @@ func (s *PrepSubsystem) cmdSessionArtifact(options core.Options) core.Result {
 
 	result := s.handleSessionArtifact(s.commandContext(), core.NewOptions(
 		core.Option{Key: "session_id", Value: sessionID},
-		core.Option{Key: "path", Value: path},
+		core.Option{Key: `path`, Value: path},
 		core.Option{Key: "action", Value: action},
 		core.Option{Key: "metadata", Value: optionAnyMapValue(options, "metadata")},
 		core.Option{Key: "description", Value: optionStringValue(options, "description")},

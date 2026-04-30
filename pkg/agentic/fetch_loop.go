@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,6 +15,18 @@ const fetchLoopDefaultInterval = 5 * time.Minute
 type fetchRepoRef struct {
 	Org  string
 	Repo string
+}
+
+var fetchLoopDefaultBranchFunc = func(s *PrepSubsystem, repoDir string) string {
+	return s.DefaultBranch(repoDir)
+}
+
+var fetchLoopRunFetchFunc = func(s *PrepSubsystem, ctx context.Context, repoDir, branch string) core.Result {
+	args := []string{"fetch", "origin"}
+	if branch != "" {
+		args = append(args, branch)
+	}
+	return s.Core().Process().RunIn(ctx, repoDir, "git", args...)
 }
 
 // go s.runFetchLoop(ctx, 5*time.Minute)
@@ -82,7 +94,7 @@ func (s *PrepSubsystem) fetchRegisteredRepos(ctx context.Context) {
 		name := fetchLoopRepoName(ref)
 		repoDir := s.localRepoDir(ref.Org, ref.Repo)
 		if repoDir == "" || !fs.IsDir(core.JoinPath(repoDir, ".git")) {
-			core.Warn("agentic fetch loop skipped repo", "repo", name, "path", repoDir)
+			core.Warn("agentic fetch loop skipped repo", "repo", name, `path`, repoDir)
 			continue
 		}
 		if seen[repoDir] {
@@ -90,13 +102,8 @@ func (s *PrepSubsystem) fetchRegisteredRepos(ctx context.Context) {
 		}
 		seen[repoDir] = true
 
-		branch := s.DefaultBranch(repoDir)
-		args := []string{"git", "fetch", "origin"}
-		if branch != "" {
-			args = append(args, branch)
-		}
-
-		result := s.Core().Process().RunIn(ctx, repoDir, args...)
+		branch := fetchLoopDefaultBranchFunc(s, repoDir)
+		result := fetchLoopRunFetchFunc(s, ctx, repoDir, branch)
 		if !result.OK {
 			core.Warn("agentic fetch loop failed", "repo", name, "branch", branch, "reason", result.Value)
 			continue

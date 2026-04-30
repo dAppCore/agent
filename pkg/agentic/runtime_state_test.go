@@ -6,9 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestRuntimeState_PersistLoad_Good_RoundTrip(t *testing.T) {
@@ -33,28 +31,28 @@ func TestRuntimeState_PersistLoad_Good_RoundTrip(t *testing.T) {
 	}
 	loaded.loadRuntimeState()
 
-	require.Len(t, loaded.backoff, 1)
-	assert.True(t, loaded.backoff["codex"].Equal(expectedBackoff))
-	assert.Equal(t, 2, loaded.failCount["codex"])
+	core.AssertLen(t, loaded.backoff, 1)
+	core.AssertTrue(t, loaded.backoff["codex"].Equal(expectedBackoff))
+	core.AssertEqual(t, 2, loaded.failCount["codex"])
 }
 
 func TestRuntimeState_Read_Bad_InvalidJSON(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	require.True(t, fs.EnsureDir(runtimeStateDir()).OK)
-	require.True(t, fs.WriteAtomic(runtimeStatePath(), "{not-json").OK)
+	core.RequireTrue(t, fs.EnsureDir(runtimeStateDir()).OK)
+	core.RequireTrue(t, fs.WriteAtomic(runtimeStatePath(), "{not-json").OK)
 
 	result := readRuntimeState()
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestRuntimeState_Persist_Ugly_EmptyStateDeletesFile(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	require.True(t, fs.EnsureDir(runtimeStateDir()).OK)
-	require.True(t, fs.WriteAtomic(runtimeStatePath(), core.JSONMarshalString(runtimeState{
+	core.RequireTrue(t, fs.EnsureDir(runtimeStateDir()).OK)
+	core.RequireTrue(t, fs.WriteAtomic(runtimeStatePath(), core.JSONMarshalString(runtimeState{
 		Backoff: map[string]time.Time{
 			"codex": time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC),
 		},
@@ -69,5 +67,5 @@ func TestRuntimeState_Persist_Ugly_EmptyStateDeletesFile(t *testing.T) {
 	}
 	subsystem.persistRuntimeState()
 
-	assert.False(t, fs.Read(runtimeStatePath()).OK)
+	core.AssertFalse(t, fs.Read(runtimeStatePath()).OK)
 }

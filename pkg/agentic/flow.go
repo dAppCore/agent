@@ -3,10 +3,9 @@
 package agentic
 
 import (
-	"io"
-	"os"
+	"syscall"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // FlowRunStepOutput captures the per-step result of a flow execution: the
@@ -40,7 +39,7 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 		return s.runFlowCommand(options, commandLabel)
 	}
 
-	flowPath := optionStringValue(options, "_arg", "path", "slug")
+	flowPath := optionStringValue(options, "_arg", `path`, "slug")
 	if flowPath == "" {
 		core.Print(nil, "usage: core-agent %s <path-or-slug> [--dry-run] [--var=key=value] [--vars='{\"key\":\"value\"}'] [--variables='{\"key\":\"value\"}']", commandLabel)
 		return core.Result{Value: core.E(flowRunCommandContext, "flow path or slug is required", nil), OK: false}
@@ -110,14 +109,14 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 
 func (s *PrepSubsystem) validateExecutableFlowDefinition(document flowRunDocument) core.Result {
 	for index, step := range document.Definition.Steps {
-		if err := s.validateExecutableFlowStep(index+1, step); err != nil {
+		if err := validateExecutableFlowStep(s, index+1, step); err != nil {
 			return core.Result{Value: err, OK: false}
 		}
 	}
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) validateExecutableFlowStep(index int, step flowDefinitionStep) error {
+var validateExecutableFlowStep = func(s *PrepSubsystem, index int, step flowDefinitionStep) error {
 	stepName := flowStepDisplayName(index, step)
 
 	if core.Trim(step.Cmd) == "" {
@@ -232,7 +231,7 @@ func flowStepDisplayName(index int, step flowDefinitionStep) string {
 	return core.Concat("step-", core.Itoa(index))
 }
 
-func flowStepError(stepName, message string) error {
+var flowStepError = func(stepName, message string) error {
 	return core.E(
 		"agentic.validateExecutableFlowStep",
 		core.Concat("step \"", stepName, "\" ", message),
@@ -268,56 +267,140 @@ func flowStepOptions(args []string) core.Options {
 	return options
 }
 
-func captureFlowStepOutput(run func() core.Result) (core.Result, string, string, error) {
-	stdoutReader, stdoutWriter, err := os.Pipe()
+var captureFlowStepOutput = func(run func() core.Result) (core.Result, string, string, error) {
+	stdoutReadFD, stdoutWriteFD, err := newPipe()
 	if err != nil {
 		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "create stdout pipe", err)
 	}
-	stderrReader, stderrWriter, err := os.Pipe()
+	stderrReadFD, stderrWriteFD, err := newPipe()
 	if err != nil {
-		stdoutReader.Close()
-		stdoutWriter.Close()
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
 		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "create stderr pipe", err)
 	}
 
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	os.Stdout = stdoutWriter
-	os.Stderr = stderrWriter
+	stdoutFile, ok := core.Stdout().(*core.OSFile)
+	if !ok {
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "stdout is not a file", nil)
+	}
+	stderrFile, ok := core.Stderr().(*core.OSFile)
+	if !ok {
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "stderr is not a file", nil)
+	}
+
+	restoreStdoutFD, err := syscall.Dup(int(stdoutFile.Fd()))
+	if err != nil {
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "dup stdout", err)
+	}
+	restoreStderrFD, err := syscall.Dup(int(stderrFile.Fd()))
+	if err != nil {
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		closeFD(restoreStdoutFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "dup stderr", err)
+	}
+	if err := syscall.Dup2(stdoutWriteFD, int(stdoutFile.Fd())); err != nil {
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		closeFD(restoreStdoutFD)
+		closeFD(restoreStderrFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "redirect stdout", err)
+	}
+	if err := syscall.Dup2(stderrWriteFD, int(stderrFile.Fd())); err != nil {
+		syscall.Dup2(restoreStdoutFD, int(stdoutFile.Fd()))
+		closeFD(stdoutReadFD)
+		closeFD(stdoutWriteFD)
+		closeFD(stderrReadFD)
+		closeFD(stderrWriteFD)
+		closeFD(restoreStdoutFD)
+		closeFD(restoreStderrFD)
+		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "redirect stderr", err)
+	}
 
 	result := run()
 
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
-
-	if err := stdoutWriter.Close(); err != nil {
-		stdoutReader.Close()
-		stderrReader.Close()
-		stderrWriter.Close()
-		return result, "", "", core.E("agentic.captureFlowStepOutput", "close stdout pipe", err)
+	restoreErr := syscall.Dup2(restoreStdoutFD, int(stdoutFile.Fd()))
+	if stderrRestoreErr := syscall.Dup2(restoreStderrFD, int(stderrFile.Fd())); restoreErr == nil {
+		restoreErr = stderrRestoreErr
 	}
-	if err := stderrWriter.Close(); err != nil {
-		stdoutReader.Close()
-		stderrReader.Close()
-		return result, "", "", core.E("agentic.captureFlowStepOutput", "close stderr pipe", err)
+	closeFD(restoreStdoutFD)
+	closeFD(restoreStderrFD)
+	closeFD(stdoutWriteFD)
+	closeFD(stderrWriteFD)
+	if restoreErr != nil {
+		closeFD(stdoutReadFD)
+		closeFD(stderrReadFD)
+		return result, "", "", core.E("agentic.captureFlowStepOutput", "restore stdio", restoreErr)
 	}
 
-	stdoutData, err := io.ReadAll(stdoutReader)
+	stdoutData, err := readFD(stdoutReadFD)
 	if err != nil {
-		stdoutReader.Close()
-		stderrReader.Close()
+		closeFD(stdoutReadFD)
+		closeFD(stderrReadFD)
 		return result, "", "", core.E("agentic.captureFlowStepOutput", "read stdout pipe", err)
 	}
-	stderrData, err := io.ReadAll(stderrReader)
+	stderrData, err := readFD(stderrReadFD)
 	if err != nil {
-		stdoutReader.Close()
-		stderrReader.Close()
+		closeFD(stdoutReadFD)
+		closeFD(stderrReadFD)
 		return result, "", "", core.E("agentic.captureFlowStepOutput", "read stderr pipe", err)
 	}
 
-	stdoutReader.Close()
-	stderrReader.Close()
+	closeFD(stdoutReadFD)
+	closeFD(stderrReadFD)
 	return result, string(stdoutData), string(stderrData), nil
+}
+
+var newPipe = func() (int, int, error) {
+	var fds [2]int
+	if err := syscall.Pipe(fds[:]); err != nil {
+		return 0, 0, err
+	}
+	return fds[0], fds[1], nil
+}
+
+var readFD = func(fd int) ([]byte, error) {
+	buffer := core.NewBuffer()
+	chunk := make([]byte, 4096)
+	for {
+		n, err := syscall.Read(fd, chunk)
+		if n > 0 {
+			if _, writeErr := buffer.Write(chunk[:n]); writeErr != nil {
+				return nil, writeErr
+			}
+		}
+		if err != nil {
+			if err == syscall.EINTR {
+				continue
+			}
+			return nil, err
+		}
+		if n == 0 {
+			return append([]byte(nil), buffer.Bytes()...), nil
+		}
+	}
+}
+
+func closeFD(fd int) {
+	if fd > 0 {
+		syscall.Close(fd)
+	}
 }
 
 func printFlowStepStream(label, stream string) {

@@ -5,7 +5,7 @@ package agentic
 import (
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // event := agentic.CompletionEvent{Type: "agent_completed", Agent: "codex", Workspace: "go-io-123", Status: "completed"}
@@ -35,7 +35,7 @@ func emitEvent(eventType, agent, workspace, status string) {
 		return
 	}
 	if writeResult := core.WriteAll(r.Value, line); !writeResult.OK {
-		core.Warn("agentic.emitEvent: failed to append event", "path", eventsFile, "reason", writeResult.Value)
+		core.Warn("agentic.emitEvent: failed to append event", `path`, eventsFile, "reason", writeResult.Value)
 	}
 }
 

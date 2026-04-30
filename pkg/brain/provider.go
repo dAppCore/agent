@@ -5,10 +5,9 @@ package brain
 import (
 	"strconv"
 
-	"dappco.re/go/api"
-	"dappco.re/go/api/pkg/provider"
-	"dappco.re/go/ws"
+	core "dappco.re/go"
 	"dappco.re/go/mcp/pkg/mcp/ide"
+	"dappco.re/go/ws"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,10 +19,10 @@ type BrainProvider struct {
 }
 
 var (
-	_ provider.Provider    = (*BrainProvider)(nil)
-	_ provider.Streamable  = (*BrainProvider)(nil)
-	_ provider.Describable = (*BrainProvider)(nil)
-	_ provider.Renderable  = (*BrainProvider)(nil)
+	_ Provider    = (*BrainProvider)(nil)
+	_ Streamable  = (*BrainProvider)(nil)
+	_ Describable = (*BrainProvider)(nil)
+	_ Renderable  = (*BrainProvider)(nil)
 )
 
 const (
@@ -60,8 +59,8 @@ func (p *BrainProvider) Channels() []string {
 
 // spec := p.Element()
 // core.Println(spec.Tag) // "core-brain-panel"
-func (p *BrainProvider) Element() provider.ElementSpec {
-	return provider.ElementSpec{
+func (p *BrainProvider) Element() ElementSpec {
+	return ElementSpec{
 		Tag:    "core-brain-panel",
 		Source: "/assets/brain-panel.js",
 	}
@@ -78,8 +77,8 @@ func (p *BrainProvider) RegisterRoutes(rg *gin.RouterGroup) {
 
 // routes := p.Describe()
 // core.Println(routes[0].Path) // "/remember"
-func (p *BrainProvider) Describe() []api.RouteDescription {
-	return []api.RouteDescription{
+func (p *BrainProvider) Describe() []RouteDescription {
+	return []RouteDescription{
 		{
 			Method:      "POST",
 			Path:        "/remember",
@@ -201,7 +200,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 
 	var input RememberInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -219,7 +218,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -228,7 +227,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 		"project": input.Project,
 	})
 
-	c.JSON(statusOK, api.OK(map[string]any{"success": true}))
+	c.JSON(statusOK, ok(map[string]any{"success": true}))
 }
 
 func (p *BrainProvider) recall(c *gin.Context) {
@@ -239,7 +238,7 @@ func (p *BrainProvider) recall(c *gin.Context) {
 
 	var input RecallInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -252,7 +251,7 @@ func (p *BrainProvider) recall(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -260,7 +259,7 @@ func (p *BrainProvider) recall(c *gin.Context) {
 		"query": input.Query,
 	})
 
-	c.JSON(statusOK, api.OK(RecallOutput{
+	c.JSON(statusOK, ok(RecallOutput{
 		Success:  true,
 		Memories: []Memory{},
 	}))
@@ -274,7 +273,7 @@ func (p *BrainProvider) forget(c *gin.Context) {
 
 	var input ForgetInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -286,7 +285,7 @@ func (p *BrainProvider) forget(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -294,7 +293,7 @@ func (p *BrainProvider) forget(c *gin.Context) {
 		"id": input.ID,
 	})
 
-	c.JSON(statusOK, api.OK(map[string]any{
+	c.JSON(statusOK, ok(map[string]any{
 		"success":   true,
 		"forgotten": input.ID,
 	}))
@@ -310,7 +309,7 @@ func (p *BrainProvider) list(c *gin.Context) {
 	if rawLimit := c.Query("limit"); rawLimit != "" {
 		parsedLimit, err := strconv.Atoi(rawLimit)
 		if err != nil {
-			c.JSON(statusBadRequest, api.Fail("invalid_limit", "limit must be an integer"))
+			c.JSON(statusBadRequest, fail("invalid_limit", "limit must be an integer"))
 			return
 		}
 		limit = parsedLimit
@@ -327,11 +326,11 @@ func (p *BrainProvider) list(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
-	c.JSON(statusOK, api.OK(ListOutput{
+	c.JSON(statusOK, ok(ListOutput{
 		Success:  true,
 		Memories: []Memory{},
 	}))
@@ -342,29 +341,31 @@ func (p *BrainProvider) status(c *gin.Context) {
 	if p.bridge != nil {
 		connected = p.bridge.Connected()
 	}
-	c.JSON(statusOK, api.OK(map[string]any{
+	c.JSON(statusOK, ok(map[string]any{
 		"connected": connected,
 	}))
 }
 
 func (p *BrainProvider) respondBridgeUnavailable(c *gin.Context) {
-	c.JSON(statusServiceUnavailable, api.Fail("bridge_unavailable", "brain bridge not available"))
+	c.JSON(statusServiceUnavailable, fail("bridge_unavailable", "brain bridge not available"))
 }
 
-func (p *BrainProvider) respondInvalidInput(c *gin.Context, err error) {
-	c.JSON(statusBadRequest, api.Fail("invalid_input", err.Error()))
+var respondInvalidInput = func(p *BrainProvider, c *gin.Context, err error) {
+	c.JSON(statusBadRequest, fail("invalid_input", err.Error()))
 }
 
-func (p *BrainProvider) respondBridgeError(c *gin.Context, err error) {
-	c.JSON(statusInternalServerError, api.Fail("bridge_error", err.Error()))
+var respondBridgeError = func(p *BrainProvider, c *gin.Context, err error) {
+	c.JSON(statusInternalServerError, fail("bridge_error", err.Error()))
 }
 
 func (p *BrainProvider) emitEvent(channel string, data any) {
 	if p.hub == nil {
 		return
 	}
-	_ = p.hub.SendToChannel(channel, ws.Message{
+	if result := p.hub.SendToChannel(channel, ws.Message{
 		Type: ws.TypeEvent,
 		Data: data,
-	})
+	}); !result.OK {
+		core.Warn("brain.emitEvent: failed to broadcast event", "channel", channel, "reason", result.Value)
+	}
 }

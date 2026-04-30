@@ -6,46 +6,53 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- planPath ---
 
 func TestPlan_PlanPath_Good_BasicFormat(t *testing.T) {
 	result := planPath("/tmp/plans", "my-plan-abc123")
-	assert.Equal(t, "/tmp/plans/my-plan-abc123.json", result)
+	core.AssertEqual(t, "/tmp/plans/my-plan-abc123.json", result)
+	core.AssertContains(t, result, "my-plan-abc123.json")
 }
 
 func TestPlan_PlanPath_Good_NestedIDStripped(t *testing.T) {
 	// SanitisePath strips directory components — prevents path traversal
 	result := planPath("/plans", "../../../etc/passwd")
-	assert.Equal(t, "/plans/passwd.json", result)
+	core.AssertEqual(t, "/plans/passwd.json", result)
+	core.AssertNotContains(t, result, "..")
 }
 
 func TestPlan_PlanPath_Good_SimpleID(t *testing.T) {
-	assert.Equal(t, "/data/test.json", planPath("/data", "test"))
+	result := planPath("/data", "test")
+	core.AssertEqual(t, "/data/test.json", result)
+	core.AssertContains(t, result, "test.json")
 }
 
 func TestPlan_PlanPath_Good_SlugWithDashes(t *testing.T) {
-	assert.Equal(t, "/root/migrate-core-abc123.json", planPath("/root", "migrate-core-abc123"))
+	result := planPath("/root", "migrate-core-abc123")
+	core.AssertEqual(t, "/root/migrate-core-abc123.json", result)
+	core.AssertContains(t, result, "migrate-core-abc123.json")
 }
 
 func TestPlan_PlanPath_Bad_DotID(t *testing.T) {
 	// "." is sanitised to "invalid" to prevent exploiting the root directory
 	result := planPath("/plans", ".")
-	assert.Equal(t, "/plans/invalid.json", result)
+	core.AssertEqual(t, "/plans/invalid.json", result)
+	core.AssertContains(t, result, "invalid.json")
 }
 
 func TestPlan_PlanPath_Bad_DoubleDotID(t *testing.T) {
 	result := planPath("/plans", "..")
-	assert.Equal(t, "/plans/invalid.json", result)
+	core.AssertEqual(t, "/plans/invalid.json", result)
+	core.AssertContains(t, result, "invalid.json")
 }
 
 func TestPlan_PlanPath_Bad_EmptyID(t *testing.T) {
 	result := planPath("/plans", "")
-	assert.Equal(t, "/plans/invalid.json", result)
+	core.AssertEqual(t, "/plans/invalid.json", result)
+	core.AssertContains(t, result, "invalid.json")
 }
 
 // --- readPlan / writePlan ---
@@ -67,19 +74,19 @@ func TestPlan_ReadWrite_Good_BasicRoundtrip(t *testing.T) {
 	}
 
 	path, err := writePlan(dir, plan)
-	require.NoError(t, err)
-	assert.Equal(t, core.JoinPath(dir, "basic-plan-abc.json"), path)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, core.JoinPath(dir, "basic-plan-abc.json"), path)
 
 	read, err := readPlan(dir, "basic-plan-abc")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Equal(t, plan.ID, read.ID)
-	assert.Equal(t, plan.Title, read.Title)
-	assert.Equal(t, plan.Status, read.Status)
-	assert.Equal(t, plan.Repo, read.Repo)
-	assert.Equal(t, plan.Org, read.Org)
-	assert.Equal(t, plan.Objective, read.Objective)
-	assert.Equal(t, plan.Agent, read.Agent)
+	core.AssertEqual(t, plan.ID, read.ID)
+	core.AssertEqual(t, plan.Title, read.Title)
+	core.AssertEqual(t, plan.Status, read.Status)
+	core.AssertEqual(t, plan.Repo, read.Repo)
+	core.AssertEqual(t, plan.Org, read.Org)
+	core.AssertEqual(t, plan.Objective, read.Objective)
+	core.AssertEqual(t, plan.Agent, read.Agent)
 }
 
 func TestPlan_ReadWrite_Good_WithPhases(t *testing.T) {
@@ -98,32 +105,32 @@ func TestPlan_ReadWrite_Good_WithPhases(t *testing.T) {
 	}
 
 	_, err := writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read, err := readPlan(dir, "phase-plan-abc")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	require.Len(t, read.Phases, 3)
-	assert.Equal(t, "Setup", read.Phases[0].Name)
-	assert.Equal(t, "done", read.Phases[0].Status)
-	assert.Equal(t, []string{"repo cloned", "deps installed"}, read.Phases[0].Criteria)
-	assert.Equal(t, 3, read.Phases[0].Tests)
-	assert.Equal(t, "WIP", read.Phases[1].Notes)
-	assert.Equal(t, "pending", read.Phases[2].Status)
+	core.AssertLen(t, read.Phases, 3)
+	core.AssertEqual(t, "Setup", read.Phases[0].Name)
+	core.AssertEqual(t, "done", read.Phases[0].Status)
+	core.AssertEqual(t, []string{"repo cloned", "deps installed"}, read.Phases[0].Criteria)
+	core.AssertEqual(t, 3, read.Phases[0].Tests)
+	core.AssertEqual(t, "WIP", read.Phases[1].Notes)
+	core.AssertEqual(t, "pending", read.Phases[2].Status)
 }
 
 func TestPlan_ReadPlan_Bad_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, err := readPlan(dir, "nonexistent-plan")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_ReadPlan_Bad_CorruptJSON(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "bad.json"), `{broken`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "bad.json"), `{broken`).OK)
 
 	_, err := readPlan(dir, "bad")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
@@ -138,9 +145,9 @@ func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
 	}
 
 	path, err := writePlan(nested, plan)
-	require.NoError(t, err)
-	assert.Equal(t, core.JoinPath(nested, "deep-plan-xyz.json"), path)
-	assert.True(t, fs.IsFile(path))
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, core.JoinPath(nested, "deep-plan-xyz.json"), path)
+	core.AssertTrue(t, fs.IsFile(path))
 }
 
 func TestPlan_WritePlan_Good_OverwriteExistingLogic(t *testing.T) {
@@ -153,25 +160,25 @@ func TestPlan_WritePlan_Good_OverwriteExistingLogic(t *testing.T) {
 		Objective: "Initial",
 	}
 	_, err := writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	plan.Title = "Second Title"
 	plan.Status = "approved"
 	_, err = writePlan(dir, plan)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	read, err := readPlan(dir, "overwrite-plan-abc")
-	require.NoError(t, err)
-	assert.Equal(t, "Second Title", read.Title)
-	assert.Equal(t, "approved", read.Status)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "Second Title", read.Title)
+	core.AssertEqual(t, "approved", read.Status)
 }
 
 func TestPlan_ReadPlan_Ugly_EmptyFileLogic(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "empty.json"), "").OK)
 
 	_, err := readPlan(dir, "empty")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
 func TestPlan_PhaseValue_Good_CompletionCriteriaAlias(t *testing.T) {
@@ -180,16 +187,16 @@ func TestPlan_PhaseValue_Good_CompletionCriteriaAlias(t *testing.T) {
 		"completion_criteria": []any{"repo cloned", "dependencies installed"},
 	})
 
-	require.True(t, ok)
-	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, phase.Criteria)
-	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, phase.CompletionCriteria)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, []string{"repo cloned", "dependencies installed"}, phase.Criteria)
+	core.AssertEqual(t, []string{"repo cloned", "dependencies installed"}, phase.CompletionCriteria)
 
 	normalised := normalisePhase(phase, 1)
-	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, normalised.Criteria)
-	assert.Equal(t, []string{"repo cloned", "dependencies installed"}, normalised.CompletionCriteria)
+	core.AssertEqual(t, []string{"repo cloned", "dependencies installed"}, normalised.Criteria)
+	core.AssertEqual(t, []string{"repo cloned", "dependencies installed"}, normalised.CompletionCriteria)
 
 	tasks := phaseTaskList(normalised)
-	require.Len(t, tasks, 2)
-	assert.Equal(t, "repo cloned", tasks[0].Title)
-	assert.Equal(t, "dependencies installed", tasks[1].Title)
+	core.AssertLen(t, tasks, 2)
+	core.AssertEqual(t, "repo cloned", tasks[0].Title)
+	core.AssertEqual(t, "dependencies installed", tasks[1].Title)
 }

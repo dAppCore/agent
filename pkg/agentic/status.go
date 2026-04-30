@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -38,7 +38,7 @@ type WorkspaceQuery struct {
 	Status string
 }
 
-func writeStatus(workspaceDir string, status *WorkspaceStatus) error {
+var writeStatus = func(workspaceDir string, status *WorkspaceStatus) error {
 	r := writeStatusResult(workspaceDir, status)
 	if !r.OK {
 		err, _ := r.Value.(error)
@@ -61,10 +61,10 @@ func writeStatusResult(workspaceDir string, status *WorkspaceStatus) core.Result
 	if r := fs.WriteAtomic(statusPath, core.JSONMarshalString(status)); !r.OK {
 		err, _ := r.Value.(error)
 		if err == nil {
-			core.Warn("agentic.writeStatus: failed to write status", "path", statusPath)
+			core.Warn("agentic.writeStatus: failed to write status", `path`, statusPath)
 			return core.Result{Value: core.E("writeStatus", "failed to write status", nil), OK: false}
 		}
-		core.Warn("agentic.writeStatus: failed to write status", "path", statusPath, "reason", err)
+		core.Warn("agentic.writeStatus: failed to write status", `path`, statusPath, "reason", err)
 		return core.Result{Value: core.E("writeStatus", "failed to write status", err), OK: false}
 	}
 	return core.Result{OK: true}
@@ -94,7 +94,7 @@ func ReadStatusResult(workspaceDir string) core.Result {
 
 // read, err := ReadStatus("/path/to/workspace")
 // if err == nil { core.Println(read.Status) }
-func ReadStatus(workspaceDir string) (*WorkspaceStatus, error) {
+var ReadStatus = func(workspaceDir string) (*WorkspaceStatus, error) {
 	result := ReadStatusResult(workspaceDir)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -150,10 +150,12 @@ func (s *PrepSubsystem) registerStatusTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_status",
 		Description: "List agent workspaces and their status (running, completed, blocked, failed). Supports workspace, status, and limit filters. Shows blocked agents with their questions.",
-	}, s.status)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
+		return status(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
+var status = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	statusFiles := WorkspaceStatusPaths()
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {

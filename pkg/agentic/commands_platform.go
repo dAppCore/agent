@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func (s *PrepSubsystem) registerPlatformCommands() {
@@ -671,7 +671,7 @@ func normalisePlatformCommandOptions(options core.Options) core.Options {
 	return normalised
 }
 
-func commandResultError(action string, result core.Result) error {
+var commandResultError = func(action string, result core.Result) error {
 	if err, ok := result.Value.(error); ok && err != nil {
 		return err
 	}

@@ -9,24 +9,21 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- forgeMergePR ---
 
 func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/pulls/42/merge")
-		assert.Equal(t, "token test-forge-token", r.Header.Get("Authorization"))
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertContains(t, r.URL.Path, "/pulls/42/merge")
+		core.AssertEqual(t, "token test-forge-token", r.Header.Get("Authorization"))
 
 		var body map[string]any
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "merge", body["Do"])
-		assert.Equal(t, true, body["delete_branch_after_merge"])
+		core.AssertEqual(t, "merge", body["Do"])
+		core.AssertEqual(t, true, body["delete_branch_after_merge"])
 
 		w.WriteHeader(200)
 	}))
@@ -41,7 +38,7 @@ func TestVerify_ForgeMergePR_Good_Success(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
@@ -59,7 +56,7 @@ func TestVerify_ForgeMergePR_Good_204Response(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.True(t, r.OK)
+	core.AssertTrue(t, r.OK)
 }
 
 func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
@@ -80,8 +77,8 @@ func TestVerify_ForgeMergePR_Bad_ConflictResponse(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.False(t, r.OK)
-	assert.Contains(t, r.Value.(string), "merge conflict")
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(string), "merge conflict")
 }
 
 func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
@@ -102,8 +99,8 @@ func TestVerify_ForgeMergePR_Bad_ServerError(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.False(t, r.OK)
-	assert.Contains(t, r.Value.(string), "internal server error")
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(string), "internal server error")
 }
 
 func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
@@ -119,26 +116,34 @@ func TestVerify_ForgeMergePR_Bad_NetworkError(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 1)
-	assert.False(t, r.OK)
+	core.AssertFalse(t, r.OK)
 }
 
 // --- extractPullRequestNumber (additional _Ugly cases) ---
 
 func TestVerify_ExtractPullRequestNumber_Ugly_DoubleSlashEnd(t *testing.T) {
-	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
+	number := extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/")
+	core.AssertEqual(t, 0, number)
+	core.AssertFalse(t, number > 0)
 }
 
 func TestVerify_ExtractPullRequestNumber_Ugly_VeryLargeNumber(t *testing.T) {
-	assert.Equal(t, 999999, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/999999"))
+	number := extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/999999")
+	core.AssertEqual(t, 999999, number)
+	core.AssertTrue(t, number > 42)
 }
 
 func TestVerify_ExtractPullRequestNumber_Ugly_NegativeNumber(t *testing.T) {
 	// atoi of "-5" is -5, parseInt wraps atoi
-	assert.Equal(t, -5, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/-5"))
+	number := extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/-5")
+	core.AssertEqual(t, -5, number)
+	core.AssertTrue(t, number < 0)
 }
 
 func TestVerify_ExtractPullRequestNumber_Ugly_ZeroExplicit(t *testing.T) {
-	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/0"))
+	number := extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/0")
+	core.AssertEqual(t, 0, number)
+	core.AssertFalse(t, number > 0)
 }
 
 // --- ensureLabel ---
@@ -146,14 +151,14 @@ func TestVerify_ExtractPullRequestNumber_Ugly_ZeroExplicit(t *testing.T) {
 func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/labels")
+		core.AssertEqual(t, "POST", r.Method)
+		core.AssertContains(t, r.URL.Path, "/labels")
 		called = true
 
 		var body map[string]string
 		core.JSONUnmarshalString(core.ReadAll(r.Body).Value.(string), &body)
-		assert.Equal(t, "needs-review", body["name"])
-		assert.Equal(t, "#e11d48", body["color"])
+		core.AssertEqual(t, "needs-review", body["name"])
+		core.AssertEqual(t, "#e11d48", body["color"])
 
 		w.WriteHeader(201)
 	}))
@@ -168,7 +173,7 @@ func TestVerify_EnsureLabel_Good_CreatesLabel(t *testing.T) {
 	}
 
 	s.ensureLabel(context.Background(), "core", "test-repo", "needs-review", "e11d48")
-	assert.True(t, called)
+	core.AssertTrue(t, called)
 }
 
 func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
@@ -184,7 +189,7 @@ func TestVerify_EnsureLabel_Bad_NetworkError(t *testing.T) {
 	}
 
 	// Should not panic
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.ensureLabel(context.Background(), "core", "test-repo", "test-label", "abc123")
 	})
 }
@@ -209,7 +214,7 @@ func TestVerify_GetLabelID_Good_Found(t *testing.T) {
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "needs-review")
-	assert.Equal(t, 20, id)
+	core.AssertEqual(t, 20, id)
 }
 
 func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
@@ -229,7 +234,7 @@ func TestVerify_GetLabelID_Bad_NotFound(t *testing.T) {
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "missing-label")
-	assert.Equal(t, 0, id)
+	core.AssertEqual(t, 0, id)
 }
 
 func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
@@ -245,7 +250,7 @@ func TestVerify_GetLabelID_Bad_NetworkError(t *testing.T) {
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "any")
-	assert.Equal(t, 0, id)
+	core.AssertEqual(t, 0, id)
 }
 
 // --- runVerification ---
@@ -260,13 +265,13 @@ func TestVerify_RunVerification_Good_NoProjectFile(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.True(t, result.passed)
-	assert.Equal(t, "none", result.testCmd)
+	core.AssertTrue(t, result.passed)
+	core.AssertEqual(t, "none", result.testCmd)
 }
 
 func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -275,13 +280,13 @@ func TestVerify_RunVerification_Good_GoProject(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.Equal(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
 	// It will fail because there's no real Go code, but we test the detection path
 }
 
 func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -291,12 +296,12 @@ func TestVerify_RunVerification_Good_PHPProject(t *testing.T) {
 
 	result := s.runVerification(dir)
 	// Will fail (no composer) but detection path is covered
-	assert.Contains(t, []string{"composer test", "vendor/bin/pest", "none"}, result.testCmd)
+	core.AssertContains(t, []string{"composer test", "vendor/bin/pest", "none"}, result.testCmd)
 }
 
 func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -305,12 +310,12 @@ func TestVerify_RunVerification_Good_NodeProject(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.Equal(t, "npm test", result.testCmd)
+	core.AssertEqual(t, "npm test", result.testCmd)
 }
 
 func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -319,8 +324,8 @@ func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.True(t, result.passed)
-	assert.Equal(t, "none", result.testCmd)
+	core.AssertTrue(t, result.passed)
+	core.AssertEqual(t, "none", result.testCmd)
 }
 
 // --- fileExists ---
@@ -328,18 +333,23 @@ func TestVerify_RunVerification_Good_NodeNoTestScript(t *testing.T) {
 func TestVerify_FileExists_Good_Exists(t *testing.T) {
 	dir := t.TempDir()
 	path := core.JoinPath(dir, "test.txt")
-	require.True(t, fs.Write(path, "hello").OK)
+	core.RequireTrue(t, fs.Write(path, "hello").OK)
 
-	assert.True(t, fileExists(path))
+	core.AssertTrue(t, fileExists(path))
 }
 
 func TestVerify_FileExists_Bad_NotExists(t *testing.T) {
-	assert.False(t, fileExists("/nonexistent/path/file.txt"))
+	path := "/nonexistent/path/file.txt"
+	exists := fileExists(path)
+	core.AssertFalse(t, exists)
+	core.AssertEqual(t, false, exists)
 }
 
 func TestVerify_FileExists_Bad_IsDirectory(t *testing.T) {
 	dir := t.TempDir()
-	assert.False(t, fileExists(dir)) // directories are not files
+	exists := fileExists(dir)
+	core.AssertFalse(t, exists) // directories are not files
+	core.AssertEqual(t, false, exists)
 }
 
 // --- autoVerifyAndMerge ---
@@ -352,14 +362,14 @@ func TestVerify_AutoVerifyAndMerge_Bad_NoStatus(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 	// Should not panic when status.json is missing
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
 }
 
 func TestVerify_AutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix",
@@ -372,14 +382,14 @@ func TestVerify_AutoVerifyAndMerge_Bad_NoPRURL(t *testing.T) {
 	}
 
 	// Should return early — no PR URL
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
 }
 
 func TestVerify_AutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
 		PRURL:  "https://forge.test/core/go-io/pulls/1",
 	}))
@@ -390,14 +400,14 @@ func TestVerify_AutoVerifyAndMerge_Bad_EmptyRepo(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
 }
 
 func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "go-io",
 		Branch: "agent/fix",
@@ -411,7 +421,7 @@ func TestVerify_AutoVerifyAndMerge_Bad_InvalidPRURL(t *testing.T) {
 	}
 
 	// extractPullRequestNumber returns 0 for invalid URL, so autoVerifyAndMerge returns early
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
 }
@@ -449,7 +459,7 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -457,8 +467,8 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 	}
 
 	s.flagForReview("core", "test-repo", 42, testFailed)
-	assert.True(t, labelCalled)
-	assert.True(t, commentCalled)
+	core.AssertTrue(t, labelCalled)
+	core.AssertTrue(t, commentCalled)
 }
 
 func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
@@ -482,7 +492,7 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -490,38 +500,48 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 	}
 
 	s.flagForReview("core", "test-repo", 1, mergeConflict)
-	assert.Contains(t, commentBody, "Merge conflict")
+	core.AssertContains(t, commentBody, "Merge conflict")
 }
 
 // --- truncate ---
 
 func TestAutopr_Truncate_Good_Short(t *testing.T) {
-	assert.Equal(t, "hello", truncate("hello", 10))
+	result := truncate("hello", 10)
+	core.AssertEqual(t, "hello", result)
+	core.AssertLen(t, result, 5)
 }
 
 func TestAutopr_Truncate_Good_Exact(t *testing.T) {
-	assert.Equal(t, "hello", truncate("hello", 5))
+	result := truncate("hello", 5)
+	core.AssertEqual(t, "hello", result)
+	core.AssertLen(t, result, 5)
 }
 
 func TestAutopr_Truncate_Good_Long(t *testing.T) {
-	assert.Equal(t, "hel...", truncate("hello world", 3))
+	result := truncate("hello world", 3)
+	core.AssertEqual(t, "hel...", result)
+	core.AssertContains(t, result, "...")
 }
 
 func TestAutopr_Truncate_Bad_ZeroMax(t *testing.T) {
-	assert.Equal(t, "...", truncate("hello", 0))
+	result := truncate("hello", 0)
+	core.AssertEqual(t, "...", result)
+	core.AssertContains(t, result, "...")
 }
 
 func TestAutopr_Truncate_Ugly_EmptyString(t *testing.T) {
-	assert.Equal(t, "", truncate("", 10))
+	result := truncate("", 10)
+	core.AssertEqual(t, "", result)
+	core.AssertEmpty(t, result)
 }
 
 // --- autoVerifyAndMerge (extended Ugly) ---
 
-func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
+func TestVerify_AutoVerifyAndMerge_Ugly_Case(t *testing.T) {
 	// Workspace with status=completed, repo=test, PRURL="not-a-url"
 	// extractPullRequestNumber returns 0 for "not-a-url" → early return, no panic
 	dir := t.TempDir()
-	require.NoError(t, writeStatus(dir, &WorkspaceStatus{
+	core.RequireNoError(t, writeStatus(dir, &WorkspaceStatus{
 		Status: "completed",
 		Repo:   "test",
 		Branch: "agent/fix",
@@ -535,18 +555,18 @@ func TestVerify_AutoVerifyAndMerge_Ugly(t *testing.T) {
 	}
 
 	// PR number is 0 → should return early without panicking
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.autoVerifyAndMerge(dir)
 	})
 
 	// Status should remain unchanged (not "merged")
 	st := mustReadStatus(t, dir)
-	assert.Equal(t, "completed", st.Status)
+	core.AssertEqual(t, "completed", st.Status)
 }
 
 // --- attemptVerifyAndMerge (Ugly — Go project that fails build) ---
 
-func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
+func TestVerify_AttemptVerifyAndMerge_Ugly_Case(t *testing.T) {
 	// Go project that fails build (go.mod but no valid Go code)
 	// with httptest Forge mock for comment API → returns testFailed
 	commentCalled := false
@@ -562,13 +582,13 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 
 	dir := t.TempDir()
 	// Write a go.mod so runVerification detects Go and runs "go test ./..."
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken-test\n\ngo 1.22").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken-test\n\ngo 1.22").OK)
 	// Write invalid Go code to force test failure
-	require.True(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -576,21 +596,21 @@ func TestVerify_AttemptVerifyAndMerge_Ugly(t *testing.T) {
 	}
 
 	result := s.attemptVerifyAndMerge(dir, "core", "test-repo", "agent/fix", 42)
-	assert.Equal(t, testFailed, result)
-	assert.True(t, commentCalled, "should have posted a comment about test failure")
+	core.AssertEqual(t, testFailed, result)
+	core.AssertTrue(t, commentCalled, "should have posted a comment about test failure")
 }
 
 // --- extractPullRequestNumber (extended Ugly) ---
 
-func TestVerify_ExtractPullRequestNumber_Ugly(t *testing.T) {
+func TestVerify_ExtractPullRequestNumber_Ugly_Case(t *testing.T) {
 	// Just a bare number "5" → last segment is "5" → returns 5
-	assert.Equal(t, 5, extractPullRequestNumber("5"))
+	core.AssertEqual(t, 5, extractPullRequestNumber("5"))
 
 	// Trailing slash → last segment is empty string → parseInt("") → 0
-	assert.Equal(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
+	core.AssertEqual(t, 0, extractPullRequestNumber("https://forge.lthn.ai/core/go-io/pulls/42/"))
 
 	// Non-numeric string → parseInt("abc") → 0
-	assert.Equal(t, 0, extractPullRequestNumber("abc"))
+	core.AssertEqual(t, 0, extractPullRequestNumber("abc"))
 }
 
 // --- EnsureLabel Ugly ---
@@ -612,7 +632,7 @@ func TestVerify_EnsureLabel_Ugly_AlreadyExists409(t *testing.T) {
 	}
 
 	// Should not panic on 409 — ensureLabel is fire-and-forget
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.ensureLabel(context.Background(), "core", "test-repo", "needs-review", "e11d48")
 	})
 }
@@ -634,7 +654,7 @@ func TestVerify_GetLabelID_Ugly_EmptyArray(t *testing.T) {
 	}
 
 	id := s.getLabelID(context.Background(), "core", "test-repo", "needs-review")
-	assert.Equal(t, 0, id)
+	core.AssertEqual(t, 0, id)
 }
 
 // --- ForgeMergePR Ugly ---
@@ -655,7 +675,7 @@ func TestVerify_ForgeMergePR_Ugly_EmptyBody200(t *testing.T) {
 	}
 
 	r := s.forgeMergePR(context.Background(), "core", "test-repo", 42)
-	assert.True(t, r.OK) // 200 is success even with empty body
+	core.AssertTrue(t, r.OK) // 200 is success even with empty body
 }
 
 // --- FileExists Ugly ---
@@ -666,7 +686,7 @@ func TestVerify_FileExists_Ugly_PathIsDirectory(t *testing.T) {
 	fs.EnsureDir(sub)
 
 	// A directory is not a file — fileExists should return false
-	assert.False(t, fileExists(sub))
+	core.AssertFalse(t, fileExists(sub))
 }
 
 // --- FlagForReview Bad/Ugly ---
@@ -680,7 +700,7 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -688,7 +708,7 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 	}
 
 	// Should not panic when all API calls (ensureLabel, getLabelID, add label, comment) fail
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.flagForReview("core", "test-repo", 42, testFailed)
 	})
 }
@@ -707,7 +727,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -715,7 +735,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 	}
 
 	// label ID 0 is passed to "add labels" payload — should not panic
-	assert.NotPanics(t, func() {
+	core.AssertNotPanics(t, func() {
 		s.flagForReview("core", "test-repo", 42, mergeConflict)
 	})
 }
@@ -724,7 +744,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 
 func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
 	// go.mod exists but no .go files — go test should fail
 
 	s := &PrepSubsystem{
@@ -734,7 +754,7 @@ func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.Equal(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
 	// Depending on go version, this may pass (no test files = pass) or fail
 	// The important thing is we detect Go project type correctly
 }
@@ -742,8 +762,8 @@ func TestVerify_RunVerification_Bad_GoModButNoGoFiles(t *testing.T) {
 func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 	dir := t.TempDir()
 	// Both go.mod and package.json exist — Go takes priority
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "package.json"), `{"scripts":{"test":"echo ok"}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -753,15 +773,15 @@ func TestVerify_RunVerification_Ugly_MultipleProjectFiles(t *testing.T) {
 
 	result := s.runVerification(dir)
 	// Go takes priority because it's checked first
-	assert.Equal(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
 }
 
 // --- additional: go.mod + composer.json to verify priority ---
 
 func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "composer.json"), `{"require":{}}`).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -770,17 +790,17 @@ func TestVerify_RunVerification_Ugly_GoAndPHPProjectFiles(t *testing.T) {
 	}
 
 	result := s.runVerification(dir)
-	assert.Equal(t, "go test ./...", result.testCmd) // Go first in priority chain
+	core.AssertEqual(t, "go test ./...", result.testCmd) // Go first in priority chain
 }
 
 // --- runGoTests ---
 
-func TestVerify_RunGoTests_Good(t *testing.T) {
+func TestVerify_RunGoTests_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create a valid Go project with a passing test
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "main.go"), "package testproj\n\nfunc Add(a, b int) int { return a + b }\n").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "main_test.go"), `package testproj
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module testproj\n\ngo 1.22\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "main.go"), "package testproj\n\nfunc Add(a, b int) int { return a + b }\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "main_test.go"), `package testproj
 
 import "testing"
 
@@ -798,16 +818,16 @@ func TestVerify_Add_Good(t *testing.T) {
 	}
 
 	result := s.runGoTests(dir)
-	assert.True(t, result.passed)
-	assert.Equal(t, "go test ./...", result.testCmd)
-	assert.Equal(t, 0, result.exitCode)
+	core.AssertTrue(t, result.passed)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, 0, result.exitCode)
 }
 
-func TestVerify_RunGoTests_Bad(t *testing.T) {
+func TestVerify_RunGoTests_Bad_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create a broken Go project — compilation error
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module broken\n\ngo 1.22\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "broken.go"), "package broken\n\nfunc Bad() { undeclared() }\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -816,16 +836,16 @@ func TestVerify_RunGoTests_Bad(t *testing.T) {
 	}
 
 	result := s.runGoTests(dir)
-	assert.False(t, result.passed)
-	assert.Equal(t, "go test ./...", result.testCmd)
-	assert.Equal(t, 1, result.exitCode)
+	core.AssertFalse(t, result.passed)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, 1, result.exitCode)
 }
 
-func TestVerify_RunGoTests_Ugly(t *testing.T) {
+func TestVerify_RunGoTests_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 	// go.mod but no test files — Go considers this a pass
-	require.True(t, fs.Write(core.JoinPath(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)
-	require.True(t, fs.Write(core.JoinPath(dir, "main.go"), "package empty\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "go.mod"), "module empty\n\ngo 1.22\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "main.go"), "package empty\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -835,7 +855,7 @@ func TestVerify_RunGoTests_Ugly(t *testing.T) {
 
 	result := s.runGoTests(dir)
 	// No test files is a pass in go test
-	assert.True(t, result.passed)
-	assert.Equal(t, "go test ./...", result.testCmd)
-	assert.Equal(t, 0, result.exitCode)
+	core.AssertTrue(t, result.passed)
+	core.AssertEqual(t, "go test ./...", result.testCmd)
+	core.AssertEqual(t, 0, result.exitCode)
 }

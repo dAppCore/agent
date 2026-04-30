@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/setup"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -23,7 +23,7 @@ func (s *PrepSubsystem) cmdSetup(options core.Options) core.Result {
 
 // result := c.Action("agentic.setup").Run(ctx, core.NewOptions(
 //
-//	core.Option{Key: "path", Value: "."},
+//	core.Option{Key: `path`, Value: "."},
 //	core.Option{Key: "template", Value: "auto"},
 //
 // ))
@@ -42,7 +42,7 @@ func (s *PrepSubsystem) handleSetup(_ context.Context, options core.Options) cor
 	}
 
 	result := service.Run(setup.Options{
-		Path:     optionStringValue(options, "path", "_arg"),
+		Path:     optionStringValue(options, `path`, "_arg"),
 		DryRun:   optionBoolValue(options, "dry_run", "dry-run"),
 		Force:    optionBoolValue(options, "force"),
 		Template: optionStringValue(options, "template", "template_slug", "template-slug", "slug"),
@@ -58,7 +58,7 @@ func (s *PrepSubsystem) registerSetupTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_setup",
 		Description: "Scaffold a workspace with .core config files and optional templates.",
-	}, s.setupTool)
+	}, toolHandlerFor[SetupInput, SetupOutput]("agentic.setup", "invalid setup output", s.setupTool))
 }
 
 type SetupInput struct {
@@ -70,27 +70,27 @@ type SetupInput struct {
 
 type SetupOutput struct {
 	Success bool   `json:"success"`
-	Path    string `json:"path"`
+	Path    string "json:\"path\""
 }
 
-func (s *PrepSubsystem) setupTool(ctx context.Context, _ *mcp.CallToolRequest, input SetupInput) (*mcp.CallToolResult, SetupOutput, error) {
+func (s *PrepSubsystem) setupTool(ctx context.Context, input SetupInput) core.Result {
 	result := s.handleSetup(ctx, core.NewOptions(
-		core.Option{Key: "path", Value: input.Path},
+		core.Option{Key: `path`, Value: input.Path},
 		core.Option{Key: "dry_run", Value: input.DryRun},
 		core.Option{Key: "force", Value: input.Force},
 		core.Option{Key: "template", Value: input.Template},
 	))
 	if !result.OK {
-		return nil, SetupOutput{}, resultErrorValue("agentic.setup", result)
+		return failureResult("agentic.setup", "request failed", result)
 	}
 
 	path, ok := result.Value.(string)
 	if !ok {
-		return nil, SetupOutput{}, core.E("agentic.setup", "invalid setup output", nil)
+		return core.Fail(core.E("agentic.setup", "invalid setup output", nil))
 	}
 
-	return nil, SetupOutput{
+	return core.Ok(SetupOutput{
 		Success: true,
 		Path:    path,
-	}, nil
+	})
 }

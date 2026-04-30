@@ -7,15 +7,13 @@ import (
 	"testing"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/setup"
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCommandsSetup_CmdSetup_Good_WritesCoreConfigs(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
 	c := core.New(core.WithService(setup.Register))
 	s := &PrepSubsystem{
@@ -24,12 +22,12 @@ func TestCommandsSetup_CmdSetup_Good_WritesCoreConfigs(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	result := s.cmdSetup(core.NewOptions(core.Option{Key: "path", Value: dir}))
-	require.True(t, result.OK)
+	result := s.cmdSetup(core.NewOptions(core.Option{Key: `path`, Value: dir}))
+	core.RequireTrue(t, result.OK)
 
 	build := fs.Read(core.JoinPath(dir, ".core", "build.yaml"))
-	require.True(t, build.OK)
-	assert.Contains(t, build.Value.(string), "type: go")
+	core.RequireTrue(t, build.OK)
+	core.AssertContains(t, build.Value.(string), "type: go")
 }
 
 func TestCommandsSetup_CmdSetup_Bad_MissingService(t *testing.T) {
@@ -40,14 +38,14 @@ func TestCommandsSetup_CmdSetup_Bad_MissingService(t *testing.T) {
 	}
 
 	result := s.cmdSetup(core.NewOptions())
-	require.False(t, result.OK)
-	require.Error(t, result.Value.(error))
-	assert.Contains(t, result.Value.(error).Error(), "setup service is required")
+	core.AssertFalse(t, result.OK)
+	core.AssertError(t, result.Value.(error))
+	core.AssertContains(t, result.Value.(error).Error(), "setup service is required")
 }
 
 func TestCommandsSetup_CmdSetup_Ugly_DryRunDoesNotWrite(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
 	c := core.New(core.WithService(setup.Register))
 	s := &PrepSubsystem{
@@ -57,18 +55,18 @@ func TestCommandsSetup_CmdSetup_Ugly_DryRunDoesNotWrite(t *testing.T) {
 	}
 
 	result := s.cmdSetup(core.NewOptions(
-		core.Option{Key: "path", Value: dir},
+		core.Option{Key: `path`, Value: dir},
 		core.Option{Key: "dry-run", Value: true},
 		core.Option{Key: "template", Value: "agent"},
 	))
-	require.True(t, result.OK)
-	assert.False(t, fs.Exists(core.JoinPath(dir, ".core")))
-	assert.False(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
+	core.RequireTrue(t, result.OK)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
 }
 
 func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
 	dir := t.TempDir()
-	require.True(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, "go.mod"), "module example.com/test\n", 0644).OK)
 
 	c := core.New(core.WithService(setup.Register))
 	s := &PrepSubsystem{
@@ -77,11 +75,11 @@ func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	result := s.handleSetup(context.Background(), core.NewOptions(core.Option{Key: "path", Value: dir}))
-	require.True(t, result.OK)
+	result := s.handleSetup(context.Background(), core.NewOptions(core.Option{Key: `path`, Value: dir}))
+	core.RequireTrue(t, result.OK)
 
 	createdPath, ok := result.Value.(string)
-	require.True(t, ok)
-	assert.Equal(t, dir, createdPath)
-	assert.True(t, fs.Exists(core.JoinPath(dir, ".core", "build.yaml")))
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, dir, createdPath)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(dir, ".core", "build.yaml")))
 }

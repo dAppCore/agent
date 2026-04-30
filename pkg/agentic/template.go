@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"slices"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
@@ -111,7 +111,7 @@ type planTemplatePhaseDef struct {
 
 // result := c.Action("template.list").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleTemplateList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.templateList(ctx, nil, TemplateListInput{
+	_, output, err := templateList(s, ctx, nil, TemplateListInput{
 		Category: optionStringValue(options, "category"),
 	})
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *PrepSubsystem) handleTemplateList(ctx context.Context, options core.Opt
 
 // result := c.Action("template.preview").Run(ctx, core.NewOptions(core.Option{Key: "template", Value: "bug-fix"}))
 func (s *PrepSubsystem) handleTemplatePreview(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.templatePreview(ctx, nil, TemplatePreviewInput{
+	_, output, err := templatePreview(s, ctx, nil, TemplatePreviewInput{
 		Template:     optionStringValue(options, "template"),
 		TemplateSlug: optionStringValue(options, "template_slug", "template-slug", "slug"),
 		Variables:    optionStringMapValue(options, "variables"),
@@ -135,7 +135,7 @@ func (s *PrepSubsystem) handleTemplatePreview(ctx context.Context, options core.
 
 // result := c.Action("template.create_plan").Run(ctx, core.NewOptions(core.Option{Key: "template", Value: "bug-fix"}))
 func (s *PrepSubsystem) handleTemplateCreatePlan(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.templateCreatePlan(ctx, nil, TemplateCreatePlanInput{
+	_, output, err := templateCreatePlan(s, ctx, nil, TemplateCreatePlanInput{
 		Template:     optionStringValue(options, "template"),
 		TemplateSlug: optionStringValue(options, "template_slug", "template-slug"),
 		Variables:    optionStringMapValue(options, "variables"),
@@ -153,20 +153,26 @@ func (s *PrepSubsystem) registerTemplateTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_list",
 		Description: "List available plan templates with variables, category, and phase counts.",
-	}, s.templateList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TemplateListInput) (*mcp.CallToolResult, TemplateListOutput, error) {
+		return templateList(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_preview",
 		Description: "Preview a plan template with variable substitution before creating a stored plan.",
-	}, s.templatePreview)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TemplatePreviewInput) (*mcp.CallToolResult, TemplatePreviewOutput, error) {
+		return templatePreview(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "template_create_plan",
 		Description: "Create a stored plan from an embedded YAML template, with optional activation.",
-	}, s.templateCreatePlan)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TemplateCreatePlanInput) (*mcp.CallToolResult, TemplateCreatePlanOutput, error) {
+		return templateCreatePlan(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) templateList(_ context.Context, _ *mcp.CallToolRequest, input TemplateListInput) (*mcp.CallToolResult, TemplateListOutput, error) {
+var templateList = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input TemplateListInput) (*mcp.CallToolResult, TemplateListOutput, error) {
 	templates := make([]TemplateSummary, 0, len(lib.ListTasks()))
 	for _, slug := range lib.ListTasks() {
 		definition, version, err := loadPlanTemplateDefinition(slug, nil)
@@ -197,7 +203,7 @@ func (s *PrepSubsystem) templateList(_ context.Context, _ *mcp.CallToolRequest, 
 	}, nil
 }
 
-func (s *PrepSubsystem) templatePreview(_ context.Context, _ *mcp.CallToolRequest, input TemplatePreviewInput) (*mcp.CallToolResult, TemplatePreviewOutput, error) {
+var templatePreview = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input TemplatePreviewInput) (*mcp.CallToolResult, TemplatePreviewOutput, error) {
 	templateName := templateNameValue(input.Template, input.TemplateSlug, input.Slug)
 	if templateName == "" {
 		return nil, TemplatePreviewOutput{}, core.E("templatePreview", "template is required", nil)
@@ -216,7 +222,7 @@ func (s *PrepSubsystem) templatePreview(_ context.Context, _ *mcp.CallToolReques
 	}, nil
 }
 
-func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolRequest, input TemplateCreatePlanInput) (*mcp.CallToolResult, TemplateCreatePlanOutput, error) {
+var templateCreatePlan = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input TemplateCreatePlanInput) (*mcp.CallToolResult, TemplateCreatePlanOutput, error) {
 	templateName := templateNameValue(input.Template, input.TemplateSlug)
 	if templateName == "" {
 		return nil, TemplateCreatePlanOutput{}, core.E("templateCreatePlan", "template is required", nil)
@@ -243,7 +249,7 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 		contextData["variables"] = input.Variables
 	}
 
-	_, created, err := s.planCreate(ctx, nil, PlanCreateInput{
+	_, created, err := planCreate(s, ctx, nil, PlanCreateInput{
 		Title:           title,
 		Slug:            input.Slug,
 		Objective:       definition.Description,
@@ -263,7 +269,7 @@ func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, _ *mcp.CallToolR
 	}
 
 	if input.Activate {
-		_, updated, updateErr := s.planUpdate(ctx, nil, PlanUpdateInput{
+		_, updated, updateErr := planUpdate(s, ctx, nil, PlanUpdateInput{
 			Slug:   plan.Slug,
 			Status: planCompatibilityInputStatus("active"),
 		})
@@ -289,7 +295,7 @@ func templateNameValue(values ...string) string {
 	return ""
 }
 
-func loadPlanTemplateDefinition(slug string, variables map[string]string) (planTemplateDefinition, PlanTemplateVersion, error) {
+var loadPlanTemplateDefinition = func(slug string, variables map[string]string) (planTemplateDefinition, PlanTemplateVersion, error) {
 	result := lib.Task(slug)
 	if !result.OK {
 		err, _ := result.Value.(error)

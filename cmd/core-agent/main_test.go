@@ -5,15 +5,14 @@ package main
 import (
 	"testing"
 
+	"dappco.re/go"
 	agentpkg "dappco.re/go/agent"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
-	"dappco.re/go/core"
 	"dappco.re/go/mcp/pkg/mcp"
-	"github.com/stretchr/testify/assert"
 )
 
 func withVersion(t *testing.T, value string) {
@@ -23,73 +22,78 @@ func withVersion(t *testing.T, value string) {
 	t.Cleanup(func() { agentpkg.Version = oldVersion })
 }
 
-func TestMain_NewCoreAgent_Good(t *testing.T) {
+func TestMain_NewCoreAgent_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
 
-	assert.Equal(t, "core-agent", c.App().Name)
-	assert.Equal(t, "0.15.0", c.App().Version)
-	assert.Contains(t, c.Services(), "process")
-	assert.Contains(t, c.Services(), "agentic")
-	assert.Contains(t, c.Services(), "runner")
-	assert.Contains(t, c.Services(), "monitor")
-	assert.Contains(t, c.Services(), "brain")
-	assert.Contains(t, c.Services(), "setup")
-	assert.Contains(t, c.Services(), "mcp")
-	assert.Contains(t, c.Commands(), "version")
-	assert.Contains(t, c.Commands(), "check")
-	assert.Contains(t, c.Commands(), "env")
-	assert.Contains(t, c.Actions(), "process.run")
+	core.AssertEqual(t, "core-agent", c.App().Name)
+	core.AssertEqual(t, "0.15.0", c.App().Version)
+	core.AssertContains(t, c.Services(), "process")
+	core.AssertContains(t, c.Services(), "agentic")
+	core.AssertContains(t, c.Services(), "runner")
+	core.AssertContains(t, c.Services(), "monitor")
+	core.AssertContains(t, c.Services(), "brain")
+	core.AssertContains(t, c.Services(), "setup")
+	core.AssertContains(t, c.Services(), "mcp")
+	core.AssertContains(t, c.Commands(), "version")
+	core.AssertContains(t, c.Commands(), "check")
+	core.AssertContains(t, c.Commands(), "env")
+	core.AssertContains(t, c.Actions(), "process.run")
 
 	service := c.Service("agentic")
-	assert.True(t, service.OK)
-	assert.IsType(t, &agentic.PrepSubsystem{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &agentic.PrepSubsystem{}, service.Value)
 	service = c.Service("runner")
-	assert.True(t, service.OK)
-	assert.IsType(t, &runner.Service{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &runner.Service{}, service.Value)
 	service = c.Service("monitor")
-	assert.True(t, service.OK)
-	assert.IsType(t, &monitor.Subsystem{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &monitor.Subsystem{}, service.Value)
 	service = c.Service("brain")
-	assert.True(t, service.OK)
-	assert.IsType(t, &brain.DirectSubsystem{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &brain.DirectSubsystem{}, service.Value)
 	service = c.Service("setup")
-	assert.True(t, service.OK)
-	assert.IsType(t, &setup.Service{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &setup.Service{}, service.Value)
 	service = c.Service("mcp")
-	assert.True(t, service.OK)
-	assert.IsType(t, &mcp.Service{}, service.Value)
+	core.AssertTrue(t, service.OK)
+	assertIsType(t, &mcp.Service{}, service.Value)
 }
 
-func TestMain_NewCoreAgentBanner_Good(t *testing.T) {
+func TestMain_NewCoreAgentBanner_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
 	c := newCoreAgent()
 
-	assert.Equal(t, "core-agent 0.15.0 — agentic orchestration for the Core ecosystem", c.Cli().Banner())
+	core.AssertEqual(t, "core-agent 0.15.0 — agentic orchestration for the Core ecosystem", c.Cli().Banner())
 }
 
-func TestMain_RunApp_Good(t *testing.T) {
+func TestMain_RunApp_Good_Case(t *testing.T) {
 	withVersion(t, "0.15.0")
 
-	assert.NoError(t, runApp(newTestCore(t), []string{"version"}))
+	err := runApp(newTestCore(t), []string{"version"})
+	core.AssertNoError(t, err)
+	core.AssertNil(t, err)
 }
 
-func TestMain_RunApp_Bad(t *testing.T) {
-	assert.EqualError(t, runApp(nil, []string{"version"}), "main.runApp: core is required")
+func TestMain_RunApp_Bad_Case(t *testing.T) {
+	err := runApp(nil, []string{"version"})
+	core.AssertError(t, err, "main.runApp: core is required")
+	core.AssertContains(t, err.Error(), "core is required")
 }
 
-func TestMain_ResultError_Ugly(t *testing.T) {
+func TestMain_ResultError_Ugly_Case(t *testing.T) {
 	err := resultError("main.runApp", "cli failed", core.Result{})
-	assert.EqualError(t, err, "main.runApp: cli failed")
+	core.AssertError(t, err, "main.runApp: cli failed")
+	core.AssertContains(t, err.Error(), "cli failed")
 }
 
-func TestMain_NewCoreAgentFallback_Ugly(t *testing.T) {
+func TestMain_NewCoreAgentFallback_Ugly_Case(t *testing.T) {
 	withVersion(t, "")
 
 	c := newCoreAgent()
 
-	assert.Equal(t, "dev", c.App().Version)
-	assert.Equal(t, "core-agent dev — agentic orchestration for the Core ecosystem", c.Cli().Banner())
+	core.AssertEqual(t, "dev", c.App().Version)
+	core.AssertEqual(t, "core-agent dev — agentic orchestration for the Core ecosystem", c.Cli().Banner())
 }

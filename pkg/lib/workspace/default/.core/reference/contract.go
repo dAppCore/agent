@@ -39,28 +39,15 @@ type Stoppable interface {
 
 // --- Action Messages ---
 
-// ActionServiceStartup marks the broadcast that fires before services start.
-//
-//	c.ACTION(core.ActionServiceStartup{})
 type ActionServiceStartup struct{}
-
-// ActionServiceShutdown marks the broadcast that fires before services stop.
-//
-//	c.ACTION(core.ActionServiceShutdown{})
 type ActionServiceShutdown struct{}
 
-// ActionTaskStarted marks the broadcast that a named task has started.
-//
-//	c.ACTION(core.ActionTaskStarted{TaskIdentifier: "task-42", Action: "agentic.dispatch"})
 type ActionTaskStarted struct {
 	TaskIdentifier string
 	Action         string
 	Options        Options
 }
 
-// ActionTaskProgress marks the broadcast that a named task has reported progress.
-//
-//	c.ACTION(core.ActionTaskProgress{TaskIdentifier: "task-42", Action: "agentic.dispatch", Progress: 0.5})
 type ActionTaskProgress struct {
 	TaskIdentifier string
 	Action         string
@@ -68,9 +55,6 @@ type ActionTaskProgress struct {
 	Message        string
 }
 
-// ActionTaskCompleted marks the broadcast that a named task has completed.
-//
-//	c.ACTION(core.ActionTaskCompleted{TaskIdentifier: "task-42", Action: "agentic.dispatch"})
 type ActionTaskCompleted struct {
 	TaskIdentifier string
 	Action         string
@@ -101,17 +85,17 @@ type CoreOption func(*Core) Result
 //	c.Run()
 func New(opts ...CoreOption) *Core {
 	c := &Core{
-		app:      &App{},
-		data:     &Data{Registry: NewRegistry[*Embed]()},
-		drive:    &Drive{Registry: NewRegistry[*DriveHandle]()},
-		fs:       (&Fs{}).New("/"),
-		config:   (&Config{}).New(),
-		error:    &ErrorPanic{},
-		log:      &ErrorLog{},
-		lock:     &Lock{locks: NewRegistry[*sync.RWMutex]()},
-		ipc:      &Ipc{actions: NewRegistry[*Action](), tasks: NewRegistry[*Task]()},
-		info:     systemInfo,
-		i18n:     &I18n{},
+		app:                &App{},
+		data:               &Data{Registry: NewRegistry[*Embed]()},
+		drive:              &Drive{Registry: NewRegistry[*DriveHandle]()},
+		fs:                 (&Fs{}).New("/"),
+		config:             (&Config{}).New(),
+		error:              &ErrorPanic{},
+		log:                &ErrorLog{},
+		lock:               &Lock{locks: NewRegistry[*sync.RWMutex]()},
+		ipc:                &Ipc{actions: NewRegistry[*Action](), tasks: NewRegistry[*Task]()},
+		info:               systemInfo,
+		i18n:               &I18n{},
 		api:                &API{protocols: NewRegistry[StreamFactory]()},
 		services:           &ServiceRegistry{Registry: NewRegistry[*Service]()},
 		commands:           &CommandRegistry{Registry: NewRegistry[*Command]()},

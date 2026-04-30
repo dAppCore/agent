@@ -18,6 +18,12 @@ use Livewire\Attributes\Title;
 
 #[Title('Credit Ledger')]
 #[Layout('hub::admin.layouts.app')]
+/**
+ * Review balances and post manual credit adjustments for workspace agents.
+ *
+ * @example
+ * Livewire::test(CreditLedger::class, ['workspaceId' => 7])->call('refreshLedger');
+ */
 class CreditLedger extends HubComponent
 {
     public int $workspaceId = 0;
@@ -30,6 +36,12 @@ class CreditLedger extends HubComponent
 
     public string $adjustmentReason = '';
 
+    /**
+     * Initialise the ledger with access checks and a selected agent.
+     *
+     * @example
+     * $component->mount(7);
+     */
     public function mount(?int $workspaceId = null): void
     {
         $this->checkHadesAccess();
@@ -38,6 +50,12 @@ class CreditLedger extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return the workspace agents available for ledger inspection.
+     *
+     * @example
+     * $agents = $component->agents();
+     */
     public function agents(): array
     {
         if ($this->workspaceId <= 0) {
@@ -63,6 +81,12 @@ class CreditLedger extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return the current balance summary for the selected agent.
+     *
+     * @example
+     * $balance = $component->balance();
+     */
     public function balance(): array
     {
         if ($this->workspaceId <= 0 || $this->selectedAgentId === '') {
@@ -85,6 +109,12 @@ class CreditLedger extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return recent credit transactions for the selected agent.
+     *
+     * @example
+     * $transactions = $component->transactions();
+     */
     public function transactions(): array
     {
         if ($this->workspaceId <= 0 || $this->selectedAgentId === '') {
@@ -109,6 +139,12 @@ class CreditLedger extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Summarise the visible transaction totals for the ledger screen.
+     *
+     * @example
+     * $totals = $component->totals();
+     */
     public function totals(): array
     {
         $transactions = collect($this->transactions);
@@ -120,6 +156,12 @@ class CreditLedger extends HubComponent
         ];
     }
 
+    /**
+     * Add credits to the selected agent and refresh the ledger.
+     *
+     * @example
+     * Livewire::test(CreditLedger::class, ['workspaceId' => 7])->call('refundCredits');
+     */
     public function refundCredits(): void
     {
         $this->validateAdjustment();
@@ -138,6 +180,12 @@ class CreditLedger extends HubComponent
         $this->toast('Credits Refunded', "Added credit to {$this->selectedAgentId}.", 'success');
     }
 
+    /**
+     * Deduct credits from the selected agent and refresh the ledger.
+     *
+     * @example
+     * Livewire::test(CreditLedger::class, ['workspaceId' => 7])->call('deductCredits');
+     */
     public function deductCredits(): void
     {
         $this->validateAdjustment();
@@ -156,6 +204,12 @@ class CreditLedger extends HubComponent
         $this->toast('Credits Deducted', "Deducted credit from {$this->selectedAgentId}.", 'warning');
     }
 
+    /**
+     * Refresh the computed ledger data and resynchronise the selected agent.
+     *
+     * @example
+     * Livewire::test(CreditLedger::class, ['workspaceId' => 7])->call('refreshLedger');
+     */
     public function refreshLedger(): void
     {
         unset($this->agents, $this->balance, $this->transactions, $this->totals);
@@ -163,11 +217,23 @@ class CreditLedger extends HubComponent
         $this->dispatch('notify', message: 'Credit ledger refreshed');
     }
 
+    /**
+     * Map a credit amount to the badge variant used in the ledger UI.
+     *
+     * @example
+     * $variant = $component->amountBadgeVariant(-5);
+     */
     public function amountBadgeVariant(int $amount): string
     {
         return $amount >= 0 ? 'success' : 'danger';
     }
 
+    /**
+     * Validate the current manual adjustment form values.
+     *
+     * @example
+     * $this->validateAdjustment();
+     */
     private function validateAdjustment(): void
     {
         $this->validate([
@@ -185,12 +251,24 @@ class CreditLedger extends HubComponent
         ]);
     }
 
+    /**
+     * Reset the manual adjustment form back to its default values.
+     *
+     * @example
+     * $this->resetAdjustment();
+     */
     private function resetAdjustment(): void
     {
         $this->adjustmentAmount = 1;
         $this->adjustmentReason = '';
     }
 
+    /**
+     * Keep the selected agent aligned with the current workspace agent list.
+     *
+     * @example
+     * $this->syncSelectedAgentId();
+     */
     private function syncSelectedAgentId(): void
     {
         if ($this->selectedAgentId !== '' && collect($this->agents)->contains('agent_id', $this->selectedAgentId)) {
@@ -200,6 +278,12 @@ class CreditLedger extends HubComponent
         $this->selectedAgentId = (string) (collect($this->agents)->first()['agent_id'] ?? '');
     }
 
+    /**
+     * Resolve the Blade template used by the credit ledger screen.
+     *
+     * @example
+     * $path = $this->viewPath();
+     */
     protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/credit-ledger.blade.php';

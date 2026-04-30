@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPipelineAudit_Good_CreatesImplementationIssuesAndClosesAudit(t *testing.T) {
@@ -25,14 +23,14 @@ func TestPipelineAudit_Good_CreatesImplementationIssuesAndClosesAudit(t *testing
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineAudit(context.Background(), PipelineAuditInput{Org: "core", Repo: "go-io"})
 
-	require.NoError(t, err)
-	assert.True(t, output.Success)
-	assert.Len(t, output.Audits, 1)
-	assert.Len(t, output.Created, 3)
-	assert.Equal(t, []int{1}, output.Closed)
-	assert.Equal(t, "closed", repo.Issues[1].State)
-	assert.Len(t, repo.Comments[1], 1)
-	assert.Contains(t, repo.Comments[1][0], "Implementation issues created")
+	core.RequireNoError(t, err)
+	core.AssertTrue(t, output.Success)
+	core.AssertLen(t, output.Audits, 1)
+	core.AssertLen(t, output.Created, 3)
+	core.AssertEqual(t, []int{1}, output.Closed)
+	core.AssertEqual(t, "closed", repo.Issues[1].State)
+	core.AssertLen(t, repo.Comments[1], 1)
+	core.AssertContains(t, repo.Comments[1][0], "Implementation issues created")
 }
 
 func TestPipelineAudit_Bad_MissingRepo(t *testing.T) {
@@ -40,10 +38,10 @@ func TestPipelineAudit_Bad_MissingRepo(t *testing.T) {
 
 	result := s.cmdPipelineAudit(core.NewOptions())
 
-	require.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 	err, ok := result.Value.(error)
-	require.True(t, ok)
-	assert.Contains(t, err.Error(), "repo is required")
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "repo is required")
 }
 
 func TestPipelineAudit_Ugly_DeduplicatesExistingImplementationIssue(t *testing.T) {
@@ -67,8 +65,8 @@ func TestPipelineAudit_Ugly_DeduplicatesExistingImplementationIssue(t *testing.T
 	s, _ := testPrepWithCore(t, srv)
 	output, err := s.pipelineAudit(context.Background(), PipelineAuditInput{Org: "core", Repo: "go-io"})
 
-	require.NoError(t, err)
-	assert.Len(t, output.Existing, 1)
-	assert.Len(t, output.Created, 1)
-	assert.Equal(t, 2, output.Existing[0].Number)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, output.Existing, 1)
+	core.AssertLen(t, output.Created, 1)
+	core.AssertEqual(t, 2, output.Existing[0].Number)
 }

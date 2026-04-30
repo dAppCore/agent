@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go/core"
+import core "dappco.re/go"
 
 func Example_forgeSSHURL() {
 	core.Println(forgeSSHURL("core", "go-io"))
@@ -11,8 +11,8 @@ func Example_forgeSSHURL() {
 
 func Example_parseCoreDeps() {
 	goMod := `require (
-	dappco.re/go/core v0.8.0
-	dappco.re/go/core/process v0.3.0
+	dappco.re/go v0.8.0
+	dappco.re/go/process v0.3.0
 )`
 
 	core.Println(len(parseCoreDeps(goMod)))

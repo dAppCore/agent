@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -69,7 +69,7 @@ type TaskCreateOutput struct {
 //
 // ))
 func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.taskCreate(ctx, nil, TaskCreateInput{
+	_, output, err := taskCreate(s, ctx, nil, TaskCreateInput{
 		PlanSlug:    optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder:  optionIntValue(options, "phase_order", "phase"),
 		Title:       optionStringValue(options, "title", "task", "_arg"),
@@ -91,7 +91,7 @@ func (s *PrepSubsystem) handleTaskCreate(ctx context.Context, options core.Optio
 
 // result := c.Action("task.update").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handleTaskUpdate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.taskUpdate(ctx, nil, TaskUpdateInput{
+	_, output, err := taskUpdate(s, ctx, nil, TaskUpdateInput{
 		PlanSlug:       optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder:     optionIntValue(options, "phase_order", "phase"),
 		TaskIdentifier: optionAnyValue(options, "task_identifier", "task"),
@@ -112,7 +112,7 @@ func (s *PrepSubsystem) handleTaskUpdate(ctx context.Context, options core.Optio
 
 // result := c.Action("task.toggle").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handleTaskToggle(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.taskToggle(ctx, nil, TaskToggleInput{
+	_, output, err := taskToggle(s, ctx, nil, TaskToggleInput{
 		PlanSlug:       optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder:     optionIntValue(options, "phase_order", "phase"),
 		TaskIdentifier: optionAnyValue(options, "task_identifier", "task"),
@@ -127,32 +127,44 @@ func (s *PrepSubsystem) registerTaskTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "task_create",
 		Description: "Create a plan task by plan slug and phase order.",
-	}, s.taskCreate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
+		return taskCreate(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_task_create",
 		Description: "Create a plan task by plan slug and phase order.",
-	}, s.taskCreate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
+		return taskCreate(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
-	}, s.taskUpdate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskUpdateInput) (*mcp.CallToolResult, TaskOutput, error) {
+		return taskUpdate(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_task_update",
 		Description: "Update a plan task status or notes by plan slug, phase order, and task identifier.",
-	}, s.taskUpdate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskUpdateInput) (*mcp.CallToolResult, TaskOutput, error) {
+		return taskUpdate(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "task_toggle",
 		Description: "Toggle a plan task between pending and completed.",
-	}, s.taskToggle)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskToggleInput) (*mcp.CallToolResult, TaskOutput, error) {
+		return taskToggle(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_task_toggle",
 		Description: "Toggle a plan task between pending and completed.",
-	}, s.taskToggle)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input TaskToggleInput) (*mcp.CallToolResult, TaskOutput, error) {
+		return taskToggle(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, input TaskUpdateInput) (*mcp.CallToolResult, TaskOutput, error) {
+var taskUpdate = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input TaskUpdateInput) (*mcp.CallToolResult, TaskOutput, error) {
 	if input.Status != "" && !validTaskStatus(input.Status) {
 		return nil, TaskOutput{}, core.E("taskUpdate", core.Concat("invalid status: ", input.Status), nil)
 	}
@@ -209,7 +221,7 @@ func (s *PrepSubsystem) taskUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
+var taskCreate = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
 	if core.Trim(input.Title) == "" {
 		return nil, TaskCreateOutput{}, core.E("taskCreate", "title is required", nil)
 	}
@@ -258,7 +270,7 @@ func (s *PrepSubsystem) taskCreate(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) taskToggle(_ context.Context, _ *mcp.CallToolRequest, input TaskToggleInput) (*mcp.CallToolResult, TaskOutput, error) {
+var taskToggle = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input TaskToggleInput) (*mcp.CallToolResult, TaskOutput, error) {
 	if taskIdentifierValue(input.TaskIdentifier) == "" {
 		return nil, TaskOutput{}, core.E("taskToggle", "task_identifier is required", nil)
 	}
@@ -290,7 +302,7 @@ func (s *PrepSubsystem) taskToggle(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func planTaskByIdentifier(dir, planSlug string, phaseOrder int, taskIdentifier any) (*Plan, int, int, error) {
+var planTaskByIdentifier = func(dir, planSlug string, phaseOrder int, taskIdentifier any) (*Plan, int, int, error) {
 	plan, phaseIndex, err := planPhaseByOrder(dir, planSlug, phaseOrder)
 	if err != nil {
 		return nil, 0, 0, err

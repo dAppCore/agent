@@ -5,8 +5,8 @@ package brain
 import (
 	"context"
 
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -17,17 +17,23 @@ func (s *DirectSubsystem) RegisterMessagingTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_send",
 		Description: "Send a message to another agent. Direct, chronological, not semantic.",
-	}, s.sendMessage)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
+		return sendMessage(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_inbox",
 		Description: "Check your inbox — latest messages sent to you.",
-	}, s.inbox)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input InboxInput) (*mcp.CallToolResult, InboxOutput, error) {
+		return inbox(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "agent_conversation",
 		Description: "View conversation thread with a specific agent.",
-	}, s.conversation)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ConversationInput) (*mcp.CallToolResult, ConversationOutput, error) {
+		return conversation(s, ctx, request, input)
+	})
 }
 
 // brain.SendInput{To: "charon", Subject: "status update", Content: "deploy complete"}
@@ -81,7 +87,7 @@ type ConversationOutput struct {
 	Messages []MessageItem `json:"messages"`
 }
 
-func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
+var sendMessage = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	if input.To == "" || input.Content == "" {
 		return nil, SendOutput{}, core.E("brain.sendMessage", "to and content are required", nil)
 	}
@@ -91,7 +97,7 @@ func (s *DirectSubsystem) sendMessage(ctx context.Context, _ *mcp.CallToolReques
 		return nil, SendOutput{Success: true, ID: 0, To: "self"}, nil
 	}
 
-	return s.sendRemoteMessage(ctx, input)
+	return sendRemoteMessage(s, ctx, input)
 }
 
 func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
@@ -119,7 +125,7 @@ func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
 	}
 }
 
-func (s *DirectSubsystem) sendRemoteMessage(ctx context.Context, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
+var sendRemoteMessage = func(s *DirectSubsystem, ctx context.Context, input SendInput) (*mcp.CallToolResult, SendOutput, error) {
 	result := s.apiCall(ctx, "POST", "/v1/messages/send", map[string]any{
 		"to":      input.To,
 		"from":    agentic.AgentName(),
@@ -142,7 +148,7 @@ func (s *DirectSubsystem) sendRemoteMessage(ctx context.Context, input SendInput
 	}, nil
 }
 
-func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, input InboxInput) (*mcp.CallToolResult, InboxOutput, error) {
+var inbox = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input InboxInput) (*mcp.CallToolResult, InboxOutput, error) {
 	agent := input.Agent
 	if agent == "" {
 		agent = agentic.AgentName()
@@ -159,7 +165,7 @@ func (s *DirectSubsystem) inbox(ctx context.Context, _ *mcp.CallToolRequest, inp
 	}, nil
 }
 
-func (s *DirectSubsystem) conversation(ctx context.Context, _ *mcp.CallToolRequest, input ConversationInput) (*mcp.CallToolResult, ConversationOutput, error) {
+var conversation = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ConversationInput) (*mcp.CallToolResult, ConversationOutput, error) {
 	if input.Agent == "" {
 		return nil, ConversationOutput{}, core.E("brain.conversation", "agent is required", nil)
 	}

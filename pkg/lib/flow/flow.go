@@ -3,11 +3,10 @@
 package flow
 
 import (
-	"bytes"
 	"embed"
 	"io"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,7 +46,7 @@ type Step struct {
 // the parsed Flow and a wrapped error on decode/validation failure.
 //
 //	flow, err := flow.Parse(bytes.NewBufferString(yamlSrc))
-func Parse(reader io.Reader) (Flow, error) {
+var Parse = func(reader io.Reader) (Flow, error) {
 	if reader == nil {
 		return Flow{}, core.E("flow.Parse", "reader is nil", nil)
 	}
@@ -74,7 +73,7 @@ func Parse(reader io.Reader) (Flow, error) {
 // call. Returns a wrapped error on read failure or invalid YAML.
 //
 //	flow, err := flow.ParseFile(".core/flows/build.yaml")
-func ParseFile(path string) (Flow, error) {
+var ParseFile = func(path string) (Flow, error) {
 	readResult := fs.Read(path)
 	if !readResult.OK {
 		if err, ok := readResult.Value.(error); ok {
@@ -88,7 +87,7 @@ func ParseFile(path string) (Flow, error) {
 		return Flow{}, core.E(parseFileContext, core.Concat("read ", path), nil)
 	}
 
-	return Parse(bytes.NewBufferString(content))
+	return Parse(core.NewBufferString(content))
 }
 
 // LoadEmbedded loads a Flow definition baked into the binary via go:embed.
@@ -97,7 +96,7 @@ func ParseFile(path string) (Flow, error) {
 // when the name is missing or no candidate matches.
 //
 //	flow, err := flow.LoadEmbedded("upgrade")
-func LoadEmbedded(name string) (Flow, error) {
+var LoadEmbedded = func(name string) (Flow, error) {
 	name = normaliseEmbeddedName(name)
 	if name == "" {
 		return Flow{}, core.E("flow.LoadEmbedded", "name is required", nil)
@@ -118,16 +117,16 @@ func LoadEmbedded(name string) (Flow, error) {
 			if !ok {
 				return Flow{}, core.E("flow.LoadEmbedded", core.Concat("embedded markdown is not a YAML flow: ", candidate), nil)
 			}
-			return Parse(bytes.NewReader(frontMatter))
+			return Parse(core.NewReader(frontMatter))
 		}
 
-		return Parse(bytes.NewReader(content))
+		return Parse(core.NewReader(string(content)))
 	}
 
 	return Flow{}, core.E("flow.LoadEmbedded", core.Concat("embedded flow not found: ", name), nil)
 }
 
-func validate(definition Flow) error {
+var validate = func(definition Flow) error {
 	for index, step := range definition.Steps {
 		if core.Trim(step.Cmd) != "" {
 			continue
@@ -172,17 +171,17 @@ func isMarkdown(name string) bool {
 	return core.HasSuffix(name, ".md")
 }
 
-func markdownFrontMatter(content []byte) ([]byte, bool) {
-	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
-	if !bytes.HasPrefix(content, []byte("---\n")) {
-		return nil, false
+func markdownFrontMatter(content []byte) (string, bool) {
+	text := core.Replace(string(content), "\r\n", "\n")
+	if !core.HasPrefix(text, "---\n") {
+		return "", false
 	}
 
-	content = content[len("---\n"):]
-	index := bytes.Index(content, []byte("\n---\n"))
-	if index < 0 {
-		return nil, false
+	text = text[len("---\n"):]
+	parts := core.SplitN(text, "\n---\n", 2)
+	if len(parts) != 2 {
+		return "", false
 	}
 
-	return content[:index], true
+	return parts[0], true
 }

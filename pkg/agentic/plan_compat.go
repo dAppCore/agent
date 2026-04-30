@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -91,7 +91,7 @@ func (s *PrepSubsystem) handlePlanGet(ctx context.Context, options core.Options)
 
 // result := c.Action("plan.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handlePlanArchive(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planArchiveCompat(ctx, nil, PlanDeleteInput{
+	_, output, err := planArchiveCompat(s, ctx, nil, PlanDeleteInput{
 		ID:     optionStringValue(options, "id", "_arg"),
 		Slug:   optionStringValue(options, "slug"),
 		Reason: optionStringValue(options, "reason"),
@@ -104,7 +104,7 @@ func (s *PrepSubsystem) handlePlanArchive(ctx context.Context, options core.Opti
 
 // result := c.Action("plan.update_status").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handlePlanUpdateStatus(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planUpdateStatusCompat(ctx, nil, PlanStatusUpdateInput{
+	_, output, err := planUpdateStatusCompat(s, ctx, nil, PlanStatusUpdateInput{
 		Slug:   optionStringValue(options, "slug", "_arg"),
 		Status: optionStringValue(options, "status"),
 	})
@@ -116,7 +116,7 @@ func (s *PrepSubsystem) handlePlanUpdateStatus(ctx context.Context, options core
 
 // result := c.Action("plan.check").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handlePlanCheck(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planCheck(ctx, nil, PlanCheckInput{
+	_, output, err := planCheck(s, ctx, nil, PlanCheckInput{
 		Slug:  optionStringValue(options, "slug", "_arg"),
 		Phase: optionIntValue(options, "phase", "phase_order"),
 	})
@@ -126,8 +126,8 @@ func (s *PrepSubsystem) handlePlanCheck(ctx context.Context, options core.Option
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) planCreateCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCompatibilityCreateOutput, error) {
-	_, created, err := s.planCreate(ctx, nil, input)
+var planCreateCompat = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCompatibilityCreateOutput, error) {
+	_, created, err := planCreate(s, ctx, nil, input)
 	if err != nil {
 		return nil, PlanCompatibilityCreateOutput{}, err
 	}
@@ -143,12 +143,12 @@ func (s *PrepSubsystem) planCreateCompat(ctx context.Context, _ *mcp.CallToolReq
 	}, nil
 }
 
-func (s *PrepSubsystem) planGetCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+var planGetCompat = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
 	if input.Slug == "" && input.ID == "" {
 		return nil, PlanCompatibilityGetOutput{}, core.E("planGetCompat", "slug is required", nil)
 	}
 
-	_, output, err := s.planRead(ctx, nil, input)
+	_, output, err := planRead(s, ctx, nil, input)
 	if err != nil {
 		return nil, PlanCompatibilityGetOutput{}, err
 	}
@@ -159,12 +159,12 @@ func (s *PrepSubsystem) planGetCompat(ctx context.Context, _ *mcp.CallToolReques
 	}, nil
 }
 
-func (s *PrepSubsystem) planListCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanCompatibilityListOutput, error) {
+var planListCompat = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanCompatibilityListOutput, error) {
 	if input.Status != "" {
 		input.Status = planCompatibilityInputStatus(input.Status)
 	}
 
-	_, output, err := s.planList(ctx, nil, input)
+	_, output, err := planList(s, ctx, nil, input)
 	if err != nil {
 		return nil, PlanCompatibilityListOutput{}, err
 	}
@@ -181,7 +181,7 @@ func (s *PrepSubsystem) planListCompat(ctx context.Context, _ *mcp.CallToolReque
 	}, nil
 }
 
-func (s *PrepSubsystem) planUpdateStatusCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanStatusUpdateInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+var planUpdateStatusCompat = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanStatusUpdateInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
 	if input.Slug == "" {
 		return nil, PlanCompatibilityGetOutput{}, core.E("planUpdateStatusCompat", "slug is required", nil)
 	}
@@ -190,7 +190,7 @@ func (s *PrepSubsystem) planUpdateStatusCompat(ctx context.Context, _ *mcp.CallT
 	}
 
 	internalStatus := planCompatibilityInputStatus(input.Status)
-	_, output, err := s.planUpdate(ctx, nil, PlanUpdateInput{
+	_, output, err := planUpdate(s, ctx, nil, PlanUpdateInput{
 		Slug:   input.Slug,
 		Status: internalStatus,
 	})
@@ -204,12 +204,12 @@ func (s *PrepSubsystem) planUpdateStatusCompat(ctx context.Context, _ *mcp.CallT
 	}, nil
 }
 
-func (s *PrepSubsystem) planCheck(ctx context.Context, _ *mcp.CallToolRequest, input PlanCheckInput) (*mcp.CallToolResult, PlanCheckOutput, error) {
+var planCheck = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanCheckInput) (*mcp.CallToolResult, PlanCheckOutput, error) {
 	if input.Slug == "" {
 		return nil, PlanCheckOutput{}, core.E("planCheck", "slug is required", nil)
 	}
 
-	_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: input.Slug})
+	_, output, err := planGetCompat(s, ctx, nil, PlanReadInput{Slug: input.Slug})
 	if err != nil {
 		return nil, PlanCheckOutput{}, err
 	}
@@ -217,7 +217,7 @@ func (s *PrepSubsystem) planCheck(ctx context.Context, _ *mcp.CallToolRequest, i
 	return nil, planCheckOutput(output.Plan, input.Phase), nil
 }
 
-func (s *PrepSubsystem) planArchiveCompat(ctx context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {
+var planArchiveCompat = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {
 	plan, err := archivePlanResult(input, "slug is required", "planArchiveCompat")
 	if err != nil {
 		return nil, PlanArchiveOutput{}, err
@@ -337,7 +337,7 @@ func planCompatibilityOutputStatus(status string) string {
 	}
 }
 
-func archivePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
+var archivePlanResult = func(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
 	ref := planReference(input.ID, input.Slug)
 	if ref == "" {
 		return nil, core.E(op, missingMessage, nil)
@@ -366,7 +366,7 @@ func archivePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan,
 	return plan, nil
 }
 
-func deletePlanResult(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
+var deletePlanResult = func(input PlanDeleteInput, missingMessage, op string) (*Plan, error) {
 	ref := planReference(input.ID, input.Slug)
 	if ref == "" {
 		return nil, core.E(op, missingMessage, nil)

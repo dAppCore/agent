@@ -6,7 +6,7 @@ import (
 	"context"
 	"slices"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 const brainSeedMemoryDefaultAgent = "virgil"
@@ -39,7 +39,7 @@ type brainSeedMemorySection struct {
 // result := c.Command("brain/seed-memory").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "1"},
-//	core.Option{Key: "path", Value: "/Users/snider/.claude/projects/*/memory/"},
+//	core.Option{Key: `path`, Value: "/Users/snider/.claude/projects/*/memory/"},
 //
 // ))
 func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
@@ -49,7 +49,7 @@ func (s *PrepSubsystem) cmdBrainSeedMemory(options core.Options) core.Result {
 // result := c.Command("brain/ingest").Run(ctx, core.NewOptions(
 //
 //	core.Option{Key: "workspace", Value: "1"},
-//	core.Option{Key: "path", Value: "/Users/snider/.claude/projects/*/memory/"},
+//	core.Option{Key: `path`, Value: "/Users/snider/.claude/projects/*/memory/"},
 //
 // ))
 func (s *PrepSubsystem) cmdBrainIngest(options core.Options) core.Result {
@@ -64,7 +64,7 @@ func (s *PrepSubsystem) cmdBrainSeedMemoryLikeMode(options core.Options, command
 	input := BrainSeedMemoryInput{
 		WorkspaceID: parseIntString(optionStringValue(options, "workspace", "workspace_id", "workspace-id", "_arg")),
 		AgentID:     optionStringValue(options, "agent", "agent_id", "agent-id"),
-		Path:        optionStringValue(options, "path"),
+		Path:        optionStringValue(options, `path`),
 		DryRun:      optionBoolValue(options, "dry-run"),
 	}
 	if input.WorkspaceID == 0 {

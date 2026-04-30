@@ -5,13 +5,11 @@ package main
 import (
 	"testing"
 
+	"dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
-	"dappco.re/go/core"
 	"dappco.re/go/mcp/pkg/mcp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMCP_Register_Good(t *testing.T) {
@@ -22,17 +20,17 @@ func TestMCP_Register_Good(t *testing.T) {
 
 	result := c.Service("mcp")
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	_, ok := result.Value.(*mcp.Service)
-	assert.True(t, ok)
+	core.AssertTrue(t, ok)
 }
 
-func TestMCP_Register_Bad(t *testing.T) {
+func TestMCP_Register_Bad_Case(t *testing.T) {
 	c := core.New(core.WithOption("name", "core-agent"))
 
 	result := c.Service("mcp")
 
-	assert.False(t, result.OK)
+	core.AssertFalse(t, result.OK)
 }
 
 func TestMCP_Register_Ugly(t *testing.T) {
@@ -47,7 +45,7 @@ func TestMCP_Register_Ugly(t *testing.T) {
 
 	result := c.Service("mcp")
 
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 	service := result.Value.(*mcp.Service)
-	assert.Len(t, service.Subsystems(), 3)
+	core.AssertLen(t, service.Subsystems(), 3)
 }

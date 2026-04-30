@@ -3,12 +3,10 @@
 package agentic
 
 import (
-	"fmt"
-
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func Example_statePath() {
-	fmt.Println(core.PathBase(statePath("ax-follow-up")))
+	core.Println(core.PathBase(statePath("ax-follow-up")))
 	// Output: ax-follow-up.json
 }

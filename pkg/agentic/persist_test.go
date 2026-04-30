@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {
@@ -18,7 +16,7 @@ func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {
 
 	workspaceName := "core/go-io/task-restore"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-restore")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
 
 	subsystem := &PrepSubsystem{}
 	defer subsystem.closeStateStore()
@@ -38,24 +36,24 @@ func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {
 	})
 
 	result := subsystem.restorePersistedState(context.Background())
-	require.True(t, result.OK)
-	assert.True(t, fs.IsFile(core.JoinPath(root, "db.duckdb")))
+	core.RequireTrue(t, result.OK)
+	core.AssertTrue(t, fs.IsFile(core.JoinPath(root, "db.duckdb")))
 
 	registryResult := subsystem.Workspaces().Get(workspaceName)
-	require.True(t, registryResult.OK)
+	core.RequireTrue(t, registryResult.OK)
 	workspaceStatus, ok := registryResult.Value.(*WorkspaceStatus)
-	require.True(t, ok)
-	assert.Equal(t, "queued", workspaceStatus.Status)
-	assert.Equal(t, "go-io", workspaceStatus.Repo)
-	assert.Equal(t, "core", workspaceStatus.Org)
-	assert.Equal(t, "agent/restore-queue", workspaceStatus.Branch)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "queued", workspaceStatus.Status)
+	core.AssertEqual(t, "go-io", workspaceStatus.Repo)
+	core.AssertEqual(t, "core", workspaceStatus.Org)
+	core.AssertEqual(t, "agent/restore-queue", workspaceStatus.Branch)
 
 	statusResult := ReadStatusResult(workspaceDir)
-	require.True(t, statusResult.OK)
+	core.RequireTrue(t, statusResult.OK)
 	restoredStatus, ok := workspaceStatusValue(statusResult)
-	require.True(t, ok)
-	assert.Equal(t, "queued", restoredStatus.Status)
-	assert.Equal(t, "go-io", restoredStatus.Repo)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "queued", restoredStatus.Status)
+	core.AssertEqual(t, "go-io", restoredStatus.Repo)
 }
 
 func TestPersist_OnStartup_Good_MarksDeadWorkers(t *testing.T) {
@@ -64,7 +62,7 @@ func TestPersist_OnStartup_Good_MarksDeadWorkers(t *testing.T) {
 
 	workspaceName := "core/go-io/task-dead"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-dead")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
 
 	subsystem := &PrepSubsystem{}
 	defer subsystem.closeStateStore()
@@ -87,23 +85,23 @@ func TestPersist_OnStartup_Good_MarksDeadWorkers(t *testing.T) {
 	})
 
 	result := subsystem.restorePersistedState(context.Background())
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	registryResult := subsystem.Workspaces().Get(workspaceName)
-	require.True(t, registryResult.OK)
+	core.RequireTrue(t, registryResult.OK)
 	workspaceStatus, ok := registryResult.Value.(*WorkspaceStatus)
-	require.True(t, ok)
-	assert.Equal(t, "failed", workspaceStatus.Status)
-	assert.Equal(t, deadWorkerOnRestartQuestion, workspaceStatus.Question)
-	assert.Zero(t, workspaceStatus.PID)
-	assert.Empty(t, workspaceStatus.ProcessID)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "failed", workspaceStatus.Status)
+	core.AssertEqual(t, deadWorkerOnRestartQuestion, workspaceStatus.Question)
+	assertZero(t, workspaceStatus.PID)
+	core.AssertEmpty(t, workspaceStatus.ProcessID)
 
 	statusResult := ReadStatusResult(workspaceDir)
-	require.True(t, statusResult.OK)
+	core.RequireTrue(t, statusResult.OK)
 	restoredStatus, ok := workspaceStatusValue(statusResult)
-	require.True(t, ok)
-	assert.Equal(t, "failed", restoredStatus.Status)
-	assert.Equal(t, deadWorkerOnRestartQuestion, restoredStatus.Question)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "failed", restoredStatus.Status)
+	core.AssertEqual(t, deadWorkerOnRestartQuestion, restoredStatus.Question)
 }
 
 func TestPersist_OnShutdown_Good_PersistsQueue(t *testing.T) {
@@ -143,24 +141,24 @@ func TestPersist_OnShutdown_Good_PersistsQueue(t *testing.T) {
 	})
 
 	result := subsystem.OnShutdown(context.Background())
-	require.True(t, result.OK)
+	core.RequireTrue(t, result.OK)
 
 	replay := &PrepSubsystem{}
 	defer replay.closeStateStore()
 
 	queueValue, ok := replay.stateStoreGet(stateQueueGroup, "core/go-io/task-queue")
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	var entry queueEntry
-	require.True(t, core.JSONUnmarshalString(queueValue, &entry).OK)
-	assert.Equal(t, "go-io", entry.Repo)
-	assert.Equal(t, "agent/persist-queue", entry.Branch)
+	core.RequireTrue(t, core.JSONUnmarshalString(queueValue, &entry).OK)
+	core.AssertEqual(t, "go-io", entry.Repo)
+	core.AssertEqual(t, "agent/persist-queue", entry.Branch)
 
 	registryValue, ok := replay.stateStoreGet(stateRegistryGroup, "core/go-store/task-running")
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	var stored WorkspaceStatus
-	require.True(t, core.JSONUnmarshalString(registryValue, &stored).OK)
-	assert.Equal(t, "running", stored.Status)
-	assert.Equal(t, "go-store", stored.Repo)
+	core.RequireTrue(t, core.JSONUnmarshalString(registryValue, &stored).OK)
+	core.AssertEqual(t, "running", stored.Status)
+	core.AssertEqual(t, "go-store", stored.Repo)
 }
 
 func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
@@ -169,7 +167,7 @@ func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
 
 	validWorkspace := "core/go-io/task-valid"
 	validWorkspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-valid")
-	require.True(t, fs.EnsureDir(validWorkspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(validWorkspaceDir).OK)
 
 	subsystem := &PrepSubsystem{}
 	defer subsystem.closeStateStore()
@@ -178,7 +176,7 @@ func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	require.NoError(t, storeInstance.Set(stateRegistryGroup, "broken", "{"))
+	core.RequireNoError(t, storeInstance.Set(stateRegistryGroup, "broken", "{"))
 	subsystem.stateStoreSet(stateQueueGroup, validWorkspace, queueEntry{
 		Repo:     "go-io",
 		Org:      "core",
@@ -189,9 +187,9 @@ func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
 	})
 
 	result := subsystem.restorePersistedState(context.Background())
-	require.True(t, result.OK)
-	assert.False(t, subsystem.Workspaces().Get("broken").OK)
-	assert.True(t, subsystem.Workspaces().Get(validWorkspace).OK)
+	core.RequireTrue(t, result.OK)
+	core.AssertFalse(t, subsystem.Workspaces().Get("broken").OK)
+	core.AssertTrue(t, subsystem.Workspaces().Get(validWorkspace).OK)
 }
 
 func TestPersist_OnStartup_Ugly_CleansCompletedOrphanedWorkspace(t *testing.T) {
@@ -200,8 +198,8 @@ func TestPersist_OnStartup_Ugly_CleansCompletedOrphanedWorkspace(t *testing.T) {
 
 	workspaceName := "core/go-io/task-completed"
 	workspaceDir := core.JoinPath(root, "workspace", "core", "go-io", "task-completed")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
-	require.True(t, fs.WriteAtomic(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(WorkspaceStatus{
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.WriteAtomic(WorkspaceStatusPath(workspaceDir), core.JSONMarshalString(WorkspaceStatus{
 		Status:    "completed",
 		Agent:     "codex:gpt-5.4",
 		Repo:      "go-io",
@@ -232,8 +230,8 @@ func TestPersist_OnStartup_Ugly_CleansCompletedOrphanedWorkspace(t *testing.T) {
 	})
 
 	result := subsystem.restorePersistedState(context.Background())
-	require.True(t, result.OK)
-	assert.False(t, fs.IsDir(workspaceDir))
+	core.RequireTrue(t, result.OK)
+	core.AssertFalse(t, fs.IsDir(workspaceDir))
 }
 
 func setPersistTestWorkspace(t *testing.T, root string) {

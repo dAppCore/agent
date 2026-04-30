@@ -72,7 +72,9 @@ func (i *I18n) SetTranslator(t Translator) {
 	locale := i.locale
 	i.mu.Unlock()
 	if t != nil && locale != "" {
-		_ = t.SetLanguage(locale)
+		if result := t.SetLanguage(locale); !result.OK {
+			return
+		}
 	}
 }
 

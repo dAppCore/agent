@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 const (
@@ -112,7 +112,7 @@ func (s *PrepSubsystem) remoteSyncQueueController(clock remoteSyncClock, idlePol
 			if s == nil {
 				return core.E("agentic.remoteSyncQueue", "nil subsystem", nil)
 			}
-			return s.postSyncPush(ctx, queued.AgentID, queued.Dispatches, s.syncToken())
+			return postSyncPush(s, ctx, queued.AgentID, queued.Dispatches, s.syncToken())
 		},
 		onSuccess: func(queued syncQueuedPush, at time.Time) {
 			markDispatchesSynced(queued.Dispatches)
@@ -171,7 +171,7 @@ func (c remoteSyncQueueController) drainReady(ctx context.Context) int {
 			return synced
 		}
 
-		err := c.pushQueue(ctx, head)
+		err := pushQueue(c, ctx, head)
 		finishedAt := c.now()
 		if err == nil {
 			if c.onSuccess != nil {
@@ -293,7 +293,7 @@ func (c remoteSyncQueueController) writeQueue(queued []syncQueuedPush) {
 	c.write(queued)
 }
 
-func (c remoteSyncQueueController) pushQueue(ctx context.Context, queued syncQueuedPush) error {
+var pushQueue = func(c remoteSyncQueueController, ctx context.Context, queued syncQueuedPush) error {
 	if c.push == nil {
 		return nil
 	}

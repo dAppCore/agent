@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 func (s *PrepSubsystem) registerWorkspaceCommands() {
@@ -164,7 +164,7 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdWorkspaceDispatch", "repo is required", nil), OK: false}
 	}
 
-	_, out, err := s.dispatch(context.Background(), nil, input)
+	_, out, err := dispatch(s, context.Background(), nil, input)
 	if err != nil {
 		core.Print(nil, "dispatch failed: %s", err.Error())
 		return core.Result{Value: err, OK: false}
@@ -192,7 +192,7 @@ func (s *PrepSubsystem) cmdWorkspaceWatch(options core.Options) core.Result {
 	}
 	input := watchInputFromOptions(watchOptions)
 
-	_, output, err := s.watch(s.commandContext(), nil, input)
+	_, output, err := watch(s, s.commandContext(), nil, input)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}

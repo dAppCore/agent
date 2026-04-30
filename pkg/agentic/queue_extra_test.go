@@ -7,10 +7,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"dappco.re/go/process"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,10 +20,10 @@ func startManagedProcess(t *testing.T, c *core.Core) *process.Process {
 		core.Option{Key: "args", Value: []string{"30"}},
 		core.Option{Key: "detach", Value: true},
 	))
-	require.True(t, r.OK)
+	core.RequireTrue(t, r.OK)
 
 	proc, ok := r.Value.(*process.Process)
-	require.True(t, ok)
+	core.RequireTrue(t, ok)
 	t.Cleanup(func() {
 		_ = proc.Kill()
 	})
@@ -39,9 +37,9 @@ func TestQueue_ConcurrencyLimit_Good_IntForm(t *testing.T) {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	err := yaml.Unmarshal([]byte("limit: 3"), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 3, cfg.Limit.Total)
-	assert.Nil(t, cfg.Limit.Models)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 3, cfg.Limit.Total)
+	core.AssertNil(t, cfg.Limit.Models)
 }
 
 func TestQueue_ConcurrencyLimit_Good_MapForm(t *testing.T) {
@@ -54,10 +52,10 @@ func TestQueue_ConcurrencyLimit_Good_MapForm(t *testing.T) {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	err := yaml.Unmarshal([]byte(data), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 2, cfg.Limit.Total)
-	assert.Equal(t, 1, cfg.Limit.Models["gpt-5.4"])
-	assert.Equal(t, 1, cfg.Limit.Models["gpt-5.3-codex-spark"])
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 2, cfg.Limit.Total)
+	core.AssertEqual(t, 1, cfg.Limit.Models["gpt-5.4"])
+	core.AssertEqual(t, 1, cfg.Limit.Models["gpt-5.3-codex-spark"])
 }
 
 func TestQueue_ConcurrencyLimit_Good_MapNoTotal(t *testing.T) {
@@ -69,9 +67,9 @@ func TestQueue_ConcurrencyLimit_Good_MapNoTotal(t *testing.T) {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	err := yaml.Unmarshal([]byte(data), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 0, cfg.Limit.Total)
-	assert.Equal(t, 2, cfg.Limit.Models["flash"])
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 0, cfg.Limit.Total)
+	core.AssertEqual(t, 2, cfg.Limit.Models["flash"])
 }
 
 func TestQueue_ConcurrencyLimit_Good_FullConfig(t *testing.T) {
@@ -86,11 +84,11 @@ concurrency:
 
 	var cfg AgentsConfig
 	err := yaml.Unmarshal([]byte(data), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 1, cfg.Concurrency["claude"].Total)
-	assert.Equal(t, 2, cfg.Concurrency["codex"].Total)
-	assert.Equal(t, 1, cfg.Concurrency["codex"].Models["gpt-5.4"])
-	assert.Equal(t, 3, cfg.Concurrency["gemini"].Total)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 1, cfg.Concurrency["claude"].Total)
+	core.AssertEqual(t, 2, cfg.Concurrency["codex"].Total)
+	core.AssertEqual(t, 1, cfg.Concurrency["codex"].Models["gpt-5.4"])
+	core.AssertEqual(t, 3, cfg.Concurrency["gemini"].Total)
 }
 
 // --- delayForAgent (extended — sustained mode) ---
@@ -118,8 +116,9 @@ rates:
 	}
 
 	d := s.delayForAgent("codex:gpt-5.4")
-	assert.True(t, d == 120*time.Second || d == 15*time.Second,
-		"expected 120s or 15s, got %v", d)
+	if d != 120*time.Second && d != 15*time.Second {
+		t.Fatalf("expected 120s or 15s, got %v", d)
+	}
 }
 
 func TestQueue_DelayForAgent_Good_MinDelayFloor(t *testing.T) {
@@ -134,7 +133,7 @@ rates:
     sustained_delay: 30
     burst_window: 0
     burst_delay: 0`
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -144,13 +143,13 @@ rates:
 	}
 
 	d := s.delayForAgent("codex:gpt-5.4")
-	assert.Equal(t, 90*time.Second, d)
+	core.AssertEqual(t, 90*time.Second, d)
 }
 
 func TestQueue_CanDispatchAgent_Bad_DailyLimitReached(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
-	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace")).OK)
 
 	cfg := `version: 1
 rates:
@@ -158,11 +157,11 @@ rates:
     reset_utc: "06:00"
     daily_limit: 2
     sustained_delay: 30`
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	eventsPath := core.JoinPath(root, "workspace", "events.jsonl")
-	require.True(t, fs.Write(eventsPath, core.Concat(
+	core.RequireTrue(t, fs.Write(eventsPath, core.Concat(
 		core.JSONMarshalString(CompletionEvent{Type: "agent_started", Agent: "codex:gpt-5.4", Timestamp: now}),
 		"\n",
 		core.JSONMarshalString(CompletionEvent{Type: "agent_started", Agent: "codex:gpt-5.4", Timestamp: now}),
@@ -176,10 +175,10 @@ rates:
 		failCount:      make(map[string]int),
 	}
 
-	assert.False(t, s.canDispatchAgent("codex:gpt-5.4"))
+	core.AssertFalse(t, s.canDispatchAgent("codex:gpt-5.4"))
 	until, ok := s.backoff["codex"]
-	require.True(t, ok)
-	assert.True(t, until.After(time.Now()))
+	core.RequireTrue(t, ok)
+	core.AssertTrue(t, until.After(time.Now()))
 }
 
 // --- countRunningByModel ---
@@ -194,7 +193,7 @@ func TestQueue_CountRunningByModel_Good_NoWorkspaces(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.4"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
 // --- drainQueue / drainOne ---
@@ -210,7 +209,7 @@ func TestQueue_DrainQueue_Good_NoCoreFallsBackToMutex(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.NotPanics(t, func() { s.drainQueue() })
+	core.AssertNotPanics(t, func() { s.drainQueue() })
 }
 
 func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
@@ -224,7 +223,7 @@ func TestQueue_DrainOne_Good_NoWorkspaces(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.False(t, s.drainOne())
+	core.AssertFalse(t, s.drainOne())
 }
 
 func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
@@ -243,7 +242,7 @@ func TestQueue_DrainOne_Good_SkipsNonQueued(t *testing.T) {
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
-	assert.False(t, s.drainOne())
+	core.AssertFalse(t, s.drainOne())
 }
 
 func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
@@ -264,12 +263,12 @@ func TestQueue_DrainOne_Good_SkipsBackedOffPool(t *testing.T) {
 		},
 		failCount: make(map[string]int),
 	}
-	assert.False(t, s.drainOne())
+	core.AssertFalse(t, s.drainOne())
 }
 
 // --- canDispatchAgent (Ugly — with Core.Config concurrency) ---
 
-func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
+func TestQueue_CanDispatchAgent_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
@@ -288,15 +287,15 @@ func TestQueue_CanDispatchAgent_Ugly(t *testing.T) {
 	}
 
 	// No running workspaces → should be able to dispatch
-	assert.True(t, s.canDispatchAgent("claude"))
-	assert.True(t, s.canDispatchAgent("gemini:flash"))
+	core.AssertTrue(t, s.canDispatchAgent("claude"))
+	core.AssertTrue(t, s.canDispatchAgent("gemini:flash"))
 	// Agent with no limit configured → always allowed
-	assert.True(t, s.canDispatchAgent("codex:gpt-5.4"))
+	core.AssertTrue(t, s.canDispatchAgent("codex:gpt-5.4"))
 }
 
 // --- drainQueue (Ugly — with Core lock path) ---
 
-func TestQueue_DrainQueue_Ugly(t *testing.T) {
+func TestQueue_DrainQueue_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	fs.EnsureDir(core.JoinPath(root, "workspace"))
@@ -310,7 +309,7 @@ func TestQueue_DrainQueue_Ugly(t *testing.T) {
 	}
 
 	// Not frozen, Core is present, empty workspace → drainQueue runs the Core lock path without panic
-	assert.NotPanics(t, func() { s.drainQueue() })
+	core.AssertNotPanics(t, func() { s.drainQueue() })
 }
 
 // --- CanDispatchAgent Bad ---
@@ -347,7 +346,7 @@ func TestQueue_CanDispatchAgent_Bad_AgentAtLimit(t *testing.T) {
 	}
 
 	// Agent at limit (1 running, limit is 1) — cannot dispatch
-	assert.False(t, s.canDispatchAgent("claude"))
+	core.AssertFalse(t, s.canDispatchAgent("claude"))
 }
 
 // --- CountRunningByAgent Bad/Ugly ---
@@ -377,7 +376,7 @@ func TestQueue_CountRunningByAgent_Bad_WrongAgentType(t *testing.T) {
 	}
 
 	// Counting for "claude" when only "gemini" is running → 0
-	assert.Equal(t, 0, s.countRunningByAgent("claude"))
+	core.AssertEqual(t, 0, s.countRunningByAgent("claude"))
 }
 
 func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
@@ -397,7 +396,7 @@ func TestQueue_CountRunningByAgent_Ugly_CorruptStatusJSON(t *testing.T) {
 	}
 
 	// Corrupt status.json → ReadStatusResult fails → skipped → count is 0
-	assert.Equal(t, 0, s.countRunningByAgent("codex"))
+	core.AssertEqual(t, 0, s.countRunningByAgent("codex"))
 }
 
 // --- CountRunningByModel Bad/Ugly ---
@@ -426,7 +425,7 @@ func TestQueue_CountRunningByModel_Bad_NoMatchingModel(t *testing.T) {
 	}
 
 	// Looking for a model that doesn't match any running workspace
-	assert.Equal(t, 0, s.countRunningByModel("codex:gpt-5.3-codex-spark"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.3-codex-spark"))
 }
 
 func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
@@ -455,9 +454,9 @@ func TestQueue_CountRunningByModel_Ugly_ModelMismatch(t *testing.T) {
 	}
 
 	// countRunningByModel does exact match on agent string
-	assert.Equal(t, 1, s.countRunningByModel("codex:gpt-5.4"))
-	assert.Equal(t, 1, s.countRunningByModel("codex:gpt-5.3-codex-spark"))
-	assert.Equal(t, 0, s.countRunningByModel("codex:nonexistent"))
+	core.AssertEqual(t, 1, s.countRunningByModel("codex:gpt-5.4"))
+	core.AssertEqual(t, 1, s.countRunningByModel("codex:gpt-5.3-codex-spark"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:nonexistent"))
 }
 
 // --- DelayForAgent Bad/Ugly ---
@@ -484,7 +483,7 @@ rates:
 
 	// sustained_delay is 0 → delayForAgent returns 0
 	d := s.delayForAgent("codex:gpt-5.4")
-	assert.Equal(t, time.Duration(0), d)
+	core.AssertEqual(t, time.Duration(0), d)
 }
 
 func TestQueue_DelayForAgent_Ugly_MalformedResetUTC(t *testing.T) {
@@ -510,8 +509,9 @@ rates:
 	// Malformed reset_utc — strconv.Atoi fails → defaults to hour=6, min=0
 	// Should still return a valid delay without panicking
 	d := s.delayForAgent("codex:gpt-5.4")
-	assert.True(t, d == 60*time.Second || d == 10*time.Second,
-		"expected 60s or 10s, got %v", d)
+	if d != 60*time.Second && d != 10*time.Second {
+		t.Fatalf("expected 60s or 10s, got %v", d)
+	}
 }
 
 // --- DrainOne Bad/Ugly ---
@@ -553,7 +553,7 @@ func TestQueue_DrainOne_Bad_QueuedButAtConcurrencyLimit(t *testing.T) {
 	}
 
 	// Queued workspace exists but agent is at concurrency limit → drainOne returns false
-	assert.False(t, s.drainOne())
+	core.AssertFalse(t, s.drainOne())
 }
 
 func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
@@ -577,46 +577,46 @@ func TestQueue_DrainOne_Ugly_QueuedButInBackoffWindow(t *testing.T) {
 	}
 
 	// Agent pool is in backoff → drainOne skips and returns false
-	assert.False(t, s.drainOne())
+	core.AssertFalse(t, s.drainOne())
 }
 
 // --- DrainQueue Bad ---
 
 // --- UnmarshalYAML (renamed convention) ---
 
-func TestQueue_UnmarshalYAML_Good(t *testing.T) {
+func TestQueue_UnmarshalYAML_Good_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	err := yaml.Unmarshal([]byte("limit: 5"), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 5, cfg.Limit.Total)
-	assert.Nil(t, cfg.Limit.Models)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 5, cfg.Limit.Total)
+	core.AssertNil(t, cfg.Limit.Models)
 }
 
-func TestQueue_UnmarshalYAML_Bad(t *testing.T) {
+func TestQueue_UnmarshalYAML_Bad_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	// Invalid YAML — nested map with bad types
 	err := yaml.Unmarshal([]byte("limit: [1, 2, 3]"), &cfg)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestQueue_UnmarshalYAML_Ugly(t *testing.T) {
+func TestQueue_UnmarshalYAML_Ugly_Case(t *testing.T) {
 	var cfg struct {
 		Limit ConcurrencyLimit `yaml:"limit"`
 	}
 	// Float value — YAML truncates to int, so 3.5 becomes 3
 	err := yaml.Unmarshal([]byte("limit: 3.5"), &cfg)
-	require.NoError(t, err)
-	assert.Equal(t, 3, cfg.Limit.Total)
-	assert.Nil(t, cfg.Limit.Models)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 3, cfg.Limit.Total)
+	core.AssertNil(t, cfg.Limit.Models)
 }
 
 // --- loadAgentsConfig ---
 
-func TestQueue_LoadAgentsConfig_Good(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -627,7 +627,7 @@ concurrency:
 rates:
   codex:
     sustained_delay: 60`
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), cfg).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -637,19 +637,19 @@ rates:
 	}
 
 	loaded := s.loadAgentsConfig()
-	assert.NotNil(t, loaded)
-	assert.Equal(t, 1, loaded.Version)
-	assert.Equal(t, 1, loaded.Concurrency["claude"].Total)
-	assert.Equal(t, 2, loaded.Concurrency["codex"].Total)
-	assert.Equal(t, 60, loaded.Rates["codex"].SustainedDelay)
+	core.AssertNotNil(t, loaded)
+	core.AssertEqual(t, 1, loaded.Version)
+	core.AssertEqual(t, 1, loaded.Concurrency["claude"].Total)
+	core.AssertEqual(t, 2, loaded.Concurrency["codex"].Total)
+	core.AssertEqual(t, 60, loaded.Rates["codex"].SustainedDelay)
 }
 
-func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Bad_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
 	// Corrupt YAML file
-	require.True(t, fs.Write(core.JoinPath(root, "agents.yaml"), "{{{not yaml!!!").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "agents.yaml"), "{{{not yaml!!!").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -660,11 +660,11 @@ func TestQueue_LoadAgentsConfig_Bad(t *testing.T) {
 
 	// Should return defaults when YAML is corrupt
 	loaded := s.loadAgentsConfig()
-	assert.NotNil(t, loaded)
-	assert.Equal(t, "claude", loaded.Dispatch.DefaultAgent)
+	core.AssertNotNil(t, loaded)
+	core.AssertEqual(t, "claude", loaded.Dispatch.DefaultAgent)
 }
 
-func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
+func TestQueue_LoadAgentsConfig_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 	// No agents.yaml file at all — should return defaults
@@ -677,10 +677,10 @@ func TestQueue_LoadAgentsConfig_Ugly(t *testing.T) {
 	}
 
 	loaded := s.loadAgentsConfig()
-	assert.NotNil(t, loaded)
-	assert.Equal(t, "claude", loaded.Dispatch.DefaultAgent)
-	assert.Equal(t, "coding", loaded.Dispatch.DefaultTemplate)
-	assert.NotNil(t, loaded.Concurrency)
+	core.AssertNotNil(t, loaded)
+	core.AssertEqual(t, "claude", loaded.Dispatch.DefaultAgent)
+	core.AssertEqual(t, "coding", loaded.Dispatch.DefaultTemplate)
+	core.AssertNotNil(t, loaded.Concurrency)
 }
 
 // --- DrainQueue Bad ---
@@ -705,9 +705,9 @@ func TestQueue_DrainQueue_Bad_FrozenQueueDoesNothing(t *testing.T) {
 	}
 
 	// Frozen queue returns immediately without draining
-	assert.NotPanics(t, func() { s.drainQueue() })
+	core.AssertNotPanics(t, func() { s.drainQueue() })
 
 	// Workspace should still be queued
 	updated := mustReadStatus(t, ws)
-	assert.Equal(t, "queued", updated.Status)
+	core.AssertEqual(t, "queued", updated.Status)
 }

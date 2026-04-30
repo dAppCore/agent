@@ -6,9 +6,7 @@ import (
 	"context"
 	"strconv"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
-	forge_types "dappco.re/go/forge/types"
+	core "dappco.re/go"
 )
 
 type issueView struct {
@@ -150,7 +148,7 @@ func (s *PrepSubsystem) cmdIssueGet(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueGet", "repo and number are required", nil), OK: false}
 	}
 	var issue issueView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -173,7 +171,7 @@ func (s *PrepSubsystem) cmdIssueList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueList", "repo is required", nil), OK: false}
 	}
 	var issues []issueView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -195,7 +193,10 @@ func (s *PrepSubsystem) cmdIssueComment(options core.Options) core.Result {
 		core.Print(nil, "usage: core-agent issue comment <repo> --number=N --body=\"text\" [--org=core]")
 		return core.Result{Value: core.E("agentic.cmdIssueComment", "repo, number, and body are required", nil), OK: false}
 	}
-	comment, err := s.forge.Issues.CreateComment(ctx, org, repo, num, body)
+	var comment Comment
+	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, num), map[string]any{
+		"body": body,
+	}, &comment)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -218,11 +219,11 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueCreate", "repo and title are required", nil), OK: false}
 	}
 
-	createOptions := &forge_types.CreateIssueOption{Title: title, Body: body, Ref: ref}
+	createOptions := &CreateIssueOption{Title: title, Body: body, Ref: ref}
 
 	if milestone != "" {
-		var milestones []forge_types.Milestone
-		err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/milestones", org, repo), &milestones)
+		var milestones []Milestone
+		err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/milestones", org, repo), &milestones)
 		if err == nil {
 			for _, m := range milestones {
 				if m.Title == milestone {
@@ -237,21 +238,26 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 	}
 	if labels != "" {
 		labelNames := core.Split(labels, ",")
-		allLabels, err := s.forge.Labels.ListRepoLabels(ctx, org, repo)
+		allLabels, err := s.forge.listRepoLabels(ctx, org, repo)
 		if err == nil {
+			labelIDs := []int64{}
 			for _, name := range labelNames {
 				name = core.Trim(name)
 				for _, l := range allLabels {
 					if l.Name == name {
-						createOptions.Labels = append(createOptions.Labels, l.ID)
+						labelIDs = append(labelIDs, l.ID)
 						break
 					}
 				}
 			}
+			if len(labelIDs) > 0 {
+				createOptions.Labels = labelIDs
+			}
 		}
 	}
 
-	issue, err := s.forge.Issues.Create(ctx, forge.Params{"owner": org, "repo": repo}, createOptions)
+	var issue issueView
+	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues", org, repo), createOptions, &issue)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -398,7 +404,7 @@ func (s *PrepSubsystem) cmdPRGet(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRGet", "repo and number are required", nil), OK: false}
 	}
 	var pr pullRequestView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -424,7 +430,7 @@ func (s *PrepSubsystem) cmdPRList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRList", "repo is required", nil), OK: false}
 	}
 	var prs []pullRequestView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -449,7 +455,7 @@ func (s *PrepSubsystem) cmdPRMerge(options core.Options) core.Result {
 		core.Print(nil, "usage: core-agent pr merge <repo> --number=N [--method=merge|rebase|squash] [--org=core]")
 		return core.Result{Value: core.E("agentic.cmdPRMerge", "repo and number are required", nil), OK: false}
 	}
-	if err := s.forge.Pulls.Merge(ctx, org, repo, num, method); err != nil {
+	if err := s.forge.mergePullRequest(ctx, org, repo, num, method); err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
 	}
@@ -465,7 +471,7 @@ func (s *PrepSubsystem) cmdPRClose(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRClose", "repo and number are required", nil), OK: false}
 	}
 
-	_, output, err := s.closePR(ctx, nil, ClosePRInput{
+	_, output, err := closePR(s, ctx, nil, ClosePRInput{
 		Org:    org,
 		Repo:   repo,
 		Number: int(num),
@@ -486,7 +492,7 @@ func (s *PrepSubsystem) cmdRepoGet(options core.Options) core.Result {
 		core.Print(nil, "usage: core-agent repo get <repo> [--org=core]")
 		return core.Result{Value: core.E("agentic.cmdRepoGet", "repo is required", nil), OK: false}
 	}
-	repositoryResult, err := s.forge.Repos.Get(ctx, forge.Params{"owner": org, "repo": repo})
+	repositoryResult, err := s.forge.getRepo(ctx, org, repo)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -512,7 +518,7 @@ func (s *PrepSubsystem) cmdRepoList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdRepoList", "invalid org name", nil), OK: false}
 	}
 	org = validatedOrg
-	repos, err := s.forge.Repos.ListOrgRepos(ctx, org)
+	repos, err := s.forge.listOrgRepos(ctx, org)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -647,7 +653,7 @@ func (s *PrepSubsystem) cmdBranchDelete(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdBranchDelete", "repo and branch are required", nil), OK: false}
 	}
 
-	_, output, err := s.deleteBranch(ctx, nil, DeleteBranchInput{
+	_, output, err := deleteBranch(s, ctx, nil, DeleteBranchInput{
 		Org:    org,
 		Repo:   repo,
 		Branch: branch,

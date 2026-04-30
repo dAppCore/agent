@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // fsEntry matches the fs.DirEntry methods used by workspace scanning.
@@ -84,13 +84,13 @@ func CoreRoot() string {
 
 // home := agentic.HomeDir()
 func HomeDir() string {
-	if home := core.Env("CORE_HOME"); home != "" {
+	if home := core.Getenv("CORE_HOME"); home != "" {
 		return home
 	}
-	if home := core.Env("HOME"); home != "" {
+	if home := core.Getenv("HOME"); home != "" {
 		return home
 	}
-	return core.Env("DIR_HOME")
+	return core.Getenv("DIR_HOME")
 }
 
 func workspaceStatusPaths(workspaceRoot string) []string {

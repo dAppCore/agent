@@ -6,7 +6,7 @@ import (
 	"context"
 	"regexp"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var pipelineBulletPattern = regexp.MustCompile(`^\s*(?:[-*]|\d+\.)\s+(.*)$`)
@@ -66,7 +66,7 @@ func (s *PrepSubsystem) cmdPipelineAudit(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineAudit", "repo is required", nil), OK: false}
 	}
 
-	output, err := s.pipelineAudit(ctx, PipelineAuditInput{
+	output, err := pipelineAudit(s, ctx, PipelineAuditInput{
 		Org:    org,
 		Repo:   repo,
 		DryRun: optionBoolValue(options, "dry_run", "dry-run"),
@@ -96,7 +96,7 @@ func (s *PrepSubsystem) cmdPipelineAudit(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineAudit(ctx context.Context, input PipelineAuditInput) (PipelineAuditOutput, error) {
+var pipelineAudit = func(s *PrepSubsystem, ctx context.Context, input PipelineAuditInput) (PipelineAuditOutput, error) {
 	if input.Repo == "" {
 		return PipelineAuditOutput{}, core.E("pipelineAudit", "repo is required", nil)
 	}
@@ -107,7 +107,7 @@ func (s *PrepSubsystem) pipelineAudit(ctx context.Context, input PipelineAuditIn
 		input.Org = "core"
 	}
 
-	issues, err := s.pipelineListIssues(ctx, input.Org, input.Repo, "open")
+	issues, err := pipelineListIssues(s, ctx, input.Org, input.Repo, "open")
 	if err != nil {
 		return PipelineAuditOutput{}, err
 	}
@@ -161,7 +161,7 @@ func (s *PrepSubsystem) pipelineAudit(ctx context.Context, input PipelineAuditIn
 			}
 
 			labelIDs := s.resolveLabelIDs(ctx, input.Org, input.Repo, labels)
-			created, createErr := s.createIssue(ctx, input.Org, input.Repo, title, body, labelIDs)
+			created, createErr := createIssue(s, ctx, input.Org, input.Repo, title, body, labelIDs)
 			if createErr != nil {
 				return PipelineAuditOutput{}, core.E("pipelineAudit", core.Concat("failed to create implementation issue for audit #", core.Sprint(issue.Number)), createErr)
 			}
@@ -183,7 +183,7 @@ func (s *PrepSubsystem) pipelineAudit(ctx context.Context, input PipelineAuditIn
 		}
 
 		s.commentOnIssue(ctx, input.Org, input.Repo, issue.Number, pipelineAuditLinkedComment(linked))
-		if closeErr := s.pipelinePatchIssue(ctx, input.Org, input.Repo, issue.Number, map[string]any{"state": "closed"}); closeErr != nil {
+		if closeErr := pipelinePatchIssue(s, ctx, input.Org, input.Repo, issue.Number, map[string]any{"state": "closed"}); closeErr != nil {
 			return PipelineAuditOutput{}, closeErr
 		}
 		output.Closed = append(output.Closed, issue.Number)
@@ -192,7 +192,7 @@ func (s *PrepSubsystem) pipelineAudit(ctx context.Context, input PipelineAuditIn
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineListOrgRepos(ctx context.Context, org string) ([]pipelineRepoRecord, error) {
+var pipelineListOrgRepos = func(s *PrepSubsystem, ctx context.Context, org string) ([]pipelineRepoRecord, error) {
 	url := core.Sprintf("%s/api/v1/orgs/%s/repos?limit=100&page=1", s.forgeURL, org)
 	result := HTTPGet(ctx, url, s.forgeToken, "token")
 	if !result.OK {
@@ -206,7 +206,7 @@ func (s *PrepSubsystem) pipelineListOrgRepos(ctx context.Context, org string) ([
 	return repos, nil
 }
 
-func (s *PrepSubsystem) pipelineGetRepo(ctx context.Context, org, repo string) (pipelineRepoRecord, error) {
+var pipelineGetRepo = func(s *PrepSubsystem, ctx context.Context, org, repo string) (pipelineRepoRecord, error) {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s", s.forgeURL, org, repo)
 	result := HTTPGet(ctx, url, s.forgeToken, "token")
 	if !result.OK {
@@ -220,7 +220,7 @@ func (s *PrepSubsystem) pipelineGetRepo(ctx context.Context, org, repo string) (
 	return record, nil
 }
 
-func (s *PrepSubsystem) pipelineListIssues(ctx context.Context, org, repo, state string) ([]pipelineIssueRecord, error) {
+var pipelineListIssues = func(s *PrepSubsystem, ctx context.Context, org, repo, state string) ([]pipelineIssueRecord, error) {
 	if state == "" {
 		state = "open"
 	}
@@ -238,7 +238,7 @@ func (s *PrepSubsystem) pipelineListIssues(ctx context.Context, org, repo, state
 	return issues, nil
 }
 
-func (s *PrepSubsystem) pipelineGetIssue(ctx context.Context, org, repo string, number int) (pipelineIssueRecord, error) {
+var pipelineGetIssue = func(s *PrepSubsystem, ctx context.Context, org, repo string, number int) (pipelineIssueRecord, error) {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, number)
 	result := HTTPGet(ctx, url, s.forgeToken, "token")
 	if !result.OK {
@@ -252,7 +252,7 @@ func (s *PrepSubsystem) pipelineGetIssue(ctx context.Context, org, repo string, 
 	return issue, nil
 }
 
-func (s *PrepSubsystem) pipelinePatchIssue(ctx context.Context, org, repo string, number int, payload map[string]any) error {
+var pipelinePatchIssue = func(s *PrepSubsystem, ctx context.Context, org, repo string, number int, payload map[string]any) error {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d", s.forgeURL, org, repo, number)
 	result := HTTPPatch(ctx, url, core.JSONMarshalString(payload), s.forgeToken, "token")
 	if !result.OK {
@@ -261,7 +261,7 @@ func (s *PrepSubsystem) pipelinePatchIssue(ctx context.Context, org, repo string
 	return nil
 }
 
-func pipelineDecodeJSON(data string, target any, errorName, message string) error {
+var pipelineDecodeJSON = func(data string, target any, errorName, message string) error {
 	parseResult := core.JSONUnmarshalString(data, target)
 	if !parseResult.OK {
 		err, _ := parseResult.Value.(error)

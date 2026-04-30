@@ -25,11 +25,23 @@ use Livewire\Component;
  */
 abstract class HubComponent extends Component
 {
+    /**
+     * Render the Livewire screen from its resolved Blade file.
+     *
+     * @example
+     * $view = $component->render();
+     */
     public function render(): View
     {
         return view()->file($this->viewPath());
     }
 
+    /**
+     * Resolve the current workspace identifier for the admin screen.
+     *
+     * @example
+     * $workspaceId = $this->resolveWorkspaceId();
+     */
     protected function resolveWorkspaceId(): int
     {
         try {
@@ -39,6 +51,12 @@ abstract class HubComponent extends Component
         }
     }
 
+    /**
+     * Abort the request when the current user lacks Hades access.
+     *
+     * @example
+     * $this->checkHadesAccess();
+     */
     protected function checkHadesAccess(): void
     {
         if (! auth()->user()?->isHades()) {
@@ -46,6 +64,12 @@ abstract class HubComponent extends Component
         }
     }
 
+    /**
+     * Dispatch a toast notification through Flux or the fallback event bus.
+     *
+     * @example
+     * $this->toast('Saved', 'Ledger refreshed.', 'success');
+     */
     protected function toast(string $heading, string $text, string $variant): void
     {
         if (class_exists(Flux::class)) {

@@ -6,33 +6,31 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/forge"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 // --- Shutdown ---
 
-func TestPrep_Shutdown_Good(t *testing.T) {
+func TestPrepShutdown_PrepSubsystem_Shutdown_Good_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 	err := s.Shutdown(context.Background())
-	assert.NoError(t, err)
+	core.AssertNoError(t, err)
 }
 
 // --- Name ---
 
-func TestPrep_Name_Good(t *testing.T) {
+func TestPrepName_PrepSubsystem_Name_Good_Extra(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
-	assert.Equal(t, "agentic", s.Name())
+	name := s.Name()
+	core.AssertEqual(t, "agentic", name)
+	core.AssertNotEmpty(t, name)
 }
 
 // --- findConsumersList ---
@@ -55,9 +53,9 @@ use (
 		path    string
 		content string
 	}{
-		{"core/go", "module dappco.re/go/core/go\n\ngo 1.22\n"},
-		{"core/agent", "module dappco.re/go/core/agent\n\nrequire dappco.re/go/core/go v0.7.0\n"},
-		{"core/mcp", "module dappco.re/go/core/mcp\n\nrequire dappco.re/go/core/go v0.7.0\n"},
+		{"core/go", "module dappco.re/go\n\ngo 1.22\n"},
+		{"core/agent", "module dappco.re/go/agent\n\nrequire dappco.re/go v0.7.0\n"},
+		{"core/mcp", "module dappco.re/go/mcp\n\nrequire dappco.re/go v0.7.0\n"},
 	} {
 		modDir := core.JoinPath(dir, mod.path)
 		fs.EnsureDir(modDir)
@@ -72,10 +70,10 @@ use (
 	}
 
 	list, count := s.findConsumersList("go")
-	assert.Equal(t, 2, count)
-	assert.Contains(t, list, "agent")
-	assert.Contains(t, list, "mcp")
-	assert.Contains(t, list, "Breaking change risk")
+	core.AssertEqual(t, 2, count)
+	core.AssertContains(t, list, "agent")
+	core.AssertContains(t, list, "mcp")
+	core.AssertContains(t, list, "Breaking change risk")
 }
 
 func TestPrep_FindConsumersList_Good_NoConsumers(t *testing.T) {
@@ -100,8 +98,8 @@ use (
 	}
 
 	list, count := s.findConsumersList("go")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, list)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, list)
 }
 
 func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
@@ -113,21 +111,21 @@ func TestPrep_FindConsumersList_Bad_NoGoWork(t *testing.T) {
 	}
 
 	list, count := s.findConsumersList("go")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, list)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, list)
 }
 
 // --- copyRepoSpecs ---
 
-func TestPrep_CopyRepoSpecs_Good(t *testing.T) {
+func TestPrep_CopyRepoSpecs_Good_Case(t *testing.T) {
 	root := t.TempDir()
 	codePath := core.JoinPath(root, "src")
 	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
 	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
 
-	require.True(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
-	require.True(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
-	require.True(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -136,15 +134,15 @@ func TestPrep_CopyRepoSpecs_Good(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	require.NoError(t, s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo"))
+	core.RequireNoError(t, s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo"))
 
 	rootCopy := fs.Read(core.JoinPath(root, "workspace", "specs", "RFC.md"))
-	require.True(t, rootCopy.OK)
-	assert.Equal(t, "root-spec", rootCopy.Value.(string))
+	core.RequireTrue(t, rootCopy.OK)
+	core.AssertEqual(t, "root-spec", rootCopy.Value.(string))
 
 	nestedCopy := fs.Read(core.JoinPath(root, "workspace", "specs", "sub", "RFC-2.md"))
-	require.True(t, nestedCopy.OK)
-	assert.Equal(t, "nested-spec", nestedCopy.Value.(string))
+	core.RequireTrue(t, nestedCopy.OK)
+	core.AssertEqual(t, "nested-spec", nestedCopy.Value.(string))
 }
 
 func TestPrep_CopyRepoSpecs_Bad_SpecsDirBlocked(t *testing.T) {
@@ -153,9 +151,9 @@ func TestPrep_CopyRepoSpecs_Bad_SpecsDirBlocked(t *testing.T) {
 	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
 	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
 
-	require.True(t, fs.EnsureDir(specDir).OK)
-	require.True(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
-	require.True(t, fs.Write(core.JoinPath(root, "workspace", "specs"), "blocked").OK)
+	core.RequireTrue(t, fs.EnsureDir(specDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(specDir, "RFC.md"), "root-spec").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "workspace", "specs"), "blocked").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -165,8 +163,8 @@ func TestPrep_CopyRepoSpecs_Bad_SpecsDirBlocked(t *testing.T) {
 	}
 
 	err := s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create specs dir")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "failed to create specs dir")
 }
 
 func TestPrep_CopyRepoSpecs_Ugly_ParentDirBlocked(t *testing.T) {
@@ -175,10 +173,10 @@ func TestPrep_CopyRepoSpecs_Ugly_ParentDirBlocked(t *testing.T) {
 	plansBase := core.JoinPath(codePath, "host-uk", "core", "plans")
 	specDir := core.JoinPath(plansBase, "core", "go", "test-repo")
 
-	require.True(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
-	require.True(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
-	require.True(t, fs.EnsureDir(core.JoinPath(root, "workspace", "specs")).OK)
-	require.True(t, fs.Write(core.JoinPath(root, "workspace", "specs", "sub"), "blocked").OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(specDir, "sub")).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(specDir, "sub", "RFC-2.md"), "nested-spec").OK)
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(root, "workspace", "specs")).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(root, "workspace", "specs", "sub"), "blocked").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -188,8 +186,8 @@ func TestPrep_CopyRepoSpecs_Ugly_ParentDirBlocked(t *testing.T) {
 	}
 
 	err := s.copyRepoSpecs(core.JoinPath(root, "workspace"), "go-test-repo")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create specs parent dir")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "failed to create specs parent dir")
 }
 
 func writeFakeLanguageCommand(t *testing.T, dir, name, logPath string, exitCode int) {
@@ -206,7 +204,7 @@ func writeFakeLanguageCommand(t *testing.T, dir, name, logPath string, exitCode 
 		core.Sprint(exitCode),
 		"\n",
 	)
-	require.True(t, fs.WriteMode(core.JoinPath(dir, name), script, 0755).OK)
+	core.RequireTrue(t, fs.WriteMode(core.JoinPath(dir, name), script, 0755).OK)
 }
 
 // --- runWorkspaceLanguagePrep ---
@@ -214,24 +212,24 @@ func writeFakeLanguageCommand(t *testing.T, dir, name, logPath string, exitCode 
 func TestPrep_RunWorkspaceLanguagePrep_Good_Polyglot(t *testing.T) {
 	root := t.TempDir()
 	binDir := core.JoinPath(root, "bin")
-	require.True(t, fs.EnsureDir(binDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(binDir).OK)
 
 	logPath := core.JoinPath(root, "commands.log")
 	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
 	repoDir := core.JoinPath(root, "repo")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
-	require.True(t, fs.EnsureDir(repoDir).OK)
-	require.True(t, fs.Write(core.JoinPath(repoDir, "go.mod"), "module example.com/test\n").OK)
-	require.True(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
-	require.True(t, fs.Write(core.JoinPath(repoDir, "package.json"), "{}").OK)
-	require.True(t, fs.Write(core.JoinPath(workspaceDir, "go.work"), "go 1.22\n").OK)
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(repoDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, "go.mod"), "module example.com/test\n").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, "package.json"), "{}").OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(workspaceDir, "go.work"), "go 1.22\n").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -240,30 +238,30 @@ func TestPrep_RunWorkspaceLanguagePrep_Good_Polyglot(t *testing.T) {
 	}
 
 	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	logResult := fs.Read(logPath)
-	require.True(t, logResult.OK)
-	assert.Equal(t, "go mod download\ngo work sync\ncomposer install\nnpm install\n", logResult.Value.(string))
+	core.RequireTrue(t, logResult.OK)
+	core.AssertEqual(t, "go mod download\ngo work sync\ncomposer install\nnpm install\n", logResult.Value.(string))
 }
 
 func TestPrep_RunWorkspaceLanguagePrep_Bad_NoLanguageManifests(t *testing.T) {
 	root := t.TempDir()
 	binDir := core.JoinPath(root, "bin")
-	require.True(t, fs.EnsureDir(binDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(binDir).OK)
 
 	logPath := core.JoinPath(root, "commands.log")
 	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
 	repoDir := core.JoinPath(root, "repo")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
-	require.True(t, fs.EnsureDir(repoDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(repoDir).OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -272,30 +270,30 @@ func TestPrep_RunWorkspaceLanguagePrep_Bad_NoLanguageManifests(t *testing.T) {
 	}
 
 	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	logResult := fs.Read(logPath)
-	assert.False(t, logResult.OK)
+	core.AssertFalse(t, logResult.OK)
 }
 
 func TestPrep_RunWorkspaceLanguagePrep_Ugly_CommandFailure(t *testing.T) {
 	root := t.TempDir()
 	binDir := core.JoinPath(root, "bin")
-	require.True(t, fs.EnsureDir(binDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(binDir).OK)
 
 	logPath := core.JoinPath(root, "commands.log")
 	writeFakeLanguageCommand(t, binDir, "go", logPath, 0)
 	writeFakeLanguageCommand(t, binDir, "composer", logPath, 1)
 	writeFakeLanguageCommand(t, binDir, "npm", logPath, 0)
 
-	oldPath := os.Getenv("PATH")
+	oldPath := core.Getenv("PATH")
 	t.Setenv("PATH", core.Concat(binDir, ":", oldPath))
 
 	workspaceDir := core.JoinPath(root, "workspace")
 	repoDir := core.JoinPath(root, "repo")
-	require.True(t, fs.EnsureDir(workspaceDir).OK)
-	require.True(t, fs.EnsureDir(repoDir).OK)
-	require.True(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
+	core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+	core.RequireTrue(t, fs.EnsureDir(repoDir).OK)
+	core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, "composer.json"), "{}").OK)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -304,8 +302,8 @@ func TestPrep_RunWorkspaceLanguagePrep_Ugly_CommandFailure(t *testing.T) {
 	}
 
 	err := s.runWorkspaceLanguagePrep(context.Background(), workspaceDir, repoDir)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "composer install failed")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "composer install failed")
 }
 
 // --- pullWikiContent ---
@@ -337,16 +335,16 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
-	assert.Contains(t, content, "Hello World")
-	assert.Contains(t, content, "Layered")
-	assert.Contains(t, content, "### Home")
-	assert.Contains(t, content, "### Architecture")
+	core.AssertContains(t, content, "Hello World")
+	core.AssertContains(t, content, "Layered")
+	core.AssertContains(t, content, "### Home")
+	core.AssertContains(t, content, "### Architecture")
 }
 
 func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
@@ -357,18 +355,18 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
-	assert.Empty(t, content)
+	core.AssertEmpty(t, content)
 }
 
 // --- getIssueBody ---
 
-func TestPrep_GetIssueBody_Good(t *testing.T) {
+func TestPrep_GetIssueBody_Good_Case(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
 			"number": 15,
@@ -380,13 +378,13 @@ func TestPrep_GetIssueBody_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 15)
-	assert.Contains(t, body, "tests are broken")
+	core.AssertContains(t, body, "tests are broken")
 }
 
 func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
@@ -397,13 +395,13 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 999)
-	assert.Empty(t, body)
+	core.AssertEmpty(t, body)
 }
 
 // --- buildPrompt ---
@@ -426,16 +424,16 @@ func TestPrep_BuildPrompt_Good_BasicFields(t *testing.T) {
 		Repo: "go-io",
 	}, "dev", dir)
 
-	assert.Contains(t, prompt, "TASK: Fix the tests")
-	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
-	assert.Contains(t, prompt, "LANGUAGE: go")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
-	assert.Contains(t, prompt, "CODEX.md")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK: Fix the tests")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertContains(t, prompt, "LANGUAGE: go")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertContains(t, prompt, "CODEX.md")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_TestBuildPrompt_Good_BasicFields(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
@@ -452,12 +450,12 @@ func TestPrep_TestBuildPrompt_Good_BasicFields(t *testing.T) {
 		Repo: "go-io",
 	}, "dev", dir)
 
-	assert.Contains(t, prompt, "TASK: Fix the tests")
-	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
-	assert.Contains(t, prompt, "LANGUAGE: go")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK: Fix the tests")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertContains(t, prompt, "LANGUAGE: go")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
 func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
@@ -474,7 +472,7 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       t.TempDir(),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -487,11 +485,11 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 		Issue: 42,
 	}, "dev", dir)
 
-	assert.Contains(t, prompt, "ISSUE:")
-	assert.Contains(t, prompt, "Steps to reproduce")
+	core.AssertContains(t, prompt, "ISSUE:")
+	core.AssertContains(t, prompt, "Steps to reproduce")
 }
 
-func TestPrep_TestBuildPrompt_Bad_EmptyRepoPath(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -505,12 +503,12 @@ func TestPrep_TestBuildPrompt_Bad_EmptyRepoPath(t *testing.T) {
 		Repo: "go-io",
 	}, "dev", "")
 
-	assert.Contains(t, prompt, "TASK: Add unit tests")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK: Add unit tests")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_TestBuildPrompt_Ugly_StillBuildsPrompt(t *testing.T) {
+func TestBuildPrompt_PrepSubsystem_TestBuildPrompt_Ugly_Case(t *testing.T) {
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
 		codePath:       t.TempDir(),
@@ -520,14 +518,14 @@ func TestPrep_TestBuildPrompt_Ugly_StillBuildsPrompt(t *testing.T) {
 
 	prompt, memories, consumers := s.TestBuildPrompt(context.Background(), PrepInput{}, "", "")
 
-	assert.Contains(t, prompt, "TASK:")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
 // --- buildPrompt (naming convention tests) ---
 
-func TestPrep_BuildPromptNaming_Good(t *testing.T) {
+func TestPrep_BuildPromptNaming_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	// Create go.mod to detect language as "go"
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
@@ -545,17 +543,17 @@ func TestPrep_BuildPromptNaming_Good(t *testing.T) {
 		Repo: "go-io",
 	}, "dev", dir)
 
-	assert.Contains(t, prompt, "TASK: Add unit tests")
-	assert.Contains(t, prompt, "REPO: core/go-io on branch dev")
-	assert.Contains(t, prompt, "LANGUAGE: go")
-	assert.Contains(t, prompt, "BUILD: go build ./...")
-	assert.Contains(t, prompt, "TEST: go test ./...")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK: Add unit tests")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch dev")
+	core.AssertContains(t, prompt, "LANGUAGE: go")
+	core.AssertContains(t, prompt, "BUILD: go build ./...")
+	core.AssertContains(t, prompt, "TEST: go test ./...")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPromptNaming_Bad(t *testing.T) {
+func TestPrep_BuildPromptNaming_Bad_Case(t *testing.T) {
 	// Empty repo path — still produces a prompt (no crash)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -570,13 +568,13 @@ func TestPrep_BuildPromptNaming_Bad(t *testing.T) {
 		Repo: "go-io",
 	}, "main", "")
 
-	assert.Contains(t, prompt, "TASK: Do something")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
-	assert.Equal(t, 0, memories)
-	assert.Equal(t, 0, consumers)
+	core.AssertContains(t, prompt, "TASK: Do something")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
+	core.AssertEqual(t, 0, memories)
+	core.AssertEqual(t, 0, consumers)
 }
 
-func TestPrep_BuildPromptNaming_Ugly(t *testing.T) {
+func TestPrep_BuildPromptNaming_Ugly_Case(t *testing.T) {
 	dir := t.TempDir()
 	fs.Write(core.JoinPath(dir, "go.mod"), "module test\n\ngo 1.22\n")
 
@@ -591,7 +589,7 @@ func TestPrep_BuildPromptNaming_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       t.TempDir(),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -607,11 +605,11 @@ func TestPrep_BuildPromptNaming_Ugly(t *testing.T) {
 	}, "agent/fix-bug", dir)
 
 	// Persona may or may not resolve, but prompt must still contain core fields
-	assert.Contains(t, prompt, "TASK: Fix critical bug")
-	assert.Contains(t, prompt, "REPO: core/go-io on branch agent/fix-bug")
-	assert.Contains(t, prompt, "ISSUE:")
-	assert.Contains(t, prompt, "Server crashes on startup")
-	assert.Contains(t, prompt, "CONSTRAINTS:")
+	core.AssertContains(t, prompt, "TASK: Fix critical bug")
+	core.AssertContains(t, prompt, "REPO: core/go-io on branch agent/fix-bug")
+	core.AssertContains(t, prompt, "ISSUE:")
+	core.AssertContains(t, prompt, "Server crashes on startup")
+	core.AssertContains(t, prompt, "CONSTRAINTS:")
 }
 
 func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
@@ -636,8 +634,8 @@ func TestPrep_BuildPrompt_Ugly_WithGitLog(t *testing.T) {
 		Task: "Fix tests", Org: "core", Repo: "go-io",
 	}, "dev", dir)
 
-	assert.Contains(t, prompt, "RECENT CHANGES:")
-	assert.Contains(t, prompt, "init")
+	core.AssertContains(t, prompt, "RECENT CHANGES:")
+	core.AssertContains(t, prompt, "init")
 }
 
 // --- runQA ---
@@ -656,12 +654,12 @@ func TestDispatch_RunQA_Good_PHPNoComposer(t *testing.T) {
 	}
 	// Will fail (composer not found) — that's the expected path
 	result := s.runQA(dir)
-	assert.False(t, result)
+	core.AssertFalse(t, result)
 }
 
 // --- pullWikiContent Bad/Ugly ---
 
-func TestPrep_PullWikiContent_Bad(t *testing.T) {
+func TestPrep_PullWikiContent_Bad_Case(t *testing.T) {
 	// Forge returns error on wiki pages
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -670,16 +668,16 @@ func TestPrep_PullWikiContent_Bad(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
-	assert.Empty(t, content)
+	core.AssertEmpty(t, content)
 }
 
-func TestPrep_PullWikiContent_Ugly(t *testing.T) {
+func TestPrep_PullWikiContent_Ugly_Case(t *testing.T) {
 	// Forge returns pages with empty content
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -700,19 +698,19 @@ func TestPrep_PullWikiContent_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	content := s.pullWikiContent(context.Background(), "core", "go-io")
 	// Empty content_base64 means the page is skipped
-	assert.Empty(t, content)
+	core.AssertEmpty(t, content)
 }
 
 // --- renderPlan Ugly ---
 
-func TestPrep_RenderPlan_Ugly(t *testing.T) {
+func TestPrep_RenderPlan_Ugly_Case(t *testing.T) {
 	// Template with variables that don't exist in template — variables just won't match
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -732,7 +730,7 @@ func TestPrep_RenderPlan_Ugly(t *testing.T) {
 
 // --- brainRecall Ugly ---
 
-func TestPrep_BrainRecall_Ugly(t *testing.T) {
+func TestPrep_BrainRecall_Ugly_Case(t *testing.T) {
 	// Server returns unexpected JSON structure
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -753,13 +751,13 @@ func TestPrep_BrainRecall_Ugly(t *testing.T) {
 	}
 
 	recall, count := s.brainRecall(context.Background(), "go-io")
-	assert.Empty(t, recall, "unexpected JSON structure should yield no memories")
-	assert.Equal(t, 0, count)
+	core.AssertEmpty(t, recall, "unexpected JSON structure should yield no memories")
+	core.AssertEqual(t, 0, count)
 }
 
 // --- PrepWorkspace Ugly ---
 
-func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
+func TestPrep_PrepWorkspace_Ugly_Case(t *testing.T) {
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
@@ -775,21 +773,21 @@ func TestPrep_PrepWorkspace_Ugly(t *testing.T) {
 		Repo:  ".",
 		Issue: 1,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid repo name")
+	core.AssertError(t, err)
+	core.AssertContains(t, err.Error(), "invalid repo name")
 
 	// Repo name ".." — should be rejected as invalid
 	_, _, err2 := s.prepWorkspace(context.Background(), nil, PrepInput{
 		Repo:  "..",
 		Issue: 1,
 	})
-	assert.Error(t, err2)
-	assert.Contains(t, err2.Error(), "invalid repo name")
+	core.AssertError(t, err2)
+	core.AssertContains(t, err2.Error(), "invalid repo name")
 }
 
 // --- findConsumersList Ugly ---
 
-func TestPrep_FindConsumersList_Ugly(t *testing.T) {
+func TestPrep_FindConsumersList_Ugly_Case(t *testing.T) {
 	// go.work with modules that don't have go.mod
 	dir := t.TempDir()
 
@@ -813,13 +811,13 @@ func TestPrep_FindConsumersList_Ugly(t *testing.T) {
 
 	// Should not panic, just skip missing go.mod entries
 	list, count := s.findConsumersList("go")
-	assert.Equal(t, 0, count)
-	assert.Empty(t, list)
+	core.AssertEqual(t, 0, count)
+	core.AssertEmpty(t, list)
 }
 
 // --- getIssueBody Ugly ---
 
-func TestPrep_GetIssueBody_Ugly(t *testing.T) {
+func TestPrep_GetIssueBody_Ugly_Case(t *testing.T) {
 	// Issue body with HTML/special chars
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(core.JSONMarshalString(map[string]any{
@@ -832,13 +830,13 @@ func TestPrep_GetIssueBody_Ugly(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
 
 	body := s.getIssueBody(context.Background(), "core", "go-io", 99)
-	assert.NotEmpty(t, body)
-	assert.Contains(t, body, "HTML")
-	assert.Contains(t, body, "<script>")
+	core.AssertNotEmpty(t, body)
+	core.AssertContains(t, body, "HTML")
+	core.AssertContains(t, body, "<script>")
 }

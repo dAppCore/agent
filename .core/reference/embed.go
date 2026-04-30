@@ -19,21 +19,23 @@
 //
 //	refs, _ := core.ScanAssets([]string{"main.go"})
 //	source, _ := core.GeneratePack(refs)
+//	core.AddAsset("docs", "RFC.md", packed)
+//	r := core.GeneratePack(pkg)
 package core
 
 import (
-	"bytes"
 	"compress/gzip"
+	corebytes "dappco.re/go"
+	corefilepath "dappco.re/go"
+	corefmt "dappco.re/go"
+	coreos "dappco.re/go"
 	"embed"
 	"encoding/base64"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sync"
 	"text/template"
 )
@@ -224,7 +226,7 @@ func GeneratePack(pkg ScannedPackage) Result {
 		return Result{b.String(), true}
 	}
 
-	b.WriteString("import \"dappco.re/go/core\"\n\n")
+	b.WriteString("import \"dappco.re/go\"\n\n")
 	b.WriteString("func init() {\n")
 
 	// Pack groups (entire directories)
@@ -271,7 +273,7 @@ func GeneratePack(pkg ScannedPackage) Result {
 
 // --- Compression ---
 
-func compressFile(path string) (string, error) {
+func compressFile(path string) (string, any) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -279,7 +281,7 @@ func compressFile(path string) (string, error) {
 	return compress(string(data))
 }
 
-func compress(input string) (string, error) {
+func compress(input string) (string, any) {
 	var buf bytes.Buffer
 	b64 := base64.NewEncoder(base64.StdEncoding, &buf)
 	gz, err := gzip.NewWriterLevel(b64, gzip.BestCompression)
@@ -287,12 +289,18 @@ func compress(input string) (string, error) {
 		return "", err
 	}
 	if _, err := gz.Write([]byte(input)); err != nil {
-		_ = gz.Close()
-		_ = b64.Close()
+		if closeErr := gz.Close(); closeErr != nil {
+			return "", err
+		}
+		if closeErr := b64.Close(); closeErr != nil {
+			return "", err
+		}
 		return "", err
 	}
 	if err := gz.Close(); err != nil {
-		_ = b64.Close()
+		if closeErr := b64.Close(); closeErr != nil {
+			return "", err
+		}
 		return "", err
 	}
 	if err := b64.Close(); err != nil {
@@ -301,7 +309,7 @@ func compress(input string) (string, error) {
 	return buf.String(), nil
 }
 
-func decompress(input string) (string, error) {
+func decompress(input string) (string, any) {
 	b64 := base64.NewDecoder(base64.StdEncoding, NewReader(input))
 	gz, err := gzip.NewReader(b64)
 	if err != nil {
@@ -318,9 +326,9 @@ func decompress(input string) (string, error) {
 	return string(data), nil
 }
 
-func getAllFiles(dir string) ([]string, error) {
+func getAllFiles(dir string) ([]string, any) {
 	var result []string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) any {
 		if err != nil {
 			return err
 		}
@@ -520,7 +528,7 @@ func Extract(fsys fs.FS, targetDir string, data any, opts ...ExtractOptions) Res
 	var templateFiles []string
 	var standardFiles []string
 
-	err = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) any {
 		if err != nil {
 			return err
 		}
@@ -547,7 +555,7 @@ func Extract(fsys fs.FS, targetDir string, data any, opts ...ExtractOptions) Res
 	}
 
 	// safePath ensures a rendered path stays under targetDir.
-	safePath := func(rendered string) (string, error) {
+	safePath := func(rendered string) (string, any) {
 		abs, err := filepath.Abs(rendered)
 		if err != nil {
 			return "", err
@@ -635,7 +643,7 @@ func renderPath(path string, data any) string {
 	if data == nil {
 		return path
 	}
-	tmpl, err := template.New("path").Parse(path)
+	tmpl, err := template.New(`path`).Parse(path)
 	if err != nil {
 		return path
 	}
@@ -646,7 +654,7 @@ func renderPath(path string, data any) string {
 	return buf.String()
 }
 
-func copyFile(fsys fs.FS, source, target string) error {
+func copyFile(fsys fs.FS, source, target string) any {
 	s, err := fsys.Open(source)
 	if err != nil {
 		return err

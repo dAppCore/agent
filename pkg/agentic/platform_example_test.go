@@ -2,7 +2,7 @@
 
 package agentic
 
-import "fmt"
+import core "dappco.re/go"
 
 func Example_parseFleetNode() {
 	node := parseFleetNode(map[string]any{
@@ -13,6 +13,6 @@ func Example_parseFleetNode() {
 		"status":       "online",
 	})
 
-	fmt.Println(node.AgentID, node.Platform, len(node.Models), len(node.Capabilities))
+	core.Println(node.AgentID, node.Platform, len(node.Models), len(node.Capabilities))
 	// Output: charon linux 2 2
 }

@@ -7,7 +7,8 @@ import (
 	"net/http" // Note: AX-6 — structural HTTP transport boundary for core.API protocol streams and raw MCP POST/SSE exchange; no exported core/api generic request wrapper covers this file.
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
+	agentcompat "dappco.re/go/agent/pkg/agentcompat"
 )
 
 // defaultClient centralises the low-level HTTP boundary owned by this file.
@@ -15,63 +16,17 @@ import (
 // is the intrinsic implementation behind those abstractions.
 var defaultClient = &http.Client{Timeout: 30 * time.Second}
 
-type httpStream struct {
-	client   *http.Client
-	url      string
-	token    string
-	method   string
-	response []byte
-}
-
-// stream := &httpStream{client: defaultClient, url: "https://api.lthn.sh/v1/health", method: "POST"}
-// _ = stream.Send([]byte(`{"ping":1}`))
-func (s *httpStream) Send(data []byte) error {
-	request, err := http.NewRequestWithContext(context.Background(), s.method, s.url, core.NewReader(string(data)))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
-	if s.token != "" {
-		request.Header.Set("Authorization", core.Concat("token ", s.token))
-	}
-
-	response, err := s.client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	readResult := core.ReadAll(response.Body)
-	if !readResult.OK {
-		err, _ := readResult.Value.(error)
-		return core.E("httpStream.Send", "failed to read response", err)
-	}
-	s.response = []byte(readResult.Value.(string))
-	return nil
-}
-
-// stream := &httpStream{}
-// response, err := stream.Receive()
-func (s *httpStream) Receive() ([]byte, error) {
-	return s.response, nil
-}
-
-// stream := &httpStream{}
-// _ = stream.Close()
-func (s *httpStream) Close() error {
-	return nil
-}
+type httpStream = agentcompat.HTTPStream
 
 // agentic.RegisterHTTPTransport(c)
 func RegisterHTTPTransport(c *core.Core) {
 	factory := func(handle *core.DriveHandle) (core.Stream, error) {
 		token := handle.Options.String("token")
 		return &httpStream{
-			client: defaultClient,
-			url:    handle.Transport,
-			token:  token,
-			method: "POST",
+			Client: defaultClient,
+			URL:    handle.Transport,
+			Token:  token,
+			Method: "POST",
 		}, nil
 	}
 	c.API().RegisterProtocol("http", factory)
@@ -177,7 +132,7 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 }
 
 // sessionID, err := mcpInitialize(ctx, url, token)
-func mcpInitialize(ctx context.Context, url, token string) (string, error) {
+var mcpInitialize = func(ctx context.Context, url, token string) (string, error) {
 	result := mcpInitializeResult(ctx, url, token)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -249,7 +204,7 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	return core.Result{Value: sessionID, OK: true}
 }
 
-func mcpCall(ctx context.Context, url, token, sessionID string, body []byte) ([]byte, error) {
+var mcpCall = func(ctx context.Context, url, token, sessionID string, body []byte) ([]byte, error) {
 	result := mcpCallResult(ctx, url, token, sessionID, body)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -285,7 +240,7 @@ func mcpCallResult(ctx context.Context, url, token, sessionID string, body []byt
 	return readSSEDataResult(response)
 }
 
-func readSSEData(response *http.Response) ([]byte, error) {
+var readSSEData = func(response *http.Response) ([]byte, error) {
 	result := readSSEDataResult(response)
 	if !result.OK {
 		err, _ := result.Value.(error)

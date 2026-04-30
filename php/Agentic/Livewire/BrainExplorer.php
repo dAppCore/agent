@@ -16,6 +16,12 @@ use Livewire\Attributes\Title;
 
 #[Title('Brain Explorer')]
 #[Layout('hub::admin.layouts.app')]
+/**
+ * Browse, search, and forget workspace brain memories from the admin hub.
+ *
+ * @example
+ * Livewire::test(BrainExplorer::class, ['workspaceId' => 7])->call('searchMemories');
+ */
 class BrainExplorer extends HubComponent
 {
     public int $workspaceId = 0;
@@ -37,6 +43,12 @@ class BrainExplorer extends HubComponent
 
     public bool $usedFallbackSearch = false;
 
+    /**
+     * Initialise the explorer with access checks and recent memories.
+     *
+     * @example
+     * $component->mount(7);
+     */
     public function mount(?int $workspaceId = null): void
     {
         $this->checkHadesAccess();
@@ -45,12 +57,24 @@ class BrainExplorer extends HubComponent
     }
 
     #[Computed]
+    /**
+     * Return the supported memory types for the filter dropdown.
+     *
+     * @example
+     * $types = $component->memoryTypes();
+     */
     public function memoryTypes(): array
     {
         return BrainMemory::VALID_TYPES;
     }
 
     #[Computed]
+    /**
+     * Return agent identifiers that currently have memories in the workspace.
+     *
+     * @example
+     * $agents = $component->availableAgents();
+     */
     public function availableAgents(): array
     {
         if ($this->workspaceId <= 0) {
@@ -73,6 +97,12 @@ class BrainExplorer extends HubComponent
         }
     }
 
+    /**
+     * Search the brain index or fall back to a direct database search.
+     *
+     * @example
+     * Livewire::test(BrainExplorer::class, ['workspaceId' => 7])->set('query', 'dispatch')->call('searchMemories');
+     */
     public function searchMemories(): void
     {
         $this->validate([
@@ -109,6 +139,12 @@ class BrainExplorer extends HubComponent
         }
     }
 
+    /**
+     * Remove one memory from the workspace brain and refresh the result list.
+     *
+     * @example
+     * Livewire::test(BrainExplorer::class, ['workspaceId' => 7])->call('forgetMemory', 'mem_123');
+     */
     public function forgetMemory(string $memoryId): void
     {
         ForgetKnowledge::run(
@@ -122,12 +158,24 @@ class BrainExplorer extends HubComponent
         $this->toast('Memory Forgotten', 'The memory was removed from the brain index.', 'warning');
     }
 
+    /**
+     * Refresh the visible memory results and emit a dashboard notification.
+     *
+     * @example
+     * Livewire::test(BrainExplorer::class, ['workspaceId' => 7])->call('refreshExplorer');
+     */
     public function refreshExplorer(): void
     {
         $this->searchMemories();
         $this->dispatch('notify', message: 'Brain explorer refreshed');
     }
 
+    /**
+     * Map a memory type to the badge variant used in the explorer UI.
+     *
+     * @example
+     * $variant = $component->typeBadgeVariant('decision');
+     */
     public function typeBadgeVariant(string $type): string
     {
         return match ($type) {
@@ -138,6 +186,12 @@ class BrainExplorer extends HubComponent
         };
     }
 
+    /**
+     * Load the latest memories when the explorer opens or resets.
+     *
+     * @example
+     * $this->loadRecentMemories();
+     */
     private function loadRecentMemories(): void
     {
         if ($this->workspaceId <= 0) {
@@ -238,6 +292,12 @@ class BrainExplorer extends HubComponent
         ];
     }
 
+    /**
+     * Resolve the Blade template used by the brain explorer screen.
+     *
+     * @example
+     * $path = $this->viewPath();
+     */
     protected function viewPath(): string
     {
         return __DIR__.'/../../resources/views/livewire/agentic/brain-explorer.blade.php';

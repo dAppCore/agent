@@ -6,9 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go/core"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func TestCommandsPhase_RegisterPhaseCommands_Good_AllRegistered(t *testing.T) {
@@ -16,18 +14,18 @@ func TestCommandsPhase_RegisterPhaseCommands_Good_AllRegistered(t *testing.T) {
 	s.registerPhaseCommands()
 
 	cmds := c.Commands()
-	assert.Contains(t, cmds, "phase")
-	assert.Contains(t, cmds, "agentic:phase")
-	assert.Contains(t, cmds, "phase/get")
-	assert.Contains(t, cmds, "agentic:phase/get")
-	assert.Contains(t, cmds, "phase/update_status")
-	assert.Contains(t, cmds, "agentic:phase/update_status")
-	assert.Contains(t, cmds, "phase/update-status")
-	assert.Contains(t, cmds, "agentic:phase/update-status")
-	assert.Contains(t, cmds, "phase/add_checkpoint")
-	assert.Contains(t, cmds, "agentic:phase/add_checkpoint")
-	assert.Contains(t, cmds, "phase/add-checkpoint")
-	assert.Contains(t, cmds, "agentic:phase/add-checkpoint")
+	core.AssertContains(t, cmds, "phase")
+	core.AssertContains(t, cmds, "agentic:phase")
+	core.AssertContains(t, cmds, "phase/get")
+	core.AssertContains(t, cmds, "agentic:phase/get")
+	core.AssertContains(t, cmds, "phase/update_status")
+	core.AssertContains(t, cmds, "agentic:phase/update_status")
+	core.AssertContains(t, cmds, "phase/update-status")
+	core.AssertContains(t, cmds, "agentic:phase/update-status")
+	core.AssertContains(t, cmds, "phase/add_checkpoint")
+	core.AssertContains(t, cmds, "agentic:phase/add_checkpoint")
+	core.AssertContains(t, cmds, "phase/add-checkpoint")
+	core.AssertContains(t, cmds, "agentic:phase/add-checkpoint")
 }
 
 func TestCommandsPhase_CmdPhase_Good_GetUpdateCheckpoint(t *testing.T) {
@@ -40,7 +38,7 @@ func TestCommandsPhase_CmdPhase_Good_GetUpdateCheckpoint(t *testing.T) {
 			{Number: 1, Name: "Setup", Status: "pending"},
 		},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	output := captureStdout(t, func() {
 		r := s.cmdPhase(core.NewOptions(
@@ -48,11 +46,11 @@ func TestCommandsPhase_CmdPhase_Good_GetUpdateCheckpoint(t *testing.T) {
 			core.Option{Key: "_arg", Value: "phase-command-plan"},
 			core.Option{Key: "phase", Value: 1},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, output, "phase:  1")
-	assert.Contains(t, output, "name:   Setup")
-	assert.Contains(t, output, "status: pending")
+	core.AssertContains(t, output, "phase:  1")
+	core.AssertContains(t, output, "name:   Setup")
+	core.AssertContains(t, output, "status: pending")
 
 	output = captureStdout(t, func() {
 		r := s.cmdPhase(core.NewOptions(
@@ -61,9 +59,9 @@ func TestCommandsPhase_CmdPhase_Good_GetUpdateCheckpoint(t *testing.T) {
 			core.Option{Key: "phase", Value: 1},
 			core.Option{Key: "status", Value: "completed"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, output, "status: completed")
+	core.AssertContains(t, output, "status: completed")
 
 	output = captureStdout(t, func() {
 		r := s.cmdPhase(core.NewOptions(
@@ -72,23 +70,23 @@ func TestCommandsPhase_CmdPhase_Good_GetUpdateCheckpoint(t *testing.T) {
 			core.Option{Key: "phase", Value: 1},
 			core.Option{Key: "note", Value: "Build passes"},
 		))
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, output, "checkpoints: 1")
+	core.AssertContains(t, output, "checkpoints: 1")
 }
 
 func TestCommandsPhase_CmdPhase_Bad_MissingActionStillShowsUsage(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	output := captureStdout(t, func() {
 		r := s.cmdPhase(core.NewOptions())
-		assert.True(t, r.OK)
+		core.AssertTrue(t, r.OK)
 	})
-	assert.Contains(t, output, "core-agent phase get")
+	core.AssertContains(t, output, "core-agent phase get")
 }
 
 func TestCommandsPhase_CmdPhase_Ugly_UnknownAction(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	r := s.cmdPhase(core.NewOptions(core.Option{Key: "action", Value: "explode"}))
-	require.False(t, r.OK)
-	assert.Contains(t, r.Value.(error).Error(), "unknown phase command")
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(error).Error(), "unknown phase command")
 }

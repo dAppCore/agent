@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // node := agentic.FleetNode{AgentID: "charon", Platform: "linux", Status: "online"}
@@ -625,7 +625,7 @@ func (s *PrepSubsystem) platformEventPayload(ctx context.Context, action, path s
 	return core.Result{Value: payload, OK: true}
 }
 
-func platformResultError(action string, result core.Result) error {
+var platformResultError = func(action string, result core.Result) error {
 	if err, ok := result.Value.(error); ok && err != nil {
 		return core.E(action, "platform request failed", err)
 	}
@@ -867,7 +867,7 @@ func parseFleetStats(values map[string]any) FleetStats {
 	}
 }
 
-func parseFleetEventOutput(values map[string]any) (FleetEventOutput, error) {
+var parseFleetEventOutput = func(values map[string]any) (FleetEventOutput, error) {
 	eventValues := payloadResourceMap(values, "event")
 	if len(eventValues) == 0 {
 		eventValues = values
@@ -934,7 +934,7 @@ func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
 // Uses core.ReadAll instead of bufio+io.EOF for AX compliance.
 //
 //	body, err := readFleetEventBody(response.Body)
-func readFleetEventBody(body any) (string, error) {
+var readFleetEventBody = func(body any) (string, error) {
 	r := core.ReadAll(body)
 	if !r.OK {
 		if err, ok := r.Value.(error); ok {

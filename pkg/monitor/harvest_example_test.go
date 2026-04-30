@@ -3,8 +3,8 @@
 package monitor
 
 import (
+	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
-	core "dappco.re/go/core"
 )
 
 func Example_sharedWorkspaceStatusPath() {

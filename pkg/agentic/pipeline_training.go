@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // input := PipelineTrainingCaptureInput{Org: "core", Repo: "go-io", Number: 42}
@@ -31,7 +31,7 @@ type PipelineTrainingCaptureOutput struct {
 type PipelineTrainingExportOutput struct {
 	Success  bool   `json:"success"`
 	Exported int    `json:"exported"`
-	Path     string `json:"path"`
+	Path     string "json:\"path\""
 }
 
 // checks, passing, failing := pipelineTrainingCheckCounts(meta.Checks)
@@ -58,7 +58,7 @@ func (s *PrepSubsystem) cmdPipelineTrainingCapture(options core.Options) core.Re
 		return core.Result{Value: core.E("agentic.cmdPipelineTrainingCapture", "repo and pull request number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineTrainingCapture(ctx, PipelineTrainingCaptureInput{Org: org, Repo: repo, Number: number})
+	output, err := pipelineTrainingCapture(s, ctx, PipelineTrainingCaptureInput{Org: org, Repo: repo, Number: number})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -102,7 +102,7 @@ func (s *PrepSubsystem) cmdPipelineTrainingExport(_ core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineTrainingCapture(ctx context.Context, input PipelineTrainingCaptureInput) (PipelineTrainingCaptureOutput, error) {
+var pipelineTrainingCapture = func(s *PrepSubsystem, ctx context.Context, input PipelineTrainingCaptureInput) (PipelineTrainingCaptureOutput, error) {
 	if input.Repo == "" || input.Number <= 0 {
 		return PipelineTrainingCaptureOutput{}, core.E("pipelineTrainingCapture", "repo and pull request number are required", nil)
 	}
@@ -113,7 +113,7 @@ func (s *PrepSubsystem) pipelineTrainingCapture(ctx context.Context, input Pipel
 		return PipelineTrainingCaptureOutput{}, core.E("pipelineTrainingCapture", "Forge access is required to capture PR training data", nil)
 	}
 
-	reader := &pipelineForgeMetaReader{subsystem: s, org: input.Org}
+	reader := newPipelineForgeMetaReader(s, input.Org)
 	meta, err := reader.GetPRMeta(ctx, input.Repo, input.Number)
 	if err != nil {
 		return PipelineTrainingCaptureOutput{}, err
@@ -122,7 +122,7 @@ func (s *PrepSubsystem) pipelineTrainingCapture(ctx context.Context, input Pipel
 		return PipelineTrainingCaptureOutput{}, core.E("pipelineTrainingCapture", core.Concat("pull request is not merged: ", core.Sprint(input.Number)), nil)
 	}
 
-	diff, diffSource, err := s.pipelineTrainingReadDiff(ctx, input.Org, input.Repo, input.Number, meta)
+	diff, diffSource, err := pipelineTrainingReadDiff(s, ctx, input.Org, input.Repo, input.Number, meta)
 	if err != nil {
 		return PipelineTrainingCaptureOutput{}, err
 	}
@@ -165,17 +165,17 @@ func (s *PrepSubsystem) pipelineTrainingCapture(ctx context.Context, input Pipel
 }
 
 // diff, source, err := s.pipelineTrainingReadDiff(ctx, "core", "go-io", 42, meta)
-func (s *PrepSubsystem) pipelineTrainingReadDiff(ctx context.Context, org, repo string, number int, meta PipelinePRMeta) (string, string, error) {
+var pipelineTrainingReadDiff = func(s *PrepSubsystem, ctx context.Context, org, repo string, number int, meta PipelinePRMeta) (string, string, error) {
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d.diff", s.forgeURL, org, repo, number)
 	result := HTTPGet(ctx, url, s.forgeToken, "token")
 	if result.OK && core.Trim(resultText(result)) != "" {
 		return resultText(result), "forge.pull.diff", nil
 	}
-	return s.pipelineTrainingReadGitDiff(ctx, org, repo, meta)
+	return pipelineTrainingReadGitDiff(s, ctx, org, repo, meta)
 }
 
 // diff, source, err := s.pipelineTrainingReadGitDiff(ctx, "core", "go-io", meta)
-func (s *PrepSubsystem) pipelineTrainingReadGitDiff(ctx context.Context, org, repo string, meta PipelinePRMeta) (string, string, error) {
+var pipelineTrainingReadGitDiff = func(s *PrepSubsystem, ctx context.Context, org, repo string, meta PipelinePRMeta) (string, string, error) {
 	repoDir := s.localRepoDir(org, repo)
 	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
 		return "", "", core.E("pipelineTrainingReadGitDiff", "no local repo checkout and Forge diff endpoint was unavailable", nil)
@@ -190,8 +190,12 @@ func (s *PrepSubsystem) pipelineTrainingReadGitDiff(ctx context.Context, org, re
 	}
 
 	if meta.BaseBranch != "" && meta.HeadBranch != "" {
-		_ = process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.BaseBranch)
-		_ = process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.HeadBranch)
+		if fetchBaseResult := process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.BaseBranch); !fetchBaseResult.OK {
+			core.Warn("pipelineTrainingReadGitDiff: failed to fetch base branch", "repo", repo, "branch", meta.BaseBranch, "reason", fetchBaseResult.Value)
+		}
+		if fetchHeadResult := process.RunIn(ctx, repoDir, "git", "fetch", "origin", meta.HeadBranch); !fetchHeadResult.OK {
+			core.Warn("pipelineTrainingReadGitDiff: failed to fetch head branch", "repo", repo, "branch", meta.HeadBranch, "reason", fetchHeadResult.Value)
+		}
 		diffResult := process.RunIn(ctx, repoDir, "git", "diff", core.Concat("origin/", meta.BaseBranch), core.Concat("origin/", meta.HeadBranch))
 		if diffResult.OK && core.Trim(resultText(diffResult)) != "" {
 			return resultText(diffResult), "git.diff", nil
