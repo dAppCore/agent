@@ -411,11 +411,13 @@ func TestPlatform_FleetEventsTool_Good_ForwardsCapabilities(t *testing.T) {
 	defer server.Close()
 
 	subsystem := testPrepWithPlatformServer(t, server, "secret-token")
-	_, output, err := subsystem.fleetEventsTool(context.Background(), nil, FleetEventsInput{
+	result := subsystem.fleetEventsTool(context.Background(), FleetEventsInput{
 		AgentID:      "charon",
 		Capabilities: []string{"go", "review"},
 	})
-	core.RequireNoError(t, err)
+	core.RequireTrue(t, result.OK)
+	output, ok := result.Value.(FleetEventOutput)
+	core.RequireTrue(t, ok)
 
 	core.AssertEqual(t, "task.assigned", output.Event.Event)
 	core.AssertEqual(t, "charon", output.Event.AgentID)

@@ -217,7 +217,7 @@ func TestShutdown_DispatchStart_Good_Case(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
+	_, out, err := dispatchStart(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "started")
@@ -236,7 +236,7 @@ func TestShutdown_ShutdownGraceful_Good_Case(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownGraceful(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "frozen")
@@ -257,7 +257,7 @@ func TestShutdown_ShutdownNow_Good_EmptyWorkspace(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownNow(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
@@ -289,7 +289,7 @@ func TestShutdown_ShutdownNow_Good_ClearsQueued(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownNow(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
@@ -635,7 +635,7 @@ func TestShutdown_ShutdownNow_Ugly_DeepLayout(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownNow(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "killed all agents, cleared queue")
@@ -654,7 +654,7 @@ func TestShutdown_DispatchStart_Bad_NilPokeCh(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
+	_, out, err := dispatchStart(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "started")
@@ -669,7 +669,7 @@ func TestShutdown_DispatchStart_Ugly_AlreadyUnfrozen(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.dispatchStart(context.Background(), nil, ShutdownInput{})
+	_, out, err := dispatchStart(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertFalse(t, s.frozen, "should remain unfrozen")
@@ -689,7 +689,7 @@ func TestShutdown_ShutdownGraceful_Bad_AlreadyFrozen(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownGraceful(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertTrue(t, s.frozen, "should remain frozen")
@@ -723,7 +723,7 @@ func TestShutdown_ShutdownGraceful_Ugly_WithWorkspaces(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownGraceful(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownGraceful(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "frozen")
@@ -758,7 +758,7 @@ func TestShutdown_ShutdownNow_Bad_NoRunningPIDs(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.shutdownNow(context.Background(), nil, ShutdownInput{})
+	_, out, err := shutdownNow(s, context.Background(), nil, ShutdownInput{})
 	core.RequireNoError(t, err)
 	core.AssertTrue(t, out.Success)
 	core.AssertContains(t, out.Message, "killed all agents, cleared queue")

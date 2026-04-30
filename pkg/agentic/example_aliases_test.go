@@ -2,7 +2,7 @@
 
 package agentic
 
-type ForgeMetaReader = pipelineForgeMetaReader
+type ForgeMetaReader = MetaReader
 type OverrideService = processOverrideService
 type Provider = AgenticProviderInterface
 type ClusterUnion = qaClusterUnion

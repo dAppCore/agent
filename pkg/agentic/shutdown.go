@@ -23,22 +23,28 @@ func (s *PrepSubsystem) registerShutdownTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_start",
 		Description: "Start the dispatch queue runner. Unfreezes the queue and begins draining.",
-	}, s.dispatchStart)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+		return dispatchStart(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown",
 		Description: "Graceful shutdown: stop accepting new jobs, let running agents finish. Queue is frozen.",
-	}, s.shutdownGraceful)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+		return shutdownGraceful(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_shutdown_now",
 		Description: "Hard shutdown: kill all running agents immediately. Queue is cleared.",
-	}, s.shutdownNow)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+		return shutdownNow(s, ctx, request, input)
+	})
 }
 
 // result := c.Action("agentic.dispatch.start").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleDispatchStart(ctx context.Context, _ core.Options) core.Result {
-	_, output, err := s.dispatchStart(ctx, nil, ShutdownInput{})
+	_, output, err := dispatchStart(s, ctx, nil, ShutdownInput{})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -47,7 +53,7 @@ func (s *PrepSubsystem) handleDispatchStart(ctx context.Context, _ core.Options)
 
 // result := c.Action("agentic.dispatch.shutdown").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleDispatchShutdown(ctx context.Context, _ core.Options) core.Result {
-	_, output, err := s.shutdownGraceful(ctx, nil, ShutdownInput{})
+	_, output, err := shutdownGraceful(s, ctx, nil, ShutdownInput{})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -56,14 +62,14 @@ func (s *PrepSubsystem) handleDispatchShutdown(ctx context.Context, _ core.Optio
 
 // result := c.Action("agentic.dispatch.shutdown_now").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleDispatchShutdownNow(ctx context.Context, _ core.Options) core.Result {
-	_, output, err := s.shutdownNow(ctx, nil, ShutdownInput{})
+	_, output, err := shutdownNow(s, ctx, nil, ShutdownInput{})
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+var dispatchStart = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.start").Run(ctx, core.NewOptions())
 	}
@@ -73,7 +79,7 @@ func (s *PrepSubsystem) dispatchStart(ctx context.Context, _ *mcp.CallToolReques
 	}, nil
 }
 
-func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+var shutdownGraceful = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.stop").Run(ctx, core.NewOptions())
 	}
@@ -83,7 +89,7 @@ func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, _ *mcp.CallToolReq
 	}, nil
 }
 
-func (s *PrepSubsystem) shutdownNow(ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
+var shutdownNow = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
 		s.Core().Action("runner.kill").Run(ctx, core.NewOptions())
 	}

@@ -112,7 +112,7 @@ func (s *PrepSubsystem) onWorkspacePushed(ctx context.Context, ev messages.Works
 }
 
 func (s *PrepSubsystem) cmdRepoSyncLocal(options core.Options) core.Result {
-	targets, err := s.repoSyncTargets(options)
+	targets, err := repoSyncTargets(s, options)
 	if err != nil {
 		core.Print(nil, "usage: core-agent repo/sync [--repo=go-io] [--org=core] [--branch=main] [--reset]")
 		return core.Result{Value: err, OK: false}
@@ -164,7 +164,7 @@ func (s *PrepSubsystem) cmdRepoSyncLocal(options core.Options) core.Result {
 func (s *PrepSubsystem) runRepoSync(ctx context.Context, target fetchRepoRef, branch string, reset bool) core.Result {
 	s.registerRepoSyncSupport()
 
-	repoDir, err := s.repoSyncRepoDir(target)
+	repoDir, err := repoSyncRepoDir(s, target)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -172,7 +172,7 @@ func (s *PrepSubsystem) runRepoSync(ctx context.Context, target fetchRepoRef, br
 	fetchBranch := core.Trim(branch)
 	resetBranch := ""
 	if fetchBranch != "" || reset {
-		resetBranch, err = s.repoSyncBranch(repoDir, branch)
+		resetBranch, err = repoSyncBranch(s, repoDir, branch)
 		if err != nil {
 			return core.Result{Value: err, OK: false}
 		}
@@ -210,7 +210,7 @@ func (s *PrepSubsystem) handleRepoSyncFetch(ctx context.Context, options core.Op
 		return core.Result{Value: err, OK: false}
 	}
 
-	repoDir, err := s.repoSyncRepoDir(target)
+	repoDir, err := repoSyncRepoDir(s, target)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -241,12 +241,12 @@ func (s *PrepSubsystem) handleRepoSyncReset(ctx context.Context, options core.Op
 		return core.Result{Value: err, OK: false}
 	}
 
-	repoDir, err := s.repoSyncRepoDir(target)
+	repoDir, err := repoSyncRepoDir(s, target)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
 
-	branch, err := s.repoSyncBranch(repoDir, optionStringValue(options, "branch"))
+	branch, err := repoSyncBranch(s, repoDir, optionStringValue(options, "branch"))
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -274,7 +274,7 @@ func (s *PrepSubsystem) handleRepoSyncReset(ctx context.Context, options core.Op
 	}, OK: true}
 }
 
-func (s *PrepSubsystem) repoSyncTargets(options core.Options) ([]fetchRepoRef, error) {
+var repoSyncTargets = func(s *PrepSubsystem, options core.Options) ([]fetchRepoRef, error) {
 	if repo := optionStringValue(options, "repo", "_arg"); repo != "" {
 		target, err := repoSyncSingleTarget(optionStringValue(options, "org"), repo)
 		if err != nil {
@@ -285,11 +285,11 @@ func (s *PrepSubsystem) repoSyncTargets(options core.Options) ([]fetchRepoRef, e
 	return s.fetchLoopRepoRefs(), nil
 }
 
-func repoSyncTarget(options core.Options) (fetchRepoRef, error) {
+var repoSyncTarget = func(options core.Options) (fetchRepoRef, error) {
 	return repoSyncSingleTarget(optionStringValue(options, "org"), optionStringValue(options, "repo", "_arg"))
 }
 
-func repoSyncSingleTarget(orgValue, repoValue string) (fetchRepoRef, error) {
+var repoSyncSingleTarget = func(orgValue, repoValue string) (fetchRepoRef, error) {
 	org := core.Trim(orgValue)
 	if org == "" {
 		org = "core"
@@ -337,7 +337,7 @@ func repoSyncContext(ctx context.Context) context.Context {
 	return context.Background()
 }
 
-func (s *PrepSubsystem) repoSyncRepoDir(target fetchRepoRef) (string, error) {
+var repoSyncRepoDir = func(s *PrepSubsystem, target fetchRepoRef) (string, error) {
 	if s == nil || s.ServiceRuntime == nil {
 		return "", core.E(repoSyncRepoDirContext, "prep subsystem is not initialised", nil)
 	}
@@ -353,7 +353,7 @@ func (s *PrepSubsystem) repoSyncRepoDir(target fetchRepoRef) (string, error) {
 	return repoDir, nil
 }
 
-func (s *PrepSubsystem) repoSyncBranch(repoDir, branch string) (string, error) {
+var repoSyncBranch = func(s *PrepSubsystem, repoDir, branch string) (string, error) {
 	targetBranch := core.Trim(branch)
 	if targetBranch == "" {
 		targetBranch = s.currentBranch(repoDir)

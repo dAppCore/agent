@@ -16,8 +16,10 @@ func ProcessAlive(c *core.Core, processID string, pid int) bool {
 	}
 
 	if processID != "" {
-		if proc, err := service.Get(processID); err == nil {
-			return proc.IsRunning()
+		if result := service.Get(processID); result.OK {
+			if proc, ok := result.Value.(*process.Process); ok {
+				return proc.IsRunning()
+			}
 		}
 	}
 
@@ -42,7 +44,7 @@ func ProcessTerminate(c *core.Core, processID string, pid int) bool {
 	}
 
 	if processID != "" {
-		if err := service.Kill(processID); err == nil {
+		if result := service.Kill(processID); result.OK {
 			return true
 		}
 	}
@@ -53,7 +55,7 @@ func ProcessTerminate(c *core.Core, processID string, pid int) bool {
 
 	for _, proc := range service.Running() {
 		if proc.Info().PID == pid {
-			return service.Kill(proc.ID) == nil
+			return service.Kill(proc.ID).OK
 		}
 	}
 

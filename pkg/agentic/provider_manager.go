@@ -13,18 +13,20 @@ import (
 // provider := agentic.NewProviderManager(nil).Provider("claude")
 //
 //	core.Println(provider.Name()) // "claude"
-type AgenticProviderInterface interface {
-	Generate(context.Context, string, map[string]any) (string, error)
-	Stream(context.Context, string, map[string]any, func(string)) error
-	Name() string
-	DefaultModel() string
-	IsAvailable() bool
+type AgenticProviderInterface struct {
+	Generate     ProviderGenerateFunc
+	Stream       ProviderStreamFunc
+	Name         func() string
+	DefaultModel func() string
+	IsAvailable  func() bool
+	available    bool
+	stream       ProviderStreamFunc
 }
 
 // manager := agentic.NewProviderManager(nil)
 // core.Println(manager.Names()) // ["claude", "gemini", "openai"]
 type ProviderManager struct {
-	providers map[string]AgenticProviderInterface
+	providers map[string]*AgenticProviderInterface
 }
 
 var providerRetryBaseDelay = 100 * time.Millisecond
@@ -61,7 +63,7 @@ func (s *PrepSubsystem) providerManager() *ProviderManager {
 		if briefID := contentMapStringValue(options, "brief_id", "briefId"); briefID != "" {
 			input.BriefID = briefID
 		}
-		result, err := s.contentGenerateResult(ctx, input)
+		result, err := contentGenerateResult(s, ctx, input)
 		if err != nil {
 			return "", err
 		}
@@ -78,7 +80,7 @@ func (s *PrepSubsystem) providerManager() *ProviderManager {
 // core.Println(manager.Names()) // ["claude", "gemini", "openai"]
 func NewProviderManager(generate ProviderGenerateFunc) *ProviderManager {
 	manager := &ProviderManager{
-		providers: make(map[string]AgenticProviderInterface),
+		providers: make(map[string]*AgenticProviderInterface),
 	}
 
 	manager.Register(newContentProvider("claude", "claude-3.7-sonnet", true, generate))
@@ -98,20 +100,61 @@ type ProviderGenerateFunc func(context.Context, string, map[string]any) (string,
 //	_ = provider.Stream(ctx, "Draft a release note", nil, func(token string) { core.Print(nil, token) })
 type ProviderStreamFunc func(context.Context, string, map[string]any, func(string)) error
 
-type contentProvider struct {
-	name         string
-	defaultModel string
-	available    bool
-	generate     ProviderGenerateFunc
-	stream       ProviderStreamFunc
-}
+func newContentProvider(name, defaultModel string, available bool, generate ProviderGenerateFunc) *AgenticProviderInterface {
+	provider := &AgenticProviderInterface{}
+	provider.available = available
+	provider.Name = func() string {
+		return name
+	}
+	provider.DefaultModel = func() string {
+		return defaultModel
+	}
+	provider.IsAvailable = func() bool {
+		return provider.available
+	}
+	provider.Generate = func(ctx context.Context, prompt string, options map[string]any) (string, error) {
+		if generate == nil {
+			return "", core.E("provider.generate", core.Concat("provider not configured: ", name), nil)
+		}
 
-func newContentProvider(name, defaultModel string, available bool, generate ProviderGenerateFunc) *contentProvider {
-	provider := &contentProvider{
-		name:         name,
-		defaultModel: defaultModel,
-		available:    available,
-		generate:     generate,
+		var lastErr error
+		delay := providerRetryBaseDelay
+		for attempt := 1; attempt <= providerRetryAttempts; attempt++ {
+			optionsCopy := map[string]any{}
+			for key, value := range options {
+				optionsCopy[key] = value
+			}
+			if optionsCopy["provider"] == nil {
+				optionsCopy["provider"] = name
+			}
+			if optionsCopy["model"] == nil && defaultModel != "" {
+				optionsCopy["model"] = defaultModel
+			}
+
+			content, err := generate(ctx, prompt, optionsCopy)
+			if err == nil {
+				return content, nil
+			}
+			lastErr = err
+			if attempt == providerRetryAttempts {
+				break
+			}
+			if ctx != nil {
+				select {
+				case <-ctx.Done():
+					return "", ctx.Err()
+				default:
+				}
+			}
+			if delay > 0 {
+				providerSleep(delay)
+				delay *= 2
+				continue
+			}
+			delay *= 2
+		}
+
+		return "", lastErr
 	}
 	provider.stream = func(ctx context.Context, prompt string, options map[string]any, onToken func(string)) error {
 		content, err := provider.Generate(ctx, prompt, options)
@@ -123,82 +166,24 @@ func newContentProvider(name, defaultModel string, available bool, generate Prov
 		}
 		return nil
 	}
+	provider.Stream = func(ctx context.Context, prompt string, options map[string]any, onToken func(string)) error {
+		if provider.stream == nil {
+			return core.E("provider.stream", core.Concat("provider not configured: ", name), nil)
+		}
+		return provider.stream(ctx, prompt, options, onToken)
+	}
 	return provider
-}
-
-func (p *contentProvider) Generate(ctx context.Context, prompt string, options map[string]any) (string, error) {
-	if p.generate == nil {
-		return "", core.E("provider.generate", core.Concat("provider not configured: ", p.name), nil)
-	}
-
-	var lastErr error
-	delay := providerRetryBaseDelay
-	for attempt := 1; attempt <= providerRetryAttempts; attempt++ {
-		optionsCopy := map[string]any{}
-		for key, value := range options {
-			optionsCopy[key] = value
-		}
-		if optionsCopy["provider"] == nil {
-			optionsCopy["provider"] = p.name
-		}
-		if optionsCopy["model"] == nil && p.defaultModel != "" {
-			optionsCopy["model"] = p.defaultModel
-		}
-
-		content, err := p.generate(ctx, prompt, optionsCopy)
-		if err == nil {
-			return content, nil
-		}
-		lastErr = err
-		if attempt == providerRetryAttempts {
-			break
-		}
-		if ctx != nil {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			default:
-			}
-		}
-		if delay > 0 {
-			providerSleep(delay)
-			delay *= 2
-			continue
-		}
-		delay *= 2
-	}
-
-	return "", lastErr
-}
-
-func (p *contentProvider) Stream(ctx context.Context, prompt string, options map[string]any, onToken func(string)) error {
-	if p.stream == nil {
-		return core.E("provider.stream", core.Concat("provider not configured: ", p.name), nil)
-	}
-	return p.stream(ctx, prompt, options, onToken)
-}
-
-func (p *contentProvider) Name() string {
-	return p.name
-}
-
-func (p *contentProvider) DefaultModel() string {
-	return p.defaultModel
-}
-
-func (p *contentProvider) IsAvailable() bool {
-	return p.available
 }
 
 // Register adds or replaces a provider in the registry.
 //
 //	manager.Register(newContentProvider("claude", "claude-3.7-sonnet", true, generate))
-func (m *ProviderManager) Register(provider AgenticProviderInterface) {
+func (m *ProviderManager) Register(provider *AgenticProviderInterface) {
 	if m == nil || provider == nil {
 		return
 	}
 	if m.providers == nil {
-		m.providers = make(map[string]AgenticProviderInterface)
+		m.providers = make(map[string]*AgenticProviderInterface)
 	}
 	m.providers[core.Lower(core.Trim(provider.Name()))] = provider
 }
@@ -206,7 +191,7 @@ func (m *ProviderManager) Register(provider AgenticProviderInterface) {
 // Provider returns a registered provider by name.
 //
 //	provider, ok := manager.Provider("openai")
-func (m *ProviderManager) Provider(name string) (AgenticProviderInterface, bool) {
+func (m *ProviderManager) Provider(name string) (*AgenticProviderInterface, bool) {
 	if m == nil {
 		return nil, false
 	}
@@ -233,7 +218,7 @@ func (m *ProviderManager) Names() []string {
 // DefaultProvider returns the first registered provider that is available.
 //
 //	provider := manager.DefaultProvider()
-func (m *ProviderManager) DefaultProvider() AgenticProviderInterface {
+func (m *ProviderManager) DefaultProvider() *AgenticProviderInterface {
 	if m == nil {
 		return nil
 	}

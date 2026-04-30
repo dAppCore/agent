@@ -44,7 +44,7 @@ type AgentPhase = Phase
 
 // result := c.Action("phase.get").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "my-plan-abc123"}))
 func (s *PrepSubsystem) handlePhaseGet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.phaseGet(ctx, nil, PhaseGetInput{
+	_, output, err := phaseGet(s, ctx, nil, PhaseGetInput{
 		PlanSlug:   optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder: optionIntValue(options, "phase_order", "phase"),
 	})
@@ -56,7 +56,7 @@ func (s *PrepSubsystem) handlePhaseGet(ctx context.Context, options core.Options
 
 // result := c.Action("phase.update_status").Run(ctx, core.NewOptions(core.Option{Key: "status", Value: "completed"}))
 func (s *PrepSubsystem) handlePhaseUpdateStatus(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.phaseUpdateStatus(ctx, nil, PhaseStatusInput{
+	_, output, err := phaseUpdateStatus(s, ctx, nil, PhaseStatusInput{
 		PlanSlug:   optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder: optionIntValue(options, "phase_order", "phase"),
 		Status:     optionStringValue(options, "status"),
@@ -70,7 +70,7 @@ func (s *PrepSubsystem) handlePhaseUpdateStatus(ctx context.Context, options cor
 
 // result := c.Action("phase.add_checkpoint").Run(ctx, core.NewOptions(core.Option{Key: "note", Value: "Build passes"}))
 func (s *PrepSubsystem) handlePhaseAddCheckpoint(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.phaseAddCheckpoint(ctx, nil, PhaseCheckpointInput{
+	_, output, err := phaseAddCheckpoint(s, ctx, nil, PhaseCheckpointInput{
 		PlanSlug:   optionStringValue(options, "plan_slug", "plan", "slug"),
 		PhaseOrder: optionIntValue(options, "phase_order", "phase"),
 		Note:       optionStringValue(options, "note"),
@@ -86,20 +86,26 @@ func (s *PrepSubsystem) registerPhaseTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_get",
 		Description: "Get a phase by plan slug and phase order.",
-	}, s.phaseGet)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PhaseGetInput) (*mcp.CallToolResult, PhaseOutput, error) {
+		return phaseGet(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_update_status",
 		Description: "Update a phase status by plan slug and phase order.",
-	}, s.phaseUpdateStatus)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PhaseStatusInput) (*mcp.CallToolResult, PhaseOutput, error) {
+		return phaseUpdateStatus(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "phase_add_checkpoint",
 		Description: "Append a checkpoint note to a phase.",
-	}, s.phaseAddCheckpoint)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PhaseCheckpointInput) (*mcp.CallToolResult, PhaseOutput, error) {
+		return phaseAddCheckpoint(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) phaseGet(_ context.Context, _ *mcp.CallToolRequest, input PhaseGetInput) (*mcp.CallToolResult, PhaseOutput, error) {
+var phaseGet = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PhaseGetInput) (*mcp.CallToolResult, PhaseOutput, error) {
 	plan, phaseIndex, err := planPhaseByOrder(PlansRoot(), input.PlanSlug, input.PhaseOrder)
 	if err != nil {
 		return nil, PhaseOutput{}, err
@@ -111,7 +117,7 @@ func (s *PrepSubsystem) phaseGet(_ context.Context, _ *mcp.CallToolRequest, inpu
 	}, nil
 }
 
-func (s *PrepSubsystem) phaseUpdateStatus(_ context.Context, _ *mcp.CallToolRequest, input PhaseStatusInput) (*mcp.CallToolResult, PhaseOutput, error) {
+var phaseUpdateStatus = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PhaseStatusInput) (*mcp.CallToolResult, PhaseOutput, error) {
 	if !validPhaseStatus(input.Status) {
 		return nil, PhaseOutput{}, core.E("phaseUpdateStatus", core.Concat("invalid status: ", input.Status), nil)
 	}
@@ -141,7 +147,7 @@ func (s *PrepSubsystem) phaseUpdateStatus(_ context.Context, _ *mcp.CallToolRequ
 	}, nil
 }
 
-func (s *PrepSubsystem) phaseAddCheckpoint(_ context.Context, _ *mcp.CallToolRequest, input PhaseCheckpointInput) (*mcp.CallToolResult, PhaseOutput, error) {
+var phaseAddCheckpoint = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PhaseCheckpointInput) (*mcp.CallToolResult, PhaseOutput, error) {
 	if core.Trim(input.Note) == "" {
 		return nil, PhaseOutput{}, core.E("phaseAddCheckpoint", "note is required", nil)
 	}
@@ -172,7 +178,7 @@ func (s *PrepSubsystem) phaseAddCheckpoint(_ context.Context, _ *mcp.CallToolReq
 	}, nil
 }
 
-func planPhaseByOrder(dir, planSlug string, phaseOrder int) (*Plan, int, error) {
+var planPhaseByOrder = func(dir, planSlug string, phaseOrder int) (*Plan, int, error) {
 	if core.Trim(planSlug) == "" {
 		return nil, 0, core.E("planPhaseByOrder", "plan_slug is required", nil)
 	}

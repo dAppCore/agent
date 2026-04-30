@@ -36,10 +36,10 @@ func (s *PrepSubsystem) registerMirrorTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_mirror",
 		Description: "Sync Forge repos to GitHub mirrors. Pushes Forge main to GitHub dev branch and creates a PR. Respects file count limits for CodeRabbit review.",
-	}, s.mirror)
+	}, toolHandlerFor[MirrorInput, MirrorOutput]("mirror", "invalid mirror output", s.mirror))
 }
 
-func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, input MirrorInput) (*mcp.CallToolResult, MirrorOutput, error) {
+func (s *PrepSubsystem) mirror(ctx context.Context, input MirrorInput) core.Result {
 	maxFiles := input.MaxFiles
 	if maxFiles <= 0 {
 		maxFiles = 50
@@ -109,26 +109,27 @@ func (s *PrepSubsystem) mirror(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		}
 		sync.Pushed = true
 
-		pullRequestURL, err := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
-		if err != nil {
-			sync.Skipped = core.Sprintf("PR creation failed: %v", err)
+		prResult := s.createGitHubPR(ctx, repoDir, repo, ahead, files)
+		if !prResult.OK {
+			sync.Skipped = core.Sprintf("PR creation failed: %s", prResult.Error())
 		} else {
-			sync.PRURL = pullRequestURL
+			sync.PRURL, _ = prResult.Value.(string)
 		}
 
 		synced = append(synced, sync)
 	}
 
-	return nil, MirrorOutput{
+	return core.Ok(MirrorOutput{
 		Success: true,
 		Synced:  synced,
 		Skipped: skipped,
 		Count:   len(synced),
-	}, nil
+	})
 }
 
-// url, err := s.createGitHubPR(ctx, repoDir, "go-io", 3, 12)
-func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) (string, error) {
+// result := s.createGitHubPR(ctx, repoDir, "go-io", 3, 12)
+// if result.OK { core.Println(result.Value.(string)) }
+func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string, commits, files int) core.Result {
 	ghRepo := core.Sprintf("%s/%s", GitHubOrg(), repo)
 	process := s.Core().Process()
 
@@ -137,7 +138,7 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 		out := r.Value.(string)
 		if core.Contains(out, "url") {
 			if url := extractJSONField(out, "url"); url != "" {
-				return url, nil
+				return core.Ok(url)
 			}
 		}
 	}
@@ -152,15 +153,15 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 		"--repo", ghRepo, "--head", "dev", "--base", "main",
 		"--title", title, "--body", body)
 	if !r.OK {
-		return "", core.E("createGitHubPR", r.Value.(string), nil)
+		return core.Fail(core.E("createGitHubPR", r.Value.(string), nil))
 	}
 
 	prOut := r.Value.(string)
 	lines := core.Split(core.Trim(prOut), "\n")
 	if len(lines) > 0 {
-		return lines[len(lines)-1], nil
+		return core.Ok(lines[len(lines)-1])
 	}
-	return "", nil
+	return core.Ok("")
 }
 
 func (s *PrepSubsystem) ensureDevBranch(repoDir string) {

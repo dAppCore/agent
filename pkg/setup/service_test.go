@@ -128,18 +128,19 @@ func TestService_Service_DetectGitRemote_Good(t *testing.T) {
 	dir := t.TempDir()
 	c := core.New()
 	factory := process.NewService(process.Options{})
-	instance, err := factory(c)
-	core.RequireNoError(t, err)
+	instanceResult := factory(c)
+	core.RequireTrue(t, instanceResult.OK)
+	instance := instanceResult.Value
 	processService, ok := instance.(*process.Service)
 	core.RequireTrue(t, ok)
 	core.RequireTrue(t, c.RegisterService("process", processService).OK)
 	core.RequireTrue(t, c.ServiceStartup(context.Background(), nil).OK)
 	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
-	_, err = processService.RunWithOptions(context.Background(), process.RunOptions{Command: "git", Args: []string{"init"}, Dir: dir})
-	core.RequireNoError(t, err)
-	_, err = processService.RunWithOptions(context.Background(), process.RunOptions{Command: "git", Args: []string{"remote", "add", "origin", "git@forge.lthn.ai:core/agent.git"}, Dir: dir})
-	core.RequireNoError(t, err)
+	runResult := processService.RunWithOptions(context.Background(), process.RunOptions{Command: "git", Args: []string{"init"}, Dir: dir})
+	core.RequireTrue(t, runResult.OK)
+	runResult = processService.RunWithOptions(context.Background(), process.RunOptions{Command: "git", Args: []string{"remote", "add", "origin", "git@forge.lthn.ai:core/agent.git"}, Dir: dir})
+	core.RequireTrue(t, runResult.OK)
 
 	core.AssertEqual(t, "core/agent", service.DetectGitRemote(dir))
 }

@@ -26,7 +26,7 @@ type PlanFromIssueOutput struct {
 
 // result := c.Action("plan.from.issue").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handlePlanFromIssue(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planFromIssue(ctx, nil, PlanFromIssueInput{
+	_, output, err := planFromIssue(s, ctx, nil, PlanFromIssueInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
 	})
@@ -36,7 +36,7 @@ func (s *PrepSubsystem) handlePlanFromIssue(ctx context.Context, options core.Op
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolRequest, input PlanFromIssueInput) (*mcp.CallToolResult, PlanFromIssueOutput, error) {
+var planFromIssue = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PlanFromIssueInput) (*mcp.CallToolResult, PlanFromIssueOutput, error) {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
 		return nil, PlanFromIssueOutput{}, core.E("planFromIssue", "issue slug or id is required", nil)
@@ -74,7 +74,7 @@ func (s *PrepSubsystem) planFromIssue(ctx context.Context, _ *mcp.CallToolReques
 		phaseCriteria = append(phaseCriteria, "Issue labels are preserved in the plan context")
 	}
 
-	_, createOutput, err := s.planCreate(ctx, nil, PlanCreateInput{
+	_, createOutput, err := planCreate(s, ctx, nil, PlanCreateInput{
 		Title:       issueOutput.Issue.Title,
 		Slug:        planFromIssueSlug(issueOutput.Issue.Slug),
 		Objective:   objective,

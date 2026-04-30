@@ -30,7 +30,7 @@ type ScanIssue struct {
 	URL      string   `json:"url"`
 }
 
-func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input ScanInput) (*mcp.CallToolResult, ScanOutput, error) {
+var scan = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ScanInput) (*mcp.CallToolResult, ScanOutput, error) {
 	if s.forgeToken == "" {
 		return nil, ScanOutput{}, core.E("scan", "no Forge token configured", nil)
 	}
@@ -47,14 +47,14 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 
 	var allIssues []ScanIssue
 
-	repos, err := s.listOrgRepos(ctx, input.Org)
+	repos, err := listOrgRepos(s, ctx, input.Org)
 	if err != nil {
 		return nil, ScanOutput{}, err
 	}
 
 	for _, repoName := range repos {
 		for _, label := range input.Labels {
-			issues, err := s.listRepoIssues(ctx, input.Org, repoName, label)
+			issues, err := listRepoIssues(s, ctx, input.Org, repoName, label)
 			if err != nil {
 				continue
 			}
@@ -90,7 +90,7 @@ func (s *PrepSubsystem) scan(ctx context.Context, _ *mcp.CallToolRequest, input 
 	}, nil
 }
 
-func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string, error) {
+var listOrgRepos = func(s *PrepSubsystem, ctx context.Context, org string) ([]string, error) {
 	repos, err := s.forge.Repos.ListOrgRepos(ctx, org)
 	if err != nil {
 		return nil, core.E("scan.listOrgRepos", "failed to list repos", err)
@@ -103,7 +103,7 @@ func (s *PrepSubsystem) listOrgRepos(ctx context.Context, org string) ([]string,
 	return allNames, nil
 }
 
-func (s *PrepSubsystem) listRepoIssues(ctx context.Context, org, repo, label string) ([]ScanIssue, error) {
+var listRepoIssues = func(s *PrepSubsystem, ctx context.Context, org, repo, label string) ([]ScanIssue, error) {
 	requestURL := core.Sprintf("%s/api/v1/repos/%s/%s/issues?state=open&limit=10&type=issues",
 		s.forgeURL, org, repo)
 	if label != "" {

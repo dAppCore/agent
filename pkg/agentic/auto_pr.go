@@ -66,7 +66,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pullRequestURL, _, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, defaultBranch, title, body)
+	pullRequestURL, _, err := forgeCreatePR(s, ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, defaultBranch, title, body)
 	if err != nil {
 		if result := ReadStatusResult(workspaceDir); result.OK {
 			workspaceStatusUpdate, ok := workspaceStatusValue(result)

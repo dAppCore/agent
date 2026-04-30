@@ -44,11 +44,14 @@ func ProcessRegister(c *core.Core) core.Result {
 		service = existing
 	} else {
 		factory := process.NewService(process.Options{})
-		instance, err := factory(c)
-		if err != nil {
-			return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", err), OK: false}
+		instanceResult := factory(c)
+		if !instanceResult.OK {
+			if err, ok := instanceResult.Value.(error); ok {
+				return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", err), OK: false}
+			}
+			return core.Result{Value: core.E("agentic.ProcessRegister", "create process service", nil), OK: false}
 		}
-		created, ok := instance.(*process.Service)
+		created, ok := instanceResult.Value.(*process.Service)
 		if !ok {
 			return core.Result{Value: core.E("agentic.ProcessRegister", "unexpected process service type", nil), OK: false}
 		}
@@ -119,30 +122,30 @@ func (h *processActionHandlers) registerActions(c *core.Core) {
 }
 
 func (h *processActionHandlers) handleRun(ctx context.Context, options core.Options) core.Result {
-	output, err := h.service.RunWithOptions(ctx, process.RunOptions{
+	outputResult := h.service.RunWithOptions(ctx, process.RunOptions{
 		Command: options.String("command"),
 		Args:    optionStrings(options, "args"),
 		Dir:     options.String("dir"),
 		Env:     optionStrings(options, "env"),
 	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
+	if !outputResult.OK {
+		return outputResult
 	}
-	return core.Result{Value: output, OK: true}
+	return outputResult
 }
 
 func (h *processActionHandlers) handleStart(ctx context.Context, options core.Options) core.Result {
-	proc, err := h.service.StartWithOptions(ctx, process.RunOptions{
+	startResult := h.service.StartWithOptions(ctx, process.RunOptions{
 		Command: options.String("command"),
 		Args:    optionStrings(options, "args"),
 		Dir:     options.String("dir"),
 		Env:     optionStrings(options, "env"),
 		Detach:  options.Bool("detach"),
 	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
+	if !startResult.OK {
+		return startResult
 	}
-	return core.Result{Value: proc, OK: true}
+	return startResult
 }
 
 func (h *processActionHandlers) handleKill(_ context.Context, options core.Options) core.Result {
@@ -150,8 +153,8 @@ func (h *processActionHandlers) handleKill(_ context.Context, options core.Optio
 	if id == "" {
 		return core.Result{Value: core.E("agentic.ProcessRegister", "process id is required", nil), OK: false}
 	}
-	if err := h.service.Kill(id); err != nil {
-		return core.Result{Value: err, OK: false}
+	if result := h.service.Kill(id); !result.OK {
+		return result
 	}
 	return core.Result{OK: true}
 }

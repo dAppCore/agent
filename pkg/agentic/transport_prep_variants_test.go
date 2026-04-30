@@ -192,7 +192,7 @@ func TestServerError_DriveDo_Ugly(t *testing.T) {
 }
 
 func TestInvalidURL_Stream_Send_Bad(t *testing.T) {
-	stream := &httpStream{client: defaultClient, url: "://bad", method: http.MethodPost}
+	stream := &httpStream{Client: defaultClient, URL: "://bad", Method: http.MethodPost}
 	sendErr := stream.Send([]byte(`{"ping":1}`))
 
 	core.AssertError(t, sendErr)
@@ -200,7 +200,7 @@ func TestInvalidURL_Stream_Send_Bad(t *testing.T) {
 }
 
 func TestNilClient_Stream_Send_Ugly(t *testing.T) {
-	stream := &httpStream{url: "http://example.com", method: http.MethodPost}
+	stream := &httpStream{URL: "http://example.com", Method: http.MethodPost}
 	core.AssertPanics(t, func() {
 		_ = stream.Send([]byte(`{"ping":1}`))
 	})
@@ -226,7 +226,7 @@ func TestZeroValue_Stream_Close_Bad(t *testing.T) {
 	err := stream.Close()
 
 	core.RequireNoError(t, err)
-	core.AssertNil(t, stream.client)
+	core.AssertNil(t, stream.Client)
 }
 
 func TestNilReceiver_Stream_Close_Ugly(t *testing.T) {
@@ -569,7 +569,7 @@ func TestRepeated_RegisterHandlers_Ugly(t *testing.T) {
 func TestMissingIssue_ForgeMetaReader_GetIssueState_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetIssueState(context.Background(), "go-io", 77)
 
 	core.AssertError(t, err)
@@ -581,7 +581,7 @@ func TestDefaultState_ForgeMetaReader_GetIssueState_Ugly(t *testing.T) {
 	repo.Issues[8] = &pipelineTestIssue{Number: 8, Title: "Untitled", State: ""}
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	state, err := reader.GetIssueState(context.Background(), "go-io", 8)
 
 	core.RequireNoError(t, err)
@@ -592,7 +592,7 @@ func TestDefaultState_ForgeMetaReader_GetIssueState_Ugly(t *testing.T) {
 func TestMissingPR_ForgeMetaReader_GetPRMeta_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetPRMeta(context.Background(), "go-io", 44)
 
 	core.AssertError(t, err)
@@ -613,7 +613,7 @@ func TestInvalidStatusPayload_ForgeMetaReader_GetPRMeta_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetPRMeta(context.Background(), "go-io", 12)
 
 	core.RequireNoError(t, err)
@@ -624,7 +624,7 @@ func TestInvalidStatusPayload_ForgeMetaReader_GetPRMeta_Ugly(t *testing.T) {
 func TestMissingEpic_ForgeMetaReader_GetEpicMeta_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.AssertError(t, err)
@@ -636,7 +636,7 @@ func TestNoChildren_ForgeMetaReader_GetEpicMeta_Ugly(t *testing.T) {
 	repo.Issues[1] = &pipelineTestIssue{Number: 1, Title: "Epic", State: "open", Body: "plain body"}
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.RequireNoError(t, err)
@@ -651,7 +651,7 @@ func TestMissingComment_ForgeMetaReader_GetCommentReactions_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.AssertError(t, err)
@@ -665,7 +665,7 @@ func TestInvalidPayload_ForgeMetaReader_GetCommentReactions_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.AssertError(t, err)

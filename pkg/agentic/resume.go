@@ -32,30 +32,30 @@ func (s *PrepSubsystem) registerResumeTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_resume",
 		Description: "Resume a blocked agent workspace. Writes ANSWER.md if an answer is provided, then relaunches the agent with instructions to read it and continue.",
-	}, s.resume)
+	}, toolHandlerFor[ResumeInput, ResumeOutput]("resume", "invalid resume output", s.resume))
 }
 
-func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, input ResumeInput) (*mcp.CallToolResult, ResumeOutput, error) {
+func (s *PrepSubsystem) resume(ctx context.Context, input ResumeInput) core.Result {
 	if input.Workspace == "" {
-		return nil, ResumeOutput{}, core.E("resume", "workspace is required", nil)
+		return core.Fail(core.E("resume", "workspace is required", nil))
 	}
 
 	workspaceDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
 	repoDir := WorkspaceRepoDir(workspaceDir)
 
 	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
-		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace not found: ", input.Workspace), nil)
+		return core.Fail(core.E("resume", core.Concat("workspace not found: ", input.Workspace), nil))
 	}
 
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if !ok {
 		err, _ := result.Value.(error)
-		return nil, ResumeOutput{}, core.E("resume", "no status.json in workspace", err)
+		return core.Fail(core.E("resume", "no status.json in workspace", err))
 	}
 
 	if workspaceStatus.Status != "blocked" && workspaceStatus.Status != "failed" && workspaceStatus.Status != "completed" {
-		return nil, ResumeOutput{}, core.E("resume", core.Concat("workspace is ", workspaceStatus.Status, ", not resumable (must be blocked, failed, or completed)"), nil)
+		return core.Fail(core.E("resume", core.Concat("workspace is ", workspaceStatus.Status, ", not resumable (must be blocked, failed, or completed)"), nil))
 	}
 
 	agent := workspaceStatus.Agent
@@ -68,7 +68,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 		content := core.Sprintf("# Answer\n\n%s\n", input.Answer)
 		if writeResult := fs.Write(answerPath, content); !writeResult.OK {
 			err, _ := writeResult.Value.(error)
-			return nil, ResumeOutput{}, core.E("resume", "failed to write ANSWER.md", err)
+			return core.Fail(core.E("resume", "failed to write ANSWER.md", err))
 		}
 	}
 
@@ -79,17 +79,17 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	prompt = core.Concat(prompt, "\n\nContinue working. Read BLOCKED.md to see what you were stuck on. Commit when done.")
 
 	if input.DryRun {
-		return nil, ResumeOutput{
+		return core.Ok(ResumeOutput{
 			Success:   true,
 			Workspace: input.Workspace,
 			Agent:     agent,
 			Prompt:    prompt,
-		}, nil
+		})
 	}
 
-	pid, processID, _, err := s.spawnAgent(agent, prompt, workspaceDir)
+	pid, processID, _, err := spawnAgent(s, agent, prompt, workspaceDir)
 	if err != nil {
-		return nil, ResumeOutput{}, err
+		return core.Fail(err)
 	}
 
 	workspaceStatus.Status = "running"
@@ -99,11 +99,11 @@ func (s *PrepSubsystem) resume(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	workspaceStatus.Question = ""
 	writeStatusResult(workspaceDir, workspaceStatus)
 
-	return nil, ResumeOutput{
+	return core.Ok(ResumeOutput{
 		Success:    true,
 		Workspace:  input.Workspace,
 		Agent:      agent,
 		PID:        pid,
 		OutputFile: agentOutputFile(workspaceDir, agent),
-	}, nil
+	})
 }

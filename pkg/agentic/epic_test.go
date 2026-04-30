@@ -292,7 +292,7 @@ func TestEpic_CreateEpic_Bad_NoTitle(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Tasks: []string{"Task 1"},
 	})
@@ -304,7 +304,7 @@ func TestEpic_CreateEpic_Bad_NoTasks(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Epic Title",
 	})
@@ -320,7 +320,7 @@ func TestEpic_CreateEpic_Bad_NoToken(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, _, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, _, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Epic",
 		Tasks: []string{"Task"},
@@ -333,7 +333,7 @@ func TestEpic_CreateEpic_Good_WithTasks(t *testing.T) {
 	srv, counter := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Test Epic",
 		Tasks: []string{"Task 1", "Task 2"},
@@ -352,7 +352,7 @@ func TestEpic_CreateEpic_Good_WithLabels(t *testing.T) {
 	srv, _ := mockForgeServer(t)
 	s := newTestSubsystem(t, srv)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:   "test-repo",
 		Title:  "Labelled Epic",
 		Tasks:  []string{"Do it"},
@@ -367,7 +367,7 @@ func TestEpic_CreateEpic_Good_AgenticLabelAutoAdded(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	// No labels specified — "agentic" should be auto-added
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: "Auto-labelled",
 		Tasks: []string{"Task"},
@@ -381,7 +381,7 @@ func TestEpic_CreateEpic_Good_AgenticLabelNotDuplicated(t *testing.T) {
 	s := newTestSubsystem(t, srv)
 
 	// agentic already present — should not be duplicated
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:   "test-repo",
 		Title:  "With agentic",
 		Tasks:  []string{"Task"},
@@ -401,7 +401,7 @@ func TestEpic_CreateEpic_Ugly_Case(t *testing.T) {
 	longTitle := repeatString("Very Long Epic Title ", 50)
 	longBody := repeatString("Detailed description of the epic work to be done. ", 100)
 
-	_, out, err := s.createEpic(context.Background(), nil, EpicInput{
+	_, out, err := createEpic(s, context.Background(), nil, EpicInput{
 		Repo:  "test-repo",
 		Title: longTitle,
 		Body:  longBody,

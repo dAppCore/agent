@@ -132,7 +132,7 @@ func (c *Core) Core() *Core { return c }
 //	if err := c.RunE(); err != nil {
 //	    os.Exit(1)
 //	}
-func (c *Core) RunE() error {
+func (c *Core) RunE() any {
 	defer c.ServiceShutdown(context.Background())
 
 	r := c.ServiceStartup(c.context, nil)
@@ -189,17 +189,17 @@ func (c *Core) QUERYALL(q Query) Result { return c.QueryAll(q) }
 // --- Error+Log ---
 
 // LogError logs an error and returns the Result from ErrorLog.
-func (c *Core) LogError(err error, op, msg string) Result {
+func (c *Core) LogError(err any, op, msg string) Result {
 	return c.log.Error(err, op, msg)
 }
 
 // LogWarn logs a warning and returns the Result from ErrorLog.
-func (c *Core) LogWarn(err error, op, msg string) Result {
+func (c *Core) LogWarn(err any, op, msg string) Result {
 	return c.log.Warn(err, op, msg)
 }
 
 // Must logs and panics if err is not nil.
-func (c *Core) Must(err error, op, msg string) {
+func (c *Core) Must(err any, op, msg string) {
 	c.log.Must(err, op, msg)
 }
 

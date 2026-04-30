@@ -44,10 +44,10 @@ func TestProcessRegister_ProcessRegister_Ugly_PreRegisteredService(t *testing.T)
 
 	c := core.New()
 	factory := process.NewService(process.Options{})
-	instance, err := factory(c)
-	core.RequireNoError(t, err)
+	instanceResult := factory(c)
+	core.RequireTrue(t, instanceResult.OK)
 
-	service, ok := instance.(*process.Service)
+	service, ok := instanceResult.Value.(*process.Service)
 	core.RequireTrue(t, ok)
 	core.RequireTrue(t, c.RegisterService("process", service).OK)
 

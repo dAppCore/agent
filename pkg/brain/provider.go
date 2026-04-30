@@ -202,7 +202,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 
 	var input RememberInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (p *BrainProvider) remember(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -240,7 +240,7 @@ func (p *BrainProvider) recall(c *gin.Context) {
 
 	var input RecallInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (p *BrainProvider) recall(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -275,7 +275,7 @@ func (p *BrainProvider) forget(c *gin.Context) {
 
 	var input ForgetInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		p.respondInvalidInput(c, err)
+		respondInvalidInput(p, c, err)
 		return
 	}
 
@@ -287,7 +287,7 @@ func (p *BrainProvider) forget(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -328,7 +328,7 @@ func (p *BrainProvider) list(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		p.respondBridgeError(c, err)
+		respondBridgeError(p, c, err)
 		return
 	}
 
@@ -352,11 +352,11 @@ func (p *BrainProvider) respondBridgeUnavailable(c *gin.Context) {
 	c.JSON(statusServiceUnavailable, api.Fail("bridge_unavailable", "brain bridge not available"))
 }
 
-func (p *BrainProvider) respondInvalidInput(c *gin.Context, err error) {
+var respondInvalidInput = func(p *BrainProvider, c *gin.Context, err error) {
 	c.JSON(statusBadRequest, api.Fail("invalid_input", err.Error()))
 }
 
-func (p *BrainProvider) respondBridgeError(c *gin.Context, err error) {
+var respondBridgeError = func(p *BrainProvider, c *gin.Context, err error) {
 	c.JSON(statusInternalServerError, api.Fail("bridge_error", err.Error()))
 }
 
@@ -364,10 +364,10 @@ func (p *BrainProvider) emitEvent(channel string, data any) {
 	if p.hub == nil {
 		return
 	}
-	if err := p.hub.SendToChannel(channel, ws.Message{
+	if result := p.hub.SendToChannel(channel, ws.Message{
 		Type: ws.TypeEvent,
 		Data: data,
-	}); err != nil {
-		core.Warn("brain.emitEvent: failed to broadcast event", "channel", channel, "reason", err)
+	}); !result.OK {
+		core.Warn("brain.emitEvent: failed to broadcast event", "channel", channel, "reason", result.Value)
 	}
 }

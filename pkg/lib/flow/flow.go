@@ -46,7 +46,7 @@ type Step struct {
 // the parsed Flow and a wrapped error on decode/validation failure.
 //
 //	flow, err := flow.Parse(bytes.NewBufferString(yamlSrc))
-func Parse(reader io.Reader) (Flow, error) {
+var Parse = func(reader io.Reader) (Flow, error) {
 	if reader == nil {
 		return Flow{}, core.E("flow.Parse", "reader is nil", nil)
 	}
@@ -73,7 +73,7 @@ func Parse(reader io.Reader) (Flow, error) {
 // call. Returns a wrapped error on read failure or invalid YAML.
 //
 //	flow, err := flow.ParseFile(".core/flows/build.yaml")
-func ParseFile(path string) (Flow, error) {
+var ParseFile = func(path string) (Flow, error) {
 	readResult := fs.Read(path)
 	if !readResult.OK {
 		if err, ok := readResult.Value.(error); ok {
@@ -96,7 +96,7 @@ func ParseFile(path string) (Flow, error) {
 // when the name is missing or no candidate matches.
 //
 //	flow, err := flow.LoadEmbedded("upgrade")
-func LoadEmbedded(name string) (Flow, error) {
+var LoadEmbedded = func(name string) (Flow, error) {
 	name = normaliseEmbeddedName(name)
 	if name == "" {
 		return Flow{}, core.E("flow.LoadEmbedded", "name is required", nil)
@@ -126,7 +126,7 @@ func LoadEmbedded(name string) (Flow, error) {
 	return Flow{}, core.E("flow.LoadEmbedded", core.Concat("embedded flow not found: ", name), nil)
 }
 
-func validate(definition Flow) error {
+var validate = func(definition Flow) error {
 	for index, step := range definition.Steps {
 		if core.Trim(step.Cmd) != "" {
 			continue

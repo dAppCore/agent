@@ -26,8 +26,9 @@ func TestState_HandleStateSet_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "general", output.State.Type)
 	core.AssertEqual(t, "Shared across sessions", output.State.Description)
 
-	states, err := readPlanStates("ax-follow-up")
-	core.RequireNoError(t, err)
+	stateResult := readPlanStates("ax-follow-up")
+	core.RequireTrue(t, stateResult.OK)
+	states := stateResult.Value.([]WorkspaceState)
 	core.AssertLen(t, states, 1)
 	core.AssertEqual(t, "observer", anyMapValue(states[0].Value)["name"])
 	core.AssertEqual(t, "general", states[0].Type)
@@ -58,20 +59,21 @@ func TestState_HandleStateSet_Ugly_Upsert(t *testing.T) {
 	))
 	core.RequireTrue(t, second.OK)
 
-	states, err := readPlanStates("ax-follow-up")
-	core.RequireNoError(t, err)
+	stateResult := readPlanStates("ax-follow-up")
+	core.RequireTrue(t, stateResult.OK)
+	states := stateResult.Value.([]WorkspaceState)
 	core.AssertLen(t, states, 1)
 	core.AssertEqual(t, "pipeline", stringValue(states[0].Value))
 }
 
 func TestState_HandleStateGet_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	core.RequireNoError(t, writePlanStates("ax-follow-up", []WorkspaceState{{
+	core.RequireTrue(t, writePlanStates("ax-follow-up", []WorkspaceState{{
 		Key:         "pattern",
 		Value:       "observer",
 		Type:        "general",
 		Description: "Shared across sessions",
-	}}))
+	}}).OK)
 
 	result := subsystem.handleStateGet(context.Background(), core.NewOptions(
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
@@ -108,10 +110,10 @@ func TestState_HandleStateGet_Ugly_CorruptStateFile(t *testing.T) {
 
 func TestState_HandleStateList_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	core.RequireNoError(t, writePlanStates("ax-follow-up", []WorkspaceState{
+	core.RequireTrue(t, writePlanStates("ax-follow-up", []WorkspaceState{
 		{Key: "pattern", Value: "observer", Type: "general"},
 		{Key: "risk", Value: "auth", Type: "security"},
-	}))
+	}).OK)
 
 	result := subsystem.handleStateList(context.Background(), core.NewOptions(
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
@@ -146,10 +148,10 @@ func TestState_HandleStateList_Ugly_CorruptStateFile(t *testing.T) {
 
 func TestState_HandleStateDelete_Good_Case(t *testing.T) {
 	subsystem := testPrepWithPlatformServer(t, nil, "")
-	core.RequireNoError(t, writePlanStates("ax-follow-up", []WorkspaceState{
+	core.RequireTrue(t, writePlanStates("ax-follow-up", []WorkspaceState{
 		{Key: "pattern", Value: "observer", Type: "general", Description: "Shared across sessions"},
 		{Key: "risk", Value: "auth", Type: "security"},
-	}))
+	}).OK)
 
 	result := subsystem.handleStateDelete(context.Background(), core.NewOptions(
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
@@ -163,8 +165,9 @@ func TestState_HandleStateDelete_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "general", output.Deleted.Type)
 	core.AssertEqual(t, "Shared across sessions", output.Deleted.Description)
 
-	states, err := readPlanStates("ax-follow-up")
-	core.RequireNoError(t, err)
+	stateResult := readPlanStates("ax-follow-up")
+	core.RequireTrue(t, stateResult.OK)
+	states := stateResult.Value.([]WorkspaceState)
 	core.AssertLen(t, states, 1)
 	core.AssertEqual(t, "risk", states[0].Key)
 

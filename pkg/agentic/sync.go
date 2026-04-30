@@ -104,7 +104,7 @@ func (s *PrepSubsystem) runSyncFlushLoop(ctx context.Context, interval time.Dura
 
 // result := c.Action("agentic.sync.push").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options) core.Result {
-	output, err := s.syncPushInput(ctx, SyncPushInput{
+	output, err := syncPushInput(s, ctx, SyncPushInput{
 		AgentID:     optionStringValue(options, "agent_id", "agent-id", "_arg"),
 		FleetNodeID: optionIntValue(options, "fleet_node_id", "fleet-node-id"),
 		Dispatches:  optionAnyMapSliceValue(options, "dispatches"),
@@ -117,7 +117,7 @@ func (s *PrepSubsystem) handleSyncPush(ctx context.Context, options core.Options
 
 // result := c.Action("agentic.sync.pull").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) handleSyncPull(ctx context.Context, options core.Options) core.Result {
-	output, err := s.syncPullInput(ctx, SyncPullInput{
+	output, err := syncPullInput(s, ctx, SyncPullInput{
 		AgentID:     optionStringValue(options, "agent_id", "agent-id", "_arg"),
 		FleetNodeID: optionIntValue(options, "fleet_node_id", "fleet-node-id"),
 		Since:       optionStringValue(options, "since"),
@@ -128,11 +128,11 @@ func (s *PrepSubsystem) handleSyncPull(ctx context.Context, options core.Options
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) syncPush(ctx context.Context, agentID string) (SyncPushOutput, error) {
-	return s.syncPushInput(ctx, SyncPushInput{AgentID: agentID})
+var syncPush = func(s *PrepSubsystem, ctx context.Context, agentID string) (SyncPushOutput, error) {
+	return syncPushInput(s, ctx, SyncPushInput{AgentID: agentID})
 }
 
-func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) (SyncPushOutput, error) {
+var syncPushInput = func(s *PrepSubsystem, ctx context.Context, input SyncPushInput) (SyncPushOutput, error) {
 	agentID := input.AgentID
 	if agentID == "" {
 		agentID = AgentName()
@@ -157,11 +157,11 @@ func (s *PrepSubsystem) syncPushInput(ctx context.Context, input SyncPushInput) 
 	return SyncPushOutput{Success: true, Count: synced}, nil
 }
 
-func (s *PrepSubsystem) syncPull(ctx context.Context, agentID string) (SyncPullOutput, error) {
-	return s.syncPullInput(ctx, SyncPullInput{AgentID: agentID})
+var syncPull = func(s *PrepSubsystem, ctx context.Context, agentID string) (SyncPullOutput, error) {
+	return syncPullInput(s, ctx, SyncPullInput{AgentID: agentID})
 }
 
-func (s *PrepSubsystem) syncPullInput(ctx context.Context, input SyncPullInput) (SyncPullOutput, error) {
+var syncPullInput = func(s *PrepSubsystem, ctx context.Context, input SyncPullInput) (SyncPullOutput, error) {
 	agentID := input.AgentID
 	if agentID == "" {
 		agentID = AgentName()
@@ -347,7 +347,7 @@ func shouldSyncStatus(status string) bool {
 	return false
 }
 
-func (s *PrepSubsystem) postSyncPush(ctx context.Context, agentID string, dispatches []map[string]any, token string) error {
+var postSyncPush = func(s *PrepSubsystem, ctx context.Context, agentID string, dispatches []map[string]any, token string) error {
 	payload := map[string]any{
 		"agent_id":   agentID,
 		"dispatches": dispatches,

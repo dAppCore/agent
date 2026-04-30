@@ -114,7 +114,7 @@ func TestStreamRoundTrip_RegisterHTTPTransport_Ugly(t *testing.T) {
 }
 
 func TestTransport_Stream_Send_Bad(t *testing.T) {
-	stream := &httpStream{client: defaultClient, url: "://bad", method: http.MethodPost}
+	stream := &httpStream{Client: defaultClient, URL: "://bad", Method: http.MethodPost}
 	sendErr := stream.Send([]byte(`{"ping":1}`))
 
 	core.AssertError(t, sendErr)
@@ -122,7 +122,7 @@ func TestTransport_Stream_Send_Bad(t *testing.T) {
 }
 
 func TestTransport_Stream_Send_Ugly(t *testing.T) {
-	stream := &httpStream{url: "http://example.com", method: http.MethodPost}
+	stream := &httpStream{URL: "http://example.com", Method: http.MethodPost}
 	core.AssertPanics(t, func() {
 		_ = stream.Send([]byte(`{"ping":1}`))
 	})
@@ -148,7 +148,7 @@ func TestTransport_Stream_Close_Bad(t *testing.T) {
 	err := stream.Close()
 
 	core.RequireNoError(t, err)
-	core.AssertNil(t, stream.client)
+	core.AssertNil(t, stream.Client)
 }
 
 func TestTransport_Stream_Close_Ugly(t *testing.T) {
@@ -416,14 +416,14 @@ func TestTransport_Stream_Send_Good(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	stream := &httpStream{client: defaultClient, url: srv.URL, token: "send-token", method: http.MethodPost}
+	stream := &httpStream{Client: defaultClient, URL: srv.URL, Token: "send-token", Method: http.MethodPost}
 	sendErr := stream.Send([]byte(`{"ping":1}`))
 	core.RequireNoError(t, sendErr)
-	core.AssertEqual(t, `{"pong":1}`, string(stream.response))
+	core.AssertEqual(t, `{"pong":1}`, string(stream.Response))
 }
 
 func TestTransport_Stream_Receive_Good(t *testing.T) {
-	stream := &httpStream{response: []byte(`{"cached":true}`)}
+	stream := &httpStream{Response: []byte(`{"cached":true}`)}
 	response, err := stream.Receive()
 
 	core.RequireNoError(t, err)
@@ -435,7 +435,7 @@ func TestTransport_Stream_Close_Good(t *testing.T) {
 	err := stream.Close()
 
 	core.RequireNoError(t, err)
-	core.AssertNil(t, stream.response)
+	core.AssertNil(t, stream.Response)
 }
 
 func TestTransport_HTTPPost_Good(t *testing.T) {

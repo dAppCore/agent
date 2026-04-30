@@ -8,6 +8,7 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
+	agentcompat "dappco.re/go/agent/pkg/agentcompat"
 	"gopkg.in/yaml.v3"
 )
 
@@ -45,32 +46,7 @@ type RateConfig struct {
 //
 // nested := runner.ConcurrencyLimit{}
 // _ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &nested)
-type ConcurrencyLimit struct {
-	Total  int
-	Models map[string]int
-}
-
-// var limit ConcurrencyLimit
-// _ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &limit)
-func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
-	var n int
-	if err := value.Decode(&n); err == nil {
-		c.Total = n
-		return nil
-	}
-	var m map[string]int
-	if err := value.Decode(&m); err != nil {
-		return err
-	}
-	c.Total = m["total"]
-	c.Models = make(map[string]int)
-	for k, v := range m {
-		if k != "total" {
-			c.Models[k] = v
-		}
-	}
-	return nil
-}
+type ConcurrencyLimit = agentcompat.ConcurrencyLimit
 
 // identity := runner.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch"}}
 type AgentIdentity struct {

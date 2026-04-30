@@ -469,7 +469,7 @@ func (s *PrepSubsystem) cmdPRClose(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRClose", "repo and number are required", nil), OK: false}
 	}
 
-	_, output, err := s.closePR(ctx, nil, ClosePRInput{
+	_, output, err := closePR(s, ctx, nil, ClosePRInput{
 		Org:    org,
 		Repo:   repo,
 		Number: int(num),
@@ -651,7 +651,7 @@ func (s *PrepSubsystem) cmdBranchDelete(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdBranchDelete", "repo and branch are required", nil), OK: false}
 	}
 
-	_, output, err := s.deleteBranch(ctx, nil, DeleteBranchInput{
+	_, output, err := deleteBranch(s, ctx, nil, DeleteBranchInput{
 		Org:    org,
 		Repo:   repo,
 		Branch: branch,

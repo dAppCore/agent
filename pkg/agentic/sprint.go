@@ -92,47 +92,35 @@ type SprintArchiveOutput struct {
 
 // result := c.Action("sprint.create").Run(ctx, core.NewOptions(core.Option{Key: "title", Value: "AX Follow-up"}))
 func (s *PrepSubsystem) handleSprintCreate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.sprintCreate(ctx, nil, SprintCreateInput{
+	return typedResultValue[SprintOutput]("sprint.create", "invalid sprint create output", s.sprintCreate(ctx, SprintCreateInput{
 		Title:     optionStringValue(options, "title"),
 		Goal:      optionStringValue(options, "goal"),
 		Status:    optionStringValue(options, "status"),
 		Metadata:  optionAnyMapValue(options, "metadata"),
 		StartedAt: optionStringValue(options, "started_at", "started-at"),
 		EndedAt:   optionStringValue(options, "ended_at", "ended-at"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("sprint.get").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintGet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.sprintGet(ctx, nil, SprintGetInput{
+	return typedResultValue[SprintOutput]("sprint.get", "invalid sprint get output", s.sprintGet(ctx, SprintGetInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("sprint.list").Run(ctx, core.NewOptions(core.Option{Key: "status", Value: "active"}))
 func (s *PrepSubsystem) handleSprintList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.sprintList(ctx, nil, SprintListInput{
+	return typedResultValue[SprintListOutput]("sprint.list", "invalid sprint list output", s.sprintList(ctx, SprintListInput{
 		Status: optionStringValue(options, "status"),
 		Limit:  optionIntValue(options, "limit"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("sprint.update").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintUpdate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.sprintUpdate(ctx, nil, SprintUpdateInput{
+	return typedResultValue[SprintOutput]("sprint.update", "invalid sprint update output", s.sprintUpdate(ctx, SprintUpdateInput{
 		ID:        optionStringValue(options, "id", "_arg"),
 		Slug:      optionStringValue(options, "slug"),
 		Title:     optionStringValue(options, "title"),
@@ -141,85 +129,77 @@ func (s *PrepSubsystem) handleSprintUpdate(ctx context.Context, options core.Opt
 		Metadata:  optionAnyMapValue(options, "metadata"),
 		StartedAt: optionStringValue(options, "started_at", "started-at"),
 		EndedAt:   optionStringValue(options, "ended_at", "ended-at"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("sprint.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleSprintArchive(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.sprintArchive(ctx, nil, SprintArchiveInput{
+	return typedResultValue[SprintArchiveOutput]("sprint.archive", "invalid sprint archive output", s.sprintArchive(ctx, SprintArchiveInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 func (s *PrepSubsystem) registerSprintTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
-	}, s.sprintCreate)
+	}, toolHandlerFor[SprintCreateInput, SprintOutput]("sprint.create", "invalid sprint create output", s.sprintCreate))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_create",
 		Description: "Create a tracked platform sprint with goal, schedule, and metadata.",
-	}, s.sprintCreate)
+	}, toolHandlerFor[SprintCreateInput, SprintOutput]("sprint.create", "invalid sprint create output", s.sprintCreate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
-	}, s.sprintGet)
+	}, toolHandlerFor[SprintGetInput, SprintOutput]("sprint.get", "invalid sprint get output", s.sprintGet))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_get",
 		Description: "Read a tracked platform sprint by slug.",
-	}, s.sprintGet)
+	}, toolHandlerFor[SprintGetInput, SprintOutput]("sprint.get", "invalid sprint get output", s.sprintGet))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
-	}, s.sprintList)
+	}, toolHandlerFor[SprintListInput, SprintListOutput]("sprint.list", "invalid sprint list output", s.sprintList))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_list",
 		Description: "List tracked platform sprints with optional status and limit filters.",
-	}, s.sprintList)
+	}, toolHandlerFor[SprintListInput, SprintListOutput]("sprint.list", "invalid sprint list output", s.sprintList))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
-	}, s.sprintUpdate)
+	}, toolHandlerFor[SprintUpdateInput, SprintOutput]("sprint.update", "invalid sprint update output", s.sprintUpdate))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_update",
 		Description: "Update fields on a tracked platform sprint by slug.",
-	}, s.sprintUpdate)
+	}, toolHandlerFor[SprintUpdateInput, SprintOutput]("sprint.update", "invalid sprint update output", s.sprintUpdate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_start",
 		Description: "Start a tracked platform sprint by slug or ID.",
-	}, s.sprintStart)
+	}, toolHandlerFor[SprintTransitionInput, SprintOutput]("sprint.start", "invalid sprint start output", s.sprintStart))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_complete",
 		Description: "Complete a tracked platform sprint by slug or ID.",
-	}, s.sprintComplete)
+	}, toolHandlerFor[SprintTransitionInput, SprintOutput]("sprint.complete", "invalid sprint complete output", s.sprintComplete))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
-	}, s.sprintArchive)
+	}, toolHandlerFor[SprintArchiveInput, SprintArchiveOutput]("sprint.archive", "invalid sprint archive output", s.sprintArchive))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sprint_archive",
 		Description: "Archive a tracked platform sprint by slug.",
-	}, s.sprintArchive)
+	}, toolHandlerFor[SprintArchiveInput, SprintArchiveOutput]("sprint.archive", "invalid sprint archive output", s.sprintArchive))
 }
 
-func (s *PrepSubsystem) sprintCreate(ctx context.Context, _ *mcp.CallToolRequest, input SprintCreateInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintCreate(ctx context.Context, input SprintCreateInput) core.Result {
 	if input.Title == "" {
-		return nil, SprintOutput{}, core.E("sprintCreate", "title is required", nil)
+		return core.Fail(core.E("sprintCreate", "title is required", nil))
 	}
 
 	body := map[string]any{
@@ -243,33 +223,33 @@ func (s *PrepSubsystem) sprintCreate(ctx context.Context, _ *mcp.CallToolRequest
 
 	result := s.platformPayload(ctx, "sprint.create", "POST", "/v1/sprints", body)
 	if !result.OK {
-		return nil, SprintOutput{}, resultErrorValue("sprint.create", result)
+		return failureResult("sprint.create", "request failed", result)
 	}
 
-	return nil, SprintOutput{
+	return core.Ok(SprintOutput{
 		Success: true,
 		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) sprintGet(ctx context.Context, _ *mcp.CallToolRequest, input SprintGetInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintGet(ctx context.Context, input SprintGetInput) core.Result {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, SprintOutput{}, core.E("sprintGet", "id or slug is required", nil)
+		return core.Fail(core.E("sprintGet", "id or slug is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "sprint.get", "GET", core.Concat("/v1/sprints/", identifier), nil)
 	if !result.OK {
-		return nil, SprintOutput{}, resultErrorValue("sprint.get", result)
+		return failureResult("sprint.get", "request failed", result)
 	}
 
-	return nil, SprintOutput{
+	return core.Ok(SprintOutput{
 		Success: true,
 		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) sprintList(ctx context.Context, _ *mcp.CallToolRequest, input SprintListInput) (*mcp.CallToolResult, SprintListOutput, error) {
+func (s *PrepSubsystem) sprintList(ctx context.Context, input SprintListInput) core.Result {
 	path := "/v1/sprints"
 	path = appendQueryParam(path, "status", input.Status)
 	if input.Limit > 0 {
@@ -278,16 +258,16 @@ func (s *PrepSubsystem) sprintList(ctx context.Context, _ *mcp.CallToolRequest, 
 
 	result := s.platformPayload(ctx, "sprint.list", "GET", path, nil)
 	if !result.OK {
-		return nil, SprintListOutput{}, resultErrorValue("sprint.list", result)
+		return failureResult("sprint.list", "request failed", result)
 	}
 
-	return nil, parseSprintListOutput(result.Value.(map[string]any)), nil
+	return core.Ok(parseSprintListOutput(result.Value.(map[string]any)))
 }
 
-func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest, input SprintUpdateInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintUpdate(ctx context.Context, input SprintUpdateInput) core.Result {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, SprintOutput{}, core.E("sprintUpdate", "id or slug is required", nil)
+		return core.Fail(core.E("sprintUpdate", "id or slug is required", nil))
 	}
 
 	body := map[string]any{}
@@ -310,37 +290,37 @@ func (s *PrepSubsystem) sprintUpdate(ctx context.Context, _ *mcp.CallToolRequest
 		body["ended_at"] = input.EndedAt
 	}
 	if len(body) == 0 {
-		return nil, SprintOutput{}, core.E("sprintUpdate", "at least one field is required", nil)
+		return core.Fail(core.E("sprintUpdate", "at least one field is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "sprint.update", "PATCH", core.Concat("/v1/sprints/", identifier), body)
 	if !result.OK {
-		return nil, SprintOutput{}, resultErrorValue("sprint.update", result)
+		return failureResult("sprint.update", "request failed", result)
 	}
 
-	return nil, SprintOutput{
+	return core.Ok(SprintOutput{
 		Success: true,
 		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) sprintStart(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintStart(ctx context.Context, input SprintTransitionInput) core.Result {
 	return s.sprintTransition(ctx, "sprint.start", "start", input)
 }
 
-func (s *PrepSubsystem) sprintComplete(ctx context.Context, _ *mcp.CallToolRequest, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintComplete(ctx context.Context, input SprintTransitionInput) core.Result {
 	return s.sprintTransition(ctx, "sprint.complete", "complete", input)
 }
 
-func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolRequest, input SprintArchiveInput) (*mcp.CallToolResult, SprintArchiveOutput, error) {
+func (s *PrepSubsystem) sprintArchive(ctx context.Context, input SprintArchiveInput) core.Result {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, SprintArchiveOutput{}, core.E("sprintArchive", "id or slug is required", nil)
+		return core.Fail(core.E("sprintArchive", "id or slug is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "sprint.archive", "DELETE", core.Concat("/v1/sprints/", identifier), nil)
 	if !result.OK {
-		return nil, SprintArchiveOutput{}, resultErrorValue("sprint.archive", result)
+		return failureResult("sprint.archive", "request failed", result)
 	}
 
 	output := SprintArchiveOutput{
@@ -355,24 +335,24 @@ func (s *PrepSubsystem) sprintArchive(ctx context.Context, _ *mcp.CallToolReques
 			output.Success = value
 		}
 	}
-	return nil, output, nil
+	return core.Ok(output)
 }
 
-func (s *PrepSubsystem) sprintTransition(ctx context.Context, action, transition string, input SprintTransitionInput) (*mcp.CallToolResult, SprintOutput, error) {
+func (s *PrepSubsystem) sprintTransition(ctx context.Context, action, transition string, input SprintTransitionInput) core.Result {
 	identifier := sprintIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, SprintOutput{}, core.E("sprintTransition", "id or slug is required", nil)
+		return core.Fail(core.E("sprintTransition", "id or slug is required", nil))
 	}
 
 	result := s.platformPayload(ctx, action, "POST", core.Concat("/v1/sprints/", identifier, "/", transition), nil)
 	if !result.OK {
-		return nil, SprintOutput{}, resultErrorValue(action, result)
+		return failureResult(action, "request failed", result)
 	}
 
-	return nil, SprintOutput{
+	return core.Ok(SprintOutput{
 		Success: true,
 		Sprint:  parseSprint(payloadResourceMap(result.Value.(map[string]any), "sprint")),
-	}, nil
+	})
 }
 
 func sprintIdentifier(values ...string) string {

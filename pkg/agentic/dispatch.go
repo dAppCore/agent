@@ -51,7 +51,9 @@ func (s *PrepSubsystem) registerDispatchTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch",
 		Description: "Dispatch a subagent (Gemini, Codex, or Claude) to work on a task. Preps a sandboxed workspace first, then spawns the agent inside it. Templates: conventions, security, coding.",
-	}, s.dispatch)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
+		return dispatch(s, ctx, request, input)
+	})
 }
 
 // isNativeAgent returns true for agents that run directly on the host (no Docker).
@@ -69,7 +71,7 @@ func isNativeAgent(agent string) bool {
 }
 
 // command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
-func agentCommand(agent, prompt string) (string, []string, error) {
+var agentCommand = func(agent, prompt string) (string, []string, error) {
 	commandResult := agentCommandResult(agent, prompt)
 	if !commandResult.OK {
 		err, _ := commandResult.Value.(error)
@@ -257,7 +259,7 @@ func runtimeAvailable(name string) bool {
 		return false
 	}
 	program := process.Program{Name: containerRuntimeBinary(name)}
-	return program.Find() == nil
+	return program.Find().OK
 }
 
 // resolveContainerRuntime returns the concrete runtime identifier for the
@@ -671,7 +673,7 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 }
 
 // pid, processID, outputFile, err := s.spawnAgent(agent, prompt, workspaceDir)
-func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, string, string, error) {
+var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int, string, string, error) {
 	command, args, err := agentCommand(agent, prompt)
 	if err != nil {
 		return 0, "", "", err
@@ -705,9 +707,16 @@ func (s *PrepSubsystem) spawnAgent(agent, prompt, workspaceDir string) (int, str
 		runDir = WorkspaceRepoDir(workspaceDir)
 	}
 
-	proc, err := procSvc.StartWithOptions(context.Background(), dispatchRunOptions(command, args, runDir, s.dispatchTimeout()))
-	if err != nil {
-		return 0, "", "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
+	startResult := procSvc.StartWithOptions(context.Background(), dispatchRunOptions(command, args, runDir, s.dispatchTimeout()))
+	if !startResult.OK {
+		if err, ok := startResult.Value.(error); ok {
+			return 0, "", "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), err)
+		}
+		return 0, "", "", core.E("dispatch.spawnAgent", core.Concat("failed to spawn ", agent), nil)
+	}
+	proc, ok := startResult.Value.(*process.Process)
+	if !ok || proc == nil {
+		return 0, "", "", core.E("dispatch.spawnAgent", "unexpected process result", nil)
 	}
 
 	proc.CloseStdin()
@@ -776,7 +785,7 @@ func (s *PrepSubsystem) runQA(workspaceDir string) bool {
 	return s.runQAWithReport(context.Background(), workspaceDir)
 }
 
-func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
+var dispatch = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
 	if input.Repo == "" {
 		return nil, DispatchOutput{}, core.E("dispatch", "repo is required", nil)
 	}
@@ -807,7 +816,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		Variables:    input.Variables,
 		Persona:      input.Persona,
 	}
-	_, prepOut, err := s.prepWorkspace(ctx, callRequest, prepInput)
+	_, prepOut, err := prepWorkspace(s, ctx, callRequest, prepInput)
 	if err != nil {
 		return nil, DispatchOutput{}, core.E("dispatch", "prep workspace failed", err)
 	}
@@ -857,7 +866,7 @@ func (s *PrepSubsystem) dispatch(ctx context.Context, callRequest *mcp.CallToolR
 		}
 	}
 
-	pid, processID, outputFile, err := s.spawnAgent(input.Agent, prompt, workspaceDir)
+	pid, processID, outputFile, err := spawnAgent(s, input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return nil, DispatchOutput{}, err
 	}

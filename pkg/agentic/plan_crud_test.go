@@ -262,10 +262,10 @@ func TestPlan_PlanDelete_Good_Case(t *testing.T) {
 
 	planBeforeDelete, err := readPlan(PlansRoot(), createOut.ID)
 	core.RequireNoError(t, err)
-	core.RequireNoError(t, writePlanStates(planBeforeDelete.Slug, []WorkspaceState{{
+	core.RequireTrue(t, writePlanStates(planBeforeDelete.Slug, []WorkspaceState{{
 		Key:   "pattern",
 		Value: "observer",
-	}}))
+	}}).OK)
 
 	_, delOut, err := s.planDelete(context.Background(), nil, PlanDeleteInput{
 		ID:     createOut.ID,

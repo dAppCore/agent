@@ -10,14 +10,11 @@ import (
 	core "dappco.re/go"
 )
 
-func pipelineExampleReader(serverURL string) *pipelineForgeMetaReader {
-	return &pipelineForgeMetaReader{
-		subsystem: &PrepSubsystem{
-			forgeURL:   serverURL,
-			forgeToken: "test-token",
-		},
-		org: "core",
-	}
+func pipelineExampleReader(serverURL string) *MetaReader {
+	return newPipelineForgeMetaReader(&PrepSubsystem{
+		forgeURL:   serverURL,
+		forgeToken: "test-token",
+	}, "core")
 }
 
 func ExampleForgeMetaReader_GetPRMeta() {

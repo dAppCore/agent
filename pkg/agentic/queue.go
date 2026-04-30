@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go"
+	agentcompat "dappco.re/go/agent/pkg/agentcompat"
 	"gopkg.in/yaml.v3"
 )
 
@@ -50,32 +51,7 @@ type RateConfig struct {
 //	total: 2
 //	gpt-5.4: 1
 //	gpt-5.3-codex-spark: 1
-type ConcurrencyLimit struct {
-	Total  int
-	Models map[string]int
-}
-
-// var limit ConcurrencyLimit
-// _ = yaml.Unmarshal([]byte("total: 2\ngpt-5.4: 1\n"), &limit)
-func (c *ConcurrencyLimit) UnmarshalYAML(value *yaml.Node) error {
-	var n int
-	if err := value.Decode(&n); err == nil {
-		c.Total = n
-		return nil
-	}
-	var m map[string]int
-	if err := value.Decode(&m); err != nil {
-		return err
-	}
-	c.Total = m["total"]
-	c.Models = make(map[string]int)
-	for k, v := range m {
-		if k != "total" {
-			c.Models[k] = v
-		}
-	}
-	return nil
-}
+type ConcurrencyLimit = agentcompat.ConcurrencyLimit
 
 // identity := agentic.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch", "review"}}
 // AgentIdentity represents one entry in the agents.yaml `agents:` block —
@@ -465,7 +441,7 @@ func (s *PrepSubsystem) drainOne() bool {
 
 		prompt := core.Concat("TASK: ", workspaceStatus.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
 
-		pid, processID, _, err := s.spawnAgent(workspaceStatus.Agent, prompt, workspaceDir)
+		pid, processID, _, err := spawnAgent(s, workspaceStatus.Agent, prompt, workspaceDir)
 		if err != nil {
 			continue
 		}

@@ -65,22 +65,30 @@ func (s *DirectSubsystem) RegisterTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in OpenBrain. Types: fact, decision, observation, plan, convention, architecture, research, documentation, service, bug, pattern, context, procedure.",
-	}, s.remember)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+		return remember(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across OpenBrain memories. Returns memories ranked by similarity. Use agent_id 'cladius' for Cladius's memories.",
-	}, s.recall)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+		return recall(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from OpenBrain by ID.",
-	}, s.forget)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+		return forget(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in OpenBrain with optional project, type, agent, and limit filters.",
-	}, s.list)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+		return list(s, ctx, request, input)
+	})
 
 	s.RegisterMessagingTools(svc)
 }
@@ -103,7 +111,7 @@ func (s *DirectSubsystem) apiCall(ctx context.Context, method, path string, body
 	return core.Result{Value: result, OK: true}
 }
 
-func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+var remember = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
 	org := directOrg(input.Org)
 	result := s.apiCall(ctx, "POST", "/v1/brain/remember", map[string]any{
 		"content":    input.Content,
@@ -129,7 +137,7 @@ func (s *DirectSubsystem) remember(ctx context.Context, _ *mcp.CallToolRequest, 
 	}, nil
 }
 
-func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+var recall = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
 	body := map[string]any{
 		"query": input.Query,
 		"top_k": input.TopK,
@@ -169,7 +177,7 @@ func (s *DirectSubsystem) recall(ctx context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+var forget = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
 	result := s.apiCall(ctx, "DELETE", core.Concat("/v1/brain/forget/", input.ID), nil)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -183,7 +191,7 @@ func (s *DirectSubsystem) forget(ctx context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *DirectSubsystem) list(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+var list = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
 	var params []string
 	if org := directOrg(input.Org); org != "" {
 		params = append(params, core.Concat("org=", core.URLEncode(org)))

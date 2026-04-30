@@ -81,18 +81,14 @@ type StateDeleteOutput struct {
 //
 // ))
 func (s *PrepSubsystem) handleStateSet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.stateSet(ctx, nil, StateSetInput{
+	return typedResultValue[StateOutput]("state.set", "invalid state set output", s.stateSet(ctx, StateSetInput{
 		PlanSlug:    optionStringValue(options, "plan_slug", "plan"),
 		Key:         optionStringValue(options, "key"),
 		Value:       optionAnyValue(options, "value"),
 		Type:        optionStringValue(options, "type"),
 		Description: optionStringValue(options, "description"),
 		Category:    optionStringValue(options, "category"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("state.get").Run(ctx, core.NewOptions(
@@ -102,27 +98,19 @@ func (s *PrepSubsystem) handleStateSet(ctx context.Context, options core.Options
 //
 // ))
 func (s *PrepSubsystem) handleStateGet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.stateGet(ctx, nil, StateGetInput{
+	return typedResultValue[StateOutput]("state.get", "invalid state get output", s.stateGet(ctx, StateGetInput{
 		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
 		Key:      optionStringValue(options, "key"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("state.list").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "ax-follow-up"}))
 func (s *PrepSubsystem) handleStateList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.stateList(ctx, nil, StateListInput{
+	return typedResultValue[StateListOutput]("state.list", "invalid state list output", s.stateList(ctx, StateListInput{
 		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
 		Type:     optionStringValue(options, "type"),
 		Category: optionStringValue(options, "category"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("state.delete").Run(ctx, core.NewOptions(
@@ -132,69 +120,66 @@ func (s *PrepSubsystem) handleStateList(ctx context.Context, options core.Option
 //
 // ))
 func (s *PrepSubsystem) handleStateDelete(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.stateDelete(ctx, nil, StateDeleteInput{
+	return typedResultValue[StateDeleteOutput]("state.delete", "invalid state delete output", s.stateDelete(ctx, StateDeleteInput{
 		PlanSlug: optionStringValue(options, "plan_slug", "plan"),
 		Key:      optionStringValue(options, "key"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 func (s *PrepSubsystem) registerStateTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
-	}, s.stateSet)
+	}, toolHandlerFor[StateSetInput, StateOutput]("state.set", "invalid state set output", s.stateSet))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_set",
 		Description: "Set a typed workspace state value for a plan so later sessions can reuse shared context.",
-	}, s.stateSet)
+	}, toolHandlerFor[StateSetInput, StateOutput]("state.set", "invalid state set output", s.stateSet))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_get",
 		Description: "Get a workspace state value for a plan by key.",
-	}, s.stateGet)
+	}, toolHandlerFor[StateGetInput, StateOutput]("state.get", "invalid state get output", s.stateGet))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_get",
 		Description: "Get a workspace state value for a plan by key.",
-	}, s.stateGet)
+	}, toolHandlerFor[StateGetInput, StateOutput]("state.get", "invalid state get output", s.stateGet))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
-	}, s.stateList)
+	}, toolHandlerFor[StateListInput, StateListOutput]("state.list", "invalid state list output", s.stateList))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_list",
 		Description: "List all stored workspace state values for a plan, with optional type or category filtering.",
-	}, s.stateList)
+	}, toolHandlerFor[StateListInput, StateListOutput]("state.list", "invalid state list output", s.stateList))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
-	}, s.stateDelete)
+	}, toolHandlerFor[StateDeleteInput, StateDeleteOutput]("state.delete", "invalid state delete output", s.stateDelete))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_state_delete",
 		Description: "Delete a stored workspace state value for a plan by key.",
-	}, s.stateDelete)
+	}, toolHandlerFor[StateDeleteInput, StateDeleteOutput]("state.delete", "invalid state delete output", s.stateDelete))
 }
 
-func (s *PrepSubsystem) stateSet(_ context.Context, _ *mcp.CallToolRequest, input StateSetInput) (*mcp.CallToolResult, StateOutput, error) {
+func (s *PrepSubsystem) stateSet(_ context.Context, input StateSetInput) core.Result {
 	if input.PlanSlug == "" {
-		return nil, StateOutput{}, core.E("stateSet", "plan_slug is required", nil)
+		return core.Fail(core.E("stateSet", "plan_slug is required", nil))
 	}
 	if input.Key == "" {
-		return nil, StateOutput{}, core.E("stateSet", "key is required", nil)
+		return core.Fail(core.E("stateSet", "key is required", nil))
 	}
 	if input.Value == nil {
-		return nil, StateOutput{}, core.E("stateSet", "value is required", nil)
+		return core.Fail(core.E("stateSet", "value is required", nil))
 	}
 
-	states, err := readPlanStates(input.PlanSlug)
-	if err != nil {
-		return nil, StateOutput{}, err
+	statesResult := readPlanStates(input.PlanSlug)
+	if !statesResult.OK {
+		return statesResult
 	}
+	states, _ := statesResult.Value.([]WorkspaceState)
 
 	now := time.Now().Format(time.RFC3339)
 	stateType := core.Trim(input.Type)
@@ -225,51 +210,54 @@ func (s *PrepSubsystem) stateSet(_ context.Context, _ *mcp.CallToolRequest, inpu
 		states = append(states, state)
 	}
 
-	if err := writePlanStates(input.PlanSlug, states); err != nil {
-		return nil, StateOutput{}, err
+	writeResult := writePlanStates(input.PlanSlug, states)
+	if !writeResult.OK {
+		return writeResult
 	}
 
-	return nil, StateOutput{
+	return core.Ok(StateOutput{
 		Success: true,
 		State:   state,
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) stateGet(_ context.Context, _ *mcp.CallToolRequest, input StateGetInput) (*mcp.CallToolResult, StateOutput, error) {
+func (s *PrepSubsystem) stateGet(_ context.Context, input StateGetInput) core.Result {
 	if input.PlanSlug == "" {
-		return nil, StateOutput{}, core.E("stateGet", "plan_slug is required", nil)
+		return core.Fail(core.E("stateGet", "plan_slug is required", nil))
 	}
 	if input.Key == "" {
-		return nil, StateOutput{}, core.E("stateGet", "key is required", nil)
+		return core.Fail(core.E("stateGet", "key is required", nil))
 	}
 
-	states, err := readPlanStates(input.PlanSlug)
-	if err != nil {
-		return nil, StateOutput{}, err
+	statesResult := readPlanStates(input.PlanSlug)
+	if !statesResult.OK {
+		return statesResult
 	}
+	states, _ := statesResult.Value.([]WorkspaceState)
 
 	for _, state := range states {
 		if state.Key == input.Key {
 			state = normaliseWorkspaceState(state)
-			return nil, StateOutput{
+			return core.Ok(StateOutput{
 				Success: true,
 				State:   state,
-			}, nil
+			})
 		}
 	}
 
-	return nil, StateOutput{}, core.E("stateGet", core.Concat("state not found: ", input.Key), nil)
+	return core.Fail(core.E("stateGet", core.Concat("state not found: ", input.Key), nil))
 }
 
-func (s *PrepSubsystem) stateList(_ context.Context, _ *mcp.CallToolRequest, input StateListInput) (*mcp.CallToolResult, StateListOutput, error) {
+func (s *PrepSubsystem) stateList(_ context.Context, input StateListInput) core.Result {
 	if input.PlanSlug == "" {
-		return nil, StateListOutput{}, core.E("stateList", "plan_slug is required", nil)
+		return core.Fail(core.E("stateList", "plan_slug is required", nil))
 	}
 
-	states, err := readPlanStates(input.PlanSlug)
-	if err != nil {
-		return nil, StateListOutput{}, err
+	statesResult := readPlanStates(input.PlanSlug)
+	if !statesResult.OK {
+		return statesResult
 	}
+	states, _ := statesResult.Value.([]WorkspaceState)
 
 	filtered := make([]WorkspaceState, 0, len(states))
 	for _, state := range states {
@@ -283,25 +271,26 @@ func (s *PrepSubsystem) stateList(_ context.Context, _ *mcp.CallToolRequest, inp
 		filtered = append(filtered, state)
 	}
 
-	return nil, StateListOutput{
+	return core.Ok(StateListOutput{
 		Success: true,
 		Total:   len(filtered),
 		States:  filtered,
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) stateDelete(_ context.Context, _ *mcp.CallToolRequest, input StateDeleteInput) (*mcp.CallToolResult, StateDeleteOutput, error) {
+func (s *PrepSubsystem) stateDelete(_ context.Context, input StateDeleteInput) core.Result {
 	if input.PlanSlug == "" {
-		return nil, StateDeleteOutput{}, core.E("stateDelete", "plan_slug is required", nil)
+		return core.Fail(core.E("stateDelete", "plan_slug is required", nil))
 	}
 	if input.Key == "" {
-		return nil, StateDeleteOutput{}, core.E("stateDelete", "key is required", nil)
+		return core.Fail(core.E("stateDelete", "key is required", nil))
 	}
 
-	states, err := readPlanStates(input.PlanSlug)
-	if err != nil {
-		return nil, StateDeleteOutput{}, err
+	statesResult := readPlanStates(input.PlanSlug)
+	if !statesResult.OK {
+		return statesResult
 	}
+	states, _ := statesResult.Value.([]WorkspaceState)
 
 	filtered := make([]WorkspaceState, 0, len(states))
 	deleted := WorkspaceState{}
@@ -316,23 +305,23 @@ func (s *PrepSubsystem) stateDelete(_ context.Context, _ *mcp.CallToolRequest, i
 	}
 
 	if !found {
-		return nil, StateDeleteOutput{}, core.E("stateDelete", core.Concat("state not found: ", input.Key), nil)
+		return core.Fail(core.E("stateDelete", core.Concat("state not found: ", input.Key), nil))
 	}
 
 	path := statePath(input.PlanSlug)
 	if len(filtered) == 0 {
 		if deleteResult := fs.Delete(path); !deleteResult.OK {
 			err, _ := deleteResult.Value.(error)
-			return nil, StateDeleteOutput{}, core.E("stateDelete", "failed to delete empty state file", err)
+			return core.Fail(core.E("stateDelete", "failed to delete empty state file", err))
 		}
-	} else if err := writePlanStates(input.PlanSlug, filtered); err != nil {
-		return nil, StateDeleteOutput{}, err
+	} else if writeResult := writePlanStates(input.PlanSlug, filtered); !writeResult.OK {
+		return writeResult
 	}
 
-	return nil, StateDeleteOutput{
+	return core.Ok(StateDeleteOutput{
 		Success: true,
 		Deleted: deleted,
-	}, nil
+	})
 }
 
 func stateRoot() string {
@@ -343,45 +332,45 @@ func statePath(planSlug string) string {
 	return core.JoinPath(stateRoot(), core.Concat(pathKey(planSlug), ".json"))
 }
 
-func readPlanStates(planSlug string) ([]WorkspaceState, error) {
+func readPlanStates(planSlug string) core.Result {
 	result := fs.Read(statePath(planSlug))
 	if !result.OK {
 		err, _ := result.Value.(error)
 		if err == nil {
-			return []WorkspaceState{}, nil
+			return core.Ok([]WorkspaceState{})
 		}
 		if core.Contains(err.Error(), "no such file") {
-			return []WorkspaceState{}, nil
+			return core.Ok([]WorkspaceState{})
 		}
-		return nil, core.E("readPlanStates", "failed to read state file", err)
+		return core.Fail(core.E("readPlanStates", "failed to read state file", err))
 	}
 
 	content := core.Trim(result.Value.(string))
 	if content == "" {
-		return []WorkspaceState{}, nil
+		return core.Ok([]WorkspaceState{})
 	}
 
 	var states []WorkspaceState
 	if parseResult := core.JSONUnmarshalString(content, &states); !parseResult.OK {
 		err, _ := parseResult.Value.(error)
-		return nil, core.E("readPlanStates", "failed to parse state file", err)
+		return core.Fail(core.E("readPlanStates", "failed to parse state file", err))
 	}
 
-	return states, nil
+	return core.Ok(states)
 }
 
-func writePlanStates(planSlug string, states []WorkspaceState) error {
+func writePlanStates(planSlug string, states []WorkspaceState) core.Result {
 	if ensureDirResult := fs.EnsureDir(stateRoot()); !ensureDirResult.OK {
 		err, _ := ensureDirResult.Value.(error)
-		return core.E("writePlanStates", "failed to create state directory", err)
+		return core.Fail(core.E("writePlanStates", "failed to create state directory", err))
 	}
 
 	if writeResult := fs.WriteAtomic(statePath(planSlug), core.JSONMarshalString(states)); !writeResult.OK {
 		err, _ := writeResult.Value.(error)
-		return core.E("writePlanStates", "failed to write state file", err)
+		return core.Fail(core.E("writePlanStates", "failed to write state file", err))
 	}
 
-	return nil
+	return core.Ok(nil)
 }
 
 func normaliseWorkspaceState(state WorkspaceState) WorkspaceState {

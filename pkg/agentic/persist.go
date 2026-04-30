@@ -26,7 +26,7 @@ func (s *PrepSubsystem) restorePersistedState(_ context.Context) core.Result {
 
 	s.workspaces = core.NewRegistry[*WorkspaceStatus]()
 	if storeInstance := s.stateStoreInstance(); storeInstance == nil {
-		if err := s.stateStoreErr(); err != nil {
+		if err := stateStoreErr(s); err != nil {
 			core.Warn("agentic.restorePersistedState: state store unavailable", "reason", err)
 		}
 	}
@@ -87,7 +87,7 @@ func (s *PrepSubsystem) flushPersistedState(_ context.Context) core.Result {
 	}
 
 	if storeInstance := s.stateStoreInstance(); storeInstance == nil {
-		if err := s.stateStoreErr(); err != nil {
+		if err := stateStoreErr(s); err != nil {
 			core.Warn("agentic.flushPersistedState: state store unavailable", "reason", err)
 		}
 	}

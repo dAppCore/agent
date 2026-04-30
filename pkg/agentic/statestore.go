@@ -59,7 +59,7 @@ func (s *PrepSubsystem) stateStoreInstance() *store.Store {
 // backend, so callers can decide whether to log or silently fall back.
 //
 // Usage example: `if err := s.stateStoreErr(); err != nil { core.Warn("state store unavailable", "err", err) }`
-func (s *PrepSubsystem) stateStoreErr() error {
+var stateStoreErr = func(s *PrepSubsystem) error {
 	if s == nil {
 		return nil
 	}
@@ -111,7 +111,7 @@ func (s *PrepSubsystem) closeStateStore() {
 // caller falls back to in-memory or file-based state per RFC §15.6.
 //
 // Usage example: `st, err := openStateStore()`
-func openStateStore() (*store.Store, error) {
+var openStateStore = func() (*store.Store, error) {
 	path := stateStorePath()
 	directory := core.PathDir(path)
 	if ensureResult := fs.EnsureDir(directory); !ensureResult.OK {

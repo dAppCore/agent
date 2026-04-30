@@ -38,7 +38,7 @@ type WorkspaceQuery struct {
 	Status string
 }
 
-func writeStatus(workspaceDir string, status *WorkspaceStatus) error {
+var writeStatus = func(workspaceDir string, status *WorkspaceStatus) error {
 	r := writeStatusResult(workspaceDir, status)
 	if !r.OK {
 		err, _ := r.Value.(error)
@@ -94,7 +94,7 @@ func ReadStatusResult(workspaceDir string) core.Result {
 
 // read, err := ReadStatus("/path/to/workspace")
 // if err == nil { core.Println(read.Status) }
-func ReadStatus(workspaceDir string) (*WorkspaceStatus, error) {
+var ReadStatus = func(workspaceDir string) (*WorkspaceStatus, error) {
 	result := ReadStatusResult(workspaceDir)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -150,10 +150,12 @@ func (s *PrepSubsystem) registerStatusTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_status",
 		Description: "List agent workspaces and their status (running, completed, blocked, failed). Supports workspace, status, and limit filters. Shows blocked agents with their questions.",
-	}, s.status)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
+		return status(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) status(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
+var status = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	statusFiles := WorkspaceStatusPaths()
 	var runtime *core.Core
 	if s.ServiceRuntime != nil {

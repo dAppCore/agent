@@ -60,7 +60,9 @@ func (s *PrepSubsystem) registerReviewQueueTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_review_queue",
 		Description: "Process the review queue. Supports coderabbit, codex, or both reviewers, auto-merges clean ones on GitHub, dispatches fix agents for findings, and respects rate limits.",
-	}, s.reviewQueue)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
+		return reviewQueue(s, ctx, request, input)
+	})
 }
 
 // reviewers := reviewQueueReviewers("both")
@@ -89,7 +91,7 @@ func (s *PrepSubsystem) cmdReviewQueue(options core.Options) core.Result {
 		LocalOnly: optionBoolValue(options, "local-only"),
 	}
 
-	_, output, err := s.reviewQueue(ctx, nil, input)
+	_, output, err := reviewQueue(s, ctx, nil, input)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -139,7 +141,7 @@ func (s *PrepSubsystem) runPRManageLoop(ctx context.Context, interval time.Durat
 	}
 }
 
-func (s *PrepSubsystem) reviewQueue(ctx context.Context, _ *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
+var reviewQueue = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ReviewQueueInput) (*mcp.CallToolResult, ReviewQueueOutput, error) {
 	limit := input.Limit
 	if limit <= 0 {
 		limit = 4
@@ -276,7 +278,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 			return result
 		}
 
-		if err := s.pushAndMerge(ctx, repoDir, repo); err != nil {
+		if err := pushAndMerge(s, ctx, repoDir, repo); err != nil {
 			result.Action = core.Concat("push failed: ", err.Error())
 		} else {
 			result.Action = "merged"
@@ -298,7 +300,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 			"Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. Read it, verify each finding against the code, fix what's valid. Run tests. Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
 			result.Findings, truncate(output, 1500))
 
-		if err := s.dispatchFixFromQueue(ctx, repo, task); err != nil {
+		if err := dispatchFixFromQueue(s, ctx, repo, task); err != nil {
 			result.Action = "fix_dispatch_failed"
 			result.Detail = err.Error()
 		} else {
@@ -310,7 +312,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 }
 
 // _ = s.pushAndMerge(ctx, repoDir, "go-io")
-func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) error {
+var pushAndMerge = func(s *PrepSubsystem, ctx context.Context, repoDir, repo string) error {
 	process := s.Core().Process()
 	if r := process.RunIn(ctx, repoDir, "git", "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
 		return core.E("pushAndMerge", core.Concat("push failed: ", r.Value.(string)), nil)
@@ -326,13 +328,13 @@ func (s *PrepSubsystem) pushAndMerge(ctx context.Context, repoDir, repo string) 
 }
 
 // _ = s.dispatchFixFromQueue(ctx, "go-io", task)
-func (s *PrepSubsystem) dispatchFixFromQueue(ctx context.Context, repo, task string) error {
+var dispatchFixFromQueue = func(s *PrepSubsystem, ctx context.Context, repo, task string) error {
 	input := DispatchInput{
 		Repo:  repo,
 		Task:  task,
 		Agent: "claude:opus",
 	}
-	_, out, err := s.dispatch(ctx, nil, input)
+	_, out, err := dispatch(s, ctx, nil, input)
 	if err != nil {
 		return err
 	}

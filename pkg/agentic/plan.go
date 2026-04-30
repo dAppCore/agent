@@ -160,7 +160,7 @@ const planListDefaultLimit = 20
 //
 // ))
 func (s *PrepSubsystem) handlePlanCreate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planCreate(ctx, nil, PlanCreateInput{
+	_, output, err := planCreate(s, ctx, nil, PlanCreateInput{
 		Title:       optionStringValue(options, "title"),
 		Slug:        optionStringValue(options, "slug"),
 		Objective:   optionStringValue(options, "objective"),
@@ -180,7 +180,7 @@ func (s *PrepSubsystem) handlePlanCreate(ctx context.Context, options core.Optio
 
 // result := c.Action("plan.read").Run(ctx, core.NewOptions(core.Option{Key: "id", Value: "id-42-a3f2b1"}))
 func (s *PrepSubsystem) handlePlanRead(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planRead(ctx, nil, PlanReadInput{
+	_, output, err := planRead(s, ctx, nil, PlanReadInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
 	})
@@ -197,7 +197,7 @@ func (s *PrepSubsystem) handlePlanRead(ctx context.Context, options core.Options
 //
 // ))
 func (s *PrepSubsystem) handlePlanUpdate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planUpdate(ctx, nil, PlanUpdateInput{
+	_, output, err := planUpdate(s, ctx, nil, PlanUpdateInput{
 		ID:          optionStringValue(options, "id", "_arg"),
 		Slug:        optionStringValue(options, "slug"),
 		Status:      optionStringValue(options, "status"),
@@ -218,7 +218,7 @@ func (s *PrepSubsystem) handlePlanUpdate(ctx context.Context, options core.Optio
 
 // result := c.Action("plan.delete").Run(ctx, core.NewOptions(core.Option{Key: "id", Value: "id-42-a3f2b1"}))
 func (s *PrepSubsystem) handlePlanDelete(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planDelete(ctx, nil, PlanDeleteInput{
+	_, output, err := planDelete(s, ctx, nil, PlanDeleteInput{
 		ID:     optionStringValue(options, "id", "_arg"),
 		Slug:   optionStringValue(options, "slug"),
 		Reason: optionStringValue(options, "reason"),
@@ -231,7 +231,7 @@ func (s *PrepSubsystem) handlePlanDelete(ctx context.Context, options core.Optio
 
 // result := c.Action("plan.list").Run(ctx, core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
 func (s *PrepSubsystem) handlePlanList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.planList(ctx, nil, PlanListInput{
+	_, output, err := planList(s, ctx, nil, PlanListInput{
 		Status: optionStringValue(options, "status"),
 		Repo:   optionStringValue(options, "repo"),
 		Limit:  optionIntValue(options, "limit"),
@@ -246,100 +246,140 @@ func (s *PrepSubsystem) registerPlanTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_create",
 		Description: "Create an implementation plan. Plans track phased work with acceptance criteria, status lifecycle (draft → ready → in_progress → needs_verification → verified → approved), and per-phase progress.",
-	}, s.planCreate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
+		return planCreate(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_read",
 		Description: "Read an implementation plan by ID. Returns the full plan with all phases, criteria, and status.",
-	}, s.planRead)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
+		return planRead(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_get",
 		Description: "Read an implementation plan by slug with progress details and full phases.",
-	}, s.planGetCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+		return planGetCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_update",
 		Description: "Update an implementation plan. Supports partial updates — only provided fields are changed. Use this to advance status, update phases, or add notes.",
-	}, s.planUpdate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
+		return planUpdate(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_delete",
 		Description: "Delete an implementation plan by ID. Permanently removes the plan file.",
-	}, s.planDelete)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
+		return planDelete(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_list",
 		Description: "List implementation plans. Supports filtering by status (draft, ready, in_progress, etc.) and repo.",
-	}, s.planList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
+		return planList(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_create",
 		Description: "Create a plan using the slug-based compatibility surface described by the platform RFC.",
-	}, s.planCreateCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCompatibilityCreateOutput, error) {
+		return planCreateCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_read",
 		Description: "Read a plan using the legacy plain-name MCP alias.",
-	}, s.planRead)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
+		return planRead(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_get",
 		Description: "Read a plan by slug with progress details and full phases.",
-	}, s.planGetCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+		return planGetCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_list",
 		Description: "List plans using the compatibility surface with slug and progress summaries.",
-	}, s.planListCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanCompatibilityListOutput, error) {
+		return planListCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_check",
 		Description: "Check whether a plan or phase is complete using the compatibility surface.",
-	}, s.planCheck)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanCheckInput) (*mcp.CallToolResult, PlanCheckOutput, error) {
+		return planCheck(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_check",
 		Description: "Check whether a plan or phase is complete using the compatibility surface.",
-	}, s.planCheck)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanCheckInput) (*mcp.CallToolResult, PlanCheckOutput, error) {
+		return planCheck(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_update",
 		Description: "Update a plan using the legacy plain-name MCP alias.",
-	}, s.planUpdate)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
+		return planUpdate(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
-	}, s.planUpdateStatusCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanStatusUpdateInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+		return planUpdateStatusCompat(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_update_status",
 		Description: "Update a plan lifecycle status by slug.",
-	}, s.planUpdateStatusCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanStatusUpdateInput) (*mcp.CallToolResult, PlanCompatibilityGetOutput, error) {
+		return planUpdateStatusCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_delete",
 		Description: "Delete a plan using the legacy plain-name MCP alias.",
-	}, s.planDelete)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
+		return planDelete(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
-	}, s.planArchiveCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {
+		return planArchiveCompat(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_archive",
 		Description: "Archive a plan by slug without deleting the local record.",
-	}, s.planArchiveCompat)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanArchiveOutput, error) {
+		return planArchiveCompat(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "plan_from_issue",
 		Description: "Create an implementation plan from a tracked issue slug or ID.",
-	}, s.planFromIssue)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanFromIssueInput) (*mcp.CallToolResult, PlanFromIssueOutput, error) {
+		return planFromIssue(s, ctx, request, input)
+	})
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_plan_from_issue",
 		Description: "Create an implementation plan from a tracked issue slug or ID.",
-	}, s.planFromIssue)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PlanFromIssueInput) (*mcp.CallToolResult, PlanFromIssueOutput, error) {
+		return planFromIssue(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
+var planCreate = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PlanCreateInput) (*mcp.CallToolResult, PlanCreateOutput, error) {
 	if input.Title == "" {
 		return nil, PlanCreateOutput{}, core.E("planCreate", "title is required", nil)
 	}
@@ -398,7 +438,7 @@ func (s *PrepSubsystem) planCreate(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
+var planRead = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PlanReadInput) (*mcp.CallToolResult, PlanReadOutput, error) {
 	ref := planReference(input.ID, input.Slug)
 	if ref == "" {
 		return nil, PlanReadOutput{}, core.E("planRead", "id is required", nil)
@@ -423,7 +463,7 @@ func (s *PrepSubsystem) planRead(_ context.Context, _ *mcp.CallToolRequest, inpu
 	}, nil
 }
 
-func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
+var planUpdate = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PlanUpdateInput) (*mcp.CallToolResult, PlanUpdateOutput, error) {
 	ref := planReference(input.ID, input.Slug)
 	if ref == "" {
 		return nil, PlanUpdateOutput{}, core.E("planUpdate", "id is required", nil)
@@ -500,7 +540,7 @@ func (s *PrepSubsystem) planUpdate(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
+var planDelete = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PlanDeleteInput) (*mcp.CallToolResult, PlanDeleteOutput, error) {
 	plan, err := deletePlanResult(input, "id is required", "planDelete")
 	if err != nil {
 		return nil, PlanDeleteOutput{}, err
@@ -512,7 +552,7 @@ func (s *PrepSubsystem) planDelete(_ context.Context, _ *mcp.CallToolRequest, in
 	}, nil
 }
 
-func (s *PrepSubsystem) planList(_ context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
+var planList = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, input PlanListInput) (*mcp.CallToolResult, PlanListOutput, error) {
 	dir := PlansRoot()
 	if r := fs.EnsureDir(dir); !r.OK {
 		err, _ := r.Value.(error)
@@ -934,7 +974,7 @@ func readPlanResult(dir, id string) core.Result {
 }
 
 // plan, err := readPlan(PlansRoot(), "plan-id")
-func readPlan(dir, id string) (*Plan, error) {
+var readPlan = func(dir, id string) (*Plan, error) {
 	r := readPlanResult(dir, id)
 	if !r.OK {
 		err, _ := r.Value.(error)
@@ -979,7 +1019,7 @@ func writePlanResult(dir string, plan *Plan) core.Result {
 }
 
 // path, err := writePlan(PlansRoot(), plan)
-func writePlan(dir string, plan *Plan) (string, error) {
+var writePlan = func(dir string, plan *Plan) (string, error) {
 	r := writePlanResult(dir, plan)
 	if !r.OK {
 		err, _ := r.Value.(error)

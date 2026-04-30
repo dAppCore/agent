@@ -72,7 +72,7 @@ func (s *PrepSubsystem) cmdPipelineEpicCreate(options core.Options) core.Result 
 		return core.Result{Value: core.E("agentic.cmdPipelineEpicCreate", "repo is required", nil), OK: false}
 	}
 
-	output, err := s.pipelineEpicCreate(ctx, PipelineEpicCreateInput{
+	output, err := pipelineEpicCreate(s, ctx, PipelineEpicCreateInput{
 		Org:    pipelineOrgValue(options),
 		Repo:   repo,
 		Theme:  optionStringValue(options, "theme"),
@@ -108,7 +108,7 @@ func (s *PrepSubsystem) cmdPipelineEpicRun(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineEpicRun", "repo and epic number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineEpicRun(ctx, PipelineEpicRunInput{
+	output, err := pipelineEpicRun(s, ctx, PipelineEpicRunInput{
 		Org:        org,
 		Repo:       repo,
 		EpicNumber: number,
@@ -144,7 +144,7 @@ func (s *PrepSubsystem) cmdPipelineEpicStatus(options core.Options) core.Result 
 		return core.Result{Value: core.E("agentic.cmdPipelineEpicStatus", "repo and epic number are required", nil), OK: false}
 	}
 
-	reader := &pipelineForgeMetaReader{subsystem: s, org: org}
+	reader := newPipelineForgeMetaReader(s, org)
 	epic, err := reader.GetEpicMeta(ctx, repo, number)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
@@ -181,7 +181,7 @@ func (s *PrepSubsystem) cmdPipelineEpicSync(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineEpicSync", "repo and epic number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineEpicSync(ctx, org, repo, number, optionBoolValue(options, "dry_run", "dry-run"))
+	output, err := pipelineEpicSync(s, ctx, org, repo, number, optionBoolValue(options, "dry_run", "dry-run"))
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -193,7 +193,7 @@ func (s *PrepSubsystem) cmdPipelineEpicSync(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEpicCreateInput) (PipelineEpicCreateOutput, error) {
+var pipelineEpicCreate = func(s *PrepSubsystem, ctx context.Context, input PipelineEpicCreateInput) (PipelineEpicCreateOutput, error) {
 	if input.Repo == "" {
 		return PipelineEpicCreateOutput{}, core.E("pipelineEpicCreate", "repo is required", nil)
 	}
@@ -206,7 +206,7 @@ func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEp
 
 	candidates := input.Candidates
 	if len(candidates) == 0 {
-		issues, err := s.pipelineListIssues(ctx, input.Org, input.Repo, "open")
+		issues, err := pipelineListIssues(s, ctx, input.Org, input.Repo, "open")
 		if err != nil {
 			return PipelineEpicCreateOutput{}, err
 		}
@@ -246,7 +246,7 @@ func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEp
 		groups[theme] = append(groups[theme], candidate)
 	}
 
-	existingIssues, err := s.pipelineListIssues(ctx, input.Org, input.Repo, "open")
+	existingIssues, err := pipelineListIssues(s, ctx, input.Org, input.Repo, "open")
 	if err != nil {
 		return PipelineEpicCreateOutput{}, err
 	}
@@ -265,7 +265,7 @@ func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEp
 	}
 	sort.Strings(groupNames)
 
-	reader := &pipelineForgeMetaReader{subsystem: s, org: input.Org}
+	reader := newPipelineForgeMetaReader(s, input.Org)
 	for _, theme := range groupNames {
 		group := groups[theme]
 		title := pipelineEpicTitle(input.Repo, theme)
@@ -303,18 +303,18 @@ func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEp
 		}
 
 		labelIDs := s.resolveLabelIDs(ctx, input.Org, input.Repo, labels)
-		created, createErr := s.createIssue(ctx, input.Org, input.Repo, title, body, labelIDs)
+		created, createErr := createIssue(s, ctx, input.Org, input.Repo, title, body, labelIDs)
 		if createErr != nil {
 			return PipelineEpicCreateOutput{}, core.E("pipelineEpicCreate", "failed to create epic issue", createErr)
 		}
 
-		branch, branchErr := s.pipelineCreateEpicBranch(ctx, input.Org, input.Repo, created.Number, theme)
+		branch, branchErr := pipelineCreateEpicBranch(s, ctx, input.Org, input.Repo, created.Number, theme)
 		if branchErr != nil {
 			return PipelineEpicCreateOutput{}, branchErr
 		}
 
 		patchedBody := pipelineEpicBody(title, branch, theme, group)
-		if patchErr := s.pipelinePatchIssue(ctx, input.Org, input.Repo, created.Number, map[string]any{"body": patchedBody}); patchErr != nil {
+		if patchErr := pipelinePatchIssue(s, ctx, input.Org, input.Repo, created.Number, map[string]any{"body": patchedBody}); patchErr != nil {
 			return PipelineEpicCreateOutput{}, patchErr
 		}
 
@@ -332,7 +332,7 @@ func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEp
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineEpicRun(ctx context.Context, input PipelineEpicRunInput) (PipelineEpicRunOutput, error) {
+var pipelineEpicRun = func(s *PrepSubsystem, ctx context.Context, input PipelineEpicRunInput) (PipelineEpicRunOutput, error) {
 	if input.Repo == "" || input.EpicNumber <= 0 {
 		return PipelineEpicRunOutput{}, core.E("pipelineEpicRun", "repo and epic number are required", nil)
 	}
@@ -348,7 +348,7 @@ func (s *PrepSubsystem) pipelineEpicRun(ctx context.Context, input PipelineEpicR
 
 	meta := input.Epic
 	if meta == nil {
-		reader := &pipelineForgeMetaReader{subsystem: s, org: input.Org}
+		reader := newPipelineForgeMetaReader(s, input.Org)
 		readMeta, err := reader.GetEpicMeta(ctx, input.Repo, input.EpicNumber)
 		if err != nil {
 			return PipelineEpicRunOutput{}, err
@@ -387,7 +387,7 @@ func (s *PrepSubsystem) pipelineEpicRun(ctx context.Context, input PipelineEpicR
 			s.commentOnIssue(ctx, input.Org, input.Repo, child.Number, core.Sprintf("Target branch: `%s` (epic #%d)", meta.Branch, meta.Number))
 		}
 
-		_, _, err := s.dispatch(ctx, nil, DispatchInput{
+		_, _, err := dispatch(s, ctx, nil, DispatchInput{
 			Org:      input.Org,
 			Repo:     input.Repo,
 			Task:     child.Title,
@@ -407,8 +407,8 @@ func (s *PrepSubsystem) pipelineEpicRun(ctx context.Context, input PipelineEpicR
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineEpicSync(ctx context.Context, org, repo string, number int, dryRun bool) (PipelineEpicSyncOutput, error) {
-	reader := &pipelineForgeMetaReader{subsystem: s, org: org}
+var pipelineEpicSync = func(s *PrepSubsystem, ctx context.Context, org, repo string, number int, dryRun bool) (PipelineEpicSyncOutput, error) {
+	reader := newPipelineForgeMetaReader(s, org)
 	meta, err := reader.GetEpicMeta(ctx, repo, number)
 	if err != nil {
 		return PipelineEpicSyncOutput{}, err
@@ -446,7 +446,7 @@ func (s *PrepSubsystem) pipelineEpicSync(ctx context.Context, org, repo string, 
 	}
 
 	if updated && !dryRun {
-		if err := s.pipelinePatchIssue(ctx, org, repo, number, map[string]any{"body": core.Join("\n", lines...)}); err != nil {
+		if err := pipelinePatchIssue(s, ctx, org, repo, number, map[string]any{"body": core.Join("\n", lines...)}); err != nil {
 			return PipelineEpicSyncOutput{}, err
 		}
 	}
@@ -462,8 +462,8 @@ func (s *PrepSubsystem) pipelineEpicSync(ctx context.Context, org, repo string, 
 	}, nil
 }
 
-func (s *PrepSubsystem) pipelineCreateEpicBranch(ctx context.Context, org, repo string, epicNumber int, theme string) (string, error) {
-	repository, err := s.pipelineGetRepo(ctx, org, repo)
+var pipelineCreateEpicBranch = func(s *PrepSubsystem, ctx context.Context, org, repo string, epicNumber int, theme string) (string, error) {
+	repository, err := pipelineGetRepo(s, ctx, org, repo)
 	if err != nil {
 		return "", err
 	}

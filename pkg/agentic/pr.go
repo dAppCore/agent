@@ -35,7 +35,9 @@ func (s *PrepSubsystem) registerCreatePRTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_create_pr",
 		Description: "Create a pull request from an agent workspace. Pushes the branch to Forge and opens a PR. Links to the source issue if one was tracked.",
-	}, s.createPR)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
+		return createPR(s, ctx, request, input)
+	})
 }
 
 // input := agentic.PRGetInput{Org: "core", Repo: "go-io", Number: 42}
@@ -70,7 +72,7 @@ type PRMergeOutput struct {
 	PR      PRInfo `json:"pr,omitempty"`
 }
 
-func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
+var createPR = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
 	if input.Workspace == "" {
 		return nil, CreatePROutput{}, core.E("createPR", "workspace is required", nil)
 	}
@@ -141,7 +143,7 @@ func (s *PrepSubsystem) createPR(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, CreatePROutput{}, core.E("createPR", core.Concat("git push failed: ", pushResult.Value.(string)), nil)
 	}
 
-	pullRequestURL, pullRequestNumber, err := s.forgeCreatePR(ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
+	pullRequestURL, pullRequestNumber, err := forgeCreatePR(s, ctx, org, workspaceStatus.Repo, workspaceStatus.Branch, base, title, body)
 	if err != nil {
 		return nil, CreatePROutput{}, core.E("createPR", "failed to create PR", err)
 	}
@@ -173,45 +175,61 @@ func (s *PrepSubsystem) registerPRTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
-	}, s.prGet)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PRGetInput) (*mcp.CallToolResult, PRGetOutput, error) {
+		return prGet(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_get",
 		Description: "Read a pull request from Forge by repository and pull request number.",
-	}, s.prGet)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PRGetInput) (*mcp.CallToolResult, PRGetOutput, error) {
+		return prGet(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
-	}, s.prList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+		return prList(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_list",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state.",
-	}, s.prList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+		return prList(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
-	}, s.prMerge)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
+		return prMerge(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_merge",
 		Description: "Merge a pull request on Forge by repository and pull request number.",
-	}, s.prMerge)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
+		return prMerge(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
-	}, s.closePR)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
+		return closePR(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "pr_close",
 		Description: "Close a pull request on Forge by repository and pull request number.",
-	}, s.closePR)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
+		return closePR(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) prGet(ctx context.Context, _ *mcp.CallToolRequest, input PRGetInput) (*mcp.CallToolResult, PRGetOutput, error) {
+var prGet = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PRGetInput) (*mcp.CallToolResult, PRGetOutput, error) {
 	if s.forgeToken == "" {
 		return nil, PRGetOutput{}, core.E("prGet", "no Forge token configured", nil)
 	}
@@ -246,11 +264,11 @@ func (s *PrepSubsystem) prGet(ctx context.Context, _ *mcp.CallToolRequest, input
 	}, nil
 }
 
-func (s *PrepSubsystem) prList(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
-	return s.listPRs(ctx, nil, input)
+var prList = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+	return listPRs(s, ctx, nil, input)
 }
 
-func (s *PrepSubsystem) prMerge(ctx context.Context, _ *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
+var prMerge = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
 	if s.forgeToken == "" {
 		return nil, PRMergeOutput{}, core.E("prMerge", "no Forge token configured", nil)
 	}
@@ -280,7 +298,7 @@ func (s *PrepSubsystem) prMerge(ctx context.Context, _ *mcp.CallToolRequest, inp
 		State:   "merged",
 	}
 
-	if _, prOutput, err := s.prGet(ctx, nil, PRGetInput{Org: org, Repo: input.Repo, Number: input.Number}); err == nil {
+	if _, prOutput, err := prGet(s, ctx, nil, PRGetInput{Org: org, Repo: input.Repo, Number: input.Number}); err == nil {
 		output.PR = prOutput.PR
 	}
 
@@ -303,7 +321,7 @@ func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {
 	return b.String()
 }
 
-func (s *PrepSubsystem) forgeCreatePR(ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
+var forgeCreatePR = func(s *PrepSubsystem, ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
 	var pullRequest pullRequestView
 	err := s.forge.Client().Post(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &forge_types.CreatePullRequestOption{
 		Title: title,
@@ -370,14 +388,18 @@ func (s *PrepSubsystem) registerListPRsTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_list_prs",
 		Description: "List pull requests across Forge repos. Filter by org, repo, and state (open/closed/all).",
-	}, s.listPRs)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+		return listPRs(s, ctx, request, input)
+	})
 }
 
 func (s *PrepSubsystem) registerClosePRTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_close_pr",
 		Description: "Close a pull request on Forge by repository and pull request number.",
-	}, s.closePR)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
+		return closePR(s, ctx, request, input)
+	})
 }
 
 // s.registerDeleteBranchTool(svc)
@@ -385,10 +407,12 @@ func (s *PrepSubsystem) registerDeleteBranchTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_delete_branch",
 		Description: "Delete a branch on the Forge remote. Used after successful merge or close to clean up agent branches.",
-	}, s.deleteBranch)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
+		return deleteBranch(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
+var listPRs = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
 	if s.forgeToken == "" {
 		return nil, ListPRsOutput{}, core.E("listPRs", "no Forge token configured", nil)
 	}
@@ -408,7 +432,7 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 		repositories = []string{input.Repo}
 	} else {
 		var repositoryErr error
-		repositories, repositoryErr = s.listOrgRepos(ctx, input.Org)
+		repositories, repositoryErr = listOrgRepos(s, ctx, input.Org)
 		if repositoryErr != nil {
 			return nil, ListPRsOutput{}, repositoryErr
 		}
@@ -417,7 +441,7 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 	var allPullRequests []PRInfo
 
 	for _, repo := range repositories {
-		prs, err := s.listRepoPRs(ctx, input.Org, repo, input.State)
+		prs, err := listRepoPRs(s, ctx, input.Org, repo, input.State)
 		if err != nil {
 			continue
 		}
@@ -439,7 +463,7 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, _ *mcp.CallToolRequest, inp
 	}, nil
 }
 
-func (s *PrepSubsystem) closePR(ctx context.Context, _ *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
+var closePR = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ClosePRInput) (*mcp.CallToolResult, ClosePROutput, error) {
 	if s.forgeToken == "" {
 		return nil, ClosePROutput{}, core.E("closePR", "no Forge token configured", nil)
 	}
@@ -500,7 +524,7 @@ type DeleteBranchOutput struct {
 }
 
 // s.deleteBranch(ctx, nil, agentic.DeleteBranchInput{Repo: "go-io", Branch: "agent/fix-tests"})
-func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
+var deleteBranch = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input DeleteBranchInput) (*mcp.CallToolResult, DeleteBranchOutput, error) {
 	if input.Repo == "" || input.Branch == "" {
 		return nil, DeleteBranchOutput{}, core.E("deleteBranch", "repo and branch are required", nil)
 	}
@@ -527,7 +551,7 @@ func (s *PrepSubsystem) deleteBranch(ctx context.Context, _ *mcp.CallToolRequest
 	}, nil
 }
 
-func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
+var listRepoPRs = func(s *PrepSubsystem, ctx context.Context, org, repo, state string) ([]PRInfo, error) {
 	var pullRequests []pullRequestView
 	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
 	if err != nil {

@@ -98,138 +98,130 @@ func (s *PrepSubsystem) registerPlatformTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_push",
 		Description: "Push completed dispatch state to the platform API for fleet-wide context sharing.",
-	}, s.syncPushTool)
+	}, toolHandlerFor[SyncPushInput, SyncPushOutput]("agentic.sync.push", "invalid sync push output", s.syncPushTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_pull",
 		Description: "Pull fleet-wide context from the platform API into the local cache.",
-	}, s.syncPullTool)
+	}, toolHandlerFor[SyncPullInput, SyncPullOutput]("agentic.sync.pull", "invalid sync pull output", s.syncPullTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_sync_status",
 		Description: "Read platform sync status for an agent, including queued items and last push/pull times.",
-	}, s.syncStatusTool)
+	}, toolHandlerFor[SyncStatusInput, SyncStatusOutput]("agentic.sync.status", "invalid sync status output", s.syncStatusTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_auth_provision",
 		Description: "Provision a platform API key for an authenticated agent user.",
-	}, s.authProvisionTool)
+	}, toolHandlerFor[AuthProvisionInput, AuthProvisionOutput]("agentic.auth.provision", "invalid auth provision output", s.authProvisionTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_auth_revoke",
 		Description: "Revoke a platform API key by key ID.",
-	}, s.authRevokeTool)
+	}, toolHandlerFor[AuthRevokeInput, AuthRevokeOutput]("agentic.auth.revoke", "invalid auth revoke output", s.authRevokeTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_auth_login",
 		Description: "Exchange a 6-digit pairing code (generated at app.lthn.ai/device) for an AgentApiKey. Bootstraps a fleet node without requiring an existing API key — RFC §9 Fleet Mode.",
-	}, s.authLoginTool)
+	}, toolHandlerFor[AuthLoginInput, AuthLoginOutput]("agentic.auth.login", "invalid auth login output", s.authLoginTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_register",
 		Description: "Register a fleet node with models, capabilities, and platform metadata.",
-	}, s.fleetRegisterTool)
+	}, toolHandlerFor[FleetNode, FleetNode]("agentic.fleet.register", "invalid fleet register output", s.fleetRegisterTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_heartbeat",
 		Description: "Send a fleet heartbeat update with status and optional compute budget.",
-	}, s.fleetHeartbeatTool)
+	}, toolHandlerFor[FleetNode, FleetNode]("agentic.fleet.heartbeat", "invalid fleet heartbeat output", s.fleetHeartbeatTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_deregister",
 		Description: "Deregister a fleet node from the platform API.",
-	}, s.fleetDeregisterTool)
+	}, toolHandlerFor[FleetDeregisterInput, map[string]any]("agentic.fleet.deregister", "invalid fleet deregister output", s.fleetDeregisterTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_nodes",
 		Description: "List registered fleet nodes with optional status and platform filters.",
-	}, s.fleetNodesTool)
+	}, toolHandlerFor[FleetNodesInput, FleetNodesOutput]("agentic.fleet.nodes", "invalid fleet nodes output", s.fleetNodesTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_assign",
 		Description: "Assign a task to a fleet node.",
-	}, s.fleetTaskAssignTool)
+	}, toolHandlerFor[FleetTaskAssignInput, FleetTask]("agentic.fleet.task.assign", "invalid fleet task output", s.fleetTaskAssignTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_complete",
 		Description: "Complete a fleet task and report result, findings, changes, and report data.",
-	}, s.fleetTaskCompleteTool)
+	}, toolHandlerFor[FleetTaskCompleteInput, FleetTask]("agentic.fleet.task.complete", "invalid fleet task output", s.fleetTaskCompleteTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_task_next",
 		Description: "Ask the platform for the next available fleet task for an agent.",
-	}, s.fleetTaskNextTool)
+	}, toolHandlerFor[FleetTaskNextInput, *FleetTask]("agentic.fleet.task.next", "invalid fleet next-task output", s.fleetTaskNextTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_stats",
 		Description: "Read aggregate fleet activity statistics.",
-	}, s.fleetStatsTool)
+	}, toolHandlerFor[struct{}, FleetStats]("agentic.fleet.stats", "invalid fleet stats output", s.fleetStatsTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_fleet_events",
 		Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed.",
-	}, s.fleetEventsTool)
+	}, toolHandlerFor[FleetEventsInput, FleetEventOutput]("agentic.fleet.events", "invalid fleet event output", s.fleetEventsTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_award",
 		Description: "Award credits to a fleet node for completed work.",
-	}, s.creditsAwardTool)
+	}, toolHandlerFor[CreditsAwardInput, CreditEntry]("agentic.credits.award", "invalid credit award output", s.creditsAwardTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_balance",
 		Description: "Read the current credit balance for a fleet node.",
-	}, s.creditsBalanceTool)
+	}, toolHandlerFor[CreditsBalanceInput, CreditBalance]("agentic.credits.balance", "invalid credit balance output", s.creditsBalanceTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_credits_history",
 		Description: "List credit history entries for a fleet node.",
-	}, s.creditsHistoryTool)
+	}, toolHandlerFor[CreditsHistoryInput, CreditsHistoryOutput]("agentic.credits.history", "invalid credit history output", s.creditsHistoryTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_detect",
 		Description: "Detect provider capabilities available to a fleet node.",
-	}, s.subscriptionDetectTool)
+	}, toolHandlerFor[SubscriptionDetectInput, SubscriptionCapabilities]("agentic.subscription.detect", "invalid capability output", s.subscriptionDetectTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_budget",
 		Description: "Read the current compute budget for a fleet node.",
-	}, s.subscriptionBudgetTool)
+	}, toolHandlerFor[SubscriptionBudgetInput, map[string]any]("agentic.subscription.budget", "invalid budget output", s.subscriptionBudgetTool))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_subscription_budget_update",
 		Description: "Update the compute budget limits for a fleet node.",
-	}, s.subscriptionBudgetUpdateTool)
+	}, toolHandlerFor[SubscriptionBudgetUpdateInput, map[string]any]("agentic.subscription.budget.update", "invalid updated budget output", s.subscriptionBudgetUpdateTool))
 }
 
-func (s *PrepSubsystem) syncPushTool(ctx context.Context, _ *mcp.CallToolRequest, input SyncPushInput) (*mcp.CallToolResult, SyncPushOutput, error) {
-	output, err := s.syncPushInput(ctx, input)
+func (s *PrepSubsystem) syncPushTool(ctx context.Context, input SyncPushInput) core.Result {
+	output, err := syncPushInput(s, ctx, input)
 	if err != nil {
-		return nil, SyncPushOutput{}, err
+		return core.Fail(err)
 	}
-	return nil, output, nil
+	return core.Ok(output)
 }
 
-func (s *PrepSubsystem) syncPullTool(ctx context.Context, _ *mcp.CallToolRequest, input SyncPullInput) (*mcp.CallToolResult, SyncPullOutput, error) {
-	output, err := s.syncPullInput(ctx, input)
+func (s *PrepSubsystem) syncPullTool(ctx context.Context, input SyncPullInput) core.Result {
+	output, err := syncPullInput(s, ctx, input)
 	if err != nil {
-		return nil, SyncPullOutput{}, err
+		return core.Fail(err)
 	}
-	return nil, output, nil
+	return core.Ok(output)
 }
 
-func (s *PrepSubsystem) syncStatusTool(ctx context.Context, _ *mcp.CallToolRequest, input SyncStatusInput) (*mcp.CallToolResult, SyncStatusOutput, error) {
-	result := s.handleSyncStatus(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
-	if !result.OK {
-		return nil, SyncStatusOutput{}, resultErrorValue("agentic.sync.status", result)
-	}
-	output, ok := result.Value.(SyncStatusOutput)
-	if !ok {
-		return nil, SyncStatusOutput{}, core.E("agentic.sync.status", "invalid sync status output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) syncStatusTool(ctx context.Context, input SyncStatusInput) core.Result {
+	return typedResultValue[SyncStatusOutput]("agentic.sync.status", "invalid sync status output", s.handleSyncStatus(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID})))
 }
 
-func (s *PrepSubsystem) authProvisionTool(ctx context.Context, _ *mcp.CallToolRequest, input AuthProvisionInput) (*mcp.CallToolResult, AuthProvisionOutput, error) {
+func (s *PrepSubsystem) authProvisionTool(ctx context.Context, input AuthProvisionInput) core.Result {
 	options := platformOptions(
 		core.Option{Key: "oauth_user_id", Value: input.OAuthUserID},
 		core.Option{Key: "name", Value: input.Name},
@@ -238,27 +230,11 @@ func (s *PrepSubsystem) authProvisionTool(ctx context.Context, _ *mcp.CallToolRe
 		core.Option{Key: "rate_limit", Value: input.RateLimit},
 		core.Option{Key: "expires_at", Value: input.ExpiresAt},
 	)
-	result := s.handleAuthProvision(ctx, options)
-	if !result.OK {
-		return nil, AuthProvisionOutput{}, resultErrorValue("agentic.auth.provision", result)
-	}
-	output, ok := result.Value.(AuthProvisionOutput)
-	if !ok {
-		return nil, AuthProvisionOutput{}, core.E("agentic.auth.provision", "invalid auth provision output", nil)
-	}
-	return nil, output, nil
+	return typedResultValue[AuthProvisionOutput]("agentic.auth.provision", "invalid auth provision output", s.handleAuthProvision(ctx, options))
 }
 
-func (s *PrepSubsystem) authRevokeTool(ctx context.Context, _ *mcp.CallToolRequest, input AuthRevokeInput) (*mcp.CallToolResult, AuthRevokeOutput, error) {
-	result := s.handleAuthRevoke(ctx, platformOptions(core.Option{Key: "key_id", Value: input.KeyID}))
-	if !result.OK {
-		return nil, AuthRevokeOutput{}, resultErrorValue("agentic.auth.revoke", result)
-	}
-	output, ok := result.Value.(AuthRevokeOutput)
-	if !ok {
-		return nil, AuthRevokeOutput{}, core.E("agentic.auth.revoke", "invalid auth revoke output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) authRevokeTool(ctx context.Context, input AuthRevokeInput) core.Result {
+	return typedResultValue[AuthRevokeOutput]("agentic.auth.revoke", "invalid auth revoke output", s.handleAuthRevoke(ctx, platformOptions(core.Option{Key: "key_id", Value: input.KeyID})))
 }
 
 // authLoginTool handles the MCP-side of the RFC §9 pairing-code bootstrap.
@@ -273,51 +249,27 @@ func (s *PrepSubsystem) authRevokeTool(ctx context.Context, _ *mcp.CallToolReque
 //	    Name:      "agentic_auth_login",
 //	    Arguments: json.RawMessage(`{"code": "123456"}`),
 //	})
-func (s *PrepSubsystem) authLoginTool(ctx context.Context, _ *mcp.CallToolRequest, input AuthLoginInput) (*mcp.CallToolResult, AuthLoginOutput, error) {
-	result := s.handleAuthLogin(ctx, platformOptions(core.Option{Key: "code", Value: input.Code}))
-	if !result.OK {
-		return nil, AuthLoginOutput{}, resultErrorValue("agentic.auth.login", result)
-	}
-	output, ok := result.Value.(AuthLoginOutput)
-	if !ok {
-		return nil, AuthLoginOutput{}, core.E("agentic.auth.login", "invalid auth login output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) authLoginTool(ctx context.Context, input AuthLoginInput) core.Result {
+	return typedResultValue[AuthLoginOutput]("agentic.auth.login", "invalid auth login output", s.handleAuthLogin(ctx, platformOptions(core.Option{Key: "code", Value: input.Code})))
 }
 
-func (s *PrepSubsystem) fleetRegisterTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetNode) (*mcp.CallToolResult, FleetNode, error) {
+func (s *PrepSubsystem) fleetRegisterTool(ctx context.Context, input FleetNode) core.Result {
 	options := platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "platform", Value: input.Platform},
 		core.Option{Key: "models", Value: input.Models},
 		core.Option{Key: "capabilities", Value: input.Capabilities},
 	)
-	result := s.handleFleetRegister(ctx, options)
-	if !result.OK {
-		return nil, FleetNode{}, resultErrorValue("agentic.fleet.register", result)
-	}
-	output, ok := result.Value.(FleetNode)
-	if !ok {
-		return nil, FleetNode{}, core.E("agentic.fleet.register", "invalid fleet register output", nil)
-	}
-	return nil, output, nil
+	return typedResultValue[FleetNode]("agentic.fleet.register", "invalid fleet register output", s.handleFleetRegister(ctx, options))
 }
 
-func (s *PrepSubsystem) fleetHeartbeatTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetNode) (*mcp.CallToolResult, FleetNode, error) {
+func (s *PrepSubsystem) fleetHeartbeatTool(ctx context.Context, input FleetNode) core.Result {
 	options := platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "status", Value: input.Status},
 		core.Option{Key: "compute_budget", Value: computeBudgetMapValue(input.ComputeBudget)},
 	)
-	result := s.handleFleetHeartbeat(ctx, options)
-	if !result.OK {
-		return nil, FleetNode{}, resultErrorValue("agentic.fleet.heartbeat", result)
-	}
-	output, ok := result.Value.(FleetNode)
-	if !ok {
-		return nil, FleetNode{}, core.E("agentic.fleet.heartbeat", "invalid fleet heartbeat output", nil)
-	}
-	return nil, output, nil
+	return typedResultValue[FleetNode]("agentic.fleet.heartbeat", "invalid fleet heartbeat output", s.handleFleetHeartbeat(ctx, options))
 }
 
 func computeBudgetMapValue(budget *ComputeBudget) map[string]any {
@@ -350,34 +302,18 @@ func computeBudgetMapValue(budget *ComputeBudget) map[string]any {
 	return values
 }
 
-func (s *PrepSubsystem) fleetDeregisterTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetDeregisterInput) (*mcp.CallToolResult, map[string]any, error) {
-	result := s.handleFleetDeregister(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
-	if !result.OK {
-		return nil, nil, resultErrorValue("agentic.fleet.deregister", result)
-	}
-	output, ok := result.Value.(map[string]any)
-	if !ok {
-		return nil, nil, core.E("agentic.fleet.deregister", "invalid fleet deregister output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) fleetDeregisterTool(ctx context.Context, input FleetDeregisterInput) core.Result {
+	return typedResultValue[map[string]any]("agentic.fleet.deregister", "invalid fleet deregister output", s.handleFleetDeregister(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID})))
 }
 
-func (s *PrepSubsystem) fleetNodesTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetNodesInput) (*mcp.CallToolResult, FleetNodesOutput, error) {
-	result := s.handleFleetNodes(ctx, platformOptions(
+func (s *PrepSubsystem) fleetNodesTool(ctx context.Context, input FleetNodesInput) core.Result {
+	return typedResultValue[FleetNodesOutput]("agentic.fleet.nodes", "invalid fleet nodes output", s.handleFleetNodes(ctx, platformOptions(
 		core.Option{Key: "status", Value: input.Status},
 		core.Option{Key: "platform", Value: input.Platform},
-	))
-	if !result.OK {
-		return nil, FleetNodesOutput{}, resultErrorValue("agentic.fleet.nodes", result)
-	}
-	output, ok := result.Value.(FleetNodesOutput)
-	if !ok {
-		return nil, FleetNodesOutput{}, core.E("agentic.fleet.nodes", "invalid fleet nodes output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) fleetTaskAssignTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetTaskAssignInput) (*mcp.CallToolResult, FleetTask, error) {
+func (s *PrepSubsystem) fleetTaskAssignTool(ctx context.Context, input FleetTaskAssignInput) core.Result {
 	options := platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "repo", Value: input.Repo},
@@ -386,160 +322,72 @@ func (s *PrepSubsystem) fleetTaskAssignTool(ctx context.Context, _ *mcp.CallTool
 		core.Option{Key: "template", Value: input.Template},
 		core.Option{Key: "agent_model", Value: input.AgentModel},
 	)
-	result := s.handleFleetAssignTask(ctx, options)
-	if !result.OK {
-		return nil, FleetTask{}, resultErrorValue("agentic.fleet.task.assign", result)
-	}
-	output, ok := result.Value.(FleetTask)
-	if !ok {
-		return nil, FleetTask{}, core.E("agentic.fleet.task.assign", "invalid fleet task output", nil)
-	}
-	return nil, output, nil
+	return typedResultValue[FleetTask]("agentic.fleet.task.assign", "invalid fleet task output", s.handleFleetAssignTask(ctx, options))
 }
 
-func (s *PrepSubsystem) fleetTaskCompleteTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetTaskCompleteInput) (*mcp.CallToolResult, FleetTask, error) {
-	result := s.handleFleetCompleteTask(ctx, platformOptions(
+func (s *PrepSubsystem) fleetTaskCompleteTool(ctx context.Context, input FleetTaskCompleteInput) core.Result {
+	return typedResultValue[FleetTask]("agentic.fleet.task.complete", "invalid fleet task output", s.handleFleetCompleteTask(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "task_id", Value: input.TaskID},
 		core.Option{Key: "result", Value: input.Result},
 		core.Option{Key: "findings", Value: input.Findings},
 		core.Option{Key: "changes", Value: input.Changes},
 		core.Option{Key: "report", Value: input.Report},
-	))
-	if !result.OK {
-		return nil, FleetTask{}, resultErrorValue("agentic.fleet.task.complete", result)
-	}
-	output, ok := result.Value.(FleetTask)
-	if !ok {
-		return nil, FleetTask{}, core.E("agentic.fleet.task.complete", "invalid fleet task output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) fleetTaskNextTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetTaskNextInput) (*mcp.CallToolResult, *FleetTask, error) {
-	result := s.handleFleetNextTask(ctx, platformOptions(
+func (s *PrepSubsystem) fleetTaskNextTool(ctx context.Context, input FleetTaskNextInput) core.Result {
+	return typedResultValue[*FleetTask]("agentic.fleet.task.next", "invalid fleet next-task output", s.handleFleetNextTask(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "capabilities", Value: input.Capabilities},
-	))
-	if !result.OK {
-		return nil, nil, resultErrorValue("agentic.fleet.task.next", result)
-	}
-	output, ok := result.Value.(*FleetTask)
-	if !ok {
-		return nil, nil, core.E("agentic.fleet.task.next", "invalid fleet next-task output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) fleetStatsTool(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, FleetStats, error) {
-	result := s.handleFleetStats(ctx, core.NewOptions())
-	if !result.OK {
-		return nil, FleetStats{}, resultErrorValue("agentic.fleet.stats", result)
-	}
-	output, ok := result.Value.(FleetStats)
-	if !ok {
-		return nil, FleetStats{}, core.E("agentic.fleet.stats", "invalid fleet stats output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) fleetStatsTool(ctx context.Context, _ struct{}) core.Result {
+	return typedResultValue[FleetStats]("agentic.fleet.stats", "invalid fleet stats output", s.handleFleetStats(ctx, core.NewOptions()))
 }
 
-func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, _ *mcp.CallToolRequest, input FleetEventsInput) (*mcp.CallToolResult, FleetEventOutput, error) {
-	result := s.handleFleetEvents(ctx, platformOptions(
+func (s *PrepSubsystem) fleetEventsTool(ctx context.Context, input FleetEventsInput) core.Result {
+	return typedResultValue[FleetEventOutput]("agentic.fleet.events", "invalid fleet event output", s.handleFleetEvents(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "capabilities", Value: input.Capabilities},
-	))
-	if !result.OK {
-		return nil, FleetEventOutput{}, resultErrorValue("agentic.fleet.events", result)
-	}
-	output, ok := result.Value.(FleetEventOutput)
-	if !ok {
-		return nil, FleetEventOutput{}, core.E("agentic.fleet.events", "invalid fleet event output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) creditsAwardTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsAwardInput) (*mcp.CallToolResult, CreditEntry, error) {
-	result := s.handleCreditsAward(ctx, platformOptions(
+func (s *PrepSubsystem) creditsAwardTool(ctx context.Context, input CreditsAwardInput) core.Result {
+	return typedResultValue[CreditEntry]("agentic.credits.award", "invalid credit award output", s.handleCreditsAward(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "task_type", Value: input.TaskType},
 		core.Option{Key: "amount", Value: input.Amount},
 		core.Option{Key: "fleet_node_id", Value: input.FleetNodeID},
 		core.Option{Key: "description", Value: input.Description},
-	))
-	if !result.OK {
-		return nil, CreditEntry{}, resultErrorValue("agentic.credits.award", result)
-	}
-	output, ok := result.Value.(CreditEntry)
-	if !ok {
-		return nil, CreditEntry{}, core.E("agentic.credits.award", "invalid credit award output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) creditsBalanceTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsBalanceInput) (*mcp.CallToolResult, CreditBalance, error) {
-	result := s.handleCreditsBalance(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
-	if !result.OK {
-		return nil, CreditBalance{}, resultErrorValue("agentic.credits.balance", result)
-	}
-	output, ok := result.Value.(CreditBalance)
-	if !ok {
-		return nil, CreditBalance{}, core.E("agentic.credits.balance", "invalid credit balance output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) creditsBalanceTool(ctx context.Context, input CreditsBalanceInput) core.Result {
+	return typedResultValue[CreditBalance]("agentic.credits.balance", "invalid credit balance output", s.handleCreditsBalance(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID})))
 }
 
-func (s *PrepSubsystem) creditsHistoryTool(ctx context.Context, _ *mcp.CallToolRequest, input CreditsHistoryInput) (*mcp.CallToolResult, CreditsHistoryOutput, error) {
-	result := s.handleCreditsHistory(ctx, platformOptions(
+func (s *PrepSubsystem) creditsHistoryTool(ctx context.Context, input CreditsHistoryInput) core.Result {
+	return typedResultValue[CreditsHistoryOutput]("agentic.credits.history", "invalid credit history output", s.handleCreditsHistory(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "limit", Value: input.Limit},
-	))
-	if !result.OK {
-		return nil, CreditsHistoryOutput{}, resultErrorValue("agentic.credits.history", result)
-	}
-	output, ok := result.Value.(CreditsHistoryOutput)
-	if !ok {
-		return nil, CreditsHistoryOutput{}, core.E("agentic.credits.history", "invalid credit history output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
-func (s *PrepSubsystem) subscriptionDetectTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionDetectInput) (*mcp.CallToolResult, SubscriptionCapabilities, error) {
-	result := s.handleSubscriptionDetect(ctx, platformOptions(core.Option{Key: "api_keys", Value: input.APIKeys}))
-	if !result.OK {
-		return nil, SubscriptionCapabilities{}, resultErrorValue("agentic.subscription.detect", result)
-	}
-	output, ok := result.Value.(SubscriptionCapabilities)
-	if !ok {
-		return nil, SubscriptionCapabilities{}, core.E("agentic.subscription.detect", "invalid capability output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) subscriptionDetectTool(ctx context.Context, input SubscriptionDetectInput) core.Result {
+	return typedResultValue[SubscriptionCapabilities]("agentic.subscription.detect", "invalid capability output", s.handleSubscriptionDetect(ctx, platformOptions(core.Option{Key: "api_keys", Value: input.APIKeys})))
 }
 
-func (s *PrepSubsystem) subscriptionBudgetTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionBudgetInput) (*mcp.CallToolResult, map[string]any, error) {
-	result := s.handleSubscriptionBudget(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID}))
-	if !result.OK {
-		return nil, nil, resultErrorValue("agentic.subscription.budget", result)
-	}
-	output, ok := result.Value.(map[string]any)
-	if !ok {
-		return nil, nil, core.E("agentic.subscription.budget", "invalid budget output", nil)
-	}
-	return nil, output, nil
+func (s *PrepSubsystem) subscriptionBudgetTool(ctx context.Context, input SubscriptionBudgetInput) core.Result {
+	return typedResultValue[map[string]any]("agentic.subscription.budget", "invalid budget output", s.handleSubscriptionBudget(ctx, platformOptions(core.Option{Key: "agent_id", Value: input.AgentID})))
 }
 
-func (s *PrepSubsystem) subscriptionBudgetUpdateTool(ctx context.Context, _ *mcp.CallToolRequest, input SubscriptionBudgetUpdateInput) (*mcp.CallToolResult, map[string]any, error) {
-	result := s.handleSubscriptionBudgetUpdate(ctx, platformOptions(
+func (s *PrepSubsystem) subscriptionBudgetUpdateTool(ctx context.Context, input SubscriptionBudgetUpdateInput) core.Result {
+	return typedResultValue[map[string]any]("agentic.subscription.budget.update", "invalid updated budget output", s.handleSubscriptionBudgetUpdate(ctx, platformOptions(
 		core.Option{Key: "agent_id", Value: input.AgentID},
 		core.Option{Key: "limits", Value: input.Limits},
-	))
-	if !result.OK {
-		return nil, nil, resultErrorValue("agentic.subscription.budget.update", result)
-	}
-	output, ok := result.Value.(map[string]any)
-	if !ok {
-		return nil, nil, core.E("agentic.subscription.budget.update", "invalid updated budget output", nil)
-	}
-	return nil, output, nil
+	)))
 }
 
 func platformOptions(options ...core.Option) core.Options {

@@ -50,7 +50,7 @@ func pipelineTrainingExportPath() string {
 }
 
 // _ = ensureParentDir("/tmp/.core/training/journal.jsonl")
-func ensureParentDir(path string) error {
+var ensureParentDir = func(path string) error {
 	if ensureResult := fs.EnsureDir(core.PathDir(path)); !ensureResult.OK {
 		if err, ok := ensureResult.Value.(error); ok {
 			return core.E("agentic.ensureParentDir", "prepare journal directory", err)
@@ -61,7 +61,7 @@ func ensureParentDir(path string) error {
 }
 
 // _ = appendJSONLRecord("/tmp/test.jsonl", map[string]any{"repo": "go-io"})
-func appendJSONLRecord(path string, value any) error {
+var appendJSONLRecord = func(path string, value any) error {
 	if err := ensureParentDir(path); err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func filterZeroFindingTrainingEntries(entries []PipelineTrainingEntry) []Pipelin
 }
 
 // _ = writePipelineTrainingExport("/tmp/.core/training/export.jsonl", entries)
-func writePipelineTrainingExport(path string, entries []PipelineTrainingEntry) error {
+var writePipelineTrainingExport = func(path string, entries []PipelineTrainingEntry) error {
 	if err := ensureParentDir(path); err != nil {
 		return err
 	}

@@ -616,14 +616,16 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prep_workspace",
 		Description: "Prepare an agent workspace: clone repo, create branch, build prompt with context.",
-	}, s.prepWorkspace)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+		return prepWorkspace(s, ctx, request, input)
+	})
 	s.registerDispatchTool(svc)
 	s.registerStatusTool(svc)
 	s.registerResumeTool(svc)
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_complete",
 		Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke) in the background.",
-	}, s.completeTool)
+	}, toolHandlerFor[CompleteInput, CompleteOutput]("agentic.complete", "invalid complete output", s.completeTool))
 	s.registerCommitTool(svc)
 	s.registerCreatePRTool(svc)
 	s.registerListPRsTool(svc)
@@ -638,7 +640,9 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_scan",
 		Description: "Scan Forge repos for open issues with actionable labels (agentic, help-wanted, bug).",
-	}, s.scan)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ScanInput) (*mcp.CallToolResult, ScanOutput, error) {
+		return scan(s, ctx, request, input)
+	})
 
 	// Extended tools — only when CORE_MCP_FULL=1
 	if core.Env("CORE_MCP_FULL") != "1" {
@@ -698,7 +702,7 @@ type PrepOutput struct {
 
 // dir := workspaceDir("core", "go-io", PrepInput{Issue: 15})
 // dir == ".core/workspace/core/go-io/task-15"
-func workspaceDir(org, repo string, input PrepInput) (string, error) {
+var workspaceDir = func(org, repo string, input PrepInput) (string, error) {
 	r := workspaceDirResult(org, repo, input)
 	if !r.OK {
 		err, _ := r.Value.(error)
@@ -742,7 +746,7 @@ func workspaceDirResult(org, repo string, input PrepInput) core.Result {
 	}
 }
 
-func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
 	if input.Repo == "" {
 		return nil, PrepOutput{}, core.E("prepWorkspace", "repo is required", nil)
 	}
@@ -856,10 +860,10 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	if err := s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, input.Org); err != nil {
+	if err := cloneWorkspaceDeps(s, ctx, workspaceDir, repoDir, input.Org); err != nil {
 		return nil, PrepOutput{}, err
 	}
-	if err := s.runWorkspaceLanguagePrep(ctx, workspaceDir, repoDir); err != nil {
+	if err := runWorkspaceLanguagePrep(s, ctx, workspaceDir, repoDir); err != nil {
 		return nil, PrepOutput{}, err
 	}
 
@@ -871,7 +875,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 		}
 	}
 
-	if err := s.copyRepoSpecs(workspaceDir, input.Repo); err != nil {
+	if err := copyRepoSpecs(s, workspaceDir, input.Repo); err != nil {
 		return nil, PrepOutput{}, err
 	}
 
@@ -892,7 +896,7 @@ func (s *PrepSubsystem) prepWorkspace(ctx context.Context, _ *mcp.CallToolReques
 
 // s.copyRepoSpecs("/tmp/workspace", "go-io")   // copies plans/core/go/io/**/RFC*.md → /tmp/workspace/specs/
 // s.copyRepoSpecs("/tmp/workspace", "core-bio") // copies plans/core/php/bio/**/RFC*.md → /tmp/workspace/specs/
-func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
+var copyRepoSpecs = func(s *PrepSubsystem, workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
@@ -952,13 +956,13 @@ func (s *PrepSubsystem) copyRepoSpecs(workspaceDir, repo string) error {
 }
 
 // _, out, err := prep.PrepareWorkspace(ctx, input)
-func (s *PrepSubsystem) PrepareWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-	return s.prepWorkspace(ctx, nil, input)
+var PrepareWorkspace = func(s *PrepSubsystem, ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return prepWorkspace(s, ctx, nil, input)
 }
 
 // _, out, err := prep.TestPrepWorkspace(ctx, input)
-func (s *PrepSubsystem) TestPrepWorkspace(ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
-	return s.prepWorkspace(ctx, nil, input)
+var TestPrepWorkspace = func(s *PrepSubsystem, ctx context.Context, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	return prepWorkspace(s, ctx, nil, input)
 }
 
 // prompt, memories, consumers := prep.BuildPrompt(ctx, input, "dev", repoPath)
@@ -1048,7 +1052,7 @@ func (s *PrepSubsystem) buildPrompt(ctx context.Context, input PrepInput, branch
 
 // ensureWorkspaceTaskFile("/srv/.core/workspace/core/go-io/task-42")
 // keeps TODO.md present for the prompt and the local agent shell wrapper.
-func ensureWorkspaceTaskFile(workspaceDir string) error {
+var ensureWorkspaceTaskFile = func(workspaceDir string) error {
 	if workspaceDir == "" {
 		return core.E("prepWorkspace", "workspace dir is required", nil)
 	}
@@ -1124,7 +1128,7 @@ func writePromptSnapshot(workspaceDir, prompt string) core.Result {
 }
 
 // snapshot := readPromptSnapshot("/srv/.core/workspace/core/go-io/task-42")
-func readPromptSnapshot(workspaceDir string) (PromptVersionSnapshot, error) {
+var readPromptSnapshot = func(workspaceDir string) (PromptVersionSnapshot, error) {
 	if workspaceDir == "" {
 		return PromptVersionSnapshot{}, core.E("readPromptSnapshot", "workspace is required", nil)
 	}
@@ -1160,7 +1164,7 @@ func promptSnapshotHash(prompt string) string {
 }
 
 // _ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
-func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceDir, repoDir string) error {
+var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
 	goEnv := []string{

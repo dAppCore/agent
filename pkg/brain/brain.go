@@ -49,6 +49,6 @@ func (s *Subsystem) RegisterTools(svc *coremcp.Service) {
 }
 
 // _ = subsystem.Shutdown(context.Background())
-func (s *Subsystem) Shutdown(_ context.Context) error {
+var Shutdown = func(_ *Subsystem, _ context.Context) error {
 	return nil
 }

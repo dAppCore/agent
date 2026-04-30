@@ -9,7 +9,7 @@ import (
 )
 
 // s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
-func (s *PrepSubsystem) cloneWorkspaceDeps(ctx context.Context, workspaceDir, repoDir, org string) error {
+var cloneWorkspaceDeps = func(s *PrepSubsystem, ctx context.Context, workspaceDir, repoDir, org string) error {
 	goModPath := core.JoinPath(repoDir, "go.mod")
 	r := fs.Read(goModPath)
 	if !r.OK {

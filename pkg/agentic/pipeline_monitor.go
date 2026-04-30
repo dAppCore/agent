@@ -12,11 +12,11 @@ import (
 var pipelineEpicBranchPattern = regexp.MustCompile("Epic branch:\\s*`([^`]+)`")
 var pipelineEpicChildPattern = regexp.MustCompile(`(?m)^(\s*-\s*\[)([ xX])(\]\s*#)(\d+)(.*)$`)
 
-type MetaReader interface {
-	GetPRMeta(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error)
-	GetEpicMeta(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error)
-	GetIssueState(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error)
-	GetCommentReactions(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error)
+type MetaReader struct {
+	GetPRMeta           func(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error)
+	GetEpicMeta         func(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error)
+	GetIssueState       func(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error)
+	GetCommentReactions func(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error)
 }
 
 type PipelineCheckMeta struct {
@@ -135,18 +135,13 @@ type pipelineStatusRecord struct {
 	} `json:"statuses"`
 }
 
-type pipelineForgeMetaReader struct {
-	subsystem *PrepSubsystem
-	org       string
-}
-
 func (s *PrepSubsystem) cmdPipelineMonitor(options core.Options) core.Result {
 	ctx := s.commandContext()
-	output, err := s.pipelineMonitorWithReader(ctx, PipelineMonitorInput{
+	output, err := pipelineMonitorWithReader(s, ctx, PipelineMonitorInput{
 		Org:    pipelineOrgValue(options),
 		Repo:   pipelineRepoValue(options),
 		DryRun: optionBoolValue(options, "dry_run", "dry-run"),
-	}, &pipelineForgeMetaReader{subsystem: s, org: pipelineOrgValue(options)})
+	}, newPipelineForgeMetaReader(s, pipelineOrgValue(options)))
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -168,7 +163,7 @@ func (s *PrepSubsystem) cmdPipelineMonitor(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineMonitorWithReader(ctx context.Context, input PipelineMonitorInput, reader MetaReader) (PipelineMonitorOutput, error) {
+var pipelineMonitorWithReader = func(s *PrepSubsystem, ctx context.Context, input PipelineMonitorInput, reader *MetaReader) (PipelineMonitorOutput, error) {
 	if s.forgeToken == "" {
 		return PipelineMonitorOutput{}, core.E("pipelineMonitor", "no Forge token configured", nil)
 	}
@@ -180,7 +175,7 @@ func (s *PrepSubsystem) pipelineMonitorWithReader(ctx context.Context, input Pip
 	if input.Repo != "" {
 		repos = append(repos, input.Repo)
 	} else {
-		records, err := s.pipelineListOrgRepos(ctx, input.Org)
+		records, err := pipelineListOrgRepos(s, ctx, input.Org)
 		if err != nil {
 			return PipelineMonitorOutput{}, err
 		}
@@ -196,7 +191,7 @@ func (s *PrepSubsystem) pipelineMonitorWithReader(ctx context.Context, input Pip
 	}
 
 	for _, repo := range repos {
-		pullRequests, err := s.pipelineListPullRequests(ctx, input.Org, repo, "open")
+		pullRequests, err := pipelineListPullRequests(s, ctx, input.Org, repo, "open")
 		if err != nil {
 			return PipelineMonitorOutput{}, err
 		}
@@ -249,7 +244,7 @@ func (s *PrepSubsystem) pipelineMonitorWithReader(ctx context.Context, input Pip
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineListPullRequests(ctx context.Context, org, repo, state string) ([]pipelinePullRequestRecord, error) {
+var pipelineListPullRequests = func(s *PrepSubsystem, ctx context.Context, org, repo, state string) ([]pipelinePullRequestRecord, error) {
 	if state == "" {
 		state = "open"
 	}
@@ -267,201 +262,202 @@ func (s *PrepSubsystem) pipelineListPullRequests(ctx context.Context, org, repo,
 	return pullRequests, nil
 }
 
-func (r *pipelineForgeMetaReader) GetPRMeta(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error) {
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d", r.subsystem.forgeURL, r.org, repo, prNumber)
-	result := HTTPGet(ctx, url, r.subsystem.forgeToken, "token")
-	if !result.OK {
-		return PipelinePRMeta{}, core.E("MetaReader.GetPRMeta", core.Concat("failed to read PR #", core.Sprint(prNumber)), nil)
-	}
+var newPipelineForgeMetaReader = func(s *PrepSubsystem, org string) *MetaReader {
+	reader := &MetaReader{}
+	reader.GetPRMeta = func(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error) {
+		url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d", s.forgeURL, org, repo, prNumber)
+		result := HTTPGet(ctx, url, s.forgeToken, "token")
+		if !result.OK {
+			return PipelinePRMeta{}, core.E("MetaReader.GetPRMeta", core.Concat("failed to read PR #", core.Sprint(prNumber)), nil)
+		}
 
-	var pullRequest pipelinePullRequestRecord
-	if err := pipelineDecodeJSON(result.Value.(string), &pullRequest, "MetaReader.GetPRMeta", "failed to decode pull request"); err != nil {
-		return PipelinePRMeta{}, err
-	}
+		var pullRequest pipelinePullRequestRecord
+		if err := pipelineDecodeJSON(result.Value.(string), &pullRequest, "MetaReader.GetPRMeta", "failed to decode pull request"); err != nil {
+			return PipelinePRMeta{}, err
+		}
 
-	statuses := []PipelineCheckMeta{}
-	if pullRequest.Head.SHA != "" {
-		statusURL := core.Sprintf("%s/api/v1/repos/%s/%s/commits/%s/status", r.subsystem.forgeURL, r.org, repo, pullRequest.Head.SHA)
-		statusResult := HTTPGet(ctx, statusURL, r.subsystem.forgeToken, "token")
-		if statusResult.OK {
-			var status pipelineStatusRecord
-			if err := pipelineDecodeJSON(statusResult.Value.(string), &status, "MetaReader.GetPRMeta", "failed to decode commit status"); err == nil {
-				for _, entry := range status.Statuses {
-					rawState := entry.Status
-					if rawState == "" {
-						rawState = entry.State
-					}
-					if rawState == "" {
-						rawState = entry.Conclusion
-					}
+		statuses := []PipelineCheckMeta{}
+		if pullRequest.Head.SHA != "" {
+			statusURL := core.Sprintf("%s/api/v1/repos/%s/%s/commits/%s/status", s.forgeURL, org, repo, pullRequest.Head.SHA)
+			statusResult := HTTPGet(ctx, statusURL, s.forgeToken, "token")
+			if statusResult.OK {
+				var status pipelineStatusRecord
+				if err := pipelineDecodeJSON(statusResult.Value.(string), &status, "MetaReader.GetPRMeta", "failed to decode commit status"); err == nil {
+					for _, entry := range status.Statuses {
+						rawState := entry.Status
+						if rawState == "" {
+							rawState = entry.State
+						}
+						if rawState == "" {
+							rawState = entry.Conclusion
+						}
 
-					name := entry.Context
-					if name == "" {
-						name = entry.Name
+						name := entry.Context
+						if name == "" {
+							name = entry.Name
+						}
+						statuses = append(statuses, PipelineCheckMeta{
+							Name:       name,
+							Conclusion: pipelineCheckConclusion(rawState),
+							Status:     pipelineCheckStatus(rawState),
+						})
 					}
-					statuses = append(statuses, PipelineCheckMeta{
-						Name:       name,
-						Conclusion: pipelineCheckConclusion(rawState),
-						Status:     pipelineCheckStatus(rawState),
-					})
 				}
 			}
 		}
-	}
 
-	state := core.Lower(pullRequest.State)
-	if pullRequest.Merged {
-		state = "merged"
-	}
-	if state == "" {
-		state = "open"
-	}
-
-	mergeable := "unknown"
-	switch {
-	case pullRequest.Mergeable != nil && *pullRequest.Mergeable:
-		mergeable = "mergeable"
-	case pullRequest.Mergeable != nil && !*pullRequest.Mergeable:
-		mergeable = "conflicting"
-	case core.Lower(pullRequest.MergeableState) == "clean", core.Lower(pullRequest.MergeableState) == "mergeable":
-		mergeable = "mergeable"
-	case core.Lower(pullRequest.MergeableState) == "dirty", core.Lower(pullRequest.MergeableState) == "conflicting":
-		mergeable = "conflicting"
-	}
-
-	threadsTotal := pullRequest.ReviewThreadsTotal
-	if threadsTotal == 0 {
-		if pullRequest.ReviewComments > 0 {
-			threadsTotal = pullRequest.ReviewComments
-		} else {
-			threadsTotal = pullRequest.Comments
+		state := core.Lower(pullRequest.State)
+		if pullRequest.Merged {
+			state = "merged"
 		}
-	}
-
-	threadsResolved := pullRequest.ReviewThreadsResolved
-	if threadsResolved == 0 && pullRequest.ReviewThreadsUnresolved > 0 && threadsTotal >= pullRequest.ReviewThreadsUnresolved {
-		threadsResolved = threadsTotal - pullRequest.ReviewThreadsUnresolved
-	}
-
-	headDate := pullRequest.Head.Date
-	if headDate == "" {
-		headDate = pullRequest.Head.UpdatedAt
-	}
-	if headDate == "" {
-		headDate = pullRequest.Head.Repo.UpdatedAt
-	}
-	if headDate == "" {
-		headDate = pullRequest.Head.Repo.PushedAt
-	}
-	if headDate == "" {
-		headDate = pullRequest.UpdatedAt
-	}
-
-	return PipelinePRMeta{
-		Number:          pullRequest.Number,
-		State:           state,
-		Mergeable:       mergeable,
-		HeadSHA:         pullRequest.Head.SHA,
-		HeadDate:        headDate,
-		BaseBranch:      pullRequest.Base.Ref,
-		HeadBranch:      pullRequest.Head.Ref,
-		Checks:          statuses,
-		ThreadsTotal:    threadsTotal,
-		ThreadsResolved: threadsResolved,
-		HasEyesReaction: pullRequest.Reactions["eyes"] > 0,
-		URL:             pullRequest.HTMLURL,
-	}, nil
-}
-
-func (r *pipelineForgeMetaReader) GetEpicMeta(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error) {
-	issue, err := r.subsystem.pipelineGetIssue(ctx, r.org, repo, issueNumber)
-	if err != nil {
-		return PipelineEpicMeta{}, err
-	}
-
-	meta := PipelineEpicMeta{
-		Number: issue.Number,
-		Title:  issue.Title,
-		State:  issue.State,
-		URL:    issue.HTMLURL,
-		Body:   issue.Body,
-	}
-
-	branchMatch := pipelineEpicBranchPattern.FindStringSubmatch(issue.Body)
-	if len(branchMatch) == 2 {
-		meta.Branch = branchMatch[1]
-	}
-
-	matches := pipelineEpicChildPattern.FindAllStringSubmatch(issue.Body, -1)
-	for _, match := range matches {
-		if len(match) != 6 {
-			continue
-		}
-		number := parseIntString(match[4])
-		if number <= 0 {
-			continue
+		if state == "" {
+			state = "open"
 		}
 
-		state, stateErr := r.GetIssueState(ctx, repo, number)
-		if stateErr != nil {
-			return PipelineEpicMeta{}, stateErr
+		mergeable := "unknown"
+		switch {
+		case pullRequest.Mergeable != nil && *pullRequest.Mergeable:
+			mergeable = "mergeable"
+		case pullRequest.Mergeable != nil && !*pullRequest.Mergeable:
+			mergeable = "conflicting"
+		case core.Lower(pullRequest.MergeableState) == "clean", core.Lower(pullRequest.MergeableState) == "mergeable":
+			mergeable = "mergeable"
+		case core.Lower(pullRequest.MergeableState) == "dirty", core.Lower(pullRequest.MergeableState) == "conflicting":
+			mergeable = "conflicting"
 		}
-		meta.Children = append(meta.Children, PipelineEpicChildMeta{
-			Number:  number,
-			Title:   state.Title,
-			Checked: core.Lower(match[2]) == "x",
-			State:   state.State,
-			URL:     state.URL,
-		})
-	}
 
-	return meta, nil
-}
+		threadsTotal := pullRequest.ReviewThreadsTotal
+		if threadsTotal == 0 {
+			if pullRequest.ReviewComments > 0 {
+				threadsTotal = pullRequest.ReviewComments
+			} else {
+				threadsTotal = pullRequest.Comments
+			}
+		}
 
-func (r *pipelineForgeMetaReader) GetIssueState(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error) {
-	issue, err := r.subsystem.pipelineGetIssue(ctx, r.org, repo, issueNumber)
-	if err != nil {
-		return PipelineIssueState{}, err
-	}
+		threadsResolved := pullRequest.ReviewThreadsResolved
+		if threadsResolved == 0 && pullRequest.ReviewThreadsUnresolved > 0 && threadsTotal >= pullRequest.ReviewThreadsUnresolved {
+			threadsResolved = threadsTotal - pullRequest.ReviewThreadsUnresolved
+		}
 
-	state := issue.State
-	if state == "" {
-		state = "open"
-	}
+		headDate := pullRequest.Head.Date
+		if headDate == "" {
+			headDate = pullRequest.Head.UpdatedAt
+		}
+		if headDate == "" {
+			headDate = pullRequest.Head.Repo.UpdatedAt
+		}
+		if headDate == "" {
+			headDate = pullRequest.Head.Repo.PushedAt
+		}
+		if headDate == "" {
+			headDate = pullRequest.UpdatedAt
+		}
 
-	return PipelineIssueState{
-		Number: issue.Number,
-		State:  state,
-		Title:  issue.Title,
-		URL:    issue.HTMLURL,
-		Labels: pipelineIssueLabelNames(issue),
-	}, nil
-}
+		return PipelinePRMeta{
+			Number:          pullRequest.Number,
+			State:           state,
+			Mergeable:       mergeable,
+			HeadSHA:         pullRequest.Head.SHA,
+			HeadDate:        headDate,
+			BaseBranch:      pullRequest.Base.Ref,
+			HeadBranch:      pullRequest.Head.Ref,
+			Checks:          statuses,
+			ThreadsTotal:    threadsTotal,
+			ThreadsResolved: threadsResolved,
+			HasEyesReaction: pullRequest.Reactions["eyes"] > 0,
+			URL:             pullRequest.HTMLURL,
+		}, nil
+	}
+	reader.GetIssueState = func(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error) {
+		issue, err := pipelineGetIssue(s, ctx, org, repo, issueNumber)
+		if err != nil {
+			return PipelineIssueState{}, err
+		}
 
-func (r *pipelineForgeMetaReader) GetCommentReactions(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error) {
-	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/comments/%d/reactions", r.subsystem.forgeURL, r.org, repo, commentID)
-	result := HTTPGet(ctx, url, r.subsystem.forgeToken, "token")
-	if !result.OK {
-		return nil, core.E("MetaReader.GetCommentReactions", core.Concat("failed to read comment reactions for ", core.Sprint(commentID)), nil)
-	}
+		state := issue.State
+		if state == "" {
+			state = "open"
+		}
 
-	var reactions []struct {
-		Content string `json:"content"`
+		return PipelineIssueState{
+			Number: issue.Number,
+			State:  state,
+			Title:  issue.Title,
+			URL:    issue.HTMLURL,
+			Labels: pipelineIssueLabelNames(issue),
+		}, nil
 	}
-	if err := pipelineDecodeJSON(result.Value.(string), &reactions, "MetaReader.GetCommentReactions", "failed to decode reactions"); err != nil {
-		return nil, err
-	}
+	reader.GetEpicMeta = func(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error) {
+		issue, err := pipelineGetIssue(s, ctx, org, repo, issueNumber)
+		if err != nil {
+			return PipelineEpicMeta{}, err
+		}
 
-	counts := map[string]int{}
-	for _, reaction := range reactions {
-		counts[reaction.Content]++
-	}
+		meta := PipelineEpicMeta{
+			Number: issue.Number,
+			Title:  issue.Title,
+			State:  issue.State,
+			URL:    issue.HTMLURL,
+			Body:   issue.Body,
+		}
 
-	aggregated := []PipelineReactionMeta{}
-	for content, count := range counts {
-		aggregated = append(aggregated, PipelineReactionMeta{Content: content, Count: count})
+		branchMatch := pipelineEpicBranchPattern.FindStringSubmatch(issue.Body)
+		if len(branchMatch) == 2 {
+			meta.Branch = branchMatch[1]
+		}
+
+		matches := pipelineEpicChildPattern.FindAllStringSubmatch(issue.Body, -1)
+		for _, match := range matches {
+			if len(match) != 6 {
+				continue
+			}
+			number := parseIntString(match[4])
+			if number <= 0 {
+				continue
+			}
+
+			state, stateErr := reader.GetIssueState(ctx, repo, number)
+			if stateErr != nil {
+				return PipelineEpicMeta{}, stateErr
+			}
+			meta.Children = append(meta.Children, PipelineEpicChildMeta{
+				Number:  number,
+				Title:   state.Title,
+				Checked: core.Lower(match[2]) == "x",
+				State:   state.State,
+				URL:     state.URL,
+			})
+		}
+
+		return meta, nil
 	}
-	return aggregated, nil
+	reader.GetCommentReactions = func(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error) {
+		url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/comments/%d/reactions", s.forgeURL, org, repo, commentID)
+		result := HTTPGet(ctx, url, s.forgeToken, "token")
+		if !result.OK {
+			return nil, core.E("MetaReader.GetCommentReactions", core.Concat("failed to read comment reactions for ", core.Sprint(commentID)), nil)
+		}
+
+		var reactions []struct {
+			Content string `json:"content"`
+		}
+		if err := pipelineDecodeJSON(result.Value.(string), &reactions, "MetaReader.GetCommentReactions", "failed to decode reactions"); err != nil {
+			return nil, err
+		}
+
+		counts := map[string]int{}
+		for _, reaction := range reactions {
+			counts[reaction.Content]++
+		}
+
+		aggregated := []PipelineReactionMeta{}
+		for content, count := range counts {
+			aggregated = append(aggregated, PipelineReactionMeta{Content: content, Count: count})
+		}
+		return aggregated, nil
+	}
+	return reader
 }
 
 func pipelineCheckConclusion(rawState string) string {

@@ -221,7 +221,7 @@ func (m *Subsystem) countChangedFiles(repoDir string) int {
 }
 
 // _ = m.pushBranch("/srv/.core/workspace/core/go-io/task-5/repo", "feature/ax-cleanup")
-func (m *Subsystem) pushBranch(repoDir, branch string) error {
+var pushBranch = func(m *Subsystem, repoDir, branch string) error {
 	processResult := m.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "origin", branch)
 	if !processResult.OK {
 		if err, ok := processResult.Value.(error); ok {

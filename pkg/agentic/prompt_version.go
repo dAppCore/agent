@@ -55,14 +55,14 @@ type PromptVersionInput struct {
 // ))
 func (s *PrepSubsystem) handlePromptVersion(ctx context.Context, options core.Options) core.Result {
 	workspace := optionStringValue(options, "workspace", "_arg")
-	_, output, err := s.promptVersion(ctx, nil, workspace)
+	_, output, err := promptVersion(s, ctx, nil, workspace)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) promptVersion(_ context.Context, _ *mcp.CallToolRequest, workspace string) (*mcp.CallToolResult, PromptVersionOutput, error) {
+var promptVersion = func(s *PrepSubsystem, _ context.Context, _ *mcp.CallToolRequest, workspace string) (*mcp.CallToolResult, PromptVersionOutput, error) {
 	workspaceDir := s.resolveWorkspaceDir(workspace)
 	if workspaceDir == "" {
 		return nil, PromptVersionOutput{}, core.E("promptVersion", "workspace is required", nil)
@@ -84,18 +84,22 @@ func (s *PrepSubsystem) registerPromptTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
-	}, s.promptVersionTool)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PromptVersionInput) (*mcp.CallToolResult, PromptVersionOutput, error) {
+		return promptVersionTool(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_prompt_version",
 		Description: "Read the current prompt snapshot for a workspace.",
-	}, s.promptVersionTool)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input PromptVersionInput) (*mcp.CallToolResult, PromptVersionOutput, error) {
+		return promptVersionTool(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) promptVersionTool(ctx context.Context, _ *mcp.CallToolRequest, input PromptVersionInput) (*mcp.CallToolResult, PromptVersionOutput, error) {
+var promptVersionTool = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input PromptVersionInput) (*mcp.CallToolResult, PromptVersionOutput, error) {
 	if core.Trim(input.Workspace) == "" {
 		return nil, PromptVersionOutput{}, core.E("promptVersion", "workspace is required", nil)
 	}
 
-	return s.promptVersion(ctx, nil, input.Workspace)
+	return promptVersion(s, ctx, nil, input.Workspace)
 }

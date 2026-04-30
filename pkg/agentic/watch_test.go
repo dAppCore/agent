@@ -206,7 +206,7 @@ func TestWatch_Watch_Good_AutoDiscoversAndCompletes(t *testing.T) {
 	}()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		PollInterval: 1,
 		Timeout:      2,
 	})
@@ -250,7 +250,7 @@ func TestWatch_Watch_Good_ExpandsParentWorkspacePrefix(t *testing.T) {
 	}()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		Workspaces:   []string{"core/go-io"},
 		PollInterval: 1,
 		Timeout:      2,
@@ -279,7 +279,7 @@ func TestWatch_Watch_Bad_CancelledContext(t *testing.T) {
 	cancel()
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(ctx, nil, WatchInput{
+	_, out, err := watch(s, ctx, nil, WatchInput{
 		Workspaces:   []string{"ws-running"},
 		PollInterval: 1,
 		Timeout:      2,
@@ -301,7 +301,7 @@ func TestWatch_Watch_Ugly_TimeoutMarksRemainingFailed(t *testing.T) {
 	})
 
 	s := newPrepWithProcess()
-	_, out, err := s.watch(context.Background(), nil, WatchInput{
+	_, out, err := watch(s, context.Background(), nil, WatchInput{
 		Workspaces:   []string{"ws-stuck"},
 		PollInterval: 1,
 		Timeout:      1,

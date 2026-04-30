@@ -56,10 +56,10 @@ func TestPipelineMonitor_Good_AutoIntervenesAndMerges(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	s, _ := testPrepWithCore(t, srv)
-	output, err := s.pipelineMonitorWithReader(context.Background(), PipelineMonitorInput{
+	output, err := pipelineMonitorWithReader(s, context.Background(), PipelineMonitorInput{
 		Org:  "core",
 		Repo: "go-io",
-	}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
+	}, newPipelineForgeMetaReader(s, "core"))
 
 	core.RequireNoError(t, err)
 	core.AssertLen(t, output.Actions, 3)
@@ -72,7 +72,7 @@ func TestPipelineMonitor_Bad_NoToken(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 	s.forgeToken = ""
 
-	_, err := s.pipelineMonitorWithReader(context.Background(), PipelineMonitorInput{Org: "core", Repo: "go-io"}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
+	_, err := pipelineMonitorWithReader(s, context.Background(), PipelineMonitorInput{Org: "core", Repo: "go-io"}, newPipelineForgeMetaReader(s, "core"))
 
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "no Forge token configured")
@@ -95,10 +95,10 @@ func TestPipelineMonitor_Ugly_NoActionWhenChecksPending(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	s, _ := testPrepWithCore(t, srv)
-	output, err := s.pipelineMonitorWithReader(context.Background(), PipelineMonitorInput{
+	output, err := pipelineMonitorWithReader(s, context.Background(), PipelineMonitorInput{
 		Org:  "core",
 		Repo: "go-io",
-	}, &pipelineForgeMetaReader{subsystem: s, org: "core"})
+	}, newPipelineForgeMetaReader(s, "core"))
 
 	core.RequireNoError(t, err)
 	core.AssertEmpty(t, output.Actions)
@@ -126,7 +126,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetPRMeta_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetPRMeta(context.Background(), "go-io", 12)
 
 	core.RequireNoError(t, err)
@@ -142,7 +142,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetPRMeta_Good(t *testing.T) {
 func TestPipelineMonitor_ForgeMetaReader_GetPRMeta_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetPRMeta(context.Background(), "go-io", 44)
 
 	core.AssertError(t, err)
@@ -163,7 +163,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetPRMeta_Ugly(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetPRMeta(context.Background(), "go-io", 12)
 
 	core.RequireNoError(t, err)
@@ -184,7 +184,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetEpicMeta_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.RequireNoError(t, err)
@@ -199,7 +199,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetEpicMeta_Good(t *testing.T) {
 func TestPipelineMonitor_ForgeMetaReader_GetEpicMeta_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.AssertError(t, err)
@@ -211,7 +211,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetEpicMeta_Ugly(t *testing.T) {
 	repo.Issues[1] = &pipelineTestIssue{Number: 1, Title: "Epic", State: "open", Body: "plain body"}
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.RequireNoError(t, err)
@@ -231,7 +231,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetIssueState_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	state, err := reader.GetIssueState(context.Background(), "go-io", 7)
 
 	core.RequireNoError(t, err)
@@ -244,7 +244,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetIssueState_Good(t *testing.T) {
 func TestPipelineMonitor_ForgeMetaReader_GetIssueState_Bad(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": newPipelineTestRepo()})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetIssueState(context.Background(), "go-io", 77)
 
 	core.AssertError(t, err)
@@ -256,7 +256,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetIssueState_Ugly(t *testing.T) {
 	repo.Issues[8] = &pipelineTestIssue{Number: 8, Title: "Untitled", State: ""}
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	state, err := reader.GetIssueState(context.Background(), "go-io", 8)
 
 	core.RequireNoError(t, err)
@@ -273,7 +273,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetCommentReactions_Good(t *testing.T) 
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	reactions, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.RequireNoError(t, err)
@@ -294,7 +294,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetCommentReactions_Bad(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.AssertError(t, err)
@@ -308,7 +308,7 @@ func TestPipelineMonitor_ForgeMetaReader_GetCommentReactions_Ugly(t *testing.T) 
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	_, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.AssertError(t, err)

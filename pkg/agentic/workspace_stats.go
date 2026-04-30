@@ -100,7 +100,7 @@ func (s *PrepSubsystem) closeWorkspaceStatsStore() {
 // still boots without the parent stats DB per RFC §15.6.
 //
 // Usage example: `st, err := openWorkspaceStatsStore()`
-func openWorkspaceStatsStore() (*store.Store, error) {
+var openWorkspaceStatsStore = func() (*store.Store, error) {
 	path := workspaceStatsPath()
 	directory := core.PathDir(path)
 	if ensureResult := fs.EnsureDir(directory); !ensureResult.OK {

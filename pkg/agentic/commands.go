@@ -251,7 +251,7 @@ func (s *PrepSubsystem) cmdDispatch(_ core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdDispatchStart(_ core.Options) core.Result {
-	_, output, err := s.dispatchStart(s.commandContext(), nil, ShutdownInput{})
+	_, output, err := dispatchStart(s, s.commandContext(), nil, ShutdownInput{})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -264,7 +264,7 @@ func (s *PrepSubsystem) cmdDispatchStart(_ core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdDispatchShutdown(_ core.Options) core.Result {
-	_, output, err := s.shutdownGraceful(s.commandContext(), nil, ShutdownInput{})
+	_, output, err := shutdownGraceful(s, s.commandContext(), nil, ShutdownInput{})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -277,7 +277,7 @@ func (s *PrepSubsystem) cmdDispatchShutdown(_ core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) cmdDispatchShutdownNow(_ core.Options) core.Result {
-	_, output, err := s.shutdownNow(s.commandContext(), nil, ShutdownInput{})
+	_, output, err := shutdownNow(s, s.commandContext(), nil, ShutdownInput{})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -324,7 +324,7 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 		prepInput.Branch = "dev"
 	}
 
-	_, prepOutput, err := s.PrepareWorkspace(context.Background(), prepInput)
+	_, prepOutput, err := PrepareWorkspace(s, context.Background(), prepInput)
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -354,16 +354,17 @@ func (s *PrepSubsystem) cmdResume(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdResume", "workspace is required", nil), OK: false}
 	}
 
-	_, output, err := s.resume(s.commandContext(), nil, ResumeInput{
+	result := typedResultValue[ResumeOutput]("agentic.cmdResume", "invalid resume output", s.resume(s.commandContext(), ResumeInput{
 		Workspace: workspace,
 		Answer:    optionStringValue(options, "answer"),
 		Agent:     optionStringValue(options, "agent"),
 		DryRun:    optionBoolValue(options, "dry_run", "dry-run"),
-	})
-	if err != nil {
-		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+	}))
+	if !result.OK {
+		core.Print(nil, "error: %s", result.Error())
+		return result
 	}
+	output, _ := result.Value.(ResumeOutput)
 
 	core.Print(nil, "workspace:  %s", output.Workspace)
 	core.Print(nil, "agent:      %s", output.Agent)
@@ -1122,7 +1123,7 @@ func readFlowDocument(path string, variables map[string]string) core.Result {
 	}, OK: true}
 }
 
-func parseFlowDefinition(content string) (flowDefinition, error) {
+var parseFlowDefinition = func(content string) (flowDefinition, error) {
 	var definition flowDefinition
 	if err := yaml.Unmarshal([]byte(content), &definition); err != nil {
 		return flowDefinition{}, core.E("agentic.parseFlowDefinition", "invalid flow definition", err)

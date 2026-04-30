@@ -60,13 +60,13 @@ func applicationVersion() string {
 //	if err := runCoreAgent(); err != nil {
 //		core.Error("core-agent failed", "err", err)
 //	}
-func runCoreAgent() error {
+var runCoreAgent = func() error {
 	return runApp(newCoreAgent(), startupArgs())
 }
 
 // app := newCoreAgent()
 // _ = runApp(app, []string{"version"})
-func runApp(coreApp *core.Core, cliArgs []string) error {
+var runApp = func(coreApp *core.Core, cliArgs []string) error {
 	if coreApp == nil {
 		return core.E("main.runApp", "core is required", nil)
 	}
@@ -90,7 +90,7 @@ func runApp(coreApp *core.Core, cliArgs []string) error {
 
 // result := core.Result{OK: false, Value: core.E("main.runApp", "startup failed", nil)}
 // err := resultError("main.runApp", "startup failed", result)
-func resultError(op, msg string, result core.Result) error {
+var resultError = func(op, msg string, result core.Result) error {
 	if result.OK {
 		return nil
 	}

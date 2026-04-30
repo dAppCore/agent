@@ -476,8 +476,10 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 	core.AssertTrue(t, opts.KillGroup)
 	core.AssertTrue(t, opts.Detach)
 
-	proc, err := procSvc.StartWithOptions(context.Background(), opts)
-	core.RequireNoError(t, err)
+	startResult := procSvc.StartWithOptions(context.Background(), opts)
+	core.RequireTrue(t, startResult.OK)
+	proc, ok := startResult.Value.(*process.Process)
+	core.RequireTrue(t, ok)
 	proc.CloseStdin()
 
 	s := newPrepWithProcess()
@@ -594,7 +596,7 @@ func TestDispatch_Dispatch_Good_Case(t *testing.T) {
 	s.forge = forge.NewForge(forgeSrv.URL, "tok")
 	s.codePath = core.PathDir(core.PathDir(srcRepo))
 
-	_, out, err := s.dispatch(context.Background(), nil, DispatchInput{
+	_, out, err := dispatch(s, context.Background(), nil, DispatchInput{
 		Repo: "go-io", Task: "Fix stuff", Issue: 42, DryRun: true,
 	})
 	core.RequireNoError(t, err)
@@ -607,12 +609,12 @@ func TestDispatch_Dispatch_Bad_Case(t *testing.T) {
 	s := newPrepWithProcess()
 
 	// No repo
-	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{Task: "do"})
+	_, _, err := dispatch(s, context.Background(), nil, DispatchInput{Task: "do"})
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "repo is required")
 
 	// No task
-	_, _, err = s.dispatch(context.Background(), nil, DispatchInput{Repo: "go-io"})
+	_, _, err = dispatch(s, context.Background(), nil, DispatchInput{Repo: "go-io"})
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "task is required")
 }
@@ -623,7 +625,7 @@ func TestDispatch_Dispatch_Ugly_Case(t *testing.T) {
 
 	// Prep fails (no local clone)
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), codePath: t.TempDir(), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, _, err := s.dispatch(context.Background(), nil, DispatchInput{
+	_, _, err := dispatch(s, context.Background(), nil, DispatchInput{
 		Repo: "nonexistent", Task: "do", Issue: 1,
 	})
 	core.AssertError(t, err)

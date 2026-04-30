@@ -31,7 +31,7 @@ func (s *PrepSubsystem) handleCommit(_ context.Context, options core.Options) co
 	input := CommitInput{
 		Workspace: optionStringValue(options, "workspace"),
 	}
-	output, err := s.commitWorkspace(nil, input)
+	output, err := commitWorkspace(s, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -42,18 +42,20 @@ func (s *PrepSubsystem) registerCommitTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_commit",
 		Description: "Write the final workspace dispatch record to the local journal after verify completes.",
-	}, s.commitTool)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input CommitInput) (*mcp.CallToolResult, CommitOutput, error) {
+		return commitTool(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) commitTool(ctx context.Context, _ *mcp.CallToolRequest, input CommitInput) (*mcp.CallToolResult, CommitOutput, error) {
-	output, err := s.commitWorkspace(ctx, input)
+var commitTool = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input CommitInput) (*mcp.CallToolResult, CommitOutput, error) {
+	output, err := commitWorkspace(s, ctx, input)
 	if err != nil {
 		return nil, CommitOutput{}, err
 	}
 	return nil, output, nil
 }
 
-func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) (CommitOutput, error) {
+var commitWorkspace = func(s *PrepSubsystem, ctx context.Context, input CommitInput) (CommitOutput, error) {
 	workspaceDir := resolveWorkspace(input.Workspace)
 	if workspaceDir == "" {
 		return CommitOutput{}, core.E("commitWorkspace", core.Concat("workspace not found: ", input.Workspace), nil)
@@ -108,7 +110,7 @@ func (s *PrepSubsystem) commitWorkspace(ctx context.Context, input CommitInput) 
 	}, nil
 }
 
-func commitWorkspaceStatus(workspaceDir string) (*WorkspaceStatus, error) {
+var commitWorkspaceStatus = func(workspaceDir string) (*WorkspaceStatus, error) {
 	result := ReadStatusResult(workspaceDir)
 	workspaceStatus, ok := workspaceStatusValue(result)
 	if ok {
@@ -121,7 +123,7 @@ func commitWorkspaceStatus(workspaceDir string) (*WorkspaceStatus, error) {
 	return nil, err
 }
 
-func commitEnsureMetaDir(metaDir string) error {
+var commitEnsureMetaDir = func(metaDir string) error {
 	r := fs.EnsureDir(metaDir)
 	if r.OK {
 		return nil
@@ -144,7 +146,7 @@ func commitSkippedOutput(workspace, journalPath, markerPath string, existingComm
 	}
 }
 
-func commitAppendJournal(journalPath string, record map[string]any) error {
+var commitAppendJournal = func(journalPath string, record map[string]any) error {
 	appendHandle := fs.Append(journalPath)
 	if !appendHandle.OK {
 		err, _ := appendHandle.Value.(error)
@@ -167,7 +169,7 @@ func commitAppendJournal(journalPath string, record map[string]any) error {
 	return err
 }
 
-func commitWriteMarker(markerPath, workspaceDir string, workspaceStatus *WorkspaceStatus, committedAt string) error {
+var commitWriteMarker = func(markerPath, workspaceDir string, workspaceStatus *WorkspaceStatus, committedAt string) error {
 	marker := commitMarker{
 		Workspace:   WorkspaceName(workspaceDir),
 		UpdatedAt:   workspaceStatus.UpdatedAt,

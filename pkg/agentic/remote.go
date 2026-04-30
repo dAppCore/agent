@@ -36,10 +36,12 @@ func (s *PrepSubsystem) registerRemoteDispatchTool(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_dispatch_remote",
 		Description: "Dispatch a task to a remote core-agent (e.g. Charon). The remote agent preps a workspace and spawns the task locally on its hardware.",
-	}, s.dispatchRemote)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RemoteDispatchInput) (*mcp.CallToolResult, RemoteDispatchOutput, error) {
+		return dispatchRemote(s, ctx, request, input)
+	})
 }
 
-func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolRequest, input RemoteDispatchInput) (*mcp.CallToolResult, RemoteDispatchOutput, error) {
+var dispatchRemote = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input RemoteDispatchInput) (*mcp.CallToolResult, RemoteDispatchOutput, error) {
 	if input.Host == "" {
 		return nil, RemoteDispatchOutput{}, core.E("dispatchRemote", "host is required", nil)
 	}
@@ -79,7 +81,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		Agent:   input.Agent,
 	}
 
-	sessionID, err := client.Initialize(ctx)
+	sessionID, err := InitializeRemoteClient(client, ctx)
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,
@@ -87,7 +89,7 @@ func (s *PrepSubsystem) dispatchRemote(ctx context.Context, _ *mcp.CallToolReque
 		}, core.E("dispatchRemote", "MCP initialize failed", err)
 	}
 
-	result, err := client.Call(ctx, sessionID, client.ToolCallBody(1, "agentic_dispatch", callParams))
+	result, err := CallRemoteClient(client, ctx, sessionID, client.ToolCallBody(1, "agentic_dispatch", callParams))
 	if err != nil {
 		return nil, RemoteDispatchOutput{
 			Host:  input.Host,

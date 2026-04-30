@@ -147,25 +147,33 @@ func (s *Subsystem) registerBrainTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_remember",
 		Description: "Store a memory in the shared OpenBrain knowledge store. Persists decisions, observations, conventions, research, plans, bugs, or architecture knowledge for other agents.",
-	}, s.brainRemember)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+		return brainRemember(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_recall",
 		Description: "Semantic search across the shared OpenBrain knowledge store. Returns memories ranked by similarity to your query, with optional filtering.",
-	}, s.brainRecall)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+		return brainRecall(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_forget",
 		Description: "Remove a memory from the shared OpenBrain knowledge store. Permanently deletes from both database and vector index.",
-	}, s.brainForget)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+		return brainForget(s, ctx, request, input)
+	})
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "brain", &mcp.Tool{
 		Name:        "brain_list",
 		Description: "List memories in the shared OpenBrain knowledge store. Supports filtering by project, type, and agent. No vector search -- use brain_recall for semantic queries.",
-	}, s.brainList)
+	}, func(ctx context.Context, request *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+		return brainList(s, ctx, request, input)
+	})
 }
 
-func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
+var brainRemember = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input RememberInput) (*mcp.CallToolResult, RememberOutput, error) {
 	if s.bridge == nil {
 		return nil, RememberOutput{}, errBridgeNotAvailable
 	}
@@ -193,7 +201,7 @@ func (s *Subsystem) brainRemember(_ context.Context, _ *mcp.CallToolRequest, inp
 	}, nil
 }
 
-func (s *Subsystem) brainRecall(_ context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
+var brainRecall = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input RecallInput) (*mcp.CallToolResult, RecallOutput, error) {
 	if s.bridge == nil {
 		return nil, RecallOutput{}, errBridgeNotAvailable
 	}
@@ -216,7 +224,7 @@ func (s *Subsystem) brainRecall(_ context.Context, _ *mcp.CallToolRequest, input
 	}, nil
 }
 
-func (s *Subsystem) brainForget(_ context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
+var brainForget = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input ForgetInput) (*mcp.CallToolResult, ForgetOutput, error) {
 	if s.bridge == nil {
 		return nil, ForgetOutput{}, errBridgeNotAvailable
 	}
@@ -239,7 +247,7 @@ func (s *Subsystem) brainForget(_ context.Context, _ *mcp.CallToolRequest, input
 	}, nil
 }
 
-func (s *Subsystem) brainList(_ context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
+var brainList = func(s *Subsystem, _ context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, ListOutput, error) {
 	if s.bridge == nil {
 		return nil, ListOutput{}, errBridgeNotAvailable
 	}

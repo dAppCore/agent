@@ -38,7 +38,7 @@ func (s *PrepSubsystem) cmdPipelineFixReviews(options core.Options) core.Result 
 		return core.Result{Value: core.E("agentic.cmdPipelineFixReviews", "repo and pull request number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineFixReviews(ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
+	output, err := pipelineFixReviews(s, ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -58,7 +58,7 @@ func (s *PrepSubsystem) cmdPipelineFixConflicts(options core.Options) core.Resul
 		return core.Result{Value: core.E("agentic.cmdPipelineFixConflicts", "repo and pull request number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineFixConflicts(ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
+	output, err := pipelineFixConflicts(s, ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -78,7 +78,7 @@ func (s *PrepSubsystem) cmdPipelineFixFormat(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineFixFormat", "repo and pull request number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineFixFormat(ctx, PipelineFixInput{
+	output, err := pipelineFixFormat(s, ctx, PipelineFixInput{
 		Org:          org,
 		Repo:         repo,
 		Number:       number,
@@ -111,7 +111,7 @@ func (s *PrepSubsystem) cmdPipelineFixThreads(options core.Options) core.Result 
 		return core.Result{Value: core.E("agentic.cmdPipelineFixThreads", "repo and pull request number are required", nil), OK: false}
 	}
 
-	output, err := s.pipelineFixThreads(ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
+	output, err := pipelineFixThreads(s, ctx, PipelineFixInput{Org: org, Repo: repo, Number: number, DryRun: optionBoolValue(options, "dry_run", "dry-run")})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -123,7 +123,7 @@ func (s *PrepSubsystem) cmdPipelineFixThreads(options core.Options) core.Result 
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineFixReviews(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
+var pipelineFixReviews = func(s *PrepSubsystem, ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
 	if input.Repo == "" || input.Number <= 0 {
 		return PipelineFixOutput{}, core.E("pipelineFixReviews", "repo and pull request number are required", nil)
 	}
@@ -143,7 +143,7 @@ func (s *PrepSubsystem) pipelineFixReviews(ctx context.Context, input PipelineFi
 	}, nil
 }
 
-func (s *PrepSubsystem) pipelineFixConflicts(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
+var pipelineFixConflicts = func(s *PrepSubsystem, ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
 	if input.Repo == "" || input.Number <= 0 {
 		return PipelineFixOutput{}, core.E("pipelineFixConflicts", "repo and pull request number are required", nil)
 	}
@@ -163,7 +163,7 @@ func (s *PrepSubsystem) pipelineFixConflicts(ctx context.Context, input Pipeline
 	}, nil
 }
 
-func (s *PrepSubsystem) pipelineFixFormat(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
+var pipelineFixFormat = func(s *PrepSubsystem, ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
 	if input.Repo == "" || input.Number <= 0 {
 		return PipelineFixOutput{}, core.E("pipelineFixFormat", "repo and pull request number are required", nil)
 	}
@@ -245,7 +245,7 @@ func (s *PrepSubsystem) pipelineFixFormat(ctx context.Context, input PipelineFix
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineFixThreads(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
+var pipelineFixThreads = func(s *PrepSubsystem, ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
 	if input.Repo == "" || input.Number <= 0 {
 		return PipelineFixOutput{}, core.E("pipelineFixThreads", "repo and pull request number are required", nil)
 	}
@@ -253,7 +253,7 @@ func (s *PrepSubsystem) pipelineFixThreads(ctx context.Context, input PipelineFi
 		input.Org = "core"
 	}
 
-	reader := &pipelineForgeMetaReader{subsystem: s, org: input.Org}
+	reader := newPipelineForgeMetaReader(s, input.Org)
 	meta, err := reader.GetPRMeta(ctx, input.Repo, input.Number)
 	if err != nil {
 		return PipelineFixOutput{}, err

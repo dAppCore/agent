@@ -48,7 +48,7 @@ func (s *DirectSubsystem) handleRemember(ctx context.Context, options core.Optio
 		Supersedes: actionStringValue(options, "supersedes"),
 		ExpiresIn:  actionIntValue(options, "expires_in", "expiresIn"),
 	}
-	_, output, err := s.remember(ctx, nil, input)
+	_, output, err := remember(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -67,7 +67,7 @@ func (s *DirectSubsystem) handleRecall(ctx context.Context, options core.Options
 		TopK:   actionIntValue(options, "top_k", "topK"),
 		Filter: recallFilterFromOptions(options),
 	}
-	_, output, err := s.recall(ctx, nil, input)
+	_, output, err := recall(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -84,7 +84,7 @@ func (s *DirectSubsystem) handleForget(ctx context.Context, options core.Options
 		ID:     actionStringValue(options, "id"),
 		Reason: actionStringValue(options, "reason"),
 	}
-	_, output, err := s.forget(ctx, nil, input)
+	_, output, err := forget(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -105,7 +105,7 @@ func (s *DirectSubsystem) handleList(ctx context.Context, options core.Options) 
 		AgentID: actionStringValue(options, "agent_id", "agent"),
 		Limit:   actionIntValue(options, "limit"),
 	}
-	_, output, err := s.list(ctx, nil, input)
+	_, output, err := list(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -124,7 +124,7 @@ func (s *DirectSubsystem) handleSend(ctx context.Context, options core.Options) 
 		Content: actionStringValue(options, "content"),
 		Subject: actionStringValue(options, "subject"),
 	}
-	_, output, err := s.sendMessage(ctx, nil, input)
+	_, output, err := sendMessage(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -140,7 +140,7 @@ func (s *DirectSubsystem) handleInbox(ctx context.Context, options core.Options)
 	input := InboxInput{
 		Agent: actionStringValue(options, "agent"),
 	}
-	_, output, err := s.inbox(ctx, nil, input)
+	_, output, err := inbox(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}
@@ -156,7 +156,7 @@ func (s *DirectSubsystem) handleConversation(ctx context.Context, options core.O
 	input := ConversationInput{
 		Agent: actionStringValue(options, "agent"),
 	}
-	_, output, err := s.conversation(ctx, nil, input)
+	_, output, err := conversation(s, ctx, nil, input)
 	if err != nil {
 		return core.Result{Value: err, OK: false}
 	}

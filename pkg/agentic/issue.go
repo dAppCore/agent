@@ -150,7 +150,7 @@ type IssueArchiveOutput struct {
 
 // result := c.Action("issue.create").Run(ctx, core.NewOptions(core.Option{Key: "title", Value: "Fix auth"}))
 func (s *PrepSubsystem) handleIssueRecordCreate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueCreate(ctx, nil, IssueCreateInput{
+	return typedResultValue[IssueOutput]("issue.create", "invalid issue create output", s.issueCreate(ctx, IssueCreateInput{
 		Title:       optionStringValue(options, "title"),
 		Description: optionStringValue(options, "description"),
 		Type:        optionStringValue(options, "type"),
@@ -160,28 +160,20 @@ func (s *PrepSubsystem) handleIssueRecordCreate(ctx context.Context, options cor
 		Labels:      optionStringSliceValue(options, "labels"),
 		SprintID:    optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug:  optionStringValue(options, "sprint_slug", "sprint-slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.get").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordGet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueGet(ctx, nil, IssueGetInput{
+	return typedResultValue[IssueOutput]("issue.get", "invalid issue get output", s.issueGet(ctx, IssueGetInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.list").Run(ctx, core.NewOptions(core.Option{Key: "status", Value: "open"}))
 func (s *PrepSubsystem) handleIssueRecordList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueList(ctx, nil, IssueListInput{
+	return typedResultValue[IssueListOutput]("issue.list", "invalid issue list output", s.issueList(ctx, IssueListInput{
 		Status:     optionStringValue(options, "status"),
 		Type:       optionStringValue(options, "type"),
 		Priority:   optionStringValue(options, "priority"),
@@ -190,16 +182,12 @@ func (s *PrepSubsystem) handleIssueRecordList(ctx context.Context, options core.
 		SprintID:   optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug: optionStringValue(options, "sprint_slug", "sprint-slug"),
 		Limit:      optionIntValue(options, "limit"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.update").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueUpdate(ctx, nil, IssueUpdateInput{
+	return typedResultValue[IssueOutput]("issue.update", "invalid issue update output", s.issueUpdate(ctx, IssueUpdateInput{
 		ID:          optionStringValue(options, "id", "_arg"),
 		Slug:        optionStringValue(options, "slug"),
 		Title:       optionStringValue(options, "title"),
@@ -211,11 +199,7 @@ func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options cor
 		Labels:      optionStringSliceValue(options, "labels"),
 		SprintID:    optionIntValue(options, "sprint_id", "sprint-id"),
 		SprintSlug:  optionStringValue(options, "sprint_slug", "sprint-slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.assign").Run(ctx, core.NewOptions(
@@ -225,31 +209,23 @@ func (s *PrepSubsystem) handleIssueRecordUpdate(ctx context.Context, options cor
 //
 // ))
 func (s *PrepSubsystem) handleIssueRecordAssign(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueAssign(ctx, nil, IssueAssignInput{
+	return typedResultValue[IssueOutput]("issue.assign", "invalid issue assign output", s.issueAssign(ctx, IssueAssignInput{
 		ID:       optionStringValue(options, "id", "_arg"),
 		Slug:     optionStringValue(options, "slug"),
 		Assignee: optionStringValue(options, "assignee", "agent", "agent_type"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.comment").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordComment(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueComment(ctx, nil, IssueCommentInput{
+	return typedResultValue[IssueCommentOutput]("issue.comment", "invalid issue comment output", s.issueComment(ctx, IssueCommentInput{
 		ID:       optionStringValue(options, "id", "_arg"),
 		IssueID:  optionStringValue(options, "issue_id", "issue-id"),
 		Slug:     optionStringValue(options, "slug"),
 		Body:     optionStringValue(options, "body"),
 		Author:   optionStringValue(options, "author"),
 		Metadata: optionAnyMapValue(options, "metadata"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.report").Run(ctx, core.NewOptions(
@@ -259,109 +235,101 @@ func (s *PrepSubsystem) handleIssueRecordComment(ctx context.Context, options co
 //
 // ))
 func (s *PrepSubsystem) handleIssueRecordReport(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueReport(ctx, nil, IssueReportInput{
+	return typedResultValue[IssueReportOutput]("issue.report", "invalid issue report output", s.issueReport(ctx, IssueReportInput{
 		ID:       optionStringValue(options, "id", "_arg"),
 		IssueID:  optionStringValue(options, "issue_id", "issue-id"),
 		Slug:     optionStringValue(options, "slug"),
 		Report:   optionAnyValue(options, "report", "body"),
 		Author:   optionStringValue(options, "author"),
 		Metadata: optionAnyMapValue(options, "metadata"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("issue.archive").Run(ctx, core.NewOptions(core.Option{Key: "slug", Value: "fix-auth"}))
 func (s *PrepSubsystem) handleIssueRecordArchive(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.issueArchive(ctx, nil, IssueArchiveInput{
+	return typedResultValue[IssueArchiveOutput]("issue.archive", "invalid issue archive output", s.issueArchive(ctx, IssueArchiveInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 func (s *PrepSubsystem) registerIssueTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_create",
 		Description: "Create a tracked platform issue with title, type, priority, labels, and optional sprint assignment.",
-	}, s.issueCreate)
+	}, toolHandlerFor[IssueCreateInput, IssueOutput]("issue.create", "invalid issue create output", s.issueCreate))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_create",
 		Description: "Create a tracked platform issue with title, type, priority, labels, and optional sprint assignment.",
-	}, s.issueCreate)
+	}, toolHandlerFor[IssueCreateInput, IssueOutput]("issue.create", "invalid issue create output", s.issueCreate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_get",
 		Description: "Read a tracked platform issue by slug.",
-	}, s.issueGet)
+	}, toolHandlerFor[IssueGetInput, IssueOutput]("issue.get", "invalid issue get output", s.issueGet))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_get",
 		Description: "Read a tracked platform issue by slug.",
-	}, s.issueGet)
+	}, toolHandlerFor[IssueGetInput, IssueOutput]("issue.get", "invalid issue get output", s.issueGet))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_list",
 		Description: "List tracked platform issues with optional status, type, sprint, and limit filters.",
-	}, s.issueList)
+	}, toolHandlerFor[IssueListInput, IssueListOutput]("issue.list", "invalid issue list output", s.issueList))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_list",
 		Description: "List tracked platform issues with optional status, type, sprint, and limit filters.",
-	}, s.issueList)
+	}, toolHandlerFor[IssueListInput, IssueListOutput]("issue.list", "invalid issue list output", s.issueList))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_update",
 		Description: "Update fields on a tracked platform issue by slug.",
-	}, s.issueUpdate)
+	}, toolHandlerFor[IssueUpdateInput, IssueOutput]("issue.update", "invalid issue update output", s.issueUpdate))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_update",
 		Description: "Update fields on a tracked platform issue by slug.",
-	}, s.issueUpdate)
+	}, toolHandlerFor[IssueUpdateInput, IssueOutput]("issue.update", "invalid issue update output", s.issueUpdate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_assign",
 		Description: "Assign an agent or user to a tracked platform issue by slug.",
-	}, s.issueAssign)
+	}, toolHandlerFor[IssueAssignInput, IssueOutput]("issue.assign", "invalid issue assign output", s.issueAssign))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_assign",
 		Description: "Assign an agent or user to a tracked platform issue by slug.",
-	}, s.issueAssign)
+	}, toolHandlerFor[IssueAssignInput, IssueOutput]("issue.assign", "invalid issue assign output", s.issueAssign))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_comment",
 		Description: "Add a comment to a tracked platform issue.",
-	}, s.issueComment)
+	}, toolHandlerFor[IssueCommentInput, IssueCommentOutput]("issue.comment", "invalid issue comment output", s.issueComment))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_comment",
 		Description: "Add a comment to a tracked platform issue.",
-	}, s.issueComment)
+	}, toolHandlerFor[IssueCommentInput, IssueCommentOutput]("issue.comment", "invalid issue comment output", s.issueComment))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_report",
 		Description: "Post a structured report comment to a tracked platform issue.",
-	}, s.issueReport)
+	}, toolHandlerFor[IssueReportInput, IssueReportOutput]("issue.report", "invalid issue report output", s.issueReport))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_report",
 		Description: "Post a structured report comment to a tracked platform issue.",
-	}, s.issueReport)
+	}, toolHandlerFor[IssueReportInput, IssueReportOutput]("issue.report", "invalid issue report output", s.issueReport))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "issue_archive",
 		Description: "Archive a tracked platform issue by slug.",
-	}, s.issueArchive)
+	}, toolHandlerFor[IssueArchiveInput, IssueArchiveOutput]("issue.archive", "invalid issue archive output", s.issueArchive))
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "agentic_issue_archive",
 		Description: "Archive a tracked platform issue by slug.",
-	}, s.issueArchive)
+	}, toolHandlerFor[IssueArchiveInput, IssueArchiveOutput]("issue.archive", "invalid issue archive output", s.issueArchive))
 }
 
-func (s *PrepSubsystem) issueCreate(ctx context.Context, _ *mcp.CallToolRequest, input IssueCreateInput) (*mcp.CallToolResult, IssueOutput, error) {
+func (s *PrepSubsystem) issueCreate(ctx context.Context, input IssueCreateInput) core.Result {
 	if input.Title == "" {
-		return nil, IssueOutput{}, core.E("issueCreate", "title is required", nil)
+		return core.Fail(core.E("issueCreate", "title is required", nil))
 	}
 
 	body := map[string]any{
@@ -394,33 +362,33 @@ func (s *PrepSubsystem) issueCreate(ctx context.Context, _ *mcp.CallToolRequest,
 
 	result := s.platformPayload(ctx, "issue.create", "POST", "/v1/issues", body)
 	if !result.OK {
-		return nil, IssueOutput{}, resultErrorValue("issue.create", result)
+		return failureResult("issue.create", "request failed", result)
 	}
 
-	return nil, IssueOutput{
+	return core.Ok(IssueOutput{
 		Success: true,
 		Issue:   parseIssue(payloadResourceMap(result.Value.(map[string]any), "issue")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) issueGet(ctx context.Context, _ *mcp.CallToolRequest, input IssueGetInput) (*mcp.CallToolResult, IssueOutput, error) {
+func (s *PrepSubsystem) issueGet(ctx context.Context, input IssueGetInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, IssueOutput{}, core.E("issueGet", "id or slug is required", nil)
+		return core.Fail(core.E("issueGet", "id or slug is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "issue.get", "GET", core.Concat("/v1/issues/", identifier), nil)
 	if !result.OK {
-		return nil, IssueOutput{}, resultErrorValue("issue.get", result)
+		return failureResult("issue.get", "request failed", result)
 	}
 
-	return nil, IssueOutput{
+	return core.Ok(IssueOutput{
 		Success: true,
 		Issue:   parseIssue(payloadResourceMap(result.Value.(map[string]any), "issue")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) issueList(ctx context.Context, _ *mcp.CallToolRequest, input IssueListInput) (*mcp.CallToolResult, IssueListOutput, error) {
+func (s *PrepSubsystem) issueList(ctx context.Context, input IssueListInput) core.Result {
 	path := "/v1/issues"
 	path = appendQueryParam(path, "status", input.Status)
 	path = appendQueryParam(path, "type", input.Type)
@@ -437,16 +405,16 @@ func (s *PrepSubsystem) issueList(ctx context.Context, _ *mcp.CallToolRequest, i
 
 	result := s.platformPayload(ctx, "issue.list", "GET", path, nil)
 	if !result.OK {
-		return nil, IssueListOutput{}, resultErrorValue("issue.list", result)
+		return failureResult("issue.list", "request failed", result)
 	}
 
-	return nil, parseIssueListOutput(result.Value.(map[string]any)), nil
+	return core.Ok(parseIssueListOutput(result.Value.(map[string]any)))
 }
 
-func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest, input IssueUpdateInput) (*mcp.CallToolResult, IssueOutput, error) {
+func (s *PrepSubsystem) issueUpdate(ctx context.Context, input IssueUpdateInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, IssueOutput{}, core.E("issueUpdate", "id or slug is required", nil)
+		return core.Fail(core.E("issueUpdate", "id or slug is required", nil))
 	}
 
 	body := map[string]any{}
@@ -478,43 +446,43 @@ func (s *PrepSubsystem) issueUpdate(ctx context.Context, _ *mcp.CallToolRequest,
 		body["sprint_slug"] = input.SprintSlug
 	}
 	if len(body) == 0 {
-		return nil, IssueOutput{}, core.E("issueUpdate", "at least one field is required", nil)
+		return core.Fail(core.E("issueUpdate", "at least one field is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "issue.update", "PATCH", core.Concat("/v1/issues/", identifier), body)
 	if !result.OK {
-		return nil, IssueOutput{}, resultErrorValue("issue.update", result)
+		return failureResult("issue.update", "request failed", result)
 	}
 
-	return nil, IssueOutput{
+	return core.Ok(IssueOutput{
 		Success: true,
 		Issue:   parseIssue(payloadResourceMap(result.Value.(map[string]any), "issue")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) issueAssign(ctx context.Context, _ *mcp.CallToolRequest, input IssueAssignInput) (*mcp.CallToolResult, IssueOutput, error) {
+func (s *PrepSubsystem) issueAssign(ctx context.Context, input IssueAssignInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, IssueOutput{}, core.E("issueAssign", "id or slug is required", nil)
+		return core.Fail(core.E("issueAssign", "id or slug is required", nil))
 	}
 	if input.Assignee == "" {
-		return nil, IssueOutput{}, core.E("issueAssign", "assignee is required", nil)
+		return core.Fail(core.E("issueAssign", "assignee is required", nil))
 	}
 
-	return s.issueUpdate(ctx, nil, IssueUpdateInput{
+	return s.issueUpdate(ctx, IssueUpdateInput{
 		ID:       input.ID,
 		Slug:     input.Slug,
 		Assignee: input.Assignee,
 	})
 }
 
-func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest, input IssueCommentInput) (*mcp.CallToolResult, IssueCommentOutput, error) {
+func (s *PrepSubsystem) issueComment(ctx context.Context, input IssueCommentInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.IssueID, input.ID)
 	if identifier == "" {
-		return nil, IssueCommentOutput{}, core.E("issueComment", "issue_id, id, or slug is required", nil)
+		return core.Fail(core.E("issueComment", "issue_id, id, or slug is required", nil))
 	}
 	if input.Body == "" {
-		return nil, IssueCommentOutput{}, core.E("issueComment", "body is required", nil)
+		return core.Fail(core.E("issueComment", "body is required", nil))
 	}
 
 	body := map[string]any{
@@ -529,56 +497,58 @@ func (s *PrepSubsystem) issueComment(ctx context.Context, _ *mcp.CallToolRequest
 
 	result := s.platformPayload(ctx, "issue.comment", "POST", core.Concat("/v1/issues/", identifier, "/comments"), body)
 	if !result.OK {
-		return nil, IssueCommentOutput{}, resultErrorValue("issue.comment", result)
+		return failureResult("issue.comment", "request failed", result)
 	}
 
-	return nil, IssueCommentOutput{
+	return core.Ok(IssueCommentOutput{
 		Success: true,
 		Comment: parseIssueComment(payloadResourceMap(result.Value.(map[string]any), "comment")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) issueReport(ctx context.Context, _ *mcp.CallToolRequest, input IssueReportInput) (*mcp.CallToolResult, IssueReportOutput, error) {
+func (s *PrepSubsystem) issueReport(ctx context.Context, input IssueReportInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.IssueID, input.ID)
 	if identifier == "" {
-		return nil, IssueReportOutput{}, core.E("issueReport", "issue_id, id, or slug is required", nil)
+		return core.Fail(core.E("issueReport", "issue_id, id, or slug is required", nil))
 	}
 
-	body, err := issueReportBody(input.Report)
-	if err != nil {
-		return nil, IssueReportOutput{}, err
+	bodyResult := issueReportBody(input.Report)
+	if !bodyResult.OK {
+		return bodyResult
 	}
+	body, _ := bodyResult.Value.(string)
 	if body == "" {
-		return nil, IssueReportOutput{}, core.E("issueReport", "report is required", nil)
+		return core.Fail(core.E("issueReport", "report is required", nil))
 	}
 
-	_, commentOutput, err := s.issueComment(ctx, nil, IssueCommentInput{
+	commentResult := typedResultValue[IssueCommentOutput]("issue.report", "invalid issue comment output", s.issueComment(ctx, IssueCommentInput{
 		ID:       input.ID,
 		IssueID:  input.IssueID,
 		Slug:     input.Slug,
 		Body:     body,
 		Author:   input.Author,
 		Metadata: input.Metadata,
-	})
-	if err != nil {
-		return nil, IssueReportOutput{}, err
+	}))
+	if !commentResult.OK {
+		return commentResult
 	}
+	commentOutput, _ := commentResult.Value.(IssueCommentOutput)
 
-	return nil, IssueReportOutput{
+	return core.Ok(IssueReportOutput{
 		Success: true,
 		Comment: commentOutput.Comment,
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) issueArchive(ctx context.Context, _ *mcp.CallToolRequest, input IssueArchiveInput) (*mcp.CallToolResult, IssueArchiveOutput, error) {
+func (s *PrepSubsystem) issueArchive(ctx context.Context, input IssueArchiveInput) core.Result {
 	identifier := issueRecordIdentifier(input.Slug, input.ID)
 	if identifier == "" {
-		return nil, IssueArchiveOutput{}, core.E("issueArchive", "id or slug is required", nil)
+		return core.Fail(core.E("issueArchive", "id or slug is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "issue.archive", "DELETE", core.Concat("/v1/issues/", identifier), nil)
 	if !result.OK {
-		return nil, IssueArchiveOutput{}, resultErrorValue("issue.archive", result)
+		return failureResult("issue.archive", "request failed", result)
 	}
 
 	output := IssueArchiveOutput{
@@ -593,7 +563,7 @@ func (s *PrepSubsystem) issueArchive(ctx context.Context, _ *mcp.CallToolRequest
 			output.Success = value
 		}
 	}
-	return nil, output, nil
+	return core.Ok(output)
 }
 
 func parseIssue(values map[string]any) Issue {
@@ -635,23 +605,23 @@ func parseIssueComment(values map[string]any) IssueComment {
 	}
 }
 
-func issueReportBody(report any) (string, error) {
+func issueReportBody(report any) core.Result {
 	switch value := report.(type) {
 	case nil:
-		return "", nil
+		return core.Ok("")
 	case string:
-		return core.Trim(value), nil
+		return core.Ok(core.Trim(value))
 	}
 
 	if text := stringValue(report); text != "" {
-		return text, nil
+		return core.Ok(text)
 	}
 
 	if jsonText := core.JSONMarshalString(report); core.Trim(jsonText) != "" {
-		return core.Concat("```json\n", jsonText, "\n```"), nil
+		return core.Ok(core.Concat("```json\n", jsonText, "\n```"))
 	}
 
-	return "", nil
+	return core.Ok("")
 }
 
 func parseIssueListOutput(payload map[string]any) IssueListOutput {

@@ -109,14 +109,14 @@ func (s *PrepSubsystem) runFlowExecutionCommand(options core.Options, commandLab
 
 func (s *PrepSubsystem) validateExecutableFlowDefinition(document flowRunDocument) core.Result {
 	for index, step := range document.Definition.Steps {
-		if err := s.validateExecutableFlowStep(index+1, step); err != nil {
+		if err := validateExecutableFlowStep(s, index+1, step); err != nil {
 			return core.Result{Value: err, OK: false}
 		}
 	}
 	return core.Result{OK: true}
 }
 
-func (s *PrepSubsystem) validateExecutableFlowStep(index int, step flowDefinitionStep) error {
+var validateExecutableFlowStep = func(s *PrepSubsystem, index int, step flowDefinitionStep) error {
 	stepName := flowStepDisplayName(index, step)
 
 	if core.Trim(step.Cmd) == "" {
@@ -231,7 +231,7 @@ func flowStepDisplayName(index int, step flowDefinitionStep) string {
 	return core.Concat("step-", core.Itoa(index))
 }
 
-func flowStepError(stepName, message string) error {
+var flowStepError = func(stepName, message string) error {
 	return core.E(
 		"agentic.validateExecutableFlowStep",
 		core.Concat("step \"", stepName, "\" ", message),
@@ -267,7 +267,7 @@ func flowStepOptions(args []string) core.Options {
 	return options
 }
 
-func captureFlowStepOutput(run func() core.Result) (core.Result, string, string, error) {
+var captureFlowStepOutput = func(run func() core.Result) (core.Result, string, string, error) {
 	stdoutReadFD, stdoutWriteFD, err := newPipe()
 	if err != nil {
 		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "create stdout pipe", err)
@@ -367,7 +367,7 @@ func captureFlowStepOutput(run func() core.Result) (core.Result, string, string,
 	return result, string(stdoutData), string(stderrData), nil
 }
 
-func newPipe() (int, int, error) {
+var newPipe = func() (int, int, error) {
 	var fds [2]int
 	if err := syscall.Pipe(fds[:]); err != nil {
 		return 0, 0, err
@@ -375,7 +375,7 @@ func newPipe() (int, int, error) {
 	return fds[0], fds[1], nil
 }
 
-func readFD(fd int) ([]byte, error) {
+var readFD = func(fd int) ([]byte, error) {
 	buffer := core.NewBuffer()
 	chunk := make([]byte, 4096)
 	for {

@@ -125,7 +125,7 @@ func (s *PrepSubsystem) cmdPlanCreate(options core.Options) core.Result {
 			variables = map[string]string{}
 		}
 
-		_, output, err := s.templateCreatePlan(ctx, nil, TemplateCreatePlanInput{
+		_, output, err := templateCreatePlan(s, ctx, nil, TemplateCreatePlanInput{
 			Template:     templateName,
 			Variables:    variables,
 			Slug:         slug,
@@ -156,7 +156,7 @@ func (s *PrepSubsystem) cmdPlanCreate(options core.Options) core.Result {
 		objective = title
 	}
 
-	_, output, err := s.planCreate(ctx, nil, PlanCreateInput{
+	_, output, err := planCreate(s, ctx, nil, PlanCreateInput{
 		Title:       title,
 		Slug:        slug,
 		Objective:   objective,
@@ -189,7 +189,7 @@ func (s *PrepSubsystem) cmdPlanFromIssue(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPlanFromIssue", "issue slug or id is required", nil), OK: false}
 	}
 
-	_, output, err := s.planFromIssue(ctx, nil, PlanFromIssueInput{
+	_, output, err := planFromIssue(s, ctx, nil, PlanFromIssueInput{
 		ID:   optionStringValue(options, "id", "_arg"),
 		Slug: optionStringValue(options, "slug"),
 	})
@@ -206,7 +206,7 @@ func (s *PrepSubsystem) cmdPlanFromIssue(options core.Options) core.Result {
 
 func (s *PrepSubsystem) cmdPlanList(options core.Options) core.Result {
 	ctx := s.commandContext()
-	_, output, err := s.planList(ctx, nil, PlanListInput{
+	_, output, err := planList(s, ctx, nil, PlanListInput{
 		Status: optionStringValue(options, "status"),
 		Repo:   optionStringValue(options, "repo"),
 		Limit:  optionIntValue(options, "limit"),
@@ -236,7 +236,7 @@ func (s *PrepSubsystem) cmdPlanShow(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPlanShow", "slug is required", nil), OK: false}
 	}
 
-	_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: slug})
+	_, output, err := planGetCompat(s, ctx, nil, PlanReadInput{Slug: slug})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -316,7 +316,7 @@ func (s *PrepSubsystem) cmdPlanStatus(options core.Options) core.Result {
 
 	set := optionStringValue(options, "set", "status")
 	if set == "" {
-		_, output, err := s.planGetCompat(ctx, nil, PlanReadInput{Slug: slug})
+		_, output, err := planGetCompat(s, ctx, nil, PlanReadInput{Slug: slug})
 		if err != nil {
 			core.Print(nil, "error: %v", err)
 			return core.Result{Value: err, OK: false}
@@ -326,7 +326,7 @@ func (s *PrepSubsystem) cmdPlanStatus(options core.Options) core.Result {
 		return core.Result{Value: output, OK: true}
 	}
 
-	_, output, err := s.planUpdateStatusCompat(ctx, nil, PlanStatusUpdateInput{Slug: slug, Status: set})
+	_, output, err := planUpdateStatusCompat(s, ctx, nil, PlanStatusUpdateInput{Slug: slug, Status: set})
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}

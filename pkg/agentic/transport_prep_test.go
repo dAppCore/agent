@@ -211,14 +211,14 @@ func TestTransport_Stream_Send_Good_Case(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	stream := &httpStream{client: defaultClient, url: srv.URL, token: "send-token", method: http.MethodPost}
+	stream := &httpStream{Client: defaultClient, URL: srv.URL, Token: "send-token", Method: http.MethodPost}
 	sendErr := stream.Send([]byte(`{"ping":1}`))
 	core.RequireNoError(t, sendErr)
-	core.AssertEqual(t, `{"pong":1}`, string(stream.response))
+	core.AssertEqual(t, `{"pong":1}`, string(stream.Response))
 }
 
 func TestTransport_Stream_Receive_Good_Case(t *testing.T) {
-	stream := &httpStream{response: []byte(`{"cached":true}`)}
+	stream := &httpStream{Response: []byte(`{"cached":true}`)}
 	response, err := stream.Receive()
 
 	core.RequireNoError(t, err)
@@ -230,7 +230,7 @@ func TestTransport_Stream_Close_Good_Case(t *testing.T) {
 	err := stream.Close()
 
 	core.RequireNoError(t, err)
-	core.AssertNil(t, stream.response)
+	core.AssertNil(t, stream.Response)
 }
 
 func TestClock_SyncRealClock_Now_Good(t *testing.T) {
@@ -427,7 +427,7 @@ func TestMetaReader_ForgeMetaReader_GetIssueState_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	state, err := reader.GetIssueState(context.Background(), "go-io", 7)
 
 	core.RequireNoError(t, err)
@@ -459,7 +459,7 @@ func TestMetaReader_ForgeMetaReader_GetPRMeta_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetPRMeta(context.Background(), "go-io", 12)
 
 	core.RequireNoError(t, err)
@@ -485,7 +485,7 @@ func TestMetaReader_ForgeMetaReader_GetEpicMeta_Good(t *testing.T) {
 	srv := newPipelineTestServer(t, map[string]*pipelineTestRepo{"go-io": repo})
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	meta, err := reader.GetEpicMeta(context.Background(), "go-io", 1)
 
 	core.RequireNoError(t, err)
@@ -506,7 +506,7 @@ func TestMetaReader_ForgeMetaReader_GetCommentReactions_Good(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	subsystem, _ := testPrepWithCore(t, srv)
-	reader := &pipelineForgeMetaReader{subsystem: subsystem, org: "core"}
+	reader := newPipelineForgeMetaReader(subsystem, "core")
 	reactions, err := reader.GetCommentReactions(context.Background(), "go-io", 55)
 
 	core.RequireNoError(t, err)

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	core "dappco.re/go"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestLang_CmdLangDetect_Good_Go(t *testing.T) {
@@ -49,8 +48,10 @@ func TestLang_LangDetect_Good_PHP(t *testing.T) {
 	dir := t.TempDir()
 	core.RequireTrue(t, fs.Write(core.JoinPath(dir, "composer.json"), "{}").OK)
 
-	_, output, err := s.langDetect(context.Background(), (*mcp.CallToolRequest)(nil), LanguageDetectInput{Path: dir})
-	core.RequireNoError(t, err)
+	result := s.langDetect(context.Background(), LanguageDetectInput{Path: dir})
+	core.RequireTrue(t, result.OK)
+	output, ok := result.Value.(LanguageDetectOutput)
+	core.RequireTrue(t, ok)
 	core.AssertEqual(t, dir, output.Path)
 	core.AssertEqual(t, "php", output.Language)
 }
@@ -58,8 +59,10 @@ func TestLang_LangDetect_Good_PHP(t *testing.T) {
 func TestLang_LangList_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, output, err := s.langList(context.Background(), (*mcp.CallToolRequest)(nil), LanguageListInput{})
-	core.RequireNoError(t, err)
+	result := s.langList(context.Background(), LanguageListInput{})
+	core.RequireTrue(t, result.OK)
+	output, ok := result.Value.(LanguageListOutput)
+	core.RequireTrue(t, ok)
 	core.RequireTrue(t, output.Success)
 	core.AssertEqual(t, len(supportedLanguages), output.Count)
 	core.AssertEqual(t, supportedLanguages, output.Languages)
@@ -68,12 +71,16 @@ func TestLang_LangList_Good_Case(t *testing.T) {
 func TestLang_LangList_Ugly_CopyIsolation(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, first, err := s.langList(context.Background(), (*mcp.CallToolRequest)(nil), LanguageListInput{})
-	core.RequireNoError(t, err)
+	firstResult := s.langList(context.Background(), LanguageListInput{})
+	core.RequireTrue(t, firstResult.OK)
+	first, ok := firstResult.Value.(LanguageListOutput)
+	core.RequireTrue(t, ok)
 	core.RequireNotEmpty(t, first.Languages)
 	first.Languages[0] = "mutated"
 
-	_, second, err := s.langList(context.Background(), (*mcp.CallToolRequest)(nil), LanguageListInput{})
-	core.RequireNoError(t, err)
+	secondResult := s.langList(context.Background(), LanguageListInput{})
+	core.RequireTrue(t, secondResult.OK)
+	second, ok := secondResult.Value.(LanguageListOutput)
+	core.RequireTrue(t, ok)
 	core.AssertEqual(t, supportedLanguages[0], second.Languages[0])
 }

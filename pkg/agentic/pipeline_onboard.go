@@ -35,7 +35,7 @@ func (s *PrepSubsystem) cmdPipelineOnboard(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineOnboard", "repo is required", nil), OK: false}
 	}
 
-	output, err := s.pipelineOnboard(ctx, PipelineOnboardInput{
+	output, err := pipelineOnboard(s, ctx, PipelineOnboardInput{
 		Org:            pipelineOrgValue(options),
 		Repo:           repo,
 		Agent:          optionStringValue(options, "agent"),
@@ -59,7 +59,7 @@ func (s *PrepSubsystem) cmdPipelineOnboard(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
-func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboardInput) (PipelineOnboardOutput, error) {
+var pipelineOnboard = func(s *PrepSubsystem, ctx context.Context, input PipelineOnboardInput) (PipelineOnboardOutput, error) {
 	if input.Repo == "" {
 		return PipelineOnboardOutput{}, core.E("pipelineOnboard", "repo is required", nil)
 	}
@@ -73,7 +73,7 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 		input.Template = "coding"
 	}
 
-	auditOutput, err := s.pipelineAudit(ctx, PipelineAuditInput{
+	auditOutput, err := pipelineAudit(s, ctx, PipelineAuditInput{
 		Org:  input.Org,
 		Repo: input.Repo,
 	})
@@ -81,7 +81,7 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 		return PipelineOnboardOutput{}, err
 	}
 
-	epicOutput, err := s.pipelineEpicCreate(ctx, PipelineEpicCreateInput{
+	epicOutput, err := pipelineEpicCreate(s, ctx, PipelineEpicCreateInput{
 		Org:  input.Org,
 		Repo: input.Repo,
 	})
@@ -102,7 +102,7 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 	epicsToRun = append(epicsToRun, epicOutput.Existing...)
 
 	if len(epicsToRun) == 0 {
-		direct, directErr := s.pipelineOnboardDispatchDirect(ctx, input, epicOutput.Candidates)
+		direct, directErr := pipelineOnboardDispatchDirect(s, ctx, input, epicOutput.Candidates)
 		if directErr != nil {
 			return PipelineOnboardOutput{}, directErr
 		}
@@ -111,7 +111,7 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 	}
 
 	for _, epic := range epicsToRun {
-		runOutput, runErr := s.pipelineEpicRun(ctx, PipelineEpicRunInput{
+		runOutput, runErr := pipelineEpicRun(s, ctx, PipelineEpicRunInput{
 			Org:        input.Org,
 			Repo:       input.Repo,
 			EpicNumber: epic.Number,
@@ -130,7 +130,7 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 	return output, nil
 }
 
-func (s *PrepSubsystem) pipelineOnboardDispatchDirect(ctx context.Context, input PipelineOnboardInput, issues []PipelineIssueRef) ([]PipelineIssueRef, error) {
+var pipelineOnboardDispatchDirect = func(s *PrepSubsystem, ctx context.Context, input PipelineOnboardInput, issues []PipelineIssueRef) ([]PipelineIssueRef, error) {
 	dispatched := []PipelineIssueRef{}
 	for _, issue := range issues {
 		if issue.Number <= 0 || !pipelineIssueAutoDispatchAllowed(issue.Title) {
@@ -145,7 +145,7 @@ func (s *PrepSubsystem) pipelineOnboardDispatchDirect(ctx context.Context, input
 			continue
 		}
 
-		_, _, err := s.dispatch(ctx, nil, DispatchInput{
+		_, _, err := dispatch(s, ctx, nil, DispatchInput{
 			Org:      input.Org,
 			Repo:     input.Repo,
 			Task:     issue.Title,

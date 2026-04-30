@@ -49,7 +49,7 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		pid, processID, outputFile, err := s.spawnAgent(ev.Agent, prompt, workspaceDir)
+		pid, processID, outputFile, err := spawnAgent(s, ev.Agent, prompt, workspaceDir)
 		if err != nil {
 			break
 		}
@@ -181,7 +181,7 @@ func performAsyncIfRegistered(c *core.Core, action string, options core.Options)
 // spawnResult := prep.SpawnFromQueue("codex", prompt, workspaceDir)
 // pid := spawnResult.Value.(int)
 func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.Result {
-	pid, _, _, err := s.spawnAgent(agent, prompt, workspaceDir)
+	pid, _, _, err := spawnAgent(s, agent, prompt, workspaceDir)
 	if err != nil {
 		return core.Result{
 			Value: core.E("agentic.SpawnFromQueue", "failed to spawn queued agent", err),

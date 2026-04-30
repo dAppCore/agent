@@ -192,21 +192,17 @@ type ContentSchemaOutput struct {
 
 // result := c.Action("content.generate").Run(ctx, core.NewOptions(core.Option{Key: "prompt", Value: "Draft a release note"}))
 func (s *PrepSubsystem) handleContentGenerate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentGenerate(ctx, nil, ContentGenerateInput{
+	return typedResultValue[ContentGenerateOutput]("content.generate", "invalid content generate output", s.contentGenerate(ctx, ContentGenerateInput{
 		Prompt:   optionStringValue(options, "prompt"),
 		BriefID:  optionStringValue(options, "brief_id", "brief-id"),
 		Template: optionStringValue(options, "template"),
 		Provider: optionStringValue(options, "provider"),
 		Config:   optionAnyMapValue(options, "config"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
-func (s *PrepSubsystem) contentGenerateResult(ctx context.Context, input ContentGenerateInput) (ContentResult, error) {
-	if err := s.validateContentProvider(input.Provider); err != nil {
+var contentGenerateResult = func(s *PrepSubsystem, ctx context.Context, input ContentGenerateInput) (ContentResult, error) {
+	if err := validateContentProvider(s, input.Provider); err != nil {
 		return ContentResult{}, err
 	}
 
@@ -242,12 +238,16 @@ func (s *PrepSubsystem) contentGenerateResult(ctx context.Context, input Content
 	return parseContentResult(payloadResourceMap(result.Value.(map[string]any), "result", "content", "generation")), nil
 }
 
-func (s *PrepSubsystem) validateContentProvider(providerName string) error {
+var validateContentProvider = func(s *PrepSubsystem, providerName string) error {
 	if core.Trim(providerName) == "" {
 		return nil
 	}
 
-	provider, ok := s.providerManager().Provider(providerName)
+	manager := s.providers
+	if manager == nil {
+		manager = NewProviderManager(nil)
+	}
+	provider, ok := manager.Provider(providerName)
 	if !ok {
 		return core.E("contentGenerate", core.Concat("unknown provider: ", providerName), nil)
 	}
@@ -260,20 +260,16 @@ func (s *PrepSubsystem) validateContentProvider(providerName string) error {
 
 // result := c.Action("content.batch.generate").Run(ctx, core.NewOptions(core.Option{Key: "batch_id", Value: "batch_123"}))
 func (s *PrepSubsystem) handleContentBatchGenerate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentBatchGenerate(ctx, nil, ContentBatchGenerateInput{
+	return typedResultValue[ContentBatchOutput]("content.batch.generate", "invalid content batch output", s.contentBatchGenerate(ctx, ContentBatchGenerateInput{
 		BatchID:  optionStringValue(options, "batch_id", "batch-id", "_arg"),
 		Provider: optionStringValue(options, "provider"),
 		DryRun:   optionBoolValue(options, "dry_run", "dry-run"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.brief.create").Run(ctx, core.NewOptions(core.Option{Key: "title", Value: "LinkHost brief"}))
 func (s *PrepSubsystem) handleContentBriefCreate(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentBriefCreate(ctx, nil, ContentBriefCreateInput{
+	return typedResultValue[ContentBriefOutput]("content.brief.create", "invalid content brief output", s.contentBriefCreate(ctx, ContentBriefCreateInput{
 		Title:    optionStringValue(options, "title"),
 		Name:     optionStringValue(options, "name"),
 		Slug:     optionStringValue(options, "slug"),
@@ -284,76 +280,52 @@ func (s *PrepSubsystem) handleContentBriefCreate(ctx context.Context, options co
 		Metadata: optionAnyMapValue(options, "metadata"),
 		Context:  optionAnyMapValue(options, "context"),
 		Payload:  optionAnyMapValue(options, "payload"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.brief.get").Run(ctx, core.NewOptions(core.Option{Key: "brief_id", Value: "host-link"}))
 func (s *PrepSubsystem) handleContentBriefGet(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentBriefGet(ctx, nil, ContentBriefGetInput{
+	return typedResultValue[ContentBriefOutput]("content.brief.get", "invalid content brief output", s.contentBriefGet(ctx, ContentBriefGetInput{
 		BriefID: optionStringValue(options, "brief_id", "brief-id", "id", "slug", "_arg"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.brief.list").Run(ctx, core.NewOptions(core.Option{Key: "category", Value: "product"}))
 func (s *PrepSubsystem) handleContentBriefList(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentBriefList(ctx, nil, ContentBriefListInput{
+	return typedResultValue[ContentBriefListOutput]("content.brief.list", "invalid content brief list output", s.contentBriefList(ctx, ContentBriefListInput{
 		Category: optionStringValue(options, "category"),
 		Product:  optionStringValue(options, "product"),
 		Limit:    optionIntValue(options, "limit"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.status").Run(ctx, core.NewOptions(core.Option{Key: "batch_id", Value: "batch_123"}))
 func (s *PrepSubsystem) handleContentStatus(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentStatus(ctx, nil, ContentStatusInput{
+	return typedResultValue[ContentStatusOutput]("content.status", "invalid content status output", s.contentStatus(ctx, ContentStatusInput{
 		BatchID: optionStringValue(options, "batch_id", "batch-id", "_arg"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.usage.stats").Run(ctx, core.NewOptions(core.Option{Key: "provider", Value: "claude"}))
 func (s *PrepSubsystem) handleContentUsageStats(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentUsageStats(ctx, nil, ContentUsageStatsInput{
+	return typedResultValue[ContentUsageStatsOutput]("content.usage.stats", "invalid content usage output", s.contentUsageStats(ctx, ContentUsageStatsInput{
 		Provider: optionStringValue(options, "provider"),
 		Period:   optionStringValue(options, "period"),
 		Since:    optionStringValue(options, "since"),
 		Until:    optionStringValue(options, "until"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.from.plan").Run(ctx, core.NewOptions(core.Option{Key: "plan_slug", Value: "release-notes"}))
 func (s *PrepSubsystem) handleContentFromPlan(ctx context.Context, options core.Options) core.Result {
-	_, output, err := s.contentFromPlan(ctx, nil, ContentFromPlanInput{
+	return typedResultValue[ContentFromPlanOutput]("content.from.plan", "invalid content from plan output", s.contentFromPlan(ctx, ContentFromPlanInput{
 		PlanSlug: optionStringValue(options, "plan_slug", "plan", "slug", "_arg"),
 		Provider: optionStringValue(options, "provider"),
 		Prompt:   optionStringValue(options, "prompt"),
 		Template: optionStringValue(options, "template"),
 		Config:   optionAnyMapValue(options, "config"),
 		Payload:  optionAnyMapValue(options, "payload"),
-	})
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	}))
 }
 
 // result := c.Action("content.schema.generate").Run(ctx, core.NewOptions(
@@ -381,83 +353,79 @@ func (s *PrepSubsystem) handleContentSchemaGenerate(ctx context.Context, options
 		input.Steps = contentSchemaStepsValue(value)
 	}
 
-	_, output, err := s.contentSchemaGenerate(ctx, nil, input)
-	if err != nil {
-		return core.Result{Value: err, OK: false}
-	}
-	return core.Result{Value: output, OK: true}
+	return typedResultValue[ContentSchemaOutput]("content.schema.generate", "invalid content schema output", s.contentSchemaGenerate(ctx, input))
 }
 
 func (s *PrepSubsystem) registerContentTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_generate",
 		Description: "Generate content from a prompt or a brief/template pair using the platform AI provider abstraction.",
-	}, s.contentGenerate)
+	}, toolHandlerFor[ContentGenerateInput, ContentGenerateOutput]("content.generate", "invalid content generate output", s.contentGenerate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_batch_generate",
 		Description: "Generate content for a stored batch specification.",
-	}, s.contentBatchGenerate)
+	}, toolHandlerFor[ContentBatchGenerateInput, ContentBatchOutput]("content.batch.generate", "invalid content batch output", s.contentBatchGenerate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_batch",
 		Description: "Generate content for a stored batch specification using the legacy MCP alias.",
-	}, s.contentBatchGenerate)
+	}, toolHandlerFor[ContentBatchGenerateInput, ContentBatchOutput]("content.batch.generate", "invalid content batch output", s.contentBatchGenerate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_create",
 		Description: "Create a reusable content brief for later generation work.",
-	}, s.contentBriefCreate)
+	}, toolHandlerFor[ContentBriefCreateInput, ContentBriefOutput]("content.brief.create", "invalid content brief output", s.contentBriefCreate))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_get",
 		Description: "Read a reusable content brief by ID or slug.",
-	}, s.contentBriefGet)
+	}, toolHandlerFor[ContentBriefGetInput, ContentBriefOutput]("content.brief.get", "invalid content brief output", s.contentBriefGet))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_brief_list",
 		Description: "List reusable content briefs with optional category and product filters.",
-	}, s.contentBriefList)
+	}, toolHandlerFor[ContentBriefListInput, ContentBriefListOutput]("content.brief.list", "invalid content brief list output", s.contentBriefList))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_status",
 		Description: "Read batch content generation status by batch ID.",
-	}, s.contentStatus)
+	}, toolHandlerFor[ContentStatusInput, ContentStatusOutput]("content.status", "invalid content status output", s.contentStatus))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_usage_stats",
 		Description: "Read AI usage statistics for the content pipeline.",
-	}, s.contentUsageStats)
+	}, toolHandlerFor[ContentUsageStatsInput, ContentUsageStatsOutput]("content.usage.stats", "invalid content usage output", s.contentUsageStats))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_from_plan",
 		Description: "Generate content using stored plan context and an optional provider override.",
-	}, s.contentFromPlan)
+	}, toolHandlerFor[ContentFromPlanInput, ContentFromPlanOutput]("content.from.plan", "invalid content from plan output", s.contentFromPlan))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "content_schema_generate",
 		Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content.",
-	}, s.contentSchemaGenerate)
+	}, toolHandlerFor[ContentSchemaInput, ContentSchemaOutput]("content.schema.generate", "invalid content schema output", s.contentSchemaGenerate))
 	s.registerContentSEOTool(svc)
 }
 
-func (s *PrepSubsystem) contentGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentGenerateInput) (*mcp.CallToolResult, ContentGenerateOutput, error) {
-	content, err := s.contentGenerateResult(ctx, input)
+func (s *PrepSubsystem) contentGenerate(ctx context.Context, input ContentGenerateInput) core.Result {
+	content, err := contentGenerateResult(s, ctx, input)
 	if err != nil {
-		return nil, ContentGenerateOutput{}, err
+		return core.Fail(err)
 	}
-	return nil, ContentGenerateOutput{
+	return core.Ok(ContentGenerateOutput{
 		Success: true,
 		Result:  content,
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentBatchGenerate(ctx context.Context, _ *mcp.CallToolRequest, input ContentBatchGenerateInput) (*mcp.CallToolResult, ContentBatchOutput, error) {
+func (s *PrepSubsystem) contentBatchGenerate(ctx context.Context, input ContentBatchGenerateInput) core.Result {
 	if core.Trim(input.BatchID) == "" {
-		return nil, ContentBatchOutput{}, core.E("contentBatchGenerate", "batch_id is required", nil)
+		return core.Fail(core.E("contentBatchGenerate", "batch_id is required", nil))
 	}
-	if err := s.validateContentProvider(input.Provider); err != nil {
-		return nil, ContentBatchOutput{}, err
+	if err := validateContentProvider(s, input.Provider); err != nil {
+		return core.Fail(err)
 	}
 
 	body := map[string]any{
@@ -472,16 +440,16 @@ func (s *PrepSubsystem) contentBatchGenerate(ctx context.Context, _ *mcp.CallToo
 
 	result := s.platformPayload(ctx, "content.batch.generate", "POST", "/v1/content/batch/generate", body)
 	if !result.OK {
-		return nil, ContentBatchOutput{}, resultErrorValue("content.batch.generate", result)
+		return failureResult("content.batch.generate", "request failed", result)
 	}
 
-	return nil, ContentBatchOutput{
+	return core.Ok(ContentBatchOutput{
 		Success: true,
 		Batch:   payloadResourceMap(result.Value.(map[string]any), "batch", "result", "status"),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentBriefCreate(ctx context.Context, _ *mcp.CallToolRequest, input ContentBriefCreateInput) (*mcp.CallToolResult, ContentBriefOutput, error) {
+func (s *PrepSubsystem) contentBriefCreate(ctx context.Context, input ContentBriefCreateInput) core.Result {
 	body := map[string]any{}
 	if input.Title != "" {
 		body["title"] = input.Title
@@ -512,37 +480,37 @@ func (s *PrepSubsystem) contentBriefCreate(ctx context.Context, _ *mcp.CallToolR
 	}
 	body = mergeContentPayload(body, input.Payload)
 	if len(body) == 0 {
-		return nil, ContentBriefOutput{}, core.E("contentBriefCreate", "content brief data is required", nil)
+		return core.Fail(core.E("contentBriefCreate", "content brief data is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "content.brief.create", "POST", "/v1/content/briefs", body)
 	if !result.OK {
-		return nil, ContentBriefOutput{}, resultErrorValue("content.brief.create", result)
+		return failureResult("content.brief.create", "request failed", result)
 	}
 
-	return nil, ContentBriefOutput{
+	return core.Ok(ContentBriefOutput{
 		Success: true,
 		Brief:   parseContentBrief(payloadResourceMap(result.Value.(map[string]any), "brief", "item")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentBriefGet(ctx context.Context, _ *mcp.CallToolRequest, input ContentBriefGetInput) (*mcp.CallToolResult, ContentBriefOutput, error) {
+func (s *PrepSubsystem) contentBriefGet(ctx context.Context, input ContentBriefGetInput) core.Result {
 	if core.Trim(input.BriefID) == "" {
-		return nil, ContentBriefOutput{}, core.E("contentBriefGet", "brief_id is required", nil)
+		return core.Fail(core.E("contentBriefGet", "brief_id is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "content.brief.get", "GET", core.Concat("/v1/content/briefs/", input.BriefID), nil)
 	if !result.OK {
-		return nil, ContentBriefOutput{}, resultErrorValue("content.brief.get", result)
+		return failureResult("content.brief.get", "request failed", result)
 	}
 
-	return nil, ContentBriefOutput{
+	return core.Ok(ContentBriefOutput{
 		Success: true,
 		Brief:   parseContentBrief(payloadResourceMap(result.Value.(map[string]any), "brief", "item")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentBriefList(ctx context.Context, _ *mcp.CallToolRequest, input ContentBriefListInput) (*mcp.CallToolResult, ContentBriefListOutput, error) {
+func (s *PrepSubsystem) contentBriefList(ctx context.Context, input ContentBriefListInput) core.Result {
 	path := "/v1/content/briefs"
 	path = appendQueryParam(path, "category", input.Category)
 	path = appendQueryParam(path, "product", input.Product)
@@ -552,29 +520,29 @@ func (s *PrepSubsystem) contentBriefList(ctx context.Context, _ *mcp.CallToolReq
 
 	result := s.platformPayload(ctx, "content.brief.list", "GET", path, nil)
 	if !result.OK {
-		return nil, ContentBriefListOutput{}, resultErrorValue("content.brief.list", result)
+		return failureResult("content.brief.list", "request failed", result)
 	}
 
-	return nil, parseContentBriefListOutput(result.Value.(map[string]any)), nil
+	return core.Ok(parseContentBriefListOutput(result.Value.(map[string]any)))
 }
 
-func (s *PrepSubsystem) contentStatus(ctx context.Context, _ *mcp.CallToolRequest, input ContentStatusInput) (*mcp.CallToolResult, ContentStatusOutput, error) {
+func (s *PrepSubsystem) contentStatus(ctx context.Context, input ContentStatusInput) core.Result {
 	if core.Trim(input.BatchID) == "" {
-		return nil, ContentStatusOutput{}, core.E("contentStatus", "batch_id is required", nil)
+		return core.Fail(core.E("contentStatus", "batch_id is required", nil))
 	}
 
 	result := s.platformPayload(ctx, "content.status", "GET", core.Concat("/v1/content/status/", input.BatchID), nil)
 	if !result.OK {
-		return nil, ContentStatusOutput{}, resultErrorValue("content.status", result)
+		return failureResult("content.status", "request failed", result)
 	}
 
-	return nil, ContentStatusOutput{
+	return core.Ok(ContentStatusOutput{
 		Success: true,
 		Status:  payloadResourceMap(result.Value.(map[string]any), "status", "batch"),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentUsageStats(ctx context.Context, _ *mcp.CallToolRequest, input ContentUsageStatsInput) (*mcp.CallToolResult, ContentUsageStatsOutput, error) {
+func (s *PrepSubsystem) contentUsageStats(ctx context.Context, input ContentUsageStatsInput) core.Result {
 	path := "/v1/content/usage/stats"
 	path = appendQueryParam(path, "provider", input.Provider)
 	path = appendQueryParam(path, "period", input.Period)
@@ -583,21 +551,21 @@ func (s *PrepSubsystem) contentUsageStats(ctx context.Context, _ *mcp.CallToolRe
 
 	result := s.platformPayload(ctx, "content.usage.stats", "GET", path, nil)
 	if !result.OK {
-		return nil, ContentUsageStatsOutput{}, resultErrorValue("content.usage.stats", result)
+		return failureResult("content.usage.stats", "request failed", result)
 	}
 
-	return nil, ContentUsageStatsOutput{
+	return core.Ok(ContentUsageStatsOutput{
 		Success: true,
 		Usage:   payloadResourceMap(result.Value.(map[string]any), "usage", "stats"),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentFromPlan(ctx context.Context, _ *mcp.CallToolRequest, input ContentFromPlanInput) (*mcp.CallToolResult, ContentFromPlanOutput, error) {
+func (s *PrepSubsystem) contentFromPlan(ctx context.Context, input ContentFromPlanInput) core.Result {
 	if core.Trim(input.PlanSlug) == "" {
-		return nil, ContentFromPlanOutput{}, core.E("contentFromPlan", "plan_slug is required", nil)
+		return core.Fail(core.E("contentFromPlan", "plan_slug is required", nil))
 	}
-	if err := s.validateContentProvider(input.Provider); err != nil {
-		return nil, ContentFromPlanOutput{}, err
+	if err := validateContentProvider(s, input.Provider); err != nil {
+		return core.Fail(err)
 	}
 
 	body := map[string]any{
@@ -619,22 +587,22 @@ func (s *PrepSubsystem) contentFromPlan(ctx context.Context, _ *mcp.CallToolRequ
 
 	result := s.platformPayload(ctx, "content.from.plan", "POST", "/v1/content/from-plan", body)
 	if !result.OK {
-		return nil, ContentFromPlanOutput{}, resultErrorValue("content.from.plan", result)
+		return failureResult("content.from.plan", "request failed", result)
 	}
 
-	return nil, ContentFromPlanOutput{
+	return core.Ok(ContentFromPlanOutput{
 		Success: true,
 		Result:  parseContentResult(payloadResourceMap(result.Value.(map[string]any), "result", "content", "generation")),
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) contentSchemaGenerate(_ context.Context, _ *mcp.CallToolRequest, input ContentSchemaInput) (*mcp.CallToolResult, ContentSchemaOutput, error) {
+func (s *PrepSubsystem) contentSchemaGenerate(_ context.Context, input ContentSchemaInput) core.Result {
 	schemaType := contentSchemaType(input.Type)
 	if schemaType == "" {
-		return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "schema type is required", nil)
+		return core.Fail(core.E("contentSchemaGenerate", "schema type is required", nil))
 	}
 	if core.Trim(input.Title) == "" {
-		return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "title is required", nil)
+		return core.Fail(core.E("contentSchemaGenerate", "title is required", nil))
 	}
 
 	schema := map[string]any{
@@ -672,12 +640,12 @@ func (s *PrepSubsystem) contentSchemaGenerate(_ context.Context, _ *mcp.CallTool
 	switch schemaType {
 	case "FAQPage":
 		if len(input.Questions) == 0 {
-			return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "questions are required for FAQ schema", nil)
+			return core.Fail(core.E("contentSchemaGenerate", "questions are required for FAQ schema", nil))
 		}
 		schema["mainEntity"] = contentSchemaFAQEntries(input.Questions)
 	case "HowTo":
 		if len(input.Steps) == 0 {
-			return nil, ContentSchemaOutput{}, core.E("contentSchemaGenerate", "steps are required for how-to schema", nil)
+			return core.Fail(core.E("contentSchemaGenerate", "steps are required for how-to schema", nil))
 		}
 		schema["step"] = contentSchemaHowToSteps(input.Steps)
 	case "BlogPosting", "TechArticle":
@@ -696,12 +664,12 @@ func (s *PrepSubsystem) contentSchemaGenerate(_ context.Context, _ *mcp.CallTool
 		}
 	}
 
-	return nil, ContentSchemaOutput{
+	return core.Ok(ContentSchemaOutput{
 		Success:    true,
 		SchemaType: schemaType,
 		SchemaJSON: core.JSONMarshalString(schema),
 		Schema:     schema,
-	}, nil
+	})
 }
 
 func mergeContentPayload(target, extra map[string]any) map[string]any {

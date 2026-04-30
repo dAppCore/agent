@@ -49,62 +49,64 @@ func (s *PrepSubsystem) cmdLangDetect(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdLangDetect", "path is required", nil), OK: false}
 	}
 
-	_, output, err := s.langDetect(context.Background(), nil, LanguageDetectInput{Path: path})
-	if err != nil {
-		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+	result := typedResultValue[LanguageDetectOutput]("lang.detect", "invalid language detect output", s.langDetect(context.Background(), LanguageDetectInput{Path: path}))
+	if !result.OK {
+		core.Print(nil, "error: %s", result.Error())
+		return result
 	}
+	output, _ := result.Value.(LanguageDetectOutput)
 
 	core.Print(nil, "path:     %s", output.Path)
 	core.Print(nil, "language: %s", output.Language)
-	return core.Result{Value: output, OK: true}
+	return core.Ok(output)
 }
 
 // result := c.Command("lang/list").Run(ctx, core.NewOptions())
 func (s *PrepSubsystem) cmdLangList(_ core.Options) core.Result {
-	_, output, err := s.langList(context.Background(), nil, LanguageListInput{})
-	if err != nil {
-		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+	result := typedResultValue[LanguageListOutput]("lang.list", "invalid language list output", s.langList(context.Background(), LanguageListInput{}))
+	if !result.OK {
+		core.Print(nil, "error: %s", result.Error())
+		return result
 	}
+	output, _ := result.Value.(LanguageListOutput)
 
 	core.Print(nil, "%d language(s)", output.Count)
 	for _, language := range output.Languages {
 		core.Print(nil, "  %s", language)
 	}
-	return core.Result{Value: output, OK: true}
+	return core.Ok(output)
 }
 
 func (s *PrepSubsystem) registerLanguageTools(svc *coremcp.Service) {
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_detect",
 		Description: "Detect the primary language for a workspace or repository path.",
-	}, s.langDetect)
+	}, toolHandlerFor[LanguageDetectInput, LanguageDetectOutput]("lang.detect", "invalid language detect output", s.langDetect))
 
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
 		Name:        "lang_list",
 		Description: "List supported language identifiers.",
-	}, s.langList)
+	}, toolHandlerFor[LanguageListInput, LanguageListOutput]("lang.list", "invalid language list output", s.langList))
 }
 
-func (s *PrepSubsystem) langDetect(_ context.Context, _ *mcp.CallToolRequest, input LanguageDetectInput) (*mcp.CallToolResult, LanguageDetectOutput, error) {
+func (s *PrepSubsystem) langDetect(_ context.Context, input LanguageDetectInput) core.Result {
 	path := core.Trim(input.Path)
 	if path == "" {
 		path = "."
 	}
 	language := detectLanguage(path)
-	return nil, LanguageDetectOutput{
+	return core.Ok(LanguageDetectOutput{
 		Success:  true,
 		Path:     path,
 		Language: language,
-	}, nil
+	})
 }
 
-func (s *PrepSubsystem) langList(_ context.Context, _ *mcp.CallToolRequest, _ LanguageListInput) (*mcp.CallToolResult, LanguageListOutput, error) {
+func (s *PrepSubsystem) langList(_ context.Context, _ LanguageListInput) core.Result {
 	languages := append([]string(nil), supportedLanguages...)
-	return nil, LanguageListOutput{
+	return core.Ok(LanguageListOutput{
 		Success:   true,
 		Count:     len(languages),
 		Languages: languages,
-	}, nil
+	})
 }

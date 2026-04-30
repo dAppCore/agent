@@ -56,7 +56,7 @@ func (s *PrepSubsystem) cmdPipelineBudgetPlan(_ core.Options) core.Result {
 			row.ResetUTC,
 		)
 	}
-	if s.stateStoreInstance() == nil && s.stateStoreErr() != nil {
+	if s.stateStoreInstance() == nil && stateStoreErr(s) != nil {
 		core.Print(nil, "  note: using %s fallback because .core/db.duckdb is unavailable", pipelineBudgetJournalPath())
 	}
 	return core.Result{Value: rows, OK: true}

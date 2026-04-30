@@ -30,7 +30,7 @@ func NewRemoteClient(host string) RemoteClient {
 }
 
 // sessionID, err := client.Initialize(context.Background())
-func (c RemoteClient) Initialize(ctx context.Context) (string, error) {
+var InitializeRemoteClient = func(c RemoteClient, ctx context.Context) (string, error) {
 	result := mcpInitializeResult(ctx, c.URL, c.Token)
 	if !result.OK {
 		err, _ := result.Value.(error)
@@ -47,7 +47,7 @@ func (c RemoteClient) Initialize(ctx context.Context) (string, error) {
 }
 
 // response, err := client.Call(context.Background(), "session-1", core.JSONMarshalString(map[string]any{"method":"tools/call"}))
-func (c RemoteClient) Call(ctx context.Context, sessionID string, body []byte) ([]byte, error) {
+var CallRemoteClient = func(c RemoteClient, ctx context.Context, sessionID string, body []byte) ([]byte, error) {
 	result := mcpCallResult(ctx, c.URL, c.Token, sessionID, body)
 	if !result.OK {
 		err, _ := result.Value.(error)

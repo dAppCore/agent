@@ -7,6 +7,7 @@ import (
 	"time"
 
 	core "dappco.re/go"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // input := agentic.DispatchSyncInput{Repo: "go-crypt", Agent: "codex:gpt-5.3-codex-spark", Task: "fix it", Issue: 7}
@@ -40,12 +41,14 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	prepContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	prepWorkspace := s.prepWorkspace
+	prepWorkspaceFn := func(ctx context.Context, request *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+		return prepWorkspace(s, ctx, request, input)
+	}
 	if s.dispatchSyncPrep != nil {
-		prepWorkspace = s.dispatchSyncPrep
+		prepWorkspaceFn = s.dispatchSyncPrep
 	}
 
-	_, prepOut, err := prepWorkspace(prepContext, nil, prepInput)
+	_, prepOut, err := prepWorkspaceFn(prepContext, nil, prepInput)
 	if err != nil {
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "prep workspace failed", err)}
 	}
@@ -59,12 +62,16 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	core.Print(nil, "  workspace: %s", workspaceDir)
 	core.Print(nil, "  branch:    %s", prepOut.Branch)
 
-	spawnAgent := s.spawnAgent
+	spawnAgentFn := func(subsystem *PrepSubsystem, agent, prompt, dir string) (int, string, string, error) {
+		return spawnAgent(subsystem, agent, prompt, dir)
+	}
 	if s.dispatchSyncSpawn != nil {
-		spawnAgent = s.dispatchSyncSpawn
+		spawnAgentFn = func(_ *PrepSubsystem, agent, prompt, dir string) (int, string, string, error) {
+			return s.dispatchSyncSpawn(agent, prompt, dir)
+		}
 	}
 
-	pid, processID, _, err := spawnAgent(input.Agent, prompt, workspaceDir)
+	pid, processID, _, err := spawnAgentFn(s, input.Agent, prompt, workspaceDir)
 	if err != nil {
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}

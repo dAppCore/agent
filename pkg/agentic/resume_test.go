@@ -26,10 +26,12 @@ func TestResume_Resume_Good_Case(t *testing.T) {
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, out, err := s.resume(context.Background(), nil, ResumeInput{
+	result := s.resume(context.Background(), ResumeInput{
 		Workspace: "ws-blocked", Answer: "Use the new Core API", DryRun: true,
 	})
-	core.RequireNoError(t, err)
+	core.RequireTrue(t, result.OK)
+	out, ok := result.Value.(ResumeOutput)
+	core.RequireTrue(t, ok)
 	core.AssertTrue(t, out.Success)
 	core.AssertEqual(t, "ws-blocked", out.Workspace)
 	core.AssertEqual(t, "codex", out.Agent)
@@ -40,9 +42,11 @@ func TestResume_Resume_Good_Case(t *testing.T) {
 	core.AssertContains(t, answerR.Value.(string), "Use the new Core API")
 
 	// Agent override
-	_, out2, _ := s.resume(context.Background(), nil, ResumeInput{
+	result = s.resume(context.Background(), ResumeInput{
 		Workspace: "ws-blocked", Agent: "claude:opus", DryRun: true,
 	})
+	out2, ok := result.Value.(ResumeOutput)
+	core.RequireTrue(t, ok)
 	core.AssertEqual(t, "claude:opus", out2.Agent)
 
 	// Completed workspace is resumable too
@@ -52,8 +56,10 @@ func TestResume_Resume_Good_Case(t *testing.T) {
 	st2 := &WorkspaceStatus{Status: "completed", Repo: "go-io", Agent: "codex", Task: "Review code"}
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st2))
 
-	_, out3, err3 := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-done", DryRun: true})
-	core.RequireNoError(t, err3)
+	result = s.resume(context.Background(), ResumeInput{Workspace: "ws-done", DryRun: true})
+	core.RequireTrue(t, result.OK)
+	out3, ok := result.Value.(ResumeOutput)
+	core.RequireTrue(t, ok)
 	core.AssertTrue(t, out3.Success)
 }
 
@@ -64,12 +70,16 @@ func TestResume_Resume_Bad_Case(t *testing.T) {
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 
 	// Empty workspace
-	_, _, err := s.resume(context.Background(), nil, ResumeInput{})
+	result := s.resume(context.Background(), ResumeInput{})
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "workspace is required")
 
 	// Workspace not found
-	_, _, err = s.resume(context.Background(), nil, ResumeInput{Workspace: "nonexistent"})
+	result = s.resume(context.Background(), ResumeInput{Workspace: "nonexistent"})
+	err, ok = result.Value.(error)
+	core.RequireTrue(t, ok)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "workspace not found")
 
@@ -80,7 +90,9 @@ func TestResume_Resume_Bad_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "running", Repo: "test", Agent: "codex"}
 	fs.Write(core.JoinPath(ws, "status.json"), core.JSONMarshalString(st))
 
-	_, _, err = s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-running"})
+	result = s.resume(context.Background(), ResumeInput{Workspace: "ws-running"})
+	err, ok = result.Value.(error)
+	core.RequireTrue(t, ok)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "not resumable")
 }
@@ -95,7 +107,9 @@ func TestResume_Resume_Ugly_Case(t *testing.T) {
 	testCore.Process().Run(context.Background(), "git", "init", core.JoinPath(ws, "repo"))
 
 	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
-	_, _, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-nostatus"})
+	result := s.resume(context.Background(), ResumeInput{Workspace: "ws-nostatus"})
+	err, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "no status.json")
 
@@ -106,7 +120,9 @@ func TestResume_Resume_Ugly_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "blocked", Repo: "test", Agent: "codex", Task: "Fix"}
 	fs.Write(core.JoinPath(ws2, "status.json"), core.JSONMarshalString(st))
 
-	_, out, err := s.resume(context.Background(), nil, ResumeInput{Workspace: "ws-noanswer", DryRun: true})
-	core.RequireNoError(t, err)
+	result = s.resume(context.Background(), ResumeInput{Workspace: "ws-noanswer", DryRun: true})
+	core.RequireTrue(t, result.OK)
+	out, ok := result.Value.(ResumeOutput)
+	core.RequireTrue(t, ok)
 	core.AssertNotContains(t, out.Prompt, "ANSWER TO YOUR QUESTION")
 }

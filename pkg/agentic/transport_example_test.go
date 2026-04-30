@@ -30,17 +30,17 @@ func ExampleStream_Send() {
 	}))
 	defer srv.Close()
 
-	stream := &httpStream{client: srv.Client(), url: srv.URL, token: "token-123", method: http.MethodPost}
+	stream := &httpStream{Client: srv.Client(), URL: srv.URL, Token: "token-123", Method: http.MethodPost}
 	err := stream.Send([]byte(`{"ping":1}`))
 	core.Println(err == nil)
-	core.Println(string(stream.response))
+	core.Println(string(stream.Response))
 	// Output:
 	// true
 	// {"ok":true}
 }
 
 func ExampleStream_Receive() {
-	stream := &httpStream{response: []byte(`{"result":"pong"}`)}
+	stream := &httpStream{Response: []byte(`{"result":"pong"}`)}
 	response, _ := stream.Receive()
 	core.Println(string(response))
 	// Output: {"result":"pong"}

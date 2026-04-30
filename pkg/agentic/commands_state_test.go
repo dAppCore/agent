@@ -56,13 +56,15 @@ func TestCommandsState_CmdStateSet_Bad_MissingValue(t *testing.T) {
 func TestCommandsState_CmdStateGet_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, output, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	core.RequireNoError(t, err)
+	core.RequireTrue(t, setResult.OK)
+	output, ok := setResult.Value.(StateOutput)
+	core.RequireTrue(t, ok)
 	core.AssertEqual(t, "pattern", output.State.Key)
 
 	result := s.cmdStateGet(core.NewOptions(
@@ -88,13 +90,13 @@ func TestCommandsState_CmdStateGet_Bad_MissingKey(t *testing.T) {
 func TestCommandsState_CmdStateList_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	core.RequireNoError(t, err)
+	core.RequireTrue(t, setResult.OK)
 
 	result := s.cmdStateList(core.NewOptions(core.Option{Key: "_arg", Value: "ax-follow-up"}))
 
@@ -120,13 +122,13 @@ func TestCommandsState_CmdStateList_Ugly_EmptyPlan(t *testing.T) {
 func TestCommandsState_CmdStateDelete_Good_Case(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
-	_, _, err := s.stateSet(s.commandContext(), nil, StateSetInput{
+	setResult := s.stateSet(s.commandContext(), StateSetInput{
 		PlanSlug: "ax-follow-up",
 		Key:      "pattern",
 		Value:    "observer",
 		Type:     "general",
 	})
-	core.RequireNoError(t, err)
+	core.RequireTrue(t, setResult.OK)
 
 	result := s.cmdStateDelete(core.NewOptions(
 		core.Option{Key: "_arg", Value: "ax-follow-up"},

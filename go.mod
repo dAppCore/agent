@@ -93,8 +93,6 @@ require (
 	modernc.org/sqlite v1.47.0 // indirect
 )
 
-replace dappco.re/go/mcp => ../mcp
-
 replace forge.lthn.ai/Snider/Poindexter => ../../snider/Poindexter
 
 replace dappco.re/go => ../go
@@ -154,3 +152,5 @@ replace dappco.re/go/forge => ../go-forge
 replace dappco.re/go/process => ../go-process
 
 replace dappco.re/go/ws => ../go-ws
+
+replace dappco.re/go/mcp => ../mcp

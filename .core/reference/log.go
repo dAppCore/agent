@@ -368,7 +368,7 @@ func NewLogErr(log *Log) *LogErr {
 }
 
 // Log extracts context from an Err and logs it at Error level.
-func (le *LogErr) Log(err error) {
+func (le *LogErr) Log(err any) {
 	if err == nil {
 		return
 	}
