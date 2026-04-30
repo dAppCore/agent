@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // --- forgeMergePR ---
@@ -460,7 +459,7 @@ func TestVerify_FlagForReview_Good_AddsLabel(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -493,7 +492,7 @@ func TestVerify_FlagForReview_Good_MergeConflictMessage(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -589,7 +588,7 @@ func TestVerify_AttemptVerifyAndMerge_Ugly_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -701,7 +700,7 @@ func TestVerify_FlagForReview_Bad_AllAPICallsFail(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -728,7 +727,7 @@ func TestVerify_FlagForReview_Ugly_LabelNotFoundZeroID(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),

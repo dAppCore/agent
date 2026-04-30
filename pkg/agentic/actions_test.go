@@ -11,7 +11,6 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	"dappco.re/go/forge"
 )
 
 func TestActions_HandleDispatch_Good_Case(t *testing.T) {
@@ -92,7 +91,7 @@ func TestActions_HandleDispatch_Good_RecordsUsage(t *testing.T) {
 		}
 	})
 
-	s.forge = forge.NewForge(forgeSrv.URL, "tok")
+	s.forge = newForgeClient(forgeSrv.URL, "tok")
 	s.codePath = core.PathDir(core.PathDir(srcRepo))
 
 	r := s.handleDispatch(context.Background(), core.NewOptions(

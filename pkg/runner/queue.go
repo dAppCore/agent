@@ -7,8 +7,8 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
 	agentcompat "dappco.re/go/agent/pkg/agentcompat"
+	"dappco.re/go/agent/pkg/agentic"
 	"gopkg.in/yaml.v3"
 )
 

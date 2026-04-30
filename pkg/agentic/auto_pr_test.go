@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 func TestAutopr_AutoCreatePR_Good_Case(t *testing.T) {
@@ -79,7 +78,7 @@ func TestAutopr_AutoCreatePR_Good_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(server.URL, "test-token"),
+		forge:          newForgeClient(server.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}

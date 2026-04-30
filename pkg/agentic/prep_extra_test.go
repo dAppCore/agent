@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // --- Shutdown ---
@@ -336,7 +335,7 @@ func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -356,7 +355,7 @@ func TestPrep_PullWikiContent_Good_NoPages(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -379,7 +378,7 @@ func TestPrep_GetIssueBody_Good_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -396,7 +395,7 @@ func TestPrep_GetIssueBody_Bad_NotFound(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -473,7 +472,7 @@ func TestPrep_BuildPrompt_Good_WithIssue(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       t.TempDir(),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -590,7 +589,7 @@ func TestPrep_BuildPromptNaming_Ugly_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       t.TempDir(),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -669,7 +668,7 @@ func TestPrep_PullWikiContent_Bad_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -699,7 +698,7 @@ func TestPrep_PullWikiContent_Ugly_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}
@@ -831,7 +830,7 @@ func TestPrep_GetIssueBody_Ugly_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
 	}

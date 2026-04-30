@@ -6,7 +6,6 @@ import (
 	"context"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // s.cleanupBranch(context.Background(), "core/go-io", "agent/fix-tests")
@@ -34,8 +33,8 @@ func (s *PrepSubsystem) cleanupBranch(ctx context.Context, repo, branch string) 
 		return core.Result{Value: core.E("cleanupBranch", core.Concat("refusing to delete protected branch ", branch), nil), OK: false}
 	}
 
-	err := s.forge.Branches.DeleteBranch(ctx, org, repoName, branch)
-	if err != nil && !forge.IsNotFound(err) {
+	err := s.forge.deleteBranch(ctx, org, repoName, branch)
+	if err != nil && !isForgeNotFound(err) {
 		return core.Result{Value: core.E("cleanupBranch", core.Concat("failed to delete branch ", branch), err), OK: false}
 	}
 	return core.Result{OK: true}

@@ -91,7 +91,7 @@ var scan = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, i
 }
 
 var listOrgRepos = func(s *PrepSubsystem, ctx context.Context, org string) ([]string, error) {
-	repos, err := s.forge.Repos.ListOrgRepos(ctx, org)
+	repos, err := s.forge.listOrgRepos(ctx, org)
 	if err != nil {
 		return nil, core.E("scan.listOrgRepos", "failed to list repos", err)
 	}

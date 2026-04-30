@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // testPrepWithCore creates a PrepSubsystem backed by a real Core + Forge mock.
@@ -21,9 +20,9 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 
 	c := core.New()
 
-	var f *forge.Forge
+	var f *forgeClient
 	if srv != nil {
-		f = forge.NewForge(srv.URL, "test-token")
+		f = newForgeClient(srv.URL, "test-token")
 	}
 
 	s := &PrepSubsystem{
@@ -1155,7 +1154,7 @@ func TestCommands_CmdScan_Good_Case(t *testing.T) {
 	server := mockScanServer(t)
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(server.URL, "secret-token"),
+		forge:          newForgeClient(server.URL, "secret-token"),
 		forgeURL:       server.URL,
 		forgeToken:     "secret-token",
 		backoff:        make(map[string]time.Time),
@@ -1199,7 +1198,7 @@ func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(server.URL, "secret-token"),
+		forge:          newForgeClient(server.URL, "secret-token"),
 		forgeURL:       server.URL,
 		forgeToken:     "secret-token",
 		backoff:        make(map[string]time.Time),

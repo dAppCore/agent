@@ -12,7 +12,6 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
-	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -23,7 +22,7 @@ type AgentOptions struct{}
 // core.New(core.WithService(agentic.Register))
 type PrepSubsystem struct {
 	*core.ServiceRuntime[AgentOptions]
-	forge              *forge.Forge
+	forge              *forgeClient
 	forgeURL           string
 	forgeToken         string
 	brainURL           string
@@ -70,7 +69,7 @@ func NewPrep() *PrepSubsystem {
 	forgeURL := envOr("FORGE_URL", "https://forge.lthn.ai")
 
 	subsystem := &PrepSubsystem{
-		forge:      forge.NewForge(forgeURL, forgeToken),
+		forge:      newForgeClient(forgeURL, forgeToken),
 		forgeURL:   forgeURL,
 		forgeToken: forgeToken,
 		brainURL:   envOr("CORE_BRAIN_URL", "https://api.lthn.sh"),
@@ -1210,8 +1209,8 @@ var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, works
 }
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
-	idx := core.Sprintf("%d", issue)
-	iss, err := s.forge.Issues.Get(ctx, forge.Params{"owner": org, "repo": repo, "index": idx})
+	var iss issueView
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, issue), &iss)
 	if err != nil {
 		return ""
 	}
@@ -1337,7 +1336,7 @@ func (s *PrepSubsystem) getGitLog(repoPath string) string {
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
-	pages, err := s.forge.Wiki.ListPages(ctx, org, repo)
+	pages, err := s.forge.listWikiPages(ctx, org, repo)
 	if err != nil || len(pages) == 0 {
 		return ""
 	}
@@ -1348,7 +1347,7 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 		if name == "" {
 			name = meta.Title
 		}
-		page, pageErr := s.forge.Wiki.GetPage(ctx, org, repo, name)
+		page, pageErr := s.forge.getWikiPage(ctx, org, repo, name)
 		if pageErr != nil || page.ContentBase64 == "" {
 			continue
 		}

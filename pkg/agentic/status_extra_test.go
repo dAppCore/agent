@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // coreWithRunnerActions builds a Core with stub runner.start/stop/kill Actions
@@ -452,7 +451,7 @@ func TestPr_ListPRs_Good_SpecificRepo(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),

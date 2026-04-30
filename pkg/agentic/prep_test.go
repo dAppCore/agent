@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -1274,7 +1273,7 @@ func TestPrep_PrepWorkspace_Good_Case(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       core.JoinPath(root, "src"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -1344,7 +1343,7 @@ func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       core.JoinPath(root, "src"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),
@@ -1837,7 +1836,7 @@ func TestPrep_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		codePath:       core.JoinPath(root, "src"),
 		backoff:        make(map[string]time.Time),
 		failCount:      make(map[string]int),

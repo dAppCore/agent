@@ -6,7 +6,6 @@ import (
 	"context"
 
 	core "dappco.re/go"
-	forge_types "dappco.re/go/forge/types"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -243,7 +242,7 @@ var prGet = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, 
 	}
 
 	var pr pullRequestView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &pr)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &pr)
 	if err != nil {
 		return nil, PRGetOutput{}, core.E("prGet", core.Concat("failed to read PR ", core.Sprint(input.Number)), err)
 	}
@@ -285,7 +284,7 @@ var prMerge = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest
 		method = "merge"
 	}
 
-	if err := s.forge.Pulls.Merge(ctx, org, input.Repo, int64(input.Number), method); err != nil {
+	if err := s.forge.mergePullRequest(ctx, org, input.Repo, int64(input.Number), method); err != nil {
 		return nil, PRMergeOutput{}, core.E("prMerge", core.Concat("failed to merge PR ", core.Sprint(input.Number)), err)
 	}
 
@@ -323,7 +322,7 @@ func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {
 
 var forgeCreatePR = func(s *PrepSubsystem, ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
 	var pullRequest pullRequestView
-	err := s.forge.Client().Post(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &forge_types.CreatePullRequestOption{
+	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &CreatePullRequestOption{
 		Title: title,
 		Body:  body,
 		Head:  head,
@@ -336,7 +335,11 @@ var forgeCreatePR = func(s *PrepSubsystem, ctx context.Context, org, repo, head,
 }
 
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
-	s.forge.Issues.CreateComment(ctx, org, repo, int64(issue), comment)
+	if err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, issue), map[string]any{
+		"body": comment,
+	}, nil); err != nil {
+		core.Warn("agentic.commentOnIssue: failed to post issue comment", "repo", repo, "issue", issue, "reason", err)
+	}
 }
 
 // input := agentic.ListPRsInput{Org: "core", Repo: "go-io", State: "open", Limit: 10}
@@ -480,7 +483,7 @@ var closePR = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest
 	}
 
 	var pr pullRequestView
-	err := s.forge.Client().Patch(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &forge_types.EditPullRequestOption{
+	err := s.forge.patchJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &EditPullRequestOption{
 		State: "closed",
 	}, &pr)
 	if err != nil {
@@ -553,7 +556,7 @@ var deleteBranch = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRe
 
 var listRepoPRs = func(s *PrepSubsystem, ctx context.Context, org, repo, state string) ([]PRInfo, error) {
 	var pullRequests []pullRequestView
-	err := s.forge.Client().Get(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
+	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
 	if err != nil {
 		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), err)
 	}

@@ -4,12 +4,10 @@ go 1.26.2
 
 require (
 	dappco.re/go v0.9.0
-	dappco.re/go/api v0.8.0-alpha.1.0.20260427143506-f95002059d53
-	dappco.re/go/forge v0.8.0-alpha.1
-	dappco.re/go/mcp v0.8.0-alpha.1
-	dappco.re/go/process v0.8.0-alpha.1.0.20260427150750-5bd42af95f46
-	dappco.re/go/store v0.8.0-alpha.1
-	dappco.re/go/ws v0.8.0-alpha.1.0.20260427142937-36f01754d2e9
+	dappco.re/go/mcp v0.10.0
+	dappco.re/go/process v0.10.0
+	dappco.re/go/store v0.9.0
+	dappco.re/go/ws v0.5.0
 	forge.lthn.ai/Snider/Poindexter v0.0.0-20260223032814-5ab751f16d06
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
@@ -34,12 +32,11 @@ require (
 )
 
 require (
-	dappco.re/go/ai v0.8.0-alpha.1.0.20260425225549-d43f4dbd25b8 // indirect
-	dappco.re/go/io v0.8.0-alpha.1 // indirect
-	dappco.re/go/log v0.8.0-alpha.1 // indirect
-	dappco.re/go/rag v0.8.0-alpha.1.0.20260427161922-2a59096f2aca // indirect
-	dappco.re/go/webview v0.8.0-alpha.1.0.20260425135446-1c47ae2c183c // indirect
-	github.com/Snider/Poindexter v0.0.0-20260104200422-91146b212a1f
+	dappco.re/go/io v0.9.0 // indirect
+	dappco.re/go/log v0.9.0 // indirect
+	dappco.re/go/rag v0.10.0 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
@@ -60,12 +57,16 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mailru/easyjson v0.9.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/ollama/ollama v0.18.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/qdrant/go-client v1.17.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
@@ -74,6 +75,7 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
@@ -86,6 +88,8 @@ require (
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
+	google.golang.org/grpc v1.79.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -94,63 +98,3 @@ require (
 )
 
 replace forge.lthn.ai/Snider/Poindexter => ../../snider/Poindexter
-
-replace dappco.re/go => ../go
-
-replace dappco.re/go/store => ../go-store
-
-replace dappco.re/go/io => ../go-io
-
-replace dappco.re/go/log => ../go-log
-
-replace dappco.re/go/cli => ../cli
-
-replace dappco.re/go/inference => ../go-inference
-
-replace dappco.re/go/scm => ../go-scm
-
-replace dappco.re/go/proxy => ../go-proxy
-
-replace dappco.re/go/i18n => ../go-i18n
-
-replace dappco.re/go/core/api => ../core/api
-
-replace dappco.re/go/core/cli => ../core/cli
-
-replace dappco.re/go/core/inference => ../core/go-inference
-
-replace dappco.re/go/core/io => ../core/go-io
-
-replace dappco.re/go/core/process => ../core/go-process
-
-replace dappco.re/go/core/store => ../core/go-store
-
-replace dappco.re/go/core/ws => ../core/go-ws
-
-replace dappco.re/go/core/webview => ../core/go-webview
-
-replace dappco.re/go/core/ai => ../core/go-ai
-
-replace dappco.re/go/core/miner => ../go-miner
-
-replace dappco.re/go/core/log => ../core/api/go-log
-
-replace dappco.re/go/core/config => ../go-scm/core/config
-
-replace dappco.re/go/ai => ../mcp/internal/shims/go-ai
-
-replace dappco.re/go/rag => ../mcp/internal/shims/go-rag
-
-replace dappco.re/go/webview => ../mcp/internal/shims/go-webview
-
-replace dappco.re/go/api => ../mcp/internal/shims/go-api
-
-replace dappco.re/go/core => ./.deps/core-compat
-
-replace dappco.re/go/forge => ../go-forge
-
-replace dappco.re/go/process => ../go-process
-
-replace dappco.re/go/ws => ../go-ws
-
-replace dappco.re/go/mcp => ../mcp

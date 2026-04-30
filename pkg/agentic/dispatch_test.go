@@ -11,7 +11,6 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/messages"
-	"dappco.re/go/forge"
 	"dappco.re/go/process"
 )
 
@@ -163,7 +162,7 @@ func TestDispatch_StartIssueTracking_Good_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Org: "core", Issue: 15}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir)
 }
 
@@ -183,7 +182,7 @@ func TestDispatch_StartIssueTracking_Ugly_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "running", Repo: "test"}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.startIssueTracking(dir) // no issue → skips API call
 }
 
@@ -199,7 +198,7 @@ func TestDispatch_StopIssueTracking_Good_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "completed", Repo: "go-io", Issue: 10}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient(srv.URL, "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
@@ -215,7 +214,7 @@ func TestDispatch_StopIssueTracking_Ugly_Case(t *testing.T) {
 	st := &WorkspaceStatus{Status: "completed", Repo: "test"}
 	fs.Write(core.JoinPath(dir, "status.json"), core.JSONMarshalString(st))
 
-	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: forge.NewForge("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}), forge: newForgeClient("http://invalid", "tok"), backoff: make(map[string]time.Time), failCount: make(map[string]int)}
 	s.stopIssueTracking(dir)
 }
 
@@ -593,7 +592,7 @@ func TestDispatch_Dispatch_Good_Case(t *testing.T) {
 	testCore.Process().RunIn(context.Background(), srcRepo, "git", "commit", "-m", "init")
 
 	s := newPrepWithProcess()
-	s.forge = forge.NewForge(forgeSrv.URL, "tok")
+	s.forge = newForgeClient(forgeSrv.URL, "tok")
 	s.codePath = core.PathDir(core.PathDir(srcRepo))
 
 	_, out, err := dispatch(s, context.Background(), nil, DispatchInput{

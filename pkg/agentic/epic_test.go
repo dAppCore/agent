@@ -11,7 +11,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 // mockForgeServer creates an httptest server that handles Forge API calls
@@ -126,7 +125,7 @@ func newTestSubsystem(t *testing.T, srv *httptest.Server) *PrepSubsystem {
 	t.Helper()
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(srv.URL, "test-token"),
+		forge:          newForgeClient(srv.URL, "test-token"),
 		forgeURL:       srv.URL,
 		forgeToken:     "test-token",
 		brainURL:       srv.URL,

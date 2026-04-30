@@ -572,7 +572,9 @@ func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	if org == "" {
 		org = "core"
 	}
-	s.forge.Issues.StartStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
+	if err := s.forge.startStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); err != nil {
+		core.Warn("agentic.startIssueTracking: failed to start stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", err)
+	}
 }
 
 func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
@@ -588,7 +590,9 @@ func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	if org == "" {
 		org = "core"
 	}
-	s.forge.Issues.StopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue))
+	if err := s.forge.stopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); err != nil {
+		core.Warn("agentic.stopIssueTracking: failed to stop stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", err)
+	}
 }
 
 func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"dappco.re/go/forge"
 )
 
 func TestCleanupBranch_Good_DeletesAgentBranch(t *testing.T) {
@@ -116,7 +115,7 @@ func TestCleanupBranch_Good_CmdCompleteSuccessPathDeletesBranch(t *testing.T) {
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(c, AgentOptions{}),
-		forge:          forge.NewForge(server.URL, "test-token"),
+		forge:          newForgeClient(server.URL, "test-token"),
 		forgeURL:       server.URL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
@@ -147,7 +146,7 @@ type cleanupForgeServerState struct {
 func newCleanupPrep(serverURL string) *PrepSubsystem {
 	return &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
-		forge:          forge.NewForge(serverURL, "test-token"),
+		forge:          newForgeClient(serverURL, "test-token"),
 		forgeURL:       serverURL,
 		forgeToken:     "test-token",
 		backoff:        make(map[string]time.Time),
