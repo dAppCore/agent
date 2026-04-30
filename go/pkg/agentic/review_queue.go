@@ -311,7 +311,7 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 	return result
 }
 
-// _ = s.pushAndMerge(ctx, repoDir, "go-io")
+// result := s.pushAndMerge(ctx, repoDir, "go-io")
 var pushAndMerge = func(s *PrepSubsystem, ctx context.Context, repoDir, repo string) error {
 	process := s.Core().Process()
 	if r := process.RunIn(ctx, repoDir, "git", "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
@@ -327,7 +327,7 @@ var pushAndMerge = func(s *PrepSubsystem, ctx context.Context, repoDir, repo str
 	return nil
 }
 
-// _ = s.dispatchFixFromQueue(ctx, "go-io", task)
+// result := s.dispatchFixFromQueue(ctx, "go-io", task)
 var dispatchFixFromQueue = func(s *PrepSubsystem, ctx context.Context, repo, task string) error {
 	input := DispatchInput{
 		Repo:  repo,

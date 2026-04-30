@@ -242,9 +242,9 @@ var prGet = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, 
 	}
 
 	var pr pullRequestView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &pr)
-	if err != nil {
-		return nil, PRGetOutput{}, core.E("prGet", core.Concat("failed to read PR ", core.Sprint(input.Number)), err)
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &pr)
+	if !result.OK {
+		return nil, PRGetOutput{}, core.E("prGet", core.Concat("failed to read PR ", core.Sprint(input.Number)), forgeResultError(result))
 	}
 
 	return nil, PRGetOutput{
@@ -284,8 +284,8 @@ var prMerge = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest
 		method = "merge"
 	}
 
-	if err := s.forge.mergePullRequest(ctx, org, input.Repo, int64(input.Number), method); err != nil {
-		return nil, PRMergeOutput{}, core.E("prMerge", core.Concat("failed to merge PR ", core.Sprint(input.Number)), err)
+	if result := s.forge.mergePullRequest(ctx, org, input.Repo, int64(input.Number), method); !result.OK {
+		return nil, PRMergeOutput{}, core.E("prMerge", core.Concat("failed to merge PR ", core.Sprint(input.Number)), forgeResultError(result))
 	}
 
 	output := PRMergeOutput{
@@ -322,23 +322,23 @@ func (s *PrepSubsystem) buildPRBody(workspaceStatus *WorkspaceStatus) string {
 
 var forgeCreatePR = func(s *PrepSubsystem, ctx context.Context, org, repo, head, base, title, body string) (string, int, error) {
 	var pullRequest pullRequestView
-	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &CreatePullRequestOption{
+	result := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls", org, repo), &CreatePullRequestOption{
 		Title: title,
 		Body:  body,
 		Head:  head,
 		Base:  base,
 	}, &pullRequest)
-	if err != nil {
-		return "", 0, core.E("forgeCreatePR", "create PR failed", err)
+	if !result.OK {
+		return "", 0, core.E("forgeCreatePR", "create PR failed", forgeResultError(result))
 	}
 	return pullRequest.HTMLURL, int(pullRequestNumber(pullRequest)), nil
 }
 
 func (s *PrepSubsystem) commentOnIssue(ctx context.Context, org, repo string, issue int, comment string) {
-	if err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, issue), map[string]any{
+	if result := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, issue), map[string]any{
 		"body": comment,
-	}, nil); err != nil {
-		core.Warn("agentic.commentOnIssue: failed to post issue comment", "repo", repo, "issue", issue, "reason", err)
+	}, nil); !result.OK {
+		core.Warn("agentic.commentOnIssue: failed to post issue comment", "repo", repo, "issue", issue, "reason", forgeResultError(result))
 	}
 }
 
@@ -483,11 +483,11 @@ var closePR = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest
 	}
 
 	var pr pullRequestView
-	err := s.forge.patchJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &EditPullRequestOption{
+	result := s.forge.patchJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, input.Repo, input.Number), &EditPullRequestOption{
 		State: "closed",
 	}, &pr)
-	if err != nil {
-		return nil, ClosePROutput{}, core.E("closePR", core.Concat("failed to close PR ", core.Sprint(input.Number)), err)
+	if !result.OK {
+		return nil, ClosePROutput{}, core.E("closePR", core.Concat("failed to close PR ", core.Sprint(input.Number)), forgeResultError(result))
 	}
 
 	state := pr.State
@@ -556,9 +556,9 @@ var deleteBranch = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRe
 
 var listRepoPRs = func(s *PrepSubsystem, ctx context.Context, org, repo, state string) ([]PRInfo, error) {
 	var pullRequests []pullRequestView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
-	if err != nil {
-		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), err)
+	requestResult := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &pullRequests)
+	if !requestResult.OK {
+		return nil, core.E("listRepoPRs", core.Concat("failed to list PRs for ", repo), forgeResultError(requestResult))
 	}
 
 	var result []PRInfo

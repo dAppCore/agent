@@ -18,7 +18,7 @@ var applicationPrint = func(format string, args ...any) {
 }
 
 // args := startupArgs()
-// _ = c.Cli().Run("version")
+// result := c.Cli().Run("version")
 func startupArgs() []string {
 	return applyLogLevel(core.FilterArgs(startupArgv()[1:]))
 }

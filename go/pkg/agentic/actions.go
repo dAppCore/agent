@@ -246,7 +246,9 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 			if ok {
 				workspaceStatus.Status = "failed"
 				workspaceStatus.Question = "QA check failed — build or tests did not pass"
-				_ = writeStatusResult(workspaceDir, workspaceStatus)
+				if writeResult := writeStatusResult(workspaceDir, workspaceStatus); !writeResult.OK {
+					return writeResult
+				}
 			}
 		}
 	}
@@ -257,11 +259,13 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 		if ok {
 			repo = workspaceStatus.Repo
 		}
-		_ = s.Core().ACTION(messages.QAResult{
+		if actionResult := s.Core().ACTION(messages.QAResult{
 			Workspace: WorkspaceName(workspaceDir),
 			Repo:      repo,
 			Passed:    passed,
-		})
+		}); !actionResult.OK {
+			return actionResult
+		}
 	}
 	return core.Result{Value: passed, OK: passed}
 }
@@ -285,12 +289,14 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) 
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if ok && workspaceStatus.PRURL != "" {
-			_ = s.Core().ACTION(messages.PRCreated{
+			if actionResult := s.Core().ACTION(messages.PRCreated{
 				Repo:   workspaceStatus.Repo,
 				Branch: workspaceStatus.Branch,
 				PRURL:  workspaceStatus.PRURL,
 				PRNum:  extractPullRequestNumber(workspaceStatus.PRURL),
-			})
+			}); !actionResult.OK {
+				return actionResult
+			}
 		}
 	}
 	return core.Result{OK: true}
@@ -316,18 +322,22 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) 
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if ok {
 			if workspaceStatus.Status == "merged" {
-				_ = s.Core().ACTION(messages.PRMerged{
+				if actionResult := s.Core().ACTION(messages.PRMerged{
 					Repo:  workspaceStatus.Repo,
 					PRURL: workspaceStatus.PRURL,
 					PRNum: extractPullRequestNumber(workspaceStatus.PRURL),
-				})
+				}); !actionResult.OK {
+					return actionResult
+				}
 			} else if workspaceStatus.Question != "" {
-				_ = s.Core().ACTION(messages.PRNeedsReview{
+				if actionResult := s.Core().ACTION(messages.PRNeedsReview{
 					Repo:   workspaceStatus.Repo,
 					PRURL:  workspaceStatus.PRURL,
 					PRNum:  extractPullRequestNumber(workspaceStatus.PRURL),
 					Reason: workspaceStatus.Question,
-				})
+				}); !actionResult.OK {
+					return actionResult
+				}
 			}
 		}
 	}

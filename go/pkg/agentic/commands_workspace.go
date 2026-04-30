@@ -129,7 +129,9 @@ func (s *PrepSubsystem) cmdWorkspaceClean(options core.Options) core.Result {
 				s.recordWorkspaceStats(path, st)
 			}
 		}
-		_ = filesystem.DeleteAll(path)
+		if result := filesystem.DeleteAll(path); !result.OK {
+			return result
+		}
 		core.Print(nil, "  removed %s", name)
 	}
 	core.Print(nil, "\n  %d workspaces removed", len(toRemove))

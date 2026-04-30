@@ -49,7 +49,7 @@ func pipelineTrainingExportPath() string {
 	return core.JoinPath(CoreRoot(), "training", "export.jsonl")
 }
 
-// _ = ensureParentDir("/tmp/.core/training/journal.jsonl")
+// result := ensureParentDir("/tmp/.core/training/journal.jsonl")
 var ensureParentDir = func(path string) error {
 	if ensureResult := fs.EnsureDir(core.PathDir(path)); !ensureResult.OK {
 		if err, ok := ensureResult.Value.(error); ok {
@@ -60,7 +60,7 @@ var ensureParentDir = func(path string) error {
 	return nil
 }
 
-// _ = appendJSONLRecord("/tmp/test.jsonl", map[string]any{"repo": "go-io"})
+// result := appendJSONLRecord("/tmp/test.jsonl", map[string]any{"repo": "go-io"})
 var appendJSONLRecord = func(path string, value any) error {
 	if err := ensureParentDir(path); err != nil {
 		return err
@@ -155,7 +155,7 @@ func filterZeroFindingTrainingEntries(entries []PipelineTrainingEntry) []Pipelin
 	return clean
 }
 
-// _ = writePipelineTrainingExport("/tmp/.core/training/export.jsonl", entries)
+// result := writePipelineTrainingExport("/tmp/.core/training/export.jsonl", entries)
 var writePipelineTrainingExport = func(path string, entries []PipelineTrainingEntry) error {
 	if err := ensureParentDir(path); err != nil {
 		return err

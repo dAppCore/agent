@@ -185,7 +185,9 @@ func qaClusterAddToken(coords []float64, token string, weight float64) {
 
 func qaClusterBucket(token string) int {
 	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(token))
+	if _, err := hash.Write([]byte(token)); err != nil {
+		return 0
+	}
 	return int(hash.Sum32() % qaClusterFeatureDimensions)
 }
 

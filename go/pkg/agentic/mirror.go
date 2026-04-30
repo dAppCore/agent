@@ -71,7 +71,10 @@ func (s *PrepSubsystem) mirror(ctx context.Context, input MirrorInput) core.Resu
 			continue
 		}
 
-		_ = process.RunIn(ctx, repoDir, "git", "fetch", "github")
+		if fetchResult := process.RunIn(ctx, repoDir, "git", "fetch", "github"); !fetchResult.OK {
+			skipped = append(skipped, core.Concat(repo, ": fetch github failed"))
+			continue
+		}
 
 		localBase := s.DefaultBranch(repoDir)
 		ahead := s.commitsAhead(repoDir, "github/main", localBase)
@@ -113,7 +116,9 @@ func (s *PrepSubsystem) mirror(ctx context.Context, input MirrorInput) core.Resu
 		if !prResult.OK {
 			sync.Skipped = core.Sprintf("PR creation failed: %s", prResult.Error())
 		} else {
-			sync.PRURL, _ = prResult.Value.(string)
+			if prURL, ok := prResult.Value.(string); ok {
+				sync.PRURL = prURL
+			}
 		}
 
 		synced = append(synced, sync)

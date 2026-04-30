@@ -58,7 +58,7 @@ type ProviderGenerateFunc func(context.Context, string, map[string]any) (string,
 // Stream sends provider output to the callback as it arrives.
 //
 //	provider, _ := manager.Provider("claude")
-//	_ = provider.Stream(ctx, "Draft a release note", nil, func(token string) { core.Print(nil, token) })
+//	result := provider.Stream(ctx, "Draft a release note", nil, func(token string) { core.Print(nil, token) })
 type ProviderStreamFunc func(context.Context, string, map[string]any, func(string)) error
 
 func newContentProvider(name, defaultModel string, available bool, generate ProviderGenerateFunc) *AgenticProviderInterface {

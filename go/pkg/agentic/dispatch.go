@@ -541,10 +541,12 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 				s.backoff[pool] = until
 				s.persistRuntimeState()
 				if s.ServiceRuntime != nil {
-						_ = s.Core().ACTION(messages.RateLimitDetected{
-							Pool:     pool,
-							Duration: backoffDuration.String(),
-						})
+					if result := s.Core().ACTION(messages.RateLimitDetected{
+						Pool:     pool,
+						Duration: backoffDuration.String(),
+					}); !result.OK {
+						core.Warn("agentic.rateLimit: notification failed", "reason", result.Error())
+					}
 				}
 				core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
 				return true
@@ -572,8 +574,8 @@ func (s *PrepSubsystem) startIssueTracking(workspaceDir string) {
 	if org == "" {
 		org = "core"
 	}
-	if err := s.forge.startStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); err != nil {
-		core.Warn("agentic.startIssueTracking: failed to start stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", err)
+	if result := s.forge.startStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); !result.OK {
+		core.Warn("agentic.startIssueTracking: failed to start stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", forgeResultError(result))
 	}
 }
 
@@ -590,8 +592,8 @@ func (s *PrepSubsystem) stopIssueTracking(workspaceDir string) {
 	if org == "" {
 		org = "core"
 	}
-	if err := s.forge.stopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); err != nil {
-		core.Warn("agentic.stopIssueTracking: failed to stop stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", err)
+	if result := s.forge.stopStopwatch(context.Background(), org, workspaceStatus.Repo, int64(workspaceStatus.Issue)); !result.OK {
+		core.Warn("agentic.stopIssueTracking: failed to stop stopwatch", "repo", workspaceStatus.Repo, "issue", workspaceStatus.Issue, "reason", forgeResultError(result))
 	}
 }
 
@@ -604,17 +606,21 @@ func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 		repo = workspaceStatus.Repo
 	}
 	if s.ServiceRuntime != nil {
-			_ = s.Core().ACTION(messages.AgentStarted{
-				Agent: agent, Repo: repo, Workspace: workspaceName,
-			})
+		if result := s.Core().ACTION(messages.AgentStarted{
+			Agent: agent, Repo: repo, Workspace: workspaceName,
+		}); !result.OK {
+			core.Warn("agentic.broadcastStart: notification failed", "reason", result.Error())
+		}
 		// Push to MCP channel so Claude Code receives the notification
-			_ = s.Core().ACTION(coremcp.ChannelPush{
-				Channel: coremcp.ChannelAgentStatus,
-				Data: map[string]any{
+		if result := s.Core().ACTION(coremcp.ChannelPush{
+			Channel: coremcp.ChannelAgentStatus,
+			Data: map[string]any{
 				"agent": agent, "repo": repo,
 				"workspace": workspaceName, "status": "running",
 			},
-		})
+		}); !result.OK {
+			core.Warn("agentic.broadcastStart: channel push failed", "reason", result.Error())
+		}
 	}
 	emitStartEvent(agent, workspaceName)
 }
@@ -629,10 +635,12 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 		if ok {
 			repo = workspaceStatus.Repo
 		}
-			_ = s.Core().ACTION(messages.AgentCompleted{
-				Agent: agent, Repo: repo,
-				Workspace: workspaceName, Status: finalStatus,
-			})
+		if result := s.Core().ACTION(messages.AgentCompleted{
+			Agent: agent, Repo: repo,
+			Workspace: workspaceName, Status: finalStatus,
+		}); !result.OK {
+			core.Warn("agentic.broadcastComplete: notification failed", "reason", result.Error())
+		}
 		// Push to MCP channel so Claude Code receives the notification
 		s.Core().ACTION(coremcp.ChannelPush{
 			Channel: coremcp.ChannelAgentComplete,
@@ -723,7 +731,9 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 		return 0, "", "", core.E("dispatch.spawnAgent", "unexpected process result", nil)
 	}
 
-	_ = proc.CloseStdin()
+	if closeResult := proc.CloseStdin(); !closeResult.OK {
+		core.Warn("dispatch.spawnAgent: close stdin failed", "reason", closeResult.Error())
+	}
 	startDispatchTimeoutWatch(workspaceDir, s.dispatchTimeout(), proc)
 	pid := proc.Info().PID
 	processID := proc.ID
@@ -740,7 +750,9 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 		process:      proc,
 	}
 	s.Core().Action(monitorAction, monitor.run)
-	_ = s.Core().PerformAsync(monitorAction, core.NewOptions())
+	if result := s.Core().PerformAsync(monitorAction, core.NewOptions()); !result.OK {
+		return 0, "", "", core.E("dispatch.spawnAgent", "failed to start monitor", forgeResultError(result))
+	}
 
 	return pid, processID, outputFile, nil
 }

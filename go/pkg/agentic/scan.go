@@ -91,10 +91,11 @@ var scan = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, i
 }
 
 var listOrgRepos = func(s *PrepSubsystem, ctx context.Context, org string) ([]string, error) {
-	repos, err := s.forge.listOrgRepos(ctx, org)
-	if err != nil {
-		return nil, core.E("scan.listOrgRepos", "failed to list repos", err)
+	reposResult := s.forge.listOrgRepos(ctx, org)
+	if !reposResult.OK {
+		return nil, core.E("scan.listOrgRepos", "failed to list repos", forgeResultError(reposResult))
 	}
+	repos := reposResult.Value.([]Repository)
 
 	var allNames []string
 	for _, repoInfo := range repos {

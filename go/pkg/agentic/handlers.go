@@ -39,8 +39,8 @@ func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 	)
 }
 
-// _ = prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
-// _ = prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
+// completed := prep.HandleIPCEvents(c, messages.AgentCompleted{Workspace: "core/go-io/task-5", Status: "completed"})
+// queued := prep.HandleIPCEvents(c, messages.SpawnQueued{Workspace: "core/go-io/task-5", Agent: "codex", Task: "fix tests"})
 func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Result {
 	switch ev := msg.(type) {
 	case messages.SpawnQueued:
@@ -49,7 +49,7 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			break
 		}
 		prompt := core.Concat("TASK: ", ev.Task, "\n\nResume from where you left off. Read CODEX.md for conventions. Commit when done.")
-		pid, processID, outputFile, err := spawnAgent(s, ev.Agent, prompt, workspaceDir)
+		pid, processID, _, err := spawnAgent(s, ev.Agent, prompt, workspaceDir)
 		if err != nil {
 			break
 		}
@@ -67,7 +67,6 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 				}
 			}
 		}
-		_ = outputFile
 	}
 
 	return core.Result{OK: true}
@@ -124,14 +123,18 @@ func handleCompletionCommit(c *core.Core, msg core.Message) core.Result {
 		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
-			_ = c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+				if result := c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir)); !result.OK {
+					return result
+				}
 			}
 		}
 	case messages.PRNeedsReview:
 		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
-					_ = c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+				if result := c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir)); !result.OK {
+					return result
+				}
 			}
 		}
 	}
@@ -160,7 +163,9 @@ func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
 	}
 
 	if c != nil && c.Action("runner.poke").Exists() {
-			_ = c.ACTION(messages.PokeQueue{})
+		if result := c.ACTION(messages.PokeQueue{}); !result.OK {
+			return result
+		}
 		return core.Result{OK: true}
 	}
 	performAsyncIfRegistered(c, "agentic.poke", core.NewOptions())

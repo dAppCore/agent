@@ -79,7 +79,7 @@ var runCoreAgent = func() error {
 }
 
 // app := newCoreAgent()
-// _ = runApp(app, []string{"version"})
+// result := runApp(app, []string{"version"})
 var runApp = func(coreApp *core.Core, cliArgs []string) error {
 	if coreApp == nil {
 		return core.E("main.runApp", "core is required", nil)

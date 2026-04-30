@@ -130,7 +130,9 @@ func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 func (s *PrepSubsystem) delayForAgent(agent string) time.Duration {
 	var rates map[string]RateConfig
 	if s.ServiceRuntime != nil {
-		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
+		if configured, ok := s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig); ok {
+			rates = configured
+		}
 	}
 	if rates == nil {
 		config := s.loadAgentsConfig()
@@ -259,7 +261,9 @@ func (s *PrepSubsystem) canDispatchAgent(agent string) bool {
 	if s.ServiceRuntime != nil {
 		configurationResult := s.Core().Config().Get("agents.concurrency")
 		if configurationResult.OK {
-			concurrency, _ = configurationResult.Value.(map[string]ConcurrencyLimit)
+			if configured, ok := configurationResult.Value.(map[string]ConcurrencyLimit); ok {
+				concurrency = configured
+			}
 		}
 	}
 	if concurrency == nil {

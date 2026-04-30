@@ -42,10 +42,10 @@ type RateConfig struct {
 }
 
 // flat := runner.ConcurrencyLimit{}
-// _ = yaml.Unmarshal([]byte("1\n"), &flat)
+// err := yaml.Unmarshal([]byte("1\n"), &flat)
 //
 // nested := runner.ConcurrencyLimit{}
-// _ = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &nested)
+// err = yaml.Unmarshal([]byte("total: 5\ngpt-5.4: 1\n"), &nested)
 type ConcurrencyLimit = agentcompat.ConcurrencyLimit
 
 // identity := runner.AgentIdentity{Host: "local", Runner: "claude", Active: true, Roles: []string{"dispatch"}}
@@ -99,13 +99,15 @@ func (s *Service) loadAgentsConfig() *AgentsConfig {
 	}
 }
 
-// if can, reason := s.canDispatchAgent("codex"); !can { _ = reason }
+// if can, reason := s.canDispatchAgent("codex"); !can { core.Println(reason) }
 func (s *Service) canDispatchAgent(agent string) (bool, string) {
 	var concurrency map[string]ConcurrencyLimit
 	if s.ServiceRuntime != nil {
 		configurationResult := s.Core().Config().Get("agents.concurrency")
 		if configurationResult.OK {
-			concurrency, _ = configurationResult.Value.(map[string]ConcurrencyLimit)
+			if configured, ok := configurationResult.Value.(map[string]ConcurrencyLimit); ok {
+				concurrency = configured
+			}
 		}
 	}
 	if concurrency == nil {
@@ -276,7 +278,9 @@ func (s *Service) drainOne() bool {
 func (s *Service) delayForAgent(agent string) time.Duration {
 	var rates map[string]RateConfig
 	if s.ServiceRuntime != nil {
-		rates, _ = s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig)
+		if configured, ok := s.Core().Config().Get("agents.rates").Value.(map[string]RateConfig); ok {
+			rates = configured
+		}
 	}
 	if rates == nil {
 		config := s.loadAgentsConfig()

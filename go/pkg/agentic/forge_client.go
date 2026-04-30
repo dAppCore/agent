@@ -21,6 +21,8 @@ type forgeAPIError struct {
 	Message    string
 }
 
+type APIError = forgeAPIError
+
 type Repository struct {
 	Name          string     `json:"name"`
 	Description   string     `json:"description"`
@@ -123,43 +125,60 @@ func isForgeNotFound(err error) bool {
 	return core.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
 }
 
-func (c *forgeClient) getJSON(ctx context.Context, path string, out any) error {
+func forgeResultError(result core.Result) error { // adapter for external contracts
+	if result.OK {
+		return nil
+	}
+	if err, ok := result.Value.(error); ok {
+		return err
+	}
+	return core.E("forge.result", "request failed", nil)
+}
+
+func (c *forgeClient) getJSON(ctx context.Context, path string, out any) core.Result {
 	return c.doJSON(ctx, http.MethodGet, path, nil, out)
 }
 
-func (c *forgeClient) postJSON(ctx context.Context, path string, body, out any) error {
+func (c *forgeClient) postJSON(ctx context.Context, path string, body, out any) core.Result {
 	return c.doJSON(ctx, http.MethodPost, path, body, out)
 }
 
-func (c *forgeClient) patchJSON(ctx context.Context, path string, body, out any) error {
+func (c *forgeClient) patchJSON(ctx context.Context, path string, body, out any) core.Result {
 	return c.doJSON(ctx, http.MethodPatch, path, body, out)
 }
 
-func (c *forgeClient) deletePath(ctx context.Context, path string) error {
+func (c *forgeClient) deletePath(ctx context.Context, path string) core.Result {
 	return c.doJSON(ctx, http.MethodDelete, path, nil, nil)
 }
 
-func (c *forgeClient) listOrgRepos(ctx context.Context, org string) ([]Repository, error) {
+func (c *forgeClient) listOrgRepos(ctx context.Context, org string) core.Result {
 	var repos []Repository
-	err := c.getJSON(ctx, core.Sprintf("/api/v1/orgs/%s/repos?limit=50&page=1", org), &repos)
-	return repos, err
-}
-
-func (c *forgeClient) getRepo(ctx context.Context, org, repo string) (*Repository, error) {
-	var item Repository
-	if err := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s", org, repo), &item); err != nil {
-		return nil, err
+	result := c.getJSON(ctx, core.Sprintf("/api/v1/orgs/%s/repos?limit=50&page=1", org), &repos)
+	if !result.OK {
+		return result
 	}
-	return &item, nil
+	return core.Ok(repos)
 }
 
-func (c *forgeClient) listRepoLabels(ctx context.Context, org, repo string) ([]Label, error) {
+func (c *forgeClient) getRepo(ctx context.Context, org, repo string) core.Result {
+	var item Repository
+	result := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s", org, repo), &item)
+	if !result.OK {
+		return result
+	}
+	return core.Ok(&item)
+}
+
+func (c *forgeClient) listRepoLabels(ctx context.Context, org, repo string) core.Result {
 	var labels []Label
-	err := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/labels?limit=50&page=1", org, repo), &labels)
-	return labels, err
+	result := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/labels?limit=50&page=1", org, repo), &labels)
+	if !result.OK {
+		return result
+	}
+	return core.Ok(labels)
 }
 
-func (c *forgeClient) mergePullRequest(ctx context.Context, org, repo string, number int64, method string) error {
+func (c *forgeClient) mergePullRequest(ctx context.Context, org, repo string, number int64, method string) core.Result {
 	if method == "" {
 		method = "merge"
 	}
@@ -168,39 +187,42 @@ func (c *forgeClient) mergePullRequest(ctx context.Context, org, repo string, nu
 	}, nil)
 }
 
-func (c *forgeClient) deleteBranch(ctx context.Context, org, repo, branch string) error {
+func (c *forgeClient) deleteBranch(ctx context.Context, org, repo, branch string) core.Result {
 	return c.deletePath(ctx, core.Sprintf("/api/v1/repos/%s/%s/branches/%s", org, repo, core.URLEncode(branch)))
 }
 
-func (c *forgeClient) startStopwatch(ctx context.Context, org, repo string, index int64) error {
+func (c *forgeClient) startStopwatch(ctx context.Context, org, repo string, index int64) core.Result {
 	return c.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/stopwatch/start", org, repo, index), nil, nil)
 }
 
-func (c *forgeClient) stopStopwatch(ctx context.Context, org, repo string, index int64) error {
+func (c *forgeClient) stopStopwatch(ctx context.Context, org, repo string, index int64) core.Result {
 	return c.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/stopwatch/stop", org, repo, index), nil, nil)
 }
 
-func (c *forgeClient) listWikiPages(ctx context.Context, org, repo string) ([]WikiPageMetaData, error) {
+func (c *forgeClient) listWikiPages(ctx context.Context, org, repo string) core.Result {
 	var pages []WikiPageMetaData
-	err := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/wiki/pages", org, repo), &pages)
-	return pages, err
-}
-
-func (c *forgeClient) getWikiPage(ctx context.Context, org, repo, page string) (*WikiPage, error) {
-	var wikiPage WikiPage
-	err := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/wiki/page/%s", org, repo, core.URLEncode(page)), &wikiPage)
-	if err != nil {
-		return nil, err
+	result := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/wiki/pages", org, repo), &pages)
+	if !result.OK {
+		return result
 	}
-	return &wikiPage, nil
+	return core.Ok(pages)
 }
 
-func (c *forgeClient) doJSON(ctx context.Context, method, path string, body, out any) error {
+func (c *forgeClient) getWikiPage(ctx context.Context, org, repo, page string) core.Result {
+	var wikiPage WikiPage
+	result := c.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/wiki/page/%s", org, repo, core.URLEncode(page)), &wikiPage)
+	if !result.OK {
+		return result
+	}
+	return core.Ok(&wikiPage)
+}
+
+func (c *forgeClient) doJSON(ctx context.Context, method, path string, body, out any) core.Result {
 	if c == nil {
-		return core.E("forgeClient.doJSON", "forge client is required", nil)
+		return core.Fail(core.E("forgeClient.doJSON", "forge client is required", nil))
 	}
 	if c.baseURL == "" {
-		return core.E("forgeClient.doJSON", "forge base URL is required", nil)
+		return core.Fail(core.E("forgeClient.doJSON", "forge base URL is required", nil))
 	}
 
 	requestBody := ""
@@ -208,17 +230,18 @@ func (c *forgeClient) doJSON(ctx context.Context, method, path string, body, out
 		requestBody = core.JSONMarshalString(body)
 	}
 
-	var request *http.Request
-	var err error
 	url := core.Concat(core.TrimSuffix(c.baseURL, "/"), path)
+	var requestResult core.Result
 	if requestBody == "" {
-		request, err = http.NewRequestWithContext(ctx, method, url, nil)
+		requestResult = core.NewHTTPRequestContext(ctx, method, url, nil)
 	} else {
-		request, err = http.NewRequestWithContext(ctx, method, url, core.NewReader(requestBody))
+		requestResult = core.NewHTTPRequestContext(ctx, method, url, core.NewReader(requestBody))
 	}
-	if err != nil {
-		return core.E("forgeClient.doJSON", "create request", err)
+	if !requestResult.OK {
+		err, _ := requestResult.Value.(error)
+		return core.Fail(core.E("forgeClient.doJSON", "create request", err))
 	}
+	request := requestResult.Value.(*core.Request)
 
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
@@ -228,36 +251,33 @@ func (c *forgeClient) doJSON(ctx context.Context, method, path string, body, out
 
 	response, err := defaultClient.Do(request)
 	if err != nil {
-		return core.E("forgeClient.doJSON", "request failed", err)
+		return core.Fail(core.E("forgeClient.doJSON", "request failed", err))
 	}
-	defer func() {
-		_ = response.Body.Close()
-	}()
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
 		readErr, _ := readResult.Value.(error)
-		return core.E("forgeClient.doJSON", "read response", readErr)
+		return core.Fail(core.E("forgeClient.doJSON", "read response", readErr))
 	}
-	payload, _ := readResult.Value.(string)
+	payload := readResult.Value.(string)
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return forgeAPIErrorFromResponse(path, response.StatusCode, payload)
 	}
 
 	if out == nil || core.Trim(payload) == "" {
-		return nil
+		return core.Ok(nil)
 	}
 
 	parseResult := core.JSONUnmarshalString(payload, out)
 	if !parseResult.OK {
 		parseErr, _ := parseResult.Value.(error)
-		return core.E("forgeClient.doJSON", "parse response", parseErr)
+		return core.Fail(core.E("forgeClient.doJSON", "parse response", parseErr))
 	}
-	return nil
+	return core.Ok(nil)
 }
 
-func forgeAPIErrorFromResponse(path string, statusCode int, payload string) error {
+func forgeAPIErrorFromResponse(path string, statusCode int, payload string) core.Result {
 	message := core.Trim(payload)
 	if message == "" {
 		message = core.Sprintf("HTTP %d", statusCode)
@@ -278,9 +298,9 @@ func forgeAPIErrorFromResponse(path string, statusCode int, payload string) erro
 		}
 	}
 
-	return &forgeAPIError{
+	return core.Fail(&forgeAPIError{
 		StatusCode: statusCode,
 		Path:       path,
 		Message:    message,
-	}
+	})
 }

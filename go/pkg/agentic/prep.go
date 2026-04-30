@@ -397,7 +397,7 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 // s.registerCommands(ctx)
 
 // subsystem := agentic.NewPrep()
-// _ = subsystem.OnShutdown(context.Background())
+// result := subsystem.OnShutdown(context.Background())
 func (s *PrepSubsystem) OnShutdown(ctx context.Context) core.Result {
 	s.frozen = true
 	if result := s.flushPersistedState(ctx); !result.OK {
@@ -611,7 +611,7 @@ func envOr(key, fallback string) string {
 
 // subsystem := agentic.NewPrep()
 // name := subsystem.Name()
-// _ = name // "agentic"
+// core.Println(name) // "agentic"
 func (s *PrepSubsystem) Name() string { return "agentic" }
 
 // subsystem := agentic.NewPrep()
@@ -680,7 +680,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 }
 
 // subsystem := agentic.NewPrep()
-// _ = subsystem.Shutdown(context.Background())
+// err := subsystem.Shutdown(context.Background())
 func (s *PrepSubsystem) Shutdown(_ context.Context) error { return nil }
 
 // input := agentic.PrepInput{Repo: "go-io", Issue: 15, Task: "Migrate to Core primitives"}
@@ -1176,7 +1176,7 @@ func promptSnapshotHash(prompt string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// _ = s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
+// result := s.runWorkspaceLanguagePrep(ctx, "/srv/.core/workspace/core/go-io/task-42", "/srv/Code/core/go-io")
 var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, workspaceDir, repoDir string) error {
 	process := s.Core().Process()
 
@@ -1224,8 +1224,8 @@ var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, works
 
 func (s *PrepSubsystem) getIssueBody(ctx context.Context, org, repo string, issue int) string {
 	var iss issueView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, issue), &iss)
-	if err != nil {
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, issue), &iss)
+	if !result.OK {
 		return ""
 	}
 	return core.Sprintf("# %s\n\n%s", iss.Title, iss.Body)
@@ -1350,8 +1350,12 @@ func (s *PrepSubsystem) getGitLog(repoPath string) string {
 }
 
 func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) string {
-	pages, err := s.forge.listWikiPages(ctx, org, repo)
-	if err != nil || len(pages) == 0 {
+	pagesResult := s.forge.listWikiPages(ctx, org, repo)
+	if !pagesResult.OK {
+		return ""
+	}
+	pages := pagesResult.Value.([]WikiPageMetaData)
+	if len(pages) == 0 {
 		return ""
 	}
 
@@ -1361,8 +1365,12 @@ func (s *PrepSubsystem) pullWikiContent(ctx context.Context, org, repo string) s
 		if name == "" {
 			name = meta.Title
 		}
-		page, pageErr := s.forge.getWikiPage(ctx, org, repo, name)
-		if pageErr != nil || page.ContentBase64 == "" {
+		pageResult := s.forge.getWikiPage(ctx, org, repo, name)
+		if !pageResult.OK {
+			continue
+		}
+		page := pageResult.Value.(*WikiPage)
+		if page.ContentBase64 == "" {
 			continue
 		}
 		content, _ := base64.StdEncoding.DecodeString(page.ContentBase64)

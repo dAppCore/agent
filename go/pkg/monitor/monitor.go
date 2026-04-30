@@ -16,7 +16,7 @@ import (
 )
 
 // readResult := fs.Read(core.JoinPath(workspaceRoot, name, "status.json"))
-// if text, ok := resultString(readResult); ok { _ = core.JSONUnmarshalString(text, &workspaceStatus) }
+// if text, ok := resultString(readResult); ok { parseResult := core.JSONUnmarshalString(text, &workspaceStatus); core.Println(parseResult.OK) }
 var fs = agentic.LocalFs()
 
 func brainKeyPath(home string) string {
@@ -218,7 +218,7 @@ func (m *Subsystem) OnShutdown(ctx context.Context) core.Result {
 	return core.Result{OK: true}
 }
 
-// _ = service.Shutdown(ctx)
+// err := service.Shutdown(ctx)
 var Shutdown = func(m *Subsystem, _ context.Context) error {
 	if m.cancel != nil {
 		m.cancel()

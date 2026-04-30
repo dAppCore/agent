@@ -48,7 +48,7 @@ func (s *Subsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerBrainTools(svc)
 }
 
-// _ = subsystem.Shutdown(context.Background())
+// err := subsystem.Shutdown(context.Background())
 var Shutdown = func(_ *Subsystem, _ context.Context) error {
 	return nil
 }

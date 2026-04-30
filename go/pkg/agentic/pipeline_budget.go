@@ -203,7 +203,7 @@ func (s *PrepSubsystem) pipelineBudgetEntries() []pipelineBudgetEntry {
 	return entries
 }
 
-// _ = s.pipelineBudgetMirrorToStore(entry)
+// result := s.pipelineBudgetMirrorToStore(entry)
 func (s *PrepSubsystem) pipelineBudgetMirrorToStore(entry pipelineBudgetEntry) {
 	key := pipelineBudgetEntryKey(entry)
 	s.stateStoreSet(pipelineBudgetStoreGroup, key, entry)

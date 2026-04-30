@@ -31,7 +31,7 @@ type ElementSpec struct {
 
 type RouteDescription struct {
 	Method      string   `json:"method"`
-	Path        string   `json:"path"`
+	Path        string   `json:"route"`
 	Summary     string   `json:"summary"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags,omitempty"`

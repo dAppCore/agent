@@ -197,7 +197,6 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 
 	case messages.PokeQueue:
 		s.drainQueueAndNotify(coreApp)
-		_ = ev
 	}
 	return core.Result{OK: true}
 }

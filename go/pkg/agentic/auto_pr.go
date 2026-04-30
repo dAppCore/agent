@@ -48,16 +48,20 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 				return
 			}
 			workspaceStatusUpdate.Question = "PR push failed"
-			_ = writeStatusResult(workspaceDir, workspaceStatusUpdate)
+			if result := writeStatusResult(workspaceDir, workspaceStatusUpdate); !result.OK {
+				core.Warn("agentic.autoPR: failed to record push failure", "reason", result.Error())
+			}
 		}
 		return
 	}
 	if s.ServiceRuntime != nil {
-		_ = s.Core().ACTION(messages.WorkspacePushed{
+		if result := s.Core().ACTION(messages.WorkspacePushed{
 			Repo:   workspaceStatus.Repo,
 			Branch: workspaceStatus.Branch,
 			Org:    org,
-		})
+		}); !result.OK {
+			core.Warn("agentic.autoPR: workspace push notification failed", "reason", result.Error())
+		}
 	}
 
 	title := core.Sprintf("[agent/%s] %s", workspaceStatus.Agent, truncate(workspaceStatus.Task, 60))
@@ -74,7 +78,9 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 				return
 			}
 			workspaceStatusUpdate.Question = core.Sprintf("PR creation failed: %v", err)
-			_ = writeStatusResult(workspaceDir, workspaceStatusUpdate)
+			if result := writeStatusResult(workspaceDir, workspaceStatusUpdate); !result.OK {
+				core.Warn("agentic.autoPR: failed to record PR failure", "reason", result.Error())
+			}
 		}
 		return
 	}

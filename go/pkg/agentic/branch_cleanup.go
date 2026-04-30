@@ -33,9 +33,10 @@ func (s *PrepSubsystem) cleanupBranch(ctx context.Context, repo, branch string) 
 		return core.Result{Value: core.E("cleanupBranch", core.Concat("refusing to delete protected branch ", branch), nil), OK: false}
 	}
 
-	err := s.forge.deleteBranch(ctx, org, repoName, branch)
-	if err != nil && !isForgeNotFound(err) {
-		return core.Result{Value: core.E("cleanupBranch", core.Concat("failed to delete branch ", branch), err), OK: false}
+	deleteResult := s.forge.deleteBranch(ctx, org, repoName, branch)
+	deleteErr := forgeResultError(deleteResult)
+	if deleteErr != nil && !isForgeNotFound(deleteErr) {
+		return core.Result{Value: core.E("cleanupBranch", core.Concat("failed to delete branch ", branch), deleteErr), OK: false}
 	}
 	return core.Result{OK: true}
 }
