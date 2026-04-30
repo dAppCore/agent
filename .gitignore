@@ -4,9 +4,8 @@
 .core/*
 !.core/docs/
 !.core/docs/**
-!.core/reference/
-!.core/reference/**
 !.core/workspace.yaml
+!.core/agents.yaml
 node_modules/
 bin/
 dist/
