@@ -27,6 +27,14 @@ func main() {
 // core.Println(app.App().Name)    // "core-agent"
 // core.Println(app.App().Version) // "dev" or linked version
 func newCoreAgent() *core.Core {
+	coreApp, result := newCoreAgentResult()
+	if !result.OK {
+		panic(result.Value)
+	}
+	return coreApp
+}
+
+func newCoreAgentResult() (*core.Core, core.Result) {
 	coreApp := core.New(
 		core.WithOption("name", "core-agent"),
 		core.WithService(agentic.ProcessRegister),
@@ -43,9 +51,11 @@ func newCoreAgent() *core.Core {
 		return core.Concat("core-agent ", coreApp.App().Version, " — agentic orchestration for the Core ecosystem")
 	})
 
-	registerApplicationCommands(coreApp)
+	if result := registerApplicationCommands(coreApp); !result.OK {
+		return coreApp, result
+	}
 
-	return coreApp
+	return coreApp, core.Result{OK: true}
 }
 
 // agentpkg.Version = "0.15.0"
@@ -61,7 +71,11 @@ func applicationVersion() string {
 //		core.Error("core-agent failed", "err", err)
 //	}
 var runCoreAgent = func() error {
-	return runApp(newCoreAgent(), startupArgs())
+	coreApp, result := newCoreAgentResult()
+	if !result.OK {
+		return resultError("main.newCoreAgent", "command registration failed", result)
+	}
+	return runApp(coreApp, startupArgs())
 }
 
 // app := newCoreAgent()

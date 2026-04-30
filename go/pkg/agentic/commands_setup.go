@@ -11,10 +11,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func (s *PrepSubsystem) registerSetupCommands() {
+func (s *PrepSubsystem) registerSetupCommands() core.Result {
 	c := s.Core()
-	c.Command("setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup})
-	c.Command("agentic:setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup})
+	if r := c.Command("setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}); !r.OK {
+		return r
+	}
+	return core.Ok(nil)
 }
 
 func (s *PrepSubsystem) cmdSetup(options core.Options) core.Result {

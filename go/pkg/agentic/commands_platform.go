@@ -6,69 +6,191 @@ import (
 	core "dappco.re/go"
 )
 
-func (s *PrepSubsystem) registerPlatformCommands() {
+func (s *PrepSubsystem) registerPlatformCommands() core.Result {
 	c := s.Core()
-	c.Command("sync/push", core.Command{Description: "Push completed dispatch state to the platform API", Action: s.cmdSyncPush})
-	c.Command("agentic:sync/push", core.Command{Description: "Push completed dispatch state to the platform API", Action: s.cmdSyncPush})
-	c.Command("sync/pull", core.Command{Description: "Pull shared fleet context from the platform API", Action: s.cmdSyncPull})
-	c.Command("agentic:sync/pull", core.Command{Description: "Pull shared fleet context from the platform API", Action: s.cmdSyncPull})
-	c.Command("sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus})
-	c.Command("agentic:sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus})
-	c.Command("auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision})
-	c.Command("agentic:auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision})
-	c.Command("auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
-	c.Command("agentic:auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke})
-	c.Command("login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
-	c.Command("auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
-	c.Command("agentic:login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
-	c.Command("agentic:auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin})
-	c.Command("message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
-	c.Command("messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
-	c.Command("agentic:message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
-	c.Command("agentic:messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend})
-	c.Command("message/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
-	c.Command("messages/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
-	c.Command("agentic:message/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
-	c.Command("agentic:messages/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox})
-	c.Command("message/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
-	c.Command("messages/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
-	c.Command("agentic:message/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
-	c.Command("agentic:messages/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation})
-
-	c.Command("fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister})
-	c.Command("agentic:fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister})
-	c.Command("fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat})
-	c.Command("agentic:fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat})
-	c.Command("fleet/deregister", core.Command{Description: "Deregister a fleet node from the platform API", Action: s.cmdFleetDeregister})
-	c.Command("agentic:fleet/deregister", core.Command{Description: "Deregister a fleet node from the platform API", Action: s.cmdFleetDeregister})
-	c.Command("fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodes})
-	c.Command("agentic:fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodes})
-	c.Command("fleet/task/assign", core.Command{Description: "Assign a task to a fleet node", Action: s.cmdFleetTaskAssign})
-	c.Command("agentic:fleet/task/assign", core.Command{Description: "Assign a task to a fleet node", Action: s.cmdFleetTaskAssign})
-	c.Command("fleet/task/complete", core.Command{Description: "Complete a fleet task and report findings", Action: s.cmdFleetTaskComplete})
-	c.Command("agentic:fleet/task/complete", core.Command{Description: "Complete a fleet task and report findings", Action: s.cmdFleetTaskComplete})
-	c.Command("fleet/task/next", core.Command{Description: "Ask the platform for the next fleet task", Action: s.cmdFleetTaskNext})
-	c.Command("agentic:fleet/task/next", core.Command{Description: "Ask the platform for the next fleet task", Action: s.cmdFleetTaskNext})
-	c.Command("fleet/stats", core.Command{Description: "Show fleet activity statistics", Action: s.cmdFleetStats})
-	c.Command("agentic:fleet/stats", core.Command{Description: "Show fleet activity statistics", Action: s.cmdFleetStats})
-	c.Command("fleet/events", core.Command{Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed", Action: s.cmdFleetEvents})
-	c.Command("agentic:fleet/events", core.Command{Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed", Action: s.cmdFleetEvents})
-
-	c.Command("credits/award", core.Command{Description: "Award credits to a fleet node", Action: s.cmdCreditsAward})
-	c.Command("agentic:credits/award", core.Command{Description: "Award credits to a fleet node", Action: s.cmdCreditsAward})
-	c.Command("credits/balance", core.Command{Description: "Show credit balance for a fleet node", Action: s.cmdCreditsBalance})
-	c.Command("agentic:credits/balance", core.Command{Description: "Show credit balance for a fleet node", Action: s.cmdCreditsBalance})
-	c.Command("credits/history", core.Command{Description: "Show credit history for a fleet node", Action: s.cmdCreditsHistory})
-	c.Command("agentic:credits/history", core.Command{Description: "Show credit history for a fleet node", Action: s.cmdCreditsHistory})
-
-	c.Command("subscription/detect", core.Command{Description: "Detect available provider capabilities", Action: s.cmdSubscriptionDetect})
-	c.Command("agentic:subscription/detect", core.Command{Description: "Detect available provider capabilities", Action: s.cmdSubscriptionDetect})
-	c.Command("subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget})
-	c.Command("agentic:subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget})
-	c.Command("subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
-	c.Command("subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
-	c.Command("agentic:subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
-	c.Command("agentic:subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget})
+	if r := c.Command("sync/push", core.Command{Description: "Push completed dispatch state to the platform API", Action: s.cmdSyncPush}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:sync/push", core.Command{Description: "Push completed dispatch state to the platform API", Action: s.cmdSyncPush}); !r.OK {
+		return r
+	}
+	if r := c.Command("sync/pull", core.Command{Description: "Pull shared fleet context from the platform API", Action: s.cmdSyncPull}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:sync/pull", core.Command{Description: "Pull shared fleet context from the platform API", Action: s.cmdSyncPull}); !r.OK {
+		return r
+	}
+	if r := c.Command("sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:sync/status", core.Command{Description: "Show platform sync status for the current or named agent", Action: s.cmdSyncStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:auth/provision", core.Command{Description: "Provision a platform API key for an authenticated agent user", Action: s.cmdAuthProvision}); !r.OK {
+		return r
+	}
+	if r := c.Command("auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:auth/revoke", core.Command{Description: "Revoke a platform API key", Action: s.cmdAuthRevoke}); !r.OK {
+		return r
+	}
+	if r := c.Command("auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:auth/login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin}); !r.OK {
+		return r
+	}
+	if r := c.Command("message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend}); !r.OK {
+		return r
+	}
+	if r := c.Command("messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:message/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:messages/send", core.Command{Description: "Send a direct message to another agent", Action: s.cmdMessageSend}); !r.OK {
+		return r
+	}
+	if r := c.Command("message/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox}); !r.OK {
+		return r
+	}
+	if r := c.Command("messages/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:message/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:messages/inbox", core.Command{Description: "List direct messages for an agent", Action: s.cmdMessageInbox}); !r.OK {
+		return r
+	}
+	if r := c.Command("message/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation}); !r.OK {
+		return r
+	}
+	if r := c.Command("messages/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:message/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:messages/conversation", core.Command{Description: "List a direct conversation between two agents", Action: s.cmdMessageConversation}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/register", core.Command{Description: "Register a fleet node with the platform API", Action: s.cmdFleetRegister}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/heartbeat", core.Command{Description: "Send a heartbeat for a registered fleet node", Action: s.cmdFleetHeartbeat}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/deregister", core.Command{Description: "Deregister a fleet node from the platform API", Action: s.cmdFleetDeregister}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/deregister", core.Command{Description: "Deregister a fleet node from the platform API", Action: s.cmdFleetDeregister}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/task/assign", core.Command{Description: "Assign a task to a fleet node", Action: s.cmdFleetTaskAssign}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/task/assign", core.Command{Description: "Assign a task to a fleet node", Action: s.cmdFleetTaskAssign}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/task/complete", core.Command{Description: "Complete a fleet task and report findings", Action: s.cmdFleetTaskComplete}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/task/complete", core.Command{Description: "Complete a fleet task and report findings", Action: s.cmdFleetTaskComplete}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/task/next", core.Command{Description: "Ask the platform for the next fleet task", Action: s.cmdFleetTaskNext}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/task/next", core.Command{Description: "Ask the platform for the next fleet task", Action: s.cmdFleetTaskNext}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/stats", core.Command{Description: "Show fleet activity statistics", Action: s.cmdFleetStats}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/stats", core.Command{Description: "Show fleet activity statistics", Action: s.cmdFleetStats}); !r.OK {
+		return r
+	}
+	if r := c.Command("fleet/events", core.Command{Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed", Action: s.cmdFleetEvents}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:fleet/events", core.Command{Description: "Read the next fleet event from the platform SSE stream, falling back to polling when needed", Action: s.cmdFleetEvents}); !r.OK {
+		return r
+	}
+	if r := c.Command("credits/award", core.Command{Description: "Award credits to a fleet node", Action: s.cmdCreditsAward}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:credits/award", core.Command{Description: "Award credits to a fleet node", Action: s.cmdCreditsAward}); !r.OK {
+		return r
+	}
+	if r := c.Command("credits/balance", core.Command{Description: "Show credit balance for a fleet node", Action: s.cmdCreditsBalance}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:credits/balance", core.Command{Description: "Show credit balance for a fleet node", Action: s.cmdCreditsBalance}); !r.OK {
+		return r
+	}
+	if r := c.Command("credits/history", core.Command{Description: "Show credit history for a fleet node", Action: s.cmdCreditsHistory}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:credits/history", core.Command{Description: "Show credit history for a fleet node", Action: s.cmdCreditsHistory}); !r.OK {
+		return r
+	}
+	if r := c.Command("subscription/detect", core.Command{Description: "Detect available provider capabilities", Action: s.cmdSubscriptionDetect}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:subscription/detect", core.Command{Description: "Detect available provider capabilities", Action: s.cmdSubscriptionDetect}); !r.OK {
+		return r
+	}
+	if r := c.Command("subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:subscription/budget", core.Command{Description: "Show compute budget for a fleet node", Action: s.cmdSubscriptionBudget}); !r.OK {
+		return r
+	}
+	if r := c.Command("subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget}); !r.OK {
+		return r
+	}
+	if r := c.Command("subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:subscription/budget/update", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:subscription/update-budget", core.Command{Description: "Update compute budget for a fleet node", Action: s.cmdSubscriptionUpdateBudget}); !r.OK {
+		return r
+	}
+	if !c.Command("login").OK {
+		if r := c.Command("login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin}); !r.OK {
+			return r
+		}
+	}
+	if !c.Command("agentic:login").OK {
+		if r := c.Command("agentic:login", core.Command{Description: "Exchange a 6-digit pairing code (from app.lthn.ai/device) for an AgentApiKey", Action: s.cmdAuthLogin}); !r.OK {
+			return r
+		}
+	}
+	if !c.Command("fleet/nodes").OK {
+		if r := c.Command("fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodes}); !r.OK {
+			return r
+		}
+	}
+	if !c.Command("agentic:fleet/nodes").OK {
+		if r := c.Command("agentic:fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodes}); !r.OK {
+			return r
+		}
+	}
+	return core.Ok(nil)
 }
 
 func (s *PrepSubsystem) cmdAuthProvision(options core.Options) core.Result {

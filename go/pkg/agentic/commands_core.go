@@ -165,8 +165,7 @@ var coreCommandSpecs = []coreCommandSpec{
 	},
 }
 
-func (s *PrepSubsystem) registerCoreCommands() {
-	c := s.Core()
+func (s *PrepSubsystem) registerCoreCommands() core.Result {
 	actions := map[string]core.CommandAction{
 		"core":                           s.cmdCore,
 		"core/pipeline":                  s.cmdCorePipeline,
@@ -193,11 +192,14 @@ func (s *PrepSubsystem) registerCoreCommands() {
 	}
 
 	for _, spec := range coreCommandSpecs {
-		c.Command(spec.Path, core.Command{
+		if result := s.Core().Command(spec.Path, core.Command{
 			Description: spec.Description,
 			Action:      actions[spec.Path],
-		})
+		}); !result.OK {
+			return result
+		}
 	}
+	return core.Result{OK: true}
 }
 
 func (s *PrepSubsystem) cmdCore(options core.Options) core.Result {

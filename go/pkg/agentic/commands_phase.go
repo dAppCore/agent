@@ -6,20 +6,45 @@ import (
 	core "dappco.re/go"
 )
 
-func (s *PrepSubsystem) registerPhaseCommands() {
+func (s *PrepSubsystem) registerPhaseCommands() core.Result {
 	c := s.Core()
-	c.Command("phase", core.Command{Description: "Manage plan phases", Action: s.cmdPhase})
-	c.Command("agentic:phase", core.Command{Description: "Manage plan phases", Action: s.cmdPhase})
-	c.Command("phase/get", core.Command{Description: "Read a plan phase by slug and order", Action: s.cmdPhaseGet})
-	c.Command("agentic:phase/get", core.Command{Description: "Read a plan phase by slug and order", Action: s.cmdPhaseGet})
-	c.Command("phase/update_status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus})
-	c.Command("agentic:phase/update_status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus})
-	c.Command("phase/update-status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus})
-	c.Command("agentic:phase/update-status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus})
-	c.Command("phase/add_checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint})
-	c.Command("agentic:phase/add_checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint})
-	c.Command("phase/add-checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint})
-	c.Command("agentic:phase/add-checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint})
+	if r := c.Command("phase", core.Command{Description: "Manage plan phases", Action: s.cmdPhase}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase", core.Command{Description: "Manage plan phases", Action: s.cmdPhase}); !r.OK {
+		return r
+	}
+	if r := c.Command("phase/get", core.Command{Description: "Read a plan phase by slug and order", Action: s.cmdPhaseGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase/get", core.Command{Description: "Read a plan phase by slug and order", Action: s.cmdPhaseGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("phase/update_status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase/update_status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("phase/update-status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase/update-status", core.Command{Description: "Update a plan phase status by slug and order", Action: s.cmdPhaseUpdateStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("phase/add_checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase/add_checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint}); !r.OK {
+		return r
+	}
+	if r := c.Command("phase/add-checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:phase/add-checkpoint", core.Command{Description: "Append a checkpoint note to a plan phase", Action: s.cmdPhaseAddCheckpoint}); !r.OK {
+		return r
+	}
+	return core.Ok(nil)
 }
 
 func (s *PrepSubsystem) cmdPhase(options core.Options) core.Result {

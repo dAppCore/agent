@@ -6,30 +6,75 @@ import (
 	core "dappco.re/go"
 )
 
-func (s *PrepSubsystem) registerSessionCommands() {
+func (s *PrepSubsystem) registerSessionCommands() core.Result {
 	c := s.Core()
-	c.Command("session/get", core.Command{Description: "Read a stored session by session ID", Action: s.cmdSessionGet})
-	c.Command("agentic:session/get", core.Command{Description: "Read a stored session by session ID", Action: s.cmdSessionGet})
-	c.Command("session/list", core.Command{Description: "List stored sessions with optional filters", Action: s.cmdSessionList})
-	c.Command("agentic:session/list", core.Command{Description: "List stored sessions with optional filters", Action: s.cmdSessionList})
-	c.Command("session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart})
-	c.Command("agentic:session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart})
-	c.Command("session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue})
-	c.Command("agentic:session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue})
-	c.Command("session/handoff", core.Command{Description: "Hand off a stored session with context for the next agent", Action: s.cmdSessionHandoff})
-	c.Command("agentic:session/handoff", core.Command{Description: "Hand off a stored session with context for the next agent", Action: s.cmdSessionHandoff})
-	c.Command("session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
-	c.Command("agentic:session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd})
-	c.Command("session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd})
-	c.Command("agentic:session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd})
-	c.Command("session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
-	c.Command("agentic:session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog})
-	c.Command("session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact})
-	c.Command("agentic:session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact})
-	c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
-	c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume})
-	c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
-	c.Command("agentic:session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay})
+	if r := c.Command("session/get", core.Command{Description: "Read a stored session by session ID", Action: s.cmdSessionGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/get", core.Command{Description: "Read a stored session by session ID", Action: s.cmdSessionGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/list", core.Command{Description: "List stored sessions with optional filters", Action: s.cmdSessionList}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/list", core.Command{Description: "List stored sessions with optional filters", Action: s.cmdSessionList}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/start", core.Command{Description: "Start a stored session for a plan", Action: s.cmdSessionStart}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/continue", core.Command{Description: "Continue a stored session from saved context", Action: s.cmdSessionContinue}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/handoff", core.Command{Description: "Hand off a stored session with context for the next agent", Action: s.cmdSessionHandoff}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/handoff", core.Command{Description: "Hand off a stored session with context for the next agent", Action: s.cmdSessionHandoff}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/end", core.Command{Description: "End a stored session with status, summary, and handoff notes", Action: s.cmdSessionEnd}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/complete", core.Command{Description: "Mark a stored session completed with status, summary, and handoff notes", Action: s.cmdSessionEnd}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/log", core.Command{Description: "Add a work log entry to a stored session", Action: s.cmdSessionLog}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/artifact", core.Command{Description: "Record a created, modified, deleted, or reviewed artifact for a stored session", Action: s.cmdSessionArtifact}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/resume", core.Command{Description: "Resume a paused or handed-off session from local cache", Action: s.cmdSessionResume}); !r.OK {
+		return r
+	}
+	if r := c.Command("session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:session/replay", core.Command{Description: "Build replay context for a stored session", Action: s.cmdSessionReplay}); !r.OK {
+		return r
+	}
+	return core.Ok(nil)
 }
 
 // core-agent session get ses-abc123

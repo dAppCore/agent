@@ -104,40 +104,109 @@ func formatIndex(n int64) string { return strconv.FormatInt(n, 10) }
 
 // c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
 // c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
-func (s *PrepSubsystem) registerForgeCommands() {
+func (s *PrepSubsystem) registerForgeCommands() core.Result {
 	c := s.Core()
-	c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
-	c.Command("agentic:issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet})
-	c.Command("issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList})
-	c.Command("agentic:issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList})
-	c.Command("issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment})
-	c.Command("agentic:issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment})
-	c.Command("issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate})
-	c.Command("agentic:issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate})
-	c.Command("issue/assign", core.Command{Description: "Assign a Forge issue", Action: s.cmdIssueAssign})
-	c.Command("agentic:issue/assign", core.Command{Description: "Assign a Forge issue", Action: s.cmdIssueAssign})
-	c.Command("issue/report", core.Command{Description: "Post a structured report to a Forge issue", Action: s.cmdIssueReport})
-	c.Command("agentic:issue/report", core.Command{Description: "Post a structured report to a Forge issue", Action: s.cmdIssueReport})
-	c.Command("issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate})
-	c.Command("agentic:issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate})
-	c.Command("issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive})
-	c.Command("agentic:issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive})
-	c.Command("pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet})
-	c.Command("agentic:pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet})
-	c.Command("pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList})
-	c.Command("agentic:pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList})
-	c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
-	c.Command("agentic:pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge})
-	c.Command("pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose})
-	c.Command("agentic:pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose})
-	c.Command("repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet})
-	c.Command("agentic:repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet})
-	c.Command("repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList})
-	c.Command("agentic:repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList})
-	c.Command("repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync})
-	c.Command("agentic:repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync})
-	c.Command("branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete})
-	c.Command("agentic:branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete})
+	if r := c.Command("issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/get", core.Command{Description: "Get a Forge issue", Action: s.cmdIssueGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/list", core.Command{Description: "List Forge issues for a repo", Action: s.cmdIssueList}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/comment", core.Command{Description: "Comment on a Forge issue", Action: s.cmdIssueComment}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/create", core.Command{Description: "Create a Forge issue", Action: s.cmdIssueCreate}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/assign", core.Command{Description: "Assign a Forge issue", Action: s.cmdIssueAssign}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/assign", core.Command{Description: "Assign a Forge issue", Action: s.cmdIssueAssign}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/report", core.Command{Description: "Post a structured report to a Forge issue", Action: s.cmdIssueReport}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/report", core.Command{Description: "Post a structured report to a Forge issue", Action: s.cmdIssueReport}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/update", core.Command{Description: "Update a tracked platform issue", Action: s.cmdIssueUpdate}); !r.OK {
+		return r
+	}
+	if r := c.Command("issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:issue/archive", core.Command{Description: "Archive a tracked platform issue", Action: s.cmdIssueArchive}); !r.OK {
+		return r
+	}
+	if r := c.Command("pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:pr/get", core.Command{Description: "Get a Forge PR", Action: s.cmdPRGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:pr/list", core.Command{Description: "List Forge PRs for a repo", Action: s.cmdPRList}); !r.OK {
+		return r
+	}
+	if r := c.Command("pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:pr/merge", core.Command{Description: "Merge a Forge PR", Action: s.cmdPRMerge}); !r.OK {
+		return r
+	}
+	if r := c.Command("pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:pr/close", core.Command{Description: "Close a Forge PR", Action: s.cmdPRClose}); !r.OK {
+		return r
+	}
+	if r := c.Command("repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:repo/get", core.Command{Description: "Get Forge repo info", Action: s.cmdRepoGet}); !r.OK {
+		return r
+	}
+	if r := c.Command("repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:repo/list", core.Command{Description: "List Forge repos for an org", Action: s.cmdRepoList}); !r.OK {
+		return r
+	}
+	if r := c.Command("branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:branch/delete", core.Command{Description: "Delete a branch on Forge", Action: s.cmdBranchDelete}); !r.OK {
+		return r
+	}
+	if !c.Command("repo/sync").OK {
+		if r := c.Command("repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync}); !r.OK {
+			return r
+		}
+	}
+	if !c.Command("agentic:repo/sync").OK {
+		if r := c.Command("agentic:repo/sync", core.Command{Description: "Fetch and optionally reset a local repo from origin", Action: s.cmdRepoSync}); !r.OK {
+			return r
+		}
+	}
+	return core.Ok(nil)
 }
 
 func (s *PrepSubsystem) cmdIssueGet(options core.Options) core.Result {

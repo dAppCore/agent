@@ -33,12 +33,21 @@ type LanguageListOutput struct {
 
 type LanguageListInput struct{}
 
-func (s *PrepSubsystem) registerLanguageCommands() {
+func (s *PrepSubsystem) registerLanguageCommands() core.Result {
 	c := s.Core()
-	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect})
-	c.Command("agentic:lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect})
-	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
-	c.Command("agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
+	if r := c.Command("lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}); !r.OK {
+		return r
+	}
+	if r := c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}); !r.OK {
+		return r
+	}
+	return core.Ok(nil)
 }
 
 // result := c.Command("lang/detect").Run(ctx, core.NewOptions(core.Option{Key: `path`, Value: "."}))

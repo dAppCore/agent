@@ -15,91 +15,232 @@ import (
 
 // c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
 // c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
-func (s *PrepSubsystem) registerCommands(ctx context.Context) {
+func (s *PrepSubsystem) registerCommands(ctx context.Context) core.Result {
 	s.startupContext = ctx
 	c := s.Core()
-	s.registerRepoSyncSupport()
-	_ = c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
-	_ = c.Command("agentic:run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask})
-	_ = c.Command("run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow})
-	_ = c.Command("agentic:run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow})
-	_ = c.Command("flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview})
-	_ = c.Command("agentic:flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview})
-	_ = c.Command("dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync})
-	_ = c.Command("agentic:dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync})
-	_ = c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
-	c.Command("agentic:run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator})
-	c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
-	c.Command("agentic:dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch})
-	c.Command("dispatch/start", core.Command{Description: "Start the dispatch queue runner", Action: s.cmdDispatchStart})
-	c.Command("agentic:dispatch/start", core.Command{Description: "Start the dispatch queue runner", Action: s.cmdDispatchStart})
-	c.Command("dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown})
-	c.Command("agentic:dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown})
-	c.Command("dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow})
-	c.Command("agentic:dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow})
-	c.Command("poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke})
-	c.Command("agentic:poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke})
-	c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
-	c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
-	c.Command("agentic:prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep})
-	c.Command("resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume})
-	c.Command("agentic:resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume})
-	c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
-	c.Command("agentic:generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
-	c.Command("content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
-	c.Command("agentic:content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate})
-	c.Command("content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate})
-	c.Command("agentic:content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate})
-	c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete})
-	c.Command("agentic:complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete})
-	c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
-	c.Command("agentic:scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan})
-	c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror})
-	c.Command("agentic:mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror})
-	c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
-	c.Command("brain:ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest})
-	c.Command("brain/recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
-	c.Command("brain:recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall})
-	c.Command("brain/remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember})
-	c.Command("brain:remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember})
-	c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory file or directory", Action: s.cmdBrainSeedMemory})
-	c.Command("brain:seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory file or directory", Action: s.cmdBrainSeedMemory})
-	c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
-	c.Command("brain:list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList})
-	c.Command("brain/forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget})
-	c.Command("brain:forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget})
-	c.Command("lang/detect", core.Command{Description: "Detect the primary language for a repository or workspace", Action: s.cmdLangDetect})
-	c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList})
-	c.Command("epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic})
-	c.Command("agentic:epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic})
-	c.Command("plan-cleanup", core.Command{Description: "Archive old completed plans and delete stale archives past the retention period", Action: s.cmdPlanCleanup})
-	c.Command("agentic:plan-cleanup", core.Command{Description: "Archive old completed plans and delete stale archives past the retention period", Action: s.cmdPlanCleanup})
-	c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
-	c.Command("agentic:pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage})
-	c.Command("review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdReviewQueue})
-	c.Command("agentic:review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdReviewQueue})
-	c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
-	c.Command("agentic:status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus})
-	c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
-	c.Command("agentic:prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt})
-	c.Command("prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
-	c.Command("agentic:prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
-	c.Command("prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
-	c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion})
-	c.Command("extract", core.Command{Description: "Extract data from agent output or scaffold a workspace template", Action: s.cmdExtract})
-	c.Command("agentic:extract", core.Command{Description: "Extract data from agent output or scaffold a workspace template", Action: s.cmdExtract})
-	s.registerPlanCommands()
-	s.registerCommitCommands()
-	s.registerSessionCommands()
-	s.registerPhaseCommands()
-	s.registerTaskCommands()
-	s.registerSprintCommands()
-	s.registerStateCommands()
-	s.registerCoreCommands()
-	s.registerFleetCommands()
-	s.registerPipelineCommands()
-	s.registerLanguageCommands()
-	s.registerSetupCommands()
+	if result := s.registerRepoSyncSupport(); !result.OK {
+		return result
+	}
+	if r := c.Command("run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:run/task", core.Command{Description: "Run a single task end-to-end", Action: s.cmdRunTask}); !r.OK {
+		return r
+	}
+	if r := c.Command("run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:run/flow", core.Command{Description: "Show a flow definition from disk or the embedded library", Action: s.cmdRunFlow}); !r.OK {
+		return r
+	}
+	if r := c.Command("flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:flow/preview", core.Command{Description: "Preview a flow definition with optional variable substitution", Action: s.cmdFlowPreview}); !r.OK {
+		return r
+	}
+	if r := c.Command("dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:dispatch/sync", core.Command{Description: "Dispatch a single task synchronously and block until it completes", Action: s.cmdDispatchSync}); !r.OK {
+		return r
+	}
+	if r := c.Command("run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:run/orchestrator", core.Command{Description: "Run the queue orchestrator (standalone, no MCP)", Action: s.cmdOrchestrator}); !r.OK {
+		return r
+	}
+	if r := c.Command("dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:dispatch", core.Command{Description: "Dispatch queued agents", Action: s.cmdDispatch}); !r.OK {
+		return r
+	}
+	if r := c.Command("dispatch/start", core.Command{Description: "Start the dispatch queue runner", Action: s.cmdDispatchStart}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:dispatch/start", core.Command{Description: "Start the dispatch queue runner", Action: s.cmdDispatchStart}); !r.OK {
+		return r
+	}
+	if r := c.Command("dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:dispatch/shutdown", core.Command{Description: "Freeze the dispatch queue gracefully", Action: s.cmdDispatchShutdown}); !r.OK {
+		return r
+	}
+	if r := c.Command("dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:dispatch/shutdown-now", core.Command{Description: "Hard stop the dispatch queue and kill running agents", Action: s.cmdDispatchShutdownNow}); !r.OK {
+		return r
+	}
+	if r := c.Command("poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:poke", core.Command{Description: "Drain the dispatch queue immediately", Action: s.cmdPoke}); !r.OK {
+		return r
+	}
+	if r := c.Command("prep", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep}); !r.OK {
+		return r
+	}
+	if r := c.Command("prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:prep-workspace", core.Command{Description: "Prepare a workspace: clone repo, build prompt", Action: s.cmdPrep}); !r.OK {
+		return r
+	}
+	if r := c.Command("resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:resume", core.Command{Description: "Resume a blocked or completed workspace", Action: s.cmdResume}); !r.OK {
+		return r
+	}
+	if r := c.Command("generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:content/generate", core.Command{Description: "Generate content from a prompt using the platform content pipeline", Action: s.cmdGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:content/schema/generate", core.Command{Description: "Generate SEO schema JSON-LD for article, FAQ, or how-to content", Action: s.cmdContentSchemaGenerate}); !r.OK {
+		return r
+	}
+	if r := c.Command("complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:complete", core.Command{Description: "Run the completion pipeline (QA → PR → Verify → Commit → Ingest → Poke)", Action: s.cmdComplete}); !r.OK {
+		return r
+	}
+	if r := c.Command("scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan}); !r.OK {
+		return r
+	}
+	if r := c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:ingest", core.Command{Description: "Bulk ingest memories into OpenBrain", Action: s.cmdBrainIngest}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:recall", core.Command{Description: "Recall memories from OpenBrain", Action: s.cmdBrainRecall}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:remember", core.Command{Description: "Store a memory in OpenBrain", Action: s.cmdBrainRemember}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory file or directory", Action: s.cmdBrainSeedMemory}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:seed-memory", core.Command{Description: "Import markdown memories into OpenBrain from a project memory file or directory", Action: s.cmdBrainSeedMemory}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:list", core.Command{Description: "List memories in OpenBrain", Action: s.cmdBrainList}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain/forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget}); !r.OK {
+		return r
+	}
+	if r := c.Command("brain:forget", core.Command{Description: "Forget a memory in OpenBrain", Action: s.cmdBrainForget}); !r.OK {
+		return r
+	}
+	if r := c.Command("epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:epic", core.Command{Description: "Create sub-issues from an epic plan", Action: s.cmdEpic}); !r.OK {
+		return r
+	}
+	if r := c.Command("plan-cleanup", core.Command{Description: "Archive old completed plans and delete stale archives past the retention period", Action: s.cmdPlanCleanup}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:plan-cleanup", core.Command{Description: "Archive old completed plans and delete stale archives past the retention period", Action: s.cmdPlanCleanup}); !r.OK {
+		return r
+	}
+	if r := c.Command("pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:pr-manage", core.Command{Description: "Manage open PRs (merge, close, review)", Action: s.cmdPRManage}); !r.OK {
+		return r
+	}
+	if r := c.Command("review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdReviewQueue}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:review-queue", core.Command{Description: "Process the CodeRabbit review queue", Action: s.cmdReviewQueue}); !r.OK {
+		return r
+	}
+	if r := c.Command("status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:status", core.Command{Description: "List agent workspace statuses", Action: s.cmdStatus}); !r.OK {
+		return r
+	}
+	if r := c.Command("prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:prompt", core.Command{Description: "Build and display an agent prompt for a repo", Action: s.cmdPrompt}); !r.OK {
+		return r
+	}
+	if r := c.Command("prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:prompt_version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion}); !r.OK {
+		return r
+	}
+	if r := c.Command("prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:prompt/version", core.Command{Description: "Read the current prompt snapshot for a workspace", Action: s.cmdPromptVersion}); !r.OK {
+		return r
+	}
+	if r := c.Command("extract", core.Command{Description: "Extract data from agent output or scaffold a workspace template", Action: s.cmdExtract}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:extract", core.Command{Description: "Extract data from agent output or scaffold a workspace template", Action: s.cmdExtract}); !r.OK {
+		return r
+	}
+	for _, register := range []func() core.Result{
+		s.registerPlanCommands,
+		s.registerCommitCommands,
+		s.registerSessionCommands,
+		s.registerPhaseCommands,
+		s.registerTaskCommands,
+		s.registerSprintCommands,
+		s.registerStateCommands,
+		s.registerCoreCommands,
+		s.registerFleetCommands,
+		s.registerPipelineCommands,
+		s.registerLanguageCommands,
+		s.registerSetupCommands,
+	} {
+		if result := register(); !result.OK {
+			return result
+		}
+	}
+	return core.Result{OK: true}
 }
 
 // ctx := s.commandContext()
