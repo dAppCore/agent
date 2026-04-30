@@ -8,13 +8,13 @@
   "plugins": [
     {
       "name": "core",
-      "source": "./claude/core",
+      "source": "./provider/claude/core",
       "description": "CoreAgent platform — dispatch, review, messaging, OpenBrain",
       "version": "0.14.0"
     },
     {
       "name": "core-research",
-      "source": "./claude/research",
+      "source": "./provider/claude/research",
       "description": "Blockchain archaeology, whitepaper archival, community history, market data collection",
       "version": "0.3.0"
     },
@@ -47,7 +47,7 @@
     },
     {
       "name": "devops",
-      "source": "./claude/devops",
+      "source": "./provider/claude/devops",
       "description": "Agent workflow utilities — install binaries, merge workspaces, update deps, clean queues",
       "version": "0.1.0"
     }
