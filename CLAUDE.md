@@ -164,3 +164,31 @@ Plans drive the entire dispatch→verify→merge flow:
 - **Commits**: `type(scope): description` with `Co-Authored-By: Virgil <virgil@lethean.io>`
 - **Licence**: EUPL-1.2
 - **SPDX**: `// SPDX-License-Identifier: EUPL-1.2` on every file
+
+## Repo Layout
+
+```
+core/agent/
+├── go/                               ← Go module root (module dappco.re/go/agent)
+│   ├── go.mod, go.sum
+│   ├── cmd/                          ← Go binaries and entrypoints
+│   ├── pkg/                          ← Go runtime packages
+│   ├── version.go
+│   ├── version_example_test.go
+│   ├── README.md                     ← symlink → ../README.md
+│   ├── CLAUDE.md                     ← symlink → ../CLAUDE.md
+│   ├── AGENTS.md                     ← symlink → ../AGENTS.md
+│   └── docs                          ← symlink → ../docs
+├── php/                              ← PHP package (unchanged)
+├── tests/                            ← repo test tooling/assets
+├── scripts/                          ← task and maintenance helpers
+├── docs/                             ← shared documentation
+└── <other root files>                ← CI/config and PHP project files
+```
+
+## Go Resolution Modes
+
+The Go module is located at `go/`, so run Go tooling from there:
+
+- Development/default: `cd go && go build ./...`, `cd go && go test ./...`
+- CI and explicit reproducibility checks: `GOWORK=off` (and optional `GOFLAGS=-mod=mod`) when running `go test`, `go vet`, and `go mod tidy` from `go/`.

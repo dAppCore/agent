@@ -1,0 +1,16 @@
+go 1.26.2
+
+// Workspace mode for development: pulls fresh code from external/ submodules.
+// CI uses GOWORK=off to fall back to go/go.mod tags (reproducible).
+
+use (
+	./go
+	./external/go
+	./external/mcp
+	./external/process
+	./external/store
+	./external/ws
+	./external/io
+	./external/log
+	./external/rag
+)
