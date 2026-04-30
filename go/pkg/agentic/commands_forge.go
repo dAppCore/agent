@@ -83,7 +83,9 @@ func parseForgeArgs(options core.Options) (org, repo string, num int64) {
 	}
 	repo = options.String("_arg")
 	if v := options.String("number"); v != "" {
-		num, _ = strconv.ParseInt(v, 10, 64)
+		if parsed, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil {
+			num = parsed
+		}
 	}
 
 	if validatedOrg, ok := validateName(org); ok {
@@ -217,10 +219,11 @@ func (s *PrepSubsystem) cmdIssueGet(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueGet", "repo and number are required", nil), OK: false}
 	}
 	var issue issueView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
-	if err != nil {
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d", org, repo, num), &issue)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	core.Print(nil, "#%d %s", issueNumber(issue), issue.Title)
 	core.Print(nil, "  state:  %s", issue.State)
@@ -240,10 +243,11 @@ func (s *PrepSubsystem) cmdIssueList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueList", "repo is required", nil), OK: false}
 	}
 	var issues []issueView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
-	if err != nil {
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues?limit=50&page=1", org, repo), &issues)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	for _, issue := range issues {
 		core.Print(nil, "  #%-4d %-6s %s", issueNumber(issue), issue.State, issue.Title)
@@ -263,12 +267,13 @@ func (s *PrepSubsystem) cmdIssueComment(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdIssueComment", "repo, number, and body are required", nil), OK: false}
 	}
 	var comment Comment
-	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, num), map[string]any{
+	result := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", org, repo, num), map[string]any{
 		"body": body,
 	}, &comment)
-	if err != nil {
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	core.Print(nil, "comment #%d created on %s/%s#%d", comment.ID, org, repo, num)
 	return core.Result{OK: true}
@@ -292,8 +297,8 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 
 	if milestone != "" {
 		var milestones []Milestone
-		err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/milestones", org, repo), &milestones)
-		if err == nil {
+		result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/milestones", org, repo), &milestones)
+		if result.OK {
 			for _, m := range milestones {
 				if m.Title == milestone {
 					createOptions.Milestone = m.ID
@@ -307,8 +312,9 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 	}
 	if labels != "" {
 		labelNames := core.Split(labels, ",")
-		allLabels, err := s.forge.listRepoLabels(ctx, org, repo)
-		if err == nil {
+		labelsResult := s.forge.listRepoLabels(ctx, org, repo)
+		if labelsResult.OK {
+			allLabels := labelsResult.Value.([]Label)
 			labelIDs := []int64{}
 			for _, name := range labelNames {
 				name = core.Trim(name)
@@ -326,10 +332,11 @@ func (s *PrepSubsystem) cmdIssueCreate(options core.Options) core.Result {
 	}
 
 	var issue issueView
-	err := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues", org, repo), createOptions, &issue)
-	if err != nil {
+	result := s.forge.postJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/issues", org, repo), createOptions, &issue)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	core.Print(nil, "#%d %s", issue.Index, issue.Title)
 	core.Print(nil, "  url: %s", issue.HTMLURL)
@@ -473,10 +480,11 @@ func (s *PrepSubsystem) cmdPRGet(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRGet", "repo and number are required", nil), OK: false}
 	}
 	var pr pullRequestView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
-	if err != nil {
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls/%d", org, repo, num), &pr)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	core.Print(nil, "#%d %s", pullRequestNumber(pr), pr.Title)
 	core.Print(nil, "  state:     %s", pr.State)
@@ -499,10 +507,11 @@ func (s *PrepSubsystem) cmdPRList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPRList", "repo is required", nil), OK: false}
 	}
 	var prs []pullRequestView
-	err := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
-	if err != nil {
+	result := s.forge.getJSON(ctx, core.Sprintf("/api/v1/repos/%s/%s/pulls?limit=50&page=1", org, repo), &prs)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	for _, pr := range prs {
 		core.Print(nil, "  #%-4d %-6s %s → %s  %s", pullRequestNumber(pr), pr.State, pr.Head.Ref, pr.Base.Ref, pr.Title)
@@ -524,9 +533,11 @@ func (s *PrepSubsystem) cmdPRMerge(options core.Options) core.Result {
 		core.Print(nil, "usage: core-agent pr merge <repo> --number=N [--method=merge|rebase|squash] [--org=core]")
 		return core.Result{Value: core.E("agentic.cmdPRMerge", "repo and number are required", nil), OK: false}
 	}
-	if err := s.forge.mergePullRequest(ctx, org, repo, num, method); err != nil {
+	result := s.forge.mergePullRequest(ctx, org, repo, num, method)
+	if !result.OK {
+		err := forgeResultError(result)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
 	core.Print(nil, "merged %s/%s#%d via %s", org, repo, num, method)
 	return core.Result{OK: true}
@@ -561,17 +572,19 @@ func (s *PrepSubsystem) cmdRepoGet(options core.Options) core.Result {
 		core.Print(nil, "usage: core-agent repo get <repo> [--org=core]")
 		return core.Result{Value: core.E("agentic.cmdRepoGet", "repo is required", nil), OK: false}
 	}
-	repositoryResult, err := s.forge.getRepo(ctx, org, repo)
-	if err != nil {
+	repositoryResult := s.forge.getRepo(ctx, org, repo)
+	if !repositoryResult.OK {
+		err := forgeResultError(repositoryResult)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
-	core.Print(nil, "%s/%s", repositoryResult.Owner.UserName, repositoryResult.Name)
-	core.Print(nil, "  description: %s", repositoryResult.Description)
-	core.Print(nil, "  default:     %s", repositoryResult.DefaultBranch)
-	core.Print(nil, "  private:     %v", repositoryResult.Private)
-	core.Print(nil, "  archived:    %v", repositoryResult.Archived)
-	core.Print(nil, "  url:         %s", repositoryResult.HTMLURL)
+	repository := repositoryResult.Value.(*Repository)
+	core.Print(nil, "%s/%s", repository.Owner.UserName, repository.Name)
+	core.Print(nil, "  description: %s", repository.Description)
+	core.Print(nil, "  default:     %s", repository.DefaultBranch)
+	core.Print(nil, "  private:     %v", repository.Private)
+	core.Print(nil, "  archived:    %v", repository.Archived)
+	core.Print(nil, "  url:         %s", repository.HTMLURL)
 	return core.Result{OK: true}
 }
 
@@ -587,11 +600,13 @@ func (s *PrepSubsystem) cmdRepoList(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdRepoList", "invalid org name", nil), OK: false}
 	}
 	org = validatedOrg
-	repos, err := s.forge.listOrgRepos(ctx, org)
-	if err != nil {
+	reposResult := s.forge.listOrgRepos(ctx, org)
+	if !reposResult.OK {
+		err := forgeResultError(reposResult)
 		core.Print(nil, "error: %v", err)
-		return core.Result{Value: err, OK: false}
+		return core.Fail(err)
 	}
+	repos := reposResult.Value.([]Repository)
 	for _, repository := range repos {
 		archived := ""
 		if repository.Archived {

@@ -95,7 +95,10 @@ func ensureMounted() core.Result {
 
 		emb := mounted.Value.(*core.Embed)
 		item.assign(emb)
-		_ = mountedData.Set(item.name, emb)
+		if setResult := mountedData.Set(item.name, emb); !setResult.OK {
+			mountResult = setResult
+			return mountResult
+		}
 	}
 
 	data = mountedData

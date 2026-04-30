@@ -93,7 +93,7 @@ func (s *DirectSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.RegisterMessagingTools(svc)
 }
 
-// _ = subsystem.Shutdown(context.Background())
+// err := subsystem.Shutdown(context.Background())
 func (s *DirectSubsystem) Shutdown(_ context.Context) error { return nil }
 
 func brainKeyPath(home string) string {

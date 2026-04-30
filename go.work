@@ -7,10 +7,10 @@ use (
 	./go
 	./external/go
 	./external/mcp
-	./external/process
+	./external/process/go
 	./external/store
 	./external/ws
 	./external/io
 	./external/log
-	./external/rag
+	./external/rag/go
 )

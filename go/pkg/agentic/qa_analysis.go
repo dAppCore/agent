@@ -132,7 +132,6 @@ func qaAnalysisWorkspaceRows(workspace *store.Workspace, kind string) []string {
 // findingToPoint projects a finding into the RFC §7 clustering dimensions.
 // Frequency defaults to 1 for direct callers; the cluster builder supplies the
 // observed per-fingerprint frequency for each point.
-//
 func qaAnalysisPointCoords(finding QAFinding, frequency float64) []float64 {
 	return []float64{
 		qaAnalysisHash(core.Lower(finding.Tool)),
@@ -361,6 +360,8 @@ func qaAnalysisHash(value string) float64 {
 		return 0
 	}
 	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(value))
+	if _, err := hash.Write([]byte(value)); err != nil {
+		return 0
+	}
 	return float64(hash.Sum32())
 }

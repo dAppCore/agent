@@ -11,7 +11,7 @@ import (
 type DirectOptions struct{}
 
 // subsystem := brain.NewDirect()
-// _ = subsystem.OnStartup(context.Background())
+// result := subsystem.OnStartup(context.Background())
 func (s *DirectSubsystem) OnStartup(_ context.Context) core.Result {
 	if s.ServiceRuntime == nil || s.Core() == nil {
 		return core.Result{OK: true}

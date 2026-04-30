@@ -153,7 +153,9 @@ var createIssue = func(s *PrepSubsystem, ctx context.Context, org, repo, title, 
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-	_ = core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue)
+		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue); !parseResult.OK {
+			return ChildRef{}, core.E("createIssue", "parse issue response failed", forgeResultError(parseResult))
+		}
 
 	return ChildRef{
 		Number: createdIssue.Number,
@@ -178,7 +180,9 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	_ = core.JSONUnmarshalString(httpResult.Value.(string), &existing)
+		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &existing); !parseResult.OK {
+			return nil
+		}
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -227,6 +231,8 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	var createdLabel struct {
 		ID int64 `json:"id"`
 	}
-	_ = core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel)
+		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel); !parseResult.OK {
+			return 0
+		}
 	return createdLabel.ID
 }
