@@ -5,8 +5,8 @@
 services:
   app:
     build:
-      context: ..
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: vm/docker/Dockerfile
     container_name: core-app
     env_file: .env
     volumes:
