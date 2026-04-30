@@ -153,7 +153,7 @@ var createIssue = func(s *PrepSubsystem, ctx context.Context, org, repo, title, 
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-	core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue)
+	_ = core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue)
 
 	return ChildRef{
 		Number: createdIssue.Number,
@@ -178,7 +178,7 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-	core.JSONUnmarshalString(httpResult.Value.(string), &existing)
+	_ = core.JSONUnmarshalString(httpResult.Value.(string), &existing)
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -227,6 +227,6 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	var createdLabel struct {
 		ID int64 `json:"id"`
 	}
-	core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel)
+	_ = core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel)
 	return createdLabel.ID
 }

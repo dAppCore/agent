@@ -1169,11 +1169,6 @@ var resultErrorValue = func(action string, result core.Result) error {
 	return core.E(action, "request failed", nil)
 }
 
-func validSessionAgentType(agentType string) bool {
-	_, ok := normaliseSessionAgentType(agentType)
-	return ok
-}
-
 func normaliseSessionAgentType(agentType string) (string, bool) {
 	trimmed := core.Lower(core.Trim(agentType))
 	if trimmed == "" {

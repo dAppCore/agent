@@ -51,11 +51,11 @@ func MountData(c *core.Core) {
 	}
 
 	d := c.Data()
-	d.Set("prompts", promptFS)
-	d.Set("tasks", taskFS)
-	d.Set("flows", flowFS)
-	d.Set("personas", personaFS)
-	d.Set("workspaces", workspaceFS)
+	_ = d.Set("prompts", promptFS)
+	_ = d.Set("tasks", taskFS)
+	_ = d.Set("flows", flowFS)
+	_ = d.Set("personas", personaFS)
+	_ = d.Set("workspaces", workspaceFS)
 }
 
 func ensureMounted() core.Result {
@@ -85,7 +85,7 @@ func ensureMounted() core.Result {
 
 		emb := mounted.Value.(*core.Embed)
 		item.assign(emb)
-		mountedData.Set(item.name, emb)
+		_ = mountedData.Set(item.name, emb)
 	}
 
 	data = mountedData

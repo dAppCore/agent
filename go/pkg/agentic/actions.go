@@ -246,7 +246,7 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 			if ok {
 				workspaceStatus.Status = "failed"
 				workspaceStatus.Question = "QA check failed — build or tests did not pass"
-				writeStatusResult(workspaceDir, workspaceStatus)
+				_ = writeStatusResult(workspaceDir, workspaceStatus)
 			}
 		}
 	}
@@ -257,7 +257,7 @@ func (s *PrepSubsystem) handleQA(ctx context.Context, options core.Options) core
 		if ok {
 			repo = workspaceStatus.Repo
 		}
-		s.Core().ACTION(messages.QAResult{
+		_ = s.Core().ACTION(messages.QAResult{
 			Workspace: WorkspaceName(workspaceDir),
 			Repo:      repo,
 			Passed:    passed,
@@ -285,7 +285,7 @@ func (s *PrepSubsystem) handleAutoPR(ctx context.Context, options core.Options) 
 		result := ReadStatusResult(workspaceDir)
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if ok && workspaceStatus.PRURL != "" {
-			s.Core().ACTION(messages.PRCreated{
+			_ = s.Core().ACTION(messages.PRCreated{
 				Repo:   workspaceStatus.Repo,
 				Branch: workspaceStatus.Branch,
 				PRURL:  workspaceStatus.PRURL,
@@ -316,13 +316,13 @@ func (s *PrepSubsystem) handleVerify(ctx context.Context, options core.Options) 
 		workspaceStatus, ok := workspaceStatusValue(result)
 		if ok {
 			if workspaceStatus.Status == "merged" {
-				s.Core().ACTION(messages.PRMerged{
+				_ = s.Core().ACTION(messages.PRMerged{
 					Repo:  workspaceStatus.Repo,
 					PRURL: workspaceStatus.PRURL,
 					PRNum: extractPullRequestNumber(workspaceStatus.PRURL),
 				})
 			} else if workspaceStatus.Question != "" {
-				s.Core().ACTION(messages.PRNeedsReview{
+				_ = s.Core().ACTION(messages.PRNeedsReview{
 					Repo:   workspaceStatus.Repo,
 					PRURL:  workspaceStatus.PRURL,
 					PRNum:  extractPullRequestNumber(workspaceStatus.PRURL),

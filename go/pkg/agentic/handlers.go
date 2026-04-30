@@ -124,14 +124,14 @@ func handleCompletionCommit(c *core.Core, msg core.Message) core.Result {
 		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
-				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+			_ = c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
 			}
 		}
 	case messages.PRNeedsReview:
 		workspaceDir := findWorkspaceByPRWithInfo(ev.Repo, "", ev.PRNum, ev.PRURL)
 		if workspaceDir != "" {
 			if c.Action("agentic.commit").Exists() {
-				c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
+					_ = c.Action("agentic.commit").Run(context.Background(), workspaceActionOptions(workspaceDir))
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
 	}
 
 	if c != nil && c.Action("runner.poke").Exists() {
-		c.ACTION(messages.PokeQueue{})
+			_ = c.ACTION(messages.PokeQueue{})
 		return core.Result{OK: true}
 	}
 	performAsyncIfRegistered(c, "agentic.poke", core.NewOptions())

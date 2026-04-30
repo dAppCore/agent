@@ -220,18 +220,6 @@ func (m *Subsystem) countChangedFiles(repoDir string) int {
 	return len(lines)
 }
 
-// _ = m.pushBranch("/srv/.core/workspace/core/go-io/task-5/repo", "feature/ax-cleanup")
-var pushBranch = func(m *Subsystem, repoDir, branch string) error {
-	processResult := m.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "origin", branch)
-	if !processResult.OK {
-		if err, ok := processResult.Value.(error); ok {
-			return core.E("harvest.pushBranch", "push failed", err)
-		}
-		return core.E("harvest.pushBranch", "push failed", nil)
-	}
-	return nil
-}
-
 // updateStatus(workspaceDir, "ready-for-review", "")
 func updateStatus(workspaceDir, status, question string) {
 	statusResult := fs.Read(agentic.WorkspaceStatusPath(workspaceDir))

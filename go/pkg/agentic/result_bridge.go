@@ -55,22 +55,3 @@ func toolHandlerFor[In, Out any](action, invalid string, fn func(context.Context
 		return nil, typed.Value.(Out), nil
 	}
 }
-
-func resourceHandlerFor(action, invalid string, fn func(context.Context) core.Result) mcp.ResourceHandler {
-	return func(ctx context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		result := fn(ctx)
-		if !result.OK {
-			failed := failureResult(action, "resource read failed", result)
-			err, _ := failed.Value.(error)
-			return nil, err
-		}
-
-		typed := typedResultValue[*mcp.ReadResourceResult](action, invalid, result)
-		if !typed.OK {
-			err, _ := typed.Value.(error)
-			return nil, err
-		}
-
-		return typed.Value.(*mcp.ReadResourceResult), nil
-	}
-}

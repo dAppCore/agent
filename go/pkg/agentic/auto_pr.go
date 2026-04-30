@@ -48,12 +48,12 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 				return
 			}
 			workspaceStatusUpdate.Question = "PR push failed"
-			writeStatusResult(workspaceDir, workspaceStatusUpdate)
+			_ = writeStatusResult(workspaceDir, workspaceStatusUpdate)
 		}
 		return
 	}
 	if s.ServiceRuntime != nil {
-		s.Core().ACTION(messages.WorkspacePushed{
+		_ = s.Core().ACTION(messages.WorkspacePushed{
 			Repo:   workspaceStatus.Repo,
 			Branch: workspaceStatus.Branch,
 			Org:    org,
@@ -74,7 +74,7 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 				return
 			}
 			workspaceStatusUpdate.Question = core.Sprintf("PR creation failed: %v", err)
-			writeStatusResult(workspaceDir, workspaceStatusUpdate)
+			_ = writeStatusResult(workspaceDir, workspaceStatusUpdate)
 		}
 		return
 	}

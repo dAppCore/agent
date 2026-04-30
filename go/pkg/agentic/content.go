@@ -209,7 +209,7 @@ var contentGenerateResult = func(s *PrepSubsystem, ctx context.Context, input Co
 	hasPrompt := core.Trim(input.Prompt) != ""
 	hasBrief := core.Trim(input.BriefID) != ""
 	hasTemplate := core.Trim(input.Template) != ""
-	if !hasPrompt && !(hasBrief && hasTemplate) {
+	if !hasPrompt && (!hasBrief || !hasTemplate) {
 		return ContentResult{}, core.E("contentGenerate", "prompt or brief_id plus template is required", nil)
 	}
 

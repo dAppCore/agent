@@ -58,7 +58,9 @@ func (s *HTTPStream) Send(data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {

@@ -75,7 +75,7 @@ var commitWorkspace = func(s *PrepSubsystem, ctx context.Context, input CommitIn
 	markerPath := core.JoinPath(metaDir, "commit.json")
 
 	committedAt := time.Now().UTC().Format(time.RFC3339)
-	if existingCommit, ok := readCommitMarker(markerPath); ok && existingCommit.UpdatedAt == workspaceStatus.UpdatedAt && existingCommit.Runs == workspaceStatus.Runs {
+	if existingCommit, ok := readCommitMarker(markerPath); ok && existingCommit.UpdatedAt.Equal(workspaceStatus.UpdatedAt) && existingCommit.Runs == workspaceStatus.Runs {
 		return commitSkippedOutput(input.Workspace, journalPath, markerPath, existingCommit), nil
 	}
 

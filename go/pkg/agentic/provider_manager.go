@@ -34,45 +34,6 @@ var providerSleep = time.Sleep
 
 const providerRetryAttempts = 3
 
-// manager := s.providerManager()
-// core.Println(manager.Names()) // ["claude", "gemini", "openai"]
-func (s *PrepSubsystem) providerManager() *ProviderManager {
-	if s == nil {
-		return NewProviderManager(nil)
-	}
-	if s.providers != nil {
-		return s.providers
-	}
-
-	s.providers = NewProviderManager(func(ctx context.Context, prompt string, options map[string]any) (string, error) {
-		config := anyMapValue(options["config"])
-		if model := contentMapStringValue(options, "model"); model != "" {
-			if config == nil {
-				config = map[string]any{}
-			}
-			config["model"] = model
-		}
-		input := ContentGenerateInput{
-			Prompt:   prompt,
-			Provider: contentMapStringValue(options, "provider"),
-			Config:   config,
-		}
-		if template := contentMapStringValue(options, "template"); template != "" {
-			input.Template = template
-		}
-		if briefID := contentMapStringValue(options, "brief_id", "briefId"); briefID != "" {
-			input.BriefID = briefID
-		}
-		result, err := contentGenerateResult(s, ctx, input)
-		if err != nil {
-			return "", err
-		}
-		return result.Content, nil
-	})
-
-	return s.providers
-}
-
 //	manager := agentic.NewProviderManager(func(ctx context.Context, prompt string, options map[string]any) (string, error) {
 //	    return "Draft ready", nil
 //	})

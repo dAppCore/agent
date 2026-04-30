@@ -323,7 +323,7 @@ var captureFlowStepOutput = func(run func() core.Result) (core.Result, string, s
 		return core.Result{}, "", "", core.E("agentic.captureFlowStepOutput", "redirect stdout", err)
 	}
 	if err := syscall.Dup2(stderrWriteFD, int(stderrFile.Fd())); err != nil {
-		syscall.Dup2(restoreStdoutFD, int(stdoutFile.Fd()))
+		_ = syscall.Dup2(restoreStdoutFD, int(stdoutFile.Fd()))
 		closeFD(stdoutReadFD)
 		closeFD(stdoutWriteFD)
 		closeFD(stderrReadFD)
@@ -399,7 +399,7 @@ var readFD = func(fd int) ([]byte, error) {
 
 func closeFD(fd int) {
 	if fd > 0 {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 	}
 }
 

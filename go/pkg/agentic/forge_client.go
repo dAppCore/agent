@@ -230,7 +230,9 @@ func (c *forgeClient) doJSON(ctx context.Context, method, path string, body, out
 	if err != nil {
 		return core.E("forgeClient.doJSON", "request failed", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {

@@ -541,10 +541,10 @@ func (s *PrepSubsystem) trackFailureRate(agent, status string, startedAt time.Ti
 				s.backoff[pool] = until
 				s.persistRuntimeState()
 				if s.ServiceRuntime != nil {
-					s.Core().ACTION(messages.RateLimitDetected{
-						Pool:     pool,
-						Duration: backoffDuration.String(),
-					})
+						_ = s.Core().ACTION(messages.RateLimitDetected{
+							Pool:     pool,
+							Duration: backoffDuration.String(),
+						})
 				}
 				core.Print(nil, "rate-limit detected for %s — pausing pool for 30 minutes", pool)
 				return true
@@ -604,13 +604,13 @@ func (s *PrepSubsystem) broadcastStart(agent, workspaceDir string) {
 		repo = workspaceStatus.Repo
 	}
 	if s.ServiceRuntime != nil {
-		s.Core().ACTION(messages.AgentStarted{
-			Agent: agent, Repo: repo, Workspace: workspaceName,
-		})
+			_ = s.Core().ACTION(messages.AgentStarted{
+				Agent: agent, Repo: repo, Workspace: workspaceName,
+			})
 		// Push to MCP channel so Claude Code receives the notification
-		s.Core().ACTION(coremcp.ChannelPush{
-			Channel: coremcp.ChannelAgentStatus,
-			Data: map[string]any{
+			_ = s.Core().ACTION(coremcp.ChannelPush{
+				Channel: coremcp.ChannelAgentStatus,
+				Data: map[string]any{
 				"agent": agent, "repo": repo,
 				"workspace": workspaceName, "status": "running",
 			},
@@ -629,10 +629,10 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 		if ok {
 			repo = workspaceStatus.Repo
 		}
-		s.Core().ACTION(messages.AgentCompleted{
-			Agent: agent, Repo: repo,
-			Workspace: workspaceName, Status: finalStatus,
-		})
+			_ = s.Core().ACTION(messages.AgentCompleted{
+				Agent: agent, Repo: repo,
+				Workspace: workspaceName, Status: finalStatus,
+			})
 		// Push to MCP channel so Claude Code receives the notification
 		s.Core().ACTION(coremcp.ChannelPush{
 			Channel: coremcp.ChannelAgentComplete,
@@ -723,7 +723,7 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 		return 0, "", "", core.E("dispatch.spawnAgent", "unexpected process result", nil)
 	}
 
-	proc.CloseStdin()
+	_ = proc.CloseStdin()
 	startDispatchTimeoutWatch(workspaceDir, s.dispatchTimeout(), proc)
 	pid := proc.Info().PID
 	processID := proc.ID
@@ -740,7 +740,7 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 		process:      proc,
 	}
 	s.Core().Action(monitorAction, monitor.run)
-	s.Core().PerformAsync(monitorAction, core.NewOptions())
+	_ = s.Core().PerformAsync(monitorAction, core.NewOptions())
 
 	return pid, processID, outputFile, nil
 }

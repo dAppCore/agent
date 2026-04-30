@@ -90,7 +90,9 @@ func (s *PrepSubsystem) Connect(ctx context.Context, options core.Options) core.
 	defer cancelHeartbeat()
 
 	if fleetHeartbeatInterval > 0 {
-		go s.runFleetHeartbeat(heartbeatContext, config)
+		go func() {
+			_ = s.runFleetHeartbeat(heartbeatContext, config)
+		}()
 	}
 
 	var pollingCancel context.CancelFunc
@@ -316,7 +318,9 @@ func (s *PrepSubsystem) fleetEventRequest(ctx context.Context, action string, co
 	}
 
 	if response.StatusCode >= 400 {
-		defer response.Body.Close()
+		defer func() {
+			_ = response.Body.Close()
+		}()
 		readResult := core.ReadAll(response.Body)
 		if !readResult.OK {
 			return core.Result{Value: core.E(action, core.Sprintf("HTTP %d", response.StatusCode), nil), OK: false}
@@ -340,7 +344,9 @@ func (s *PrepSubsystem) connectFleetEventStream(ctx context.Context, config flee
 	if !ok || response == nil {
 		return core.Result{Value: core.E("agentic.fleet.connect", "invalid event stream response", nil), OK: false}
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	fleetRememberBase(config)
 	fleetRememberState("connected", "sse", "")

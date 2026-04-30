@@ -71,7 +71,7 @@ func (s *PrepSubsystem) mirror(ctx context.Context, input MirrorInput) core.Resu
 			continue
 		}
 
-		process.RunIn(ctx, repoDir, "git", "fetch", "github")
+		_ = process.RunIn(ctx, repoDir, "git", "fetch", "github")
 
 		localBase := s.DefaultBranch(repoDir)
 		ahead := s.commitsAhead(repoDir, "github/main", localBase)

@@ -133,11 +133,6 @@ func qaAnalysisWorkspaceRows(workspace *store.Workspace, kind string) []string {
 // Frequency defaults to 1 for direct callers; the cluster builder supplies the
 // observed per-fingerprint frequency for each point.
 //
-// Usage example: `coords := findingToPoint(QAFinding{Tool: "gosec", Severity: "error", File: "main.go", Category: "security"})`
-func findingToPoint(finding QAFinding) []float64 {
-	return qaAnalysisPointCoords(finding, 1)
-}
-
 func qaAnalysisPointCoords(finding QAFinding, frequency float64) []float64 {
 	return []float64{
 		qaAnalysisHash(core.Lower(finding.Tool)),
