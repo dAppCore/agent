@@ -405,7 +405,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', 'test-gemini-key');
         Config::set('services.openai.api_key', 'test-openai-key');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldHaveReceived('warning')
             ->once()
@@ -418,7 +418,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', '');
         Config::set('services.openai.api_key', 'test-openai-key');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldHaveReceived('warning')
             ->once()
@@ -431,7 +431,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', 'test-gemini-key');
         Config::set('services.openai.api_key', '');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldHaveReceived('warning')
             ->once()
@@ -444,7 +444,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', 'test-gemini-key');
         Config::set('services.openai.api_key', 'test-openai-key');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldHaveReceived('warning')
             ->once()
@@ -457,7 +457,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', '');
         Config::set('services.openai.api_key', '');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldHaveReceived('warning')->times(3);
     });
@@ -468,7 +468,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', 'test-gemini-key');
         Config::set('services.openai.api_key', 'test-openai-key');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         Log::shouldNotHaveReceived('warning');
     });
@@ -479,7 +479,7 @@ describe('API key validation warnings', function () {
         Config::set('services.google.ai_api_key', '');
         Config::set('services.openai.api_key', '');
 
-        new AgenticManager;
+        $_ = new AgenticManager;
 
         // Only gemini and openai should warn – not claude
         Log::shouldHaveReceived('warning')->times(2);
