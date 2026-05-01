@@ -1,0 +1,30 @@
+version: "3"
+
+tasks:
+  module-graph:refresh:
+    desc: Regenerate module-graph.json from go/go.mod (run after dappco.re/go/* dep bumps)
+    cmds:
+      - |
+        TODAY="$(date +%Y-%m-%d)" awk '
+          BEGIN {
+            print "{"
+            print "  \"module\": \"dappco.re/go/agent\","
+            printf "  \"generated_at\": \"%s\",\n", ENVIRON["TODAY"]
+            print "  \"source\": \"go/go.mod\","
+            print "  \"dependencies\": {"
+          }
+          /^[[:space:]]+dappco\.re\// {
+            mod=$1; ver=$2
+            entries[++n]=sprintf("    \"%s\": \"%s\"", mod, ver)
+          }
+          END {
+            for (i=1; i<=n; i++) {
+              sep=(i<n)?",":""
+              print entries[i] sep
+            }
+            print "  }"
+            print "}"
+          }
+        ' go/go.mod > module-graph.json
+      - jq . module-graph.json > /dev/null
+      - echo "module-graph.json refreshed"

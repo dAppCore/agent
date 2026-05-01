@@ -63,7 +63,8 @@ agent/
 ├── .core/                       Runtime workspace seed (agents.yaml + workspace.yaml)
 ├── docs/                        RFCs, onboarding, audits
 ├── go.work + external/          Dev workspace mode (see CLAUDE.md)
-└── Taskfile.yml                 Build orchestration
+├── Taskfile.yaml                Build orchestration (module-graph refresh, etc.)
+└── module-graph.json            Authoritative dappco.re/go/* dep snapshot
 ```
 
 ## Quickstart
@@ -109,6 +110,9 @@ Cross-compile for Charon (homelab Linux box):
 cd go
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o core-agent-linux ./cmd/core-agent/
 ```
+
+`module-graph.json` at repo root is the authoritative `dappco.re/go/*` dep
+snapshot — regenerate via `task module-graph:refresh` after dep bumps.
 
 ## Configuration
 
