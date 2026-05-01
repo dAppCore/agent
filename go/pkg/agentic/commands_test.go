@@ -1127,13 +1127,13 @@ func TestCommands_CmdContentSchemaGenerate_Ugly_InvalidSchemaType(t *testing.T) 
 func TestCommands_CmdComplete_Good_Case(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
 
-	c.Action("noop", func(_ context.Context, _ core.Options) core.Result {
+	c.Action("test.noop", func(_ context.Context, _ core.Options) core.Result {
 		return core.Result{OK: true}
 	})
 	c.Task("agent.completion", core.Task{
 		Description: "QA → PR → Verify → Commit → Ingest → Poke",
 		Steps: []core.Step{
-			{Action: "noop"},
+			{Action: "test.noop"},
 		},
 	})
 

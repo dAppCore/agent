@@ -311,7 +311,6 @@ func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c.Action("content.batch", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("content.batch.generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("content.batch_generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
-	c.Action("content_batch", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("agentic.content.batch", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("agentic.content.batch.generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"
 	c.Action("agentic.content.batch_generate", s.handleContentBatchGenerate).Description = "Start or continue batch content generation"

@@ -103,13 +103,13 @@ func TestCleanupBranch_Good_CmdCompleteSuccessPathDeletesBranch(t *testing.T) {
 
 	server, state := newCleanupForgeServer(t, remoteDir, branch, http.StatusNoContent, false)
 	c := core.New()
-	c.Action("noop", func(_ context.Context, _ core.Options) core.Result {
+	c.Action("test.noop", func(_ context.Context, _ core.Options) core.Result {
 		return core.Result{OK: true}
 	})
 	c.Task("agent.completion", core.Task{
 		Description: "cleanup branch",
 		Steps: []core.Step{
-			{Action: "noop"},
+			{Action: "test.noop"},
 		},
 	})
 

@@ -653,7 +653,7 @@ func TestPrep_OnStartup_Good_RegistersContentActions(t *testing.T) {
 	core.AssertTrue(t, c.Action("content.batch").Exists())
 	core.AssertTrue(t, c.Action("content.batch.generate").Exists())
 	core.AssertTrue(t, c.Action("content.batch_generate").Exists())
-	core.AssertTrue(t, c.Action("content_batch").Exists())
+	core.AssertTrue(t, c.Action("content.batch").Exists())
 	core.AssertTrue(t, c.Action("content.brief.create").Exists())
 	core.AssertTrue(t, c.Action("content.brief.get").Exists())
 	core.AssertTrue(t, c.Action("content.brief.list").Exists())
