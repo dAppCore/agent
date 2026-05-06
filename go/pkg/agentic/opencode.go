@@ -27,6 +27,10 @@ func opencodeProfileConfig(profile string) opencodeProfile {
 		config.BaseURL = "http://127.0.0.1:8001/v1"
 		config.Model = "google/gemma-4-26B-A4B-it"
 		config.SmallModel = "google/gemma-4-E4B-it"
+	case "gemma4-llamacpp", "gemma4-llama":
+		config.BaseURL = "http://127.0.0.1:8080/v1"
+		config.Model = "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf"
+		config.SmallModel = "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf"
 	case "gemma4-xhigh":
 		config.BaseURL = "http://127.0.0.1:8002/v1"
 		config.Model = "google/gemma-4-31B-it"

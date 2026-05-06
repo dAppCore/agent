@@ -16,6 +16,14 @@ func TestOpenCode_Profile_Good_GemmaAgentic(t *testing.T) {
 	core.AssertEqual(t, "google/gemma-4-26B-A4B-it", profile.Model)
 }
 
+func TestOpenCode_Profile_Good_GemmaLlamaCpp(t *testing.T) {
+	profile := opencodeProfileConfig("gemma4-llamacpp")
+
+	core.AssertEqual(t, "http://127.0.0.1:8080/v1", profile.BaseURL)
+	core.AssertEqual(t, "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf", profile.Model)
+	core.AssertEqual(t, "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf", profile.SmallModel)
+}
+
 func TestOpenCode_Profile_Good_EnvOverrides(t *testing.T) {
 	t.Setenv("CORE_OPENCODE_GEMMA4_AGENTIC_BASE_URL", "http://127.0.0.1:9001/v1")
 	t.Setenv("CORE_OPENCODE_GEMMA4_AGENTIC_MODEL", "lthn/lemma-gemma-4-26b")
