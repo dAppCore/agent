@@ -31,6 +31,41 @@ func opencodeProfileConfig(profile string) opencodeProfile {
 		config.BaseURL = "http://127.0.0.1:8080/v1"
 		config.Model = "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf"
 		config.SmallModel = "gemma-4-26B-A4B-it-UD-Q8_K_XL.gguf"
+	case "lemer", "lemer-chatter", "chatter":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8007/v1"
+		config.Model = "lthn/lemer-mlx-bf16"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-agentic", "gemma4-mlx-26b":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8001/v1"
+		config.Model = "mlx-community/gemma-4-26b-a4b-it-4bit"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-xhigh", "gemma4-mlx-31b":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8002/v1"
+		config.Model = "mlx-community/gemma-4-31b-it-4bit"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-e2b":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8004/v1"
+		config.Model = "mlx-community/gemma-4-e2b-it-4bit"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-e4b":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8005/v1"
+		config.Model = "mlx-community/gemma-4-e4b-it-mxfp8"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-vllm-mtp", "gemma4-vllm-agentic-mtp", "gemma4-rocm-mtp":
+		config.Provider = "core-vllm"
+		config.BaseURL = "http://127.0.0.1:8008/v1"
+		config.Model = "google/gemma-4-26B-A4B-it"
+		config.SmallModel = "google/gemma-4-26B-A4B-it"
+	case "gemma4-vllm-xhigh-mtp", "gemma4-rocm-xhigh-mtp":
+		config.Provider = "core-vllm"
+		config.BaseURL = "http://127.0.0.1:8009/v1"
+		config.Model = "google/gemma-4-31B-it"
+		config.SmallModel = "google/gemma-4-31B-it"
 	case "gemma4-xhigh":
 		config.BaseURL = "http://127.0.0.1:8002/v1"
 		config.Model = "google/gemma-4-31B-it"
@@ -51,6 +86,11 @@ func opencodeProfileConfig(profile string) opencodeProfile {
 		config.BaseURL = "http://127.0.0.1:8003/v1"
 		config.Model = "Qwen/Qwen3.6-35B-A3B-FP8"
 		config.SmallModel = "google/gemma-4-E4B-it"
+	case "qwen36-mlx":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8003/v1"
+		config.Model = "mlx-community/Qwen3.6-35B-A3B-4bit"
+		config.SmallModel = "lthn/lemer-mlx-bf16"
 	}
 
 	envPrefix := core.Concat("CORE_OPENCODE_", opencodeProfileEnvName(normalisedProfile), "_")
