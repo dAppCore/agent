@@ -41,11 +41,21 @@ func opencodeProfileConfig(profile string) opencodeProfile {
 		config.BaseURL = "http://127.0.0.1:8001/v1"
 		config.Model = "mlx-community/gemma-4-26b-a4b-it-4bit"
 		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-mtp", "gemma4-mlx-agentic-mtp", "gemma4-mlx-26b-mtp":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8010/v1"
+		config.Model = "mlx-community/gemma-4-26b-a4b-it-4bit"
+		config.SmallModel = "mlx-community/gemma-4-26b-a4b-it-4bit"
 	case "gemma4-mlx-xhigh", "gemma4-mlx-31b":
 		config.Provider = "core-mlx"
 		config.BaseURL = "http://127.0.0.1:8002/v1"
 		config.Model = "mlx-community/gemma-4-31b-it-4bit"
 		config.SmallModel = "lthn/lemer-mlx-bf16"
+	case "gemma4-mlx-xhigh-mtp", "gemma4-mlx-31b-mtp":
+		config.Provider = "core-mlx"
+		config.BaseURL = "http://127.0.0.1:8011/v1"
+		config.Model = "mlx-community/gemma-4-31b-it-4bit"
+		config.SmallModel = "mlx-community/gemma-4-31b-it-4bit"
 	case "gemma4-mlx-e2b":
 		config.Provider = "core-mlx"
 		config.BaseURL = "http://127.0.0.1:8004/v1"

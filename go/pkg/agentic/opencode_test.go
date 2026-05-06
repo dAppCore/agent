@@ -42,6 +42,24 @@ func TestOpenCode_Profile_Good_GemmaMLXAgentic(t *testing.T) {
 	core.AssertEqual(t, "lthn/lemer-mlx-bf16", profile.SmallModel)
 }
 
+func TestOpenCode_Profile_Good_GemmaMLXMTP(t *testing.T) {
+	profile := opencodeProfileConfig("gemma4-mlx-mtp")
+
+	core.AssertEqual(t, "core-mlx", profile.Provider)
+	core.AssertEqual(t, "http://127.0.0.1:8010/v1", profile.BaseURL)
+	core.AssertEqual(t, "mlx-community/gemma-4-26b-a4b-it-4bit", profile.Model)
+	core.AssertEqual(t, "mlx-community/gemma-4-26b-a4b-it-4bit", profile.SmallModel)
+}
+
+func TestOpenCode_Profile_Good_GemmaMLXXHighMTP(t *testing.T) {
+	profile := opencodeProfileConfig("gemma4-mlx-xhigh-mtp")
+
+	core.AssertEqual(t, "core-mlx", profile.Provider)
+	core.AssertEqual(t, "http://127.0.0.1:8011/v1", profile.BaseURL)
+	core.AssertEqual(t, "mlx-community/gemma-4-31b-it-4bit", profile.Model)
+	core.AssertEqual(t, "mlx-community/gemma-4-31b-it-4bit", profile.SmallModel)
+}
+
 func TestOpenCode_Profile_Good_GemmaVLLMMTP(t *testing.T) {
 	profile := opencodeProfileConfig("gemma4-vllm-mtp")
 
