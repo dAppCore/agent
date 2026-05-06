@@ -142,6 +142,67 @@ the upstream single-request default, but it was slower on the tested 26B and
 roughly flat on 31B. E2B is already fast enough that MTP overhead loses on short
 decodes.
 
+### Long Context and Prefix Cache
+
+For agentic work, optimise the prefill path before tuning decode speed. OpenCode
+can add about 29k input tokens before task-specific context, so repeated
+128k-window turns need prefix caching more than they need short-prompt MTP
+microbenchmarks.
+
+MLX VLM git builds expose Automatic Prefix Caching (APC). Use APC when multiple
+turns or agents share the same stable prefix:
+
+```bash
+APC_ENABLED=1 \
+APC_NUM_BLOCKS=10000 \
+APC_BLOCK_SIZE=16 \
+APC_LAYER_MAJOR_MEMORY_MIN_TOKENS=50000 \
+APC_DISK_PATH=/private/tmp/mlx-vlm-apc \
+APC_DISK_MAX_GB=8 \
+APC_DISK_SHARD_MAX_BLOCKS=256 \
+/private/tmp/core-agent-mlx-vlm/bin/mlx_vlm.server \
+  --host 127.0.0.1 \
+  --port 8020 \
+  --model mlx-community/gemma-4-e4b-it-mxfp8 \
+  --max-kv-size 131072 \
+  --max-tokens 256
+```
+
+Send the same `X-APC-Tenant` header for requests that should share cached
+prefixes. Keep the system prompt, repository summary, AGENTS.md content, tool
+schema, and long context byte-stable; append only the changing user request and
+tool trace suffix. Do not enable MLX VLM `--kv-bits` on the APC lane: APC is
+skipped when KV-cache quantisation is enabled, so run a separate TurboQuant lane
+for resident-context capacity testing.
+
+Near-128k APC measurements on the M3 Ultra 96GB, using MLX VLM git
+`0.5.0`, OpenAI-compatible chat requests, `temperature=0`, and `max_tokens=64`:
+
+| Model | Concurrent agents | Prompt tokens | Batch latency | Peak memory | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| E4B MXFP8 | 1 cold | 128031 | 60.2s | 22.7 GB | Cold prefill baseline |
+| E4B MXFP8 | 1 cached | 128031 | 3.1s | 22.7 GB | Full APC hit |
+| E4B MXFP8 | 4 cached | 128031 | 5.9s | 38.8 GB | Usable |
+| E4B MXFP8 | 8 cached | 123804 | 11.0s | 69.4 GB | Usable |
+| E4B MXFP8 | 9 cached | 123804 | 11.4s | 77.8 GB | Practical upper bound |
+| E4B MXFP8 | 10 cached | 123804 | 68.4s | 77.8 GB | Latency cliff |
+| E2B 4-bit | 1 cold | 123804 | 26.1s | 12.0 GB | Cold prefill baseline |
+| E2B 4-bit | 1 cached | 123804 | 0.7s | 12.0 GB | Full APC hit |
+| E2B 4-bit | 16 cached | 123804 | 9.3s | 69.5 GB | Usable |
+| E2B 4-bit | 17 cached | 123804 | failed | OOM | Metal out of memory |
+
+Use these as scheduler defaults:
+
+| Lane | Recommended full-window agents | Hard cap observed | Notes |
+| --- | ---: | ---: | --- |
+| E4B chatter/router | 8 | 9 | Ten completed but was too slow for interactive agent work. |
+| E2B chatter/router | 16 | 16 | Seventeen crashed the MLX VLM process after a BatchRotatingKVCache error path. |
+
+For E2B and E4B MTP, the MLX community assistant cards recommend
+`--draft-block-size 6` for single requests and `--draft-block-size 3` for
+batched generation. Treat block 3 as the default for OpenCode-style concurrent
+agent traffic.
+
 ## Gemma 4 MTP on ROCm
 
 Use vLLM for the ROCm lane when you want Gemma 4 tool calling, reasoning
