@@ -98,6 +98,15 @@ func TestDispatch_AgentCommand_Good_LocalWithModel(t *testing.T) {
 	core.AssertContains(t, args[1], "mistral-nemo")
 }
 
+func TestDispatch_AgentCommand_Good_OpenCodeGemma(t *testing.T) {
+	cmd, args, err := agentCommand("opencode:gemma4-agentic", "fix it")
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "sh", cmd)
+	core.AssertEqual(t, "-c", args[0])
+	core.AssertContains(t, args[1], "opencode run")
+	core.AssertContains(t, args[1], "core-local/google/gemma-4-26B-A4B-it")
+}
+
 func TestDispatch_LocalAgentCommandScript_Good_ShellQuoting(t *testing.T) {
 	script := localAgentCommandScript("devstral-24b", "can't break quoting")
 	core.AssertContains(

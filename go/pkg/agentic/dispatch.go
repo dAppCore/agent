@@ -67,7 +67,7 @@ func isNativeAgent(agent string) bool {
 	if parts := core.SplitN(agent, ":", 2); len(parts) > 0 {
 		base = parts[0]
 	}
-	return base == "claude" || base == "coderabbit"
+	return base == "claude" || base == "coderabbit" || base == "opencode"
 }
 
 // command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
@@ -158,6 +158,13 @@ func agentCommandResult(agent, prompt string) core.Result {
 			localModel = "devstral-24b"
 		}
 		script := localAgentCommandScript(localModel, prompt)
+		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
+	case "opencode":
+		opencodeProfile := model
+		if opencodeProfile == "" {
+			opencodeProfile = "gemma4-agentic"
+		}
+		script := opencodeAgentCommandScript(opencodeProfile, prompt)
 		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
 	default:
 		return core.Result{Value: core.E("agentCommand", core.Concat("unknown agent: ", agent), nil), OK: false}
