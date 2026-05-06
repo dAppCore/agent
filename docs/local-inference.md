@@ -87,6 +87,7 @@ vllm serve google/gemma-4-26B-A4B-it \
   --host 127.0.0.1 \
   --port 8008 \
   --max-model-len 32768 \
+  --kv-cache-dtype turboquant_k8v4 \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
   --reasoning-parser gemma4 \
@@ -103,6 +104,7 @@ vllm serve google/gemma-4-31B-it \
   --host 127.0.0.1 \
   --port 8009 \
   --max-model-len 32768 \
+  --kv-cache-dtype turboquant_k8v4 \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
   --reasoning-parser gemma4 \
@@ -111,3 +113,13 @@ vllm serve google/gemma-4-31B-it \
 ```
 
 Dispatch with `opencode:gemma4-vllm-xhigh-mtp`.
+
+TurboQuant presets are selected through vLLM's `--kv-cache-dtype` flag. Start
+with `turboquant_k8v4` because it keeps FP8 keys and 4-bit values; the vLLM
+docs report about 2.6x KV compression with the smallest perplexity hit of the
+TurboQuant presets. Only move to `turboquant_4bit_nc` or lower-bit presets
+after quality checks pass for the target workflow.
+
+vLLM automatically skips the first and last two layers for TurboQuant boundary
+protection. Extra skips can be added with `--kv-cache-dtype-skip-layers`, for
+example when keeping sliding-window layers native is faster on a target GPU.
