@@ -252,6 +252,48 @@ func (h *History) CountConversations() (int, error) {
 	return n, nil
 }
 
+// Turn is one row from the turns table, in ordinal order. The shape
+// is what consumers replaying conversation context need — role +
+// content + ordinal — not the full row schema (no token counts /
+// signal here; that detail lives in the archive for later use).
+type Turn struct {
+	Role    string
+	Content string
+	Ordinal int
+}
+
+// LoadTurns returns every turn in the conversation in ordinal order.
+// Used by user-chat clients (pkg/lemma) to replay context into the
+// next model call without holding a separate in-memory copy that
+// could drift from what's persisted.
+//
+//	turns, err := h.LoadTurns(convID)
+func (h *History) LoadTurns(conversationID string) ([]Turn, error) {
+	if h == nil || h.db == nil {
+		return nil, core.E("chathistory.LoadTurns", "history closed", nil)
+	}
+	if core.Trim(conversationID) == "" {
+		return nil, core.E("chathistory.LoadTurns", "conversation id required", nil)
+	}
+	rows, err := h.db.Query(
+		`SELECT role, content, ordinal FROM turns WHERE conversation_id = ? ORDER BY ordinal`,
+		conversationID,
+	)
+	if err != nil {
+		return nil, core.E("chathistory.LoadTurns", "query", err)
+	}
+	defer rows.Close()
+	var out []Turn
+	for rows.Next() {
+		var t Turn
+		if err := rows.Scan(&t.Role, &t.Content, &t.Ordinal); err != nil {
+			return nil, core.E("chathistory.LoadTurns", "scan", err)
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
 // CountTurns returns the total number of turns across all conversations.
 func (h *History) CountTurns() (int, error) {
 	if h == nil || h.db == nil {
