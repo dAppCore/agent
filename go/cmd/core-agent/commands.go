@@ -65,6 +65,13 @@ func registerApplicationCommands(c *core.Core) core.Result {
 	}); !result.OK {
 		return result
 	}
+
+	if result := c.Command("chat", core.Command{
+		Description: "Interactive Lemma REPL — chat with a model via lthn-mlx, auto-capture to user archive",
+		Action:      commands.chat,
+	}); !result.OK {
+		return result
+	}
 	return core.Result{OK: true}
 }
 
