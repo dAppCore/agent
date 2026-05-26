@@ -76,7 +76,7 @@ func registerApplicationCommands(c *core.Core) core.Result {
 }
 
 func (commands applicationCommandSet) version(_ core.Options) core.Result {
-	applicationPrint("core-agent %s", commands.coreApp.App().Version)
+	applicationPrint("%s %s", commands.coreApp.App().Name, commands.coreApp.App().Version)
 	applicationPrint("  go:       %s", core.Env("GO"))
 	applicationPrint("  os:       %s/%s", core.Env("OS"), core.Env("ARCH"))
 	applicationPrint("  home:     %s", agentic.HomeDir())
@@ -88,9 +88,9 @@ func (commands applicationCommandSet) version(_ core.Options) core.Result {
 
 func (commands applicationCommandSet) check(_ core.Options) core.Result {
 	fs := commands.coreApp.Fs()
-	applicationPrint("core-agent %s health check", commands.coreApp.App().Version)
+	applicationPrint("%s %s health check", commands.coreApp.App().Name, commands.coreApp.App().Version)
 	applicationPrint("")
-	applicationPrint("  binary:    core-agent")
+	applicationPrint("  binary:    %s", commands.coreApp.App().Name)
 
 	agentsPath := core.JoinPath(agentic.CoreRoot(), "agents.yaml")
 	if fs.IsFile(agentsPath) {

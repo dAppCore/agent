@@ -17,9 +17,21 @@
 
 ## What it is
 
-`core-agent` is a single Go binary that runs as an MCP server (stdio for
-Claude Code integration, HTTP for cross-agent communication) plus a CLI
-that dispatches work across multiple AI providers. It owns:
+A single Go binary that runs as an MCP server (stdio for Claude Code
+integration, HTTP for cross-agent communication) plus a CLI that
+dispatches work across multiple AI providers.
+
+The binary ships under two names — `core-agent` (legacy) and
+`lthn-agent` (the lthn-{mlx,cuda,amd,agent} family naming per
+[plans/project/lthn/RFC.system-architecture.md][sys-rfc]). The
+binary detects its invocation name from `argv[0]` and identifies
+accordingly in version output, banners, and admin token prefixes.
+Either build name produces the same behaviour; `lthn-agent` is the
+forward-going family-consistent name.
+
+[sys-rfc]: ../host-uk/core/plans/project/lthn/RFC.system-architecture.md
+
+It owns:
 
 - **Dispatch** — fan out a Mantis ticket to a sandboxed worker
   (Claude / Codex / Hermes / Google) running in `.core/workspace/`.
@@ -36,7 +48,9 @@ that dispatches work across multiple AI providers. It owns:
 ```
 agent/
 ├── go/                          Go module — module path: dappco.re/go/agent
-│   ├── cmd/core-agent/          Binary entry point (mcp + serve)
+│   ├── cmd/core-agent/          Binary entry point (mcp + serve) —
+│   │                              builds `core-agent` or `lthn-agent`
+│   │                              via `go build -o lthn-agent ./cmd/core-agent/`
 │   ├── pkg/agentic/             Dispatch, verify, remote, mirror, queue
 │   ├── pkg/brain/               OpenBrain client (recall + remember)
 │   ├── pkg/monitor/             Background monitor + repo sync

@@ -18,9 +18,28 @@ import (
 
 func main() {
 	if err := runCoreAgent(); err != nil {
-		core.Error("core-agent failed", "err", err)
+		core.Error(core.Concat(detectBinaryName(), " failed"), "err", err)
 		core.Exit(1)
 	}
+}
+
+// detectBinaryName returns the basename of os.Args[0] so the same
+// source ships as either `core-agent` or as any sibling in the
+// lthn-{mlx,cuda,amd,agent} binary family (per
+// project/lthn/RFC.system-architecture.md). Empty / unrecognised
+// argv[0] falls back to "core-agent" — the legacy default.
+//
+//	core-agent              → "core-agent"
+//	/usr/local/bin/lthn-agent → "lthn-agent"
+func detectBinaryName() string {
+	args := core.Args()
+	if len(args) == 0 {
+		return "core-agent"
+	}
+	if base := core.PathBase(args[0]); base != "" {
+		return base
+	}
+	return "core-agent"
 }
 
 // app := newCoreAgent()
@@ -76,6 +95,16 @@ var runCoreAgent = func() error {
 	if !result.OK {
 		return resultError("main.newCoreAgent", "command registration failed", result)
 	}
+	// Override the in-process name + banner with the invoked binary
+	// name so the same source ships as core-agent or any lthn-agent
+	// sibling without per-binary main.go duplication. Test paths use
+	// newCoreAgent()/newCoreAgentResult() directly and keep the
+	// canonical "core-agent" name unchanged.
+	binaryName := detectBinaryName()
+	coreApp.App().Name = binaryName
+	coreApp.Cli().SetBanner(func(_ *core.Cli) string {
+		return core.Concat(binaryName, " ", coreApp.App().Version, " — agentic orchestration for the Core ecosystem")
+	})
 	return runApp(coreApp, startupArgs())
 }
 
