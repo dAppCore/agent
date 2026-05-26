@@ -137,6 +137,20 @@ func (s *Service) StartSession(userID string, meta SessionMeta) (*Session, error
 	return &Session{svc: s, userID: userID, conversationID: convID}, nil
 }
 
+// Resume returns a Session handle for an existing conversation. The
+// caller supplies the conversation_id (typically returned from a
+// previous StartSession via Session.ConversationID()). Multi-turn
+// continuation across process restarts or MCP tool invocations rides
+// this: capture the conversation_id from the first call, pass it back
+// to Resume on the next. No validation that conversation_id exists —
+// the next Send() surfaces any mismatch via the chathistory FK error.
+//
+//	sess := svc.Resume("owlet", priorConversationID)
+//	reply, _ := sess.Send(ctx, "follow-up question")
+func (s *Service) Resume(userID, conversationID string) *Session {
+	return &Session{svc: s, userID: userID, conversationID: conversationID}
+}
+
 // ConversationID returns the chathistory conversation_id this session
 // is appending to. Useful for SetSignal calls + UI display.
 func (sess *Session) ConversationID() string {

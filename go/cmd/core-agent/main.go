@@ -43,6 +43,7 @@ func newCoreAgentResult() (*core.Core, core.Result) {
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
 		core.WithService(setup.Register),
+		core.WithService(registerLemmaSubsystem),
 		core.WithService(coremcp.Register),
 	)
 	coreApp.App().Version = applicationVersion()
