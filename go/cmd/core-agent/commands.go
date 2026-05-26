@@ -72,6 +72,36 @@ func registerApplicationCommands(c *core.Core) core.Result {
 	}); !result.OK {
 		return result
 	}
+	if result := c.Command("serve-status", core.Command{
+		Description: "Snapshot the lthn-mlx serve config — model, profile, context, cache, runtime",
+		Action:      commands.serveStatus,
+	}); !result.OK {
+		return result
+	}
+	if result := c.Command("serve-reload", core.Command{
+		Description: "Hot-swap the loaded model — --confirm=<machine-hash> --model=<path> [--profile=<name> --context=N]",
+		Action:      commands.serveReload,
+	}); !result.OK {
+		return result
+	}
+	if result := c.Command("serve-profiles", core.Command{
+		Description: "List tuning profiles the engine sees in its standard dir",
+		Action:      commands.serveProfiles,
+	}); !result.OK {
+		return result
+	}
+	if result := c.Command("models-download", core.Command{
+		Description: "Queue an HF model download — --repo=<id> [--revision=<rev>] [--no-wait]",
+		Action:      commands.modelsDownload,
+	}); !result.OK {
+		return result
+	}
+	if result := c.Command("models-job", core.Command{
+		Description: "Poll a download job — --id=<job-id>",
+		Action:      commands.modelsJob,
+	}); !result.OK {
+		return result
+	}
 	return core.Result{OK: true}
 }
 
