@@ -21,6 +21,7 @@ This plugin provides Codex-friendly context and guardrails for the **core-agent*
 
 ## What It Covers
 
+- CoreAgent orchestration commands for workspaces, plans, sessions, Forge, platform sync, content, and QA
 - Core CLI enforcement (Go/PHP via `core`)
 - UK English conventions
 - Safe shell usage guidance
@@ -39,4 +40,5 @@ Include `core-agent/codex` in your workspace so Codex can read `AGENTS.md` and a
 - `scripts/safety.sh` - safety guardrails
 - `.codex-plugin/plugin.json` - plugin metadata
 - `.codex-plugin/marketplace.json` - Codex marketplace registry
+- `.codex-plugin/capabilities.json` - machine-readable command and integration manifest
 - `ethics/MODAL.md` - ethics modal (Axioms of Life)

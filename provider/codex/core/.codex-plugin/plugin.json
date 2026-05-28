@@ -1,7 +1,7 @@
 {
   "name": "core",
-  "description": "Codex core orchestration plugin for dispatch, review, memory, status, and verification workflows",
-  "version": "0.2.0",
+  "description": "Codex core orchestration plugin for dispatch, plans, sessions, workspace stats, Forge, platform sync, content, review, memory, and verification workflows",
+  "version": "0.3.0",
   "author": {
     "name": "Host UK",
     "email": "hello@host.uk.com"
@@ -17,8 +17,13 @@
     "core",
     "host-uk",
     "dispatch",
+    "plans",
+    "sessions",
     "review",
     "openbrain",
-    "workspace"
+    "workspace",
+    "forge",
+    "platform",
+    "content"
   ]
 }

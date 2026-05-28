@@ -63,8 +63,8 @@
     {
       "name": "core",
       "source": "./core",
-      "description": "Codex core plugin",
-      "version": "0.1.1"
+      "description": "Codex core orchestration plugin",
+      "version": "0.3.0"
     },
     {
       "name": "issue",

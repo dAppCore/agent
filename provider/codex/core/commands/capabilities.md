@@ -9,16 +9,17 @@ Use this when another tool, service, or agent needs a stable description of the 
 
 ## Preferred Sources
 
-1. Read `core-agent/codex/.codex-plugin/capabilities.json`
+1. Read `provider/codex/.codex-plugin/capabilities.json`
 2. If the Gemini extension is available, call the `codex_capabilities` tool and return its output verbatim
+3. If the manifest is unavailable, summarise the command files in `provider/codex/core/commands/`
 
 ## What It Contains
 
 - Plugin namespaces and command families
-- Claude parity mappings for the `core` workflow
-- Extension tools exposed by the Codex/Gemini bridge
+- CoreAgent command families exposed to Codex
+- MCP tool and CLI fallback preferences
 - External marketplace sources used by the ecosystem
-- Recommended workflow entry points for orchestration, review, QA, CI, deploy, and research
+- Recommended workflow entry points for orchestration, plans, sessions, review, QA, platform sync, content, deploy, and research
 
 ## Output
 
