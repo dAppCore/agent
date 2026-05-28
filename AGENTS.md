@@ -21,12 +21,15 @@ go vet ./...                          # Vet
 ## Architecture
 
 ```
-cmd/core-agent/main.go    Entry point (97 lines — core.New + services + Run)
-pkg/agentic/               Agent orchestration: dispatch, prep, verify, scan, review
-pkg/brain/                  OpenBrain memory integration
-pkg/lib/                    Embedded templates, personas, flows, workspace scaffolds
-pkg/messages/               Typed IPC message definitions (12 message types)
+cmd/core-agent/main.go    Entry point — core.New + services + CLI run
+pkg/agentic/               Agent orchestration: dispatch, prep, verify, scan, plans/phases/sessions, fleet/platform sync
+pkg/brain/                  OpenBrain memory + cross-agent messaging
+pkg/lemma/                  Local lthn-mlx client — chat sessions + /v1/admin control
+pkg/chathistory/            Per-user portable DuckDB chat archive
+pkg/lib/                    Embedded personas, prompt/flow/workspace templates
+pkg/messages/               Typed IPC message definitions
 pkg/monitor/                Agent monitoring, notifications, completion tracking
+pkg/runner/                 Local + container runners + dispatch queue
 pkg/setup/                  Workspace detection and scaffolding
 ```
 
@@ -37,11 +40,13 @@ c := core.New(
     core.WithOption("name", "core-agent"),
     core.WithService(agentic.ProcessRegister),
     core.WithService(agentic.Register),
+    core.WithService(runner.Register),
     core.WithService(monitor.Register),
     core.WithService(brain.Register),
-    core.WithService(mcp.Register),
+    core.WithService(setup.Register),
+    core.WithService(registerLemmaSubsystem),
+    core.WithService(coremcp.Register),
 )
-c.Run()
 ```
 
 ### Dispatch Flow

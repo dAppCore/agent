@@ -2,9 +2,7 @@
 
 # Brain API Callers
 
-Date: 2026-04-25  
-Ticket: Mantis #179  
-Companion audit: `docs/brain-callers-audit.md` (broad sweep), this file is the focused living map for Brain callers and contracts.
+This is the living map of who calls the Brain APIs in this workspace, which endpoint or in-process action they use, what protections sit on that path, and what request/response shape each caller expects. Keep it current: add a new Brain call site here in the same change that introduces it.
 
 ## Purpose
 
@@ -26,10 +24,10 @@ Future Brain call sites should be added here in the same change that introduces 
 
 | Endpoint | Current request shape | Current success shape | Current error shape | Notes |
 | --- | --- | --- | --- | --- |
-| `POST /v1/brain/remember` | `content`, `type`, `tags?`, `project?`, `confidence?`, `supersedes?`, `expires_in?` | `201 {"data": <memory>}` | `422 {"error":"validation_error","message":...}`, `503 {"error":"service_error","message":...}` | The controller currently does not validate or forward `org`, so external HTTP callers cannot rely on org-scoped remember yet. |
+| `POST /v1/brain/remember` | `content`, `type`, `tags?`, `org?`, `project?`, `confidence?`, `supersedes?`, `expires_in?` | `201 {"data": <memory>}` | `422 {"error":"validation_error","message":...}`, `503 {"error":"service_error","message":...}` | `BrainController::remember()` validates and forwards `org` (`org => nullable|string`). |
 | `POST /v1/brain/recall` | `query`, `limit?`, `top_k?`, `org?`, `project?`, `type?`, `keywords?`, `boost_keywords?`, `filter?` | `200 {"data":{"memories":[...],"scores":{...},"count":n}}` | `422 {"error":"validation_error","message":...}`, `503 {"error":"service_error","message":...}` | This is the current HTTP route that actually models org-aware recall. |
 | `DELETE /v1/brain/forget/{id}` | path `id`, optional JSON `reason` | `200 {"data": {...}}` | `404 {"error":"not_found","message":...}`, `503 {"error":"service_error","message":...}` | Forget runs through workspace and org checks in `ForgetKnowledge` and `BrainService`. |
-| `GET /v1/brain/list` | `project?`, `type?`, `agent_id?`, `limit?` | `200 {"data":{"memories":[...],"count":n}}` | `422 {"error":"validation_error","message":...}` | The controller currently does not validate `org`, even though the PHP MCP tool and shared Go client both model org-filtered list calls. |
+| `GET /v1/brain/list` | `org?`, `project?`, `type?`, `agent_id?`, `limit?` | `200 {"data":{"memories":[...],"count":n}}` | `422 {"error":"validation_error","message":...}` | `BrainController::list()` validates `org` (`org => nullable|string|max:255`), aligned with the PHP MCP tool and shared Go client. |
 | `GET /v1/brain/search` | `q`, `org?`, `project?`, `limit?` | `200 {"data":{"memories":[...],"count":n}}` | `503 {"error":"service_error","message":...}` | Search is PHP-only in this repo; no Go caller was found here. |
 | `GET /v1/brain/tags` | none | `200 {"data": {"tag": count}}` | `503 {"error":"service_error","message":...}` | PHP-only read endpoint over Elasticsearch aggregates. |
 | `GET /v1/brain/scopes` | none | `200 {"data": {"org":{"project":count}}}` | `503 {"error":"service_error","message":...}` | PHP-only read endpoint over Elasticsearch aggregates. |
@@ -66,7 +64,7 @@ The canonical Go client lives in module `dappco.re/go/mcp/pkg/mcp/brain/client`,
 
 | Call site | Endpoint(s) | Protections | Input shape | Output shape / notes |
 | --- | --- | --- | --- | --- |
-| `php/Controllers/Api/BrainController.php` | `remember`, `recall`, `forget`, `list`, `search`, `tags`, `scopes` | `AgentApiAuth` permission checks (`brain.read` or `brain.write`), Bearer auth, workspace binding from API key, rate-limit headers, downstream org auth in `BrainService` | Route-specific JSON and query validation; see HTTP contract table above | Returns wrapped JSON under `data` on success. `remember` and `list` are not yet fully aligned with the org-aware service/client contract. |
+| `php/Controllers/Api/BrainController.php` | `remember`, `recall`, `forget`, `list`, `search`, `tags`, `scopes` | `AgentApiAuth` permission checks (`brain.read` or `brain.write`), Bearer auth, workspace binding from API key, rate-limit headers, downstream org auth in `BrainService` | Route-specific JSON and query validation; see HTTP contract table above | Returns wrapped JSON under `data` on success. `remember`, `recall`, and `list` all validate `org`, aligned with the org-aware service/client contract. |
 
 ### MCP tools
 
@@ -109,34 +107,26 @@ The canonical Go client lives in module `dappco.re/go/mcp/pkg/mcp/brain/client`,
 
 | Call site | Endpoint(s) | Protections | Input shape | Output shape / notes |
 | --- | --- | --- | --- | --- |
-| `hermes/plugins/openbrain_memory.py` | `remember`, `recall`, `forget`, `list` | Bearer auth header, optional default `org`, optional default `workspace_id`, async background write dispatch for turn sync | remember/list/recall/forget payloads are forwarded largely as-is after empty-value cleanup | Returns decoded JSON plus `status`; no shared breaker, no shared retry/jitter, no absolute-URL guard |
-| `hermes/plugins/openbrain_context.py` | `POST /v1/brain/recall` | Bearer auth header, default `workspace_id`, default `org` in `filter` | `{"query":..., "top_k":..., "filter":{"workspace_id":...,"org":...}}` | Accepts several response layouts (`data.memories`, `results`, `items`, `matches`) and normalises candidates locally; no shared breaker or retry |
+| `provider/hermes/plugins/openbrain_memory.py` | `remember`, `recall`, `forget`, `list` | Bearer auth header, optional default `org`, optional default `workspace_id`, async background write dispatch for turn sync | remember/list/recall/forget payloads are forwarded largely as-is after empty-value cleanup | Returns decoded JSON plus `status`; no shared breaker, no shared retry/jitter, no absolute-URL guard |
+| `provider/hermes/plugins/openbrain_context.py` | `POST /v1/brain/recall` | Bearer auth header, default `workspace_id`, default `org` in `filter` | `{"query":..., "top_k":..., "filter":{"workspace_id":...,"org":...}}` | Accepts several response layouts (`data.memories`, `results`, `items`, `matches`) and normalises candidates locally; no shared breaker or retry |
 
 ### Shell scripts
 
 | Call site | Endpoint(s) | Protections | Input shape | Output shape / notes |
 | --- | --- | --- | --- | --- |
-| `claude/core/scripts/session-start.sh` | `POST /v1/brain/recall` | Bearer auth header, loads `~/.claude/brain.key`, short `curl --max-time` | raw JSON body with `query`, `top_k`, `agent_id`, optional inline `project` or `type` fragments | Parses JSON on stdout; no shared org injection, no retry, no breaker, no SSRF guard |
-| `claude/core/scripts/session-save.sh` | `POST /v1/brain/remember` | Bearer auth header, `brain.key` fallback, debounce before write | raw JSON body with `content`, `type`, `project`, `agent_id`, `tags` | Fire-and-forget autosave; no org, no retry, no breaker |
-| `claude/core/scripts/pre-compact.sh` | `POST /v1/brain/remember` | Bearer auth header, `brain.key` fallback | raw JSON body with `content`, `type`, `project`, `agent_id`, `tags` | Fire-and-forget compaction snapshot; no org, no retry, no breaker |
+| `provider/claude/core/scripts/session-start.sh` | `POST /v1/brain/recall` | Bearer auth header, loads `~/.claude/brain.key`, short `curl --max-time` | raw JSON body with `query`, `top_k`, `agent_id`, optional inline `project` or `type` fragments | Parses JSON on stdout; no shared org injection, no retry, no breaker, no SSRF guard |
+| `provider/claude/core/scripts/session-save.sh` | `POST /v1/brain/remember` | Bearer auth header, `brain.key` fallback, debounce before write | raw JSON body with `content`, `type`, `project`, `agent_id`, `tags` | Fire-and-forget autosave; no org, no retry, no breaker |
+| `provider/claude/core/scripts/pre-compact.sh` | `POST /v1/brain/remember` | Bearer auth header, `brain.key` fallback | raw JSON body with `content`, `type`, `project`, `agent_id`, `tags` | Fire-and-forget compaction snapshot; no org, no retry, no breaker |
 
 ## Non-runtime References
 
-- `plugins/core-go/skills/api-endpoints/SKILL.md`
-- `plugins/core-php/skills/api-endpoints/SKILL.md`
+- `provider/claude/plugins/core-go/skills/api-endpoints/SKILL.md`
+- `provider/claude/plugins/core-php/skills/api-endpoints/SKILL.md`
 
 These are documentation/examples only. They are not runtime callers, but they can still become copy-paste bypasses if they drift away from the hardened shared-client path.
 
-## Contract-Test Follow-up For Part B
+## Cross-runtime contract test
 
-Part B was not implemented in this lane because the current HTTP controller surface is not yet fully aligned with the service and shared-client contract that the test needs to lock down.
+The HTTP controller is now org-aware: `remember`, `recall`, and `list` all validate and forward `org`, matching the org-aware service and shared-client contract. The remaining wrinkle for a single "identical error shape" assertion across runtimes is that the shared Go client preserves upstream error JSON inside the error text but does not expose non-2xx bodies as parsed structured data — so an exact-shape comparison needs either a small shared wrapper or a raw HTTP harness on the Go side.
 
-- `POST /v1/brain/remember` currently drops `org` at controller validation time, so a PHP endpoint test cannot truthfully assert the same org-aware remember contract that the service and Go client model.
-- `GET /v1/brain/list` currently omits `org` from controller validation even though the PHP MCP tool and shared Go client both model org-filtered list requests.
-- The shared Go client correctly preserves upstream error JSON inside the error text, but it does not currently expose non-2xx bodies as parsed structured data, so an "identical error shape" assertion needs either a small shared wrapper or a raw HTTP harness.
-
-Recommended follow-up before adding the cross-runtime contract test:
-
-1. Align `BrainController::remember()` with the org-aware remember contract.
-2. Align `BrainController::list()` with the org-aware list contract.
-3. Add a PHP route-level Pest test and a Go shared-client integration test that both use the same `remember(core)` and `remember(evil)` fixtures once the HTTP contract is aligned.
+A cross-runtime contract test should use the same `remember(core)` / `remember(evil)` fixtures from both a PHP route-level Pest test and a Go shared-client integration test.

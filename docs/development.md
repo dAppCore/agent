@@ -20,13 +20,10 @@ Core Agent is a polyglot repository. Go and PHP live side by side, each with the
 
 ### Go Workspace
 
-The module is `forge.lthn.ai/core/agent`. It participates in a Go workspace (`go.work`) that resolves all `forge.lthn.ai/core/*` dependencies locally. After cloning, ensure the workspace file includes a `use` entry for this module:
+The module is `dappco.re/go/agent`, rooted at the `go/` subdirectory of this repository. It participates in a Go workspace (`go.work`) that resolves all `dappco.re/go/*` dependencies locally via the submodules under `external/`. Run Go tooling from `go/`:
 
-```
-use ./core/agent
-```
-
-Then run `go work sync` from the workspace root.
+- Development / default: `cd go && go build ./...`, `cd go && go test ./...`
+- CI / reproducibility: add `GOWORK=off` (and optionally `GOFLAGS=-mod=mod`) when running `go test`, `go vet`, and `go mod tidy` from `go/`.
 
 ### PHP Dependencies
 
@@ -39,36 +36,35 @@ The Composer package is `lthn/agent`. It depends on `lthn/php` (the foundation f
 
 ## Building
 
-### Go Packages
+### The Binary
 
-There is no standalone binary produced by this module. The Go packages (`pkg/lifecycle/`, `pkg/loop/`, `pkg/orchestrator/`, `pkg/jobrunner/`) are libraries imported by the `core` CLI binary (built from `forge.lthn.ai/core/cli`).
-
-To verify the packages compile:
+This module produces a single binary from `go/cmd/core-agent`:
 
 ```bash
-core go build
+cd go
+go build ./cmd/core-agent/        # build core-agent
+go install ./cmd/core-agent/      # install to $GOPATH/bin
+go build ./...                    # build all packages
 ```
 
-### MCP Servers
-
-Two MCP servers live in this repository:
-
-**Stdio server** (`cmd/mcp/`) — a standalone binary using `mcp-go`:
+The same source ships under two names — `core-agent` and `lthn-agent`. Build the family-consistent name by setting the output:
 
 ```bash
-cd cmd/mcp && go build -o agent-mcp .
+go build -o lthn-agent ./cmd/core-agent/
 ```
 
-It exposes four tools (`marketplace_list`, `marketplace_plugin_info`, `core_cli`, `ethics_check`) and is invoked by Claude Code over stdio.
+The binary detects its invocation name from `argv[0]`, so either name behaves identically.
 
-**HTTP server** (`google/mcp/`) — a plain `net/http` server on port 8080:
+### MCP + serve modes
+
+The binary is itself the MCP server. The `mcp` (stdio) and `serve` (HTTP) commands are registered by the shared `dappco.re/go/mcp` service the binary mounts:
 
 ```bash
-cd google/mcp && go build -o google-mcp .
-./google-mcp
+core-agent mcp        # MCP server over stdio — what an IDE connects to
+core-agent serve      # HTTP MCP daemon — cross-agent communication
 ```
 
-It exposes `core_go_test`, `core_dev_health`, and `core_dev_commit` as POST endpoints.
+The tool surface (dispatch, plans, brain, messaging, `lemma_send`, …) is registered by the `agentic`, `brain`, and `lemma` subsystems into that one service. There are no separate per-server binaries.
 
 
 ## Testing
@@ -76,32 +72,30 @@ It exposes `core_go_test`, `core_dev_health`, and `core_dev_commit` as POST endp
 ### Go Tests
 
 ```bash
+cd go
+
 # Run all Go tests
-core go test
+go test ./... -count=1
 
 # Run a single test by name
-core go test --run TestMemoryRegistry_Register_Good
+go test ./pkg/agentic/ -run TestDispatch_Good
 
-# Full QA pipeline (fmt + vet + lint + test)
-core go qa
+# Vet
+go vet ./...
 
-# QA with race detector, vulnerability scan, and security checks
-core go qa full
-
-# Generate and view test coverage
-core go cov
-core go cov --open
+# Reproducible run (CI parity)
+GOWORK=off go test ./... -count=1
 ```
 
-Tests use `testify/assert` and `testify/require`. The naming convention is:
+Tests use `testify/assert` and `testify/require`, with one test file per source file. The naming convention is `TestFilename_FunctionName_<Category>`:
 
 | Suffix | Meaning |
 |--------|---------|
-| `_Good` | Happy-path tests |
-| `_Bad` | Expected error conditions |
-| `_Ugly` | Panic and edge cases |
+| `_Good` | Happy-path tests — prove the contract works |
+| `_Bad` | Expected error conditions — prove error handling |
+| `_Ugly` | Panics and edge cases |
 
-The test suite is substantial: ~65 test files across the Go packages, covering lifecycle (registry, allowance, dispatcher, router, events, client, brain, context), jobrunner (poller, journal, handlers, Forgejo source), loop (engine, parsing, prompts, tools), and orchestrator (Clotho, config, security).
+The test suite is substantial — hundreds of tests across the Go packages, covering `agentic` (dispatch, prep, verify, scan, plans, phases, sessions, fleet, platform, mirror), `brain` (direct, provider, messaging, tools), `lemma` (sessions, admin), `monitor` (harvest, sync), `runner` (queue, paths), and `setup` (detect, config, scaffold). Each `*_example_test.go` doubles as an executable usage example.
 
 ### PHP Tests
 
@@ -146,14 +140,16 @@ The test suite includes:
 ### Go
 
 ```bash
+cd go
+
 # Format all Go files
-core go fmt
+gofmt -w .
 
 # Run the linter
-core go lint
+golangci-lint run --timeout=5m --tests=false ./...
 
 # Run go vet
-core go vet
+go vet ./...
 ```
 
 ### PHP
@@ -168,199 +164,90 @@ composer lint
 
 ### Automatic Formatting
 
-The `code` plugin includes PostToolUse hooks that auto-format files after every edit:
+The `core` plugin includes PostToolUse hooks (under `provider/claude/core/scripts/`) that auto-format files after every edit:
 
-- **Go files**: `scripts/go-format.sh` runs `gofmt` on any edited `.go` file
-- **PHP files**: `scripts/php-format.sh` runs `pint` on any edited `.php` file
-- **Debug check**: `scripts/check-debug.sh` warns about `dd()`, `dump()`, `fmt.Println()`, and similar statements left in code
+- **Go files**: `go-format.sh` runs `gofmt` on any edited `.go` file
+- **PHP files**: `php-format.sh` runs `pint` on any edited `.php` file
+- **Debug check**: `check-debug.sh` warns about `dd()`, `dump()`, `fmt.Println()`, and similar statements left in code
 
 
-## Claude Code Plugins
+## Provider Integrations
 
-### Installing
+Per-provider integration trees live under `provider/`:
 
-Install all five plugins at once:
+- `provider/claude/` — Claude Code plugin sources (`core`, `core-go`, `core-php`, `devops`, `infra`, `research`, plus the `camofox_mcp` and `hermes_runner_mcp` MCP plugins).
+- `provider/codex/` — OpenAI Codex plugin sources (`core`, `code`, `ci`, `qa`, `review`, `verify`, plus `ethics`, `guardrails`, `perf`, `issue`, `coolify`, `awareness`, `api`, `collect`).
+- `provider/google/` — Gemini CLI integration.
+- `provider/hermes/` — Hermes plugins + skills (including the OpenBrain memory/context Python plugins).
+
+### Claude Code Plugins
+
+The marketplace registry at the repository root (`.claude-plugin/marketplace.json`) publishes the plugins. Locally-sourced plugins point at `./provider/claude/<name>`; some entries are published from URLs. Add the marketplace and install a plugin:
 
 ```bash
-claude plugin add host-uk/core-agent
+claude plugin marketplace add https://github.com/dappcore/agent
+claude plugin install core
 ```
 
-Or install individual plugins:
-
-```bash
-claude plugin add host-uk/core-agent/claude/code
-claude plugin add host-uk/core-agent/claude/review
-claude plugin add host-uk/core-agent/claude/verify
-claude plugin add host-uk/core-agent/claude/qa
-claude plugin add host-uk/core-agent/claude/ci
-```
-
-### Plugin Architecture
-
-Each plugin lives in `claude/<name>/` and contains:
+Each plugin lives in `provider/claude/<name>/` and contains:
 
 ```
-claude/<name>/
-├── .claude-plugin/
-│   └── plugin.json          # Plugin metadata (name, version, description)
-├── hooks.json                # Hook declarations (optional)
-├── hooks/                    # Hook scripts (optional)
-├── scripts/                  # Supporting scripts (optional)
-├── commands/                 # Slash command definitions (*.md files)
-└── skills/                   # Skill definitions (optional)
+provider/claude/<name>/
+├── .claude-plugin/plugin.json   # metadata (name, version, description)
+├── 000.mcp.json                 # MCP server registration (optional)
+├── hooks.json                   # hook declarations (optional)
+├── scripts/                     # supporting + hook scripts (optional)
+├── commands/                    # slash command definitions (*.md)
+├── agents/                      # subagent definitions (optional)
+└── skills/                      # skill definitions (optional)
 ```
-
-The marketplace registry at `.claude-plugin/marketplace.json` lists all five plugins with their source paths and versions.
-
-### Available Commands
-
-| Plugin | Command | Purpose |
-|--------|---------|---------|
-| code | `/code:remember <fact>` | Save context that persists across compaction |
-| code | `/code:yes <task>` | Auto-approve mode with commit requirement |
-| code | `/code:qa` | Run QA pipeline |
-| review | `/review:review [range]` | Code review on staged changes or commits |
-| review | `/review:security` | Security-focused review |
-| review | `/review:pr` | Pull request review |
-| verify | `/verify:verify [--quick\|--full]` | Verify work is complete |
-| verify | `/verify:ready` | Check if work is ready to ship |
-| verify | `/verify:tests` | Verify test coverage |
-| qa | `/qa:qa` | Iterative QA fix loop (runs until all checks pass) |
-| qa | `/qa:fix <issue>` | Fix a specific QA issue |
-| qa | `/qa:check` | Run checks without fixing |
-| qa | `/qa:lint` | Lint check only |
-| ci | `/ci:ci [status\|run\|logs\|fix]` | CI status and management |
-| ci | `/ci:workflow <type>` | Generate GitHub Actions workflows |
-| ci | `/ci:fix` | Fix CI failures |
-| ci | `/ci:run` | Trigger a CI run |
-| ci | `/ci:status` | Show CI status |
 
 ### Hook System
 
-The `code` plugin defines hooks in `claude/code/hooks.json` that fire at different points in the Claude Code lifecycle:
-
-**PreToolUse** (before a tool runs):
-- `prefer-core.sh` on `Bash` tool: blocks destructive commands (`rm -rf`, `sed -i`, `xargs rm`, `find -exec rm`, `grep -l | ...`) and enforces `core` CLI usage (blocks raw `go test`, `go build`, `composer test`, `golangci-lint`)
-- `block-docs.sh` on `Write` tool: prevents creation of random `.md` files
-
-**PostToolUse** (after a tool completes):
-- `go-format.sh` on `Edit` for `.go` files: auto-runs `gofmt`
-- `php-format.sh` on `Edit` for `.php` files: auto-runs `pint`
-- `check-debug.sh` on `Edit`: warns about debug statements
-- `post-commit-check.sh` on `Bash` for `git commit`: warns about uncommitted work
-
-**PreCompact** (before context compaction):
-- `pre-compact.sh`: saves session state to prevent amnesia
-
-**SessionStart** (when a session begins):
-- `session-start.sh`: restores recent session context
-
-### Testing Hooks Locally
-
-```bash
-echo '{"tool_input": {"command": "rm -rf /"}}' | bash ./claude/code/hooks/prefer-core.sh
-# Output: {"decision": "block", "message": "BLOCKED: Recursive delete is not allowed..."}
-
-echo '{"tool_input": {"command": "core go test"}}' | bash ./claude/code/hooks/prefer-core.sh
-# Output: {"decision": "approve"}
-```
-
-Hook scripts read JSON on stdin and output a JSON object with `decision` (`approve` or `block`) and an optional `message`.
+The `core` plugin's `hooks.json` fires scripts (from `provider/claude/core/scripts/`) across the Claude Code lifecycle — PreToolUse guards, PostToolUse auto-format + debug warnings + inbox/notify checks, and completion checks. Hook scripts read JSON on stdin and emit a JSON object with a `decision` (`approve` or `block`) and an optional `message`. Test one locally by piping a tool-input fixture into it.
 
 ### Adding a New Plugin
 
-1. Create the directory structure:
-   ```
-   claude/<name>/
-   ├── .claude-plugin/
-   │   └── plugin.json
-   └── commands/
-       └── <command>.md
-   ```
-
-2. Write `plugin.json`:
-   ```json
-   {
-     "name": "<name>",
-     "description": "What this plugin does",
-     "version": "0.1.0",
-     "author": {
-       "name": "Host UK",
-       "email": "hello@host.uk.com"
-     },
-     "license": "EUPL-1.2"
-   }
-   ```
-
-3. Add command files as Markdown (`.md`) in `commands/`. The filename becomes the command name.
-
-4. Register the plugin in `.claude-plugin/marketplace.json`:
-   ```json
-   {
-     "name": "<name>",
-     "source": "./claude/<name>",
-     "description": "Short description",
-     "version": "0.1.0"
-   }
-   ```
-
-### Codex Plugins
-
-The `codex/` directory mirrors the Claude plugin structure for OpenAI Codex. It contains additional plugins beyond the Claude five: `ethics`, `guardrails`, `perf`, `issue`, `coolify`, `awareness`, `api`, and `collect`. Each follows the same pattern with `.codex-plugin/plugin.json` and optional hooks, commands, and skills.
+1. Create `provider/claude/<name>/.claude-plugin/plugin.json` with `name`, `description`, `version`, `author`, and `license` (EUPL-1.2).
+2. Add command files as Markdown in `commands/` — the filename becomes the command name.
+3. Register the plugin in `.claude-plugin/marketplace.json` with its `name`, `source` (`./provider/claude/<name>`), `description`, and `version`.
 
 
 ## Adding Go Functionality
 
 ### New Package
 
-Create a directory under `pkg/`. Follow the existing convention:
-
-```
-pkg/<name>/
-├── types.go           # Public types and interfaces
-├── <implementation>.go
-└── <implementation>_test.go
-```
-
-Import the package from other modules as `forge.lthn.ai/core/agent/pkg/<name>`.
+Create a directory under `go/pkg/`. Follow the existing convention — one test file per source file, with `*_example_test.go` doubling as runnable usage examples. Import the package as `dappco.re/go/agent/pkg/<name>`.
 
 ### New CLI Command
 
-Commands live in `cmd/`. Each command directory registers itself into the `core` binary via the CLI framework:
+CLI commands register against the `core.Core` via `c.Command(name, core.Command{...})`. Binary-level commands are registered in `go/cmd/core-agent/commands.go`; subsystem commands are registered by the owning package (for example `pkg/agentic/commands_plan.go`). Actions return a `core.Result`:
 
 ```go
-package mycmd
-
-import (
-    "forge.lthn.ai/core/cli"
-    "github.com/spf13/cobra"
-)
-
-func AddCommands(parent *cobra.Command) {
-    parent.AddCommand(&cobra.Command{
-        Use:   "mycommand",
-        Short: "What it does",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            // implementation
-            return nil
-        },
-    })
-}
+c.Command("my-command", core.Command{
+    Description: "What it does",
+    Action: func(opts core.Options) core.Result {
+        // read opts.String("flag") etc.
+        return core.Result{OK: true}
+    },
+})
 ```
 
-Registration into the `core` binary happens in the CLI module, not here. This module exports the `AddCommands` function and the CLI module calls it.
+### New MCP Tool
 
-### New MCP Tool (stdio server)
+MCP tools are registered into the shared `dappco.re/go/mcp` service by a subsystem, via `coremcp.AddToolRecorded`:
 
-Tools are added in `cmd/mcp/server.go`. Each tool needs:
+```go
+coremcp.AddToolRecorded(svc, svc.Server(), "<subsystem>", &mcp.Tool{
+    Name:        "my_tool",
+    Description: "What the tool does and when to use it.",
+}, func(ctx context.Context, req *mcp.CallToolRequest, in MyInput) (*mcp.CallToolResult, MyOutput, error) {
+    // implementation
+    return nil, MyOutput{...}, nil
+})
+```
 
-1. A `mcp.Tool` definition with name, description, and input schema
-2. A handler function with signature `func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error)`
-3. Registration via `s.AddTool(tool, handler)` in the `newServer()` function
-
-### New MCP Tool (HTTP server)
-
-Tools for the Google MCP server are plain HTTP handlers in `google/mcp/main.go`. Add a handler function and register it with `http.HandleFunc`.
+Wire the registration from the subsystem's `RegisterTools` (see `pkg/agentic/dispatch.go` or `cmd/core-agent/lemma_mcp.go` for working examples). The same service serves both the stdio (`mcp`) and HTTP (`serve`) transports — there is no separate per-server binary.
 
 
 ## Adding PHP Functionality

@@ -51,12 +51,15 @@ agent/
 │   ├── cmd/core-agent/          Binary entry point (mcp + serve) —
 │   │                              builds `core-agent` or `lthn-agent`
 │   │                              via `go build -o lthn-agent ./cmd/core-agent/`
-│   ├── pkg/agentic/             Dispatch, verify, remote, mirror, queue
-│   ├── pkg/brain/               OpenBrain client (recall + remember)
+│   ├── pkg/agentic/             Dispatch, prep, verify, scan, remote, mirror, plans/phases/sessions
+│   ├── pkg/brain/               OpenBrain client (recall, remember, forget, list, messaging)
+│   ├── pkg/lemma/               Local lthn-mlx client — chat sessions + /v1/admin control
+│   ├── pkg/chathistory/         Per-user portable DuckDB chat archive
 │   ├── pkg/monitor/             Background monitor + repo sync
-│   ├── pkg/lib/                 Workspace extraction + flow templates
-│   ├── pkg/runner/              Local + container runners
-│   └── pkg/prompts/             Embedded persona + flow templates
+│   ├── pkg/runner/              Local + container runners + dispatch queue
+│   ├── pkg/setup/               Project detection + .core/ scaffolding
+│   ├── pkg/lib/                 Embedded personas, prompt + flow + workspace templates
+│   └── pkg/messages/            Typed IPC message definitions
 ├── php/                         PHP package — Laravel module + Boot, Actions,
 │                                Agentic for the lthn.ai hosted service
 ├── provider/

@@ -30,17 +30,25 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o core-agent-linux ./cmd/core-ag
 ## Architecture
 
 ```
-cmd/core-agent/main.go          Entry point (mcp + serve commands)
-pkg/agentic/                     MCP tools — dispatch, verify, remote, mirror, review queue
-pkg/brain/                       OpenBrain — recall, remember, messaging
-pkg/monitor/                     Background monitoring + repo sync
-pkg/prompts/                     Embedded templates + personas (go:embed)
+cmd/core-agent/main.go           Entry point — core.New + services + CLI run
+pkg/agentic/                     MCP dispatch tools, IPC pipeline, plans/phases/sessions, fleet/platform sync
+pkg/brain/                        OpenBrain — recall, remember, forget, list, messaging
+pkg/lemma/                        Local lthn-mlx client — chat sessions + /v1/admin control
+pkg/chathistory/                  Per-user portable DuckDB chat archive
+pkg/monitor/                      Background monitoring + repo sync
+pkg/runner/                       Local + container runners + dispatch queue
+pkg/setup/                        Project detection + .core/ scaffolding
+pkg/lib/                          Embedded personas, prompt + flow + workspace templates (go:embed)
+pkg/messages/                     Typed IPC message definitions
 ```
 
 ### Binary Modes
 
-- `core-agent mcp` — stdio MCP server for Claude Code
-- `core-agent serve` — HTTP daemon (Charon, CI, cross-agent). PID file, health check, registry.
+- `core-agent mcp` — stdio MCP server for Claude Code (registered by the `dappco.re/go/mcp` service)
+- `core-agent serve` — HTTP MCP daemon (Charon, CI, cross-agent)
+- `core-agent chat --user=<id>` — REPL against the local lthn-mlx engine, auto-captured to the user's archive
+- `core-agent serve-status` / `serve-reload` / `serve-profiles` — inspect / hot-swap the local model engine
+- `core-agent models-download` / `models-job` — queue + poll Hugging Face model downloads
 
 ### MCP Tools (33)
 
@@ -77,19 +85,13 @@ dispatch → agent works → closeout sequence (review → fix → simplify → 
     → push to GitHub → CodeRabbit reviews → merge or dispatch fix agent
 ```
 
-### Personas (pkg/prompts/lib/personas/)
+### Personas (pkg/lib/persona/)
 
-116 personas across 16 domains. Path = context, filename = lens.
+Personas across many domains (ads, blockchain, code, design, devops, plan, product, sales, secops, smm, spatial, support, testing). Path = context, filename = lens.
 
-```
-prompts.Persona("engineering/security-developer")   # code-level security review
-prompts.Persona("smm/security-secops")              # social media incident response
-prompts.Persona("devops/senior")                     # infrastructure architecture
-```
+### Templates (pkg/lib/prompt/, pkg/lib/task/, pkg/lib/flow/)
 
-### Templates (pkg/prompts/lib/templates/)
-
-Prompt templates for different task types: `coding`, `conventions`, `security`, `verify`, plus YAML plan templates (`bug-fix`, `code-review`, `new-feature`, `refactor`, etc.)
+Prompt + task templates for different task types (`coding`, `conventions`, `security`, `verify`, code review, simplifier), plus per-language flow definitions in `pkg/lib/flow/` and YAML upgrade flows in `pkg/lib/flow/upgrade/`.
 
 ## Key Patterns
 
@@ -114,7 +116,7 @@ All paths use `CORE_WORKSPACE` env var, fallback `~/Code/.core`:
 
 Always check `err != nil` BEFORE accessing `resp.StatusCode`. Split into two checks.
 
-## Plugin (claude/core/)
+## Plugin (provider/claude/core/)
 
 The Claude Code plugin provides:
 - **MCP server** via `mcp.json` (auto-registers core-agent)

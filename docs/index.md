@@ -1,185 +1,105 @@
 ---
 title: Core Agent
-description: AI agent orchestration, Claude Code plugins, and lifecycle management for the Host UK platform — a polyglot Go + PHP repository.
+description: AI agent orchestration for the Core ecosystem — a single Go binary that runs as an MCP server (stdio + HTTP) and a CLI for dispatch, fleet sync, OpenBrain memory, and local-model chat.
 ---
 
 # Core Agent
 
-Core Agent (`forge.lthn.ai/core/agent`) is a polyglot repository containing **Go libraries**, **CLI commands**, **MCP servers**, and a **Laravel PHP package** that together provide AI agent orchestration for the Host UK platform.
+Core Agent (`dappco.re/go/agent`) is a single Go binary that orchestrates AI agents across the Core ecosystem. It runs as an **MCP server** — stdio for IDE integration, HTTP for cross-agent communication — and ships a **CLI** for everything from dispatching a ticket to a sandboxed worker through to chatting with a local model.
+
+The binary ships under two names: `core-agent` (legacy) and `lthn-agent` (the `lthn-{mlx,cuda,amd,agent}` family naming). It detects its invocation name from `argv[0]` and identifies accordingly in version output, banners, and admin-token prefixes. Either build name produces the same behaviour.
 
 It answers three questions:
 
-1. **How do agents get work?** -- The lifecycle package manages tasks, dispatching, and quota enforcement. The PHP side exposes a REST API for plans, sessions, and phases.
-2. **How do agents run?** -- The dispatch and jobrunner packages poll for work, clone repositories, invoke Claude/Codex/Gemini, and report results back to Forgejo.
-3. **How do agents collaborate?** -- Sessions, plans, and the OpenBrain vector store enable multi-agent handoff, replay, and persistent memory.
-
+1. **How do agents get work?** -- the `agentic` package exposes MCP dispatch tools (`agentic_dispatch`, `agentic_scan`, `agentic_create_epic`, the plan/phase/session surface) and CLI verbs that fan a tracked issue out to a sandboxed runner.
+2. **How do agents run?** -- dispatch preps an isolated workspace, spawns the chosen runner (Claude / Codex / Gemini / OpenCode against a local model), watches it to completion, and drives the closeout pipeline (QA → auto-PR → verify → merge).
+3. **How do agents collaborate?** -- OpenBrain (`brain` package) gives durable memory + cross-agent messaging; sessions, plans, and handoff notes let one agent pick up where another stopped.
 
 ## Quick Start
 
-### Go (library / CLI commands)
-
-The Go module is `forge.lthn.ai/core/agent`. It requires Go 1.26+.
+The Go module is `dappco.re/go/agent`. It requires Go 1.26+ and lives in the `go/` subdirectory of the repository.
 
 ```bash
-# Run tests
-core go test
-
-# Full QA pipeline
-core go qa
+cd go
+go build ./cmd/core-agent/        # build the binary
+go install ./cmd/core-agent/      # install to $GOPATH/bin
+go test ./... -count=1            # run the test suite
 ```
 
-Key CLI commands (registered into the `core` binary via `cli.RegisterCommands`):
-
-| Command | Description |
-|---------|-------------|
-| `core ai tasks` | List available tasks from the agentic API |
-| `core ai task [id]` | View or claim a specific task |
-| `core ai task --auto` | Auto-select the highest-priority pending task |
-| `core ai agent list` | List configured AgentCI dispatch targets |
-| `core ai agent add <name> <host>` | Register a new agent machine |
-| `core ai agent fleet` | Show fleet status from the agent registry |
-| `core ai dispatch watch` | Poll the PHP API for work and execute phases |
-| `core ai dispatch run` | Process a single ticket from the local queue |
-
-### PHP (Laravel package)
-
-The PHP package is `lthn/agent` (Composer name). It depends on `lthn/php` (the foundation framework).
+Cross-compile for Charon (the homelab Linux box):
 
 ```bash
-# Run tests
-composer test
-
-# Fix code style
-composer lint
+cd go
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o core-agent-linux ./cmd/core-agent/
 ```
 
-The package auto-registers via Laravel's service provider discovery (`Core\Mod\Agentic\Boot`).
+## Binary Modes
 
+| Invocation | What it does |
+|------------|--------------|
+| `core-agent mcp` | MCP server over stdio — the transport an IDE (Claude Code etc.) connects to. |
+| `core-agent serve` | HTTP MCP daemon — cross-agent communication, CI, the homelab fleet. |
+| `core-agent chat --user=<id>` | Interactive REPL against a local `lthn-mlx` serve, auto-captured to the user's portable chat archive. |
+| `core-agent serve-status` / `serve-reload` / `serve-profiles` | Inspect and hot-swap the local `lthn-mlx` model engine via its `/v1/admin/*` API. |
+| `core-agent models-download` / `models-job` | Queue and poll Hugging Face model downloads on the local engine. |
+| `core-agent version` / `check` / `env` | Version + build info, workspace/dependency health check, resolved environment keys. |
 
-## Package Layout
+The `mcp` and `serve` commands are provided by the shared `dappco.re/go/mcp` service the binary registers; the rest are registered directly by `cmd/core-agent`.
 
-### Go Packages
+## Go Packages
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `lifecycle` | `pkg/lifecycle/` | Core domain: tasks, agents, dispatcher, allowance quotas, events, API client, brain (OpenBrain), embedded prompts |
-| `loop` | `pkg/loop/` | Autonomous agent loop: prompt-parse-execute cycle with tool calling against any `inference.TextModel` |
-| `orchestrator` | `pkg/orchestrator/` | Clotho protocol: dual-run verification, agent configuration, security helpers |
-| `jobrunner` | `pkg/jobrunner/` | Poll-dispatch engine: `Poller`, `Journal`, Forgejo source, pipeline handlers |
-| `plugin` | `pkg/plugin/` | Plugin contract tests |
-| `workspace` | `pkg/workspace/` | Workspace contract tests |
+| `agentic` | `pkg/agentic/` | The orchestration core: MCP dispatch tools, prep/verify/scan, fleet + platform sync, the plan/phase/session command surface, mirror to GitHub. |
+| `brain` | `pkg/brain/` | OpenBrain client — remember / recall / forget / list and cross-agent messaging, both in-process and over `/v1/brain/*`. |
+| `lemma` | `pkg/lemma/` | Client for the local `lthn-mlx` model engine: chat sessions, the `/v1/admin/*` control surface, model downloads. |
+| `chathistory` | `pkg/chathistory/` | Per-user portable DuckDB chat archive (continuity rights — the file is the user's property). |
+| `monitor` | `pkg/monitor/` | Background agent monitoring, completion tracking, repo sync. |
+| `runner` | `pkg/runner/` | Local + container runners that execute a dispatched agent. |
+| `setup` | `pkg/setup/` | Project-type detection and `.core/` workspace scaffolding. |
+| `lib` | `pkg/lib/` | Embedded personas, prompt + flow templates, and workspace scaffolds (`flow`, `persona`, `prompt`, `task`, `workspace`). |
+| `messages` | `pkg/messages/` | Typed IPC message definitions for the dispatch pipeline. |
+| `agentcompat` | `pkg/agentcompat/` | Compatibility shims for agent-tooling interop. |
 
-### Go Commands
+## MCP Tool Surface
 
-| Directory | Registered As | Purpose |
-|-----------|---------------|---------|
-| `cmd/tasks/` | `core ai tasks`, `core ai task` | Task listing, viewing, claiming, updating |
-| `cmd/agent/` | `core ai agent` | AgentCI machine management (add, list, status, setup, fleet) |
-| `cmd/dispatch/` | `core ai dispatch` | Work queue processor (runs on agent machines) |
-| `cmd/workspace/` | `core workspace task`, `core workspace agent` | Isolated git-worktree workspaces for task execution |
-| `cmd/taskgit/` | *(internal)* | Git operations for task branches |
-| `cmd/mcp/` | Standalone binary | MCP server (stdio) with marketplace, ethics, and core CLI tools |
+The `agentic` and `brain` subsystems register the bulk of the tool surface. Highlights:
 
-### MCP Servers
+| Category | Tools |
+|----------|-------|
+| Dispatch | `agentic_dispatch`, `agentic_dispatch_remote`, `agentic_dispatch_start`, `agentic_dispatch_shutdown`, `agentic_status_remote` |
+| Workspace | `agentic_prep_workspace`, `agentic_resume`, `agentic_watch` |
+| PR / review | `agentic_create_pr`, `agentic_list_prs`, `agentic_create_epic`, `agentic_review_queue` |
+| Mirror / scan | `agentic_mirror` (Forge → GitHub), `agentic_scan` (Forge issues) |
+| Plans / phases / sessions | `agentic_plan_*`, `agentic_phase_*`, `agentic_session_*` |
+| Brain | `brain_remember`, `brain_recall`, `brain_forget`, `brain_list` |
+| Messaging | `agent_send`, `agent_inbox`, `agent_conversation` |
+| Local model | `lemma_send` (chat with the local model, auto-captured to the caller's archive) |
 
-| Directory | Transport | Tools |
-|-----------|-----------|-------|
-| `cmd/mcp/` | stdio (mcp-go) | `marketplace_list`, `marketplace_plugin_info`, `core_cli`, `ethics_check` |
-| `google/mcp/` | HTTP (:8080) | `core_go_test`, `core_dev_health`, `core_dev_commit` |
+## Repository Layout
 
-### Claude Code Plugins
-
-| Plugin | Path | Commands |
-|--------|------|----------|
-| **code** | `claude/code/` | `/code:remember`, `/code:yes`, `/code:qa` |
-| **review** | `claude/review/` | `/review:review`, `/review:security`, `/review:pr` |
-| **verify** | `claude/verify/` | `/verify:verify`, `/verify:ready`, `/verify:tests` |
-| **qa** | `claude/qa/` | `/qa:qa`, `/qa:fix` |
-| **ci** | `claude/ci/` | `/ci:ci`, `/ci:workflow`, `/ci:fix`, `/ci:run`, `/ci:status` |
-
-Install all plugins: `claude plugin add host-uk/core-agent`
-
-### Codex Plugins
-
-The `codex/` directory mirrors the Claude plugin structure for OpenAI Codex, plus additional plugins for ethics, guardrails, performance, and issue management.
-
-### PHP Package
-
-| Directory | Namespace | Purpose |
-|-----------|-----------|---------|
-| `src/php/` | `Core\Mod\Agentic\` | Laravel service provider, models, controllers, services |
-| `src/php/Actions/` | `...\Actions\` | Single-purpose business logic (Brain, Forge, Phase, Plan, Session, Task) |
-| `src/php/Controllers/` | `...\Controllers\` | REST API controllers for go-agentic client consumption |
-| `src/php/Models/` | `...\Models\` | Eloquent models: AgentPlan, AgentPhase, AgentSession, AgentApiKey, BrainMemory, Task, Prompt, WorkspaceState |
-| `src/php/Services/` | `...\Services\` | AgenticManager (multi-provider), BrainService (Ollama+Qdrant), ForgejoService, Claude/Gemini/OpenAI services |
-| `src/php/Mcp/` | `...\Mcp\` | MCP tool implementations: Brain, Content, Phase, Plan, Session, State, Task, Template |
-| `src/php/View/` | `...\View\` | Livewire admin components (Dashboard, Plans, Sessions, ApiKeys, Templates, ToolAnalytics) |
-| `src/php/Migrations/` | | 10 database migrations |
-| `src/php/tests/` | | Pest test suite |
-
+```
+agent/
+├── go/                  Go module — module path: dappco.re/go/agent
+│   ├── cmd/core-agent/  Binary entry point — builds core-agent or lthn-agent
+│   └── pkg/             agentic, brain, lemma, chathistory, monitor, runner, setup, lib, messages, agentcompat
+├── php/                 Laravel package (Core\Mod\Agentic\*) for the hosted lthn.ai service
+├── provider/            Per-provider integrations: claude/ (Claude Code plugins), codex/, google/, hermes/
+├── scripts/            Install + local-inference launch helpers (gemma4/qwen36 stacks, local-agent.sh)
+├── docs/               This documentation tree
+├── external/            Dev-workspace submodules for dappco.re/go/* dependencies
+└── vm/                  Containerised dev stack
+```
 
 ## Dependencies
 
-### Go
-
 | Dependency | Purpose |
 |------------|---------|
-| `forge.lthn.ai/core/go` | DI container and service lifecycle |
-| `forge.lthn.ai/core/cli` | CLI framework (cobra + bubbletea TUI) |
-| `forge.lthn.ai/core/go-ai` | AI meta-hub (MCP facade) |
-| `forge.lthn.ai/core/config` | Configuration management (viper) |
-| `forge.lthn.ai/core/go-inference` | TextModel/Backend interfaces |
-| `forge.lthn.ai/core/go-io` | Filesystem abstraction |
-| `forge.lthn.ai/core/go-log` | Structured logging |
-| `forge.lthn.ai/core/go-ratelimit` | Rate limiting primitives |
-| `forge.lthn.ai/core/go-scm` | Source control (Forgejo client, repo registry) |
-| `forge.lthn.ai/core/go-store` | Key-value store abstraction |
-| `forge.lthn.ai/core/go-i18n` | Internationalisation |
-| `github.com/mark3labs/mcp-go` | Model Context Protocol SDK |
-| `github.com/redis/go-redis/v9` | Redis client (registry + allowance backends) |
-| `modernc.org/sqlite` | Pure-Go SQLite (registry + allowance backends) |
-| `codeberg.org/mvdkleijn/forgejo-sdk` | Forgejo API SDK |
+| `dappco.re/go` | DI container, service lifecycle, core primitives (`core.E`, `core.Result`, `c.Process()`, `c.Fs()`). |
+| `dappco.re/go/mcp` | MCP service — registers the `mcp` (stdio) and `serve` (HTTP) commands and the tool-recording harness. |
+| `github.com/modelcontextprotocol/go-sdk` | Model Context Protocol SDK. |
 
-### PHP
-
-| Dependency | Purpose |
-|------------|---------|
-| `lthn/php` | Foundation framework (events, modules, lifecycle) |
-| `livewire/livewire` | Admin panel reactive components |
-| `pestphp/pest` | Testing framework |
-| `orchestra/testbench` | Laravel package testing |
-
-
-## Configuration
-
-### Go Client (`~/.core/agentic.yaml`)
-
-```yaml
-base_url: https://api.lthn.sh
-token: your-api-token
-default_project: my-project
-agent_id: cladius
-```
-
-Environment variables override the YAML file:
-
-| Variable | Purpose |
-|----------|---------|
-| `AGENTIC_BASE_URL` | API base URL |
-| `AGENTIC_TOKEN` | Authentication token |
-| `AGENTIC_PROJECT` | Default project |
-| `AGENTIC_AGENT_ID` | Agent identifier |
-
-### PHP (`.env`)
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_AI_API_KEY=...
-OPENAI_API_KEY=sk-...
-```
-
-The agentic module also reads `BRAIN_DB_*` for the dedicated brain database connection and Ollama/Qdrant URLs from `mcp.brain.*` config keys.
-
+The authoritative `dappco.re/go/*` dependency snapshot is `module-graph.json` at the repository root.
 
 ## Licence
 
