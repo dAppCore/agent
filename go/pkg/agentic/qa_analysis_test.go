@@ -18,8 +18,10 @@ func TestAnalyseWorkspace_Good_EmptyFindings(t *testing.T) {
 
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-empty")
 	workspaceName := WorkspaceName(workspaceDir)
-	workspace, err := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
-	core.RequireNoError(t, err)
+	workspace, result := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
+	if !result.OK {
+		t.Fatalf("create QA workspace: %v", resultErrorValue("TestAnalyseWorkspace_Good_EmptyFindings", result))
+	}
 	t.Cleanup(workspace.Discard)
 
 	report := subsystem.analyseWorkspaceNamed(workspace, workspaceName)
@@ -43,8 +45,10 @@ func TestAnalyseWorkspace_Good_FiveClusters(t *testing.T) {
 
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-five")
 	workspaceName := WorkspaceName(workspaceDir)
-	workspace, err := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
-	core.RequireNoError(t, err)
+	workspace, result := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
+	if !result.OK {
+		t.Fatalf("create QA workspace: %v", resultErrorValue("TestAnalyseWorkspace_Good_FiveClusters", result))
+	}
 	t.Cleanup(workspace.Discard)
 
 	repeated := QAFinding{Tool: "gosec", Severity: "error", Category: "security-secret", Code: "G101", File: "secret.go", Line: 10, Message: "hardcoded secret"}
@@ -64,7 +68,9 @@ func TestAnalyseWorkspace_Good_FiveClusters(t *testing.T) {
 		{Tool: "revive", Severity: "info", Category: "var-naming", Code: "var-naming", File: "style.go", Line: 50, Message: "bad variable name"},
 	}
 	for _, finding := range currentFindings {
-		core.RequireNoError(t, workspace.Put("finding", findingToMap(finding)))
+		if result := workspace.Put("finding", findingToMap(finding)); !result.OK {
+			t.Fatalf("put finding: %v", resultErrorValue("TestAnalyseWorkspace_Good_FiveClusters", result))
+		}
 	}
 
 	report := subsystem.analyseWorkspaceNamed(workspace, workspaceName)
@@ -106,11 +112,13 @@ func TestAnalyseWorkspace_Ugly_PoindexterPanic(t *testing.T) {
 
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-panic")
 	workspaceName := WorkspaceName(workspaceDir)
-	workspace, err := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
-	core.RequireNoError(t, err)
+	workspace, result := subsystem.stateStoreInstance().NewWorkspace(qaWorkspaceName(workspaceDir))
+	if !result.OK {
+		t.Fatalf("create QA workspace: %v", resultErrorValue("TestAnalyseWorkspace_Ugly_PoindexterPanic", result))
+	}
 	t.Cleanup(workspace.Discard)
 
-	core.RequireNoError(t, workspace.Put("finding", findingToMap(QAFinding{
+	if result := workspace.Put("finding", findingToMap(QAFinding{
 		Tool:     "gosec",
 		Severity: "error",
 		Category: "security-secret",
@@ -118,7 +126,9 @@ func TestAnalyseWorkspace_Ugly_PoindexterPanic(t *testing.T) {
 		File:     "panic.go",
 		Line:     10,
 		Message:  "hardcoded secret",
-	})))
+	})); !result.OK {
+		t.Fatalf("put finding: %v", resultErrorValue("TestAnalyseWorkspace_Ugly_PoindexterPanic", result))
+	}
 
 	previousClusterer := qaAnalysisClusterer
 	qaAnalysisClusterer = func([]QAFinding) []DispatchCluster {

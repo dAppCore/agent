@@ -195,8 +195,10 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
-	core.AssertNoError(t, err)
+	value, result := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
+	if !result.OK {
+		t.Fatalf("read workspace stats: %v", resultErrorValue("TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete", result))
+	}
 	core.AssertContains(t, value, "core/go-io/task-stats")
 	core.AssertContains(t, value, "\"build_passed\":true")
 }

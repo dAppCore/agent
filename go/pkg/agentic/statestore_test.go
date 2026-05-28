@@ -355,12 +355,16 @@ func TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers(t *testing.
 	// the go-store contract, simulating a crashed dispatch. The unique name
 	// keeps this test isolated from the shared go-store registry cache.
 	workspaceName := core.Sprintf("qa-crashed-cycle-%d", time.Now().UnixNano())
-	workspace, err := st.NewWorkspace(workspaceName)
-	if err != nil {
-		t.Fatalf("create workspace: %v", err)
+	workspace, result := st.NewWorkspace(workspaceName)
+	if !result.OK {
+		t.Fatalf("create workspace: %v", resultErrorValue("TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers", result))
 	}
-	_ = workspace.Put("finding", map[string]any{"tool": "gosec"})
-	workspace.Close()
+	if putResult := workspace.Put("finding", map[string]any{"tool": "gosec"}); !putResult.OK {
+		t.Fatalf("put finding: %v", resultErrorValue("TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers", putResult))
+	}
+	if closeResult := workspace.Close(); !closeResult.OK {
+		t.Fatalf("close workspace: %v", resultErrorValue("TestStatestore_RecoverStateOrphans_Good_DiscardsLeftoverBuffers", closeResult))
+	}
 
 	// Reopen the state store so RecoverOrphans walks the filesystem fresh.
 	subsystem.closeStateStore()

@@ -100,8 +100,8 @@ var ScheduleRevision = func(s *PrepSubsystem, ctx context.Context, pageID, conte
 		ScheduledAt: nil,
 		CreatedAt:   contentSEONow(),
 	}
-	if err := storeInstance.Set(contentSEORevisionGroup, contentSEORevisionKey(revision.CreatedAt), core.JSONMarshalString(revision)); err != nil {
-		return SEORevision{}, core.E("scheduleRevision", "persist revision", err)
+	if result := storeInstance.Set(contentSEORevisionGroup, contentSEORevisionKey(revision.CreatedAt), core.JSONMarshalString(revision)); !result.OK {
+		return SEORevision{}, core.E("scheduleRevision", "persist revision", resultErrorValue("scheduleRevision", result))
 	}
 
 	return revision, nil
@@ -156,26 +156,26 @@ var OnGooglebotVisit = func(s *PrepSubsystem, ctx context.Context, pageID string
 	}
 
 	baseTime := contentSEONow()
-	if err := storeInstance.Transaction(func(transaction *store.StoreTransaction) error {
+	if result := storeInstance.Transaction(func(transaction *store.StoreTransaction) core.Result {
 		for _, record := range records {
 			if err := contentSEOContextErr("onGooglebotVisit", ctx); err != nil {
-				return err
+				return core.Fail(err)
 			}
 
 			delay, err := contentSEORandomDelay()
 			if err != nil {
-				return core.E("onGooglebotVisit", "compute publish delay", err)
+				return core.Fail(core.E("onGooglebotVisit", "compute publish delay", err))
 			}
 
 			scheduledAt := baseTime.Add(delay)
 			record.Revision.ScheduledAt = &scheduledAt
-			if err := transaction.Set(contentSEORevisionGroup, record.Key, core.JSONMarshalString(record.Revision)); err != nil {
-				return core.E("onGooglebotVisit", "persist scheduled revision", err)
+			if result := transaction.Set(contentSEORevisionGroup, record.Key, core.JSONMarshalString(record.Revision)); !result.OK {
+				return core.Fail(core.E("onGooglebotVisit", "persist scheduled revision", resultErrorValue("onGooglebotVisit", result)))
 			}
 		}
-		return nil
-	}); err != nil {
-		return core.E("onGooglebotVisit", "transaction", err)
+		return core.Ok(nil)
+	}); !result.OK {
+		return core.E("onGooglebotVisit", "transaction", resultErrorValue("onGooglebotVisit", result))
 	}
 
 	return nil

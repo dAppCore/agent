@@ -176,7 +176,9 @@ func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	core.RequireNoError(t, storeInstance.Set(stateRegistryGroup, "broken", "{"))
+	if result := storeInstance.Set(stateRegistryGroup, "broken", "{"); !result.OK {
+		t.Fatalf("seed broken registry payload: %v", resultErrorValue("TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload", result))
+	}
 	subsystem.stateStoreSet(stateQueueGroup, validWorkspace, queueEntry{
 		Repo:     "go-io",
 		Org:      "core",

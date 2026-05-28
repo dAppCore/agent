@@ -384,7 +384,11 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 }
 
 func (s *Service) actionPoke(_ context.Context, _ core.Options) core.Result {
-	s.drainQueueAndNotify(s.Core())
+	var coreApp *core.Core
+	if s.ServiceRuntime != nil {
+		coreApp = s.Core()
+	}
+	s.drainQueueAndNotify(coreApp)
 	return core.Result{OK: true}
 }
 

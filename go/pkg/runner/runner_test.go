@@ -145,6 +145,40 @@ func TestOverwriteSameName_Service_Workspaces_Ugly(t *testing.T) {
 	core.AssertEqual(t, "completed", ws.Status)
 }
 
+// --- Workspace Query ---
+
+func TestRunner_HandleWorkspaceQuery_Good_Name(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("core/go-io/task-5", &WorkspaceStatus{Status: "running", Agent: "codex"})
+
+	result := svc.handleWorkspaceQuery(nil, WorkspaceQuery{Name: "core/go-io/task-5"})
+	core.RequireTrue(t, result.OK)
+	status, ok := result.Value.(*WorkspaceStatus)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, "running", status.Status)
+}
+
+func TestRunner_HandleWorkspaceQuery_Bad_UnknownQuery(t *testing.T) {
+	svc := New()
+
+	result := svc.handleWorkspaceQuery(nil, "not a workspace query")
+	core.AssertFalse(t, result.OK)
+	core.AssertNil(t, result.Value)
+}
+
+func TestRunner_HandleWorkspaceQuery_Ugly_StatusFilter(t *testing.T) {
+	svc := New()
+	svc.TrackWorkspace("ws-running", &WorkspaceStatus{Status: "running"})
+	svc.TrackWorkspace("ws-completed", &WorkspaceStatus{Status: "completed"})
+
+	result := svc.handleWorkspaceQuery(nil, WorkspaceQuery{Status: "completed"})
+	core.RequireTrue(t, result.OK)
+	names, ok := result.Value.([]string)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, names, "ws-completed")
+	core.AssertNotContains(t, names, "ws-running")
+}
+
 // --- Poke ---
 
 func TestBufferedChannel_Service_Poke_Good(t *testing.T) {
@@ -167,6 +201,14 @@ func TestDoublePoke_Service_Poke_Ugly(t *testing.T) {
 	svc.Poke()
 	svc.Poke() // second poke is a no-op (channel full)
 	core.AssertLen(t, svc.pokeCh, 1)
+}
+
+func TestRunner_ActionPoke_Bad_NoRuntimeDoesNotPanic(t *testing.T) {
+	svc := New()
+	core.AssertNotPanics(t, func() {
+		result := svc.actionPoke(context.Background(), core.NewOptions())
+		core.AssertTrue(t, result.OK)
+	})
 }
 
 // --- Actions ---

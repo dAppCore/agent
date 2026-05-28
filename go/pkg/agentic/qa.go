@@ -211,7 +211,7 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 		return
 	}
 	for _, finding := range report.Findings {
-		if err := workspace.Put("finding", map[string]any{
+		if result := workspace.Put("finding", map[string]any{
 			"tool":     finding.Tool,
 			"file":     finding.File,
 			"line":     finding.Line,
@@ -222,19 +222,19 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 			"category": finding.Category,
 			"rule_id":  finding.RuleID,
 			"title":    finding.Title,
-		}); err != nil {
-			core.Warn("agentic: failed to persist lint finding", "workspace", workspace.Name(), "reason", err)
+		}); !result.OK {
+			core.Warn("agentic: failed to persist lint finding", "workspace", workspace.Name(), "reason", resultErrorValue("recordLintFindings", result))
 		}
 	}
 	for _, tool := range report.Tools {
-		if err := workspace.Put("tool_run", map[string]any{
+		if result := workspace.Put("tool_run", map[string]any{
 			"name":     tool.Name,
 			"version":  tool.Version,
 			"status":   tool.Status,
 			"duration": tool.Duration,
 			"findings": tool.Findings,
-		}); err != nil {
-			core.Warn("agentic: failed to persist tool run", "workspace", workspace.Name(), "reason", err)
+		}); !result.OK {
+			core.Warn("agentic: failed to persist tool run", "workspace", workspace.Name(), "reason", resultErrorValue("recordLintFindings", result))
 		}
 	}
 }
@@ -247,11 +247,11 @@ func (s *PrepSubsystem) recordBuildResult(workspace *store.Workspace, kind strin
 	if workspace == nil || kind == "" {
 		return
 	}
-	if err := workspace.Put(kind, map[string]any{
+	if result := workspace.Put(kind, map[string]any{
 		"passed": passed,
 		"output": output,
-	}); err != nil {
-		core.Warn("agentic: failed to persist build result", "workspace", workspace.Name(), "kind", kind, "reason", err)
+	}); !result.OK {
+		core.Warn("agentic: failed to persist build result", "workspace", workspace.Name(), "kind", kind, "reason", resultErrorValue("recordBuildResult", result))
 	}
 }
 
@@ -278,8 +278,8 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 		return s.runQALegacy(ctx, workspaceDir)
 	}
 
-	workspace, err := storeInstance.NewWorkspace(qaWorkspaceName(workspaceDir))
-	if err != nil {
+	workspace, result := storeInstance.NewWorkspace(qaWorkspaceName(workspaceDir))
+	if !result.OK {
 		return s.runQALegacy(ctx, workspaceDir)
 	}
 
