@@ -41,3 +41,8 @@ node_modules.bak/
 coverage/
 htmlcov/
 .coverage
+
+# Stray go-build output — `go build ./cmd/core-agent` without -o drops a
+# binary at the repo root and under go/. The bundled binary is bin/lthn-agent.
+/core-agent
+/go/core-agent
