@@ -6,6 +6,9 @@ CoreAgent can dispatch OpenCode against local OpenAI-compatible endpoints with
 `opencode:<profile>`. The profile only tells OpenCode which endpoint and model
 name to use; the model server still has to be launched separately.
 
+For workstation sizing and safe model combinations, start with
+[`local-inference-typologies.md`](local-inference-typologies.md).
+
 ## Chatter
 
 Use `lthn/lemer-mlx-bf16` as the small local chatter model. Run it as a
@@ -202,6 +205,129 @@ For E2B and E4B MTP, the MLX community assistant cards recommend
 `--draft-block-size 6` for single requests and `--draft-block-size 3` for
 batched generation. Treat block 3 as the default for OpenCode-style concurrent
 agent traffic.
+
+### Gemma 4 Agentic Stack
+
+For the current Apple Silicon lane, prefer no-MTP MLX VLM with APC:
+
+| Lane | Runner | Model | Default port | Context | Purpose |
+| --- | --- | --- | ---: | ---: | --- |
+| Main | MLX VLM | `mlx-community/gemma-4-26b-a4b-it-4bit` | 8001 | 262144 | Planning, synthesis, final edits, long-lived project context |
+| Helper | MLX VLM | `mlx-community/gemma-4-e4b-it-mxfp8` | 8005 | 131072 | Sub-agent work, file/tool investigation, summaries back to main |
+
+Launch both with:
+
+```bash
+scripts/gemma4_local_stack.py serve
+```
+
+Show the exact commands without launching:
+
+```bash
+scripts/gemma4_local_stack.py serve --dry-run
+```
+
+Show CoreAgent/OpenCode profile overrides:
+
+```bash
+scripts/gemma4_local_stack.py opencode-env
+```
+
+Check health and APC counters:
+
+```bash
+scripts/gemma4_local_stack.py status
+```
+
+The helper can be switched to E2B for higher concurrency:
+
+```bash
+scripts/gemma4_local_stack.py serve --helper helper-e2b
+```
+
+For one-off helper prompts, `scripts/local-agent.sh` wraps the same local
+profiles and adds a bounded project-context preamble:
+
+```bash
+scripts/local-agent.sh --profile gemma-helper "summarise the current failure"
+scripts/local-agent.sh --profile gemma-main "draft the final implementation plan"
+```
+
+It also has Qwen3.6 lanes pre-wired for OpenAI-compatible servers:
+
+```bash
+scripts/local-agent.sh --profile qwen36 --dry-run "review the qwen lane"
+scripts/local-agent.sh --profile qwen36-moe --dry-run "review the qwen moe lane"
+```
+
+Use `--file-limit` or `LOCAL_FILE_LIMIT` to control how many source-file paths
+are included in the prompt. The default is 800 paths.
+
+### Qwen3.6 Coding Stack
+
+For coding on Apple Silicon, use `mlx-community/Qwen3.6-27B-4bit` as the
+preferred Qwen lane. It is denser than the 35B-A3B MoE lane, better aligned to
+coding work, and still fits the M3 Ultra 96GB at 262k context.
+
+| Lane | Runner | Model | Default port | Context | Purpose |
+| --- | --- | --- | ---: | ---: | --- |
+| Coding | MLX VLM | `mlx-community/Qwen3.6-27B-4bit` | 8003 | 262144 | Main coding and review lane |
+| Coding MXFP8 | MLX VLM | `mlx-community/Qwen3.6-27B-mxfp8` | 8006 | 262144 | Quality-first coding lane to validate next |
+| MoE helper | MLX VLM | `mlx-community/Qwen3.6-35B-A3B-4bit` | 8008 | 262144 | Optional throughput/helper lane |
+
+Launch the default APC lane:
+
+```bash
+scripts/qwen36_local_stack.py serve
+```
+
+Show commands without launching:
+
+```bash
+scripts/qwen36_local_stack.py serve --dry-run
+scripts/qwen36_local_stack.py serve --lane moe35 --dry-run
+scripts/qwen36_local_stack.py serve --mode turboquant --dry-run
+```
+
+Use APC for agentic turns that can keep an exact byte-stable prefix. Use the
+TurboQuant mode as a separate capacity experiment because MLX VLM does not use
+APC when KV quantisation is enabled.
+
+Measured `mlx-community/Qwen3.6-27B-4bit` APC behaviour on the M3 Ultra 96GB:
+
+| Prompt tokens | Concurrent agents | Latency | APC result | Peak memory | Notes |
+| ---: | ---: | ---: | --- | ---: | --- |
+| 21 | 1 cold | 1.0s | none | 16.6 GB | Functional smoke, `enable_thinking=false` |
+| 63342 | 1 cold | 198.9s | none | 30.1 GB | First 64k prefill |
+| 63342 | 1 cached | 2.3s | exact hit, 63326 tokens | 34.0 GB | Byte-stable repeat |
+| 126622 | 1 cold | 516.2s | no partial 64k reuse | 49.8 GB | First 128k prefill |
+| 126622 | 1 cached | 2.0s | exact hit, 126606 tokens | 51.2 GB | Byte-stable repeat |
+| 126622 | 2 cached | 3.9s | exact hits | 60.8 GB | Good full-window pair |
+| 126622 | 3 cached | 10.3s | disk exact hits | 68.1 GB | Practical full-window cap |
+| 126622 | 4 cached | failed | Metal OOM | n/a | `kIOGPUCommandBufferCallbackErrorOutOfMemory` |
+
+Current scheduler default: allow one Qwen3.6-27B main agent at 128k, allow up to
+three only for cached full-window fan-out, and run additional helpers on Gemma
+E2B/E4B unless a smaller Qwen helper is validated.
+
+Qwen3.6 MTP is present in the model config (`mtp_num_hidden_layers=1`) and in
+vLLM's Qwen3.5/Qwen3.6 MTP model paths. Treat it as a vLLM/SGLang validation
+track for now. The tested Metal path for real work is MLX VLM with APC; the
+Gemma assistant-drafter MTP path is not reusable for Qwen.
+
+Tool execution should stay in the harness layer, such as CoreAgent or OpenCode.
+MLX VLM gives the local OpenAI-compatible chat endpoints and APC behaviour; the
+harness owns file reads, edits, shell commands, permissioning, and summarising
+helper results back into the main lane. This keeps the main context smaller and
+keeps the model servers free of large tool-schema prompts when a thinner
+CoreAgent tool proxy can do the routing.
+
+No-MTP APC measurements with both lanes resident on the M3 Ultra 96GB:
+
+| Lane | Prompt tokens | Cold latency | Cached latency | APC match | Peak memory |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Main 26B-A4B 4-bit | 63430 | 41.5s | 1.0s | 63414 | 22.8 GB |
+| Helper E4B MXFP8 | 63426 | 23.1s | 1.1s | 63410 | 14.7 GB |
 
 ## Gemma 4 MTP on ROCm
 
