@@ -451,6 +451,19 @@ func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {
 	return core.Result{OK: true}
 }
 
+// emitCommandJSON prints v as JSON when --json is set, returning true if it
+// did (the caller then returns without its human-formatted output). The
+// agentic verbs serve two callers: a human at the terminal (default, formatted)
+// and the desktop CLI adapter (--json, machine-parseable) — the same split
+// pkg/calibrate relies on for lthn-mlx.
+func emitCommandJSON(options core.Options, v any) bool {
+	if !optionBoolValue(options, "json") {
+		return false
+	}
+	core.Print(nil, "%s", core.JSONMarshalString(v))
+	return true
+}
+
 func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	repo := options.String("_arg")
 	if repo == "" {
@@ -469,6 +482,10 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
+	}
+
+	if emitCommandJSON(options, prepOutput) {
+		return core.Result{Value: prepOutput, OK: true}
 	}
 
 	core.Print(nil, "workspace: %s", prepOutput.WorkspaceDir)
@@ -506,6 +523,10 @@ func (s *PrepSubsystem) cmdResume(options core.Options) core.Result {
 		return result
 	}
 	output, _ := result.Value.(ResumeOutput)
+
+	if emitCommandJSON(options, output) {
+		return core.Result{Value: output, OK: true}
+	}
 
 	core.Print(nil, "workspace:  %s", output.Workspace)
 	core.Print(nil, "agent:      %s", output.Agent)
@@ -645,6 +666,10 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 		err := core.E("agentic.cmdScan", "invalid scan output", nil)
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
+	}
+
+	if emitCommandJSON(options, output) {
+		return core.Result{Value: output, OK: true}
 	}
 
 	core.Print(nil, "count: %d", output.Count)
