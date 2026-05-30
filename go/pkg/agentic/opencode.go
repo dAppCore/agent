@@ -2,7 +2,109 @@
 
 package agentic
 
-import core "dappco.re/go"
+import (
+	"context"
+
+	core "dappco.re/go"
+	"dappco.re/go/agent/pkg/opencode"
+)
+
+// opencodeServiceName is the Core registration name pkg/opencode binds
+// under (see opencode.Service docs). The provider resolves the local
+// opencode Service through this name at generate time — core/agent OWNS
+// opencode, so generation is a direct in-process call, no HTTP hop.
+const opencodeServiceName = "opencode"
+
+// opencodeProviderName is the ProviderManager key for the opencode
+// backend.
+const opencodeProviderName = "opencode"
+
+// opencodeDefaultModel is the DefaultModel the opencode provider reports
+// when the caller does not pin one. Empty profile + empty model let
+// opencode-serve fall back to the profile's configured default.
+const opencodeDefaultModel = "gemma4-agentic"
+
+// newOpencodeGenerate returns a ProviderGenerateFunc that drives
+// generation through the local opencode Service. The Service is resolved
+// from Core lazily on each call so the provider can be registered before
+// the opencode Service finishes wiring (and degrades to a clear error
+// when opencode isn't registered in this binary).
+//
+//	generate := newOpencodeGenerate(s.Core())
+//	text, err := generate(ctx, "Draft a release note", map[string]any{"profile": "lemma"})
+func newOpencodeGenerate(c *core.Core) ProviderGenerateFunc {
+	return func(ctx context.Context, prompt string, options map[string]any) (string, error) {
+		if c == nil {
+			return "", core.E("opencode.generate", "core unavailable", nil)
+		}
+		svc, ok := core.ServiceFor[*opencode.Service](c, opencodeServiceName)
+		if !ok || svc == nil {
+			return "", core.E("opencode.generate", "opencode service not registered", nil)
+		}
+
+		input := opencode.GenerateInput{
+			Prompt:    prompt,
+			Profile:   optionMapString(options, "profile"),
+			Model:     opencodeMessageModel(options),
+			Agent:     optionMapString(options, "agent"),
+			SandboxID: optionMapString(options, "sandbox_id", "sandbox-id"),
+		}
+
+		r := svc.Generate(input)
+		if !r.OK {
+			return "", core.E("opencode.generate", r.Error(), nil)
+		}
+		text, _ := r.Value.(string)
+		return text, nil
+	}
+}
+
+// opencodeMessageModel resolves the message model id sent to
+// opencode-serve. The ProviderManager wrapper injects "model" =
+// opencodeDefaultModel ("gemma4-agentic") as a sentinel when the caller
+// pins nothing; that sentinel names a PROFILE, not an upstream model id,
+// so it is dropped here (the profile already determines the model). A
+// caller-supplied provider/model form (e.g. "core-local/lthn/lemma") is
+// passed through unchanged.
+func opencodeMessageModel(options map[string]any) string {
+	model := optionMapString(options, "model")
+	if model == "" || model == opencodeDefaultModel {
+		return ""
+	}
+	return model
+}
+
+// optionMapString reads the first non-empty string value for any of the
+// given keys out of an options map.
+//
+//	profile := optionMapString(options, "profile")
+func optionMapString(options map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := options[key]; ok {
+			if str, ok := value.(string); ok && core.Trim(str) != "" {
+				return str
+			}
+		}
+	}
+	return ""
+}
+
+// newOpencodeProviderManager builds the real ProviderManager backed by
+// the local opencode Service. The opencode provider is registered
+// alongside the named claude/gemini/openai providers; all four route
+// through the same opencode backend (opencode-serve fronts whichever
+// upstream the selected profile configures), so generation is real for
+// every registered name rather than the nil-generate fallback.
+//
+//	manager := newOpencodeProviderManager(s.Core())
+//	provider, _ := manager.Provider("opencode")
+//	text, _ := provider.Generate(ctx, "Draft a release note", nil)
+func newOpencodeProviderManager(c *core.Core) *ProviderManager {
+	generate := newOpencodeGenerate(c)
+	manager := NewProviderManager(generate)
+	manager.Register(newContentProvider(opencodeProviderName, opencodeDefaultModel, true, generate))
+	return manager
+}
 
 type opencodeProfile struct {
 	Provider   string
