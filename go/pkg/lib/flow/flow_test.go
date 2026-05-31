@@ -185,6 +185,98 @@ func TestFlow_LoadEmbedded_Ugly(t *testing.T) {
 	}
 }
 
+func TestFlow_ParseInputs_Good(t *testing.T) {
+	definition, err := Parse(core.NewBufferString(
+		"name: release\n" +
+			"inputs:\n" +
+			"  - name: version\n" +
+			"    type: string\n" +
+			"    required: true\n" +
+			"    description: semantic version to tag\n" +
+			"  - name: dry-run\n" +
+			"    type: bool\n" +
+			"steps:\n" +
+			"  - cmd: tag\n",
+	))
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if len(definition.Inputs) != 2 {
+		t.Fatalf("Parse returned %d inputs, want 2", len(definition.Inputs))
+	}
+	if definition.Inputs[0].Name != "version" {
+		t.Fatalf("Parse returned first input name %q, want %q", definition.Inputs[0].Name, "version")
+	}
+	if !definition.Inputs[0].Required {
+		t.Fatal("Parse did not set Required on first input")
+	}
+	if definition.Inputs[1].Type != "bool" {
+		t.Fatalf("Parse returned second input type %q, want %q", definition.Inputs[1].Type, "bool")
+	}
+}
+
+func TestFlow_ValidateInputs_Good(t *testing.T) {
+	definition := Flow{Inputs: []Input{
+		{Name: "version", Type: "string", Required: true},
+		{Name: "retries", Type: "int"},
+		{Name: "dry-run", Type: "bool"},
+	}}
+
+	err := definition.ValidateInputs(map[string]string{
+		"version": "1.2.0",
+		"retries": "3",
+		"dry-run": "false",
+	})
+	if err != nil {
+		t.Fatalf("ValidateInputs returned error: %v", err)
+	}
+}
+
+func TestFlow_ValidateInputs_Bad(t *testing.T) {
+	definition := Flow{Inputs: []Input{
+		{Name: "version", Type: "string", Required: true},
+	}}
+
+	err := definition.ValidateInputs(map[string]string{})
+	if err == nil {
+		t.Fatal("ValidateInputs unexpectedly succeeded with missing required input")
+	}
+	if !core.Contains(err.Error(), "required input \"version\" is missing") {
+		t.Fatalf("ValidateInputs returned error %q, want missing required", err.Error())
+	}
+}
+
+func TestFlow_ValidateInputs_Ugly(t *testing.T) {
+	definition := Flow{Inputs: []Input{
+		{Name: "retries", Type: "int"},
+	}}
+
+	err := definition.ValidateInputs(map[string]string{"retries": "soon"})
+	if err == nil {
+		t.Fatal("ValidateInputs unexpectedly succeeded for wrong type")
+	}
+	if !core.Contains(err.Error(), "expects int") {
+		t.Fatalf("ValidateInputs returned error %q, want wrong-type", err.Error())
+	}
+}
+
+func TestFlow_ParseInputs_Ugly(t *testing.T) {
+	_, err := Parse(core.NewBufferString(
+		"inputs:\n" +
+			"  - name: weird\n" +
+			"    type: float\n" +
+			"steps:\n" +
+			"  - cmd: tag\n",
+	))
+	if err == nil {
+		t.Fatal("Parse unexpectedly succeeded for unknown input type")
+	}
+	if !core.Contains(err.Error(), "unknown type") {
+		t.Fatalf("Parse returned error %q, want unknown type", err.Error())
+	}
+}
+
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if result := testFS.Write(path, content); !result.OK {
