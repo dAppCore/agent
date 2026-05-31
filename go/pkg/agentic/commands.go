@@ -341,9 +341,10 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	task := options.String("task")
 	issueValue := options.String("issue")
 	org := options.String("org")
+	branch := options.String("branch")
 
 	if repo == "" || task == "" {
-		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core] [--no-pr]", commandLabel)
+		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex (--issue=N | --branch=<name>) [--org=core] [--no-pr]", commandLabel)
 		return core.Result{Value: core.E(errorName, "repo and task are required", nil), OK: false}
 	}
 	if agent == "" {
@@ -354,6 +355,12 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	}
 
 	issue := parseIntString(issueValue)
+	// prep names the workspace from one of issue/pr/branch/tag — the sync path
+	// exposes issue + branch, so require one for an ad-hoc (no-Mantis) dispatch.
+	if issue <= 0 && branch == "" {
+		core.Print(nil, "%s: name the workspace with --issue=N or --branch=<name>", commandLabel)
+		return core.Result{Value: core.E(errorName, "one of --issue or --branch is required", nil), OK: false}
+	}
 	localOnly := s.applyDispatchLocalMode(options)
 
 	core.Print(nil, "core-agent %s", commandLabel)
@@ -362,6 +369,9 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	if issue > 0 {
 		core.Print(nil, "  issue: #%d", issue)
 	}
+	if branch != "" {
+		core.Print(nil, "  branch: %s", branch)
+	}
 	core.Print(nil, "  task:  %s", task)
 	if localOnly {
 		core.Print(nil, "  mode:  local-only (auto-pr/merge/ingest disabled — review + push the branch yourself)")
@@ -369,7 +379,7 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	core.Print(nil, "")
 
 	result := s.DispatchSync(ctx, DispatchSyncInput{
-		Org: org, Repo: repo, Agent: agent, Task: task, Issue: issue,
+		Org: org, Repo: repo, Agent: agent, Task: task, Issue: issue, Branch: branch,
 	})
 
 	if !result.OK {

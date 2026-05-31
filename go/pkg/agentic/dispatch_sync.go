@@ -12,11 +12,12 @@ import (
 
 // input := agentic.DispatchSyncInput{Repo: "go-crypt", Agent: "codex:gpt-5.3-codex-spark", Task: "fix it", Issue: 7}
 type DispatchSyncInput struct {
-	Org   string
-	Repo  string
-	Agent string
-	Task  string
-	Issue int
+	Org    string
+	Repo   string
+	Agent  string
+	Task   string
+	Issue  int
+	Branch string
 }
 
 // if result.OK { core.Print(nil, "done: %s", result.Status) }
@@ -31,11 +32,12 @@ type DispatchSyncResult struct {
 // result := prep.DispatchSync(ctx, input)
 func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInput) DispatchSyncResult {
 	prepInput := PrepInput{
-		Org:   input.Org,
-		Repo:  input.Repo,
-		Task:  input.Task,
-		Agent: input.Agent,
-		Issue: input.Issue,
+		Org:    input.Org,
+		Repo:   input.Repo,
+		Task:   input.Task,
+		Agent:  input.Agent,
+		Issue:  input.Issue,
+		Branch: input.Branch,
 	}
 
 	prepContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -131,10 +133,11 @@ func (s *PrepSubsystem) handleDispatchSync(ctx context.Context, options core.Opt
 
 func dispatchSyncInputFromOptions(options core.Options) DispatchSyncInput {
 	return DispatchSyncInput{
-		Org:   optionStringValue(options, "org"),
-		Repo:  optionStringValue(options, "repo", "_arg"),
-		Agent: optionStringValue(options, "agent"),
-		Task:  optionStringValue(options, "task"),
-		Issue: optionIntValue(options, "issue"),
+		Org:    optionStringValue(options, "org"),
+		Repo:   optionStringValue(options, "repo", "_arg"),
+		Agent:  optionStringValue(options, "agent"),
+		Task:   optionStringValue(options, "task"),
+		Issue:  optionIntValue(options, "issue"),
+		Branch: optionStringValue(options, "branch"),
 	}
 }
