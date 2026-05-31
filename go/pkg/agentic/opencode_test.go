@@ -117,3 +117,33 @@ func TestOpenCode_Command_Ugly_ShellQuoting(t *testing.T) {
 
 	core.AssertContains(t, script, "'can'\\''t break'")
 }
+
+func TestOpenCode_Command_Good_HostModelTakesHostDefaults(t *testing.T) {
+	script := opencodeAgentCommandScript("opencode/deepseek-v4-flash-free", "fix tests")
+
+	// Host-config model: no core-local provider block — opencode uses the
+	// operator's own auth/config and the model id passes through verbatim.
+	if core.Contains(script, "OPENCODE_CONFIG_CONTENT=") {
+		t.Errorf("host model must not inject a core-local provider config; got: %s", script)
+	}
+	core.AssertContains(t, script, "opencode run")
+	core.AssertContains(t, script, "--dangerously-skip-permissions")
+	core.AssertContains(t, script, "--model 'opencode/deepseek-v4-flash-free'")
+	core.AssertContains(t, script, "'fix tests'")
+}
+
+func TestOpenCode_Command_Good_HostModelGoTier(t *testing.T) {
+	script := opencodeAgentCommandScript("opencode-go/deepseek-v4-pro", "review")
+
+	if core.Contains(script, "OPENCODE_CONFIG_CONTENT=") {
+		t.Errorf("Go-tier host model must not inject config; got: %s", script)
+	}
+	core.AssertContains(t, script, "--model 'opencode-go/deepseek-v4-pro'")
+}
+
+func TestOpenCode_IsHostModel(t *testing.T) {
+	core.AssertEqual(t, true, opencodeIsHostModel("opencode/deepseek-v4-flash-free"))
+	core.AssertEqual(t, true, opencodeIsHostModel("omlx/Qwen3.6-27B-mxfp8"))
+	core.AssertEqual(t, false, opencodeIsHostModel("gemma4-agentic"))
+	core.AssertEqual(t, false, opencodeIsHostModel(""))
+}

@@ -226,10 +226,27 @@ func opencodeProfileConfig(profile string) opencodeProfile {
 }
 
 func opencodeAgentCommandScript(profile, prompt string) string {
+	builder := core.NewBuilder()
+
+	// Host-defaults: a provider-prefixed profile (e.g.
+	// "opencode/deepseek-v4-flash-free", "opencode-go/deepseek-v4-pro",
+	// "omlx/Qwen3.6-27B-mxfp8") names a model served by the operator's own
+	// opencode config + auth. Don't inject a core-local provider block — let
+	// opencode read its mounted ~/.config/opencode + auth and pass the model id
+	// through verbatim. This is the "take from host defaults" path: the free
+	// OpenCode Zen / authed Go / HF / local-MLX models all flow through here.
+	if opencodeIsHostModel(profile) {
+		builder.WriteString("opencode run --dangerously-skip-permissions --model ")
+		builder.WriteString(shellQuote(profile))
+		builder.WriteString(" ")
+		builder.WriteString(shellQuote(prompt))
+		return builder.String()
+	}
+
+	// Core-local profile (gemma4-agentic, lemma, …): inject the narrowed
+	// provider block pointing at the local inference endpoint.
 	config := opencodeProfileConfig(profile)
 	model := core.Concat(config.Provider, "/", config.Model)
-
-	builder := core.NewBuilder()
 	builder.WriteString("OPENCODE_CONFIG_CONTENT=")
 	builder.WriteString(shellQuote(opencodeConfigContent(config)))
 	builder.WriteString(" opencode run --dangerously-skip-permissions --model ")
@@ -241,6 +258,18 @@ func opencodeAgentCommandScript(profile, prompt string) string {
 	builder.WriteString(" ")
 	builder.WriteString(shellQuote(prompt))
 	return builder.String()
+}
+
+// opencodeIsHostModel reports whether a profile is an operator-config model id
+// (provider-prefixed, e.g. "opencode/deepseek-v4-flash-free") rather than a
+// bare core-local profile name (e.g. "gemma4-agentic"). Host models route
+// through the operator's own opencode auth/config; core-local profiles get a
+// generated provider block.
+//
+//	opencodeIsHostModel("opencode/deepseek-v4-flash-free")  // true
+//	opencodeIsHostModel("gemma4-agentic")                   // false
+func opencodeIsHostModel(profile string) bool {
+	return core.Contains(profile, "/")
 }
 
 func opencodeConfigContent(config opencodeProfile) string {

@@ -162,7 +162,9 @@ func agentCommandResult(agent, prompt string) core.Result {
 	case "opencode":
 		opencodeProfile := model
 		if opencodeProfile == "" {
-			opencodeProfile = "gemma4-agentic"
+			// Default to a host-config free model (OpenCode Zen) — opencode uses
+			// the operator's own auth, so no local inference server is required.
+			opencodeProfile = "opencode/deepseek-v4-flash-free"
 		}
 		script := opencodeAgentCommandScript(opencodeProfile, prompt)
 		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
