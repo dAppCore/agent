@@ -10,6 +10,7 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
+	"dappco.re/go/agent/pkg/lib/flow"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1215,6 +1216,7 @@ type FlowRunOutput struct {
 type flowDefinition struct {
 	Name        string               `yaml:"name"`
 	Description string               `yaml:"description"`
+	Inputs      []flow.Input         `yaml:"inputs"`
 	Steps       []flowDefinitionStep `yaml:"steps"`
 }
 
@@ -1224,6 +1226,7 @@ type flowDefinitionStep struct {
 	Args            []string             `yaml:"args"`
 	Run             string               `yaml:"run"`
 	Flow            string               `yaml:"flow"`
+	With            map[string]string    `yaml:"with"`
 	Agent           string               `yaml:"agent"`
 	Prompt          string               `yaml:"prompt"`
 	Template        string               `yaml:"template"`

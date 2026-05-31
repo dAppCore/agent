@@ -196,6 +196,233 @@ func TestCommandsFlow_CmdFlowPreview_Good_ResolvesNestedFlowReferences(t *testin
 	core.AssertContains(t, output, "child-run: run echo child")
 }
 
+func TestCommandsFlow_CmdRunFlow_Good_ExecutesNestedFlowInline(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(flowRoot, "verify")).OK)
+
+	rootPath := core.JoinPath(flowRoot, "root.yaml")
+	core.RequireTrue(t, fs.Write(rootPath, core.Concat(
+		"name: Root Flow\n",
+		"description: Compose a nested flow\n",
+		"steps:\n",
+		"  - name: first\n",
+		"    cmd: flow/first\n",
+		"  - name: nested\n",
+		"    flow: verify/child.yaml\n",
+		"  - name: last\n",
+		"    cmd: flow/last\n",
+	)).OK)
+
+	childPath := core.JoinPath(flowRoot, "verify", "child.yaml")
+	core.RequireTrue(t, fs.Write(childPath, core.Concat(
+		"name: Child Flow\n",
+		"description: Nested body\n",
+		"steps:\n",
+		"  - name: child-build\n",
+		"    cmd: flow/child-build\n",
+		"  - name: child-test\n",
+		"    cmd: flow/child-test\n",
+	)).OK)
+
+	s, c := newFlowCommandPrep()
+	invoked := []string{}
+	for _, name := range []string{"flow/first", "flow/last", "flow/child-build", "flow/child-test"} {
+		label := name
+		core.RequireTrue(t, c.Command(label, core.Command{Action: func(_ core.Options) core.Result {
+			invoked = append(invoked, label)
+			return core.Result{OK: true}
+		}}).OK)
+	}
+
+	output := captureStdout(t, func() {
+		r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+		core.RequireTrue(t, r.OK)
+
+		flowOutput, ok := r.Value.(FlowRunOutput)
+		core.RequireTrue(t, ok)
+		core.AssertTrue(t, flowOutput.Success)
+		core.AssertEqual(t, 4, flowOutput.Executed)
+		core.AssertEqual(t, 4, flowOutput.Passed)
+		core.AssertEqual(t, 0, flowOutput.Failed)
+	})
+
+	core.AssertEqual(t, []string{"flow/first", "flow/child-build", "flow/child-test", "flow/last"}, invoked)
+	core.AssertContains(t, output, "resolved:")
+	core.AssertContains(t, output, "totals: ran=4 passed=4 failed=0")
+}
+
+func TestCommandsFlow_CmdRunFlow_Good_ValidatesNestedFlowInputs(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(flowRoot, "verify")).OK)
+
+	rootPath := core.JoinPath(flowRoot, "root.yaml")
+	core.RequireTrue(t, fs.Write(rootPath, core.Concat(
+		"name: Root Flow\n",
+		"steps:\n",
+		"  - name: nested\n",
+		"    flow: verify/child.yaml\n",
+		"    with:\n",
+		"      version: \"1.2.0\"\n",
+	)).OK)
+
+	childPath := core.JoinPath(flowRoot, "verify", "child.yaml")
+	core.RequireTrue(t, fs.Write(childPath, core.Concat(
+		"name: Child Flow\n",
+		"inputs:\n",
+		"  - name: version\n",
+		"    type: string\n",
+		"    required: true\n",
+		"steps:\n",
+		"  - name: child-build\n",
+		"    cmd: flow/child-build\n",
+	)).OK)
+
+	s, c := newFlowCommandPrep()
+	core.RequireTrue(t, c.Command("flow/child-build", core.Command{Action: func(_ core.Options) core.Result {
+		return core.Result{OK: true}
+	}}).OK)
+
+	captureStdout(t, func() {
+		r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+		core.RequireTrue(t, r.OK)
+
+		flowOutput, ok := r.Value.(FlowRunOutput)
+		core.RequireTrue(t, ok)
+		core.AssertTrue(t, flowOutput.Success)
+		core.AssertEqual(t, 1, flowOutput.Executed)
+		core.AssertEqual(t, 1, flowOutput.Passed)
+	})
+}
+
+func TestCommandsFlow_CmdRunFlow_Bad_RejectsMissingNestedFlowInput(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(flowRoot, "verify")).OK)
+
+	rootPath := core.JoinPath(flowRoot, "root.yaml")
+	core.RequireTrue(t, fs.Write(rootPath, core.Concat(
+		"name: Root Flow\n",
+		"steps:\n",
+		"  - name: nested\n",
+		"    flow: verify/child.yaml\n",
+	)).OK)
+
+	childPath := core.JoinPath(flowRoot, "verify", "child.yaml")
+	core.RequireTrue(t, fs.Write(childPath, core.Concat(
+		"name: Child Flow\n",
+		"inputs:\n",
+		"  - name: version\n",
+		"    type: string\n",
+		"    required: true\n",
+		"steps:\n",
+		"  - name: child-build\n",
+		"    cmd: flow/child-build\n",
+	)).OK)
+
+	s, c := newFlowCommandPrep()
+	invoked := false
+	core.RequireTrue(t, c.Command("flow/child-build", core.Command{Action: func(_ core.Options) core.Result {
+		invoked = true
+		return core.Result{OK: true}
+	}}).OK)
+
+	r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+	core.AssertFalse(t, r.OK)
+
+	err, ok := r.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "nested flow input invalid")
+	core.AssertContains(t, err.Error(), "version")
+	core.AssertFalse(t, invoked)
+}
+
+func TestCommandsFlow_CmdRunFlow_Bad_RejectsSelfCycle(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(flowRoot).OK)
+
+	rootPath := core.JoinPath(flowRoot, "loop.yaml")
+	core.RequireTrue(t, fs.Write(rootPath, core.Concat(
+		"name: Loop Flow\n",
+		"steps:\n",
+		"  - name: recurse\n",
+		"    flow: loop.yaml\n",
+	)).OK)
+
+	s, _ := newFlowCommandPrep()
+	r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+	core.AssertFalse(t, r.OK)
+
+	err, ok := r.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "forms a flow cycle")
+}
+
+func TestCommandsFlow_CmdRunFlow_Bad_RejectsTransitiveCycle(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(flowRoot).OK)
+
+	aPath := core.JoinPath(flowRoot, "a.yaml")
+	core.RequireTrue(t, fs.Write(aPath, core.Concat(
+		"name: Flow A\n",
+		"steps:\n",
+		"  - name: to-b\n",
+		"    flow: b.yaml\n",
+	)).OK)
+
+	bPath := core.JoinPath(flowRoot, "b.yaml")
+	core.RequireTrue(t, fs.Write(bPath, core.Concat(
+		"name: Flow B\n",
+		"steps:\n",
+		"  - name: back-to-a\n",
+		"    flow: a.yaml\n",
+	)).OK)
+
+	s, _ := newFlowCommandPrep()
+	r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: aPath}))
+	core.AssertFalse(t, r.OK)
+
+	err, ok := r.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "forms a flow cycle")
+}
+
+func TestCommandsFlow_CmdRunFlow_Bad_RejectsDepthExceeded(t *testing.T) {
+	dir := t.TempDir()
+	flowRoot := core.JoinPath(dir, "pkg", "lib", "flow")
+	core.RequireTrue(t, fs.EnsureDir(flowRoot).OK)
+
+	// Build a non-cyclic chain longer than maxFlowNestingDepth so the depth
+	// guard fires before the cycle guard would.
+	chain := maxFlowNestingDepth + 2
+	for level := 0; level < chain; level++ {
+		body := core.Concat("name: Flow ", core.Itoa(level), "\nsteps:\n")
+		if level < chain-1 {
+			body = core.Concat(body, "  - name: deeper\n    flow: level-", core.Itoa(level+1), ".yaml\n")
+		} else {
+			body = core.Concat(body, "  - name: leaf\n    cmd: flow/leaf\n")
+		}
+		levelPath := core.JoinPath(flowRoot, core.Concat("level-", core.Itoa(level), ".yaml"))
+		core.RequireTrue(t, fs.Write(levelPath, body).OK)
+	}
+
+	s, c := newFlowCommandPrep()
+	core.RequireTrue(t, c.Command("flow/leaf", core.Command{Action: func(_ core.Options) core.Result {
+		return core.Result{OK: true}
+	}}).OK)
+
+	rootPath := core.JoinPath(flowRoot, "level-0.yaml")
+	r := s.cmdRunFlow(core.NewOptions(core.Option{Key: "_arg", Value: rootPath}))
+	core.AssertFalse(t, r.OK)
+
+	err, ok := r.Value.(error)
+	core.RequireTrue(t, ok)
+	core.AssertContains(t, err.Error(), "nested flow depth exceeds limit")
+}
+
 func TestCommandsFlow_CmdRunFlow_Bad_MissingPath(t *testing.T) {
 	s := newTestPrep(t)
 
