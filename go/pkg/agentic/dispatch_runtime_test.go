@@ -132,59 +132,6 @@ func TestDispatchRuntime_ContainerCommandFor_Ugly_Case(t *testing.T) {
 	core.AssertContains(t, core.Join(" ", appleGPUArgs...), "--gpu=metal")
 }
 
-// --- containerCommandFor: opencode credential scratch mount ---
-
-func opencodeTestSeedCredential(t *testing.T, home string) {
-	t.Helper()
-	dataDir := core.JoinPath(home, ".local", "share", "opencode")
-	core.RequireTrue(t, fs.EnsureDir(dataDir).OK)
-	core.RequireTrue(t, fs.Write(core.JoinPath(dataDir, "auth.json"), "{}").OK)
-}
-
-func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Good_Mounted(t *testing.T) {
-	t.Setenv("AGENT_DOCKER_IMAGE", "")
-	home := t.TempDir()
-	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
-	// Host has an opencode credential → it mounts RO at the scratch path for an
-	// opencode dispatch; the script copies it into a writable data dir.
-	opencodeTestSeedCredential(t, home)
-
-	script := opencodeAgentCommandScript("opencode-go/deepseek-v4-pro", "review")
-	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "sh", []string{"-c", script}, "/ws", "/ws/.meta")
-	joined := core.Join(" ", args...)
-
-	core.AssertContains(t, joined, ":/run/oc-auth.json:ro")
-	// The host's live data dir is NEVER bind-mounted — it holds a RW session DB.
-	core.AssertNotContains(t, joined, "/home/agent/.local/share/opencode:")
-}
-
-func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Bad_NoHostCredNoMount(t *testing.T) {
-	t.Setenv("AGENT_DOCKER_IMAGE", "")
-	home := t.TempDir() // no opencode credential on the host
-	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
-
-	// An opencode dispatch on a host with no credential mounts nothing — the
-	// free OpenCode Zen tier needs no auth. The script prelude still references
-	// the scratch path harmlessly, so assert the absence of the MOUNT, not the
-	// path text.
-	script := opencodeAgentCommandScript("opencode/deepseek-v4-flash-free", "fix")
-	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "sh", []string{"-c", script}, "/ws", "/ws/.meta")
-	core.AssertNotContains(t, core.Join(" ", args...), ":/run/oc-auth.json:ro")
-}
-
-func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Ugly_NonOpencodeNotMounted(t *testing.T) {
-	t.Setenv("AGENT_DOCKER_IMAGE", "")
-	home := t.TempDir()
-	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
-	opencodeTestSeedCredential(t, home)
-
-	// A codex dispatch does not reference the opencode scratch path, so the
-	// credential is NOT exposed to it even though the host has one — the mount
-	// is scoped to opencode dispatches, not all containers.
-	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "codex", []string{"exec"}, "/ws", "/ws/.meta")
-	core.AssertNotContains(t, core.Join(" ", args...), "oc-auth.json")
-}
-
 // --- dispatchRuntime / dispatchImage / dispatchGPU ---
 
 func TestDispatchRuntime_DispatchRuntime_Good_Case(t *testing.T) {

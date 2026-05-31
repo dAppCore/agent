@@ -130,9 +130,9 @@ func TestOpenCode_Command_Good_HostModelTakesHostDefaults(t *testing.T) {
 	core.AssertContains(t, script, "--dangerously-skip-permissions")
 	core.AssertContains(t, script, "--model 'opencode/deepseek-v4-flash-free'")
 	core.AssertContains(t, script, "'fix tests'")
-	// The auth prelude is present so a mounted Go-tier credential lands in a
-	// writable data dir; it is a no-op for the free tier (file test).
-	core.AssertContains(t, script, "/run/oc-auth.json")
+	// opencode runs host-native, so no credential prelude/scratch path is
+	// emitted — opencode reads the operator's own auth.json in place.
+	core.AssertNotContains(t, script, "/run/oc-auth.json")
 }
 
 func TestOpenCode_Command_Good_HostModelGoTier(t *testing.T) {

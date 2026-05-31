@@ -497,23 +497,6 @@ func containerCommandFor(containerRuntime, image string, gpu bool, command strin
 		)
 	}
 
-	// opencode dispatch: hand the container the operator's opencode credential
-	// (the authed Go-tier key) as a read-only scratch file; the opencode script
-	// copies it into a fresh, agent-owned data dir (opencodeAuthPrelude). We
-	// deliberately do NOT mount the host's live ~/.local/share/opencode — it
-	// holds a multi-MB session DB that opencode opens read-write, which a RO
-	// mount would break and a RW mount could corrupt. Scoped to opencode
-	// dispatches (the script references the scratch path) and gated on the host
-	// actually having a credential; the free OpenCode Zen tier needs none.
-	if commandReferencesOpencodeAuth(args) {
-		hostAuth := core.JoinPath(home, ".local", "share", "opencode", "auth.json")
-		if fs.Exists(hostAuth) {
-			containerArgs = append(containerArgs,
-				"-v", core.Concat(hostAuth, ":", opencodeAuthScratchPath, ":ro"),
-			)
-		}
-	}
-
 	quoted := core.NewBuilder()
 	quoted.WriteString("if [ ! -d /workspace/repo ]; then echo 'missing /workspace/repo' >&2; exit 1; fi")
 	if command != "" {
