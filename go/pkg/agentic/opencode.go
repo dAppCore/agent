@@ -236,6 +236,7 @@ func opencodeAgentCommandScript(profile, prompt string) string {
 	// through verbatim. This is the "take from host defaults" path: the free
 	// OpenCode Zen / authed Go / HF / local-MLX models all flow through here.
 	if opencodeIsHostModel(profile) {
+		builder.WriteString(opencodeAuthPrelude)
 		builder.WriteString("opencode run --dangerously-skip-permissions --model ")
 		builder.WriteString(shellQuote(profile))
 		builder.WriteString(" ")
@@ -270,6 +271,37 @@ func opencodeAgentCommandScript(profile, prompt string) string {
 //	opencodeIsHostModel("gemma4-agentic")                   // false
 func opencodeIsHostModel(profile string) bool {
 	return core.Contains(profile, "/")
+}
+
+// opencodeAuthScratchPath is where a dispatch container receives the operator's
+// opencode credential (auth.json) as a read-only bind mount. opencode reads its
+// credential from $HOME/.local/share/opencode/auth.json but also opens a session
+// DB read-write in that same dir — and the agent user can't write next to a
+// docker-created (root-owned) bind mount. So the credential lands at this
+// scratch path and the script copies it into a fresh, agent-owned data dir.
+const opencodeAuthScratchPath = "/run/oc-auth.json"
+
+// opencodeAuthPrelude copies the mounted credential (when present) into the
+// container's own opencode data dir before `opencode run`. The file test makes
+// it a no-op for the free OpenCode Zen tier (no auth needed) and on hosts with
+// no opencode credential. Double-quoted paths only — no single quotes — so it
+// survives the outer single-quote wrapping in containerCommandFor.
+const opencodeAuthPrelude = "if [ -f " + opencodeAuthScratchPath + ` ]; then mkdir -p "$HOME/.local/share/opencode" && cp ` + opencodeAuthScratchPath + ` "$HOME/.local/share/opencode/auth.json"; fi; `
+
+// commandReferencesOpencodeAuth reports whether a wrapped dispatch command is an
+// opencode run that wants the operator's credential — its script references the
+// auth scratch path (emitted by opencodeAuthPrelude). Scopes the credential
+// mount to opencode dispatches so it is never exposed to codex/claude/gemini
+// containers.
+//
+//	commandReferencesOpencodeAuth([]string{"-c", opencodeAgentCommandScript("opencode-go/glm-5", "go")}) // true
+func commandReferencesOpencodeAuth(args []string) bool {
+	for _, arg := range args {
+		if core.Contains(arg, opencodeAuthScratchPath) {
+			return true
+		}
+	}
+	return false
 }
 
 func opencodeConfigContent(config opencodeProfile) string {
