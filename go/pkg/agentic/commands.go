@@ -343,7 +343,7 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	org := options.String("org")
 
 	if repo == "" || task == "" {
-		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]", commandLabel)
+		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core] [--no-pr]", commandLabel)
 		return core.Result{Value: core.E(errorName, "repo and task are required", nil), OK: false}
 	}
 	if agent == "" {
@@ -354,6 +354,7 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	}
 
 	issue := parseIntString(issueValue)
+	localOnly := s.applyDispatchLocalMode(options)
 
 	core.Print(nil, "core-agent %s", commandLabel)
 	core.Print(nil, "  repo:  %s/%s", org, repo)
@@ -362,6 +363,9 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 		core.Print(nil, "  issue: #%d", issue)
 	}
 	core.Print(nil, "  task:  %s", task)
+	if localOnly {
+		core.Print(nil, "  mode:  local-only (auto-pr/merge/ingest disabled — review + push the branch yourself)")
+	}
 	core.Print(nil, "")
 
 	result := s.DispatchSync(ctx, DispatchSyncInput{
@@ -382,6 +386,26 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 		core.Print(nil, "  PR: %s", result.PRURL)
 	}
 	return core.Result{OK: true}
+}
+
+// applyDispatchLocalMode disables the outward completion actions (auto-pr,
+// auto-merge, auto-ingest) for a single CLI dispatch when --no-pr is set, so the
+// run produces only a local branch the operator reviews + pushes themselves.
+// The completion handlers self-gate on these config flags
+// (handleAutoPR/handleAutoMerge), so disabling them here reliably suppresses the
+// push/PR/merge chain that fires when the agent completes. Returns whether
+// local-only mode was applied. auto-qa stays on — it validates the work locally
+// without any outward action.
+//
+//	if s.applyDispatchLocalMode(options) { core.Print(nil, "local-only") }
+func (s *PrepSubsystem) applyDispatchLocalMode(options core.Options) bool {
+	if s == nil || s.ServiceRuntime == nil || !options.Bool("no-pr") {
+		return false
+	}
+	s.Config().Disable("auto-pr")
+	s.Config().Disable("auto-merge")
+	s.Config().Disable("auto-ingest")
+	return true
 }
 
 func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
