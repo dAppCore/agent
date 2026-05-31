@@ -586,10 +586,13 @@ func allocatePort() core.Result {
 		"port range exhausted after retry budget", nil))
 }
 
-// emitPortAudit is a no-op port-allocation outcome hook. opencode runs
+// emitPortAudit is the port-allocation outcome hook. opencode runs
 // inside a sandbox and does NOT audit itself — the desktop (a SASE)
-// audits at its access edge, not inside the sandbox. The call-sites in
-// allocatePort are retained so the retry / exhausted decision flow is
-// identical to the desktop original. Mirrors emitControlAudit in
-// control.go.
-func emitPortAudit(event string, outcome string, meta map[string]any) {}
+// audited at its access edge, not inside the sandbox. Per RFC.serve.md
+// §7.3.1 the core-agent hub is now that edge: this hook forwards the
+// retry / exhausted decision through the installed audit sink (scope
+// "opencode.port", no sandbox-scoped requestID). With no sink installed
+// the forward is a no-op. Mirrors emitControlAudit in control.go.
+func emitPortAudit(event string, outcome string, meta map[string]any) {
+	dispatchAudit(event, "opencode.port", outcome, "", meta)
+}

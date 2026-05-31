@@ -11,6 +11,7 @@ import (
 	"dappco.re/go/agent/pkg/agentic"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/monitor"
+	"dappco.re/go/agent/pkg/opencode"
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
@@ -61,6 +62,7 @@ func newCoreAgentResult() (*core.Core, core.Result) {
 		core.WithService(runner.Register),
 		core.WithService(monitor.Register),
 		core.WithService(brain.Register),
+		core.WithName("opencode", opencode.NewService(opencode.Options{})),
 		core.WithService(setup.Register),
 		core.WithService(registerLemmaSubsystem),
 		core.WithService(coremcp.Register),

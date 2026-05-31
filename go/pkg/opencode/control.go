@@ -74,6 +74,14 @@ const (
 	// Meta: updated (bool), digest, restarted (count) on OK; error_code
 	// on error.
 	EventOpencodeUpgrade = "opencode.upgrade"
+
+	// EventOpencodeSandboxProxy — the sandbox reverse-proxy emits per
+	// forwarded /v1/api/sandbox/:id/*proxyPath request. The hub bearer
+	// is container-exec-equivalent (RFC.serve.md §7.3.2), so every
+	// forward is an audited privilege use. Meta: sandbox_id, path_prefix
+	// (leading segment only — never the full path), error_code (on a
+	// rejected ".." / non-printable proxyPath, §7.3.3).
+	EventOpencodeSandboxProxy = "opencode.sandbox.proxy"
 )
 
 // Outcome literals for the verify-outcome hooks. opencode runs inside
@@ -764,16 +772,19 @@ func upgradeGateCode(errMsg string) string {
 // emitControlAudit is the shared verify-outcome hook for every
 // privilege-bearing handler on this control surface. opencode runs
 // inside a sandbox and does NOT audit itself — the desktop (a SASE)
-// audits at its access edge, not inside the sandbox. The body is a
-// no-op; the call-sites are retained at every handler so the
-// decision flow is identical to the desktop original and the desktop
-// can wrap the same hook at its edge when it consumes this package.
+// audited at its access edge, not inside the sandbox. Per RFC.serve.md
+// §7.3.1 the core-agent hub is now that edge: it installs an audit sink
+// via SetAuditSink and this hook forwards the already-redacted event to
+// it. With no sink installed (CLI / stdio / serve modes) the forward is
+// a no-op, so the decision flow is identical to the desktop original.
 //
 // Usage example:
 //
 //	emitControlAudit(EventOpencodeSandboxStop, "opencode.stop",
 //	    outcomeOK, srvReqID, map[string]any{"sandbox_id": id})
-func emitControlAudit(event, scope, outcome, requestID string, meta map[string]any) {}
+func emitControlAudit(event, scope, outcome, requestID string, meta map[string]any) {
+	dispatchAudit(event, scope, outcome, requestID, meta)
+}
 
 // newRequestID generates a UUIDv4 used as the server-authoritative
 // audit RequestID for every emit-site on the opencode control surface.

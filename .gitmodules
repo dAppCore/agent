@@ -30,3 +30,7 @@
 	path = external/rag
 	url = https://github.com/dappcore/go-rag.git
 	branch = dev
+[submodule "external/api"]
+	path = external/api
+	url = https://github.com/dappcore/api.git
+	branch = dev
