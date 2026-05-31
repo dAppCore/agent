@@ -108,6 +108,12 @@ func registerApplicationCommands(c *core.Core) core.Result {
 	}); !result.OK {
 		return result
 	}
+	if result := c.Command("opencode-models", core.Command{
+		Description: "List OpenCode dispatch models (free Zen + authed Go tiers) from the host's opencode",
+		Action:      commands.opencodeModels,
+	}); !result.OK {
+		return result
+	}
 	return core.Result{OK: true}
 }
 
