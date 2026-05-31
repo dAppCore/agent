@@ -137,6 +137,7 @@ func TestHub_laravelURLReject_Bad(t *testing.T) {
 		"ws://api.lthn.ai/ws",
 		"ws://10.0.0.5:9876/ws",
 		"ws://example.com:8080/ws",
+		"ws://127.evil.com:9876/ws", // SSRF: a substring "127." check wrongly admits this hostname
 	} {
 		if laravelURLReject(u) == "" {
 			t.Fatalf("non-loopback ws:// %q must be rejected", u)

@@ -14,6 +14,7 @@ package main
 
 import (
 	"context"
+	"net"
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/agentic"
@@ -258,12 +259,17 @@ func laravelHost(raw string) string {
 }
 
 // hostIsLoopback reports whether host[:port] binds the loopback
-// interface. The textual "localhost" and the IPv4/IPv6 loopback literals
-// count.
+// interface. The literal name "localhost" and any IP that parses into the
+// loopback range (127.0.0.0/8 or ::1) count; every other DNS name is
+// rejected — a substring "127." test would wrongly accept "127.evil.com"
+// and let a config value redirect the hub off-box (SSRF).
 //
-//	hostIsLoopback("localhost:9876")  // true
-//	hostIsLoopback("127.0.0.1:9876")  // true
-//	hostIsLoopback("api.lthn.ai")     // false
+//	hostIsLoopback("localhost:9876")    // true
+//	hostIsLoopback("127.0.0.1:9876")    // true
+//	hostIsLoopback("127.0.0.2:9876")    // true  (loopback range)
+//	hostIsLoopback("[::1]:9876")        // true
+//	hostIsLoopback("127.evil.com:9876") // false (DNS name, not an IP)
+//	hostIsLoopback("api.lthn.ai")       // false
 func hostIsLoopback(host string) bool {
 	h := host
 	if core.HasPrefix(h, "[") {
@@ -276,11 +282,18 @@ func hostIsLoopback(host string) bool {
 	} else if idx := core.Index(h, ":"); idx >= 0 {
 		h = h[:idx]
 	}
-	switch h {
-	case "localhost", "127.0.0.1", "::1":
+	// The only DNS name that counts as loopback is the literal "localhost";
+	// every other name (e.g. "127.evil.com") must be rejected so a config
+	// value can't redirect the hub off-box (SSRF). A literal IP counts only
+	// if it parses into the loopback range (127.0.0.0/8 or ::1) — a textual
+	// "127." prefix would wrongly accept the hostname "127.evil.com".
+	if h == "localhost" {
 		return true
 	}
-	return core.HasPrefix(h, "127.")
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // defaultHubTokenFile is the default bearer token-file location under the
