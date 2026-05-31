@@ -647,6 +647,7 @@ func (s *PrepSubsystem) RegisterTools(svc *coremcp.Service) {
 	s.registerShutdownTools(svc)
 	s.registerPlanTools(svc)
 	s.registerWatchTool(svc)
+	s.registerFlowTools(svc)
 	s.registerIssueTools(svc)
 	s.registerPRTools(svc)
 	coremcp.AddToolRecorded(svc, svc.Server(), "agentic", &mcp.Tool{
