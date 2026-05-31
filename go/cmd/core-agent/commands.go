@@ -72,6 +72,12 @@ func registerApplicationCommands(c *core.Core) core.Result {
 	}); !result.OK {
 		return result
 	}
+	if result := c.Command("hub", core.Command{
+		Description: "Serve the agent hub — loopback HTTP control plane (opencode + brain) + MCP HTTP+SSE tool plane",
+		Action:      commands.hub,
+	}); !result.OK {
+		return result
+	}
 	if result := c.Command("serve-status", core.Command{
 		Description: "Snapshot the lthn-mlx serve config — model, profile, context, cache, runtime",
 		Action:      commands.serveStatus,

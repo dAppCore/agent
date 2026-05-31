@@ -120,8 +120,31 @@ func (g *SandboxProxyGroup) Has(id string) bool {
 // dispatch looks the target up by URL param and forwards. The path
 // passed to the proxy is *proxyPath (the part after /v1/api/sandbox/<id>),
 // so the upstream container sees /global/health, /session/<id>, etc.
+//
+// The forwarded proxyPath is rejected before it reaches the upstream if
+// it carries a "../" traversal segment or a non-printable byte
+// (RFC.serve.md §7.3.3). The hub bearer is container-exec-equivalent
+// (§7.3.2) — the proxy injects opencode-serve's full credential
+// downstream — so a traversal that escaped the sandbox-id namespace
+// would be an authenticated reach past the intended surface.
 func (g *SandboxProxyGroup) dispatch(c *gin.Context) {
 	id := core.TrimCutset(c.Param("id"), "/ ")
+
+	proxyPath := c.Param("proxyPath")
+	if reason := proxyPathReject(proxyPath); reason != "" {
+		emitControlAudit(EventOpencodeSandboxProxy, "opencode.sandbox.proxy",
+			outcomeDenied, newRequestID(), map[string]any{
+				"sandbox_id":  id,
+				"path_prefix": proxyPathPrefix(proxyPath),
+				"error_code":  reason,
+			})
+		c.JSON(core.StatusBadRequest, gin.H{
+			"error": "invalid proxy path",
+			"hint":  reason,
+		})
+		return
+	}
+
 	g.mu.RLock()
 	rp, ok := g.targets[id]
 	g.mu.RUnlock()
@@ -135,6 +158,49 @@ func (g *SandboxProxyGroup) dispatch(c *gin.Context) {
 	// gin's "*proxyPath" wildcard includes the leading slash, e.g.
 	// "/global/health". Rewriting Request.URL.Path strips the
 	// /v1/api/sandbox/<id> prefix entirely.
-	c.Request.URL.Path = c.Param("proxyPath")
+	c.Request.URL.Path = proxyPath
+	emitControlAudit(EventOpencodeSandboxProxy, "opencode.sandbox.proxy",
+		outcomeOK, newRequestID(), map[string]any{
+			"sandbox_id":  id,
+			"path_prefix": proxyPathPrefix(proxyPath),
+		})
 	rp.ServeHTTP(c.Writer, c.Request)
+}
+
+// proxyPathReject returns a non-empty reason string when the forwarded
+// proxyPath must be rejected: a "../" / "/.." / "/../" traversal
+// segment, or a non-printable / control byte. An empty return means the
+// path is safe to forward.
+//
+//	proxyPathReject("/global/health") // ""
+//	proxyPathReject("/../secret")      // "path_traversal"
+//	proxyPathReject("/a\x00b")         // "non_printable"
+func proxyPathReject(p string) string {
+	if core.Contains(p, "..") {
+		return "path_traversal"
+	}
+	for _, b := range core.AsBytes(p) {
+		if b < 0x20 || b == 0x7f {
+			return "non_printable"
+		}
+	}
+	return ""
+}
+
+// proxyPathPrefix returns the leading path segment for the audit record
+// — never the full path (which can carry session ids / query material),
+// only the prefix that identifies the upstream surface.
+//
+//	proxyPathPrefix("/global/health") // "/global"
+//	proxyPathPrefix("/session/abc")   // "/session"
+//	proxyPathPrefix("/")              // "/"
+func proxyPathPrefix(p string) string {
+	trimmed := core.TrimPrefix(p, "/")
+	if trimmed == "" {
+		return "/"
+	}
+	if idx := core.Index(trimmed, "/"); idx >= 0 {
+		return "/" + trimmed[:idx]
+	}
+	return "/" + trimmed
 }
