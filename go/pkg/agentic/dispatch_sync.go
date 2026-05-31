@@ -78,6 +78,28 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 		return DispatchSyncResult{Error: core.E("agentic.DispatchSync", "spawn agent failed", err)}
 	}
 
+	// The async dispatch() writes the initial "running" status after spawn; the
+	// sync path must too. A native dispatch (opencode runs on the host with no
+	// in-container wrapper to create status.json) would otherwise leave the
+	// workspace status-less, and both the poll below and the completion monitor
+	// fail to read a final status — surfacing as "status not found" even when
+	// the agent succeeded. Write-if-absent so a status a resume/mock already
+	// placed is preserved.
+	if _, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); !ok {
+		writeStatusResult(workspaceDir, &WorkspaceStatus{
+			Status:    "running",
+			Agent:     input.Agent,
+			Repo:      input.Repo,
+			Org:       input.Org,
+			Task:      input.Task,
+			Branch:    prepOut.Branch,
+			PID:       pid,
+			ProcessID: processID,
+			StartedAt: time.Now(),
+			Runs:      1,
+		})
+	}
+
 	core.Print(nil, "  pid:       %d", pid)
 	core.Print(nil, "  waiting for completion...")
 

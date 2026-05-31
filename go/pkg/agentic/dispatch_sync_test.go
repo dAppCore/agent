@@ -186,6 +186,34 @@ func TestDispatchSync_PrepSubsystem_DispatchSync_Ugly(t *testing.T) {
 	core.AssertContains(t, result.Error.Error(), "spawn agent failed")
 }
 
+func TestDispatchSync_PrepSubsystem_DispatchSync_Ugly_WritesInitialStatusWhenPrepDoesnt(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+
+	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-11")
+	s := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
+
+	// Real-like prep: creates the workspace but does NOT pre-write status.json
+	// (the actual prepWorkspace doesn't — the async dispatch() writes it after
+	// spawn, which the sync path used to skip → "status not found" crash).
+	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
+		return nil, PrepOutput{Success: true, WorkspaceDir: workspaceDir, Branch: "agent/x", Prompt: "prompt"}, nil
+	}
+	s.dispatchSyncSpawn = func(string, string, string) (int, string, string, error) {
+		return 42, "process-x", core.JoinPath(workspaceDir, ".meta", "agent.log"), nil
+	}
+
+	result := s.DispatchSync(context.Background(), DispatchSyncInput{
+		Repo: "go-io", Agent: "codex", Task: "Fix tests", Branch: "x",
+	})
+
+	// The fix: DispatchSync wrote the initial "running" status, so the poll
+	// reads it instead of erroring — no "status not found".
+	core.AssertNil(t, result.Error)
+	core.AssertEqual(t, "running", result.Status)
+}
+
 func TestDispatchSync_PrepSubsystem_DispatchSync_Good(t *testing.T) {
 	dir := t.TempDir()
 	setTestWorkspace(t, dir)
