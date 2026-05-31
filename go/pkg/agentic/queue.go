@@ -94,7 +94,13 @@ func normaliseDispatchConfig(config DispatchConfig) DispatchConfig {
 // config := s.loadAgentsConfig()
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
+		// Operator override first, then the shipped repo config. The repo config
+		// lives at core/agent/.core/agents.yaml (the .core convention); the legacy
+		// config/agents.yaml path is kept last for back-compat. Without the .core
+		// path the rich repo config never loaded and dispatch fell back to the
+		// hardcoded default (which has no opencode entry → opencode unlimited).
 		core.JoinPath(CoreRoot(), "agents.yaml"),
+		core.JoinPath(s.codePath, "core", "agent", ".core", "agents.yaml"),
 		core.JoinPath(s.codePath, "core", "agent", "config", "agents.yaml"),
 	}
 

@@ -23,11 +23,20 @@ dispatch:
   gpu: false
 
 # Per-agent concurrency limits (0 = unlimited)
+# NB: the limit keys on the agent BASE (before the first ":"), so all opencode
+# models share the `opencode` budget. Use per-model sub-limits to separate the
+# paid Go tier from the free Zen tier (modelVariant is everything after ":",
+# e.g. "opencode-go/deepseek-v4-pro"). Without an entry an agent is UNLIMITED —
+# it never enqueues, so a batch dispatches all at once instead of working through.
 concurrency:
   claude: 5
   gemini: 1
   codex: 1
   local: 1
+  opencode:
+    # total + inline per-model sub-limits (model = everything after the first ":")
+    total: 3
+    opencode-go/deepseek-v4-pro: 1   # paid Pro — one at a time
 
 # Rate limiting / quota management
 # Controls pacing between task dispatches to stay within daily quotas.
@@ -71,6 +80,16 @@ rates:
     sustained_delay: 300
     burst_window: 0
     burst_delay: 60
+  opencode:
+    # OpenCode Zen (free) + Go (authed balance) tiers. Set daily_limit/min_delay
+    # to pace within the actual tier quota when running a large batch; these are
+    # light defaults — tune to your OpenCode Zen/Go limits.
+    reset_utc: "00:00"
+    daily_limit: 0
+    min_delay: 5
+    sustained_delay: 20
+    burst_window: 0
+    burst_delay: 5
 
 # Agent identities (which agents can dispatch)
 agents:
