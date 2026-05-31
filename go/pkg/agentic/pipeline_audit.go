@@ -55,6 +55,23 @@ type pipelineIssueRecord struct {
 	HTMLURL     string                `json:"html_url"`
 	Labels      []pipelineLabelRecord `json:"labels"`
 	PullRequest map[string]any        `json:"pull_request"`
+	// SubIssues / SubTasks mirror PHP ForgejoMetaReader's structural child
+	// detection (subtasks ?? sub_issues). Native Forgejo payloads do not
+	// consistently expose these, so both remain optional and absence is not
+	// an error — it simply means the issue has no structurally-linked children.
+	SubIssues []pipelineSubIssueRecord `json:"sub_issues,omitempty"`
+	SubTasks  []pipelineSubIssueRecord `json:"subtasks,omitempty"`
+}
+
+// pipelineSubIssueRecord is a structurally-linked child reference on an epic
+// issue payload. The optional fields cover the field-name variation Forgejo
+// uses across versions (issue_id / number / issue.number), matching the PHP
+// ForgejoMetaReader::extractIssueId fallback chain.
+type pipelineSubIssueRecord struct {
+	IssueID int    `json:"issue_id"`
+	Number  int    `json:"number"`
+	State   string `json:"state"`
+	Checked *bool  `json:"checked"`
 }
 
 func (s *PrepSubsystem) cmdPipelineAudit(options core.Options) core.Result {
@@ -66,11 +83,11 @@ func (s *PrepSubsystem) cmdPipelineAudit(options core.Options) core.Result {
 		return core.Result{Value: core.E("agentic.cmdPipelineAudit", "repo is required", nil), OK: false}
 	}
 
-	output, err := pipelineAudit(s, ctx, PipelineAuditInput{
+	output, err := pipelineAuditWithReader(s, ctx, PipelineAuditInput{
 		Org:    org,
 		Repo:   repo,
 		DryRun: optionBoolValue(options, "dry_run", "dry-run"),
-	})
+	}, newPipelineForgeMetaReader(s, org))
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
@@ -96,7 +113,15 @@ func (s *PrepSubsystem) cmdPipelineAudit(options core.Options) core.Result {
 	return core.Result{Value: output, OK: true}
 }
 
+// pipelineAudit runs the audit-to-implementation conversion with the default
+// structural MetaReader. The reader-aware form lives in pipelineAuditWithReader
+// so tests can inject a classifier; this keeps the existing call/compat-adapter
+// surface unchanged.
 var pipelineAudit = func(s *PrepSubsystem, ctx context.Context, input PipelineAuditInput) (PipelineAuditOutput, error) {
+	return pipelineAuditWithReader(s, ctx, input, newPipelineForgeMetaReader(s, input.Org))
+}
+
+var pipelineAuditWithReader = func(s *PrepSubsystem, ctx context.Context, input PipelineAuditInput, reader *MetaReader) (PipelineAuditOutput, error) {
 	if input.Repo == "" {
 		return PipelineAuditOutput{}, core.E("pipelineAudit", "repo is required", nil)
 	}
@@ -105,6 +130,9 @@ var pipelineAudit = func(s *PrepSubsystem, ctx context.Context, input PipelineAu
 	}
 	if input.Org == "" {
 		input.Org = "core"
+	}
+	if reader == nil || reader.ClassifyIssue == nil {
+		reader = newPipelineForgeMetaReader(s, input.Org)
 	}
 
 	issues, err := pipelineListIssues(s, ctx, input.Org, input.Repo, "open")
@@ -120,7 +148,8 @@ var pipelineAudit = func(s *PrepSubsystem, ctx context.Context, input PipelineAu
 
 	existingByTitle := make(map[string]PipelineIssueRef)
 	for _, issue := range issues {
-		if pipelineIssueState(issue) != "open" || pipelineIssueIsAudit(issue) || pipelineIssueIsEpic(issue) {
+		signal := reader.ClassifyIssue(issue)
+		if pipelineIssueState(issue) != "open" || signal.IsAudit || signal.IsEpic {
 			continue
 		}
 		key := pipelineAuditExistingKey(issue)
@@ -131,7 +160,7 @@ var pipelineAudit = func(s *PrepSubsystem, ctx context.Context, input PipelineAu
 	}
 
 	for _, issue := range issues {
-		if !pipelineIssueIsAudit(issue) {
+		if !reader.ClassifyIssue(issue).IsAudit {
 			continue
 		}
 		output.Audits = append(output.Audits, pipelineIssueRefFromRecord(issue))
@@ -298,32 +327,37 @@ func pipelineIssueLabelNames(issue pipelineIssueRecord) []string {
 	return names
 }
 
-func pipelineIssueHasLabel(issue pipelineIssueRecord, want string) bool {
-	for _, name := range pipelineIssueLabelNames(issue) {
-		if core.Lower(name) == core.Lower(want) {
-			return true
-		}
-	}
-	return false
-}
-
+// pipelineIssueIsAudit reports whether an issue is an audit issue. The signal
+// is the structural `audit` label; the `[Audit]` / `Audit:` title markers are
+// retained as the established convention for hand-filed audit issues that carry
+// no label yet (Forgejo offers no other structural "kind" field).
 func pipelineIssueIsAudit(issue pipelineIssueRecord) bool {
+	if pipelineClassifyIssueStructural(issue).IsAudit {
+		return true
+	}
 	title := core.Lower(issue.Title)
-	return pipelineIssueHasLabel(issue, "audit") || core.Contains(title, "[audit]") || core.HasPrefix(title, "audit:")
+	return core.Contains(title, "[audit]") || core.HasPrefix(title, "audit:")
 }
 
+// pipelineIssueIsEpic reports whether an issue is an epic. The signal is now
+// structural — the `epic` label or native sub-issue children — mirroring PHP
+// ForgejoMetaReader, which never parses the body for tasklist children. The
+// previous body-checklist regexp is gone: epics created by this pipeline always
+// carry the `epic` label (see pipeline_epic.go).
 func pipelineIssueIsEpic(issue pipelineIssueRecord) bool {
-	return pipelineIssueHasLabel(issue, "epic") || regexp.MustCompile(`(?m)^\s*-\s*\[[ xX]\]\s*#\d+`).MatchString(issue.Body)
+	return pipelineClassifyIssueStructural(issue).IsEpic
 }
 
+// pipelineIssueIsImplementationCandidate reports whether an open issue is an
+// implementation target (not an audit, epic, or PR). Classification is fully
+// structural: audit/epic/PR are read from labels, sub-issue links, and the
+// pull_request field via the shared classifier — no body prose-parsing.
 func pipelineIssueIsImplementationCandidate(issue pipelineIssueRecord) bool {
-	if pipelineIssueState(issue) != "open" || pipelineIssueIsAudit(issue) || pipelineIssueIsEpic(issue) {
+	if pipelineIssueState(issue) != "open" {
 		return false
 	}
-	if len(issue.PullRequest) > 0 {
-		return false
-	}
-	return !core.Contains(issue.Body, "Parent: #")
+	signal := pipelineClassifyIssueStructural(issue)
+	return !signal.IsAudit && !signal.IsEpic && !signal.IsPR
 }
 
 func pipelineAuditFindings(issue pipelineIssueRecord) []string {
