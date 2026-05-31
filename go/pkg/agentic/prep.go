@@ -89,6 +89,12 @@ func NewPrep() *PrepSubsystem {
 func (s *PrepSubsystem) OnStartup(ctx context.Context) core.Result {
 	c := s.Core()
 
+	// Real content-provider backend — the opencode provider drives
+	// generation through the local pkg/opencode Service (core/agent OWNS
+	// opencode; no HTTP hop). Resolved lazily per call, so registration
+	// here does not require the opencode Service to be wired yet.
+	s.providers = newOpencodeProviderManager(c)
+
 	c.SetEntitlementChecker(func(action string, qty int, _ context.Context) core.Entitlement {
 		if !core.HasPrefix(action, "agentic.") {
 			return core.Entitlement{Allowed: true, Unlimited: true}

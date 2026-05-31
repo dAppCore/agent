@@ -245,7 +245,7 @@ var validateContentProvider = func(s *PrepSubsystem, providerName string) error 
 
 	manager := s.providers
 	if manager == nil {
-		manager = NewProviderManager(nil)
+		manager = newOpencodeProviderManager(s.Core())
 	}
 	provider, ok := manager.Provider(providerName)
 	if !ok {
