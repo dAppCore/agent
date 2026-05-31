@@ -132,6 +132,48 @@ func TestDispatchRuntime_ContainerCommandFor_Ugly_Case(t *testing.T) {
 	core.AssertContains(t, core.Join(" ", appleGPUArgs...), "--gpu=metal")
 }
 
+// --- containerCommandFor: opencode creds mount ---
+
+func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Good_Mounted(t *testing.T) {
+	t.Setenv("AGENT_DOCKER_IMAGE", "")
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
+	// Host has opencode configured → its config + auth mount RO so a
+	// containerised `opencode run` uses the operator's own OpenCode Zen / Go
+	// auth, with no API key crossing into the generated script.
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(home, ".config", "opencode")).OK)
+
+	script := opencodeAgentCommandScript("opencode/deepseek-v4-flash-free", "fix tests")
+	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "sh", []string{"-c", script}, "/ws", "/ws/.meta")
+	joined := core.Join(" ", args...)
+
+	core.AssertContains(t, joined, ".config/opencode:/home/agent/.config/opencode:ro")
+	core.AssertContains(t, joined, ".local/share/opencode:/home/agent/.local/share/opencode:ro")
+}
+
+func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Bad_AbsentNotMounted(t *testing.T) {
+	t.Setenv("AGENT_DOCKER_IMAGE", "")
+	home := t.TempDir() // no ~/.config/opencode → nothing to mount
+	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
+
+	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "codex", []string{"exec"}, "/ws", "/ws/.meta")
+	core.AssertNotContains(t, core.Join(" ", args...), "/home/agent/.config/opencode")
+}
+
+func TestDispatchRuntime_ContainerCommandFor_OpencodeCreds_Ugly_NonOpencodeStillMounted(t *testing.T) {
+	t.Setenv("AGENT_DOCKER_IMAGE", "")
+	home := t.TempDir()
+	t.Setenv("CORE_HOME", home) // HomeDir() reads CORE_HOME first
+	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(home, ".config", "opencode")).OK)
+
+	// The mount is host-scoped (opencode configured on the host), not
+	// command-scoped — a codex dispatch on an opencode-configured host still
+	// gets the RO creds, matching the always-on ~/.codex posture. Read-only
+	// keeps it conservative.
+	_, args := containerCommandFor(RuntimeDocker, "core-dev", false, "codex", []string{"exec"}, "/ws", "/ws/.meta")
+	core.AssertContains(t, core.Join(" ", args...), "/home/agent/.config/opencode:ro")
+}
+
 // --- dispatchRuntime / dispatchImage / dispatchGPU ---
 
 func TestDispatchRuntime_DispatchRuntime_Good_Case(t *testing.T) {

@@ -497,6 +497,20 @@ func containerCommandFor(containerRuntime, image string, gpu bool, command strin
 		)
 	}
 
+	// opencode reads ~/.config/opencode (config) and ~/.local/share/opencode
+	// (auth) from the operator's HOME. When the host has opencode configured,
+	// mount both read-only so a containerised `opencode run` uses the operator's
+	// own auth — the free OpenCode Zen and authed Go-tier models flow through
+	// without any API key crossing into the generated command. Host-scoped (not
+	// command-scoped) and read-only — opencode runs wrapped as `sh -c`, so this
+	// mirrors the always-on ~/.codex posture but more conservatively.
+	if fs.Exists(core.JoinPath(home, ".config", "opencode")) {
+		containerArgs = append(containerArgs,
+			"-v", core.Concat(core.JoinPath(home, ".config", "opencode"), ":/home/agent/.config/opencode:ro"),
+			"-v", core.Concat(core.JoinPath(home, ".local", "share", "opencode"), ":/home/agent/.local/share/opencode:ro"),
+		)
+	}
+
 	quoted := core.NewBuilder()
 	quoted.WriteString("if [ ! -d /workspace/repo ]; then echo 'missing /workspace/repo' >&2; exit 1; fi")
 	if command != "" {
