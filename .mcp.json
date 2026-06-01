@@ -1,9 +1,11 @@
 {
   "mcpServers": {
     "core": {
-      "type": "stdio",
-      "command": "core",
-      "args": ["mcp", "serve"]
+      "type": "http",
+      "url": "http://127.0.0.1:9101/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
+      }
     }
   }
 }
