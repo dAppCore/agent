@@ -15,7 +15,7 @@ per-request Bearer auth). That is the **MCP plane of `lthn-agent hub`**:
 - **Standalone (no desktop).**
   ```sh
   MCP_AUTH_TOKEN=<token> MCP_JWT_SECRET=<a-distinct-key> \
-    lthn-agent hub --mcp-http 127.0.0.1:9202
+    lthn-agent hub --mcp-http=127.0.0.1:9202
   ```
   The MCP plane is **fail-closed**: it refuses to bind without `MCP_AUTH_TOKEN`
   **and** a distinct `MCP_JWT_SECRET`.
