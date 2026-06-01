@@ -417,6 +417,52 @@ func extractFrontmatter(content string) string {
 	return block
 }
 
+// TaskCard is the dispatch-picker view of a plan/task template: the slug
+// passed to dispatch as --plan-template, plus the human fields the picker
+// shows. Built by TaskCards() from each template's yaml.
+//
+//	cards := lib.TaskCards()
+//	core.Println(cards[0].Slug, cards[0].Name)
+type TaskCard struct {
+	Slug        string `json:"slug"` // --plan-template value, e.g. "dependency-audit"
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+}
+
+// TaskCards returns a picker card for every plan/task template, parsed from
+// each template's yaml (name, description, category). Templates are valid
+// yaml documents, so the whole file is unmarshalled directly. Directory
+// entries from the recursive walk and templates without a name are skipped.
+//
+//	for _, c := range lib.TaskCards() { core.Println(c.Slug, "—", c.Name) }
+func TaskCards() []TaskCard {
+	slugs := ListTasks()
+	cards := make([]TaskCard, 0, len(slugs))
+	for _, slug := range slugs {
+		r := Task(slug)
+		if !r.OK {
+			continue // a directory entry from the recursive walk, not a template
+		}
+		var meta struct {
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+			Category    string `yaml:"category"`
+		}
+		_ = yaml.Unmarshal([]byte(r.Value.(string)), &meta)
+		if meta.Name == "" {
+			continue // not a named template
+		}
+		cards = append(cards, TaskCard{
+			Slug:        slug,
+			Name:        meta.Name,
+			Description: meta.Description,
+			Category:    meta.Category,
+		})
+	}
+	return cards
+}
+
 // names := listNamesRecursive("task", ".")
 // core.Println(names) // ["bug-fix", "code/review", "code/refactor"]
 func listNamesRecursive(mount, dir string) []string {

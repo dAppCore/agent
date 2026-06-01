@@ -280,6 +280,59 @@ func TestLib_PersonaCards_Ugly(t *testing.T) {
 	}
 }
 
+// --- TaskCards ---
+
+func TestLib_TaskCards_Good(t *testing.T) {
+	cards := TaskCards()
+	if len(cards) == 0 {
+		t.Fatal("TaskCards() returned no cards")
+	}
+	// The premade-task staples are present and named from their yaml.
+	want := map[string]string{
+		"package-update":   "Package Update",
+		"dependency-audit": "Dependency Audit",
+	}
+	seen := map[string]bool{}
+	for _, c := range cards {
+		if name, ok := want[c.Slug]; ok {
+			seen[c.Slug] = true
+			if c.Name != name {
+				t.Errorf("card %q: Name = %q, want %q", c.Slug, c.Name, name)
+			}
+		}
+	}
+	for slug := range want {
+		if !seen[slug] {
+			t.Errorf("task template %q missing from TaskCards()", slug)
+		}
+	}
+}
+
+func TestLib_TaskCards_Bad(t *testing.T) {
+	// Every returned card carries a slug and a name — directory entries and
+	// nameless files are filtered, never returned blank.
+	for _, c := range TaskCards() {
+		if c.Slug == "" || c.Name == "" {
+			t.Errorf("TaskCards() returned an incomplete card: %+v", c)
+		}
+	}
+}
+
+func TestLib_TaskCards_Ugly(t *testing.T) {
+	// The recursive task walk surfaces directory entries (e.g. "code");
+	// TaskCards must filter them — fewer cards than raw slugs, none a dir.
+	cards := TaskCards()
+	if len(cards) >= len(ListTasks()) {
+		t.Errorf("TaskCards (%d) should be fewer than raw ListTasks (%d) — dirs unfiltered",
+			len(cards), len(ListTasks()))
+	}
+	for _, c := range cards {
+		if c.Slug == "code" {
+			t.Errorf("TaskCards() leaked a directory entry: %q", c.Slug)
+		}
+	}
+}
+
 // --- Template ---
 
 func TestLib_Template_Good(t *testing.T) {

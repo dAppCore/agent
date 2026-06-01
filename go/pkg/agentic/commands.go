@@ -133,6 +133,12 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) core.Result {
 	if r := c.Command("agentic:personas", core.Command{Description: "List the persona roster — dispatch path plus frontmatter card", Action: s.cmdPersonas}); !r.OK {
 		return r
 	}
+	if r := c.Command("tasks", core.Command{Description: "List the plan/task templates — slug plus name, description, category", Action: s.cmdTasks}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:tasks", core.Command{Description: "List the plan/task templates — slug plus name, description, category", Action: s.cmdTasks}); !r.OK {
+		return r
+	}
 	if r := c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror}); !r.OK {
 		return r
 	}
@@ -738,6 +744,24 @@ func (s *PrepSubsystem) cmdPersonas(options core.Options) core.Result {
 	core.Print(nil, "personas: %d", len(cards))
 	for _, card := range cards {
 		core.Print(nil, "  %s  %-28s %s", card.Emoji, card.Path, card.Name)
+	}
+	return core.Result{Value: cards, OK: true}
+}
+
+// cmdTasks lists the plan/task templates — each template's --plan-template
+// slug plus name, description, and category. With --json (the GUI lane) it
+// prints the cards array the dispatch view's premade-task picker consumes;
+// otherwise a human list.
+//
+//	core-agent tasks --json
+func (s *PrepSubsystem) cmdTasks(options core.Options) core.Result {
+	cards := lib.TaskCards()
+	if emitCommandJSON(options, cards) {
+		return core.Result{Value: cards, OK: true}
+	}
+	core.Print(nil, "tasks: %d", len(cards))
+	for _, card := range cards {
+		core.Print(nil, "  %-20s %s", card.Slug, card.Name)
 	}
 	return core.Result{Value: cards, OK: true}
 }

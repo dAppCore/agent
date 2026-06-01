@@ -1,0 +1,33 @@
+name: Package Update
+description: Update dependencies to their latest compatible versions, verify against the test suite, and commit per ecosystem
+category: maintenance
+
+variables:
+  ecosystem:
+    description: Restrict to one ecosystem (go, npm, composer, cargo…) — omit to do all present
+    required: false
+
+guidelines:
+  - Stay within the manifest's existing version constraints unless explicitly told to bump majors
+  - One ecosystem per commit — never mix a Go bump and an npm bump in the same commit
+  - The test suite is the gate — a bump that fails tests is reverted, not forced through
+  - Read the changelog for breaking changes before applying any major-version bump
+  - Regenerate the lockfile the ecosystem uses (go.sum, package-lock.json, composer.lock)
+
+phases:
+  - name: Survey
+    description: Find what is outdated
+    tasks:
+      - "List outdated dependencies per manifest present (go.mod, package.json, composer.json, Cargo.toml)"
+      - "Separate safe patch/minor bumps from majors that need changelog review"
+  - name: Update
+    description: Bump and verify
+    tasks:
+      - "Apply patch and minor updates first, then run the full test suite"
+      - "For each major, read its changelog, apply, fix any breakage, then re-test"
+      - "Regenerate the ecosystem's lockfile"
+  - name: Commit
+    description: Land the update
+    tasks:
+      - "Commit per ecosystem with a chore(deps) message listing exactly what moved"
+      - "Note any dependency deliberately held back, and why"
