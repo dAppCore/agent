@@ -127,6 +127,12 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) core.Result {
 	if r := c.Command("agentic:scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan}); !r.OK {
 		return r
 	}
+	if r := c.Command("personas", core.Command{Description: "List the persona roster — dispatch path plus frontmatter card", Action: s.cmdPersonas}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:personas", core.Command{Description: "List the persona roster — dispatch path plus frontmatter card", Action: s.cmdPersonas}); !r.OK {
+		return r
+	}
 	if r := c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror}); !r.OK {
 		return r
 	}
@@ -716,6 +722,24 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 		core.Print(nil, "  %s#%d %s", issue.Repo, issue.Number, issue.Title)
 	}
 	return core.Result{Value: output, OK: true}
+}
+
+// cmdPersonas lists the persona roster — each persona's dispatch path plus
+// the frontmatter card (name, emoji, vibe). With --json (the GUI lane) it
+// prints the cards array the dispatch view's picker consumes; otherwise a
+// human list.
+//
+//	core-agent personas --json
+func (s *PrepSubsystem) cmdPersonas(options core.Options) core.Result {
+	cards := lib.PersonaCards()
+	if emitCommandJSON(options, cards) {
+		return core.Result{Value: cards, OK: true}
+	}
+	core.Print(nil, "personas: %d", len(cards))
+	for _, card := range cards {
+		core.Print(nil, "  %s  %-28s %s", card.Emoji, card.Path, card.Name)
+	}
+	return core.Result{Value: cards, OK: true}
 }
 
 func (s *PrepSubsystem) cmdMirror(options core.Options) core.Result {

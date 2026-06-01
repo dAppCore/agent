@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	core "dappco.re/go"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed all:prompt
@@ -333,6 +334,87 @@ func ListPersonas() []string {
 	names := core.NewArray(listNamesRecursive("persona", ".")...)
 	names.Deduplicate()
 	return names.AsSlice()
+}
+
+// PersonaCard is the roster-card view of a persona: its load path (the value
+// passed to dispatch as --persona) plus the frontmatter the GUI surfaces.
+//
+//	cards := lib.PersonaCards()
+//	core.Println(cards[0].Path, cards[0].Emoji, cards[0].Name)
+type PersonaCard struct {
+	Path        string `json:"path"` // dispatch value, e.g. "code/senior-developer"
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Emoji       string `json:"emoji"`
+	Vibe        string `json:"vibe"`
+	Color       string `json:"color"`
+}
+
+// PersonaCards returns a roster card for every persona, parsed from each
+// file's leading YAML frontmatter. Directory entries and non-persona files
+// (playbooks, docs — anything without a frontmatter `name`) are skipped, so
+// the result is the pickable roster the dispatch view shows.
+//
+//	for _, c := range lib.PersonaCards() { core.Println(c.Emoji, c.Name) }
+func PersonaCards() []PersonaCard {
+	paths := ListPersonas()
+	cards := make([]PersonaCard, 0, len(paths))
+	for _, p := range paths {
+		r := Persona(p)
+		if !r.OK {
+			continue // a directory entry from the recursive walk, not a file
+		}
+		card := parsePersonaCard(p, r.Value.(string))
+		if card.Name == "" {
+			continue // no frontmatter name — a doc/playbook, not a roster persona
+		}
+		cards = append(cards, card)
+	}
+	return cards
+}
+
+// parsePersonaCard reads a persona's frontmatter into a card. Only the
+// frontmatter block is handed to yaml — the markdown body that follows is
+// sliced off first, so a colon in the prose can't derail the parse. Parsing
+// is best-effort: a file without frontmatter yields a card with an empty Name
+// (filtered out by PersonaCards).
+func parsePersonaCard(path, content string) PersonaCard {
+	var meta struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+		Emoji       string `yaml:"emoji"`
+		Vibe        string `yaml:"vibe"`
+		Color       string `yaml:"color"`
+	}
+	_ = yaml.Unmarshal([]byte(extractFrontmatter(content)), &meta)
+	return PersonaCard{
+		Path:        path,
+		Name:        meta.Name,
+		Description: meta.Description,
+		Emoji:       meta.Emoji,
+		Vibe:        meta.Vibe,
+		Color:       meta.Color,
+	}
+}
+
+// extractFrontmatter returns the YAML frontmatter — the lines between the
+// opening `---` fence and the next `---` — or "" when the content does not
+// open with a fence. Slicing the block out (rather than handing yaml the
+// whole file) keeps a colon in the markdown body from breaking the parse, as
+// yaml.Unmarshal does not stop at the closing document marker.
+func extractFrontmatter(content string) string {
+	lines := core.Split(content, "\n")
+	if len(lines) == 0 || core.Trim(lines[0]) != "---" {
+		return ""
+	}
+	block := ""
+	for _, line := range lines[1:] {
+		if core.Trim(line) == "---" {
+			return block
+		}
+		block = core.Concat(block, line, "\n")
+	}
+	return block
 }
 
 // names := listNamesRecursive("task", ".")
