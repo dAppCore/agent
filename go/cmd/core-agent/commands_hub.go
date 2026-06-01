@@ -155,12 +155,16 @@ func (commands applicationCommandSet) buildHubEngine(
 	// for completion pushes. The brain→Laravel hop must be
 	// loopback-or-wss:// (RFC.serve.md §7.3.4) — a non-loopback ws://
 	// carries the bearer in cleartext and is rejected here.
+	// brain→Laravel is opt-in: only when LARAVEL_WS_URL is explicitly set.
+	// Don't fall back to a guessed dev URL — a hub with no Laravel backend
+	// (e.g. the desktop crew member) would otherwise spin the bridge's
+	// reconnect loop against a dead endpoint forever ("ide bridge: connect
+	// failed err=websocket: bad handshake").
 	laravelURL := core.Trim(core.Env("LARAVEL_WS_URL"))
-	if laravelURL == "" {
-		laravelURL = ide.DefaultConfig().LaravelWSURL
-	}
-	if reason := laravelURLReject(laravelURL); reason != "" {
-		return nil, core.Fail(core.E("hub", "brain→Laravel URL rejected: "+reason+" ("+laravelURL+")", nil))
+	if laravelURL != "" {
+		if reason := laravelURLReject(laravelURL); reason != "" {
+			return nil, core.Fail(core.E("hub", "brain→Laravel URL rejected: "+reason+" ("+laravelURL+")", nil))
+		}
 	}
 	hub := ws.NewHub()
 	bridge := ide.NewBridge(hub, ide.Config{
@@ -168,7 +172,13 @@ func (commands applicationCommandSet) buildHubEngine(
 		WorkspaceRoot: agentic.WorkspaceRoot(),
 		Token:         core.Env("LARAVEL_WS_TOKEN"),
 	})
-	bridge.Start(c.Context())
+	// Only dial when a backend is configured; otherwise leave the bridge
+	// idle (brainProvider still works — Send just reports "not connected").
+	if laravelURL != "" {
+		bridge.Start(c.Context())
+	} else {
+		core.Info("hub: LARAVEL_WS_URL unset — brain→Laravel bridge idle (no backend configured)")
+	}
 	brainProvider := brain.NewProvider(bridge, hub)
 
 	engineOpts := []coreapi.Option{
