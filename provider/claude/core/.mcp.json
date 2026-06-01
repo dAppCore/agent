@@ -1,7 +1,7 @@
 {
   "core": {
     "type": "http",
-    "url": "http://127.0.0.1:9101/mcp",
+    "url": "http://127.0.0.1:9202/mcp",
     "headers": {
       "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
     }
