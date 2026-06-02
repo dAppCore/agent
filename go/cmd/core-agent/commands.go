@@ -134,7 +134,7 @@ func (commands applicationCommandSet) check(_ core.Options) core.Result {
 	applicationPrint("")
 	applicationPrint("  binary:    %s", commands.coreApp.App().Name)
 
-	agentsPath := core.JoinPath(agentic.CoreRoot(), "agents.yaml")
+	agentsPath := agentic.AgentsConfigPath()
 	if fs.IsFile(agentsPath) {
 		applicationPrint("  agents:    %s (ok)", agentsPath)
 	} else {

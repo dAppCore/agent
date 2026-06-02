@@ -155,7 +155,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// A completed workspace with a .meta/report.json sidecar — per RFC §15.5
-	// the stats row must be persisted to `.core/workspace/db.duckdb` BEFORE
+	// the stats row must be persisted to `~/Lethean/workspace/db.duckdb` BEFORE
 	// the workspace directory is deleted.
 	workspaceDir := core.JoinPath(wsRoot, "core", "go-io", "task-stats")
 	fs.EnsureDir(workspaceDir)
@@ -189,7 +189,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	// Workspace directory is gone.
 	core.AssertFalse(t, fs.Exists(workspaceDir))
 
-	// Stats row survives in `.core/workspace/db.duckdb`.
+	// Stats row survives in `~/Lethean/workspace/db.duckdb`.
 	statsStore := s.workspaceStatsInstance()
 	if statsStore == nil {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")

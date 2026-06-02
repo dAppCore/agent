@@ -94,11 +94,14 @@ func normaliseDispatchConfig(config DispatchConfig) DispatchConfig {
 // config := s.loadAgentsConfig()
 func (s *PrepSubsystem) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
-		// Operator override first, then the shipped repo config. The repo config
-		// lives at core/agent/.core/agents.yaml (the .core convention); the legacy
-		// config/agents.yaml path is kept last for back-compat. Without the .core
-		// path the rich repo config never loaded and dispatch fell back to the
-		// hardcoded default (which has no opencode entry → opencode unlimited).
+		// Operator config first (~/Lethean/conf/agents.yaml), then the
+		// CORE_WORKSPACE-relative config (CoreRoot()/agents.yaml — multi-tenant
+		// tenants drop their own agents.yaml in their workspace root), then the
+		// shipped repo config (core/agent/.core/agents.yaml — the .core convention
+		// is fine for the in-repo default), then legacy config/agents.yaml for
+		// back-compat. Without a found config dispatch falls back to the hardcoded
+		// default (no opencode entry → opencode unlimited).
+		AgentsConfigPath(),
 		core.JoinPath(CoreRoot(), "agents.yaml"),
 		core.JoinPath(s.codePath, "core", "agent", ".core", "agents.yaml"),
 		core.JoinPath(s.codePath, "core", "agent", "config", "agents.yaml"),

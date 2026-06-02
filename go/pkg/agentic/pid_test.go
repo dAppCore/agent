@@ -26,7 +26,8 @@ func TestMain(m *testing.M) {
 	testRoot := testRootResult.Value.(string)
 	homeDir := core.JoinPath(testRoot, "home")
 	_ = core.MkdirAll(homeDir, 0o755)
-	_ = core.MkdirAll(core.JoinPath(homeDir, "Code", ".core"), 0o755)
+	_ = core.MkdirAll(core.JoinPath(homeDir, "Lethean", "data"), 0o755)
+	_ = core.MkdirAll(core.JoinPath(homeDir, "Lethean", "workspace"), 0o755)
 
 	_ = syscall.Setenv("CORE_BRAIN_INSECURE", "true")
 	_ = syscall.Setenv("CORE_HOME", homeDir)

@@ -17,7 +17,7 @@ func ExampleLocalFs() {
 
 func ExampleCoreRoot() {
 	root := CoreRoot()
-	core.Println(core.HasSuffix(root, ".core"))
+	core.Println(core.HasSuffix(root, "data"))
 	// Output: true
 }
 

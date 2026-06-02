@@ -7,8 +7,8 @@ dispatch:
   # Default prompt template
   default_template: coding
   # Workspace root. Absolute paths used as-is.
-  # Relative paths resolve against $HOME/Code (e.g. ".core/workspace" → "$HOME/Code/.core/workspace").
-  workspace_root: .core/workspace
+  # Relative paths resolve against ~/Lethean (e.g. "workspace" → "~/Lethean/workspace").
+  workspace_root: workspace
   # Container runtime — auto | apple | docker | podman.
   # auto picks the first available runtime in preference order:
   # Apple Container (macOS 26+) → Docker → Podman.

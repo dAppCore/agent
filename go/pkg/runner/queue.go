@@ -74,7 +74,7 @@ type AgentsConfig struct {
 // core.Println(config.Dispatch.DefaultAgent)
 func (s *Service) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
-		core.JoinPath(CoreRoot(), "agents.yaml"),
+		AgentsConfigPath(),
 	}
 	for _, path := range paths {
 		readResult := fs.Read(path)

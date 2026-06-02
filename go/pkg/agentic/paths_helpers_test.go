@@ -91,7 +91,7 @@ func TestWorkspaceEnv_WorkspaceRoot_Good(t *testing.T) {
 func TestFallbackRoot_WorkspaceRoot_Bad(t *testing.T) {
 	setTestWorkspace(t, "")
 	got := WorkspaceRoot()
-	core.AssertContains(t, got, "/Code/.core/workspace")
+	core.AssertContains(t, got, "/Lethean/workspace")
 	core.AssertContains(t, got, "workspace")
 }
 
@@ -112,7 +112,7 @@ func TestWorkspaceEnv_PlansRoot_Good(t *testing.T) {
 func TestFallbackRoot_PlansRoot_Bad(t *testing.T) {
 	setTestWorkspace(t, "")
 	got := PlansRoot()
-	core.AssertContains(t, got, "/Code/.core/plans")
+	core.AssertContains(t, got, "/Lethean/data/plans")
 	core.AssertContains(t, got, "plans")
 }
 

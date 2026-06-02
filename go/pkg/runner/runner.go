@@ -70,7 +70,7 @@ func Register(coreApp *core.Core) core.Result {
 	coreApp.Config().Set("agents.concurrency", config.Concurrency)
 	coreApp.Config().Set("agents.rates", config.Rates)
 	coreApp.Config().Set("agents.dispatch", config.Dispatch)
-	coreApp.Config().Set("agents.config_path", core.JoinPath(CoreRoot(), "agents.yaml"))
+	coreApp.Config().Set("agents.config_path", AgentsConfigPath())
 	codexTotal := 0
 	if limit, ok := config.Concurrency["codex"]; ok {
 		codexTotal = limit.Total

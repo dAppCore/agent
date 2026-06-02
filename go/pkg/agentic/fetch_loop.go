@@ -197,6 +197,7 @@ func (s *PrepSubsystem) fetchLoopConfigPaths() []string {
 		}
 	}
 
+	add(AgentsConfigPath())
 	add(core.JoinPath(CoreRoot(), "agents.yaml"))
 	if s != nil {
 		add(core.JoinPath(s.codePath, "core", "agent", ".core", "agents.yaml"))
