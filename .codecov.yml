@@ -1,0 +1,78 @@
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 5%
+        base: auto
+        if_ci_failed: error
+    
+    patch:
+      default:
+        target: 70%
+        threshold: 0%
+        if_ci_failed: error
+    
+    changes:
+      default:
+        target: 70%
+        threshold: 0%
+        if_ci_failed: error
+
+# Ignore patterns for Go and PHP
+ignore:
+  # Go-specific ignores
+  - "go/tests/**"
+  - "go/*_test.go"
+  - "go/**/*_test.go"
+  
+  # PHP-specific ignores
+  - "php/tests/**"
+  - "php/vendor/**"
+  - "php/**/*Test.php"
+  
+  # Generated files
+  - "**/generated/**"
+  - "**/pb.go"
+  - "**/*.pb.go"
+  
+  # Mock and stub files
+  - "**/mocks/**"
+  - "**/*_mock.go"
+  - "**/*mock*.go"
+  
+  # Configuration and build files
+  - "**/bindata.go"
+  - "**/zz_generated.*"
+
+# Codecov should fail the build if coverage drops below thresholds
+# but still upload the report
+fail_ci_if_error: true
+
+# Parallel processing for faster uploads
+parallel: true
+
+# Comment on PRs
+comment:
+  layout: "reach,diff,files,tree"
+  behavior: default
+  require_changes: false
+
+# Branch protection
+branch_protection:
+  master:
+    enabled: true
+    target: 90%
+    threshold: 5%
+  main:
+    enabled: true
+    target: 90%
+    threshold: 5%
+  dev:
+    enabled: true
+    target: 85%
+    threshold: 5%
