@@ -1,78 +1,111 @@
+# Codecov Configuration for dAppCore/agent
+# AX-compliant: Designed for AI agents as first-class consumers
+# RFC-CORE-008-AGENT-EXPERIENCE.md (Agent Experience Design Principles)
+#
+# Usage examples:
+#   - To adjust coverage target: change `coverage.status.project.default.target`
+#   - To ignore a new pattern: add to `ignore` list with clear category comment
+#   - To add branch protection: add new branch under `branch_protection`
+#
+# Core primitives applied:
+#   - Declarative structure (YAML over imperative setup)
+#   - Predictable names over abbreviations
+#   - Path as documentation (file location signals purpose)
+
 coverage:
+  # Precision settings for coverage calculation
   precision: 2
   round: down
   range: "70...100"
   
+  # Coverage status thresholds - fail CI if below these targets
   status:
+    # Project-wide coverage (all commits on branch)
     project:
       default:
+        # Target: 90% for production-ready code (AX: agents produce high-quality code)
         target: 90%
+        # Allows 5% drop before failing (graceful degradation)
         threshold: 5%
         base: auto
         if_ci_failed: error
     
+    # Patch coverage (PR changes only)
     patch:
       default:
+        # Target: 70% for new code in PRs
         target: 70%
         threshold: 0%
         if_ci_failed: error
     
+    # Changes coverage (diff between commits)
     changes:
       default:
         target: 70%
         threshold: 0%
         if_ci_failed: error
 
-# Ignore patterns for Go and PHP
+# Files and patterns to exclude from coverage calculation
+# AX Principle: Path is documentation - category comments explain intent
 ignore:
-  # Go-specific ignores
-  - "go/tests/**"
-  - "go/*_test.go"
-  - "go/**/*_test.go"
+  # Go-specific exclusions
+  - "go/tests/**"              # Test fixtures directory
+  - "go/*_test.go"            # Go test files
+  - "go/**/*_test.go"         # Nested Go test files
   
-  # PHP-specific ignores
-  - "php/tests/**"
-  - "php/vendor/**"
-  - "php/**/*Test.php"
+  # PHP-specific exclusions
+  - "php/tests/**"            # PHP test directory
+  - "php/vendor/**"          # Composer vendor directory
+  - "php/**/*Test.php"        # PHP test files (Pest/Unit)
   
-  # Generated files
+  # Generated files (Core primitive: Data, not code)
   - "**/generated/**"
-  - "**/pb.go"
+  - "**/pb.go"                # Protocol buffer generated files
   - "**/*.pb.go"
   
-  # Mock and stub files
+  # Mock and stub files (test doubles)
   - "**/mocks/**"
   - "**/*_mock.go"
   - "**/*mock*.go"
   
-  # Configuration and build files
-  - "**/bindata.go"
-  - "**/zz_generated.*"
+  # Configuration and build artifacts
+  - "**/bindata.go"           # go:embed generated
+  - "**/zz_generated.*"       # gRPC/protobuf generated
 
-# Codecov should fail the build if coverage drops below thresholds
-# but still upload the report
+# CI behavior settings
+# AX Principle: Declarative over imperative - state what, not how
+
+# Fail CI if coverage processing fails (but still upload partial report)
+# This follows Core.Result pattern: explicit error handling
 fail_ci_if_error: true
 
-# Parallel processing for faster uploads
+# Enable parallel processing for faster uploads
+# Agents benefit from faster feedback cycles
 parallel: true
 
-# Comment on PRs
+# PR comments configuration
+# Shows coverage diff, files changed, and tree view
 comment:
   layout: "reach,diff,files,tree"
   behavior: default
   require_changes: false
 
-# Branch protection
+# Branch protection settings
+# AX Principle: Predictable names - branch names are explicit
+# Each protected branch has its own coverage target
 branch_protection:
   master:
     enabled: true
     target: 90%
     threshold: 5%
+  
   main:
     enabled: true
     target: 90%
     threshold: 5%
+  
   dev:
     enabled: true
+    # Dev branch allows slightly lower target for active development
     target: 85%
     threshold: 5%
