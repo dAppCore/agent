@@ -128,3 +128,22 @@ func TestHostConfig_nestedString_Ugly_NonMapOrNonString(t *testing.T) {
 	core.AssertEqual(t, "", nestedString(map[string]any{"options": "not-a-map"}, "options", "baseURL"))
 	core.AssertEqual(t, "", nestedString(map[string]any{"port": 8000}, "port"))
 }
+
+// TestHostConfig_MergeHostConfig_Good_CreatesThenIdempotent — a first merge on
+// a host with no opencode.json creates the file under ~/.config/opencode/ with
+// the merged provider block; a second merge with the same profile is
+// idempotent (no conflict, Created=false).
+func TestHostConfig_MergeHostConfig_Good_CreatesThenIdempotent(t *testing.T) {
+	svc := newTestService(t)
+
+	r := svc.MergeHostConfig(MergeHostConfigOptions{})
+	core.AssertTrue(t, r.OK)
+	res := r.Value.(MergeHostConfigResult)
+	core.AssertTrue(t, res.Created)
+	core.AssertContains(t, res.Path, hostConfigSubpath)
+	core.AssertContains(t, res.Bytes, "provider")
+
+	r2 := svc.MergeHostConfig(MergeHostConfigOptions{})
+	core.AssertTrue(t, r2.OK)
+	core.AssertFalse(t, r2.Value.(MergeHostConfigResult).Created)
+}
