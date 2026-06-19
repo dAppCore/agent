@@ -48,3 +48,16 @@ func TestPlatformTools_FleetRegisterTool_Good(t *testing.T) {
 	r := s.fleetRegisterTool(context.Background(), FleetNode{AgentID: "node-1", Platform: "darwin", Models: []string{"go"}})
 	core.AssertTrue(t, r.OK)
 }
+
+// TestPlatformTools_FleetHeartbeatTool_Good — fleet heartbeat calls the platform
+// with a valid node and returns a successful Result.
+func TestPlatformTools_FleetHeartbeatTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"agent_id":"node-1"}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.fleetHeartbeatTool(context.Background(), FleetNode{AgentID: "node-1", Status: "online"})
+	core.AssertTrue(t, r.OK)
+}
