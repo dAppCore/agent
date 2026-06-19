@@ -14,4 +14,6 @@ func TestImportHost_ListImports_NoStore(t *testing.T) {
 	svc := newTestService(t)
 	core.AssertFalse(t, svc.ListImports().OK)
 	core.AssertFalse(t, svc.ListImportedProviders().OK)
+	core.AssertFalse(t, svc.Status().OK)
+	core.AssertFalse(t, svc.Inspect("oc-1").OK)
 }
