@@ -32,6 +32,7 @@ func TestModels_Handlers_NoDaemon(t *testing.T) {
 	cmds := applicationCommandSet{coreApp: newTestCore(t)}
 	captureStdout(t, func() {
 		core.AssertFalse(t, cmds.modelsDownload(core.NewOptions()).OK)
+		core.AssertFalse(t, cmds.modelsJob(core.NewOptions()).OK)
 		core.AssertFalse(t, cmds.opencodeModels(core.NewOptions()).OK)
 	})
 }
