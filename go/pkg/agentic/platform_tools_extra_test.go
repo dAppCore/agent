@@ -105,3 +105,30 @@ func TestPlatformTools_AuthRevokeAndLogin_ReachPlatform(t *testing.T) {
 	s.authLoginTool(ctx, AuthLoginInput{Code: "123456"})
 	core.AssertTrue(t, hits >= 2)
 }
+
+// TestPlatformTools_RemainingTools_Exercised — drive the remaining fleet/credits/
+// subscription tools through their request-building paths; the list/get tools
+// reach the platform (mock records hits), the rest exercise their guards.
+func TestPlatformTools_RemainingTools_Exercised(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	s.fleetNodesTool(ctx, FleetNodesInput{})
+	s.fleetTaskAssignTool(ctx, FleetTaskAssignInput{})
+	s.fleetTaskCompleteTool(ctx, FleetTaskCompleteInput{})
+	s.fleetTaskNextTool(ctx, FleetTaskNextInput{})
+	s.fleetEventsTool(ctx, FleetEventsInput{})
+	s.creditsAwardTool(ctx, CreditsAwardInput{})
+	s.creditsBalanceTool(ctx, CreditsBalanceInput{})
+	s.creditsHistoryTool(ctx, CreditsHistoryInput{})
+	s.subscriptionDetectTool(ctx, SubscriptionDetectInput{})
+	s.subscriptionBudgetTool(ctx, SubscriptionBudgetInput{})
+	s.subscriptionBudgetUpdateTool(ctx, SubscriptionBudgetUpdateInput{})
+	core.AssertTrue(t, hits > 0)
+}
