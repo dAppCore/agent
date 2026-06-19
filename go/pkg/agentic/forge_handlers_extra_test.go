@@ -42,3 +42,26 @@ func TestForge_ListCommands_ReachForge(t *testing.T) {
 	})
 	core.AssertTrue(t, hits > 0)
 }
+
+// TestForge_GetMergeCommands_Exercised — issue/PR get + create + merge + close
+// commands run their request-building paths against the mock forge.
+func TestForge_GetMergeCommands_Exercised(t *testing.T) {
+	hits := 0
+	s := newForgeMockSubsystem(t, &hits)
+	opts := core.NewOptions(
+		core.Option{Key: "_arg", Value: "test-repo"},
+		core.Option{Key: "org", Value: "core"},
+		core.Option{Key: "number", Value: "12"},
+		core.Option{Key: "issue", Value: "12"},
+		core.Option{Key: "title", Value: "x"},
+		core.Option{Key: "branch", Value: "agent/x"},
+	)
+	captureStdout(t, func() {
+		s.cmdIssueGet(opts)
+		s.cmdIssueCreate(opts)
+		s.cmdPRGet(opts)
+		s.cmdPRMerge(opts)
+		s.cmdPRClose(opts)
+	})
+	core.AssertTrue(t, hits > 0)
+}
