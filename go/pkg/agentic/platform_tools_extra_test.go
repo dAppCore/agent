@@ -140,6 +140,20 @@ func TestPlatformTools_SubscriptionBudgetTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_FleetTaskAssignComplete_Bad — fleet task assign + complete
+// reject input missing a task id.
+func TestPlatformTools_FleetTaskAssignComplete_Bad(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	core.AssertFalse(t, s.fleetTaskAssignTool(ctx, FleetTaskAssignInput{AgentID: "a1"}).OK)
+	core.AssertFalse(t, s.fleetTaskCompleteTool(ctx, FleetTaskCompleteInput{AgentID: "a1"}).OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
