@@ -19,3 +19,16 @@ func TestPipelineCommands_pipelineWorkspaceDir_Good(t *testing.T) {
 	got2 := pipelineWorkspaceDir(core.NewOptions(core.Option{Key: "repo_dir", Value: "/explicit"}))
 	core.AssertEqual(t, "/explicit", got2)
 }
+
+// TestPipelineCommands_PrintUsages_Good — the pipeline usage printers emit
+// their command synopses.
+func TestPipelineCommands_PrintUsages_Good(t *testing.T) {
+	out := captureStdout(t, func() {
+		printPipelineEpicUsage()
+		printPipelineFixUsage()
+		printPipelineBudgetUsage()
+	})
+	core.AssertContains(t, out, "pipeline/epic/create")
+	core.AssertContains(t, out, "pipeline/fix/reviews")
+	core.AssertContains(t, out, "pipeline/budget")
+}
