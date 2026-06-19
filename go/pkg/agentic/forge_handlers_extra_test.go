@@ -65,3 +65,18 @@ func TestForge_GetMergeCommands_Exercised(t *testing.T) {
 	})
 	core.AssertTrue(t, hits > 0)
 }
+
+// TestForge_BranchDelete_Exercised — branch delete reaches the forge with a
+// valid repo + branch.
+func TestForge_BranchDelete_Exercised(t *testing.T) {
+	hits := 0
+	s := newForgeMockSubsystem(t, &hits)
+	captureStdout(t, func() {
+		s.cmdBranchDelete(core.NewOptions(
+			core.Option{Key: "_arg", Value: "test-repo"},
+			core.Option{Key: "org", Value: "core"},
+			core.Option{Key: "branch", Value: "agent/x"},
+		))
+	})
+	core.AssertTrue(t, hits > 0)
+}
