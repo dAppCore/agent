@@ -30,3 +30,15 @@ func TestBrainActions_StringSliceFromAny_Good(t *testing.T) {
 func TestBrainActions_cleanActionStrings_Good(t *testing.T) {
 	core.AssertEqual(t, []string{"a", "b"}, cleanActionStrings([]string{" a ", "", "b", "  "}))
 }
+
+// TestBrainActions_MoreExtractors_Good — string/int option extractors + the
+// any->string converter.
+func TestBrainActions_MoreExtractors_Good(t *testing.T) {
+	opts := core.NewOptions(
+		core.Option{Key: "s", Value: "hello"},
+		core.Option{Key: "n", Value: 7},
+	)
+	core.AssertEqual(t, "hello", actionStringValue(opts, "s"))
+	core.AssertEqual(t, 7, actionIntValue(opts, "n"))
+	core.AssertEqual(t, "x", actionStringFromAny("x"))
+}
