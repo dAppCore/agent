@@ -101,6 +101,19 @@ func TestPlatformTools_FleetNodesTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_FleetTaskNextTool_Good — fleet task-next calls the platform
+// and succeeds on a well-formed (no-task) response.
+func TestPlatformTools_FleetTaskNextTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.fleetTaskNextTool(context.Background(), FleetTaskNextInput{AgentID: "a1"})
+	core.AssertTrue(t, r.OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
