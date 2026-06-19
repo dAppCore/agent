@@ -140,6 +140,20 @@ func TestPlatformTools_SubscriptionBudgetTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_FleetStatsAndComplete — fleet stats succeeds on a
+// well-formed response; complete rejects empty input.
+func TestPlatformTools_FleetStatsAndComplete(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	core.AssertTrue(t, s.fleetStatsTool(ctx, struct{}{}).OK)
+	core.AssertFalse(t, s.completeTool(ctx, CompleteInput{}).OK)
+}
+
 // TestPlatformTools_FleetTaskAssignComplete_Bad — fleet task assign + complete
 // reject input missing a task id.
 func TestPlatformTools_FleetTaskAssignComplete_Bad(t *testing.T) {
