@@ -22,3 +22,10 @@ func TestImportHost_readHostAuthJSON_GoodBad(t *testing.T) {
 	got := readHostAuthJSON()
 	core.AssertEqual(t, 1, len(got))
 }
+
+// TestImportHost_persistProjects_Empty — an empty project array writes nothing
+// and returns a zero count.
+func TestImportHost_persistProjects_Empty(t *testing.T) {
+	c := core.New(core.WithOption("name", "opencode-test"))
+	core.AssertEqual(t, 0, persistProjects(c, []any{}, core.Now()))
+}
