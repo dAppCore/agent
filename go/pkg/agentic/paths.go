@@ -41,6 +41,19 @@ func setWorkspaceRootOverride(root string) {
 	workspaceRootOverride = root
 }
 
+// SetWorkspaceRootOverride sets the dispatch workspace-root override that
+// WorkspaceRoot() returns ahead of CORE_WORKSPACE and the ~/Lethean/workspace
+// default — the programmatic equivalent of agents.yaml dispatch.workspace_root.
+// Pass "" to clear it. Consumers' tests call it with "" to isolate workspace
+// resolution from a global left set by an earlier full-core construction
+// (newCoreAgent → loadAgentsConfig); the agentic package's own tests do the
+// same internally via the unexported form.
+//
+//	agentic.SetWorkspaceRootOverride("/srv/lethean/workspace") // absolute — used as-is
+//	agentic.SetWorkspaceRootOverride("workspace")              // relative — resolved to ~/Lethean/workspace
+//	agentic.SetWorkspaceRootOverride("")                       // clear
+func SetWorkspaceRootOverride(root string) { setWorkspaceRootOverride(root) }
+
 // f := agentic.LocalFs()
 // r := f.Read("/tmp/agent-status.json")
 func LocalFs() *core.Fs { return fs }
