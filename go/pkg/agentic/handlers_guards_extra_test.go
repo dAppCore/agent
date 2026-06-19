@@ -30,3 +30,28 @@ func TestAgenticHandlers_IdentifierGuards(t *testing.T) {
 		core.AssertFalse(t, s.contentBriefGet(ctx, ContentBriefGetInput{}).OK)
 	})
 }
+
+// TestAgenticHandlers_SessionIssueGuards — session + issue handlers that require
+// an identifier reject empty input before any platform call.
+func TestAgenticHandlers_SessionIssueGuards(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	captureStdout(t, func() {
+		core.AssertFalse(t, s.sessionGet(ctx, SessionGetInput{}).OK)
+		core.AssertFalse(t, s.sessionEnd(ctx, SessionEndInput{}).OK)
+		core.AssertFalse(t, s.sessionContinue(ctx, SessionContinueInput{}).OK)
+		core.AssertFalse(t, s.sessionResume(ctx, SessionResumeInput{}).OK)
+		core.AssertFalse(t, s.sessionLog(ctx, SessionLogInput{}).OK)
+		core.AssertFalse(t, s.sessionArtifact(ctx, SessionArtifactInput{}).OK)
+		core.AssertFalse(t, s.sessionHandoff(ctx, SessionHandoffInput{}).OK)
+		core.AssertFalse(t, s.sessionReplay(ctx, SessionReplayInput{}).OK)
+		core.AssertFalse(t, s.issueUpdate(ctx, IssueUpdateInput{}).OK)
+		core.AssertFalse(t, s.issueComment(ctx, IssueCommentInput{}).OK)
+		core.AssertFalse(t, s.issueArchive(ctx, IssueArchiveInput{}).OK)
+	})
+}
