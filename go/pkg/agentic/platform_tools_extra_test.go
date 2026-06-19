@@ -62,6 +62,19 @@ func TestPlatformTools_FleetHeartbeatTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_CreditsBalanceTool_Good — credits balance calls the platform
+// and parses the agent balance from a well-formed response.
+func TestPlatformTools_CreditsBalanceTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"agent_id":"a1","balance":5}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.creditsBalanceTool(context.Background(), CreditsBalanceInput{AgentID: "a1"})
+	core.AssertTrue(t, r.OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
