@@ -39,4 +39,8 @@ func TestControl_ProfileHandlers_HTTP(t *testing.T) {
 	core.AssertEqual(t, 200, do("GET", "/profile/default", "")) // get the seeded default
 	core.AssertEqual(t, 200, do("GET", "/enabled", ""))         // persisted enable flag
 	core.AssertTrue(t, do("POST", "/profile", `{"name":"t1"}`) < 500)
+	core.AssertTrue(t, do("GET", "/profile/t1", "") < 500)     // get the just-saved profile
+	core.AssertTrue(t, do("DELETE", "/profile/t1", "") < 500)  // delete it
+	core.AssertTrue(t, do("POST", "/host-config", `{}`) < 500) // host opencode.json merge (temp HOME)
+	core.AssertTrue(t, do("GET", "/studio", "") < 500)         // studio presence check
 }
