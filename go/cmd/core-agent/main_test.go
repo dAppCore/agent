@@ -97,3 +97,9 @@ func TestMain_NewCoreAgentFallback_Ugly_Case(t *testing.T) {
 	core.AssertEqual(t, "dev", c.App().Version)
 	core.AssertEqual(t, "core-agent dev — agentic orchestration for the Core ecosystem", c.Cli().Banner())
 }
+
+// TestMain_DetectBinaryName_Good_Case — argv[0] in a test binary yields a
+// non-empty basename; the fallback guarantees detectBinaryName is never empty.
+func TestMain_DetectBinaryName_Good_Case(t *testing.T) {
+	core.AssertTrue(t, detectBinaryName() != "")
+}

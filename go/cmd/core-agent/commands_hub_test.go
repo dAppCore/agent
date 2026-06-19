@@ -144,3 +144,98 @@ func TestHub_laravelURLReject_Bad(t *testing.T) {
 		}
 	}
 }
+
+// --- pure helpers (defaultHubTokenFile / defaultHubAuditPath / optStringOr /
+//     publicSuffix / auditMetaString / toBytes / hostIsLoopback) -------------
+
+// TestHub_defaultHubTokenFile_Good — the token file sits under the core
+// workspace root at hub/hub.token.
+func TestHub_defaultHubTokenFile_Good(t *testing.T) {
+	core.AssertContains(t, defaultHubTokenFile(), core.JoinPath("hub", "hub.token"))
+}
+
+// TestHub_defaultHubAuditPath_Good — the audit log sits under the core
+// workspace root at hub/audit.jsonl.
+func TestHub_defaultHubAuditPath_Good(t *testing.T) {
+	core.AssertContains(t, defaultHubAuditPath(), core.JoinPath("hub", "audit.jsonl"))
+}
+
+// TestHub_optStringOr_Good — a present, non-empty option wins over the fallback.
+func TestHub_optStringOr_Good(t *testing.T) {
+	opts := core.NewOptions(core.Option{Key: "addr", Value: "127.0.0.1:9201"})
+	core.AssertEqual(t, "127.0.0.1:9201", optStringOr(opts, "addr", "fallback"))
+}
+
+// TestHub_optStringOr_Bad_MissingFallsBack — a missing key yields the fallback.
+func TestHub_optStringOr_Bad_MissingFallsBack(t *testing.T) {
+	core.AssertEqual(t, "fallback", optStringOr(core.NewOptions(), "addr", "fallback"))
+}
+
+// TestHub_optStringOr_Ugly_WhitespaceFallsBack — a whitespace-only value trims
+// to empty and yields the fallback.
+func TestHub_optStringOr_Ugly_WhitespaceFallsBack(t *testing.T) {
+	opts := core.NewOptions(core.Option{Key: "addr", Value: "   "})
+	core.AssertEqual(t, "fallback", optStringOr(opts, "addr", "fallback"))
+}
+
+// TestHub_publicSuffix_Good — --public annotates the bind log line.
+func TestHub_publicSuffix_Good(t *testing.T) {
+	core.AssertEqual(t, ", PUBLIC opt-in", publicSuffix(true))
+}
+
+// TestHub_publicSuffix_Bad_PrivateEmpty — loopback bind adds no annotation.
+func TestHub_publicSuffix_Bad_PrivateEmpty(t *testing.T) {
+	core.AssertEqual(t, "", publicSuffix(false))
+}
+
+// TestHub_auditMetaString_Good — a present string field is returned.
+func TestHub_auditMetaString_Good(t *testing.T) {
+	core.AssertEqual(t, "go-io", auditMetaString(map[string]any{"repo": "go-io"}, "repo"))
+}
+
+// TestHub_auditMetaString_Bad_NilOrMissing — nil map or absent key yields "".
+func TestHub_auditMetaString_Bad_NilOrMissing(t *testing.T) {
+	core.AssertEqual(t, "", auditMetaString(nil, "repo"))
+	core.AssertEqual(t, "", auditMetaString(map[string]any{"repo": "go-io"}, "agent"))
+}
+
+// TestHub_auditMetaString_Ugly_NonString — a non-string value yields "".
+func TestHub_auditMetaString_Ugly_NonString(t *testing.T) {
+	core.AssertEqual(t, "", auditMetaString(map[string]any{"count": 7}, "count"))
+}
+
+// TestHub_toBytes_Good_String — a string passes through unchanged.
+func TestHub_toBytes_Good_String(t *testing.T) {
+	core.AssertEqual(t, "abc", toBytes("abc"))
+}
+
+// TestHub_toBytes_Bad_ByteSlice — a []byte is coerced to its string form.
+func TestHub_toBytes_Bad_ByteSlice(t *testing.T) {
+	core.AssertEqual(t, "abc", toBytes([]byte("abc")))
+}
+
+// TestHub_toBytes_Ugly_OtherType — any other type yields "".
+func TestHub_toBytes_Ugly_OtherType(t *testing.T) {
+	core.AssertEqual(t, "", toBytes(42))
+}
+
+// TestHub_hostIsLoopback_Good — localhost and loopback IPs (incl. an
+// unterminated "[::1") count as loopback.
+func TestHub_hostIsLoopback_Good(t *testing.T) {
+	for _, h := range []string{"localhost", "127.0.0.1:9876", "[::1]:9876", "[::1"} {
+		core.AssertTrue(t, hostIsLoopback(h))
+	}
+}
+
+// TestHub_hostIsLoopback_Bad_OffBox — DNS names (incl. the "127."-prefixed
+// SSRF bait) and non-loopback IPs are rejected.
+func TestHub_hostIsLoopback_Bad_OffBox(t *testing.T) {
+	for _, h := range []string{"api.lthn.ai", "10.0.0.5:9876", "127.evil.com:9876"} {
+		core.AssertFalse(t, hostIsLoopback(h))
+	}
+}
+
+// TestHub_hostIsLoopback_Ugly_Empty — an empty host is not loopback.
+func TestHub_hostIsLoopback_Ugly_Empty(t *testing.T) {
+	core.AssertFalse(t, hostIsLoopback(""))
+}
