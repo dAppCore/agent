@@ -14,3 +14,9 @@ tasks:
       - mkdir -p ../bin
       - go build -trimpath -o ../bin/lthn-agent ./cmd/core-agent/
       - echo "  lthn-agent → bin/lthn-agent"
+  cov:
+    desc: "Module coverage — writes go/coverage.out (the path codecov + SonarCloud read) and prints the total. `task cov` then open go/coverage.out, or pipe to `go tool cover -html`."
+    dir: go
+    cmds:
+      - go test -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -func=coverage.out | tail -1

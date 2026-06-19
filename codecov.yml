@@ -1,0 +1,35 @@
+# Codecov gate for dappco.re/go/agent — the "start using it" ratchet.
+#
+# project: a PR may not drop total coverage below the base commit's level
+#   (target: auto), allowing a small noise threshold. Coverage climbs and
+#   never regresses — the ratchet.
+# patch: new / changed lines should be reasonably covered, which pulls the
+#   project number upward as files are touched (the agreed strategy: tractable
+#   wins now, raise the rest opportunistically as code is edited).
+#
+# Coverage is produced by .github/workflows/ci.yml (go test -coverprofile,
+# GOWORK=off standalone build) and uploaded via codecov-action; locally use
+# `task cov` (writes go/coverage.out, the path SonarCloud also reads).
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: false
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+        informational: false
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: true
+
+# go/ is the only module; tests and the vendored externals are not product code.
+ignore:
+  - "**/*_test.go"
+  - "go/external/**"
+  - "**/*_example_test.go"
