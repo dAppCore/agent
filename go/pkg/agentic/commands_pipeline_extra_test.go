@@ -23,3 +23,13 @@ func TestAgentic_PipelineCmd_Guards(t *testing.T) {
 		core.AssertFalse(t, s.cmdPipelineMonitor(core.NewOptions()).OK)
 	})
 }
+
+// TestAgentic_PipelineDispatchers_Usage — the epic/fix sub-command dispatchers
+// print usage and succeed when invoked with no action.
+func TestAgentic_PipelineDispatchers_Usage(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	captureStdout(t, func() {
+		core.AssertTrue(t, s.cmdPipelineEpic(core.NewOptions()).OK)
+		core.AssertTrue(t, s.cmdPipelineFix(core.NewOptions()).OK)
+	})
+}
