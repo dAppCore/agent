@@ -107,3 +107,24 @@ func TestMergeHostConfigResult_BytesAvailableInProcess_Good(t *testing.T) {
 			"struct construction: got %q want %q", res.Bytes, merged)
 	}
 }
+
+// TestHostConfig_nestedString_Good — a nested map path resolves to the
+// terminal string value.
+func TestHostConfig_nestedString_Good(t *testing.T) {
+	m := map[string]any{"options": map[string]any{"baseURL": "http://localhost:8000/v1"}}
+	core.AssertEqual(t, "http://localhost:8000/v1", nestedString(m, "options", "baseURL"))
+}
+
+// TestHostConfig_nestedString_Bad_MissingKey — a missing key at any step yields "".
+func TestHostConfig_nestedString_Bad_MissingKey(t *testing.T) {
+	m := map[string]any{"options": map[string]any{"baseURL": "x"}}
+	core.AssertEqual(t, "", nestedString(m, "options", "model"))
+	core.AssertEqual(t, "", nestedString(m, "provider", "baseURL"))
+}
+
+// TestHostConfig_nestedString_Ugly_NonMapOrNonString — a non-map intermediate
+// or non-string terminal yields "".
+func TestHostConfig_nestedString_Ugly_NonMapOrNonString(t *testing.T) {
+	core.AssertEqual(t, "", nestedString(map[string]any{"options": "not-a-map"}, "options", "baseURL"))
+	core.AssertEqual(t, "", nestedString(map[string]any{"port": 8000}, "port"))
+}
