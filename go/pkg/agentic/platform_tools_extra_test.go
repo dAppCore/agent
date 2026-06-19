@@ -75,6 +75,19 @@ func TestPlatformTools_CreditsBalanceTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_CreditsHistoryTool_Good — credits history calls the platform
+// and parses the (empty) entry list + total from a well-formed response.
+func TestPlatformTools_CreditsHistoryTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"entries":[],"total":0}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.creditsHistoryTool(context.Background(), CreditsHistoryInput{AgentID: "a1"})
+	core.AssertTrue(t, r.OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
