@@ -16,4 +16,7 @@ func TestImportHost_ListImports_NoStore(t *testing.T) {
 	core.AssertFalse(t, svc.ListImportedProviders().OK)
 	core.AssertFalse(t, svc.Status().OK)
 	core.AssertFalse(t, svc.Inspect("oc-1").OK)
+	if _, tr := svc.targetFor("oc-1"); tr.OK {
+		t.Fatalf("targetFor should fail without a running sandbox")
+	}
 }
