@@ -154,6 +154,20 @@ func TestPlatformTools_FleetTaskAssignComplete_Bad(t *testing.T) {
 	core.AssertFalse(t, s.fleetTaskCompleteTool(ctx, FleetTaskCompleteInput{AgentID: "a1"}).OK)
 }
 
+// TestPlatformTools_CreditsAwardSubBudgetUpdate_Bad — credits award + budget
+// update reject empty input.
+func TestPlatformTools_CreditsAwardSubBudgetUpdate_Bad(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	core.AssertFalse(t, s.creditsAwardTool(ctx, CreditsAwardInput{}).OK)
+	core.AssertFalse(t, s.subscriptionBudgetUpdateTool(ctx, SubscriptionBudgetUpdateInput{}).OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
