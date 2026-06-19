@@ -18,3 +18,15 @@ func TestBrainActions_ValueExtractors_Good(t *testing.T) {
 	core.AssertEqual(t, 1.5, actionFloatValue(opts, "f"))
 	core.AssertEqual(t, []string{"a", "b"}, actionStringSliceValue(opts, "s"))
 }
+
+// TestBrainActions_StringSliceFromAny_Good — []string and []any inputs both
+// normalise to a trimmed, empty-free slice.
+func TestBrainActions_StringSliceFromAny_Good(t *testing.T) {
+	core.AssertEqual(t, []string{"a", "b"}, actionStringSliceFromAny([]string{"a", " b ", ""}))
+	core.AssertEqual(t, []string{"x", "y"}, actionStringSliceFromAny([]any{"x", "", "y"}))
+}
+
+// TestBrainActions_cleanActionStrings_Good — trims values and drops empties.
+func TestBrainActions_cleanActionStrings_Good(t *testing.T) {
+	core.AssertEqual(t, []string{"a", "b"}, cleanActionStrings([]string{" a ", "", "b", "  "}))
+}
