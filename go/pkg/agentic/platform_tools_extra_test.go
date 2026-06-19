@@ -61,3 +61,16 @@ func TestPlatformTools_FleetHeartbeatTool_Good(t *testing.T) {
 	r := s.fleetHeartbeatTool(context.Background(), FleetNode{AgentID: "node-1", Status: "online"})
 	core.AssertTrue(t, r.OK)
 }
+
+// TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
+// platform with a valid agent id and returns a successful Result.
+func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.fleetDeregisterTool(context.Background(), FleetDeregisterInput{AgentID: "node-1"})
+	core.AssertTrue(t, r.OK)
+}
