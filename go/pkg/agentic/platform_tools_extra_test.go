@@ -114,6 +114,19 @@ func TestPlatformTools_FleetTaskNextTool_Good(t *testing.T) {
 	core.AssertTrue(t, r.OK)
 }
 
+// TestPlatformTools_FleetEventsTool_Good — fleet events calls the platform and
+// parses the (empty) event list from a well-formed response.
+func TestPlatformTools_FleetEventsTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"events":[]}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.fleetEventsTool(context.Background(), FleetEventsInput{AgentID: "a1"})
+	core.AssertTrue(t, r.OK)
+}
+
 // TestPlatformTools_FleetDeregisterTool_Good — fleet deregister calls the
 // platform with a valid agent id and returns a successful Result.
 func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
