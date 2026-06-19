@@ -25,3 +25,13 @@ func TestModels_printDownloadJob_Good(t *testing.T) {
 	core.AssertContains(t, out, "/x")
 	core.AssertContains(t, out, "boom")
 }
+
+// TestModels_Handlers_NoDaemon — models download + opencode-models fail without
+// a reachable daemon rather than panicking.
+func TestModels_Handlers_NoDaemon(t *testing.T) {
+	cmds := applicationCommandSet{coreApp: newTestCore(t)}
+	captureStdout(t, func() {
+		core.AssertFalse(t, cmds.modelsDownload(core.NewOptions()).OK)
+		core.AssertFalse(t, cmds.opencodeModels(core.NewOptions()).OK)
+	})
+}
