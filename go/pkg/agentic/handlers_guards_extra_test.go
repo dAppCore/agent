@@ -55,3 +55,21 @@ func TestAgenticHandlers_SessionIssueGuards(t *testing.T) {
 		core.AssertFalse(t, s.issueArchive(ctx, IssueArchiveInput{}).OK)
 	})
 }
+
+// TestAgenticHandlers_ContentGuards — content generate/create handlers reject
+// empty input.
+func TestAgenticHandlers_ContentGuards(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	captureStdout(t, func() {
+		core.AssertFalse(t, s.contentGenerate(ctx, ContentGenerateInput{}).OK)
+		core.AssertFalse(t, s.contentBatchGenerate(ctx, ContentBatchGenerateInput{}).OK)
+		core.AssertFalse(t, s.contentBriefCreate(ctx, ContentBriefCreateInput{}).OK)
+		core.AssertFalse(t, s.contentFromPlan(ctx, ContentFromPlanInput{}).OK)
+	})
+}
