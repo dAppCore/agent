@@ -22,3 +22,14 @@ func TestServe_buildAdmin_Good(t *testing.T) {
 	core.AssertTrue(t, ok)
 	core.AssertTrue(t, admin != nil)
 }
+
+// TestServe_Handlers_NoDaemon — serve status/reload/profiles fail (no reachable
+// daemon / empty config) rather than panicking.
+func TestServe_Handlers_NoDaemon(t *testing.T) {
+	cmds := applicationCommandSet{coreApp: newTestCore(t)}
+	captureStdout(t, func() {
+		core.AssertFalse(t, cmds.serveStatus(core.NewOptions()).OK)
+		core.AssertFalse(t, cmds.serveReload(core.NewOptions()).OK)
+		core.AssertFalse(t, cmds.serveProfiles(core.NewOptions()).OK)
+	})
+}
