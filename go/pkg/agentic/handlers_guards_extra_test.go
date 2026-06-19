@@ -73,3 +73,25 @@ func TestAgenticHandlers_ContentGuards(t *testing.T) {
 		core.AssertFalse(t, s.contentFromPlan(ctx, ContentFromPlanInput{}).OK)
 	})
 }
+
+// TestAgenticHandlers_ListCreate_Exercised — the remaining list/create platform
+// handlers run their request path; an unparseable platform response makes each
+// fail rather than succeed (mock → no real network).
+func TestAgenticHandlers_ListCreate_Exercised(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("nope"))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	captureStdout(t, func() {
+		core.AssertFalse(t, s.sprintCreate(ctx, SprintCreateInput{}).OK)
+		core.AssertFalse(t, s.sprintList(ctx, SprintListInput{}).OK)
+		core.AssertFalse(t, s.sessionStart(ctx, SessionStartInput{}).OK)
+		core.AssertFalse(t, s.sessionList(ctx, SessionListInput{}).OK)
+		core.AssertFalse(t, s.contentBriefList(ctx, ContentBriefListInput{}).OK)
+		core.AssertFalse(t, s.contentStatus(ctx, ContentStatusInput{}).OK)
+		core.AssertFalse(t, s.contentUsageStats(ctx, ContentUsageStatsInput{}).OK)
+	})
+}
