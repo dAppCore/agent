@@ -35,3 +35,16 @@ func TestPlatformTools_computeBudgetMapValue_GoodBad(t *testing.T) {
 	core.AssertTrue(t, m != nil)
 	core.AssertEqual(t, "22:00", m["quiet_start"])
 }
+
+// TestPlatformTools_FleetRegisterTool_Good — fleet register calls the platform
+// and returns a successful FleetNode Result for a well-formed response.
+func TestPlatformTools_FleetRegisterTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"agent_id":"node-1","platform":"darwin"}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.fleetRegisterTool(context.Background(), FleetNode{AgentID: "node-1", Platform: "darwin", Models: []string{"go"}})
+	core.AssertTrue(t, r.OK)
+}
