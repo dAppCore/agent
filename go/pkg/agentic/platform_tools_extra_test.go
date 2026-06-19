@@ -74,3 +74,16 @@ func TestPlatformTools_FleetDeregisterTool_Good(t *testing.T) {
 	r := s.fleetDeregisterTool(context.Background(), FleetDeregisterInput{AgentID: "node-1"})
 	core.AssertTrue(t, r.OK)
 }
+
+// TestPlatformTools_AuthProvisionTool_Good — auth provision calls the platform
+// with a valid oauth user + name and returns a successful Result.
+func TestPlatformTools_AuthProvisionTool_Good(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"agent_id":"a1","local_key":"k1"}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	r := s.authProvisionTool(context.Background(), AuthProvisionInput{OAuthUserID: "u1", Name: "agent"})
+	core.AssertTrue(t, r.OK)
+}
