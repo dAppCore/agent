@@ -25,3 +25,13 @@ func TestPlatformTools_SyncTools_Good(t *testing.T) {
 	core.AssertTrue(t, s.syncPullTool(ctx, SyncPullInput{}).OK)
 	core.AssertTrue(t, s.syncStatusTool(ctx, SyncStatusInput{}).OK)
 }
+
+// TestPlatformTools_computeBudgetMapValue_GoodBad — nil/zero budgets map to
+// nil; a populated budget yields the corresponding map entries.
+func TestPlatformTools_computeBudgetMapValue_GoodBad(t *testing.T) {
+	core.AssertTrue(t, computeBudgetMapValue(nil) == nil)
+	core.AssertTrue(t, computeBudgetMapValue(&ComputeBudget{}) == nil)
+	m := computeBudgetMapValue(&ComputeBudget{MaxDailyHours: 8, QuietStart: "22:00"})
+	core.AssertTrue(t, m != nil)
+	core.AssertEqual(t, "22:00", m["quiet_start"])
+}
