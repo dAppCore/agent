@@ -87,3 +87,21 @@ func TestPlatformTools_AuthProvisionTool_Good(t *testing.T) {
 	r := s.authProvisionTool(context.Background(), AuthProvisionInput{OAuthUserID: "u1", Name: "agent"})
 	core.AssertTrue(t, r.OK)
 }
+
+// TestPlatformTools_AuthRevokeAndLogin_ReachPlatform — auth revoke (by key id)
+// and auth login (by pairing code) each build their request and call the
+// platform endpoint (verified by the mock recording both hits).
+func TestPlatformTools_AuthRevokeAndLogin_ReachPlatform(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+
+	s := testPrepWithPlatformServer(t, srv, "token")
+	ctx := context.Background()
+	s.authRevokeTool(ctx, AuthRevokeInput{KeyID: "k1"})
+	s.authLoginTool(ctx, AuthLoginInput{Code: "123456"})
+	core.AssertTrue(t, hits >= 2)
+}
