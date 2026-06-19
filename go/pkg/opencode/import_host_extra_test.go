@@ -29,3 +29,19 @@ func TestImportHost_persistProjects_Empty(t *testing.T) {
 	c := core.New(core.WithOption("name", "opencode-test"))
 	core.AssertEqual(t, 0, persistProjects(c, []any{}, core.Now()))
 }
+
+// TestImportHost_stringFrom_Good — extract a string value; non-string or
+// missing keys yield "".
+func TestImportHost_stringFrom_Good(t *testing.T) {
+	core.AssertEqual(t, "v", stringFrom(map[string]any{"k": "v"}, "k"))
+	core.AssertEqual(t, "", stringFrom(map[string]any{"k": 1}, "k"))
+	core.AssertEqual(t, "", stringFrom(map[string]any{}, "missing"))
+}
+
+// TestImportHost_projectNameFrom_Good — empty/"/" worktree falls back to the
+// source id; a real path yields its basename.
+func TestImportHost_projectNameFrom_Good(t *testing.T) {
+	core.AssertEqual(t, "fb", projectNameFrom("", "fb"))
+	core.AssertEqual(t, "fb", projectNameFrom("/", "fb"))
+	core.AssertEqual(t, "repo", projectNameFrom("/home/user/repo", "fb"))
+}
