@@ -40,3 +40,35 @@ func TestProfile_SaveProfile_Good_RoundTrips(t *testing.T) {
 	core.AssertTrue(t, ok)
 	core.AssertEqual(t, "tight-loop", got.Name)
 }
+
+// TestProfile_ToOpenCodeWire_Good_StripsNameDescription — the wire form drops
+// name + description (opencode-internal fields) but keeps the rest.
+func TestProfile_ToOpenCodeWire_Good_StripsNameDescription(t *testing.T) {
+	wire := Profile{Name: "NAMEFIELD", Description: "DESCFIELD", Model: "MODELVAL"}.ToOpenCodeWire()
+	core.AssertFalse(t, core.Contains(wire, "NAMEFIELD"))
+	core.AssertFalse(t, core.Contains(wire, "DESCFIELD"))
+	core.AssertTrue(t, core.Contains(wire, "MODELVAL"))
+}
+
+// TestProfile_ListProfiles_Good — the seeded default plus a saved profile are
+// both listed.
+func TestProfile_ListProfiles_Good(t *testing.T) {
+	svc := newTestService(t)
+	core.AssertTrue(t, svc.SaveProfile(Profile{Name: "extra"}).OK)
+	r := svc.ListProfiles()
+	core.AssertTrue(t, r.OK)
+	list, ok := r.Value.([]Profile)
+	core.AssertTrue(t, ok)
+	core.AssertTrue(t, len(list) >= 2)
+}
+
+// TestProfile_DeleteProfile_GuardsAndDelete — empty name + the default profile
+// are refused; a real profile deletes and is then gone.
+func TestProfile_DeleteProfile_GuardsAndDelete(t *testing.T) {
+	svc := newTestService(t)
+	core.AssertFalse(t, svc.DeleteProfile("").OK)
+	core.AssertFalse(t, svc.DeleteProfile(DefaultProfile).OK)
+	core.AssertTrue(t, svc.SaveProfile(Profile{Name: "temp"}).OK)
+	core.AssertTrue(t, svc.DeleteProfile("temp").OK)
+	core.AssertFalse(t, svc.GetProfile("temp").OK)
+}
