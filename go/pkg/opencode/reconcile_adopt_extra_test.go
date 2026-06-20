@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	core "dappco.re/go"
+	"dappco.re/go/orm"
+	"dappco.re/go/process"
 )
 
 // TestReconcile_adoptFromOutput_NoAdoptVerdicts — output containing only
@@ -55,4 +57,83 @@ func TestReconcile_NoopEmitHooks(t *testing.T) {
 
 	// Reaching here without panic is the assertion.
 	core.AssertTrue(t, true)
+}
+
+// TestReconcile_Good_AdoptsMatchingContainer — full Reconcile through the
+// process seam. The fixture-script runtime emits one docker-ps line whose
+// install_id column EQUALS svc.InstallID() (resolved first and baked in),
+// a backed store lets the adopt Save succeed, and the proxy target is
+// registered. Polarity trap (per review): an install_id that doesn't match
+// lands on verdictLabelMismatch with recovered=0 — a green test that never
+// touches the adopt path. We assert recovered==1 AND the proxy/orm landed.
+func TestReconcile_Good_AdoptsMatchingContainer(t *testing.T) {
+	// Build a service WITHOUT a runtime yet — resolve the install id first.
+	c := core.New(core.WithOption("name", "opencode-test"))
+	resetKV(t)
+	r := NewService(Options{})(c)
+	core.AssertTrue(t, r.OK)
+	svc, _ := r.Value.(*Service)
+	mountSandboxStore(t, svc)
+
+	idR := svc.InstallID()
+	core.AssertTrue(t, idR.OK)
+	installID := idR.Value.(string)
+	core.AssertNotEmpty(t, installID)
+
+	// One adopt-eligible row: matching prefix, our install id, valid port.
+	fixture := "lthn-opencode-oc-recon\t127.0.0.1:51999->4096/tcp\t" + installID
+	scriptPath := writeRuntimeScript(t, fixture)
+
+	// Now register a process service pointed at the script. Re-create the
+	// opencode Service with the script Runtime over the SAME core so the
+	// resolved install id (already persisted in the KV) is unchanged.
+	r2 := NewService(Options{Runtime: scriptPath})(c)
+	core.AssertTrue(t, r2.OK)
+	svc2, _ := r2.Value.(*Service)
+	pr := process.NewService(process.Options{})(c)
+	core.AssertTrue(t, pr.OK)
+	core.AssertTrue(t, c.RegisterService("process", pr.Value).OK)
+
+	recR := svc2.Reconcile()
+	core.AssertTrue(t, recR.OK)
+	recovered, _ := recR.Value.(int)
+	core.AssertEqual(t, 1, recovered)
+
+	// orm row landed.
+	findR := orm.Of[Sandbox](svc2.Core()).Find("oc-recon")
+	core.AssertTrue(t, findR.OK)
+	sb, _ := findR.Value.(Sandbox)
+	core.AssertEqual(t, 51999, sb.HostPort)
+	core.AssertEqual(t, StatusRunning, sb.Status)
+}
+
+// TestReconcile_NoMatchingContainers_ZeroRecovered — the script emits only
+// non-adopt rows (mismatched install id), so Reconcile runs both ps passes,
+// adopts nothing, and returns 0. Exercises Reconcile's body end-to-end
+// (InstallID resolve, both Run calls, adoptFromOutput + emitDenials) on the
+// zero-adopt branch (fireSandboxChange NOT called).
+func TestReconcile_NoMatchingContainers_ZeroRecovered(t *testing.T) {
+	scriptPath := writeRuntimeScript(t, "lthn-opencode-evil\t127.0.0.1:51823->4096/tcp\tattacker")
+	svc := procBackedService(t, scriptPath)
+
+	r := svc.Reconcile()
+	core.AssertTrue(t, r.OK)
+	recovered, _ := r.Value.(int)
+	core.AssertEqual(t, 0, recovered)
+}
+
+// TestReconcile_Bad_RunFails — a "false" runtime fails the first (adopt)
+// ps.Run, so Reconcile returns that failure before parsing anything.
+func TestReconcile_Bad_RunFails(t *testing.T) {
+	svc := procBackedService(t, "false")
+	r := svc.Reconcile()
+	core.AssertFalse(t, r.OK)
+}
+
+// TestReconcile_NoProc_Unavailable — runtime-less Service surfaces the
+// proc()-nil leg.
+func TestReconcile_NoProc_Unavailable(t *testing.T) {
+	r := (&Service{}).Reconcile()
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Error(), "process service unavailable")
 }

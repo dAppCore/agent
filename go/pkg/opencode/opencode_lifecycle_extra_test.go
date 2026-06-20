@@ -82,6 +82,20 @@ func mountSandboxStore(t *testing.T, svc *Service) {
 	core.AssertTrue(t, orm.Mount(svc.Core(), "default", m).OK)
 }
 
+// writeRuntimeScript writes an executable shell script to a temp dir that
+// ignores all args and prints stdout verbatim, then returns its absolute
+// path. Used as the opencode Runtime so ps.Run yields a controlled
+// docker-ps-shaped stdout (Reconcile's adopt path needs structured
+// output a bare "true" runtime can't supply).
+func writeRuntimeScript(t *testing.T, stdout string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := core.PathJoin(dir, "fake-docker.sh")
+	body := "#!/bin/sh\ncat <<'OPENCODE_FIXTURE_EOF'\n" + stdout + "\nOPENCODE_FIXTURE_EOF\n"
+	core.AssertTrue(t, core.WriteFile(path, []byte(body), 0o755).OK)
+	return path
+}
+
 // --- Stop ---
 
 // TestOpencode_Stop_Good_RuntimeTrue — Stop with a "true" runtime: the
