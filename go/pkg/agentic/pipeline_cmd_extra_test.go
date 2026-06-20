@@ -25,6 +25,51 @@ func pipelinePR(repo string, number int) core.Options {
 	)
 }
 
+// --- pipeline audit wrapper ---
+
+// TestPipelineCmd_Audit_Good_MapsOutput — cmdPipelineAudit maps the repo option,
+// calls the mocked pipelineAuditWithReader op, and surfaces the audits/created
+// counts.
+func TestPipelineCmd_Audit_Good_MapsOutput(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	orig := pipelineAuditWithReader
+	defer func() { pipelineAuditWithReader = orig }()
+	pipelineAuditWithReader = func(_ *PrepSubsystem, _ context.Context, input PipelineAuditInput, _ *MetaReader) (PipelineAuditOutput, error) {
+		core.AssertEqual(t, "go-io", input.Repo)
+		return PipelineAuditOutput{
+			Success: true, Org: "core", Repo: input.Repo,
+			Audits:  []PipelineIssueRef{{Number: 3, Title: "Security audit"}},
+			Created: []PipelineIssueRef{{Number: 21, Title: "Fix the SQLi"}},
+		}, nil
+	}
+
+	captureStdout(t, func() {
+		r := s.cmdPipelineAudit(core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
+		core.RequireTrue(t, r.OK)
+		out, ok := r.Value.(PipelineAuditOutput)
+		core.RequireTrue(t, ok)
+		core.RequireTrue(t, len(out.Created) == 1)
+		core.AssertEqual(t, 21, out.Created[0].Number)
+	})
+}
+
+// TestPipelineCmd_Audit_Bad_OpErrors — an audit op error surfaces as a failed
+// Result.
+func TestPipelineCmd_Audit_Bad_OpErrors(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+
+	orig := pipelineAuditWithReader
+	defer func() { pipelineAuditWithReader = orig }()
+	pipelineAuditWithReader = func(_ *PrepSubsystem, _ context.Context, _ PipelineAuditInput, _ *MetaReader) (PipelineAuditOutput, error) {
+		return PipelineAuditOutput{}, errors.New("no forge token")
+	}
+
+	captureStdout(t, func() {
+		core.AssertFalse(t, s.cmdPipelineAudit(core.NewOptions(core.Option{Key: "repo", Value: "go-io"})).OK)
+	})
+}
+
 // --- pipeline fix/* wrappers ---
 
 // TestPipelineCmd_FixReviews_Good_MapsOutput — cmdPipelineFixReviews maps the
