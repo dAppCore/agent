@@ -158,7 +158,10 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 		"--repo", ghRepo, "--head", "dev", "--base", "main",
 		"--title", title, "--body", body)
 	if !r.OK {
-		return core.Fail(core.E("createGitHubPR", r.Value.(string), nil))
+		// r is a failed Result: r.Value is a *core.Err (process exit), not
+		// the stdout string. Use r.Error() — a bare r.Value.(string) here
+		// panics on every gh failure (auth expired, network down).
+		return core.Fail(core.E("createGitHubPR", r.Error(), nil))
 	}
 
 	prOut := r.Value.(string)
