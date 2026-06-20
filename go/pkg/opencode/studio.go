@@ -20,6 +20,7 @@
 package opencode
 
 import (
+	"context"
 	goruntime "runtime"
 
 	core "dappco.re/go"
@@ -30,14 +31,20 @@ import (
 // detected today — users can still launch via Spotlight.
 const studioMacPath = "/Applications/OpenCode.app"
 
-// IsStudioInstalled reports whether OpenCode's native desktop app
-// is installed on the host. Frontend uses this to decide whether
-// to render the "Open Studio" button on the integrations card.
+// studioInstalled reports whether OpenCode's native desktop app is
+// present on the host. Indirected through a package var — mirroring
+// portProbe / pickPortInRange in opencode.go — so the openStudio
+// control handler can drive both its present (200) and absent (404)
+// legs without depending on what is actually installed on the test
+// host. The default does the real per-platform filesystem / PATH
+// detection.
 //
 // Usage example:
 //
-//	if svc.IsStudioInstalled() { /* render the button */ }
-func (s *Service) IsStudioInstalled() bool {
+//	orig := studioInstalled
+//	defer func() { studioInstalled = orig }()
+//	studioInstalled = func() bool { return true }
+var studioInstalled = func() bool {
 	switch goruntime.GOOS {
 	case "darwin":
 		return core.Stat(studioMacPath).OK
@@ -51,6 +58,42 @@ func (s *Service) IsStudioInstalled() bool {
 	default:
 		return false
 	}
+}
+
+// studioOpen launches the detected native app. Indirected through a
+// package var so openStudio's present leg can assert a 200 without
+// shelling a real `open -a OpenCode` (which would launch a GUI on the
+// test host, or fail when the app isn't installed). The default does
+// the real launch via the process service.
+//
+// Usage example:
+//
+//	orig := studioOpen
+//	defer func() { studioOpen = orig }()
+//	studioOpen = func(*Service, context.Context) core.Result { return core.Ok(true) }
+var studioOpen = func(s *Service, ctx context.Context) core.Result {
+	ps := s.proc()
+	if ps == nil {
+		return core.Fail(core.E("opencode.OpenStudio", "process service unavailable", nil))
+	}
+	switch goruntime.GOOS {
+	case "darwin":
+		return ps.Run(ctx, "open", "-a", "OpenCode")
+	default:
+		return core.Fail(core.E("opencode.OpenStudio",
+			"unsupported platform: "+goruntime.GOOS, nil))
+	}
+}
+
+// IsStudioInstalled reports whether OpenCode's native desktop app
+// is installed on the host. Frontend uses this to decide whether
+// to render the "Open Studio" button on the integrations card.
+//
+// Usage example:
+//
+//	if svc.IsStudioInstalled() { /* render the button */ }
+func (s *Service) IsStudioInstalled() bool {
+	return studioInstalled()
 }
 
 // OpenStudio launches the host's OpenCode native app. Returns
@@ -68,19 +111,9 @@ func (s *Service) OpenStudio() core.Result {
 		return core.Fail(core.E("opencode.OpenStudio",
 			"OpenCode native app is not installed on this host", nil))
 	}
-	ps := s.proc()
-	if ps == nil {
-		return core.Fail(core.E("opencode.OpenStudio", "process service unavailable", nil))
-	}
 
 	ctx, cancel := core.WithTimeout(core.Background(), 10*core.Second)
 	defer cancel()
 
-	switch goruntime.GOOS {
-	case "darwin":
-		return ps.Run(ctx, "open", "-a", "OpenCode")
-	default:
-		return core.Fail(core.E("opencode.OpenStudio",
-			"unsupported platform: "+goruntime.GOOS, nil))
-	}
+	return studioOpen(s, ctx)
 }
