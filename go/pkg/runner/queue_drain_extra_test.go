@@ -27,6 +27,7 @@ import (
 type fakeSpawner struct {
 	pid      int
 	ok       bool
+	badPID   bool // return a non-int Ok value (malformed envelope)
 	calls    int
 	lastDir  string
 	lastAgnt string
@@ -39,8 +40,18 @@ func (f *fakeSpawner) SpawnFromQueue(agent, _ /*prompt*/, workspaceDir string) c
 	if !f.ok {
 		return core.Fail(core.E("fakeSpawner", "spawn declined", nil))
 	}
+	if f.badPID {
+		// Mux returns a malformed envelope: Ok but the value isn't the int
+		// pid drainOne's `pid, ok := spawnResult.Value.(int)` expects.
+		return core.Ok("not-an-int")
+	}
 	return core.Ok(f.pid)
 }
+
+// wrongTypeAgentic is an "agentic" service instance that does NOT implement
+// the SpawnFromQueue spawner interface, so drainOne's
+// `agenticService, ok := agenticResult.Value.(spawner)` assertion fails.
+type wrongTypeAgentic struct{}
 
 // seedQueuedWorkspace creates a depth-1 workspace dir under CORE_WORKSPACE
 // with a "queued" status.json (so WorkspaceStatusPaths discovers it) and
@@ -148,4 +159,37 @@ func TestQueue_drainOne_AgenticMissing_Skips(t *testing.T) {
 	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 
 	core.AssertFalse(t, svc.drainOne())
+}
+
+// TestQueue_drainOne_AgenticWrongType_Skips — the malformed-envelope leg on
+// the service side: the registered "agentic" instance resolves (OK) but does
+// NOT implement SpawnFromQueue, so drainOne's
+// `agenticService, ok := agenticResult.Value.(spawner)` assertion fails and
+// the "unexpected type" branch continues (returns false).
+func TestQueue_drainOne_AgenticWrongType_Skips(t *testing.T) {
+	_ = seedQueuedWorkspace(t, "codex", "wrong-type agentic")
+	c := core.New(core.WithOption("name", "runner-test"))
+	core.AssertTrue(t, c.RegisterService("agentic", &wrongTypeAgentic{}).OK)
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+
+	core.AssertFalse(t, svc.drainOne())
+}
+
+// TestQueue_drainOne_SpawnNonIntPID_Skips — the malformed-envelope leg on
+// the spawn result: SpawnFromQueue returns Ok but with a non-int value, so
+// drainOne's `pid, ok := spawnResult.Value.(int)` assertion fails and the
+// "non-int pid" branch continues. The status stays queued (no flip).
+func TestQueue_drainOne_SpawnNonIntPID_Skips(t *testing.T) {
+	wsDir := seedQueuedWorkspace(t, "codex", "non-int pid")
+	spawn := &fakeSpawner{ok: true, badPID: true}
+	svc := coreRunner(t, spawn)
+
+	core.AssertFalse(t, svc.drainOne())
+	core.AssertEqual(t, 1, spawn.calls)
+
+	r := ReadStatusResult(wsDir)
+	core.AssertTrue(t, r.OK)
+	st, _ := r.Value.(*WorkspaceStatus)
+	core.AssertEqual(t, "queued", st.Status)
 }
