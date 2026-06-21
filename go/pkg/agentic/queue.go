@@ -194,7 +194,7 @@ func (s *PrepSubsystem) countRunningByAgent(agent string) int {
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
-			if workspaceStatus.Status == "running" && baseAgent(workspaceStatus.Agent) == agent && ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
+			if workspaceStatus.Status == "running" && baseAgent(workspaceStatus.Agent) == agent && workspaceRunning(runtime, workspaceStatus) {
 				count++
 			}
 		})
@@ -215,7 +215,7 @@ func (s *PrepSubsystem) countRunningByAgentDisk(runtime *core.Core, agent string
 		if baseAgent(workspaceStatus.Agent) != agent {
 			continue
 		}
-		if ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
+		if workspaceRunning(runtime, workspaceStatus) {
 			count++
 		}
 	}
@@ -231,7 +231,7 @@ func (s *PrepSubsystem) countRunningByModel(agent string) int {
 	if s.workspaces != nil && s.workspaces.Len() > 0 {
 		count := 0
 		s.workspaces.Each(func(_ string, workspaceStatus *WorkspaceStatus) {
-			if workspaceStatus.Status == "running" && workspaceStatus.Agent == agent && ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
+			if workspaceStatus.Status == "running" && workspaceStatus.Agent == agent && workspaceRunning(runtime, workspaceStatus) {
 				count++
 			}
 		})
@@ -252,11 +252,23 @@ func (s *PrepSubsystem) countRunningByModelDisk(runtime *core.Core, agent string
 		if workspaceStatus.Agent != agent {
 			continue
 		}
-		if ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID) {
+		if workspaceRunning(runtime, workspaceStatus) {
 			count++
 		}
 	}
 	return count
+}
+
+// workspaceRunning reports whether a running-status workspace counts toward the
+// concurrency limit. A VZ dispatch (Runtime=="vz") always counts: the VM lives
+// in-process under a sentinel PID, so ProcessAlive cannot see it. Every other
+// dispatch counts only while its host process is alive (the unchanged OCI/native
+// rule). Callers must have already checked Status=="running".
+func workspaceRunning(runtime *core.Core, workspaceStatus *WorkspaceStatus) bool {
+	if workspaceStatus.Runtime == vzRuntimeName {
+		return true
+	}
+	return ProcessAlive(runtime, workspaceStatus.ProcessID, workspaceStatus.PID)
 }
 
 // base := baseAgent("gemini:flash") // "gemini"

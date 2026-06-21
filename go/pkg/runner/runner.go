@@ -474,4 +474,8 @@ type WorkspaceStatus struct {
 	PRURL     string    `json:"pr_url,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	Runs      int       `json:"runs"`
+	// Runtime mirrors agentic.WorkspaceStatus.Runtime — "vz" for in-process
+	// Virtualization.framework dispatches. Kept in sync so a VZ status survives a
+	// round-trip through this struct without dropping the tag.
+	Runtime string `json:"runtime,omitempty"`
 }

@@ -71,6 +71,71 @@ func TestQueue_CountRunningByModel_Good_DeepLayout(t *testing.T) {
 	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.4"))
 }
 
+// --- VZ runtime counting (SP3.4: Runtime=="vz" counts despite sentinel PID) ---
+
+// A VZ dispatch records a sentinel PID (-1) the process service cannot resolve,
+// so ProcessAlive reports it dead. WorkspaceStatus.Runtime=="vz" must make the
+// concurrency limiter count it as running anyway — both the agent and model
+// counters, on the disk path.
+func TestQueue_CountRunning_Good_VZRuntimeCountedDespiteSentinelPID(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-1")
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
+		Status:  "running",
+		Agent:   "codex:gpt-5.4",
+		Repo:    "go-io",
+		PID:     vzSentinelPID, // -1: no host process for ProcessAlive to find
+		Runtime: vzRuntimeName,
+	}))
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	// Both the base-agent and exact-model counters count the VZ workspace.
+	core.AssertEqual(t, 1, s.countRunningByAgent("codex"))
+	core.AssertEqual(t, 1, s.countRunningByModel("codex:gpt-5.4"))
+}
+
+// A non-VZ workspace with a dead PID is NOT counted — the unchanged OCI/native
+// rule. This guards against the vz arm leaking into the default path.
+func TestQueue_CountRunning_Ugly_NonVZDeadPIDNotCounted(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	ws := core.JoinPath(root, "workspace", "core", "go-io", "task-2")
+	core.RequireTrue(t, fs.EnsureDir(ws).OK)
+	core.RequireNoError(t, writeStatus(ws, &WorkspaceStatus{
+		Status: "running",
+		Agent:  "codex:gpt-5.4",
+		Repo:   "go-io",
+		PID:    999999, // not a live managed process; Runtime unset (OCI/native)
+	}))
+
+	s := &PrepSubsystem{ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{})}
+	core.AssertEqual(t, 0, s.countRunningByAgent("codex"))
+	core.AssertEqual(t, 0, s.countRunningByModel("codex:gpt-5.4"))
+}
+
+// The in-memory path (s.workspaces populated) must apply the same vz rule as the
+// disk path — countRunningByAgent short-circuits to the registry when it is
+// non-empty, so the vz arm has to live there too.
+func TestQueue_CountRunning_Good_VZRuntimeCountedInMemory(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+
+	s := &PrepSubsystem{workspaces: core.NewRegistry[*WorkspaceStatus]()}
+	s.workspaces.Set("core/go-io/task-1", &WorkspaceStatus{
+		Status:  "running",
+		Agent:   "codex:gpt-5.4",
+		PID:     vzSentinelPID,
+		Runtime: vzRuntimeName,
+	})
+
+	core.AssertEqual(t, 1, s.countRunningByAgent("codex"))
+	core.AssertEqual(t, 1, s.countRunningByModel("codex:gpt-5.4"))
+}
+
 // --- drainQueue ---
 
 func TestQueue_DrainQueue_Good_FrozenReturnsImmediately(t *testing.T) {

@@ -28,6 +28,7 @@ func runnerWorkspaceStatusFromAgentic(status *agentic.WorkspaceStatus) *Workspac
 		PRURL:     status.PRURL,
 		StartedAt: status.StartedAt,
 		Runs:      status.Runs,
+		Runtime:   status.Runtime,
 	}
 }
 
@@ -47,6 +48,7 @@ func agenticWorkspaceStatusFromRunner(status *WorkspaceStatus) *agentic.Workspac
 		PRURL:     status.PRURL,
 		StartedAt: status.StartedAt,
 		Runs:      status.Runs,
+		Runtime:   status.Runtime,
 	}
 }
 
