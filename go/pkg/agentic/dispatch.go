@@ -714,6 +714,18 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 
 	if !isNativeAgent(agent) {
 		runtimeName := resolveContainerRuntime(s.dispatchRuntime())
+		// VZ fork (SP2): the in-process Virtualization.framework provider boots
+		// the agent rather than spawning an OCI `run --rm` process. On a Run-time
+		// fallback (framework/image unavailable) spawnAgentVZ records the
+		// downgrade and returns fellBack=true; control then falls through to the
+		// unchanged OCI argv path below, re-resolving the runtime down to OCI.
+		if runtimeUsesProvider(runtimeName) {
+			pid, processID, vzOutputFile, fellBack, err := s.spawnAgentVZ(agent, command, args, workspaceDir, metaDir, outputFile)
+			if !fellBack {
+				return pid, processID, vzOutputFile, err
+			}
+			runtimeName = resolveOCIRuntime()
+		}
 		command, args = containerCommandFor(runtimeName, s.dispatchImage(), s.dispatchGPU(), command, args, workspaceDir, metaDir)
 	}
 
