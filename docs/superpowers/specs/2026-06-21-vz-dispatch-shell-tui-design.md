@@ -133,10 +133,14 @@ an Apple-silicon host.
   internals with go-container detection; **keep the same `string` return + existing OCI
   argv path** so docker/apple/podman behaviour is byte-for-byte unchanged.
 - Add `vz` to the runtime enum, `agents.yaml` schema, and `DispatchConfig`.
-- **Isolation:** because importing go-container pulls `tmc/apple` transitively, guard the
-  VZ-importing code behind a `//go:build vz` tag (NOT a cgo tag — VZ via purego is
-  no-cgo) until SP0(a) clears, so `main` builds without the un-reviewed dependency.
-  Detection of docker/apple/podman works without the tag.
+- **Supply-chain gate timing (corrected — see R4):** go-container's `Detect()` lives in
+  the same `package container` as the darwin-only `vz.go`, which imports `tmc/apple`. So
+  importing `container` *for detection alone* transitively compiles `tmc/apple` **on
+  darwin** — there is no build-tag that keeps it out of a darwin build. Therefore **SP0(a)
+  is on SP1's darwin critical path** (SP1 must not merge to a release branch before
+  sign-off). A `//go:build vz` tag (NOT a cgo tag — VZ via purego is no-cgo) gates only
+  core-agent's *own* VZ-dispatch code (SP2), not the transitive dependency. Non-darwin
+  builds resolve `vz_other.go` and stay `tmc/apple`-free.
 
 **Done when:** detection routes through go-container; `vz` is a recognised
 (but not-yet-bootable) runtime; all existing dispatch tests pass unchanged.
@@ -296,8 +300,10 @@ SP2 consumes the concrete `*VZProvider` lifecycle (Run/Exec/Stop/Logs/Wait) as-i
   starts; vsock control handshake must precede agent launch.
 - **R3 — protocol versioning (SP4):** host and `vzagent` ship together (RFC.vz.md §5),
   but the interactive-mode bump must not break the batch path used by SP2.
-- **R4 — supply-chain gate timing (SP0a/SP1):** build-tag isolation must keep `main`
-  buildable without the un-reviewed dependency until sign-off.
+- **R4 — supply-chain gate timing (SP0a/SP1):** on darwin, `tmc/apple` cannot be isolated
+  from detection (same package as `vz.go`), so **SP0(a) gates SP1's darwin merge** — not
+  just SP2. The `//go:build vz` tag isolates only core-agent's own VZ code, not the
+  transitive dependency; non-darwin builds stay clean.
 - **R5 — fallback observability:** a silent VZ→docker downgrade must be visible in
   workspace status/logs so "why didn't it use VZ" is answerable.
 
