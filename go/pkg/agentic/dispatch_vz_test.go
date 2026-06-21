@@ -296,6 +296,46 @@ func TestDispatchVZ_SpawnFallback_Ugly_RunEntitlementError(t *testing.T) {
 	core.AssertContains(t, updated.Note, "boot failed")
 }
 
+// --- preserveStatusNote (SP2.4 Note survives the caller's post-spawn write) ---
+
+// The downgrade Note recorded inside spawnAgent must survive the caller's
+// post-spawn fresh-struct write (dispatch.go / queue.go / resume.go), or the R5
+// observability promise is broken before anyone reads it. Reproduces that exact
+// sequence: on-disk Note → fresh struct → preserveStatusNote → write → read.
+func TestDispatchVZ_PreserveStatusNote_Good_SurvivesFreshWrite(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(root, "ws-note")
+	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
+
+	// recordVZDowngrade wrote this during the fallback inside spawnAgent.
+	downgraded := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", Note: "runtime downgraded vz→oci: VZ boot failed", StartedAt: time.Now()}
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(downgraded))
+
+	// The caller then builds a fresh struct to record the OCI pid (Note unset).
+	fresh := &WorkspaceStatus{Status: "running", Agent: "codex", Repo: "go-io", PID: 4242, ProcessID: "proc-1", StartedAt: time.Now(), Runs: 1}
+	preserveStatusNote(wsDir, fresh)
+	writeStatusResult(wsDir, fresh)
+
+	updated := mustReadStatus(t, wsDir)
+	core.AssertContains(t, updated.Note, "vz→oci")
+	core.AssertEqual(t, 4242, updated.PID) // the fresh write still took effect
+}
+
+// A status that explicitly carries its own Note is never overwritten by a stale
+// on-disk one (the helper only fills an empty Note).
+func TestDispatchVZ_PreserveStatusNote_Ugly_DoesNotOverrideExplicit(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(root, "ws-note2")
+	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{Note: "old note"}))
+
+	fresh := &WorkspaceStatus{Status: "running", Note: "explicit note"}
+	preserveStatusNote(wsDir, fresh)
+	core.AssertEqual(t, "explicit note", fresh.Note)
+}
+
 // --- vzResolveImage production behaviour ---
 
 func TestDispatchVZ_ResolveImage_Bad_EnvUnset(t *testing.T) {

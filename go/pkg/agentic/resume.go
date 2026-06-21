@@ -97,6 +97,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, input ResumeInput) core.Resu
 	workspaceStatus.ProcessID = processID
 	workspaceStatus.Runs++
 	workspaceStatus.Question = ""
+	preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
 	writeStatusResult(workspaceDir, workspaceStatus)
 
 	return core.Ok(ResumeOutput{

@@ -267,6 +267,29 @@ func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, works
 	return vzSentinelPID, monitorProcess.id, outputFile, false, nil
 }
 
+// preserveStatusNote carries a downgrade note recorded inside spawnAgent (the
+// VZ→OCI fallback in spawnAgentVZ) across a caller's post-spawn status write.
+// Several callers build a fresh WorkspaceStatus (or reuse a struct read before
+// the spawn) and write it to record the OCI pid/processID, which would otherwise
+// clobber the on-disk Note. This carries the prior on-disk Note forward only
+// when the new status sets none — touching exactly the new field, so it cannot
+// disturb existing write semantics.
+//
+// Scaffold caveat: on a reused workspace (queue resume, Runs++), a Note from a
+// PRIOR downgraded run can persist into a later clean run. Threading the note
+// through spawnAgent's return would avoid this but cascades a 6-caller signature
+// change — not worth it for the env-gated scaffold (SP3 can revisit).
+//
+//	preserveStatusNote(workspaceDir, freshStatus) // before writeStatusResult
+func preserveStatusNote(workspaceDir string, status *WorkspaceStatus) {
+	if status == nil || status.Note != "" {
+		return
+	}
+	if prev, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); ok && prev.Note != "" {
+		status.Note = prev.Note
+	}
+}
+
 // recordVZDowngrade annotates the workspace status with a VZ→OCI downgrade note
 // so the fallback is observable (SP2.4 / R5). Best-effort: a missing or
 // unreadable status is logged, not fatal — the OCI path still runs.

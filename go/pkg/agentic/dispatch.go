@@ -924,6 +924,7 @@ var dispatch = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.Call
 		StartedAt: time.Now(),
 		Runs:      1,
 	}
+	preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
 	writeStatusResult(workspaceDir, workspaceStatus)
 	if s.ServiceRuntime != nil {
 		if runnerResult := s.Core().Service("runner"); runnerResult.OK {

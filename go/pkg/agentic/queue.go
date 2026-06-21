@@ -463,6 +463,7 @@ func (s *PrepSubsystem) drainOne() bool {
 		workspaceStatus.PID = pid
 		workspaceStatus.ProcessID = processID
 		workspaceStatus.Runs++
+		preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
 		writeStatusResult(workspaceDir, workspaceStatus)
 		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
