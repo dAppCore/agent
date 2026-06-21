@@ -135,7 +135,7 @@ func TestRuntimeContainer_Available_Bad(t *testing.T) {
 cd go && go test ./pkg/agentic/ -run TestRuntimeContainer_Available -count=1
 ```
 
-- [ ] **Step 3: Create the seam** `go/pkg/agentic/runtime_container.go`:
+- [ ] **Step 3: Create the seam + add the `RuntimeVZ` const.** The seam below references `RuntimeVZ`, and SP1.3's resolver in turn needs this seam — a mutual compile-time dependency. So add `RuntimeVZ = "vz"` to the runtime const block in `go/pkg/agentic/dispatch.go` (after `RuntimeApple`) in THIS task; it is a behaviourless identifier, and SP1.3 adds only the guard logic. Then create `go/pkg/agentic/runtime_container.go`:
 
 ```go
 // SPDX-License-Identifier: EUPL-1.2
@@ -208,16 +208,9 @@ func TestDispatchRuntime_VZ_ExplicitFallsBack_Ugly(t *testing.T) {
 cd go && go test ./pkg/agentic/ -run TestDispatchRuntime_VZ -count=1
 ```
 
-- [ ] **Step 3: Add the constant + guard** in `go/pkg/agentic/dispatch.go`. Add to the runtime const block (after `RuntimeApple`):
+- [ ] **Step 3: Add the guard** in `go/pkg/agentic/dispatch.go`. (The `RuntimeVZ = "vz"` const was already added in SP1.2 — the seam references it, so it could not wait until here. Do not re-add it.)
 
-```go
-	// RuntimeVZ uses go-container's in-process VZProvider (Apple
-	// Virtualization.framework, no daemon). Boot path lands in SP2; until
-	// vzDispatchEnabled() is true, resolveContainerRuntime never returns it.
-	RuntimeVZ = "vz"
-```
-
-Then change `resolveContainerRuntime` so the auto-order includes vz only when enabled, and an explicit `vz` with the fork off falls through to OCI. Replace the body:
+Change `resolveContainerRuntime` so the auto-order includes vz only when enabled, and an explicit `vz` with the fork off falls through to OCI. Replace the body (note: the availability calls go through `runtimeAvailable`, the single apple-policy + seam entry point — see the SP1.4 note):
 
 ```go
 func resolveContainerRuntime(preferred string) string {
@@ -226,7 +219,7 @@ func resolveContainerRuntime(preferred string) string {
 	}
 	switch preferred {
 	case RuntimeApple, RuntimeVZ, RuntimeDocker, RuntimePodman:
-		if containerRuntimeAvailable(preferred) {
+		if runtimeAvailable(preferred) {
 			return preferred
 		}
 	}
@@ -236,7 +229,7 @@ func resolveContainerRuntime(preferred string) string {
 	}
 	order = append(order, RuntimeDocker, RuntimePodman)
 	for _, candidate := range order {
-		if containerRuntimeAvailable(candidate) {
+		if runtimeAvailable(candidate) {
 			return candidate
 		}
 	}
@@ -259,6 +252,8 @@ git commit -m "feat(agentic): recognise vz runtime, guarded out of auto until SP
 ```
 
 ### Task SP1.4 — Point `runtimeAvailable` at the seam (single detection source)
+
+> **As-built note:** `runtimeAvailable` now both delegates to the seam (`containerRuntimeAvailable`) AND is the function `resolveContainerRuntime` calls (per the SP1.3 resolver above), so it is the single live detection entry point — not dead code. SP1.4 and SP1.3 were reconciled in a follow-up cleanup commit; do not also leave `resolveContainerRuntime` calling the seam directly.
 
 - [ ] **Step 1: Run the existing availability tests to capture current green:**
 
