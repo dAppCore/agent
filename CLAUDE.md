@@ -4,13 +4,15 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Session Context
 
-Running on **Claude Max20 plan** with **1M context window** (Opus 4.6).
+Running on **Claude Max20 plan** with **1M context window** (Opus 4.8).
 
 ## Overview
 
 **core-agent** is the AI agent orchestration platform for the Core ecosystem. Single Go binary (`core-agent`) that runs as an MCP server — either via stdio (Claude Code integration) or HTTP daemon (cross-agent communication).
 
 **Module:** `dappco.re/go/agent`
+
+**Source of truth:** [`RFC.md`](RFC.md) is the present-tense contract for every subsystem — the drive-target. [`GOAL.md`](GOAL.md) is the RFC↔code parity gate (forward + backward parity, `BLOCKED.md` free-ticket-out exit, Haiku round-gate). This file is the operational quick-reference; when it and `RFC.md` disagree, the RFC and the code win.
 
 ## Build & Test
 
@@ -42,15 +44,18 @@ pkg/lib/                          Embedded personas, prompt + flow + workspace t
 pkg/messages/                     Typed IPC message definitions
 ```
 
+> Also `pkg/opencode/` — the sandboxed opencode host (Service Start/Stop/Generate, profiles, reverse-proxy, hub control + audit): the AUI surface (RFC.md §6).
+
 ### Binary Modes
 
 - `core-agent mcp` — stdio MCP server for Claude Code (registered by the `dappco.re/go/mcp` service)
 - `core-agent serve` — HTTP MCP daemon (Charon, CI, cross-agent)
+- `core-agent hub` — loopback control plane: `--http 127.0.0.1:9201` (bearer) + `--mcp-http 127.0.0.1:9202` (fail-closed MCP), fronting the opencode control/proxy groups + brain with a non-optional audit edge (RFC.md §2/§6)
 - `core-agent chat --user=<id>` — REPL against the local lthn-mlx engine, auto-captured to the user's archive
 - `core-agent serve-status` / `serve-reload` / `serve-profiles` — inspect / hot-swap the local model engine
 - `core-agent models-download` / `models-job` — queue + poll Hugging Face model downloads
 
-### MCP Tools (33)
+### MCP Tools (common subset — full action surface in `RFC.md`)
 
 | Category | Tools |
 |----------|-------|
@@ -76,6 +81,8 @@ pkg/messages/                     Typed IPC message definitions
 | `codex` | Codex CLI | Autonomous coding |
 | `codex:review` | Codex review | Deep security analysis |
 | `coderabbit` | CodeRabbit CLI | Code quality review |
+| `opencode` | `opencode run` | Sandboxed agent routed to local/free-compute model profiles (RFC.md §6) |
+| `local` | Codex + ollama bridge | Local OSS model via host `ollama` |
 
 ### Dispatch Flow
 
@@ -116,14 +123,12 @@ All paths use `CORE_WORKSPACE` env var, fallback `~/Code/.core`:
 
 Always check `err != nil` BEFORE accessing `resp.StatusCode`. Split into two checks.
 
-## Plugin (provider/claude/core/)
+## Plugin Providers (provider/)
 
-The Claude Code plugin provides:
-- **MCP server** via `mcp.json` (auto-registers core-agent)
-- **Hooks** via `hooks.json` (PostToolUse inbox notifications, auto-format, debug warnings)
-- **Agents**: `agent-task-code-review`, `agent-task-code-simplifier`
-- **Commands**: dispatch, status, review, recall, remember, scan, etc.
-- **Skills**: security review, architecture review, test analysis, etc.
+core-agent ships its capabilities to a coding-agent host through two providers, one capability set (RFC.md §7):
+
+- **`provider/claude/`** — Claude Code plugin: MCP server (`mcp.json`, auto-registers core-agent), hooks (`hooks.json` — inbox notifications, auto-format, debug warnings), agents (`agent-task-code-review`, `agent-task-code-simplifier`), commands (dispatch, status, review, recall, remember, scan…), skills (security / architecture / test review…).
+- **`provider/opencode/`** — opencode plugin (`@opencode-ai/plugin`): capabilities as custom `tool()` exports (dispatch, status, scan, brain_recall…); `session.*` event hooks feeding the report-home loop; the ctx `client` SDK drives the running session. Personas ≡ opencode agent-defs (markdown frontmatter); skills ≡ `SKILL.md`; dispatch is two-layer (opencode `Task` subagents + core-agent's cross-host fleet), or attach the hub MCP plane via `POST /mcp`.
 
 ## Testing Conventions
 
