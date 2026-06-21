@@ -1,0 +1,30 @@
+{
+  "name": "@lthn/core-agent-opencode",
+  "version": "0.1.0",
+  "description": "opencode plugin that bridges a session to the core-agent hub — dispatch/status/scan/brain tools + report-home lifecycle hooks",
+  "type": "module",
+  "license": "EUPL-1.2",
+  "author": "Lethean",
+  "homepage": "https://github.com/host-uk/core-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/host-uk/core-agent.git"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "core-agent",
+    "lethean",
+    "agentic"
+  ],
+  "main": "src/plugin.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.15.13",
+    "@types/bun": "^1.3",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: EUPL-1.2
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
