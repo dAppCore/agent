@@ -319,6 +319,12 @@ git commit -m "docs(runner): document vz as a dispatch.runtime value" -m "Co-Aut
 
 ## SP2 — VZ in-process dispatch fork
 
+> **As-built (scaffold shipped — commits `748d076`..`6cf2fd7`).** The fork, provider seam (`vzDispatcher` + injectable `newVZProvider`/`vzResolveImage`), `completionProcess` adapter, `vzDispatchEnabled` gate, and auto-fallback are done + unit-tested (fake provider; 17 VZ tests, full `pkg/agentic` green). Three brief assumptions were corrected and are now **SP3 prerequisites**:
+> 1. **Workspace can't be a block volume.** go-container `RunOptions.Volumes` map to `VZVirtioBlockDeviceConfiguration` and require `IsFile(source)`, so a workspace *dir* makes `Run` fail every time. SP2 boots a minimal VM (memory/cpus/name only); **SP3 must use the virtio-fs directory share** for a host-visible workspace, and **vsock secret injection** for env/keys (no `WithVolumes`/`WithEnv` on the VZ path).
+> 2. **Sentinel PID `-1` does NOT count as running.** `ProcessAlive` treats `pid<=0`+empty processID as dead, so in-flight VZ dispatches under-count in the concurrency limiter. Completion is unaffected (driven off the adapter's `Done()`). **SP3 needs accurate VZ in-flight accounting.**
+> 3. **`VZProvider.Exec` is lossy** (stdout-on-`Ok` / exit folded into `Fail`). Adapter maps `Ok`→0/`Fail`→1. **SP3 needs a structured exec verb from go-container** returning `{stdout, stderr, exit}`.
+> Also: added `WorkspaceStatus.Note` for downgrade observability (R5). Two narrow residuals (stale note on workspace reuse; ghost-status window if VZ-fallback + OCI-spawn both fail under `CONTAINER_VZ_LIVE=1`) are documented in the SP2 report, self-healing via the restart reaper — revisit in SP3.
+
 **Outcome:** when the resolved runtime is `vz`, dispatch boots a VM via the concrete `*VZProvider` and runs the agent through its vsock `Exec`, tracked in the shared registry; entitlement failures auto-fall-back to apple→docker. Flip `vzDispatchEnabled()` to true.
 
 **Files:**
