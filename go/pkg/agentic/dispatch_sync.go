@@ -83,22 +83,31 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	// in-container wrapper to create status.json) would otherwise leave the
 	// workspace status-less, and both the poll below and the completion monitor
 	// fail to read a final status — surfacing as "status not found" even when
-	// the agent succeeded. Write-if-absent so a status a resume/mock already
-	// placed is preserved.
-	if _, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); !ok {
-		writeStatusResult(workspaceDir, &WorkspaceStatus{
-			Status:    "running",
-			Agent:     input.Agent,
-			Repo:      input.Repo,
-			Org:       input.Org,
-			Task:      input.Task,
-			Branch:    prepOut.Branch,
-			PID:       pid,
-			ProcessID: processID,
-			StartedAt: time.Now(),
-			Runs:      1,
-		})
+	// the agent succeeded.
+	//
+	// Fill-missing rather than write-if-absent: the VZ fork's success path
+	// pre-writes a MINIMAL status (Status/Agent/StartedAt/Runtime) inside
+	// spawnAgentVZ, which would make a plain write-if-absent skip and leave
+	// Repo/Branch/PID empty — auto-PR (autoCreatePR requires both) then no-ops.
+	// Reading and filling only the empty fields restores the full record for VZ
+	// while still preserving a complete status a resume/mock already placed (a
+	// full pre-existing status makes every fill a no-op).
+	dispatched := &WorkspaceStatus{
+		Status:    "running",
+		Agent:     input.Agent,
+		Repo:      input.Repo,
+		Org:       input.Org,
+		Task:      input.Task,
+		Branch:    prepOut.Branch,
+		PID:       pid,
+		ProcessID: processID,
+		StartedAt: time.Now(),
+		Runs:      1,
 	}
+	if existing, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); ok {
+		fillMissingDispatchStatus(dispatched, existing)
+	}
+	writeStatusResult(workspaceDir, dispatched)
 
 	core.Print(nil, "  pid:       %d", pid)
 	core.Print(nil, "  waiting for completion...")
@@ -135,6 +144,64 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 				}
 			}
 		}
+	}
+}
+
+// fillMissingDispatchStatus overlays the non-empty fields of an existing
+// on-disk status onto the freshly-built dispatch status. A complete pre-existing
+// status (resume/mock) thus wins on every field it sets — preserved unchanged;
+// a minimal status (the VZ fork's success-path pre-write, which carries only
+// Status/Agent/StartedAt/Runtime) contributes just those fields, so the dispatch
+// input fills the rest (Repo/Org/Task/Branch/PID/ProcessID/Runs). This keeps the
+// VZ Runtime tag while restoring the full record auto-PR + tracking need.
+func fillMissingDispatchStatus(dst, existing *WorkspaceStatus) {
+	if dst == nil || existing == nil {
+		return
+	}
+	if existing.Status != "" {
+		dst.Status = existing.Status
+	}
+	if existing.Agent != "" {
+		dst.Agent = existing.Agent
+	}
+	if existing.Repo != "" {
+		dst.Repo = existing.Repo
+	}
+	if existing.Org != "" {
+		dst.Org = existing.Org
+	}
+	if existing.Task != "" {
+		dst.Task = existing.Task
+	}
+	if existing.Branch != "" {
+		dst.Branch = existing.Branch
+	}
+	if existing.Issue != 0 {
+		dst.Issue = existing.Issue
+	}
+	if existing.PID != 0 {
+		dst.PID = existing.PID
+	}
+	if existing.ProcessID != "" {
+		dst.ProcessID = existing.ProcessID
+	}
+	if !existing.StartedAt.IsZero() {
+		dst.StartedAt = existing.StartedAt
+	}
+	if existing.Runs != 0 {
+		dst.Runs = existing.Runs
+	}
+	if existing.PRURL != "" {
+		dst.PRURL = existing.PRURL
+	}
+	if existing.Question != "" {
+		dst.Question = existing.Question
+	}
+	if existing.Note != "" {
+		dst.Note = existing.Note
+	}
+	if existing.Runtime != "" {
+		dst.Runtime = existing.Runtime
 	}
 }
 
