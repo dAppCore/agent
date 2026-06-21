@@ -28,6 +28,11 @@ type WorkspaceStatus struct {
 	Question  string    `json:"question,omitempty"`
 	Runs      int       `json:"runs"`
 	PRURL     string    `json:"pr_url,omitempty"`
+	// Note carries non-fatal operational annotations about the dispatch — e.g.
+	// a VZ→OCI runtime downgrade recorded by the in-process fork when the
+	// Virtualization.framework path is unavailable (SP2.4 observability). It is
+	// distinct from Question (which onAgentComplete owns for blocked agents).
+	Note string `json:"note,omitempty"`
 }
 
 // r := c.QUERY(agentic.WorkspaceQuery{})
