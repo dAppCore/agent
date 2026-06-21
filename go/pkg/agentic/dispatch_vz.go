@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -39,10 +40,20 @@ import (
 //     future go-container work.
 
 const (
-	// vzImageEnv names the env var pointing at the §4 guest-image directory. The
-	// directory must contain kernel + initrd.img (and optional cmdline /
-	// disk.img). A later build.linuxkit.resolve pipeline produces it.
+	// vzImageEnv names the env var pointing at the §4 guest-image directory. When
+	// set it is the OVERRIDE — vzResolveImage returns it directly and skips the
+	// resolver. The directory must contain kernel + initrd.img (and optional
+	// cmdline / disk.img). Unset, vzResolveImage shells the go-build resolver.
 	vzImageEnv = "CORE_AGENT_VZ_IMAGE"
+	// vzAgentBinEnv overrides the path to the cross-compiled VZ guest agent the
+	// resolver bakes into the initrd. Default: <CoreRoot>/vz/vzagent.
+	vzAgentBinEnv = "CORE_AGENT_VZAGENT_BIN"
+	// vzCoreBinEnv overrides the name (or path) of the go-build `core` binary on
+	// PATH that exposes `core build image-resolve`. Default: "core".
+	vzCoreBinEnv = "CORE_BIN"
+	// vzCoreBinDefault is the resolver binary name looked up on PATH when
+	// CORE_BIN is unset.
+	vzCoreBinDefault = "core"
 	// vzDefaultMemoryMB is the guest memory allocation when dispatch config
 	// carries none. go-container clamps to the framework's valid range.
 	vzDefaultMemoryMB = 2048
@@ -88,21 +99,101 @@ type vzDispatcher interface {
 // inject a fake; production returns the concrete in-process provider.
 var newVZProvider = func() vzDispatcher { return container.NewVZProvider() }
 
-// vzResolveImage builds the *container.Image the fork boots from. It is a seam
-// (package var) so unit tests bypass the on-disk §4 artefact check. Production
-// resolves the guest-image directory from CORE_AGENT_VZ_IMAGE (SP3 replaces this
-// with the build.linuxkit.resolve artefact set).
-var vzResolveImage = func() (*container.Image, error) {
-	dir := core.Trim(core.Env(vzImageEnv))
-	if dir == "" {
-		return nil, core.E("dispatch.vz", vzImageEnv+" is not set (no VZ guest image)", nil)
+// vzResolveExec runs the go-build image resolver and returns its core.Result —
+// Value is the captured stdout string on success. It is a package var (a seam)
+// so unit tests inject a scripted Result instead of shelling out. Production
+// runs the command through the agent's process service (the same path spawnAgent
+// uses), so a missing `core` binary, a non-zero exit, or a killed process all
+// arrive here as result.OK == false.
+var vzResolveExec = func(c *core.Core, ctx context.Context, bin string, args ...string) core.Result {
+	return c.Process().Run(ctx, bin, args...)
+}
+
+// vzResolveImage builds the *container.Image the fork boots from.
+//
+// Resolution order:
+//   - Override (CORE_AGENT_VZ_IMAGE set): return that directory directly, no
+//     resolver — the stopgap / operator escape hatch.
+//   - Default (env unset): shell the go-build resolver
+//     `<CORE_BIN|core> build image-resolve --vzagent <bin> --output <dir>`,
+//     which builds/caches a VZ guest kernel+initrd artefact and prints the
+//     artefact directory alone on its last stdout line. The LAST non-empty
+//     stdout line is taken as the image directory.
+//
+// Runtime deps for the default path (a clean error is returned, NOT a panic, if
+// any are missing — spawnAgentVZ then falls back to the OCI path, U3):
+//   - the go-build `core` binary on PATH (override its name via CORE_BIN);
+//   - the cross-compiled `vzagent` guest agent at CORE_AGENT_VZAGENT_BIN, else
+//     <CoreRoot>/vz/vzagent.
+//
+// The output/cache dir is a stable per-base directory under the runtime data
+// root (<CoreRoot>/vz/guest/core-dev), so repeated dispatches reuse one cached
+// artefact set rather than rebuilding per run.
+//
+// It is a package var (a seam) so unit tests swap the whole function; the
+// resolver exec itself is the finer-grained vzResolveExec seam.
+var vzResolveImage = func(c *core.Core) (*container.Image, error) {
+	if dir := core.Trim(core.Env(vzImageEnv)); dir != "" {
+		// Override path: trust the operator-supplied directory verbatim.
+		return vzImageFor(dir), nil
 	}
+
+	vzagentBin := core.Trim(core.Env(vzAgentBinEnv))
+	if vzagentBin == "" {
+		vzagentBin = core.JoinPath(CoreRoot(), "vz", "vzagent")
+	}
+	if !fs.Exists(vzagentBin) {
+		return nil, core.E("agentic.vzResolveImage", core.Concat("vzagent binary not found at ", vzagentBin, " (set ", vzAgentBinEnv, " or build the cross-compiled guest agent)"), nil)
+	}
+
+	coreBin := core.Trim(core.Env(vzCoreBinEnv))
+	if coreBin == "" {
+		coreBin = vzCoreBinDefault
+	}
+	outputDir := core.JoinPath(CoreRoot(), "vz", "guest", "core-dev")
+	if ensureResult := fs.EnsureDir(outputDir); !ensureResult.OK {
+		return nil, core.E("agentic.vzResolveImage", core.Concat("failed to create resolver output dir ", outputDir), forgeResultError(ensureResult))
+	}
+
+	result := vzResolveExec(c, context.Background(), coreBin, "build", "image-resolve", "--vzagent", vzagentBin, "--output", outputDir)
+	if !result.OK {
+		// Covers a `core` binary not on PATH, a non-zero exit, and a killed
+		// process — Process().Run folds all three into result.OK == false.
+		return nil, core.E("agentic.vzResolveImage", core.Concat(coreBin, " build image-resolve failed"), forgeResultError(result))
+	}
+	stdout, _ := result.Value.(string)
+	dir := vzLastNonEmptyLine(stdout)
+	if dir == "" {
+		return nil, core.E("agentic.vzResolveImage", core.Concat(coreBin, " build image-resolve printed no artefact directory"), nil)
+	}
+	return vzImageFor(dir), nil
+}
+
+// vzImageFor builds the container.Image descriptor for a resolved guest-image
+// directory — shared by the override and resolver paths so both produce the
+// identical shape (a raw-format VZ image rooted at dir).
+func vzImageFor(dir string) *container.Image {
 	return &container.Image{
 		Name:     "core-agent-vz",
 		Path:     dir,
 		Format:   container.FormatRaw,
 		Provider: string(container.RuntimeVZ),
-	}, nil
+	}
+}
+
+// vzLastNonEmptyLine returns the last non-blank line of the resolver's stdout —
+// the contract is that the artefact directory is printed alone on the final
+// line, but build progress may precede it and a trailing newline may follow, so
+// it scans backwards and skips blank lines rather than taking the raw last
+// element. Returns "" when every line is blank.
+func vzLastNonEmptyLine(output string) string {
+	lines := core.Split(output, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := core.Trim(lines[i]); line != "" {
+			return line
+		}
+	}
+	return ""
 }
 
 // vzContainerID is the stable container name the fork assigns to a workspace's
@@ -347,7 +438,7 @@ func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, works
 		return 0, "", outputFile, true, nil
 	}
 
-	image, err := vzResolveImage()
+	image, err := vzResolveImage(s.Core())
 	if err != nil {
 		s.recordVZDowngrade(workspaceDir, agent, "VZ guest image unavailable: "+err.Error())
 		return 0, "", outputFile, true, nil

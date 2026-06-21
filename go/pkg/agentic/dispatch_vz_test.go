@@ -63,8 +63,18 @@ func withFakeVZProvider(t *testing.T, fake vzDispatcher) {
 func withFakeVZImage(t *testing.T, image *container.Image, err error) {
 	t.Helper()
 	previous := vzResolveImage
-	vzResolveImage = func() (*container.Image, error) { return image, err }
+	vzResolveImage = func(*core.Core) (*container.Image, error) { return image, err }
 	t.Cleanup(func() { vzResolveImage = previous })
+}
+
+// withFakeVZResolveExec swaps vzResolveExec so the resolver path is exercised
+// through the REAL vzResolveImage (env gate, vzagent precondition, last-line
+// parsing) without shelling out to the `core` binary. Mirrors withFakeVZProvider.
+func withFakeVZResolveExec(t *testing.T, fn func(c *core.Core, ctx context.Context, bin string, args ...string) core.Result) {
+	t.Helper()
+	previous := vzResolveExec
+	vzResolveExec = fn
+	t.Cleanup(func() { vzResolveExec = previous })
 }
 
 // --- runtimeUsesProvider / resolveOCIRuntime (fork routing) ---
@@ -291,9 +301,11 @@ func TestDispatchVZ_SpawnFallback_Bad_ImageUnavailable(t *testing.T) {
 	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
 
 	// Provider available, but no guest image resolvable → fall back with a note.
+	// A real Core is needed because spawnAgentVZ now calls vzResolveImage(s.Core())
+	// (the stub ignores the handle, but the receiver call is still evaluated).
 	withFakeVZProvider(t, &fakeVZDispatcher{available: true})
 	withFakeVZImage(t, nil, core.E("dispatch.vz", "CORE_AGENT_VZ_IMAGE is not set", nil))
-	s := &PrepSubsystem{}
+	s := newPrepWithProcess()
 
 	_, _, _, fellBack, err := s.spawnAgentVZ("codex", "true", nil, wsDir, WorkspaceMetaDir(wsDir), "out.log")
 	core.AssertNoError(t, err)
@@ -321,7 +333,9 @@ func TestDispatchVZ_SpawnFallback_Ugly_RunEntitlementError(t *testing.T) {
 	}
 	withFakeVZProvider(t, fake)
 	withFakeVZImage(t, &container.Image{Path: t.TempDir()}, nil)
-	s := &PrepSubsystem{}
+	// Real Core: spawnAgentVZ evaluates vzResolveImage(s.Core()) past the image
+	// stub on its way to the synchronous boot.
+	s := newPrepWithProcess()
 
 	_, _, _, fellBack, err := s.spawnAgentVZ("codex", "true", nil, wsDir, WorkspaceMetaDir(wsDir), "out.log")
 	core.AssertNoError(t, err)
@@ -546,18 +560,178 @@ func TestDispatchVZ_AgentEnvCommand_Ugly_ShellQuotesUnsafeValue(t *testing.T) {
 
 // --- vzResolveImage production behaviour ---
 
-func TestDispatchVZ_ResolveImage_Bad_EnvUnset(t *testing.T) {
-	t.Setenv(vzImageEnv, "")
-	image, err := vzResolveImage()
-	core.AssertError(t, err)
-	core.AssertNil(t, image)
-}
-
-func TestDispatchVZ_ResolveImage_Good_EnvSet(t *testing.T) {
+// Override path: CORE_AGENT_VZ_IMAGE set → returned verbatim, resolver skipped.
+// The exec seam is rigged to fail loudly so the test proves the override returns
+// BEFORE the resolver is ever consulted.
+func TestDispatchVZ_ResolveImage_Good_OverrideWinsBeforeResolver(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(vzImageEnv, dir)
-	image, err := vzResolveImage()
+	withFakeVZResolveExec(t, func(*core.Core, context.Context, string, ...string) core.Result {
+		t.Fatal("resolver exec must not run when CORE_AGENT_VZ_IMAGE is set")
+		return core.Fail(nil)
+	})
+
+	image, err := vzResolveImage(nil) // override returns before touching the core
 	core.AssertNoError(t, err)
-	core.AssertNotNil(t, image)
+	core.RequireTrue(t, image != nil)
 	core.AssertEqual(t, dir, image.Path)
+	core.AssertEqual(t, container.FormatRaw, image.Format)
+}
+
+// Default CLI path: env unset, vzagent present, resolver prints the artefact dir
+// on its last stdout line (preceded by build noise, followed by a blank line) →
+// Image.Path is that dir, and the exec is invoked with the resolver argv.
+func TestDispatchVZ_ResolveImage_Good_ResolverLastLine(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv(vzImageEnv, "")
+
+	vzagentBin := core.JoinPath(t.TempDir(), "vzagent")
+	fs.Write(vzagentBin, "#!/bin/sh\n")
+	t.Setenv(vzAgentBinEnv, vzagentBin)
+
+	artefactDir := core.JoinPath(t.TempDir(), "guest", "core-dev", "abc123")
+	var gotBin string
+	var gotArgs []string
+	withFakeVZResolveExec(t, func(_ *core.Core, _ context.Context, bin string, args ...string) core.Result {
+		gotBin = bin
+		gotArgs = args
+		// Build noise, the artefact dir on the last content line, trailing blank.
+		return core.Ok(core.Concat("building linuxkit image...\ncaching layers\n", artefactDir, "\n"))
+	})
+
+	image, err := vzResolveImage(nil)
+	core.AssertNoError(t, err)
+	core.RequireTrue(t, image != nil)
+	core.AssertEqual(t, artefactDir, image.Path) // last NON-EMPTY line, not trailing blank
+	// Resolver argv: <core> build image-resolve --vzagent <bin> --output <dir>.
+	core.AssertEqual(t, vzCoreBinDefault, gotBin)
+	core.AssertContains(t, gotArgs, "build")
+	core.AssertContains(t, gotArgs, "image-resolve")
+	core.AssertContains(t, gotArgs, "--vzagent")
+	core.AssertContains(t, gotArgs, vzagentBin)
+	core.AssertContains(t, gotArgs, "--output")
+}
+
+// CORE_BIN overrides the resolver binary name (resolver installed under a
+// different name); the override flows through to the exec.
+func TestDispatchVZ_ResolveImage_Good_CoreBinOverride(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv(vzImageEnv, "")
+	t.Setenv(vzCoreBinEnv, "core-build")
+
+	vzagentBin := core.JoinPath(t.TempDir(), "vzagent")
+	fs.Write(vzagentBin, "#!/bin/sh\n")
+	t.Setenv(vzAgentBinEnv, vzagentBin)
+
+	var gotBin string
+	withFakeVZResolveExec(t, func(_ *core.Core, _ context.Context, bin string, _ ...string) core.Result {
+		gotBin = bin
+		return core.Ok(core.JoinPath(t.TempDir(), "artefact"))
+	})
+
+	_, err := vzResolveImage(nil)
+	core.AssertNoError(t, err)
+	core.AssertEqual(t, "core-build", gotBin)
+}
+
+// Default path, vzagent missing → clear error at the precondition (no exec).
+func TestDispatchVZ_ResolveImage_Bad_MissingVZAgent(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv(vzImageEnv, "")
+	t.Setenv(vzAgentBinEnv, core.JoinPath(t.TempDir(), "does-not-exist"))
+
+	execCalled := false
+	withFakeVZResolveExec(t, func(*core.Core, context.Context, string, ...string) core.Result {
+		execCalled = true
+		return core.Ok("")
+	})
+
+	image, err := vzResolveImage(nil)
+	core.AssertError(t, err)
+	core.AssertNil(t, image)
+	core.AssertContains(t, err.Error(), "vzagent")
+	core.AssertFalse(t, execCalled) // fails before shelling out
+}
+
+// Default path, resolver exits non-zero (or `core` not on PATH) → result.OK is
+// false → clear error, nil image.
+func TestDispatchVZ_ResolveImage_Bad_ResolverFails(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv(vzImageEnv, "")
+
+	vzagentBin := core.JoinPath(t.TempDir(), "vzagent")
+	fs.Write(vzagentBin, "#!/bin/sh\n")
+	t.Setenv(vzAgentBinEnv, vzagentBin)
+
+	withFakeVZResolveExec(t, func(*core.Core, context.Context, string, ...string) core.Result {
+		return core.Fail(core.E("Service.Run", "process exited with code 1", nil))
+	})
+
+	image, err := vzResolveImage(nil)
+	core.AssertError(t, err)
+	core.AssertNil(t, image)
+	core.AssertContains(t, err.Error(), "image-resolve")
+}
+
+// Default path, resolver prints only whitespace → no artefact dir → clear error.
+func TestDispatchVZ_ResolveImage_Ugly_EmptyResolverOutput(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	t.Setenv(vzImageEnv, "")
+
+	vzagentBin := core.JoinPath(t.TempDir(), "vzagent")
+	fs.Write(vzagentBin, "#!/bin/sh\n")
+	t.Setenv(vzAgentBinEnv, vzagentBin)
+
+	withFakeVZResolveExec(t, func(*core.Core, context.Context, string, ...string) core.Result {
+		return core.Ok("\n  \n\n") // all blank lines
+	})
+
+	image, err := vzResolveImage(nil)
+	core.AssertError(t, err)
+	core.AssertNil(t, image)
+	core.AssertContains(t, err.Error(), "no artefact directory")
+}
+
+// vzLastNonEmptyLine: the artefact dir is the last content line even when blank
+// lines bracket it.
+func TestDispatchVZ_LastNonEmptyLine_Good_SkipsTrailingBlanks(t *testing.T) {
+	core.AssertEqual(t, "/cache/abc", vzLastNonEmptyLine("noise\n/cache/abc\n\n  \n"))
+	core.AssertEqual(t, "/only", vzLastNonEmptyLine("/only"))
+	core.AssertEqual(t, "", vzLastNonEmptyLine("\n \n"))
+}
+
+// End-to-end U3: the REAL vzResolveImage failing (resolver exec injected to
+// fail) must make spawnAgentVZ fall back to OCI with an observable note —
+// proving the new resolver path feeds the existing fallback, not just the
+// withFakeVZImage stub.
+func TestDispatchVZ_SpawnFallback_Bad_RealResolverFails(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(root, "ws-resolver-fail")
+	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
+	st := &WorkspaceStatus{Status: "running", Repo: "go-io", Agent: "codex", StartedAt: time.Now()}
+	fs.Write(core.JoinPath(wsDir, "status.json"), core.JSONMarshalString(st))
+
+	t.Setenv(vzImageEnv, "") // force the resolver path (no override)
+	vzagentBin := core.JoinPath(t.TempDir(), "vzagent")
+	fs.Write(vzagentBin, "#!/bin/sh\n")
+	t.Setenv(vzAgentBinEnv, vzagentBin)
+	withFakeVZResolveExec(t, func(*core.Core, context.Context, string, ...string) core.Result {
+		return core.Fail(core.E("Service.Run", "process exited with code 1", nil))
+	})
+
+	withFakeVZProvider(t, &fakeVZDispatcher{available: true})
+	s := newPrepWithProcess()
+
+	_, _, _, fellBack, err := s.spawnAgentVZ("codex", "true", nil, wsDir, WorkspaceMetaDir(wsDir), "out.log")
+	core.AssertNoError(t, err)
+	core.AssertTrue(t, fellBack)
+
+	updated := mustReadStatus(t, wsDir)
+	core.AssertContains(t, updated.Note, "guest image unavailable")
 }
