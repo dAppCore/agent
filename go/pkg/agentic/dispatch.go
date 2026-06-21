@@ -220,6 +220,10 @@ const (
 	// RuntimeApple uses Apple Containers (macOS 26+, Virtualisation.framework).
 	//   resolved := resolveContainerRuntime("apple")  // → "apple" if /usr/bin/container or `container` in PATH
 	RuntimeApple = "apple"
+	// RuntimeVZ uses go-container's in-process VZProvider (Apple
+	// Virtualization.framework, no daemon). Boot path lands in SP2; until
+	// vzDispatchEnabled() is true, resolveContainerRuntime never returns it.
+	RuntimeVZ = "vz"
 	// RuntimeDocker uses Docker Engine (Docker Desktop on macOS, dockerd on Linux).
 	//   resolved := resolveContainerRuntime("docker")  // → "docker" if `docker` in PATH
 	RuntimeDocker = "docker"
