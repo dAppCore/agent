@@ -286,14 +286,22 @@ func runtimeAvailable(name string) bool {
 //	resolveContainerRuntime("apple")   // → "apple" if available, else "docker"
 //	resolveContainerRuntime("podman")  // → "podman" if available, else "docker"
 func resolveContainerRuntime(preferred string) string {
+	if preferred == RuntimeVZ && !vzDispatchEnabled() {
+		preferred = RuntimeAuto // fork not ready — fall through to OCI
+	}
 	switch preferred {
-	case RuntimeApple, RuntimeDocker, RuntimePodman:
-		if runtimeAvailable(preferred) {
+	case RuntimeApple, RuntimeVZ, RuntimeDocker, RuntimePodman:
+		if containerRuntimeAvailable(preferred) {
 			return preferred
 		}
 	}
-	for _, candidate := range []string{RuntimeApple, RuntimeDocker, RuntimePodman} {
-		if runtimeAvailable(candidate) {
+	order := []string{RuntimeApple}
+	if vzDispatchEnabled() {
+		order = append(order, RuntimeVZ)
+	}
+	order = append(order, RuntimeDocker, RuntimePodman)
+	for _, candidate := range order {
+		if containerRuntimeAvailable(candidate) {
 			return candidate
 		}
 	}

@@ -204,6 +204,22 @@ func TestDispatchRuntime_DispatchGPU_Ugly_Case(t *testing.T) {
 	core.AssertFalse(t, s.dispatchGPU())
 }
 
+// --- vz runtime guard (SP1) ---
+
+// vz is a recognised constant but, in SP1, never auto-selected (no boot path).
+func TestDispatchRuntime_VZ_NotAutoSelected_Good(t *testing.T) {
+	core.AssertEqual(t, "vz", RuntimeVZ)
+	// auto must never surface vz until SP2 enables the fork.
+	core.AssertNotEqual(t, RuntimeVZ, resolveContainerRuntime(RuntimeAuto))
+}
+
+// An explicit vz preference, with the fork disabled, falls back to an OCI runtime.
+func TestDispatchRuntime_VZ_ExplicitFallsBack_Ugly(t *testing.T) {
+	resolved := resolveContainerRuntime(RuntimeVZ)
+	core.AssertNotEqual(t, RuntimeVZ, resolved)
+	core.AssertContains(t, []string{RuntimeApple, RuntimeDocker, RuntimePodman}, resolved)
+}
+
 // isDarwin checks the host operating system without importing runtime in the
 // test file (the import happens in dispatch.go where it's needed for the real
 // detection logic).
