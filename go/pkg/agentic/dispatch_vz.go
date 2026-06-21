@@ -11,7 +11,7 @@ import (
 	"dappco.re/go/process"
 )
 
-// SP2 — VZ in-process dispatch fork (scaffold).
+// VZ in-process dispatch fork.
 //
 // When the resolved runtime is `vz`, dispatch runs the agent in-process through
 // go-container's Virtualization.framework provider instead of spawning an OCI
@@ -20,34 +20,45 @@ import (
 // surfaces completion through the SAME agentCompletionMonitor the OCI path uses
 // (via the vzCompletionProcess adapter satisfying completionProcess).
 //
-// Scaffold scope (SP3 supersedes): the workspace is NOT yet host-visible inside
-// the guest. go-container's RunOptions.Volumes are block-device attachments —
-// vzVolumeSpecs requires each source to be a raw image FILE, so passing the
-// workspace directory would make Run fail on every dispatch. Host-visible
-// workspace sharing (virtio-fs) and secret/git-identity injection over vsock are
-// SP3. SP2 therefore boots a minimal VM (memory/cpus/name only) to prove the
-// fork plumbing end-to-end.
-//
-// Exec limitation (flagged for SP3): container.VZProvider.Exec returns only
-// stdout on exit==0 and folds a non-zero exit into a core.Fail error — it does
-// not surface a structured {stdout, stderr, exit}. The adapter therefore maps
-// Ok→exit 0 and Fail→exit 1 (failed). Real agent dispatch needs a structured
-// exec verb from go-container.
+// SP3 wiring (this file):
+//   - Host-visible workspace via virtio-fs: vzRunOptions shares workspaceDir
+//     into the guest as the `workspace` tag (container.WithSharedDir), so the
+//     agent's commits + BLOCKED.md land on the host. Unlike RunOptions.Volumes
+//     (block-device images the guest must format), an FSShare is a live
+//     directory the guest mounts at /workspace (guest-image responsibility, U2).
+//   - Structured exec: the adapter drives container.VZProvider.ExecResult, which
+//     preserves the real {stdout, stderr, exit} over the vsock control channel,
+//     so onAgentComplete receives the true exit code (the lossy Exec folded a
+//     non-zero exit into an error).
+//   - Secret/git-identity injection: vzAgentEnvCommand wraps the agent command
+//     with an inline `env K=V … <agent> <args>` carrying API keys + git identity
+//     from the host, riding the vsock exec frame (not host-ps-visible; the guest
+//     is hardware-isolated). A structured vzproto env verb would be cleaner —
+//     future go-container work.
 
 const (
-	// vzImageEnv names the env var pointing at the §4 guest-image directory used
-	// until SP3's build.linuxkit.resolve pipeline produces it. The directory
-	// must contain kernel + initrd.img (and optional cmdline / disk.img).
+	// vzImageEnv names the env var pointing at the §4 guest-image directory. The
+	// directory must contain kernel + initrd.img (and optional cmdline /
+	// disk.img). A later build.linuxkit.resolve pipeline produces it.
 	vzImageEnv = "CORE_AGENT_VZ_IMAGE"
 	// vzDefaultMemoryMB is the guest memory allocation when dispatch config
 	// carries none. go-container clamps to the framework's valid range.
 	vzDefaultMemoryMB = 2048
 	// vzDefaultCPUs is the guest vCPU count when dispatch config carries none.
 	vzDefaultCPUs = 2
-	// vzExitFailed is the synthetic exit code recorded when the guest agent
-	// reports a non-zero exit (go-container folds the real code into an error;
-	// SP3's structured exec will surface the true value).
+	// vzWorkspaceTag is the virtio-fs share tag for the host-visible workspace.
+	// The guest image (U2) mounts it at /workspace, so the agent's commits +
+	// BLOCKED.md land on the host directory.
+	vzWorkspaceTag = "workspace"
+	// vzExitFailed is the exit code recorded when ExecResult fails at the verb
+	// level (framework unavailable, container not running, transport error, or
+	// an agent that refused the exec) — distinct from a command that ran and
+	// exited non-zero, whose true code ExecResult preserves.
 	vzExitFailed = 1
+	// vzRuntimeName marks a WorkspaceStatus dispatched through the VZ fork. The
+	// concurrency limiter counts these as running regardless of host PID (the VM
+	// lives in-process, so there is no host child for ProcessAlive to find).
+	vzRuntimeName = "vz"
 )
 
 // vzDispatcher is the minimal subset of *container.VZProvider the fork drives.
@@ -57,8 +68,11 @@ type vzDispatcher interface {
 	Available() bool
 	// Run boots a guest image and returns the running *container.Container.
 	Run(image *container.Image, opts ...container.RunOption) core.Result
-	// Exec runs a command in the guest over vsock and returns its stdout.
-	Exec(id, command string, args ...string) core.Result
+	// ExecResult runs a command in the guest over vsock and returns its full
+	// outcome — Value is a container.ExecResult{Stdout, Stderr, Exit}. A command
+	// that ran and exited non-zero is OK at the verb level (the exit code is
+	// preserved); only verb-level failures Fail.
+	ExecResult(id, command string, args ...string) core.Result
 	// Stop gracefully stops a running guest.
 	Stop(id string) core.Result
 }
@@ -92,16 +106,21 @@ func vzContainerID(workspaceDir string) string {
 	return core.Concat("vz-", core.Replace(WorkspaceName(workspaceDir), "/", "-"))
 }
 
-// vzRunOptions maps dispatch config to go-container RunOptions. SCAFFOLD: only
-// memory/cpus/name. Workspace+meta volumes and API-key env are deliberately
-// omitted — see the file header (volumes are block-device-only; env is SP3
-// vsock injection). dispatchMemory/dispatchCPUs default because DispatchConfig
-// carries no such fields yet.
+// vzRunOptions maps dispatch config to go-container RunOptions: name, memory,
+// cpus, and the host-visible workspace share. The workspace is shared via
+// virtio-fs (container.WithSharedDir) rather than a block volume — an FSShare is
+// a live host directory the guest mounts at /workspace (U2), so the agent's
+// commits + BLOCKED.md land on the host. The meta dir is reachable as
+// /workspace/.meta (it lives under workspaceDir), so no separate share is
+// needed. API keys + git identity are NOT RunOptions.Env — they ride the exec
+// frame via vzAgentEnvCommand (vsock, not host-ps-visible). dispatchMemory/
+// dispatchCPUs default because DispatchConfig carries no such fields yet.
 func (s *PrepSubsystem) vzRunOptions(workspaceDir string) []container.RunOption {
 	return []container.RunOption{
 		container.WithName(vzContainerID(workspaceDir)),
 		container.WithMemory(vzDefaultMemoryMB),
 		container.WithCPUs(vzDefaultCPUs),
+		container.WithSharedDir(workspaceDir, vzWorkspaceTag),
 	}
 }
 
@@ -126,26 +145,55 @@ type vzCompletionProcess struct {
 }
 
 // run drives the post-boot VZ tail on a dispatched goroutine: exec the agent
-// command over vsock, capture stdout/exit, then stop the (already running) VM.
-// It always closes Done so the monitor never blocks and always attempts a stop
-// so a booted VM never leaks. provider is passed in so spawnAgentVZ owns the
-// seam wiring.
+// command over vsock with structured capture, record the true {stdout, stderr,
+// exit}, then stop the (already running) VM. It always closes Done so the
+// monitor never blocks and always attempts a stop so a booted VM never leaks.
+// provider is passed in so spawnAgentVZ owns the seam wiring.
+//
+// The agent command is wrapped (vzAgentEnvCommand) so API keys + git identity
+// ride the vsock exec frame as inline `env K=V …` — the guest is isolated and
+// inherits no host env.
 func (v *vzCompletionProcess) run(provider vzDispatcher) {
 	defer close(v.done)
 	// Always attempt a graceful stop once the agent command has run, even on a
 	// failed exec — a booted VM must not leak.
 	defer func() { _ = provider.Stop(v.containerID) }()
 
-	execResult := provider.Exec(v.containerID, v.command, v.args...)
+	envCommand, envArgs := vzAgentEnvCommand(v.command, v.args)
+	execResult := provider.ExecResult(v.containerID, envCommand, envArgs...)
 	if !execResult.OK {
-		// go-container folds a non-zero guest exit into a Fail error; treat any
-		// exec failure as a failed agent run (SP3 structured exec surfaces the
-		// real code + stderr).
+		// Verb-level failure (framework unavailable, container not running,
+		// transport error, or an agent that refused the exec) — distinct from a
+		// command that ran and exited non-zero, which ExecResult reports as OK.
 		v.finish(vzExitFailed, process.StatusFailed, vzResultMessage(execResult))
 		return
 	}
-	stdout, _ := execResult.Value.(string)
-	v.finish(0, process.StatusExited, stdout)
+	result, ok := execResult.Value.(container.ExecResult)
+	if !ok {
+		v.finish(vzExitFailed, process.StatusFailed, "vz exec returned unexpected result type")
+		return
+	}
+	// Preserve the true exit code + stderr. A non-zero exit is a failed agent
+	// run; the monitor maps ExitCode → onAgentComplete unchanged.
+	if result.Exit != 0 {
+		v.finish(result.Exit, process.StatusFailed, vzExecOutput(result))
+		return
+	}
+	v.finish(0, process.StatusExited, vzExecOutput(result))
+}
+
+// vzExecOutput combines a structured exec result into the single output string
+// the completionProcess/monitor contract carries. stdout is the agent's
+// captured output; stderr is appended (labelled) only when present so a failed
+// run surfaces why without masking the stdout of a successful one.
+func vzExecOutput(result container.ExecResult) string {
+	if result.Stderr == "" {
+		return result.Stdout
+	}
+	if result.Stdout == "" {
+		return core.Concat("stderr: ", result.Stderr)
+	}
+	return core.Concat(result.Stdout, "\nstderr: ", result.Stderr)
 }
 
 // finish records the terminal outcome of the lifecycle under the lock.
@@ -185,12 +233,72 @@ func (v *vzCompletionProcess) Output() string {
 
 // vzSentinelPID is the host PID reported for a VZ dispatch. The VM lives inside
 // this process, so there is no child PID — -1 is the honest "no host process"
-// sentinel. NOTE: unlike a real OS PID, this does NOT make the dispatch count as
-// running in countRunningByAgent (ProcessAlive treats pid<=0 with no processID
-// as dead); the concurrency limiter therefore under-counts in-flight VZ agents.
-// Completion is unaffected — it runs off the vzCompletionProcess Done channel,
-// not ProcessAlive. Accurate in-flight accounting is an SP3 concern.
+// sentinel. A pid<=0 makes ProcessAlive report dead, so the concurrency limiter
+// cannot count a VZ dispatch by PID; instead WorkspaceStatus.Runtime=="vz"
+// (recorded by recordVZRuntime, carried by preserveStatusNote) makes
+// countRunningByAgent/countRunningByModel count it as running. Completion is
+// unaffected — it runs off the vzCompletionProcess Done channel, not ProcessAlive.
 const vzSentinelPID = -1
+
+// vzAgentEnvVar names one host env var injected into the guest agent command and
+// the optional default applied when the host value is empty. keys with no
+// default are dropped when unset (no point exporting an empty API key).
+type vzAgentEnvVar struct {
+	name        string
+	hostFrom    string // host env var to read; defaults to name when empty
+	defaultWhen string // value used when the host value is empty ("" = drop)
+}
+
+// vzAgentEnvVars is the secret + git-identity set injected into the guest agent
+// command. API keys are dropped when unset; git identity always has a Virgil
+// default so commits inside the guest are attributable. The host is the source
+// of truth — the guest inherits no environment, so each value must be passed.
+var vzAgentEnvVars = []vzAgentEnvVar{
+	{name: "OPENAI_API_KEY"},
+	{name: "ANTHROPIC_API_KEY"},
+	{name: "GEMINI_API_KEY"},
+	{name: "GOOGLE_API_KEY"},
+	{name: "GIT_AUTHOR_NAME", defaultWhen: "Virgil"},
+	{name: "GIT_COMMITTER_NAME", defaultWhen: "Virgil"},
+	{name: "GIT_AUTHOR_EMAIL", defaultWhen: "virgil@lethean.io"},
+	{name: "GIT_COMMITTER_EMAIL", defaultWhen: "virgil@lethean.io"},
+}
+
+// vzAgentEnvCommand wraps the agent command so API keys + git identity reach the
+// guest. It returns ("sh", ["-c", "env K=V … <agent> <args>"]) — the env values
+// (read from the host via core.Env, shell-quoted) ride the vsock exec frame
+// (§5), so they are never visible to host `ps` and the guest is hardware-
+// isolated. Empty API keys are omitted; git identity defaults to Virgil.
+//
+// A structured vzproto env verb (carrying env as a map alongside the command)
+// would be cleaner than inline shell — future go-container work; until then the
+// inline form mirrors the OCI path's shell-script env passing.
+//
+//	cmd, args := vzAgentEnvCommand("codex", []string{"exec", "--full-auto"})
+//	// "sh", ["-c", "env OPENAI_API_KEY='…' GIT_AUTHOR_NAME='Virgil' … 'codex' 'exec' '--full-auto'"]
+func vzAgentEnvCommand(command string, args []string) (string, []string) {
+	script := core.NewBuilder()
+	script.WriteString("env")
+	for _, spec := range vzAgentEnvVars {
+		hostKey := spec.hostFrom
+		if hostKey == "" {
+			hostKey = spec.name
+		}
+		value := core.Trim(core.Env(hostKey))
+		if value == "" {
+			value = spec.defaultWhen
+		}
+		if value == "" {
+			continue // unset API key — nothing to export
+		}
+		script.WriteString(core.Concat(" ", spec.name, "=", shellQuote(value)))
+	}
+	script.WriteString(core.Concat(" ", shellQuote(command)))
+	for _, arg := range args {
+		script.WriteString(core.Concat(" ", shellQuote(arg)))
+	}
+	return "sh", []string{"-c", script.String()}
+}
 
 // vzResultMessage extracts a human-readable message from a failed core.Result.
 func vzResultMessage(result core.Result) string {
@@ -246,6 +354,14 @@ func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, works
 		startedAt:   time.Now(),
 		done:        make(chan struct{}),
 	}
+
+	// Tag the workspace as VZ-dispatched BEFORE the monitor goroutine starts: the
+	// concurrency limiter counts a vz workspace as running regardless of host PID
+	// (vzSentinelPID is not a real OS process), and the caller's post-spawn write
+	// carries this forward via preserveStatusNote. Writing it after `go run` would
+	// risk reverting a fast `completed` write back to `running`.
+	s.recordVZRuntime(workspaceDir, agent)
+
 	go monitorProcess.run(provider)
 
 	s.broadcastStart(agent, workspaceDir)
@@ -267,26 +383,57 @@ func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, works
 	return vzSentinelPID, monitorProcess.id, outputFile, false, nil
 }
 
-// preserveStatusNote carries a downgrade note recorded inside spawnAgent (the
-// VZ→OCI fallback in spawnAgentVZ) across a caller's post-spawn status write.
-// Several callers build a fresh WorkspaceStatus (or reuse a struct read before
-// the spawn) and write it to record the OCI pid/processID, which would otherwise
-// clobber the on-disk Note. This carries the prior on-disk Note forward only
-// when the new status sets none — touching exactly the new field, so it cannot
-// disturb existing write semantics.
+// preserveStatusNote carries the VZ annotations recorded inside spawnAgent —
+// the VZ→OCI downgrade Note (recordVZDowngrade) and the Runtime tag
+// (recordVZRuntime) — across a caller's post-spawn status write. Several callers
+// build a fresh WorkspaceStatus (or reuse a struct read before the spawn) and
+// write it to record the pid/processID, which would otherwise clobber the
+// on-disk Note/Runtime. Each field is carried forward only when the new status
+// leaves it empty — touching exactly the empty fields, so it cannot disturb
+// existing write semantics.
 //
-// Scaffold caveat: on a reused workspace (queue resume, Runs++), a Note from a
-// PRIOR downgraded run can persist into a later clean run. Threading the note
-// through spawnAgent's return would avoid this but cascades a 6-caller signature
-// change — not worth it for the env-gated scaffold (SP3 can revisit).
+// Scaffold caveat: on a reused workspace (queue resume, Runs++), an annotation
+// from a PRIOR run can persist into a later run of a different shape. Threading
+// these through spawnAgent's return would avoid this but cascades a 6-caller
+// signature change — not worth it for the env-gated fork.
 //
 //	preserveStatusNote(workspaceDir, freshStatus) // before writeStatusResult
 func preserveStatusNote(workspaceDir string, status *WorkspaceStatus) {
-	if status == nil || status.Note != "" {
+	if status == nil {
 		return
 	}
-	if prev, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); ok && prev.Note != "" {
+	if status.Note != "" && status.Runtime != "" {
+		return
+	}
+	prev, ok := workspaceStatusValue(ReadStatusResult(workspaceDir))
+	if !ok {
+		return
+	}
+	if status.Note == "" && prev.Note != "" {
 		status.Note = prev.Note
+	}
+	if status.Runtime == "" && prev.Runtime != "" {
+		status.Runtime = prev.Runtime
+	}
+}
+
+// recordVZRuntime tags the workspace status as VZ-dispatched on the success path,
+// so the concurrency limiter counts the dispatch as running despite the sentinel
+// PID (the VM has no host child for ProcessAlive to find). Like recordVZDowngrade
+// it must be durable before the agent completes and before the caller's
+// post-spawn write — on the primary dispatch path status.json may not exist yet
+// (the caller writes it only after spawnAgent returns), so a missing status is
+// created with a minimal running record. The caller's later write preserves the
+// Runtime via preserveStatusNote. Best-effort: a failed write is logged, not
+// fatal (a dropped tag only under-counts, never mis-dispatches).
+func (s *PrepSubsystem) recordVZRuntime(workspaceDir, agent string) {
+	workspaceStatus, ok := workspaceStatusValue(ReadStatusResult(workspaceDir))
+	if !ok {
+		workspaceStatus = &WorkspaceStatus{Status: "running", Agent: agent, StartedAt: time.Now()}
+	}
+	workspaceStatus.Runtime = vzRuntimeName
+	if writeResult := writeStatusResult(workspaceDir, workspaceStatus); !writeResult.OK {
+		core.Warn("agentic.spawnAgentVZ: failed to record vz runtime tag", "reason", writeResult.Error())
 	}
 }
 

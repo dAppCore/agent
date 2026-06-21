@@ -33,6 +33,12 @@ type WorkspaceStatus struct {
 	// Virtualization.framework path is unavailable (SP2.4 observability). It is
 	// distinct from Question (which onAgentComplete owns for blocked agents).
 	Note string `json:"note,omitempty"`
+	// Runtime names the dispatch backend when it is not the default host process
+	// — "vz" for the in-process Virtualization.framework fork. The concurrency
+	// limiter counts a "vz" workspace as running regardless of PID, since the VM
+	// lives in-process and has no host child for ProcessAlive to find. Empty for
+	// native/OCI dispatches (counted by PID as before).
+	Runtime string `json:"runtime,omitempty"`
 }
 
 // r := c.QUERY(agentic.WorkspaceQuery{})
