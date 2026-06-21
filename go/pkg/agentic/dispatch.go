@@ -261,18 +261,10 @@ var goosIsDarwin = core.Lower(core.Trim(envOr("GOOS", core.Env("OS")))) == "darw
 //	runtimeAvailable("docker")  // true if `docker` binary on PATH
 //	runtimeAvailable("apple")   // true on macOS when `container` binary on PATH
 func runtimeAvailable(name string) bool {
-	switch name {
-	case RuntimeApple:
-		if !goosIsDarwin {
-			return false
-		}
-	case RuntimeDocker, RuntimePodman:
-		// supported on every platform that ships the binary
-	default:
+	if name == RuntimeApple && !goosIsDarwin {
 		return false
 	}
-	program := process.Program{Name: containerRuntimeBinary(name)}
-	return program.Find().OK
+	return containerRuntimeAvailable(name)
 }
 
 // resolveContainerRuntime returns the concrete runtime identifier for the
