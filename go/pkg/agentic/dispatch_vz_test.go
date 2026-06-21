@@ -511,7 +511,12 @@ func TestDispatchVZ_AgentEnvCommand_Good_GitDefaultsAndKey(t *testing.T) {
 	core.AssertContains(t, script, "GIT_COMMITTER_EMAIL='virgil@lethean.io'")
 	// Agent command + args appended, shell-quoted, after the env assignments.
 	core.AssertContains(t, script, "'codex' 'exec' '--full-auto'")
-	core.AssertTrue(t, core.HasPrefix(script, "env "))
+	// The command runs in the guest repo dir behind an existence guard (matches
+	// the OCI `-w /workspace/repo` + guard), so the agent operates on the
+	// checkout and relative output paths resolve.
+	core.AssertContains(t, script, "if [ ! -d /workspace/repo ]")
+	core.AssertContains(t, script, "cd /workspace/repo && env ")
+	core.AssertTrue(t, core.HasPrefix(script, "if [ ! -d /workspace/repo ]"))
 }
 
 func TestDispatchVZ_AgentEnvCommand_Good_HostGitIdentityOverridesDefault(t *testing.T) {

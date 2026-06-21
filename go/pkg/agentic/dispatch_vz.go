@@ -30,9 +30,11 @@ import (
 //     preserves the real {stdout, stderr, exit} over the vsock control channel,
 //     so onAgentComplete receives the true exit code (the lossy Exec folded a
 //     non-zero exit into an error).
-//   - Secret/git-identity injection: vzAgentEnvCommand wraps the agent command
-//     with an inline `env K=V … <agent> <args>` carrying API keys + git identity
-//     from the host, riding the vsock exec frame (not host-ps-visible; the guest
+//   - Working directory + secret injection: vzAgentEnvCommand wraps the agent
+//     command to run in /workspace/repo behind an existence guard (so the agent
+//     operates on the checkout, matching the OCI `-w`), with an inline
+//     `env K=V … <agent> <args>` carrying API keys + git identity from the host,
+//     riding the vsock exec frame (not host-ps-visible; the guest
 //     is hardware-isolated). A structured vzproto env verb would be cleaner —
 //     future go-container work.
 
@@ -50,6 +52,11 @@ const (
 	// The guest image (U2) mounts it at /workspace, so the agent's commits +
 	// BLOCKED.md land on the host directory.
 	vzWorkspaceTag = "workspace"
+	// vzGuestRepoDir is the in-guest working directory for the agent — the git
+	// checkout under the /workspace mount (U2). The agent command runs here
+	// (matching the OCI path's `-w /workspace/repo`); the `local` agent's
+	// relative `-o ../.meta/agent-codex.log` resolves against it.
+	vzGuestRepoDir = "/workspace/repo"
 	// vzExitFailed is the exit code recorded when ExecResult fails at the verb
 	// level (framework unavailable, container not running, transport error, or
 	// an agent that refused the exec) — distinct from a command that ran and
@@ -264,21 +271,34 @@ var vzAgentEnvVars = []vzAgentEnvVar{
 	{name: "GIT_COMMITTER_EMAIL", defaultWhen: "virgil@lethean.io"},
 }
 
-// vzAgentEnvCommand wraps the agent command so API keys + git identity reach the
-// guest. It returns ("sh", ["-c", "env K=V … <agent> <args>"]) — the env values
-// (read from the host via core.Env, shell-quoted) ride the vsock exec frame
-// (§5), so they are never visible to host `ps` and the guest is hardware-
-// isolated. Empty API keys are omitted; git identity defaults to Virgil.
+// vzAgentEnvCommand wraps the agent command so it runs in the right guest
+// directory with API keys + git identity in scope. It returns ("sh", ["-c",
+// "if [ ! -d /workspace/repo ]; …; cd /workspace/repo && env K=V … <agent>
+// <args>"]):
+//   - a guard that fails fast if the workspace share did not mount (the agent
+//     would otherwise run against an empty / wrong tree),
+//   - cd into /workspace/repo, so the agent operates on the git checkout and the
+//     `local` agent's relative `-o ../.meta/agent-codex.log` resolves (this
+//     mirrors the OCI path's `-w /workspace/repo` + existence guard, making the
+//     command self-sufficient rather than depending on the guest exec verb's
+//     default cwd),
+//   - inline env: the values (read from the host via core.Env, shell-quoted)
+//     ride the vsock exec frame (§5), so they are never visible to host `ps` and
+//     the guest is hardware-isolated. Empty API keys are omitted; git identity
+//     defaults to Virgil.
 //
-// A structured vzproto env verb (carrying env as a map alongside the command)
-// would be cleaner than inline shell — future go-container work; until then the
-// inline form mirrors the OCI path's shell-script env passing.
+// A structured vzproto verb (carrying cwd + env alongside the command) would be
+// cleaner than inline shell — future go-container work; until then the inline
+// form mirrors the OCI path's shell-script wrapping.
 //
 //	cmd, args := vzAgentEnvCommand("codex", []string{"exec", "--full-auto"})
-//	// "sh", ["-c", "env OPENAI_API_KEY='…' GIT_AUTHOR_NAME='Virgil' … 'codex' 'exec' '--full-auto'"]
+//	// "sh", ["-c", "if [ ! -d /workspace/repo ]; …; cd /workspace/repo && env OPENAI_API_KEY='…' … 'codex' 'exec' '--full-auto'"]
 func vzAgentEnvCommand(command string, args []string) (string, []string) {
 	script := core.NewBuilder()
-	script.WriteString("env")
+	// Fail fast if the workspace share did not mount — an agent run against a
+	// missing checkout produces confusing failures far from the cause.
+	script.WriteString(core.Concat("if [ ! -d ", vzGuestRepoDir, " ]; then echo 'missing ", vzGuestRepoDir, "' >&2; exit 1; fi; "))
+	script.WriteString(core.Concat("cd ", vzGuestRepoDir, " && env"))
 	for _, spec := range vzAgentEnvVars {
 		hostKey := spec.hostFrom
 		if hostKey == "" {
