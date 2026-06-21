@@ -215,13 +215,13 @@ func vzResultMessage(result core.Result) string {
 func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, workspaceDir, _ /* metaDir */, outputFile string) (int, string, string, bool, error) {
 	provider := newVZProvider()
 	if provider == nil || !provider.Available() {
-		s.recordVZDowngrade(workspaceDir, "Virtualization.framework unavailable")
+		s.recordVZDowngrade(workspaceDir, agent, "Virtualization.framework unavailable")
 		return 0, "", outputFile, true, nil
 	}
 
 	image, err := vzResolveImage()
 	if err != nil {
-		s.recordVZDowngrade(workspaceDir, "VZ guest image unavailable: "+err.Error())
+		s.recordVZDowngrade(workspaceDir, agent, "VZ guest image unavailable: "+err.Error())
 		return 0, "", outputFile, true, nil
 	}
 
@@ -229,12 +229,12 @@ func (s *PrepSubsystem) spawnAgentVZ(agent, command string, args []string, works
 	// failed boot must fall back here, not surface later as a failed agent run.
 	runResult := provider.Run(image, s.vzRunOptions(workspaceDir)...)
 	if !runResult.OK {
-		s.recordVZDowngrade(workspaceDir, "VZ boot failed: "+vzResultMessage(runResult))
+		s.recordVZDowngrade(workspaceDir, agent, "VZ boot failed: "+vzResultMessage(runResult))
 		return 0, "", outputFile, true, nil
 	}
 	ctr, ok := runResult.Value.(*container.Container)
 	if !ok || ctr == nil {
-		s.recordVZDowngrade(workspaceDir, "VZ boot returned no container")
+		s.recordVZDowngrade(workspaceDir, agent, "VZ boot returned no container")
 		return 0, "", outputFile, true, nil
 	}
 
@@ -291,15 +291,20 @@ func preserveStatusNote(workspaceDir string, status *WorkspaceStatus) {
 }
 
 // recordVZDowngrade annotates the workspace status with a VZ→OCI downgrade note
-// so the fallback is observable (SP2.4 / R5). Best-effort: a missing or
-// unreadable status is logged, not fatal — the OCI path still runs.
-func (s *PrepSubsystem) recordVZDowngrade(workspaceDir, reason string) {
+// so the fallback is observable (SP2.4 / R5). The note must be durable on the
+// primary dispatch path, where prepWorkspace has NOT yet written status.json when
+// the fallback fires (the caller writes it only after spawnAgent returns). So a
+// missing status is created with a minimal running record carrying the note,
+// rather than dropped. The caller's later write then preserves it via
+// preserveStatusNote. Best-effort: a failed write is logged, not fatal.
+func (s *PrepSubsystem) recordVZDowngrade(workspaceDir, agent, reason string) {
 	note := core.Concat("runtime downgraded vz→oci: ", reason)
 	core.Warn("agentic.spawnAgentVZ: "+note, "workspace", WorkspaceName(workspaceDir))
-	result := ReadStatusResult(workspaceDir)
-	workspaceStatus, ok := workspaceStatusValue(result)
+	workspaceStatus, ok := workspaceStatusValue(ReadStatusResult(workspaceDir))
 	if !ok {
-		return
+		// No status.json yet (fresh dispatch path) — create a minimal coherent
+		// record so the downgrade is observable before the OCI agent completes.
+		workspaceStatus = &WorkspaceStatus{Status: "running", Agent: agent, StartedAt: time.Now()}
 	}
 	workspaceStatus.Note = note
 	if writeResult := writeStatusResult(workspaceDir, workspaceStatus); !writeResult.OK {

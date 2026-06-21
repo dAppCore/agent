@@ -296,6 +296,33 @@ func TestDispatchVZ_SpawnFallback_Ugly_RunEntitlementError(t *testing.T) {
 	core.AssertContains(t, updated.Note, "boot failed")
 }
 
+// On the primary dispatch path, prepWorkspace has NOT written status.json when
+// the fallback fires (the caller writes it only after spawnAgent returns). The
+// downgrade must still be observable — recordVZDowngrade creates a minimal status
+// rather than dropping the note. This test deliberately does NOT pre-seed
+// status.json, unlike the _SpawnFallback_* tests above.
+func TestDispatchVZ_SpawnFallback_Ugly_NoPriorStatusFile(t *testing.T) {
+	root := t.TempDir()
+	setTestWorkspace(t, root)
+	wsDir := core.JoinPath(root, "ws-nostatus")
+	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
+	// No status.json written — fresh dispatch path.
+	core.AssertFalse(t, fs.Exists(core.JoinPath(wsDir, "status.json")))
+
+	withFakeVZProvider(t, &fakeVZDispatcher{available: false})
+	s := &PrepSubsystem{}
+
+	_, _, _, fellBack, err := s.spawnAgentVZ("codex", "true", nil, wsDir, WorkspaceMetaDir(wsDir), "out.log")
+	core.AssertNoError(t, err)
+	core.AssertTrue(t, fellBack)
+
+	// The note was created from nothing — observable even without prepWorkspace.
+	updated := mustReadStatus(t, wsDir)
+	core.AssertContains(t, updated.Note, "vz→oci")
+	core.AssertEqual(t, "codex", updated.Agent)
+	core.AssertEqual(t, "running", updated.Status)
+}
+
 // --- preserveStatusNote (SP2.4 Note survives the caller's post-spawn write) ---
 
 // The downgrade Note recorded inside spawnAgent must survive the caller's
