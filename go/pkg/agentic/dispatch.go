@@ -253,13 +253,13 @@ func containerRuntimeBinary(runtime string) string {
 // dependency on the `runtime` package themselves.
 var goosIsDarwin = core.Lower(core.Trim(envOr("GOOS", core.Env("OS")))) == "darwin"
 
-// runtimeAvailable reports whether the runtime's binary is available on PATH
-// or via known absolute paths. Apple Container additionally requires macOS as
-// the host operating system because the binary is a thin wrapper over
-// Virtualisation.framework.
+// runtimeAvailable reports whether a runtime is usable for dispatch on this
+// host. Apple Containers additionally require macOS; every runtime's presence
+// is otherwise determined by go-container's detection seam
+// (containerRuntimeAvailable), not a direct PATH probe.
 //
-//	runtimeAvailable("docker")  // true if `docker` binary on PATH
-//	runtimeAvailable("apple")   // true on macOS when `container` binary on PATH
+//	runtimeAvailable("docker")  // true if go-container detects docker
+//	runtimeAvailable("apple")   // true only on macOS with Apple Containers present
 func runtimeAvailable(name string) bool {
 	if name == RuntimeApple && !goosIsDarwin {
 		return false
@@ -283,7 +283,7 @@ func resolveContainerRuntime(preferred string) string {
 	}
 	switch preferred {
 	case RuntimeApple, RuntimeVZ, RuntimeDocker, RuntimePodman:
-		if containerRuntimeAvailable(preferred) {
+		if runtimeAvailable(preferred) {
 			return preferred
 		}
 	}
@@ -293,7 +293,7 @@ func resolveContainerRuntime(preferred string) string {
 	}
 	order = append(order, RuntimeDocker, RuntimePodman)
 	for _, candidate := range order {
-		if containerRuntimeAvailable(candidate) {
+		if runtimeAvailable(candidate) {
 			return candidate
 		}
 	}
