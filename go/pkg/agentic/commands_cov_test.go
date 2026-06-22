@@ -398,6 +398,26 @@ func TestCommandsCov_CmdPromptVersion_Ugly_CorruptSnapshot(t *testing.T) {
 
 // --- cmdMirror ---
 
+// --- cmdExtract stdout branch ---
+
+// TestCommandsCov_CmdExtract_Good_SourceToStdout — a source file with an
+// extractable fenced block and no target prints the extracted content to stdout
+// (the else-branch of the target check) and returns it as the result value.
+func TestCommandsCov_CmdExtract_Good_SourceToStdout(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	dir := t.TempDir()
+	source := core.JoinPath(dir, "agent-output.md")
+	core.RequireTrue(t, fs.Write(source, "Run done.\n\n```json\n{\"k\":\"v\"}\n```\n").OK)
+
+	var r core.Result
+	output := captureStdout(t, func() {
+		r = s.cmdExtract(core.NewOptions(core.Option{Key: "source", Value: source}))
+	})
+	core.RequireTrue(t, r.OK)
+	core.AssertEqual(t, `{"k":"v"}`, r.Value)
+	core.AssertContains(t, output, `{"k":"v"}`)
+}
+
 // TestCommandsCov_CmdMirror_Good_SkippedNoGithubRemote drives the real mirror
 // over a git repo that has no `github` remote, exercising the skipped-output
 // loop and the count line.
