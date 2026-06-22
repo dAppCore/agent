@@ -9,6 +9,47 @@ import (
 	core "dappco.re/go"
 )
 
+// TestPlanCov_PhaseCriteriaList_Good_MergesAndDeduplicates — when both Criteria
+// and CompletionCriteria are populated they merge with duplicates removed (the
+// dedup-merge branch that neither early-return reaches).
+func TestPlanCov_PhaseCriteriaList_Good_MergesAndDeduplicates(t *testing.T) {
+	phase := Phase{
+		Criteria:           []string{"tests pass", "lint clean"},
+		CompletionCriteria: []string{"tests pass", "docs updated"},
+	}
+
+	merged := phaseCriteriaList(phase)
+
+	core.AssertEqual(t, []string{"tests pass", "lint clean", "docs updated"}, merged)
+}
+
+// TestPlanCov_PhaseCriteriaList_Good_EachEmptySideFallsBack — an empty criteria
+// side returns the other side unchanged (both early-return arms).
+func TestPlanCov_PhaseCriteriaList_Good_EachEmptySideFallsBack(t *testing.T) {
+	core.AssertEqual(t, []string{"only completion"},
+		phaseCriteriaList(Phase{CompletionCriteria: []string{"only completion"}}))
+	core.AssertEqual(t, []string{"only criteria"},
+		phaseCriteriaList(Phase{Criteria: []string{"only criteria"}}))
+}
+
+// TestPlanCov_PhaseSliceValue_Ugly_UnknownTypeIsNil — an unrecognised value
+// type that is not a single phase yields nil (the terminal fall-through).
+func TestPlanCov_PhaseSliceValue_Ugly_UnknownTypeIsNil(t *testing.T) {
+	core.AssertNil(t, phaseSliceValue(42))
+	// A non-bracket string is also not a phase slice.
+	core.AssertNil(t, phaseSliceValue("not a json array"))
+}
+
+// TestPlanCov_PhaseSliceValue_Good_JSONStringOfObjects — a JSON-array string of
+// phase objects decodes through the string branch.
+func TestPlanCov_PhaseSliceValue_Good_JSONStringOfObjects(t *testing.T) {
+	phases := phaseSliceValue(`[{"name":"Setup","status":"pending"},{"name":"Build"}]`)
+
+	core.AssertLen(t, phases, 2)
+	core.AssertEqual(t, "Setup", phases[0].Name)
+	core.AssertEqual(t, "Build", phases[1].Name)
+}
+
 // TestPlanCov_HandlePlanCreate_Bad_MissingTitle — the plan.create action
 // wrapper surfaces the validation error when no title is supplied (the error
 // arm of the wrapper).
