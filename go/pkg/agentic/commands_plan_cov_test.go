@@ -220,6 +220,70 @@ func TestCommandsPlanCov_CmdPlanTemplates_Good_PrintsVariablesAndCategory(t *tes
 	core.AssertContains(t, output, "1 template(s)")
 }
 
+// TestCommandsPlanCov_CmdPlanUpdate_Bad_MissingIdentifier — neither id nor slug
+// given prints usage and returns the required-field error.
+func TestCommandsPlanCov_CmdPlanUpdate_Bad_MissingIdentifier(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	var r core.Result
+	output := captureStdout(t, func() {
+		r = s.cmdPlanUpdate(core.NewOptions(core.Option{Key: "status", Value: "ready"}))
+	})
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, r.Value.(error).Error(), "id or slug is required")
+	core.AssertContains(t, output, "usage: core-agent plan update")
+}
+
+// TestCommandsPlanCov_CmdPlanUpdate_Ugly_UnknownPlan — updating a non-existent
+// plan surfaces the handler error (the !result.OK arm).
+func TestCommandsPlanCov_CmdPlanUpdate_Ugly_UnknownPlan(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	var r core.Result
+	output := captureStdout(t, func() {
+		r = s.cmdPlanUpdate(core.NewOptions(
+			core.Option{Key: "_arg", Value: "no-such-plan-xyz"},
+			core.Option{Key: "status", Value: "ready"},
+		))
+	})
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, output, "error:")
+}
+
+// TestCommandsPlanCov_CmdPlanArchive_Ugly_UnknownPlan — archiving a slug that is
+// not present surfaces the handler error (the !result.OK arm).
+func TestCommandsPlanCov_CmdPlanArchive_Ugly_UnknownPlan(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	var r core.Result
+	output := captureStdout(t, func() {
+		r = s.cmdPlanArchive(core.NewOptions(core.Option{Key: "_arg", Value: "no-such-plan-xyz"}))
+	})
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, output, "error:")
+}
+
+// TestCommandsPlanCov_CmdPlanDelete_Ugly_UnknownID — deleting an id that is not
+// present surfaces the handler error (the !result.OK arm).
+func TestCommandsPlanCov_CmdPlanDelete_Ugly_UnknownID(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	var r core.Result
+	output := captureStdout(t, func() {
+		r = s.cmdPlanDelete(core.NewOptions(core.Option{Key: "_arg", Value: "no-such-id-xyz"}))
+	})
+	core.AssertFalse(t, r.OK)
+	core.AssertContains(t, output, "error:")
+}
+
 // TestCommandsPlanCov_CmdPlanTemplates_Ugly_ListError — a failing template list
 // seam surfaces the error envelope.
 func TestCommandsPlanCov_CmdPlanTemplates_Ugly_ListError(t *testing.T) {
