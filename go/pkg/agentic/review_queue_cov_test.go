@@ -44,6 +44,14 @@ func TestReviewqueue_ReviewQueueReviewers_Ugly_Empty(t *testing.T) {
 	core.AssertEqual(t, []string{"coderabbit"}, reviewQueueReviewers("  "))
 }
 
+// --- parseRetryAfter (no-match falls back to default) ---
+
+func TestReviewqueue_ParseRetryAfter_Ugly_NoMatchDefaults(t *testing.T) {
+	// A message with no "N minutes" shape returns the 5-minute default.
+	core.AssertEqual(t, 5*time.Minute, parseRetryAfter("please slow down"))
+	core.AssertEqual(t, 5*time.Minute, parseRetryAfter("rate limited, try later"))
+}
+
 // --- compileRetryAfterPattern ---
 
 func TestReviewqueue_CompileRetryAfterPattern_Good_Case(t *testing.T) {

@@ -149,6 +149,25 @@ func TestQa_RecordLintFindings_Ugly_EmptyReport(t *testing.T) {
 	})
 }
 
+// --- recordBuildResult (real :memory: workspace happy path) ---
+
+func TestQa_RecordBuildResult_Good_PersistsRow(t *testing.T) {
+	storeInstance, result := store.New(":memory:")
+	core.RequireTrue(t, result.OK)
+	t.Cleanup(func() { _ = storeInstance.Close() })
+
+	workspace, wsResult := storeInstance.NewWorkspace("qa-build-good")
+	core.RequireTrue(t, wsResult.OK)
+
+	s := newPrepWithProcess()
+	s.recordBuildResult(workspace, "build", true, "ok output")
+	s.recordBuildResult(workspace, "test", false, "1 failure")
+
+	aggregate := workspace.Aggregate()
+	core.AssertEqual(t, 1, intValue(aggregate["build"]))
+	core.AssertEqual(t, 1, intValue(aggregate["test"]))
+}
+
 // --- findingsFromJournalPayload (report-inline + nil arms) ---
 
 func TestQa_FindingsFromJournalPayload_Good_TopLevelFindings(t *testing.T) {
