@@ -65,7 +65,16 @@ func ContainerShell(req ShellRequest) core.Result {
 
 	switch runtime {
 	case RuntimeApple, RuntimeDocker, RuntimePodman:
-		return runInteractiveExec(containerRuntimeBinary(runtime), interactiveShellArgs(id, shell))
+		if !runtimeAvailable(runtime) {
+			return core.Fail(core.E("agentic.ContainerShell", "container runtime not available: "+runtime, nil))
+		}
+		// The runtime CLI inherits the terminal and writes its own diagnostics,
+		// so a non-zero shell exit — a normal end to an interactive session, or a
+		// CLI error already shown on screen — is not re-surfaced as a verb
+		// failure once the CLI has launched. (Propagating the shell's exit code
+		// as core-agent's own process status is a tracked SP4 follow-up.)
+		_ = runInteractiveExec(containerRuntimeBinary(runtime), interactiveShellArgs(id, shell))
+		return core.Ok(nil)
 	case RuntimeVZ:
 		// The VZ guest has no container CLI — reach it over the vsock control
 		// channel with a host-side raw terminal (darwin only).
