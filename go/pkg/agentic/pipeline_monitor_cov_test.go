@@ -29,6 +29,29 @@ func TestPipelineMonitorCov_CheckStatus_Ugly_CaseInsensitive(t *testing.T) {
 	core.AssertEqual(t, "in_progress", pipelineCheckStatus("In_Progress"))
 }
 
+// TestPipelineMonitorCov_ChecksSuccessful_Bad_EmptyIsFalse — an empty check set
+// is not "successful" (a PR with no reported checks must not auto-merge).
+func TestPipelineMonitorCov_ChecksSuccessful_Bad_EmptyIsFalse(t *testing.T) {
+	core.AssertFalse(t, pipelineChecksSuccessful(nil))
+	core.AssertFalse(t, pipelineChecksSuccessful([]PipelineCheckMeta{}))
+}
+
+// TestPipelineMonitorCov_ChecksSuccessful_Good_AllCompletedSuccess — a set where
+// every check is completed+success is successful; a single non-success fails it.
+func TestPipelineMonitorCov_ChecksSuccessful_Good_AllCompletedSuccess(t *testing.T) {
+	allGood := []PipelineCheckMeta{
+		{Name: "qa", Status: "completed", Conclusion: "success"},
+		{Name: "build", Status: "completed", Conclusion: "success"},
+	}
+	core.AssertTrue(t, pipelineChecksSuccessful(allGood))
+
+	oneBad := []PipelineCheckMeta{
+		{Name: "qa", Status: "completed", Conclusion: "success"},
+		{Name: "build", Status: "completed", Conclusion: "failure"},
+	}
+	core.AssertFalse(t, pipelineChecksSuccessful(oneBad))
+}
+
 // TestPipelineMonitorCov_CmdMonitor_Good_RepoScopePrintsActions — the monitor
 // command wrapper, scoped to one repo, prints the repo header and each
 // intervention line and returns the typed output. HTTP-only path.

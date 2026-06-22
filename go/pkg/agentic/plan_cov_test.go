@@ -3,10 +3,52 @@
 package agentic
 
 import (
+	"context"
 	"testing"
 
 	core "dappco.re/go"
 )
+
+// TestPlanCov_HandlePlanCreate_Bad_MissingTitle — the plan.create action
+// wrapper surfaces the validation error when no title is supplied (the error
+// arm of the wrapper).
+func TestPlanCov_HandlePlanCreate_Bad_MissingTitle(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	result := s.handlePlanCreate(context.Background(), core.NewOptions(
+		core.Option{Key: "objective", Value: "no title supplied"},
+	))
+
+	core.AssertFalse(t, result.OK)
+	_, ok := result.Value.(error)
+	core.RequireTrue(t, ok)
+}
+
+// TestPlanCov_HandlePlanRead_Good_ReturnsPlan — the plan.read action wrapper
+// returns the typed read output for an existing plan id (the success arm).
+func TestPlanCov_HandlePlanRead_Good_ReturnsPlan(t *testing.T) {
+	dir := t.TempDir()
+	setTestWorkspace(t, dir)
+	s := newTestPrep(t)
+
+	_, created, err := s.planCreate(context.Background(), nil, PlanCreateInput{
+		Title:     "Readable Plan",
+		Objective: "Read me back via the action wrapper",
+	})
+	core.RequireNoError(t, err)
+
+	result := s.handlePlanRead(context.Background(), core.NewOptions(
+		core.Option{Key: "id", Value: created.ID},
+	))
+
+	core.RequireTrue(t, result.OK)
+	output, ok := result.Value.(PlanReadOutput)
+	core.RequireTrue(t, ok)
+	core.AssertEqual(t, created.ID, output.Plan.ID)
+	core.AssertEqual(t, "Readable Plan", output.Plan.Title)
+}
 
 // TestPlanCov_WritePlanResult_Bad_NilPlan — a nil plan is rejected with the
 // "plan is required" envelope before any filesystem work.

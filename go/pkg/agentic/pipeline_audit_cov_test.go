@@ -66,6 +66,21 @@ func TestPipelineAuditCov_FindingSummary_Ugly_TruncatesLongValue(t *testing.T) {
 	core.AssertEqual(t, repeatString("a", 93)+"...", summary)
 }
 
+// TestPipelineAuditCov_AuditLinkedComment_Good_NumberedAndNumberless — a linked
+// ref with a real number is rendered with "#N"; a numberless (planned/dry-run)
+// ref is rendered by title alone (the else branch).
+func TestPipelineAuditCov_AuditLinkedComment_Good_NumberedAndNumberless(t *testing.T) {
+	comment := pipelineAuditLinkedComment([]PipelineIssueRef{
+		{Number: 42, Title: "security(go-io): Validate tokens"},
+		{Number: 0, Title: "security(go-io): Sanitize input"},
+	})
+
+	core.AssertContains(t, comment, "Implementation issues created:")
+	core.AssertContains(t, comment, "- #42 security(go-io): Validate tokens")
+	core.AssertContains(t, comment, "- security(go-io): Sanitize input")
+	core.AssertFalse(t, core.Contains(comment, "- #0"))
+}
+
 // TestPipelineAuditCov_CmdAudit_Good_PrintsSummaryAndCreatedIssues — the audit
 // command wrapper prints the repo/created summary and returns the typed output.
 // HTTP-only path (no subprocess), so captureStdout is safe.
