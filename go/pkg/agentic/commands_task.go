@@ -8,29 +8,23 @@ import (
 
 func (s *PrepSubsystem) registerTaskCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask}},
+		{"agentic:task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask}},
+		{"task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate}},
+		{"agentic:task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate}},
+		{"task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate}},
+		{"agentic:task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate}},
+		{"task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle}},
+		{"agentic:task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle}},
 	}
-	if r := c.Command("agentic:task", core.Command{Description: "Manage plan tasks", Action: s.cmdTask}); !r.OK {
-		return r
-	}
-	if r := c.Command("task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:task/create", core.Command{Description: "Create a task in a plan phase", Action: s.cmdTaskCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:task/update", core.Command{Description: "Update a plan task status, notes, priority, or category", Action: s.cmdTaskUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:task/toggle", core.Command{Description: "Toggle a plan task between pending and completed", Action: s.cmdTaskToggle}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
