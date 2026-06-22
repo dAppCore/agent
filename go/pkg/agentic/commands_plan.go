@@ -8,89 +8,43 @@ import (
 
 func (s *PrepSubsystem) registerPlanCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan}},
+		{"agentic:plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan}},
+		{"plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates}},
+		{"agentic:plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates}},
+		{"plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate}},
+		{"agentic:plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate}},
+		{"plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue}},
+		{"agentic:plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue}},
+		{"plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList}},
+		{"agentic:plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList}},
+		{"agentic:plan/get", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}},
+		{"plan/get", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}},
+		{"agentic:plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}},
+		{"plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}},
+		{"plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow}},
+		{"agentic:plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow}},
+		{"plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate}},
+		{"agentic:plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate}},
+		{"plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}},
+		{"agentic:plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}},
+		{"plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}},
+		{"agentic:plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}},
+		{"plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck}},
+		{"agentic:plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck}},
+		{"plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive}},
+		{"agentic:plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive}},
+		{"plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete}},
+		{"agentic:plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete}},
 	}
-	if r := c.Command("agentic:plan", core.Command{Description: "Manage implementation plans", Action: s.cmdPlan}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/templates", core.Command{Description: "List available plan templates", Action: s.cmdPlanTemplates}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/create", core.Command{Description: "Create an implementation plan or create one from a template", Action: s.cmdPlanCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/from-issue", core.Command{Description: "Create an implementation plan from a tracked issue", Action: s.cmdPlanFromIssue}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/list", core.Command{Description: "List implementation plans", Action: s.cmdPlanList}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/get", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/get", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/read", core.Command{Description: "Read an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/show", core.Command{Description: "Show an implementation plan", Action: s.cmdPlanShow}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/update", core.Command{Description: "Update an implementation plan", Action: s.cmdPlanUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/update_status", core.Command{Description: "Read or update an implementation plan status", Action: s.cmdPlanStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/check", core.Command{Description: "Check whether a plan or phase is complete", Action: s.cmdPlanCheck}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/archive", core.Command{Description: "Archive an implementation plan by slug or ID", Action: s.cmdPlanArchive}); !r.OK {
-		return r
-	}
-	if r := c.Command("plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:plan/delete", core.Command{Description: "Delete an implementation plan by ID", Action: s.cmdPlanDelete}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
