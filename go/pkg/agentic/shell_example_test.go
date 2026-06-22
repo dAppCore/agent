@@ -9,10 +9,10 @@ import (
 )
 
 // ExampleContainerShell attaches the current terminal to a running container by
-// name. A VZ guest is declined cleanly until the vsock PTY lane lands, so the
-// example exercises that documented path deterministically — no guest boot.
+// name. A missing id is rejected before any runtime work, shown here as the
+// deterministic guard (the interactive paths need a live container + TTY).
 func ExampleContainerShell() {
-	r := agentic.ContainerShell(agentic.ShellRequest{ID: "vz-demo", Runtime: "vz"})
+	r := agentic.ContainerShell(agentic.ShellRequest{})
 	core.Println(r.OK)
 	// Output: false
 }

@@ -67,8 +67,9 @@ func ContainerShell(req ShellRequest) core.Result {
 	case RuntimeApple, RuntimeDocker, RuntimePodman:
 		return runInteractiveExec(containerRuntimeBinary(runtime), interactiveShellArgs(id, shell))
 	case RuntimeVZ:
-		return core.Fail(core.E("agentic.ContainerShell",
-			"interactive shell into a VZ guest is not wired yet (SP4 vsock PTY); use an OCI runtime or pass --runtime to override", nil))
+		// The VZ guest has no container CLI — reach it over the vsock control
+		// channel with a host-side raw terminal (darwin only).
+		return vzInteractiveShell(id, shell)
 	default:
 		return core.Fail(core.E("agentic.ContainerShell", "unsupported runtime: "+runtime, nil))
 	}

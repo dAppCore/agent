@@ -28,9 +28,9 @@ func TestContainerShell_UnknownRuntime_Bad(t *testing.T) {
 	core.AssertFalse(t, ContainerShell(ShellRequest{ID: "x", Runtime: "kubernetes"}).OK)
 }
 
-// VZ returns a clean not-yet error (no panic, no exec) until the vsock PTY lane lands.
-func TestContainerShell_VZNotYet_Ugly(t *testing.T) {
-	r := ContainerShell(ShellRequest{ID: "vz-x", Runtime: RuntimeVZ})
-	core.AssertFalse(t, r.OK)
-	core.AssertTrue(t, core.Contains(r.Error(), "VZ"))
+// An unknown runtime is rejected without attempting an exec or terminal work.
+// (The VZ path drives a live vsock PTY + host raw terminal, so it is exercised
+// by the protocol/provider/guest tests and manual live boot, not here.)
+func TestContainerShell_UnknownRuntimeExplicit_Bad(t *testing.T) {
+	core.AssertFalse(t, ContainerShell(ShellRequest{ID: "x", Runtime: "nomad"}).OK)
 }
