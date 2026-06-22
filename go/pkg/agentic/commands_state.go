@@ -8,35 +8,25 @@ import (
 
 func (s *PrepSubsystem) registerStateCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("state", core.Command{Description: "Manage shared plan state", Action: s.cmdState}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"state", core.Command{Description: "Manage shared plan state", Action: s.cmdState}},
+		{"agentic:state", core.Command{Description: "Manage shared plan state", Action: s.cmdState}},
+		{"state/set", core.Command{Description: "Store shared plan state", Action: s.cmdStateSet}},
+		{"agentic:state/set", core.Command{Description: "Store shared plan state", Action: s.cmdStateSet}},
+		{"state/get", core.Command{Description: "Read shared plan state by key", Action: s.cmdStateGet}},
+		{"agentic:state/get", core.Command{Description: "Read shared plan state by key", Action: s.cmdStateGet}},
+		{"state/list", core.Command{Description: "List shared plan state for a plan", Action: s.cmdStateList}},
+		{"agentic:state/list", core.Command{Description: "List shared plan state for a plan", Action: s.cmdStateList}},
+		{"state/delete", core.Command{Description: "Delete shared plan state by key", Action: s.cmdStateDelete}},
+		{"agentic:state/delete", core.Command{Description: "Delete shared plan state by key", Action: s.cmdStateDelete}},
 	}
-	if r := c.Command("agentic:state", core.Command{Description: "Manage shared plan state", Action: s.cmdState}); !r.OK {
-		return r
-	}
-	if r := c.Command("state/set", core.Command{Description: "Store shared plan state", Action: s.cmdStateSet}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:state/set", core.Command{Description: "Store shared plan state", Action: s.cmdStateSet}); !r.OK {
-		return r
-	}
-	if r := c.Command("state/get", core.Command{Description: "Read shared plan state by key", Action: s.cmdStateGet}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:state/get", core.Command{Description: "Read shared plan state by key", Action: s.cmdStateGet}); !r.OK {
-		return r
-	}
-	if r := c.Command("state/list", core.Command{Description: "List shared plan state for a plan", Action: s.cmdStateList}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:state/list", core.Command{Description: "List shared plan state for a plan", Action: s.cmdStateList}); !r.OK {
-		return r
-	}
-	if r := c.Command("state/delete", core.Command{Description: "Delete shared plan state by key", Action: s.cmdStateDelete}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:state/delete", core.Command{Description: "Delete shared plan state by key", Action: s.cmdStateDelete}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
