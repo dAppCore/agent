@@ -10,41 +10,27 @@ import (
 
 func (s *PrepSubsystem) registerWorkspaceCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}},
+		{"agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}},
+		{"workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}},
+		{"agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}},
+		{"workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}},
+		{"agentic:workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}},
+		{"workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}},
+		{"agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}},
+		{"workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"agentic:workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
 	}
-	if r := c.Command("agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
