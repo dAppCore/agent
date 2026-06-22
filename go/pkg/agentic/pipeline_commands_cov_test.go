@@ -160,44 +160,51 @@ func TestPipelineCommandsCov_CmdPipelineFix_Good_RoutesSubcommands(t *testing.T)
 }
 
 // TestPipelineCommandsCov_CmdPipelineBudget_Good_RoutesPlan — the budget router
-// dispatches "plan" into cmdPipelineBudgetPlan (journal-backed, no network).
+// dispatches "plan" into cmdPipelineBudgetPlan; the budget-plan table header
+// confirms the route landed there (and not on log/default).
 func TestPipelineCommandsCov_CmdPipelineBudget_Good_RoutesPlan(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	var result core.Result
-	captureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result = s.cmdPipelineBudget(core.NewOptions(core.Option{Key: "_arg", Value: "plan"}))
 	})
 
 	core.RequireTrue(t, result.OK)
+	core.AssertContains(t, output, "POOL")
+	core.AssertContains(t, output, "CONCURRENCY")
 }
 
 // TestPipelineCommandsCov_CmdPipelineBudget_Good_RoutesLog — the budget router
 // dispatches "log" into cmdPipelineBudgetLog, which (no repo/agent) fails fast
-// at its own guard; this covers the case "log" routing line.
+// at its own guard; its distinctive usage line confirms the route landed there
+// rather than on the budget default arm.
 func TestPipelineCommandsCov_CmdPipelineBudget_Good_RoutesLog(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	var result core.Result
-	captureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result = s.cmdPipelineBudget(core.NewOptions(core.Option{Key: "_arg", Value: "log"}))
 	})
 
 	core.AssertFalse(t, result.OK)
+	core.AssertContains(t, output, "usage: core-agent pipeline/budget/log")
 }
 
 // TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesCapture — the training
 // router dispatches "capture" into cmdPipelineTrainingCapture, which (no
-// repo/number) fails fast at its own guard; this covers the case "capture" line.
+// repo/number) fails fast at its own guard; its distinctive usage line confirms
+// the route landed there rather than on the training default arm.
 func TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesCapture(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	var result core.Result
-	captureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result = s.cmdPipelineTraining(core.NewOptions(core.Option{Key: "_arg", Value: "capture"}))
 	})
 
 	core.AssertFalse(t, result.OK)
+	core.AssertContains(t, output, "usage: core-agent pipeline/training/capture")
 }
 
 // TestPipelineCommandsCov_CmdPipelineBudget_Bad_UnknownAction — an unrecognised
@@ -216,30 +223,35 @@ func TestPipelineCommandsCov_CmdPipelineBudget_Bad_UnknownAction(t *testing.T) {
 }
 
 // TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesStats — the training
-// router dispatches "stats" into cmdPipelineTrainingStats (journal-backed).
+// router dispatches "stats" into cmdPipelineTrainingStats; the "total_prs:"
+// summary line (emitted only by stats) confirms the route, distinguishing it
+// from the equally-OK export path.
 func TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesStats(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	var result core.Result
-	captureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result = s.cmdPipelineTraining(core.NewOptions(core.Option{Key: "_arg", Value: "stats"}))
 	})
 
 	core.RequireTrue(t, result.OK)
+	core.AssertContains(t, output, "total_prs:")
 }
 
 // TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesExport — the training
-// router dispatches "export" into cmdPipelineTrainingExport (writes the export
-// file under the test workspace).
+// router dispatches "export" into cmdPipelineTrainingExport; the "exported:"
+// line (emitted only by export) confirms the route, distinguishing it from the
+// equally-OK stats path.
 func TestPipelineCommandsCov_CmdPipelineTraining_Good_RoutesExport(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
 
 	var result core.Result
-	captureStdout(t, func() {
+	output := captureStdout(t, func() {
 		result = s.cmdPipelineTraining(core.NewOptions(core.Option{Key: "_arg", Value: "export"}))
 	})
 
 	core.RequireTrue(t, result.OK)
+	core.AssertContains(t, output, "exported:")
 }
 
 // TestPipelineCommandsCov_CmdPipelineTraining_Bad_UnknownAction — an
