@@ -93,17 +93,16 @@ func TestFlow_ExecuteNestedFlowStep_Bad_UnresolvableAborts(t *testing.T) {
 	}
 	ctx := flowExpansionContext{visited: map[string]bool{document.Source: true}}
 
-	out := captureStdout(t, func() {
-		summary := s.executeFlowDefinition(document, ctx)
-		core.AssertFalse(t, summary.Success)
-		core.AssertEqual(t, 1, summary.Executed)
-		core.AssertEqual(t, 1, summary.Failed)
-		core.AssertLen(t, summary.StepResults, 1)
-		if len(summary.StepResults) == 1 {
-			core.AssertContains(t, summary.StepResults[0].Error, "unresolvable flow")
-		}
-	})
-	_ = out
+	// The unresolvable nested flow aborts before any real command executes, so a
+	// direct call (no captureStdout redirect) is sufficient.
+	summary := s.executeFlowDefinition(document, ctx)
+	core.AssertFalse(t, summary.Success)
+	core.AssertEqual(t, 1, summary.Executed)
+	core.AssertEqual(t, 1, summary.Failed)
+	core.AssertLen(t, summary.StepResults, 1)
+	if len(summary.StepResults) == 1 {
+		core.AssertContains(t, summary.StepResults[0].Error, "unresolvable flow")
+	}
 }
 
 // --- executeNestedFlowStep: unresolvable nested flow, continueOnError keeps going ---
@@ -127,15 +126,15 @@ func TestFlow_ExecuteNestedFlowStep_Ugly_UnresolvableContinues(t *testing.T) {
 	}
 	ctx := flowExpansionContext{visited: map[string]bool{document.Source: true}}
 
-	out := captureStdout(t, func() {
-		summary := s.executeFlowDefinition(document, ctx)
-		// The nested step failed but continueOnError let the next step run + pass.
-		core.AssertTrue(t, summary.Success)
-		core.AssertEqual(t, 2, summary.Executed)
-		core.AssertEqual(t, 1, summary.Failed)
-		core.AssertEqual(t, 1, summary.Passed)
-	})
-	_ = out
+	// executeFlowStep does its own stdout/stderr capture for the real command,
+	// so call executeFlowDefinition directly rather than nesting a captureStdout
+	// redirect around it.
+	summary := s.executeFlowDefinition(document, ctx)
+	// The nested step failed but continueOnError let the next step run + pass.
+	core.AssertTrue(t, summary.Success)
+	core.AssertEqual(t, 2, summary.Executed)
+	core.AssertEqual(t, 1, summary.Failed)
+	core.AssertEqual(t, 1, summary.Passed)
 }
 
 // --- validateExecutableFlowStep: legacy run syntax + missing cmd ---

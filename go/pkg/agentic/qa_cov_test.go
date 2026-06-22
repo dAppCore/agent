@@ -5,10 +5,19 @@ package agentic
 import (
 	"context"
 	"testing"
+	"time"
 
 	core "dappco.re/go"
 	store "dappco.re/go/store"
 )
+
+// uniqueWorkspaceName returns a collision-free workspace name. NewWorkspace
+// writes a real `<name>.duckdb` under the CWD-relative `.core/state/` dir and
+// refuses to recreate an existing file, so a fixed name leaks across repeated
+// runs (`-count=2`). A nanosecond suffix keeps each invocation distinct.
+func uniqueWorkspaceName(prefix string) string {
+	return core.Concat(prefix, "-", core.Itoa(int(time.Now().UnixNano())))
+}
 
 // --- runQALegacy (direct, bypassing the go-store report path) ---
 
@@ -98,8 +107,9 @@ func TestQa_RecordLintFindings_Good_PersistsFindingsAndTools(t *testing.T) {
 	core.RequireTrue(t, result.OK)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
-	workspace, wsResult := storeInstance.NewWorkspace("qa-record-good")
+	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-record-good"))
 	core.RequireTrue(t, wsResult.OK)
+	t.Cleanup(workspace.Discard)
 
 	report := QAReport{
 		Findings: []QAFinding{
@@ -139,8 +149,9 @@ func TestQa_RecordLintFindings_Ugly_EmptyReport(t *testing.T) {
 	core.RequireTrue(t, result.OK)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
-	workspace, wsResult := storeInstance.NewWorkspace("qa-record-empty")
+	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-record-empty"))
 	core.RequireTrue(t, wsResult.OK)
+	t.Cleanup(workspace.Discard)
 
 	s := newPrepWithProcess()
 	// Empty report records nothing but must not panic.
@@ -156,8 +167,9 @@ func TestQa_RecordBuildResult_Good_PersistsRow(t *testing.T) {
 	core.RequireTrue(t, result.OK)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
-	workspace, wsResult := storeInstance.NewWorkspace("qa-build-good")
+	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-build-good"))
 	core.RequireTrue(t, wsResult.OK)
+	t.Cleanup(workspace.Discard)
 
 	s := newPrepWithProcess()
 	s.recordBuildResult(workspace, "build", true, "ok output")
