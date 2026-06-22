@@ -45,80 +45,31 @@ func applyLogLevel(args []string) []string {
 func registerApplicationCommands(c *core.Core) core.Result {
 	commands := applicationCommandSet{coreApp: c}
 
-	if result := c.Command("version", core.Command{
-		Description: "Print version and build info",
-		Action:      commands.version,
-	}); !result.OK {
-		return result
+	// Declarative registration table — one guard covers every command, instead
+	// of a repeated `if !result.OK { return result }` after each (those repeats
+	// are structurally unreachable: c.Command does not fail at runtime, so only
+	// the first guard is ever exercisable).
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"version", core.Command{Description: "Print version and build info", Action: commands.version}},
+		{"check", core.Command{Description: "Verify workspace, deps, and config", Action: commands.check}},
+		{"env", core.Command{Description: "Show all core.Env() keys and values", Action: commands.env}},
+		{"chat", core.Command{Description: "Interactive Lemma REPL — chat with a model via lthn-mlx, auto-capture to user archive", Action: commands.chat}},
+		{"hub", core.Command{Description: "Serve the agent hub — loopback HTTP control plane (opencode + brain) + MCP HTTP+SSE tool plane", Action: commands.hub}},
+		{"serve-status", core.Command{Description: "Snapshot the lthn-mlx serve config — model, profile, context, cache, runtime", Action: commands.serveStatus}},
+		{"serve-reload", core.Command{Description: "Hot-swap the loaded model — --confirm=<machine-hash> --model=<path> [--profile=<name> --context=N]", Action: commands.serveReload}},
+		{"serve-profiles", core.Command{Description: "List tuning profiles the engine sees in its standard dir", Action: commands.serveProfiles}},
+		{"models-download", core.Command{Description: "Queue an HF model download — --repo=<id> [--revision=<rev>] [--no-wait]", Action: commands.modelsDownload}},
+		{"models-job", core.Command{Description: "Poll a download job — --id=<job-id>", Action: commands.modelsJob}},
+		{"opencode-models", core.Command{Description: "List OpenCode dispatch models (free Zen + authed Go tiers) from the host's opencode", Action: commands.opencodeModels}},
+		{"shell", core.Command{Description: "Drop into an interactive shell in a running container/VM — core-agent shell <id> [--runtime=<rt>] [--shell=<path>]", Action: commands.shell}},
 	}
-
-	if result := c.Command("check", core.Command{
-		Description: "Verify workspace, deps, and config",
-		Action:      commands.check,
-	}); !result.OK {
-		return result
-	}
-
-	if result := c.Command("env", core.Command{
-		Description: "Show all core.Env() keys and values",
-		Action:      commands.env,
-	}); !result.OK {
-		return result
-	}
-
-	if result := c.Command("chat", core.Command{
-		Description: "Interactive Lemma REPL — chat with a model via lthn-mlx, auto-capture to user archive",
-		Action:      commands.chat,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("hub", core.Command{
-		Description: "Serve the agent hub — loopback HTTP control plane (opencode + brain) + MCP HTTP+SSE tool plane",
-		Action:      commands.hub,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("serve-status", core.Command{
-		Description: "Snapshot the lthn-mlx serve config — model, profile, context, cache, runtime",
-		Action:      commands.serveStatus,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("serve-reload", core.Command{
-		Description: "Hot-swap the loaded model — --confirm=<machine-hash> --model=<path> [--profile=<name> --context=N]",
-		Action:      commands.serveReload,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("serve-profiles", core.Command{
-		Description: "List tuning profiles the engine sees in its standard dir",
-		Action:      commands.serveProfiles,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("models-download", core.Command{
-		Description: "Queue an HF model download — --repo=<id> [--revision=<rev>] [--no-wait]",
-		Action:      commands.modelsDownload,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("models-job", core.Command{
-		Description: "Poll a download job — --id=<job-id>",
-		Action:      commands.modelsJob,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("opencode-models", core.Command{
-		Description: "List OpenCode dispatch models (free Zen + authed Go tiers) from the host's opencode",
-		Action:      commands.opencodeModels,
-	}); !result.OK {
-		return result
-	}
-	if result := c.Command("shell", core.Command{
-		Description: "Drop into an interactive shell in a running container/VM — core-agent shell <id> [--runtime=<rt>] [--shell=<path>]",
-		Action:      commands.shell,
-	}); !result.OK {
-		return result
+	for _, entry := range entries {
+		if result := c.Command(entry.name, entry.cmd); !result.OK {
+			return result
+		}
 	}
 	return core.Result{OK: true}
 }
