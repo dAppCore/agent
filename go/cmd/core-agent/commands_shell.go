@@ -15,7 +15,7 @@ import (
 func (commands applicationCommandSet) shell(opts core.Options) core.Result {
 	id := opts.String("_arg")
 	if id == "" {
-		applicationPrint("shell: <id> required (core-agent shell <container-id> [--runtime <rt>] [--shell <path>])")
+		applicationPrint("shell: <id> required (core-agent shell <container-id> [--runtime=<rt>] [--shell=<path>])")
 		return core.Result{}
 	}
 	r := agentic.ContainerShell(agentic.ShellRequest{

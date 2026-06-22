@@ -115,7 +115,7 @@ func registerApplicationCommands(c *core.Core) core.Result {
 		return result
 	}
 	if result := c.Command("shell", core.Command{
-		Description: "Drop into an interactive shell in a running container/VM — core-agent shell <id> [--runtime <rt>] [--shell <path>]",
+		Description: "Drop into an interactive shell in a running container/VM — core-agent shell <id> [--runtime=<rt>] [--shell=<path>]",
 		Action:      commands.shell,
 	}); !result.OK {
 		return result
