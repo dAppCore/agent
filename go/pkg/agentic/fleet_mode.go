@@ -11,29 +11,23 @@ import (
 
 func (s *PrepSubsystem) registerFleetCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("login", core.Command{Description: "Exchange a 6-digit pairing code for a fleet api key", Action: s.cmdFleetLogin}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"login", core.Command{Description: "Exchange a 6-digit pairing code for a fleet api key", Action: s.cmdFleetLogin}},
+		{"agentic:login", core.Command{Description: "Exchange a 6-digit pairing code for a fleet api key", Action: s.cmdFleetLogin}},
+		{"fleet", core.Command{Description: "Run or inspect fleet mode", Action: s.cmdFleet}},
+		{"agentic:fleet", core.Command{Description: "Run or inspect fleet mode", Action: s.cmdFleet}},
+		{"fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodesCommand}},
+		{"agentic:fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodesCommand}},
+		{"fleet/status", core.Command{Description: "Show current fleet connection status", Action: s.cmdFleetStatus}},
+		{"agentic:fleet/status", core.Command{Description: "Show current fleet connection status", Action: s.cmdFleetStatus}},
 	}
-	if r := c.Command("agentic:login", core.Command{Description: "Exchange a 6-digit pairing code for a fleet api key", Action: s.cmdFleetLogin}); !r.OK {
-		return r
-	}
-	if r := c.Command("fleet", core.Command{Description: "Run or inspect fleet mode", Action: s.cmdFleet}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:fleet", core.Command{Description: "Run or inspect fleet mode", Action: s.cmdFleet}); !r.OK {
-		return r
-	}
-	if r := c.Command("fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodesCommand}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:fleet/nodes", core.Command{Description: "List registered fleet nodes", Action: s.cmdFleetNodesCommand}); !r.OK {
-		return r
-	}
-	if r := c.Command("fleet/status", core.Command{Description: "Show current fleet connection status", Action: s.cmdFleetStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:fleet/status", core.Command{Description: "Show current fleet connection status", Action: s.cmdFleetStatus}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
