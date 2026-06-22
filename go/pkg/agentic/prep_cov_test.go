@@ -80,7 +80,7 @@ func TestPrepCov_BuildPrompt_Good_IncludesIssueAndGitLog(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	repoDir := prepCovGitRepo(t)
+	repoDir := covMiscPrepGitRepo(t)
 
 	s := &PrepSubsystem{
 		ServiceRuntime: core.NewServiceRuntime(testCore, AgentOptions{}),
@@ -238,9 +238,9 @@ func TestPrepCov_PullWikiContent_Ugly_SkipsFailedPageFetch(t *testing.T) {
 	core.AssertNotContains(t, content, "Broken")
 }
 
-// prepCovGitRepo creates a tiny git checkout with one commit so getGitLog has a
+// covMiscPrepGitRepo creates a tiny git checkout with one commit so getGitLog has a
 // non-empty log to return.
-func prepCovGitRepo(t *testing.T) string {
+func covMiscPrepGitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	ctx := context.Background()

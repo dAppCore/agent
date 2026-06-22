@@ -236,7 +236,7 @@ func TestBrainSeedMemoryCov_BrainSeedMemory_Ugly_SkipsOnImportFailure(t *testing
 	core.RequireTrue(t, fs.Write(core.JoinPath(memoryDir, "MEMORY.md"),
 		"## Architecture\nUse Core.Process().\n\n## Decision\nPrefer named actions.").OK)
 
-	srv := brainSeedMemoryAlwaysFailServer(t)
+	srv := covMiscBrainAlwaysFailServer(t)
 	s := &PrepSubsystem{brainURL: srv, brainKey: "brain-key"}
 
 	var output BrainSeedMemoryOutput
@@ -304,9 +304,9 @@ func TestBrainSeedMemoryCov_Project_Bad_NoMemorySegment(t *testing.T) {
 	core.AssertEqual(t, "", brainSeedMemoryProject("/Users/snider/notes/file.md"))
 }
 
-// brainSeedMemoryAlwaysFailServer starts an httptest server that rejects every
+// covMiscBrainAlwaysFailServer starts an httptest server that rejects every
 // request with 400 (a non-retryable status), so brainCall fails fast.
-func brainSeedMemoryAlwaysFailServer(t *testing.T) string {
+func covMiscBrainAlwaysFailServer(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "rejected", http.StatusBadRequest)
