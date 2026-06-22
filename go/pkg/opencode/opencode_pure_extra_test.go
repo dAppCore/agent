@@ -23,3 +23,21 @@ func TestEnable_readEnabledFlag(t *testing.T) {
 	core.AssertFalse(t, ok)
 	core.AssertEqual(t, "", raw)
 }
+
+// TestOpencode_image_CustomOverridesDefault — image() returns the
+// operator-supplied Options.Image verbatim when set (the non-empty arm);
+// an unset Image falls back to defaultImage. Covers both branches of the
+// per-spawn image resolver.
+func TestOpencode_image_CustomOverridesDefault(t *testing.T) {
+	c := core.New(core.WithOption("name", "opencode-test"))
+	custom := NewService(Options{Image: "forge.lthn.sh/lthn/dev:pinned"})(c)
+	core.AssertTrue(t, custom.OK)
+	csvc, _ := custom.Value.(*Service)
+	core.AssertEqual(t, "forge.lthn.sh/lthn/dev:pinned", csvc.image())
+
+	d := core.New(core.WithOption("name", "opencode-test"))
+	def := NewService(Options{})(d)
+	core.AssertTrue(t, def.OK)
+	dsvc, _ := def.Value.(*Service)
+	core.AssertEqual(t, defaultImage, dsvc.image())
+}
