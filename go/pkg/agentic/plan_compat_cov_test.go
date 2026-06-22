@@ -61,6 +61,24 @@ func TestPlanCompatCov_HandlePlanUpdateStatus_Good_ActivatesPlan(t *testing.T) {
 	core.AssertEqual(t, "in_progress", reread.Status)
 }
 
+// TestPlanCompatCov_InputStatus_Good_MapsPublicToInternal — the public status
+// vocabulary maps onto the internal lifecycle; unknown values pass through.
+func TestPlanCompatCov_InputStatus_Good_MapsPublicToInternal(t *testing.T) {
+	core.AssertEqual(t, "in_progress", planCompatibilityInputStatus("active"))
+	core.AssertEqual(t, "approved", planCompatibilityInputStatus("completed"))
+	core.AssertEqual(t, "draft", planCompatibilityInputStatus("draft"))
+}
+
+// TestPlanCompatCov_OutputStatus_Good_MapsInternalToPublic — the internal
+// lifecycle collapses onto the public vocabulary; unknown values pass through.
+func TestPlanCompatCov_OutputStatus_Good_MapsInternalToPublic(t *testing.T) {
+	core.AssertEqual(t, "active", planCompatibilityOutputStatus("in_progress"))
+	core.AssertEqual(t, "active", planCompatibilityOutputStatus("needs_verification"))
+	core.AssertEqual(t, "active", planCompatibilityOutputStatus("verified"))
+	core.AssertEqual(t, "completed", planCompatibilityOutputStatus("approved"))
+	core.AssertEqual(t, "draft", planCompatibilityOutputStatus("draft"))
+}
+
 // TestPlanCompatCov_PlanProgress_Good_PhaseStatusWithoutTasks — phases that
 // carry no tasks/criteria each count as one unit, and a "done"/"approved"
 // phase status counts as completed (the phase-status fallback branch).

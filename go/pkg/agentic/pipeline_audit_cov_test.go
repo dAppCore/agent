@@ -96,6 +96,50 @@ func TestPipelineAuditCov_CmdAudit_Good_PrintsSummaryAndCreatedIssues(t *testing
 	core.AssertContains(t, output, "created:  #")
 }
 
+// TestPipelineAuditCov_IssueState_Ugly_EmptyDefaultsToOpen — an issue with no
+// explicit state normalises to "open".
+func TestPipelineAuditCov_IssueState_Ugly_EmptyDefaultsToOpen(t *testing.T) {
+	core.AssertEqual(t, "open", pipelineIssueState(pipelineIssueRecord{State: ""}))
+	core.AssertEqual(t, "closed", pipelineIssueState(pipelineIssueRecord{State: " CLOSED "}))
+}
+
+// TestPipelineAuditCov_IssueIsAudit_Good_StructuralLabel — the structural
+// `audit` label flags an audit issue ahead of the title-marker fallback.
+func TestPipelineAuditCov_IssueIsAudit_Good_StructuralLabel(t *testing.T) {
+	issue := pipelineIssueRecord{
+		Title:  "ordinary title",
+		Labels: []pipelineLabelRecord{{Name: "audit"}},
+	}
+	core.AssertTrue(t, pipelineIssueIsAudit(issue))
+}
+
+// TestPipelineAuditCov_IssueIsImplementationCandidate_Bad_ClosedIsNotCandidate —
+// a closed issue is never an implementation candidate (the state guard).
+func TestPipelineAuditCov_IssueIsImplementationCandidate_Bad_ClosedIsNotCandidate(t *testing.T) {
+	core.AssertFalse(t, pipelineIssueIsImplementationCandidate(pipelineIssueRecord{State: "closed", Title: "done"}))
+}
+
+// TestPipelineAuditCov_AuditLabels_Good_AppendsSeverity — a "critical" issue
+// gets the severity label appended after agentic + type.
+func TestPipelineAuditCov_AuditLabels_Good_AppendsSeverity(t *testing.T) {
+	labels := pipelineAuditLabels(pipelineIssueRecord{Title: "critical security hole", Body: "auth bypass"})
+	core.AssertEqual(t, []string{"agentic", "security", "critical"}, labels)
+}
+
+// TestPipelineAuditCov_AuditExistingKey_Bad_NoParentMarker — a body without a
+// "Parent audit: #N" marker yields an empty key.
+func TestPipelineAuditCov_AuditExistingKey_Bad_NoParentMarker(t *testing.T) {
+	core.AssertEqual(t, "", pipelineAuditExistingKey(pipelineIssueRecord{Title: "Free-standing", Body: "no marker here"}))
+}
+
+// TestPipelineAuditCov_AuditImplementationTitle_Ugly_BlankFindingUsesTitle — a
+// blank finding falls back to the issue title for the summary.
+func TestPipelineAuditCov_AuditImplementationTitle_Ugly_BlankFindingUsesTitle(t *testing.T) {
+	issue := pipelineIssueRecord{Number: 3, Title: "Sanitize user input"}
+	title := pipelineAuditImplementationTitle("go-io", issue, "   ")
+	core.AssertEqual(t, "security(go-io): Sanitize user input", title)
+}
+
 // TestPipelineAuditCov_CmdAudit_Good_DryRunNoCreatedFooter — a dry-run over a
 // repo with no audit issues prints the "no audit issues" footer.
 func TestPipelineAuditCov_CmdAudit_Good_DryRunNoCreatedFooter(t *testing.T) {
