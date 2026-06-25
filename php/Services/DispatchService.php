@@ -8,6 +8,12 @@ use Core\Mod\Agentic\Models\AgentRegistration;
 use Core\Mod\Agentic\Models\DispatchJob;
 use Illuminate\Support\Collection;
 
+/**
+ * The single fleet service: agent registration + a workspace-scoped, claim-based
+ * dispatch queue. Used by System A (console + MCP register/checkin/dispatch) and
+ * System B (the Go core-agent fleet/sync endpoints) so one workspace shares one
+ * queue across a group of installs.
+ */
 class DispatchService
 {
     /**
@@ -22,7 +28,7 @@ class DispatchService
                 'agent_id' => $attributes['agent_id'],
             ],
             [
-                'hostname' => $attributes['hostname'],
+                'hostname' => $attributes['hostname'] ?? $attributes['agent_id'],
                 'platform' => $attributes['platform'] ?? null,
                 'capabilities' => $attributes['capabilities'] ?? [],
                 'models' => $attributes['models'] ?? null,
@@ -48,11 +54,74 @@ class DispatchService
             ->first();
     }
 
+    public function heartbeat(int $workspaceId, string $agentId, string $status, array $computeBudget = []): ?AgentRegistration
+    {
+        $registration = $this->findRegistration($workspaceId, $agentId);
+
+        if (! $registration instanceof AgentRegistration) {
+            return null;
+        }
+
+        $registration->forceFill([
+            'status' => $status,
+            'compute_budget' => $computeBudget !== [] ? $computeBudget : $registration->compute_budget,
+            'last_heartbeat_at' => now(),
+        ])->save();
+
+        return $registration->fresh() ?? $registration;
+    }
+
+    public function deregister(int $workspaceId, string $agentId): void
+    {
+        AgentRegistration::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('agent_id', $agentId)
+            ->update([
+                'status' => AgentRegistration::STATUS_OFFLINE,
+                'last_heartbeat_at' => now(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, AgentRegistration>
+     */
+    public function listAgents(int $workspaceId, ?string $status = null, ?string $platform = null): Collection
+    {
+        $query = AgentRegistration::query()->where('workspace_id', $workspaceId);
+
+        if ($status !== null && $status !== '') {
+            $query->where('status', $status);
+        }
+
+        if ($platform !== null && $platform !== '') {
+            $query->where('platform', $platform);
+        }
+
+        return $query->orderByDesc('last_heartbeat_at')->get();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function stats(int $workspaceId): array
+    {
+        return [
+            'agents' => AgentRegistration::query()->where('workspace_id', $workspaceId)->count(),
+            'online' => AgentRegistration::query()->where('workspace_id', $workspaceId)->where('status', AgentRegistration::STATUS_ONLINE)->count(),
+            'pending' => DispatchJob::query()->where('workspace_id', $workspaceId)->pending()->count(),
+            'running' => DispatchJob::query()->where('workspace_id', $workspaceId)->active()->count(),
+            'completed' => DispatchJob::query()->where('workspace_id', $workspaceId)->where('status', DispatchJob::STATUS_COMPLETED)->count(),
+            'failed' => DispatchJob::query()->where('workspace_id', $workspaceId)->where('status', DispatchJob::STATUS_FAILED)->count(),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      */
     public function enqueue(int $workspaceId, array $attributes): DispatchJob
     {
+        $assignedAgent = $attributes['assigned_agent'] ?? null;
+
         $job = new DispatchJob;
         $job->forceFill([
             'workspace_id' => $workspaceId,
@@ -65,12 +134,50 @@ class DispatchService
             'branch' => $attributes['branch'] ?? null,
             'priority' => (int) ($attributes['priority'] ?? 5),
             'labels' => $attributes['labels'] ?? [],
-            'status' => $attributes['status'] ?? DispatchJob::STATUS_PENDING,
+            'status' => $attributes['status'] ?? ($assignedAgent ? DispatchJob::STATUS_ASSIGNED : DispatchJob::STATUS_PENDING),
+            'assigned_agent' => $assignedAgent,
+            'assigned_at' => $assignedAgent ? now() : null,
             'metadata' => $attributes['metadata'] ?? null,
         ]);
         $job->save();
 
         return $job->fresh() ?? $job;
+    }
+
+    /**
+     * Mark a job done (or failed) and write the agent's report back — the
+     * completion path System A never had a clean endpoint for.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function complete(int $workspaceId, string $agentId, string $jobId, array $data = []): ?DispatchJob
+    {
+        $job = DispatchJob::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('assigned_agent', $agentId)
+            ->whereKey($jobId)
+            ->first();
+
+        if (! $job instanceof DispatchJob) {
+            return null;
+        }
+
+        $job->forceFill([
+            'status' => $data['status'] ?? DispatchJob::STATUS_COMPLETED,
+            'result' => $data['result'] ?? $job->result,
+            'findings' => $data['findings'] ?? $job->findings,
+            'changes' => $data['changes'] ?? $job->changes,
+            'report' => $data['report'] ?? $job->report,
+            'completed_at' => now(),
+        ])->save();
+
+        AgentRegistration::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('agent_id', $agentId)
+            ->where('current_task_id', $jobId)
+            ->update(['current_task_id' => null]);
+
+        return $job->fresh();
     }
 
     /**
@@ -96,6 +203,44 @@ class DispatchService
             'registration' => $registration->fresh() ?? $registration,
             'jobs' => $this->assignJobs($registration),
         ];
+    }
+
+    /**
+     * Claim and return a single next job for an agent (the fleet `nextTask`
+     * loop), respecting max_concurrent. Heartbeats the agent as a side effect.
+     *
+     * @param  array<int, string>  $capabilities
+     */
+    public function nextTask(int $workspaceId, string $agentId, array $capabilities = []): ?DispatchJob
+    {
+        $registration = $this->findRegistration($workspaceId, $agentId);
+
+        if (! $registration instanceof AgentRegistration) {
+            return null;
+        }
+
+        $registration->forceFill([
+            'status' => AgentRegistration::STATUS_ONLINE,
+            'last_heartbeat_at' => now(),
+        ])->save();
+
+        $running = DispatchJob::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('assigned_agent', $agentId)
+            ->active()
+            ->count();
+
+        if ($registration->max_concurrent - $running <= 0) {
+            return null;
+        }
+
+        $job = $this->claimUpTo($registration, 1)->first();
+
+        if ($job instanceof DispatchJob) {
+            $registration->forceFill(['current_task_id' => $job->id])->save();
+        }
+
+        return $job;
     }
 
     /**
@@ -133,9 +278,19 @@ class DispatchService
             ->active()
             ->count();
 
-        $availableSlots = max(0, $registration->max_concurrent - $runningCount);
+        return $this->claimUpTo($registration, max(0, $registration->max_concurrent - $runningCount));
+    }
 
-        if ($availableSlots === 0) {
+    /**
+     * Atomically claim up to $limit pending jobs for the agent. The conditional
+     * update only affects a row for the agent that gets there first, so
+     * concurrent installs polling the same workspace queue can't double-claim.
+     *
+     * @return Collection<int, DispatchJob>
+     */
+    private function claimUpTo(AgentRegistration $registration, int $limit): Collection
+    {
+        if ($limit <= 0) {
             return collect();
         }
 
@@ -147,7 +302,7 @@ class DispatchService
             ->pending()
             ->orderByDesc('priority')
             ->orderBy('created_at')
-            ->limit(max(50, $availableSlots * 5))
+            ->limit(max(50, $limit * 5))
             ->get()
             ->filter(fn (DispatchJob $job): bool => $this->matchesAgent($job, $registration))
             ->values();
@@ -155,13 +310,10 @@ class DispatchService
         $assigned = collect();
 
         foreach ($candidates as $job) {
-            if ($assigned->count() >= $availableSlots) {
+            if ($assigned->count() >= $limit) {
                 break;
             }
 
-            // Atomic claim — the conditional update only affects a row for the
-            // agent that gets there first. Concurrent installs polling the same
-            // workspace queue therefore can't double-claim a job.
             $claimed = DispatchJob::query()
                 ->whereKey($job->getKey())
                 ->where('status', DispatchJob::STATUS_PENDING)
