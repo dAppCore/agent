@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SyncRecord extends Model
 {
     protected $fillable = [
+        'workspace_id',
+        'agent_id',
         'fleet_node_id',
         'direction',
         'payload_size',

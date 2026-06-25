@@ -8,8 +8,8 @@ namespace Core\Mod\Agentic\Actions\Sync;
 
 use Core\Actions\Action;
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Agentic\Models\AgentRegistration;
 use Core\Mod\Agentic\Models\BrainMemory;
-use Core\Mod\Agentic\Models\FleetNode;
 use Core\Mod\Agentic\Models\SyncRecord;
 use Core\Mod\Agentic\Models\WorkspaceState;
 
@@ -31,13 +31,13 @@ class PushDispatchHistory
             throw new \InvalidArgumentException('agent_id is required');
         }
 
-        $node = FleetNode::firstOrCreate(
-            ['agent_id' => $agentId],
+        AgentRegistration::firstOrCreate(
+            ['workspace_id' => $workspaceId, 'agent_id' => $agentId],
             [
-                'workspace_id' => $workspaceId,
+                'hostname' => $agentId,
                 'platform' => 'remote',
-                'status' => FleetNode::STATUS_ONLINE,
-                'registered_at' => now(),
+                'status' => AgentRegistration::STATUS_ONLINE,
+                'connected_at' => now(),
                 'last_heartbeat_at' => now(),
             ],
         );
@@ -79,7 +79,8 @@ class PushDispatchHistory
         }
 
         SyncRecord::create([
-            'fleet_node_id' => $node->id,
+            'workspace_id' => $workspaceId,
+            'agent_id' => $agentId,
             'direction' => 'push',
             'payload_size' => strlen((string) json_encode($dispatches)),
             'items_count' => count($dispatches),
