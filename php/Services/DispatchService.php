@@ -101,17 +101,30 @@ class DispatchService
     }
 
     /**
+     * Fleet stats — preserves the /v1/fleet/stats contract (nodes_online,
+     * tasks_today, tasks_week, repos_touched, findings_total) computed from the
+     * unified tables, plus the queue counters.
+     *
      * @return array<string, int>
      */
     public function stats(int $workspaceId): array
     {
+        $jobs = DispatchJob::query()->where('workspace_id', $workspaceId);
+
+        $findingsTotal = (clone $jobs)->whereNotNull('findings')->get(['findings'])
+            ->sum(fn (DispatchJob $job): int => is_array($job->findings) ? count($job->findings) : 0);
+
         return [
-            'agents' => AgentRegistration::query()->where('workspace_id', $workspaceId)->count(),
-            'online' => AgentRegistration::query()->where('workspace_id', $workspaceId)->where('status', AgentRegistration::STATUS_ONLINE)->count(),
-            'pending' => DispatchJob::query()->where('workspace_id', $workspaceId)->pending()->count(),
-            'running' => DispatchJob::query()->where('workspace_id', $workspaceId)->active()->count(),
-            'completed' => DispatchJob::query()->where('workspace_id', $workspaceId)->where('status', DispatchJob::STATUS_COMPLETED)->count(),
-            'failed' => DispatchJob::query()->where('workspace_id', $workspaceId)->where('status', DispatchJob::STATUS_FAILED)->count(),
+            'nodes_online' => AgentRegistration::query()->where('workspace_id', $workspaceId)->where('status', AgentRegistration::STATUS_ONLINE)->count(),
+            'nodes_total' => AgentRegistration::query()->where('workspace_id', $workspaceId)->count(),
+            'tasks_today' => (clone $jobs)->whereDate('created_at', today())->count(),
+            'tasks_week' => (clone $jobs)->where('created_at', '>=', now()->subDays(7))->count(),
+            'repos_touched' => (clone $jobs)->distinct()->count('repo'),
+            'findings_total' => (int) $findingsTotal,
+            'pending' => (clone $jobs)->pending()->count(),
+            'running' => (clone $jobs)->active()->count(),
+            'completed' => (clone $jobs)->where('status', DispatchJob::STATUS_COMPLETED)->count(),
+            'failed' => (clone $jobs)->where('status', DispatchJob::STATUS_FAILED)->count(),
         ];
     }
 
@@ -137,6 +150,9 @@ class DispatchService
             'status' => $attributes['status'] ?? ($assignedAgent ? DispatchJob::STATUS_ASSIGNED : DispatchJob::STATUS_PENDING),
             'assigned_agent' => $assignedAgent,
             'assigned_at' => $assignedAgent ? now() : null,
+            'findings' => $attributes['findings'] ?? null,
+            'changes' => $attributes['changes'] ?? null,
+            'report' => $attributes['report'] ?? null,
             'metadata' => $attributes['metadata'] ?? null,
         ]);
         $job->save();

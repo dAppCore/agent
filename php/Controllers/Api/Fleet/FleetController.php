@@ -7,16 +7,22 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Controllers\Api\Fleet;
 
 use Core\Front\Controller;
-use Core\Mod\Agentic\Actions\Fleet\AssignTask;
-use Core\Mod\Agentic\Actions\Fleet\GetNextTask;
-use Core\Mod\Agentic\Models\FleetTask;
-use Core\Mod\Agentic\Services\FleetService;
+use Core\Mod\Agentic\Models\DispatchJob;
+use Core\Mod\Agentic\Services\DispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * /v1/fleet/dispatch + /v1/fleet/stream over the unified DispatchService — the
+ * same agent_registrations + dispatch_jobs queue as the rest of the fleet API.
+ */
 class FleetController extends Controller
 {
+    public function __construct(
+        private DispatchService $dispatch,
+    ) {}
+
     public function dispatch(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -29,12 +35,20 @@ class FleetController extends Controller
             'report' => 'nullable|array',
         ]);
 
-        $fleetTask = $this->dispatchTask(
-            (int) $request->attributes->get('workspace_id'),
-            $validated,
-        );
+        $agentId = trim((string) ($validated['agent_id'] ?? ''));
 
-        return response()->json(['data' => $this->formatTask($fleetTask)], 201);
+        $job = $this->dispatch->enqueue((int) $request->attributes->get('workspace_id'), [
+            'repo' => $validated['repo'],
+            'branch' => $validated['branch'] ?? null,
+            'task' => $validated['task'],
+            'template' => $validated['template'] ?? null,
+            'agent_type' => $validated['agent_model'] ?? null,
+            'assigned_agent' => $agentId !== '' ? $agentId : null,
+            'created_by' => $agentId !== '' ? $agentId : null,
+            'report' => (isset($validated['report']) && is_array($validated['report'])) ? $validated['report'] : null,
+        ]);
+
+        return response()->json(['data' => $this->formatTask($job)], 201);
     }
 
     public function stream(Request $request): StreamedResponse
@@ -62,10 +76,10 @@ class FleetController extends Controller
             $this->streamEvent('ready', ['agent_id' => $agentId]);
 
             while (! connection_aborted()) {
-                $fleetTask = GetNextTask::run($workspaceId, $agentId, $capabilities);
+                $job = $this->dispatch->nextTask($workspaceId, $agentId, $capabilities);
 
-                if ($fleetTask instanceof FleetTask) {
-                    $this->streamEvent('task.assigned', $this->formatTask($fleetTask));
+                if ($job instanceof DispatchJob) {
+                    $this->streamEvent('task.assigned', $this->formatTask($job));
                     $emitted++;
 
                     if ($limit > 0 && $emitted >= $limit) {
@@ -86,53 +100,6 @@ class FleetController extends Controller
     }
 
     /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function dispatchTask(int $workspaceId, array $payload): FleetTask
-    {
-        $service = $this->resolveFleetService();
-
-        if ($service !== null && method_exists($service, 'dispatch')) {
-            $fleetTask = $service->dispatch($workspaceId, $payload);
-
-            if ($fleetTask instanceof FleetTask) {
-                return $fleetTask;
-            }
-        }
-
-        $agentId = trim((string) ($payload['agent_id'] ?? ''));
-        if ($agentId !== '') {
-            return AssignTask::run(
-                $workspaceId,
-                $agentId,
-                (string) $payload['task'],
-                (string) $payload['repo'],
-                isset($payload['template']) ? (string) $payload['template'] : null,
-                isset($payload['branch']) ? (string) $payload['branch'] : null,
-                isset($payload['agent_model']) ? (string) $payload['agent_model'] : null,
-            );
-        }
-
-        $fleetTask = FleetTask::query()->create([
-            'workspace_id' => $workspaceId,
-            'fleet_node_id' => null,
-            'repo' => (string) $payload['repo'],
-            'branch' => isset($payload['branch']) ? (string) $payload['branch'] : null,
-            'task' => (string) $payload['task'],
-            'template' => isset($payload['template']) ? (string) $payload['template'] : null,
-            'agent_model' => isset($payload['agent_model']) ? (string) $payload['agent_model'] : null,
-            'status' => FleetTask::STATUS_QUEUED,
-            'report' => isset($payload['report']) && is_array($payload['report']) ? $payload['report'] : null,
-        ])->fresh();
-
-        if (! $fleetTask instanceof FleetTask) {
-            throw new \RuntimeException('Failed to create fleet task');
-        }
-
-        return $fleetTask;
-    }
-
-    /**
      * @param  array<string, mixed>  $data
      */
     private function streamEvent(string $event, array $data): void
@@ -147,33 +114,22 @@ class FleetController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatTask(FleetTask $fleetTask): array
+    private function formatTask(DispatchJob $job): array
     {
         return [
-            'id' => $fleetTask->id,
-            'repo' => $fleetTask->repo,
-            'branch' => $fleetTask->branch,
-            'task' => $fleetTask->task,
-            'template' => $fleetTask->template,
-            'agent_model' => $fleetTask->agent_model,
-            'status' => $fleetTask->status,
-            'result' => $fleetTask->result ?? [],
-            'findings' => $fleetTask->findings ?? [],
-            'changes' => $fleetTask->changes ?? [],
-            'report' => $fleetTask->report ?? [],
-            'started_at' => $fleetTask->started_at?->toIso8601String(),
-            'completed_at' => $fleetTask->completed_at?->toIso8601String(),
+            'id' => $job->id,
+            'repo' => $job->repo,
+            'branch' => $job->branch,
+            'task' => $job->task,
+            'template' => $job->template,
+            'agent_model' => $job->agent_type,
+            'status' => $job->status,
+            'result' => $job->result ?? [],
+            'findings' => $job->findings ?? [],
+            'changes' => $job->changes ?? [],
+            'report' => $job->report ?? [],
+            'started_at' => $job->started_at?->toIso8601String(),
+            'completed_at' => $job->completed_at?->toIso8601String(),
         ];
-    }
-
-    private function resolveFleetService(): ?object
-    {
-        if (! class_exists(FleetService::class)) {
-            return null;
-        }
-
-        $service = app(FleetService::class);
-
-        return is_object($service) ? $service : null;
     }
 }
