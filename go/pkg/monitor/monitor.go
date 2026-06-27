@@ -194,7 +194,7 @@ func (m *Subsystem) Start(ctx context.Context) {
 	m.cancel = cancel
 	m.done = make(chan struct{})
 
-	core.Info("monitor: started (interval=%s)", m.interval)
+	core.Info("monitor: started", "interval", m.interval)
 
 	go func() {
 		defer close(m.done)
