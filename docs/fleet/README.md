@@ -1,61 +1,37 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Fleet & remote dispatch — many machines, one backend
+# Fleet & remote dispatch
 
-A "fleet" is several `core-agent` machines that share the PHP backend and can hand work
-to each other. This guide covers registering a machine, keeping its repos in sync, and
-proxying a dispatch to another node.
+A **fleet** is several `core-agent` machines that share the PHP backend and can hand work
+to each other — so a dispatch can run on the node that owns the repo or has the GPU. This
+page covers joining the fleet and keeping repos in sync; remote dispatch has its own
+[page](../remote/).
 
-## The fleet is defined by `agents.yaml`
+## Defined by `agents.yaml`
 
-`agents.yaml` (`agentic.AgentsConfigPath()`) lists the machines and the repos each works.
+`agents.yaml` (`agentic.AgentsConfigPath()`) lists the machines and the repos each works;
 `core-agent check` reports whether it's present.
 
-## Registration + heartbeat
+## Registration
 
-A machine joins by posting to the backend through the **TLS-validating shared client**
-(`transport.go:defaultClient` — certificate validation is on, not skipped):
+A machine joins via the **TLS-validating** shared client (`transport.go:defaultClient` —
+cert validation on):
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /v1/fleet/register` | register this machine into the fleet |
-| `POST /v1/fleet/heartbeat` | keep-alive / liveness |
+| `POST /v1/fleet/register` | register this machine |
+| `POST /v1/fleet/heartbeat` | liveness |
 
-Inspect the fleet:
-
-```
-agentic:fleet/nodes     # list the registered machines
-agentic:fleet/status    # fleet health/status
-```
-
-(Both have bare `fleet/nodes` / `fleet/status` aliases too.)
+Inspect it: `agentic:fleet/nodes` (list machines) · `agentic:fleet/status` (health).
 
 ## Repo sync
 
-The [monitor](../monitor/) subsystem keeps the ecosystem repos fresh against
-`agents.yaml`:
+The [monitor](../monitor/) subsystem keeps repos fresh against `agents.yaml`
+(`syncRepos`, `syncWorkspacePush`, incremental via `initSyncTimestamp`). `agentic:repo/sync`
+freshens one repo on demand before a dispatch.
 
-- `Subsystem.syncRepos()` — pull/refresh the repos this machine is responsible for.
-- `Subsystem.syncWorkspacePush(repo, branch, org)` — push a workspace branch back.
-- `initSyncTimestamp()` — tracks last-sync so syncs are incremental.
+## In this section
 
-`agentic:repo/sync` freshens a single repo on demand (used before a dispatch so the
-workspace starts from a clean, current tree).
+- [remote](../remote/) — proxying a dispatch to another node over HTTP MCP.
 
-## Remote dispatch
-
-A dispatch can be proxied to **another** `core-agent` over its HTTP MCP endpoint — the
-node that owns the repo (or has the GPU) does the work:
-
-| Tool | What it does |
-|------|--------------|
-| `agentic_dispatch_remote` | run a dispatch on a remote node over HTTP MCP |
-| `agentic_status_remote` | poll the remote dispatch's status |
-
-The remote node runs the normal [dispatch](../dispatch/) → [closeout](../pipeline/) flow;
-this side just polls. Remember the queue lifecycle: after a node restarts, run
-`agentic_dispatch_start` there to unfreeze its queue (see [dispatch](../dispatch/)).
-
-## Next
-
-[dispatch](../dispatch/) · [monitor](../monitor/) (the sync engine) ·
-[plans](../plans/) (sessions resume across the fleet because state is backend-held).
+**Related:** [monitor](../monitor/) (the sync engine) · [dispatch](../dispatch/) ·
+[plans](../plans/) (sessions resume across the shared backend).

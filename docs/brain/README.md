@@ -1,57 +1,36 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# OpenBrain — durable memory & cross-agent messaging
+# OpenBrain — memory & messaging
 
-`brain` is the client for OpenBrain: persistent, workspace-scoped memory plus messaging
-between agents. This guide is how to use it; the exact call sites, protections, and
-request/response shapes are in [`callers.md`](callers.md).
+**OpenBrain** gives agents persistent, workspace-scoped **memory** plus **messaging**
+between agents — the durable context layer that survives a single dispatch. This page is
+how to use it; the exact call sites and protections are in [callers](callers.md).
 
-## Memory tools
+## Memory
 
 | Tool | What it does |
 |------|--------------|
 | `brain_remember` | store a memory (workspace-scoped; `org`/`project` filters) |
-| `brain_recall` | semantic search — embeds the query, returns the best matches |
-| `brain_forget` | delete a memory |
-| `brain_list` | list memories |
+| `brain_recall` | semantic search — embeds the query, returns best matches |
+| `brain_forget` / `brain_list` | delete / list |
 
-Recall is semantic, not keyword: the backend embeds your query, searches Qdrant, then
-hydrates the rows from MariaDB. Memories are **workspace-scoped** — one workspace can't
-see another's unless you widen the `org`/`project` filter.
+Recall is **semantic, not keyword**: the backend embeds the query, searches Qdrant, then
+hydrates rows from MariaDB. Memories are workspace-scoped by default.
 
-## Messaging tools
+## Messaging
 
-| Tool | What it does |
-|------|--------------|
-| `agent_send` | send a message to another agent |
-| `agent_inbox` | read your inbox |
-| `agent_conversation` | a threaded conversation between agents |
+`agent_send` · `agent_inbox` · `agent_conversation` — how one agent hands context to
+another mid-flight (complements [session handoffs](../plans/sessions.md)).
 
-This is how one agent hands context to another mid-flight (complements session handoffs —
-see [plans](../plans/)).
+## Two transports — and the gotcha
 
-## Two transports — and the one gotcha
-
-The same tools run over either transport:
-
-- **Direct** (`direct.go`) — calls `/v1/brain/{remember,recall,forget,list}` on the API.
-  Hardened: Bearer auth, **default-org injection**, the key at `~/.claude/brain.key`
-  (`0600`), **absolute-URL rejection**, retry with jitter, and a **circuit breaker**.
+- **Direct** (`direct.go`) — calls `/v1/brain/*`; Bearer auth, key at `~/.claude/brain.key`
+  (`0600`), default-org injection, absolute-URL rejection, retry + circuit breaker.
   Results come back **inline**.
-- **Bridge** (`provider.go`) — forwards to the IDE bridge over WebSocket
-  (`NewProvider(bridge, hub)`). **Gotcha: in bridge mode, `recall`/`list` return an
-  empty body *synchronously* — the real results arrive asynchronously over the
-  WebSocket.** This is by design for the bridge path and only affects bridge-mode
-  clients; the `DirectSubsystem` path returns results inline. (See
-  [`../known-issues.md`](../known-issues.md).)
+- **Bridge** (`provider.go`) — forwards to the IDE bridge over WebSocket. **Gotcha:
+  `recall`/`list` return an empty body *synchronously*; results arrive async.** By design
+  for the bridge path only ([known-issues](../known-issues.md)).
 
-## Backend (for context)
+## In this section
 
-The PHP `BrainService` is the canonical write/read path: it writes to MariaDB first and
-queues async indexing (`EmbedMemory`) into **Qdrant + Elasticsearch**; recall embeds the
-query, searches Qdrant, hydrates from MariaDB. Qdrant is authenticated with an `api-key`
-header.
-
-## Next
-
-[`callers.md`](callers.md) (every call site + its protections) · [plans](../plans/)
-(session handoffs, the other context-passing mechanism).
+- [callers](callers.md) — every Brain call site, its protections, and request/response
+  shapes.
