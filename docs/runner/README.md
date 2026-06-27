@@ -1,25 +1,17 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Runner
+# Runner — executing a dispatched agent
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/runner/ + go/pkg/agentcompat/`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+`runner` (`pkg/runner/`) is the internal subsystem that actually executes a dispatched
+agent and tracks its workspace. Most users meet it only through [dispatch](../dispatch/);
+this is what it does under the hood.
 
-## Purpose
+- Holds a `core.Registry[*WorkspaceStatus]` of live workspaces, plus a **dispatch lock**,
+  a **drain lock**, and per-agent **backoff / fail counters** so a flapping agent backs
+  off instead of hammering.
+- Uses `c.Lock(name)` for named mutexes when the Core container is present, falling back
+  to channel locks for standalone use.
+- `queue.go` drains pending work; `paths.go` centralises workspace path resolution
+  (`.core/workspace/<org>/<repo>/task-<N>`).
 
-Local + container execution of a dispatched agent: workspace tracking, locks, backoff, the agent-tooling compat shims.
-
-_Expand from the code._
-
-## Entry points
-
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
-
-## Behaviour
-
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+For the runtime decision (native-on-host vs containerised) see [dispatch](../dispatch/);
+for the system view see [`../architecture.md`](../architecture.md).

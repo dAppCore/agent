@@ -1,25 +1,16 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Monitor
+# Monitor — background monitoring & repo sync
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/monitor/`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+`monitor` (`pkg/monitor/`) runs the background loops that keep the agent's world current.
 
-## Purpose
+- **Completion harvest** (`harvest.go`) — watches for dispatched-agent completion signals
+  and feeds them into the [closeout pipeline](../pipeline/).
+- **Monitor API** (`monitor.go`) — exposes monitoring state.
+- **Repo sync** (`sync.go`) — keeps ecosystem repos fresh against `agents.yaml`:
+  - `syncRepos()` — pull/refresh the repos this machine owns.
+  - `syncWorkspacePush(repo, branch, org)` — push a workspace branch back.
+  - `initSyncTimestamp()` — incremental syncs (only what changed since last time).
 
-Background monitoring: completion harvest, the monitor API, ecosystem repo sync.
-
-_Expand from the code._
-
-## Entry points
-
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
-
-## Behaviour
-
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+This is the engine behind the [fleet](../fleet/) repo-sync story and the reason a
+finished dispatch flows into closeout without manual polling. System view:
+[`../architecture.md`](../architecture.md).
