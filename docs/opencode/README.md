@@ -1,25 +1,45 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# OpenCode Plugin
+# OpenCode plugin
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/opencode/ + go/pkg/agentic/opencode*.go + go/cmd/core-agent/commands_opencode.go`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+OpenCode is one of the dispatch runners (a **native, host** runner — see
+[dispatch](../dispatch/)). It runs against OpenAI-compatible endpoints — typically the
+local `lthn-mlx` serve — so you can dispatch work to a local model instead of a cloud
+provider.
 
-## Purpose
+## Dispatching to OpenCode
 
-The OpenCode integration: running OpenCode against local models as a dispatch runner.
+Use an `opencode:<profile>` agent string:
 
-_Expand from the code._
+```
+agentic_dispatch(repo, task="…", agent="opencode:gemma4-mlx-agentic", branch="dev")
+```
 
-## Entry points
+The part after the colon is the **profile**, which tells OpenCode *which endpoint and
+model* to use. The model server still has to be running separately (see
+[inference](../inference/)).
 
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
+## Profiles
 
-## Behaviour
+Profiles are **kv-backed** and managed over the hub's loopback HTTP control plane
+(`core-agent hub`):
 
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+| Method + path | Does |
+|---------------|------|
+| `GET /profile` | list profiles (a `default` is seeded) |
+| `GET /profile/<name>` | get one |
+| `POST /profile` | create/save (`{"name":"…"}`) |
+| `DELETE /profile/<name>` | delete |
+
+## Listing dispatch models
+
+```
+core-agent opencode-models
+```
+
+Lists the OpenCode dispatch models the host's `opencode` sees — the **free Zen** tier and
+the **authed Go** tiers.
+
+## Next
+
+[dispatch](../dispatch/) (how runners are chosen) · [inference](../inference/) (the local
+endpoints OpenCode targets) · [cli](../cli/) (`hub`, `opencode-models`).
