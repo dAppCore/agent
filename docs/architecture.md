@@ -44,7 +44,7 @@ c.Config().Enable("auto-ingest") // file issues from findings
 2. Resolves the runner command from the agent string (`agentCommand`). Native agents (`claude`, `coderabbit`, `opencode`) run on the host; others (`codex`, `gemini`) run inside Docker.
 3. Spawns the agent process and returns a `DispatchOutput` (workspace dir, PID, output file).
 
-Agent strings carry an optional model after a colon — `codex:gpt-5.4-mini`, `claude:opus`, `opencode:gemma4-mlx-agentic`. For the local OpenCode lanes see [`local-inference.md`](local-inference.md) and [`local-inference-typologies.md`](local-inference-typologies.md).
+Agent strings carry an optional model after a colon — `codex:gpt-5.4-mini`, `claude:opus`, `opencode:gemma4-mlx-agentic`. For the local OpenCode lanes see [`inference/local-inference.md`](inference/local-inference.md) and [`inference/typologies.md`](inference/typologies.md).
 
 ### Closeout pipeline
 
@@ -83,7 +83,7 @@ The package also exposes the structured-work surface as both MCP tools and CLI c
 - **Direct** (`direct.go`) — calls `/v1/brain/*` on the API through the shared `dappco.re/go/mcp/.../brain/client`, with Bearer auth, default-org injection, `~/.claude/brain.key` (`0600`) handling, absolute-URL rejection, retry with jitter, and a circuit breaker.
 - **Bridge** (`provider.go`) — forwards to the IDE bridge over WebSocket; recall/list return empty synchronously and deliver results async (by design for the bridge path).
 
-The canonical map of every Brain call site, its protections, and its request/response shapes lives in [`BRAIN-CALLERS.md`](BRAIN-CALLERS.md).
+The canonical map of every Brain call site, its protections, and its request/response shapes lives in [`brain/callers.md`](brain/callers.md).
 
 ## Go: Local model (`pkg/lemma/` + `pkg/chathistory/`)
 

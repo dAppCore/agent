@@ -12,7 +12,7 @@ Running on **Claude Max20 plan** with **1M context window** (Opus 4.8).
 
 **Module:** `dappco.re/go/agent`
 
-**Source of truth:** [`RFC.md`](RFC.md) is the present-tense contract for every subsystem — the drive-target. [`GOAL.md`](GOAL.md) is the RFC↔code parity gate (forward + backward parity, `BLOCKED.md` free-ticket-out exit, Haiku round-gate). This file is the operational quick-reference; when it and `RFC.md` disagree, the RFC and the code win.
+**Source of truth:** the RFC specs live in the plans tree at `plans/code/core/agent/` (`RFC.md`, `RFC.pipeline.md`, `RFC.topology.md`, `RFC.serve.md`, `flow/`, `plugins/`) — the present-tense contract for every subsystem. `docs/` in this repo holds literal feature documentation only (`architecture.md`, `development.md`, `known-issues.md`, `brain/`, `inference/`, `setup/`). This file is the operational quick-reference; when docs and code disagree, the code wins.
 
 ## Build & Test
 

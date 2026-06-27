@@ -5,7 +5,7 @@
 Measured on Apple Silicon M3 Ultra with 96 GB unified memory, using MLX VLM
 OpenAI-compatible servers and Automatic Prefix Caching (APC).
 
-This document is the operational map. Use `docs/local-inference.md` for launch
+This document is the operational map. Use [`local-inference.md`](local-inference.md) for launch
 commands and lower-level runner notes.
 
 ## Decision Summary

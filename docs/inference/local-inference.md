@@ -7,7 +7,7 @@ CoreAgent can dispatch OpenCode against local OpenAI-compatible endpoints with
 name to use; the model server still has to be launched separately.
 
 For workstation sizing and safe model combinations, start with
-[`local-inference-typologies.md`](local-inference-typologies.md).
+[`typologies.md`](typologies.md).
 
 ## Chatter
 
