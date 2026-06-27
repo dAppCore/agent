@@ -1,25 +1,29 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Content + Training
+# Content & training
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/agentic/{content,training}*.go`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+Two adjacent things live here: generating content through AI providers, and gathering
+agent output into training data.
 
-## Purpose
+## Content generation
 
-Content pipeline + training-data gathering (agent findings -> training data).
+Generate content via a provider (`claude`, …) and track it as a batch:
 
-_Expand from the code._
+| Verb / func | What it does |
+|-------------|--------------|
+| `content/batch` (`ContentBatchGenerate`) | kick off a batch generation — returns a `batch_id`; supports dry-run |
+| `content/from-plan` (`ContentFromPlan`) | generate from a [plan](../plans/) (`plan_slug`), merging the prompt-template payload |
+| `content/status` (`ContentStatus`) | poll a batch by `batch_id` for `status` + `content` |
 
-## Entry points
+A result is a `ContentResult{Provider, Model, Content}`. Providers are validated before
+the call (an unknown/unavailable provider is rejected up front, not mid-batch).
 
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
+## Training data
 
-## Behaviour
+The training side gathers agent findings + outputs into training data that feeds the LEM
+training pipeline (agent work → datasets). This is the "agents produce their own training
+signal" loop — what an agent did on a dispatch can become a future training example.
 
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+## Next
+
+[plans](../plans/) (`content/from-plan` source) · [pipeline](../pipeline/) (findings that
+feed training).

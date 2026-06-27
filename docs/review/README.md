@@ -1,25 +1,18 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Review Queue
+# Review queue
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/agentic/review*.go`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+When the [closeout pipeline](../pipeline/) emits `PRNeedsReview` (auto-merge is off, or a
+PR needs a human/agent look), the work lands in the review queue.
 
-## Purpose
+| Tool | What it does |
+|------|--------------|
+| `agentic_review_queue` | list / work the queue of PRs awaiting review — reviewers, and the stored review output |
 
-The review-queue surface: reviewers, stored review output.
+The queue is the human-in-the-loop seam: with `auto-merge` disabled (see
+[pipeline](../pipeline/)), every PR routes here instead of merging itself. Reviewers are
+assigned, and review output is stored against the PR.
 
-_Expand from the code._
+## Next
 
-## Entry points
-
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
-
-## Behaviour
-
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+[pipeline](../pipeline/) (the `PRNeedsReview` source) · [scan-mirror](../scan-mirror/)
+(where findings become issues).

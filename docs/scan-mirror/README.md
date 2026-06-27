@@ -1,25 +1,21 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Scan + Mirror
+# Scan & mirror — the Forge ↔ GitHub seam
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/agentic/{scan,mirror,repo}*.go`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+core/agent's tracker of record is **Forge**; GitHub is downstream. These tools bridge the
+two and surface work.
 
-## Purpose
+| Tool / verb | What it does |
+|-------------|--------------|
+| `agentic_scan` | scan **Forge** issues — surface tracked work to [dispatch](../dispatch/) against |
+| `agentic_mirror` | mirror **Forge → GitHub** (push the canonical Forge state downstream) |
+| `agentic:repo/sync` (`repo/sync`) | freshen a single repo's working tree before a dispatch |
 
-Forge issue scanning and the Forge->GitHub mirror.
+`agentic_scan` is the front door of the dispatch loop (find the issue → dispatch it);
+`agentic_mirror` keeps GitHub a faithful downstream copy of Forge. QA findings ingested by
+the [pipeline](../pipeline/) (`auto-ingest`) become Forge issues that `agentic_scan` then
+picks up — closing the loop.
 
-_Expand from the code._
+## Next
 
-## Entry points
-
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
-
-## Behaviour
-
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+[dispatch](../dispatch/) (consumes `agentic_scan`) · [pipeline](../pipeline/) (produces
+ingested findings) · [fleet](../fleet/) (`repo/sync` keeps fleet trees fresh).
