@@ -1,25 +1,18 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
-# Remote Dispatch
+# Remote dispatch
 
-> **STUB — document this from the code.**
-> **Source:** `go/pkg/agentic/remote*.go`
->
-> Write *literal feature documentation* from the code: what it does, the key
-> types/entry points (cite `file:Symbol`), the MCP tools + CLI verbs it exposes,
-> and how it fits the dispatch -> closeout flow. **Code is the source of truth.**
-> Specs/RFCs live in `plans/code/core/agent/`, never here. No promo, no roadmap.
+Run a dispatch on **another** `core-agent` node over its HTTP MCP endpoint, then poll it
+from here. The remote node executes the normal [dispatch](../dispatch/) →
+[closeout](../pipeline/) flow; this side only initiates and watches.
 
-## Purpose
+| Tool | What it does |
+|------|--------------|
+| `agentic_dispatch_remote` | proxy a dispatch to a remote node (HTTP MCP) |
+| `agentic_status_remote` | poll the remote dispatch's status |
 
-Proxying a dispatch/status to another core-agent over its HTTP MCP endpoint; queue start/shutdown.
+Use it to send work to the node that owns the repo, has the GPU, or is the homelab box.
+The target node must have its queue running — after a restart, `agentic_dispatch_start`
+on that node unfreezes it.
 
-_Expand from the code._
-
-## Entry points
-
-_TODO — key funcs/types, MCP tools, CLI commands. Cite `file:Symbol`._
-
-## Behaviour
-
-_TODO — the actual flow, config flags (`auto-*` etc.), and any by-design gotchas
-(cross-link `../known-issues.md` where relevant)._
+This is part of the fleet story — see [fleet](../fleet/) for registration, `agents.yaml`,
+and repo sync.
