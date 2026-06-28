@@ -5,10 +5,13 @@
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Controllers\AgentApiController;
+use Core\Mod\Agentic\Controllers\Api\AgentAuth\AgentAuthController;
 use Core\Mod\Agentic\Controllers\Api\AuthController;
 use Core\Mod\Agentic\Controllers\Api\BrainController;
+use Core\Mod\Agentic\Controllers\Api\CheckinController;
 use Core\Mod\Agentic\Controllers\Api\CreditsController;
 use Core\Mod\Agentic\Controllers\Api\FleetController;
+use Core\Mod\Agentic\Controllers\Api\GitHubWebhookController;
 use Core\Mod\Agentic\Controllers\Api\IssueController;
 use Core\Mod\Agentic\Controllers\Api\MessageController;
 use Core\Mod\Agentic\Controllers\Api\PhaseController;
@@ -18,6 +21,7 @@ use Core\Mod\Agentic\Controllers\Api\SprintController;
 use Core\Mod\Agentic\Controllers\Api\SubscriptionController;
 use Core\Mod\Agentic\Controllers\Api\SyncController;
 use Core\Mod\Agentic\Controllers\Api\TaskController;
+use Core\Mod\Agentic\Http\Controllers\Api\MantisWebhookController;
 use Core\Mod\Agentic\Middleware\AgentApiAuth;
 use Illuminate\Support\Facades\Route;
 
@@ -37,15 +41,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('v1/health', [AgentApiController::class, 'health']);
 
 // GitHub App webhook (signature-verified, no Bearer auth)
-Route::post('github/webhook', [\Core\Mod\Agentic\Controllers\Api\GitHubWebhookController::class, 'receive'])
+Route::post('github/webhook', [GitHubWebhookController::class, 'receive'])
     ->middleware('throttle:120,1');
 
-Route::post('agentic/mantis-webhook', [\Core\Mod\Agentic\Http\Controllers\Api\MantisWebhookController::class, 'receive']);
+Route::post('agentic/mantis-webhook', [MantisWebhookController::class, 'receive']);
 
 // Agent checkin — discover which repos changed since last sync
 // Uses auth.api (brain key) for authentication
 Route::middleware(['throttle:120,1', 'auth.api:brain:read'])->group(function () {
-    Route::get('v1/agent/checkin', [\Core\Mod\Agentic\Controllers\Api\CheckinController::class, 'checkin']);
+    Route::get('v1/agent/checkin', [CheckinController::class, 'checkin']);
 });
 
 Route::middleware(AgentApiAuth::class.':brain.read')->group(function () {
@@ -133,6 +137,14 @@ Route::middleware('auth')->group(function () {
     Route::post('v1/agent/auth/provision', [AuthController::class, 'provision']);
 });
 
+// Device pairing — exchange a 6-digit code (minted at app.lthn.ai/device) for an
+// AgentApiKey. Intentionally unauthenticated: the short-lived, single-use code is
+// the proof. Throttled hard to keep the 6-digit space out of brute-force reach.
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('v1/agent/auth/login', [AuthController::class, 'login']);
+    Route::post('v1/device/pair', [AuthController::class, 'pair']);
+});
+
 Route::middleware(AgentApiAuth::class.':auth.write')->group(function () {
     Route::delete('v1/agent/auth/revoke/{keyId}', [AuthController::class, 'revoke']);
 });
@@ -180,40 +192,40 @@ Route::middleware(AgentApiAuth::class.':subscription.read')->group(function () {
 });
 
 Route::middleware(AgentApiAuth::class.':auth.write,sessions.write')->group(function () {
-    Route::post('v1/agent/auth/register', [\Core\Mod\Agentic\Controllers\Api\AgentAuth\AgentAuthController::class, 'register']);
+    Route::post('v1/agent/auth/register', [AgentAuthController::class, 'register']);
 });
 
 Route::middleware(AgentApiAuth::class.':fleet.write')->group(function () {
-    Route::post('v1/fleet/dispatch', [\Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'dispatch']);
+    Route::post('v1/fleet/dispatch', [Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'dispatch']);
 });
 
 Route::middleware(AgentApiAuth::class.':fleet.read')->group(function () {
-    Route::get('v1/fleet/stream', [\Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'stream']);
+    Route::get('v1/fleet/stream', [Core\Mod\Agentic\Controllers\Api\Fleet\FleetController::class, 'stream']);
 });
 
 Route::middleware(AgentApiAuth::class.':credits.write')->group(function () {
-    Route::post('v1/credits/deduct', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'deduct']);
-    Route::post('v1/credits/refund', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'refund']);
+    Route::post('v1/credits/deduct', [Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'deduct']);
+    Route::post('v1/credits/refund', [Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'refund']);
 });
 
 Route::middleware(AgentApiAuth::class.':credits.read')->group(function () {
-    Route::get('v1/credits/balance', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'balance']);
-    Route::get('v1/credits/ledger', [\Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'ledger']);
+    Route::get('v1/credits/balance', [Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'balance']);
+    Route::get('v1/credits/ledger', [Core\Mod\Agentic\Controllers\Api\Credits\CreditsController::class, 'ledger']);
 });
 
 Route::middleware(AgentApiAuth::class.':subscription.write')->group(function () {
-    Route::post('v1/subscription/upgrade', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'upgrade']);
-    Route::post('v1/subscription/cancel', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'cancel']);
+    Route::post('v1/subscription/upgrade', [Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'upgrade']);
+    Route::post('v1/subscription/cancel', [Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'cancel']);
 });
 
 Route::middleware(AgentApiAuth::class.':subscription.read')->group(function () {
-    Route::get('v1/subscription/status', [\Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'status']);
+    Route::get('v1/subscription/status', [Core\Mod\Agentic\Controllers\Api\Subscription\SubscriptionController::class, 'status']);
 });
 
 Route::middleware(AgentApiAuth::class.':sync.write')->group(function () {
-    Route::post('v1/agent/sync/push', [\Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'push']);
+    Route::post('v1/agent/sync/push', [Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'push']);
 });
 
 Route::middleware(AgentApiAuth::class.':sync.read')->group(function () {
-    Route::get('v1/agent/sync/pull', [\Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'pull']);
+    Route::get('v1/agent/sync/pull', [Core\Mod\Agentic\Controllers\Api\Sync\SyncController::class, 'pull']);
 });

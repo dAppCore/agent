@@ -49,3 +49,6 @@ htmlcov/
 
 # superpowers design/plan scratch — not committed (shipped work lives in code)
 docs/superpowers/
+
+# PHP — installed dependencies are regenerated from composer.json/lock
+php/vendor/
