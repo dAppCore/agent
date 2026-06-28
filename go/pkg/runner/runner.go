@@ -197,6 +197,51 @@ func (s *Service) HandleIPCEvents(coreApp *core.Core, msg core.Message) core.Res
 
 	case messages.PokeQueue:
 		s.drainQueueAndNotify(coreApp)
+
+	case messages.QueueDrained:
+		// H1: the queue lifecycle becomes observable — previously this event
+		// was broadcast to no handler. Notify only; do not re-drain (no loop).
+		sendNotification("queue.status", &QueueNotification{Completed: ev.Completed})
+
+	case messages.HarvestRejected:
+		// H4: a rejected harvest is surfaced, not silently dropped.
+		sendNotification("harvest.status", &HarvestNotification{
+			Status: "rejected",
+			Repo:   ev.Repo,
+			Branch: ev.Branch,
+			Reason: ev.Reason,
+		})
+
+	case messages.InboxMessage:
+		// H5: OpenBrain inbox arrivals surface on their own channel.
+		sendNotification("inbox.status", &InboxNotification{
+			New:   ev.New,
+			Total: ev.Total,
+		})
+
+	case messages.RateLimitDetected:
+		// H2: honour the rate limit into the runner's per-pool backoff so
+		// drainOne pauses that pool until it lapses (the backoff map was read
+		// at queue.go but never written). Written under the same "runner.drain"
+		// lock drainQueue holds while reading s.backoff, so no map-race.
+		if ev.Pool != "" {
+			if duration, err := time.ParseDuration(ev.Duration); err == nil && duration > 0 {
+				unlock := s.lock("runner.drain", s.drainLock)
+				s.backoff[ev.Pool] = time.Now().Add(duration)
+				unlock()
+			}
+		}
+		sendNotification("ratelimit.status", &RateLimitNotification{Pool: ev.Pool, Duration: ev.Duration})
+
+	case messages.HarvestComplete:
+		// H3: surface the completed harvest here; the agentic handler reacting
+		// to the same broadcast re-dispatches it into agentic.auto-pr.
+		sendNotification("harvest.status", &HarvestNotification{
+			Status: "complete",
+			Repo:   ev.Repo,
+			Branch: ev.Branch,
+			Files:  ev.Files,
+		})
 	}
 	return core.Result{OK: true}
 }
@@ -453,6 +498,32 @@ type AgentNotification struct {
 	Workspace string `json:"workspace"`
 	Running   int    `json:"running"`
 	Limit     int    `json:"limit"`
+}
+
+// notification := runner.QueueNotification{Completed: 3}
+type QueueNotification struct {
+	Completed int `json:"completed"`
+}
+
+// notification := runner.HarvestNotification{Status: "rejected", Repo: "go-io", Branch: "agent/fix", Reason: "binary detected"}
+type HarvestNotification struct {
+	Status string `json:"status"`
+	Repo   string `json:"repo"`
+	Branch string `json:"branch"`
+	Files  int    `json:"files,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// notification := runner.InboxNotification{New: 2, Total: 5}
+type InboxNotification struct {
+	New   int `json:"new"`
+	Total int `json:"total"`
+}
+
+// notification := runner.RateLimitNotification{Pool: "codex", Duration: "30m0s"}
+type RateLimitNotification struct {
+	Pool     string `json:"pool"`
+	Duration string `json:"duration"`
 }
 
 // result := c.QUERY(runner.WorkspaceQuery{Status: "running"})
