@@ -14,6 +14,7 @@ import (
 	"dappco.re/go/agent/pkg/opencode"
 	"dappco.re/go/agent/pkg/runner"
 	"dappco.re/go/agent/pkg/setup"
+	"dappco.re/go/cli/pkg/cli"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 )
 
@@ -57,6 +58,7 @@ func newCoreAgent() *core.Core {
 func newCoreAgentResult() (*core.Core, core.Result) {
 	coreApp := core.New(
 		core.WithOption("name", "core-agent"),
+		core.WithService(cli.Register),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(runner.Register),

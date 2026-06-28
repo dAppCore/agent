@@ -34,3 +34,15 @@
 	path = external/api
 	url = https://github.com/dappcore/api.git
 	branch = dev
+[submodule "external/cli"]
+	path = external/cli
+	url = https://github.com/dappcore/cli.git
+	branch = dev
+[submodule "external/orm"]
+	path = external/orm
+	url = https://github.com/dAppCore/orm.git
+	branch = dev
+[submodule "external/go-container"]
+	path = external/go-container
+	url = https://github.com/dappcore/go-container.git
+	branch = dev
