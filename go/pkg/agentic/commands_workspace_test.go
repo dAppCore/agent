@@ -106,7 +106,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 	// All workspaces should still exist
 	for _, name := range []string{"ws-done", "ws-fail", "ws-run"} {
-		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)).OK, "workspace %s should still exist", name)
 	}
 }
 
@@ -141,11 +141,11 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 	// merged, ready-for-review, blocked should be removed
 	for _, name := range []string{"ws-merged", "ws-review", "ws-blocked"} {
-		core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, name)), "workspace %s should be removed", name)
+		core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, name)).OK, "workspace %s should be removed", name)
 	}
 	// running and queued should remain
 	for _, name := range []string{"ws-running", "ws-queued"} {
-		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)).OK, "workspace %s should still exist", name)
 	}
 }
 
@@ -187,7 +187,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	core.AssertTrue(t, r.OK)
 
 	// Workspace directory is gone.
-	core.AssertFalse(t, fs.Exists(workspaceDir))
+	core.AssertFalse(t, fs.Exists(workspaceDir).OK)
 
 	// Stats row survives in `~/Lethean/workspace/db.duckdb`.
 	statsStore := s.workspaceStatsInstance()

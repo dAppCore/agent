@@ -206,10 +206,10 @@ func (s *PrepSubsystem) listLocalRepos(basePath string) []string {
 	var repos []string
 	for _, p := range paths {
 		name := core.PathBase(p)
-		if !fs.IsDir(p) {
+		if !fs.IsDir(p).OK {
 			continue
 		}
-		if fs.IsDir(core.JoinPath(basePath, name, ".git")) {
+		if fs.IsDir(core.JoinPath(basePath, name, ".git")).OK {
 			repos = append(repos, name)
 		}
 	}

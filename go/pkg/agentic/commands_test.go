@@ -781,7 +781,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_RemovesCompleted(t *testing.T)
 	r := s.cmdWorkspaceClean(core.NewOptions())
 	core.AssertTrue(t, r.OK)
 
-	core.AssertFalse(t, fs.Exists(ws))
+	core.AssertFalse(t, fs.Exists(ws).OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
@@ -800,8 +800,8 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterFailed(t *testing.T) {
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "failed"}))
 	core.AssertTrue(t, r.OK)
 
-	core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, "ws-bad")))
-	core.AssertTrue(t, fs.Exists(core.JoinPath(wsRoot, "ws-ok")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, "ws-bad")).OK)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(wsRoot, "ws-ok")).OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
@@ -815,7 +815,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_FilterBlocked(t *testing.T) {
 	r := s.cmdWorkspaceClean(core.NewOptions(core.Option{Key: "_arg", Value: "blocked"}))
 	core.AssertTrue(t, r.OK)
 
-	core.AssertFalse(t, fs.Exists(d))
+	core.AssertFalse(t, fs.Exists(d).OK)
 }
 
 func TestCommandsworkspace_CmdWorkspaceDispatch_Bad_MissingRepo(t *testing.T) {
@@ -1230,7 +1230,7 @@ func TestCommands_CmdPlanCreate_Good_Case(t *testing.T) {
 	core.RequireTrue(t, ok)
 	core.RequireNotEmpty(t, output.ID)
 	core.RequireNotEmpty(t, output.Path)
-	core.AssertTrue(t, fs.Exists(output.Path))
+	core.AssertTrue(t, fs.Exists(output.Path).OK)
 
 	plan, err := readPlan(PlansRoot(), output.ID)
 	core.RequireNoError(t, err)
@@ -1314,7 +1314,7 @@ func TestCommands_CmdPlanDelete_Good_Case(t *testing.T) {
 
 	core.AssertContains(t, output, "deleted:")
 
-	core.AssertFalse(t, fs.Exists(created.Path))
+	core.AssertFalse(t, fs.Exists(created.Path).OK)
 
 	_, readErr := readPlan(PlansRoot(), created.ID)
 	core.AssertError(t, readErr)
@@ -1347,7 +1347,7 @@ func TestCommands_CmdExtract_Good_FromAgentOutput(t *testing.T) {
 	})
 
 	core.AssertContains(t, output, "written: ")
-	core.AssertTrue(t, fs.Exists(target))
+	core.AssertTrue(t, fs.Exists(target).OK)
 	written := fs.Read(target)
 	core.RequireTrue(t, written.OK)
 	core.AssertEqual(t, "{\"summary\":\"done\",\"findings\":2}", written.Value)

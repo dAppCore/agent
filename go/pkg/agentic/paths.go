@@ -155,8 +155,8 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 		}
 
 		statusPath := core.JoinPath(dir, "status.json")
-		if fs.IsFile(statusPath) {
-			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")) && fs.IsDir(core.JoinPath(dir, ".meta"))) {
+		if fs.IsFile(statusPath).OK {
+			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")).OK && fs.IsDir(core.JoinPath(dir, ".meta")).OK) {
 				if !seen[statusPath] {
 					seen[statusPath] = true
 					paths = append(paths, statusPath)
@@ -167,7 +167,7 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 
 		for _, name := range listDirNames(r) {
 			child := core.JoinPath(dir, name)
-			if fs.IsDir(child) {
+			if fs.IsDir(child).OK {
 				walk(child, depth+1)
 			}
 		}

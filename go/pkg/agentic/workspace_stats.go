@@ -109,11 +109,11 @@ var openWorkspaceStatsStore = func() (*store.Store, error) {
 		}
 		return nil, core.E("agentic.workspaceStats", "prepare workspace stats directory", nil)
 	}
-	storeInstance, result := store.New(path)
+	result := store.New(path)
 	if !result.OK {
 		return nil, core.E("agentic.workspaceStats", "open workspace stats store", resultErrorValue("agentic.workspaceStats", result))
 	}
-	return storeInstance, nil
+	return result.Value.(*store.Store), nil
 }
 
 // workspaceStatsRecord is the shape persisted for each dispatch cycle. The

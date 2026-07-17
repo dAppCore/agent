@@ -111,7 +111,7 @@ func TestLocalWriters_writePlanResult_Good_WritesFile(t *testing.T) {
 	core.RequireTrue(t, r.OK)
 	path, ok := r.Value.(string)
 	core.RequireTrue(t, ok)
-	core.AssertTrue(t, fs.Exists(path))
+	core.AssertTrue(t, fs.Exists(path).OK)
 }
 
 // --- writePromptSnapshot ---------------------------------------------

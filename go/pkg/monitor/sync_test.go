@@ -179,7 +179,7 @@ func TestSync_HandleWorkspacePushed_Good_ResetsTrackedRepo(t *testing.T) {
 		Org:    "core",
 	})
 	core.AssertTrue(t, result.OK)
-	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")).OK)
 	core.AssertEqual(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
 }
 
@@ -221,7 +221,7 @@ func TestSync_HandleWorkspacePushed_Good_SwitchesTrackedRepoBranch(t *testing.T)
 	})
 	core.AssertTrue(t, result.OK)
 	core.AssertEqual(t, "main", mon.gitOutput(repoDir, "rev-parse", "--abbrev-ref", "HEAD"))
-	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")).OK)
 	core.AssertEqual(t, mon.gitOutput(tmpClone, "rev-parse", "HEAD"), mon.gitOutput(repoDir, "rev-parse", "HEAD"))
 }
 

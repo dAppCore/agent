@@ -142,7 +142,7 @@ var vzResolveImage = func(c *core.Core) (*container.Image, error) {
 	if vzagentBin == "" {
 		vzagentBin = core.JoinPath(CoreRoot(), "vz", "vzagent")
 	}
-	if !fs.Exists(vzagentBin) {
+	if !fs.Exists(vzagentBin).OK {
 		return nil, core.E("agentic.vzResolveImage", core.Concat("vzagent binary not found at ", vzagentBin, " (set ", vzAgentBinEnv, " or build the cross-compiled guest agent)"), nil)
 	}
 

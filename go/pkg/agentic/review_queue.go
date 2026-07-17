@@ -215,7 +215,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 
 	var candidates []string
 	for _, p := range paths {
-		if !fs.IsDir(p) {
+		if !fs.IsDir(p).OK {
 			continue
 		}
 		name := core.PathBase(p)

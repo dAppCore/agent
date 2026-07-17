@@ -70,7 +70,7 @@ func TestHub_Bad_NothingToServe(t *testing.T) {
 	core.AssertFalse(t, r.OK)
 	_ = out
 	// The token file must have been minted before the guard fired.
-	core.AssertTrue(t, c.Fs().IsFile(tokenFile))
+	core.AssertTrue(t, c.Fs().IsFile(tokenFile).OK)
 }
 
 // TestHub_Bad_TokenFileEmpty — an existing-but-empty token file fails the

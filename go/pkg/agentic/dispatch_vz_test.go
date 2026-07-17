@@ -359,7 +359,7 @@ func TestDispatchVZ_SpawnFallback_Ugly_NoPriorStatusFile(t *testing.T) {
 	wsDir := core.JoinPath(root, "ws-nostatus")
 	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
 	// No status.json written — fresh dispatch path.
-	core.AssertFalse(t, fs.Exists(core.JoinPath(wsDir, "status.json")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(wsDir, "status.json")).OK)
 
 	withFakeVZProvider(t, &fakeVZDispatcher{available: false})
 	s := &PrepSubsystem{}
@@ -465,7 +465,7 @@ func TestDispatchVZ_RecordVZRuntime_Good_CreatesWhenNoStatus(t *testing.T) {
 	setTestWorkspace(t, root)
 	wsDir := core.JoinPath(root, "ws-rt-create")
 	fs.EnsureDir(core.JoinPath(wsDir, ".meta"))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(wsDir, "status.json")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(wsDir, "status.json")).OK)
 
 	s := &PrepSubsystem{}
 	s.recordVZRuntime(wsDir, "codex")

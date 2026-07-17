@@ -130,7 +130,7 @@ func TestPlanCov_WritePlanResult_Good_ReturnsPath(t *testing.T) {
 	path, ok := result.Value.(string)
 	core.RequireTrue(t, ok)
 	core.AssertEqual(t, core.JoinPath(dir, "id-7-abcdef.json"), path)
-	core.AssertTrue(t, fs.IsFile(path))
+	core.AssertTrue(t, fs.IsFile(path).OK)
 }
 
 // TestPlanCov_CleanPlanSlug_Good_NormalisesSeparators — assorted separators

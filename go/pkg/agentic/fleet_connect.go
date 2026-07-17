@@ -607,7 +607,7 @@ func resetFleetRuntimeState() {
 	fleetRuntimeState.mu.Lock()
 	fleetRuntimeState.snapshot = fleetRuntimeSnapshot{State: "offline"}
 	fleetRuntimeState.mu.Unlock()
-	if deleteResult := fs.Delete(fleetStatusSnapshotPath()); !deleteResult.OK && fs.Exists(fleetStatusSnapshotPath()) {
+	if deleteResult := fs.Delete(fleetStatusSnapshotPath()); !deleteResult.OK && fs.Exists(fleetStatusSnapshotPath()).OK {
 		core.Warn("agentic: failed to delete fleet status snapshot", `path`, fleetStatusSnapshotPath(), "reason", deleteResult.Value)
 	}
 }

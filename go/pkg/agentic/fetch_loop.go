@@ -93,7 +93,7 @@ func (s *PrepSubsystem) fetchRegisteredRepos(ctx context.Context) {
 
 		name := fetchLoopRepoName(ref)
 		repoDir := s.localRepoDir(ref.Org, ref.Repo)
-		if repoDir == "" || !fs.IsDir(core.JoinPath(repoDir, ".git")) {
+		if repoDir == "" || !fs.IsDir(core.JoinPath(repoDir, ".git")).OK {
 			core.Warn("agentic fetch loop skipped repo", "repo", name, `path`, repoDir)
 			continue
 		}
@@ -170,7 +170,7 @@ func fetchLoopCollectConfigRepoRefs(raw map[string]any, add func(org, repo strin
 
 func (s *PrepSubsystem) fetchLoopCollectWorkspaceRepoRefs(add func(org, repo string)) {
 	for _, repoDir := range core.PathGlob(core.JoinPath(WorkspaceRoot(), "*", "*")) {
-		if !fs.IsDir(repoDir) {
+		if !fs.IsDir(repoDir).OK {
 			continue
 		}
 		add(core.PathBase(core.PathDir(repoDir)), core.PathBase(repoDir))

@@ -81,7 +81,11 @@ func TestHub_buildHubEngine_Ugly_MissingOpencodeService(t *testing.T) {
 // writes it 0600; a second call loads the same token.
 func TestHub_hubLoadOrGenerateToken_Good(t *testing.T) {
 	fs := (&core.Fs{}).New("/")
-	dir := fs.TempDir("core-hub-token")
+	tempResult := fs.TempDir("core-hub-token")
+	if !tempResult.OK {
+		t.Fatalf("create temp dir: %v", tempResult.Value)
+	}
+	dir := tempResult.Value.(string)
 	defer fs.DeleteAll(dir)
 	path := core.JoinPath(dir, "hub.token")
 

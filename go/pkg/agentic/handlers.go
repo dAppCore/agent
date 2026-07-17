@@ -221,7 +221,7 @@ func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.
 func resolveWorkspace(name string) string {
 	workspaceRoot := WorkspaceRoot()
 	path := core.JoinPath(workspaceRoot, name)
-	if fs.IsDir(path) {
+	if fs.IsDir(path).OK {
 		return path
 	}
 	return ""

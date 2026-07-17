@@ -35,7 +35,7 @@ func Detect(path string) ProjectType {
 		{"package.json", TypeNode},
 	}
 	for _, candidate := range checks {
-		if fs.IsFile(core.JoinPath(base, candidate.file)) {
+		if fs.IsFile(core.JoinPath(base, candidate.file)).OK {
 			return candidate.projectType
 		}
 	}
@@ -56,7 +56,7 @@ func DetectAll(path string) []ProjectType {
 		{"wails.json", TypeWails},
 	}
 	for _, candidate := range checks {
-		if fs.IsFile(core.JoinPath(base, candidate.file)) {
+		if fs.IsFile(core.JoinPath(base, candidate.file)).OK {
 			projectTypes = append(projectTypes, candidate.projectType)
 		}
 	}

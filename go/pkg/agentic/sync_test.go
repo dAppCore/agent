@@ -378,7 +378,7 @@ func TestSync_ReadSyncWorkspaceReport_Ugly_CorruptJSONPreservesArtifact(t *testi
 
 	report := readSyncWorkspaceReport(workspaceDir)
 	core.AssertNil(t, report)
-	core.AssertFalse(t, fs.Exists(reportPath))
+	core.AssertFalse(t, fs.Exists(reportPath).OK)
 
 	entries := listDirNames(fs.List(metaDir))
 	core.AssertLen(t, entries, 1)

@@ -624,7 +624,7 @@ func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	requireExtractWorkspaceOK(t, ExtractWorkspace("default", dir, data))
 
 	for _, name := range []string{"CODEX.md", "CLAUDE.md", "PROMPT.md", "TODO.md", "CONTEXT.md", "go.work"} {
-		if !testFs.Exists(core.JoinPath(dir, name)) {
+		if !testFs.Exists(core.JoinPath(dir, name)).OK {
 			t.Errorf("expected %s to exist", name)
 		}
 	}

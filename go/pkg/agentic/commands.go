@@ -1161,7 +1161,7 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	}
 	target := options.String("target")
 
-	if sourcePath == "" && fs.Exists(templateName) && fs.IsFile(templateName) {
+	if sourcePath == "" && fs.Exists(templateName).OK && fs.IsFile(templateName).OK {
 		sourcePath = templateName
 		templateName = ""
 	}
@@ -1225,7 +1225,7 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	for _, p := range paths {
 		name := core.PathBase(p)
 		marker := " "
-		if filesystem.IsDir(p) {
+		if filesystem.IsDir(p).OK {
 			marker = "/"
 		}
 		core.Print(nil, "  %s%s", name, marker)

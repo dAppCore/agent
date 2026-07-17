@@ -49,9 +49,9 @@ func (s *PrepSubsystem) restorePersistedState(_ context.Context) core.Result {
 		workspaceDir := core.JoinPath(WorkspaceRoot(), name)
 		changed := s.normaliseRestoredWorkspace(workspaceStatus)
 
-		if workspaceStatus.Status == "completed" && fs.IsDir(workspaceDir) {
+		if workspaceStatus.Status == "completed" && fs.IsDir(workspaceDir).OK {
 			fs.DeleteAll(workspaceDir)
-		} else if fs.IsDir(workspaceDir) && (changed || !fs.IsFile(WorkspaceStatusPath(workspaceDir))) {
+		} else if fs.IsDir(workspaceDir).OK && (changed || !fs.IsFile(WorkspaceStatusPath(workspaceDir)).OK) {
 			s.writePersistedWorkspaceStatus(workspaceDir, workspaceStatus)
 		}
 
@@ -248,7 +248,7 @@ func (s *PrepSubsystem) pruneStateGroup(group string, keep map[string]struct{}) 
 }
 
 func (s *PrepSubsystem) writePersistedWorkspaceStatus(workspaceDir string, workspaceStatus *WorkspaceStatus) {
-	if workspaceDir == "" || workspaceStatus == nil || !fs.IsDir(workspaceDir) {
+	if workspaceDir == "" || workspaceStatus == nil || !fs.IsDir(workspaceDir).OK {
 		return
 	}
 	if workspaceStatus.UpdatedAt.IsZero() {

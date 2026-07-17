@@ -210,7 +210,7 @@ func hubLoadOrGenerateToken(fs *core.Fs, path string) (string, core.Result) {
 	if fs == nil || core.Trim(path) == "" {
 		return "", core.Fail(core.E("hub.token", "fs and token-file path are required", nil))
 	}
-	if fs.IsFile(path) {
+	if fs.IsFile(path).OK {
 		r := fs.Read(path)
 		if !r.OK {
 			return "", r

@@ -81,7 +81,7 @@ func (m *Subsystem) harvestWorkspace(workspaceDir string) *harvestResult {
 	}
 
 	repoDir := agentic.WorkspaceRepoDir(workspaceDir)
-	if !fs.IsDir(repoDir) {
+	if !fs.IsDir(repoDir).OK {
 		return nil
 	}
 

@@ -23,7 +23,7 @@ func ExampleService_DetectGitRemote() {
 	c := core.New()
 	service := &Service{ServiceRuntime: core.NewServiceRuntime(c, RuntimeOptions{})}
 
-	remote := service.DetectGitRemote((&core.Fs{}).NewUnrestricted().TempDir("example"))
+	remote := service.DetectGitRemote(core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example")))
 	core.Println(remote == "")
 	// Output: true
 }

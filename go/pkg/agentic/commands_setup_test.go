@@ -60,8 +60,8 @@ func TestCommandsSetup_CmdSetup_Ugly_DryRunDoesNotWrite(t *testing.T) {
 		core.Option{Key: "template", Value: "agent"},
 	))
 	core.RequireTrue(t, result.OK)
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")).OK)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")).OK)
 }
 
 func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
@@ -81,5 +81,5 @@ func TestCommandsSetup_HandleSetup_Good_ActionAlias(t *testing.T) {
 	createdPath, ok := result.Value.(string)
 	core.RequireTrue(t, ok)
 	core.AssertEqual(t, dir, createdPath)
-	core.AssertTrue(t, fs.Exists(core.JoinPath(dir, ".core", "build.yaml")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(dir, ".core", "build.yaml")).OK)
 }

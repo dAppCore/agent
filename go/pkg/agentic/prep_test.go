@@ -1292,7 +1292,7 @@ func TestPrep_PrepWorkspace_Good_Case(t *testing.T) {
 	core.AssertNotEmpty(t, out.PromptVersion)
 
 	promptIndexPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-version.json")
-	core.RequireTrue(t, fs.Exists(promptIndexPath))
+	core.RequireTrue(t, fs.Exists(promptIndexPath).OK)
 	promptIndexResult := fs.Read(promptIndexPath)
 	core.RequireTrue(t, promptIndexResult.OK)
 
@@ -1302,10 +1302,10 @@ func TestPrep_PrepWorkspace_Good_Case(t *testing.T) {
 	core.AssertContains(t, promptSnapshot.Content, "TASK: Fix tests")
 
 	promptSnapshotPath := core.JoinPath(WorkspaceMetaDir(out.WorkspaceDir), "prompt-versions", core.Concat(out.PromptVersion, ".json"))
-	core.RequireTrue(t, fs.Exists(promptSnapshotPath))
+	core.RequireTrue(t, fs.Exists(promptSnapshotPath).OK)
 
 	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
-	core.RequireTrue(t, fs.Exists(todoPath))
+	core.RequireTrue(t, fs.Exists(todoPath).OK)
 	todoResult := fs.Read(todoPath)
 	core.RequireTrue(t, todoResult.OK)
 	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))
@@ -1359,7 +1359,7 @@ func TestPrepWorkspace_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
 	core.AssertNotEmpty(t, out.WorkspaceDir)
 
 	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
-	core.RequireTrue(t, fs.Exists(todoPath))
+	core.RequireTrue(t, fs.Exists(todoPath).OK)
 	todoResult := fs.Read(todoPath)
 	core.RequireTrue(t, todoResult.OK)
 	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))
@@ -1852,7 +1852,7 @@ func TestPrep_PrepSubsystem_TestPrepWorkspace_Good(t *testing.T) {
 	core.AssertNotEmpty(t, out.WorkspaceDir)
 
 	todoPath := core.JoinPath(out.WorkspaceDir, "TODO.md")
-	core.RequireTrue(t, fs.Exists(todoPath))
+	core.RequireTrue(t, fs.Exists(todoPath).OK)
 	todoResult := fs.Read(todoPath)
 	core.RequireTrue(t, todoResult.OK)
 	core.AssertNotEmpty(t, core.Trim(todoResult.Value.(string)))

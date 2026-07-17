@@ -9,7 +9,7 @@ import (
 )
 
 func Example_writeStatus() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example-ws"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	st := &WorkspaceStatus{
@@ -26,7 +26,7 @@ func Example_writeStatus() {
 
 func ExampleReadStatusResult() {
 	fsys := (&core.Fs{}).NewUnrestricted()
-	dir := fsys.TempDir("agentic-status-result")
+	dir := core.MustCast[string](fsys.TempDir("agentic-status-result"))
 	defer fsys.DeleteAll(dir)
 
 	status := &WorkspaceStatus{
@@ -47,7 +47,7 @@ func ExampleReadStatusResult() {
 
 func ExampleReadStatus() {
 	fsys := (&core.Fs{}).NewUnrestricted()
-	dir := fsys.TempDir("agentic-status")
+	dir := core.MustCast[string](fsys.TempDir("agentic-status"))
 	defer fsys.DeleteAll(dir)
 
 	status := &WorkspaceStatus{

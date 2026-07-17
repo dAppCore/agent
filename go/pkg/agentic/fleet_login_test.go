@@ -81,5 +81,5 @@ func TestLogin_Ugly(t *testing.T) {
 	})
 
 	core.AssertContains(t, output, "usage: core-agent login <6-digit-code>")
-	core.AssertFalse(t, fs.Exists(core.JoinPath(homeDir, ".core", "agent.key")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(homeDir, ".core", "agent.key")).OK)
 }

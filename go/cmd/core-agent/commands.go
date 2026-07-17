@@ -92,14 +92,14 @@ func (commands applicationCommandSet) check(_ core.Options) core.Result {
 	applicationPrint("  binary:    %s", commands.coreApp.App().Name)
 
 	agentsPath := agentic.AgentsConfigPath()
-	if fs.IsFile(agentsPath) {
+	if fs.IsFile(agentsPath).OK {
 		applicationPrint("  agents:    %s (ok)", agentsPath)
 	} else {
 		applicationPrint("  agents:    %s (MISSING)", agentsPath)
 	}
 
 	workspaceRoot := agentic.WorkspaceRoot()
-	if fs.IsDir(workspaceRoot) {
+	if fs.IsDir(workspaceRoot).OK {
 		statusFiles := agentic.WorkspaceStatusPaths()
 		applicationPrint("  workspace: %s (%d workspaces)", workspaceRoot, len(statusFiles))
 	} else {

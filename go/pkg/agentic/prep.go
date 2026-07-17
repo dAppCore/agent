@@ -800,7 +800,7 @@ var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolR
 		return nil, PrepOutput{}, core.E("prep", "failed to create meta dir", nil)
 	}
 
-	resumed := fs.IsDir(core.JoinPath(repoDir, ".git"))
+	resumed := fs.IsDir(core.JoinPath(repoDir, ".git")).OK
 	out.Resumed = resumed
 
 	if resumed {
@@ -887,9 +887,9 @@ var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolR
 	}
 
 	docsDir := core.JoinPath(workspaceDir, ".core", "reference", "docs")
-	if !fs.IsDir(docsDir) {
+	if !fs.IsDir(docsDir).OK {
 		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
-		if fs.IsDir(core.JoinPath(docsRepo, ".git")) {
+		if fs.IsDir(core.JoinPath(docsRepo, ".git")).OK {
 			process.RunIn(ctx, ".", "git", "clone", "--depth", "1", docsRepo, docsDir)
 		}
 	}
@@ -919,7 +919,7 @@ var copyRepoSpecs = func(s *PrepSubsystem, workspaceDir, repo string) error {
 	fs := (&core.Fs{}).NewUnrestricted()
 
 	plansBase := core.JoinPath(s.codePath, "host-uk", "core", "plans")
-	if !fs.IsDir(plansBase) {
+	if !fs.IsDir(plansBase).OK {
 		return nil
 	}
 
@@ -937,7 +937,7 @@ var copyRepoSpecs = func(s *PrepSubsystem, workspaceDir, repo string) error {
 		specDir = core.JoinPath(plansBase, "core", repo)
 	}
 
-	if !fs.IsDir(specDir) {
+	if !fs.IsDir(specDir).OK {
 		return nil
 	}
 
@@ -1125,7 +1125,7 @@ func writePromptSnapshot(workspaceDir, prompt string) core.Result {
 	}
 
 	snapshotPath := core.JoinPath(snapshotDir, core.Concat(hash, ".json"))
-	if !fs.Exists(snapshotPath) {
+	if !fs.Exists(snapshotPath).OK {
 		if r := fs.WriteAtomic(snapshotPath, core.JSONMarshalString(snapshot)); !r.OK {
 			err, _ := r.Value.(error)
 			if err == nil {
@@ -1195,13 +1195,13 @@ var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, works
 		"GOFLAGS=-mod=mod",
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")).OK {
 		if result := process.RunWithEnv(ctx, repoDir, goEnv, "go", "mod", "download"); !result.OK {
 			return core.E("prepWorkspace", "go mod download failed", nil)
 		}
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")) || fs.IsFile(core.JoinPath(repoDir, "go.work"))) {
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")).OK && (fs.IsFile(core.JoinPath(workspaceDir, "go.work")).OK || fs.IsFile(core.JoinPath(repoDir, "go.work")).OK) {
 		// `go work sync` needs the workspace's own go.work — clear any
 		// inherited GOWORK=off (set by parent shells / tests) so the workspace
 		// file under repoDir/.. is honoured. The append order means GOWORK= here
@@ -1213,13 +1213,13 @@ var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, works
 		}
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
+	if fs.IsFile(core.JoinPath(repoDir, "composer.json")).OK {
 		if result := process.RunIn(ctx, repoDir, "composer", "install"); !result.OK {
 			return core.E("prepWorkspace", "composer install failed", nil)
 		}
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
+	if fs.IsFile(core.JoinPath(repoDir, "package.json")).OK {
 		if result := process.RunIn(ctx, repoDir, "npm", "install"); !result.OK {
 			return core.E("prepWorkspace", "npm install failed", nil)
 		}
@@ -1409,7 +1409,7 @@ func detectLanguage(repoPath string) string {
 		{"Dockerfile", "docker"},
 	}
 	for _, c := range checks {
-		if fs.IsFile(core.JoinPath(repoPath, c.file)) {
+		if fs.IsFile(core.JoinPath(repoPath, c.file)).OK {
 			return c.lang
 		}
 	}

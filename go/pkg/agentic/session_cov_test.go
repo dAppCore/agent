@@ -62,7 +62,7 @@ func TestSession_StoreSession_Good_PersistsAndMerges(t *testing.T) {
 	core.AssertNotEmpty(t, stored.UpdatedAt)
 
 	// The cache file is on disk and a second store merges existing fields.
-	core.AssertTrue(t, fs.IsFile(sessionCachePath("sess-store-1")))
+	core.AssertTrue(t, fs.IsFile(sessionCachePath("sess-store-1")).OK)
 
 	merged := s.storeSession(Session{SessionID: "sess-store-1", Summary: "all done"})
 	core.AssertEqual(t, "opus", merged.AgentType) // inherited from the first store

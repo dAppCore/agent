@@ -47,7 +47,7 @@ func TestDispatch_TimeoutReasonFromWorkspace_Good_RoundTrip(t *testing.T) {
 
 	// Clearing removes the marker so the next dispatch starts clean.
 	clearDispatchTimeoutReason(wsDir)
-	core.AssertFalse(t, fs.Exists(workspaceTimeoutPath(wsDir)))
+	core.AssertFalse(t, fs.Exists(workspaceTimeoutPath(wsDir)).OK)
 	core.AssertEmpty(t, dispatchTimeoutReasonFromWorkspace(wsDir))
 }
 

@@ -98,7 +98,7 @@ func ExampleExtractWorkspace() {
 		Agent: "codex",
 	})
 	core.Println(result.OK)
-	core.Println(fsys.Exists(core.JoinPath(dir, "CODEX.md")))
+	core.Println(fsys.Exists(core.JoinPath(dir, "CODEX.md")).OK)
 	// Output:
 	// true
 	// true

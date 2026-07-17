@@ -638,7 +638,7 @@ func (s *PrepSubsystem) cmdRepoSync(options core.Options) core.Result {
 	if repoDir == "" {
 		return core.Result{Value: core.E("agentic.cmdRepoSync", "local repo directory is unavailable", nil), OK: false}
 	}
-	if !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+	if !fs.Exists(repoDir).OK || fs.IsFile(repoDir).OK {
 		core.Print(nil, "repo not found: %s", repoDir)
 		return core.Result{Value: core.E("agentic.cmdRepoSync", "local repo not found", nil), OK: false}
 	}
@@ -700,7 +700,7 @@ func (s *PrepSubsystem) localRepoDir(org, repo string) string {
 	candidates = append(candidates, core.JoinPath(basePath, repoName))
 
 	for _, candidate := range candidates {
-		if fs.Exists(candidate) && !fs.IsFile(candidate) {
+		if fs.Exists(candidate).OK && !fs.IsFile(candidate).OK {
 			return candidate
 		}
 	}

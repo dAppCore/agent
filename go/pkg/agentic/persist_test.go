@@ -37,7 +37,7 @@ func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {
 
 	result := subsystem.restorePersistedState(context.Background())
 	core.RequireTrue(t, result.OK)
-	core.AssertTrue(t, fs.IsFile(core.JoinPath(root, "db.duckdb")))
+	core.AssertTrue(t, fs.IsFile(core.JoinPath(root, "db.duckdb")).OK)
 
 	registryResult := subsystem.Workspaces().Get(workspaceName)
 	core.RequireTrue(t, registryResult.OK)
@@ -233,7 +233,7 @@ func TestPersist_OnStartup_Ugly_CleansCompletedOrphanedWorkspace(t *testing.T) {
 
 	result := subsystem.restorePersistedState(context.Background())
 	core.RequireTrue(t, result.OK)
-	core.AssertFalse(t, fs.IsDir(workspaceDir))
+	core.AssertFalse(t, fs.IsDir(workspaceDir).OK)
 }
 
 func setPersistTestWorkspace(t *testing.T, root string) {

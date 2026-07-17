@@ -37,7 +37,7 @@ var cloneWorkspaceDeps = func(s *PrepSubsystem, ctx context.Context, workspaceDi
 	var cloned []string
 	for _, dep := range deps {
 		depDir := core.JoinPath(workspaceDir, dep.dir)
-		if fs.IsDir(core.JoinPath(depDir, ".git")) {
+		if fs.IsDir(core.JoinPath(depDir, ".git")).OK {
 			cloned = append(cloned, dep.dir)
 			continue
 		}

@@ -121,11 +121,11 @@ var openStateStore = func() (*store.Store, error) {
 		return nil, core.E("agentic.stateStore", "prepare state directory", nil)
 	}
 
-	storeInstance, result := store.New(path)
+	result := store.New(path)
 	if !result.OK {
 		return nil, core.E("agentic.stateStore", "open state store", resultErrorValue("agentic.stateStore", result))
 	}
-	return storeInstance, nil
+	return result.Value.(*store.Store), nil
 }
 
 // stateStoreSet writes a JSON-encoded value to the given group+key if the

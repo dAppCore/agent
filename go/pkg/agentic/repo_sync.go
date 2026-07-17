@@ -348,7 +348,7 @@ var repoSyncRepoDir = func(s *PrepSubsystem, target fetchRepoRef) (string, error
 	}
 
 	repoDir := s.localRepoDir(target.Org, target.Repo)
-	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+	if repoDir == "" || !fs.Exists(repoDir).OK || fs.IsFile(repoDir).OK {
 		return "", core.E(repoSyncRepoDirContext, "local repo not found", nil)
 	}
 

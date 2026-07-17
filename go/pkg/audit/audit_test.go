@@ -56,7 +56,11 @@ func TestAudit_Sanitise_Ugly(t *testing.T) {
 // safe fields, stamps a timestamp, and sanitises Meta.
 func TestAudit_FileSink_Good(t *testing.T) {
 	fs := (&core.Fs{}).New("/")
-	dir := fs.TempDir("core-audit-test")
+	tempResult := fs.TempDir("core-audit-test")
+	if !tempResult.OK {
+		t.Fatalf("create temp dir: %v", tempResult.Value)
+	}
+	dir := tempResult.Value.(string)
 	defer fs.DeleteAll(dir)
 	path := core.JoinPath(dir, "audit.jsonl")
 
@@ -97,7 +101,11 @@ func TestAudit_FileSink_Bad(t *testing.T) {
 // TestAudit_FileSink_Ugly — repeated Emit appends multiple lines.
 func TestAudit_FileSink_Ugly(t *testing.T) {
 	fs := (&core.Fs{}).New("/")
-	dir := fs.TempDir("core-audit-test")
+	tempResult := fs.TempDir("core-audit-test")
+	if !tempResult.OK {
+		t.Fatalf("create temp dir: %v", tempResult.Value)
+	}
+	dir := tempResult.Value.(string)
 	defer fs.DeleteAll(dir)
 	path := core.JoinPath(dir, "audit.jsonl")
 

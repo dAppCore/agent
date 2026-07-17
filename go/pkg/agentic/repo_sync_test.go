@@ -23,7 +23,7 @@ func TestRepoSync_OnWorkspacePushed_Good_Case(t *testing.T) {
 		Org:    "core",
 	})
 
-	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "new.go")).OK)
 	core.AssertEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "HEAD"))
 }
 
@@ -53,7 +53,7 @@ func TestRepoSync_OnWorkspacePushed_Ugly_Case(t *testing.T) {
 
 	core.AssertEqual(t, "main", repoSyncGitOutput(t, c, repoDir, "rev-parse", "--abbrev-ref", "HEAD"))
 	core.AssertEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "HEAD"))
-	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "edge.go")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "edge.go")).OK)
 }
 
 func TestRepoSync_BackgroundFetch_Good_Case(t *testing.T) {
@@ -73,7 +73,7 @@ func TestRepoSync_BackgroundFetch_Good_Case(t *testing.T) {
 
 	core.AssertEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "origin/main"))
 	core.AssertNotEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "HEAD"))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(repoDir, "fetched.go")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(repoDir, "fetched.go")).OK)
 }
 
 func TestRepoSync_Command_Good_Case(t *testing.T) {
@@ -100,7 +100,7 @@ func TestRepoSync_Command_Good_Case(t *testing.T) {
 
 	core.AssertContains(t, output, "fetched core/test-repo@main")
 	core.AssertContains(t, output, "count: 1")
-	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "command.go")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(repoDir, "command.go")).OK)
 	core.AssertEqual(t, remoteHead, repoSyncGitOutput(t, c, repoDir, "rev-parse", "HEAD"))
 }
 

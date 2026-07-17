@@ -400,7 +400,7 @@ func dispatchTimeoutReasonFromWorkspace(workspaceDir string) string {
 
 func clearDispatchTimeoutReason(workspaceDir string) {
 	deleteResult := fs.Delete(workspaceTimeoutPath(workspaceDir))
-	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)) {
+	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)).OK {
 		core.Warn("agentic: failed to remove timeout marker", `path`, workspaceTimeoutPath(workspaceDir), "reason", deleteResult.Value)
 	}
 }

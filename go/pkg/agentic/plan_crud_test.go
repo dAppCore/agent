@@ -43,7 +43,7 @@ func TestPlan_PlanCreate_Good_Case(t *testing.T) {
 	assertCoreIDFormat(t, out.ID)
 	core.AssertNotEmpty(t, out.Path)
 
-	core.AssertTrue(t, fs.Exists(out.Path))
+	core.AssertTrue(t, fs.Exists(out.Path).OK)
 }
 
 func TestPlan_PlanCreate_Good_UniqueIDs(t *testing.T) {
@@ -275,8 +275,8 @@ func TestPlan_PlanDelete_Good_Case(t *testing.T) {
 	core.AssertTrue(t, delOut.Success)
 	core.AssertEqual(t, createOut.ID, delOut.Deleted)
 
-	core.AssertFalse(t, fs.Exists(createOut.Path))
-	core.AssertFalse(t, fs.Exists(statePath(planBeforeDelete.Slug)))
+	core.AssertFalse(t, fs.Exists(createOut.Path).OK)
+	core.AssertFalse(t, fs.Exists(statePath(planBeforeDelete.Slug)).OK)
 
 	_, readErr := readPlan(PlansRoot(), createOut.ID)
 	core.AssertError(t, readErr)
@@ -498,7 +498,7 @@ func TestPlan_PlanCreate_Ugly_UnicodeTitle(t *testing.T) {
 	core.AssertNotEmpty(t, out.ID)
 	assertCoreIDFormat(t, out.ID)
 	// Should be readable from disk
-	core.AssertTrue(t, fs.Exists(out.Path))
+	core.AssertTrue(t, fs.Exists(out.Path).OK)
 }
 
 // --- planRead Ugly ---

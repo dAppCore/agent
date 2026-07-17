@@ -20,7 +20,7 @@ func TestPrepCov_WritePromptSnapshot_Good_NoopOnBlankInput(t *testing.T) {
 	workspaceDir := t.TempDir()
 	core.AssertTrue(t, writePromptSnapshot(workspaceDir, "   ").OK)
 	// Nothing was written: the meta dir's prompt-version.json is absent.
-	core.AssertFalse(t, fs.Exists(core.JoinPath(WorkspaceMetaDir(workspaceDir), "prompt-version.json")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(WorkspaceMetaDir(workspaceDir), "prompt-version.json")).OK)
 }
 
 // TestPrepCov_WritePromptSnapshot_Good_SecondCallReusesSnapshot — calling twice
@@ -36,7 +36,7 @@ func TestPrepCov_WritePromptSnapshot_Good_SecondCallReusesSnapshot(t *testing.T)
 	core.RequireTrue(t, ok)
 
 	snapshotPath := core.JoinPath(WorkspaceMetaDir(workspaceDir), "prompt-versions", core.Concat(hash, ".json"))
-	core.RequireTrue(t, fs.Exists(snapshotPath))
+	core.RequireTrue(t, fs.Exists(snapshotPath).OK)
 
 	// Second call with identical content takes the already-exists path.
 	second := writePromptSnapshot(workspaceDir, prompt)

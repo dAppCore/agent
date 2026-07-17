@@ -171,7 +171,7 @@ func TestReviewqueue_ReviewRepo_Good_FindingsDispatched(t *testing.T) {
 
 	// The findings file is written into the repo's .core dir for the fix agent.
 	findingsFile := core.JoinPath(repoDir, ".core", "coderabbit-findings.txt")
-	core.AssertTrue(t, fs.IsFile(findingsFile))
+	core.AssertTrue(t, fs.IsFile(findingsFile).OK)
 }
 
 // --- reviewRepo: findings but fix dispatch fails ---
@@ -376,7 +376,7 @@ func TestReviewqueue_StoreReviewOutput_Good_FindingsVerdict(t *testing.T) {
 	s.storeReviewOutput(t.TempDir(), "go-io", "coderabbit", "- A finding that needs fixing")
 
 	jsonlPath := core.JoinPath(home, ".core", "training", "reviews", "reviews.jsonl")
-	core.RequireTrue(t, fs.IsFile(jsonlPath))
+	core.RequireTrue(t, fs.IsFile(jsonlPath).OK)
 	readResult := fs.Read(jsonlPath)
 	core.RequireTrue(t, readResult.OK)
 	core.AssertContains(t, readResult.Value.(string), "\"verdict\":\"findings\"")
@@ -391,7 +391,7 @@ func TestReviewqueue_StoreReviewOutput_Good_CleanVerdict(t *testing.T) {
 	s.storeReviewOutput(t.TempDir(), "go-io", "coderabbit", "No findings — all good")
 
 	jsonlPath := core.JoinPath(home, ".core", "training", "reviews", "reviews.jsonl")
-	core.RequireTrue(t, fs.IsFile(jsonlPath))
+	core.RequireTrue(t, fs.IsFile(jsonlPath).OK)
 	readResult := fs.Read(jsonlPath)
 	core.RequireTrue(t, readResult.OK)
 	core.AssertContains(t, readResult.Value.(string), "\"verdict\":\"clean\"")

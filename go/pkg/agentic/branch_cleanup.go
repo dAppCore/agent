@@ -47,9 +47,9 @@ func (s *PrepSubsystem) cleanupWorkspaceBranch(ctx context.Context, workspace st
 	if workspaceDir == "" {
 		return core.Result{OK: true}
 	}
-	if !fs.IsDir(workspaceDir) {
+	if !fs.IsDir(workspaceDir).OK {
 		candidate := core.JoinPath(WorkspaceRoot(), workspaceDir)
-		if !fs.IsDir(candidate) {
+		if !fs.IsDir(candidate).OK {
 			return core.Result{OK: true}
 		}
 		workspaceDir = candidate

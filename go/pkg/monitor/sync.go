@@ -57,7 +57,7 @@ func (m *Subsystem) syncRepos() string {
 			continue
 		}
 		repoDir := core.JoinPath(basePath, repoName)
-		if !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+		if !fs.Exists(repoDir).OK || fs.IsFile(repoDir).OK {
 			continue
 		}
 
@@ -105,7 +105,7 @@ func (m *Subsystem) syncWorkspacePush(repo, branch, org string) bool {
 	}
 
 	repoDir := localRepoDir(org, repo)
-	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+	if repoDir == "" || !fs.Exists(repoDir).OK || fs.IsFile(repoDir).OK {
 		return false
 	}
 
@@ -155,7 +155,7 @@ func localRepoDir(org, repo string) string {
 	candidates = append(candidates, core.JoinPath(basePath, repoName))
 
 	for _, candidate := range candidates {
-		if fs.Exists(candidate) && !fs.IsFile(candidate) {
+		if fs.Exists(candidate).OK && !fs.IsFile(candidate).OK {
 			return candidate
 		}
 	}

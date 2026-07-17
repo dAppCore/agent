@@ -103,8 +103,9 @@ func TestQa_RunLintReport_Ugly_NonJSONOutputDegrades(t *testing.T) {
 // --- recordLintFindings (real :memory: workspace) ---
 
 func TestQa_RecordLintFindings_Good_PersistsFindingsAndTools(t *testing.T) {
-	storeInstance, result := store.New(":memory:")
+	result := store.New(":memory:")
 	core.RequireTrue(t, result.OK)
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-record-good"))
@@ -145,8 +146,9 @@ func TestQa_RecordLintFindings_Bad_NilWorkspace(t *testing.T) {
 }
 
 func TestQa_RecordLintFindings_Ugly_EmptyReport(t *testing.T) {
-	storeInstance, result := store.New(":memory:")
+	result := store.New(":memory:")
 	core.RequireTrue(t, result.OK)
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-record-empty"))
@@ -163,8 +165,9 @@ func TestQa_RecordLintFindings_Ugly_EmptyReport(t *testing.T) {
 // --- recordBuildResult (real :memory: workspace happy path) ---
 
 func TestQa_RecordBuildResult_Good_PersistsRow(t *testing.T) {
-	storeInstance, result := store.New(":memory:")
+	result := store.New(":memory:")
 	core.RequireTrue(t, result.OK)
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspace, wsResult := storeInstance.NewWorkspace(uniqueWorkspaceName("qa-build-good"))
