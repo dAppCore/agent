@@ -8,41 +8,27 @@ import (
 
 func (s *PrepSubsystem) registerSprintCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("sprint", core.Command{Description: "Manage tracked platform sprints", Action: s.cmdSprint}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"sprint", core.Command{Description: "Manage tracked platform sprints", Action: s.cmdSprint}},
+		{"agentic:sprint", core.Command{Description: "Manage tracked platform sprints", Action: s.cmdSprint}},
+		{"sprint/create", core.Command{Description: "Create a tracked platform sprint", Action: s.cmdSprintCreate}},
+		{"agentic:sprint/create", core.Command{Description: "Create a tracked platform sprint", Action: s.cmdSprintCreate}},
+		{"sprint/get", core.Command{Description: "Read a tracked platform sprint by slug or ID", Action: s.cmdSprintGet}},
+		{"agentic:sprint/get", core.Command{Description: "Read a tracked platform sprint by slug or ID", Action: s.cmdSprintGet}},
+		{"sprint/list", core.Command{Description: "List tracked platform sprints", Action: s.cmdSprintList}},
+		{"agentic:sprint/list", core.Command{Description: "List tracked platform sprints", Action: s.cmdSprintList}},
+		{"sprint/update", core.Command{Description: "Update a tracked platform sprint", Action: s.cmdSprintUpdate}},
+		{"agentic:sprint/update", core.Command{Description: "Update a tracked platform sprint", Action: s.cmdSprintUpdate}},
+		{"sprint/archive", core.Command{Description: "Archive a tracked platform sprint", Action: s.cmdSprintArchive}},
+		{"agentic:sprint/archive", core.Command{Description: "Archive a tracked platform sprint", Action: s.cmdSprintArchive}},
 	}
-	if r := c.Command("agentic:sprint", core.Command{Description: "Manage tracked platform sprints", Action: s.cmdSprint}); !r.OK {
-		return r
-	}
-	if r := c.Command("sprint/create", core.Command{Description: "Create a tracked platform sprint", Action: s.cmdSprintCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:sprint/create", core.Command{Description: "Create a tracked platform sprint", Action: s.cmdSprintCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("sprint/get", core.Command{Description: "Read a tracked platform sprint by slug or ID", Action: s.cmdSprintGet}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:sprint/get", core.Command{Description: "Read a tracked platform sprint by slug or ID", Action: s.cmdSprintGet}); !r.OK {
-		return r
-	}
-	if r := c.Command("sprint/list", core.Command{Description: "List tracked platform sprints", Action: s.cmdSprintList}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:sprint/list", core.Command{Description: "List tracked platform sprints", Action: s.cmdSprintList}); !r.OK {
-		return r
-	}
-	if r := c.Command("sprint/update", core.Command{Description: "Update a tracked platform sprint", Action: s.cmdSprintUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:sprint/update", core.Command{Description: "Update a tracked platform sprint", Action: s.cmdSprintUpdate}); !r.OK {
-		return r
-	}
-	if r := c.Command("sprint/archive", core.Command{Description: "Archive a tracked platform sprint", Action: s.cmdSprintArchive}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:sprint/archive", core.Command{Description: "Archive a tracked platform sprint", Action: s.cmdSprintArchive}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }

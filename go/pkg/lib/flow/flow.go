@@ -17,16 +17,32 @@ const parseFileContext = "flow.ParseFile"
 //go:embed *.md upgrade
 var embeddedFiles embed.FS
 
-// Flow is the top-level YAML-defined workflow: a name, a description, and an
-// ordered list of Steps that runners execute in sequence. Loaded via Parse,
-// ParseFile, or LoadEmbedded.
+// Flow is the top-level YAML-defined workflow: a name, a description, an
+// optional declared input schema, and an ordered list of Steps that runners
+// execute in sequence. Loaded via Parse, ParseFile, or LoadEmbedded.
 //
 //	flow, _ := flow.Parse(reader)
+//	if err := flow.ValidateInputs(args); err != nil { /* reject */ }
 //	for _, step := range flow.Steps { /* run step */ }
 type Flow struct {
+	Name        string  `yaml:"name"`
+	Description string  `yaml:"description"`
+	Inputs      []Input `yaml:"inputs"`
+	Steps       []Step  `yaml:"steps"`
+}
+
+// Input declares a single named input that a Flow accepts: its name, value
+// type (string, int, or bool), whether it must be supplied, and a human
+// description. ValidateInputs checks run-time args against this schema. This
+// schema is the foundation for nested flow composition and per-flow MCP tool
+// registration.
+//
+//	input := flow.Input{Name: "version", Type: "string", Required: true}
+type Input struct {
 	Name        string `yaml:"name"`
+	Type        string `yaml:"type"`
+	Required    bool   `yaml:"required"`
 	Description string `yaml:"description"`
-	Steps       []Step `yaml:"steps"`
 }
 
 // Step is a single command invocation inside a Flow: the step name, the
@@ -127,6 +143,10 @@ var LoadEmbedded = func(name string) (Flow, error) {
 }
 
 var validate = func(definition Flow) error {
+	if err := validateInputSchema(definition); err != nil {
+		return err
+	}
+
 	for index, step := range definition.Steps {
 		if core.Trim(step.Cmd) != "" {
 			continue
@@ -141,6 +161,87 @@ var validate = func(definition Flow) error {
 	}
 
 	return nil
+}
+
+// inputTypeString, inputTypeInt, and inputTypeBool are the value types an
+// Input may declare. An empty type defaults to inputTypeString.
+const (
+	inputTypeString = "string"
+	inputTypeInt    = "int"
+	inputTypeBool   = "bool"
+)
+
+// validateInputSchema checks each declared Input has a non-empty name and a
+// known type. Run at parse time so a malformed schema is caught before any
+// step executes.
+var validateInputSchema = func(definition Flow) error {
+	for index, input := range definition.Inputs {
+		name := core.Trim(input.Name)
+		if name == "" {
+			return core.E("flow.validate", core.Concat("input ", core.Sprintf("%d", index+1), " name is required"), nil)
+		}
+
+		switch inputType(input) {
+		case inputTypeString, inputTypeInt, inputTypeBool:
+		default:
+			return core.E("flow.validate", core.Concat("input \"", name, "\" has unknown type \"", input.Type, "\""), nil)
+		}
+	}
+
+	return nil
+}
+
+// ValidateInputs checks the supplied run-time args against the Flow's declared
+// Inputs: every required input must be present, and every present value must
+// parse as its declared type. Returns a wrapped error naming the first input
+// that fails. Args not declared in the schema are ignored.
+//
+//	err := flow.ValidateInputs(map[string]string{"version": "1.2.0"})
+func (f Flow) ValidateInputs(args map[string]string) error {
+	for _, input := range f.Inputs {
+		name := core.Trim(input.Name)
+
+		value, present := args[name]
+		if !present {
+			if input.Required {
+				return core.E("flow.ValidateInputs", core.Concat("required input \"", name, "\" is missing"), nil)
+			}
+			continue
+		}
+
+		if err := validateInputValue(name, inputType(input), value); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func inputType(input Input) string {
+	declared := core.Trim(input.Type)
+	if declared == "" {
+		return inputTypeString
+	}
+	return declared
+}
+
+func validateInputValue(name, declaredType, value string) error {
+	switch declaredType {
+	case inputTypeString:
+		return nil
+	case inputTypeInt:
+		if !core.Atoi(value).OK {
+			return core.E("flow.ValidateInputs", core.Concat("input \"", name, "\" expects int, got \"", value, "\""), nil)
+		}
+		return nil
+	case inputTypeBool:
+		if value == "true" || value == "false" {
+			return nil
+		}
+		return core.E("flow.ValidateInputs", core.Concat("input \"", name, "\" expects bool, got \"", value, "\""), nil)
+	default:
+		return core.E("flow.ValidateInputs", core.Concat("input \"", name, "\" has unknown type \"", declaredType, "\""), nil)
+	}
 }
 
 func normaliseEmbeddedName(name string) string {

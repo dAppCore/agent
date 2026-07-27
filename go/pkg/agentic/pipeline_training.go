@@ -177,7 +177,7 @@ var pipelineTrainingReadDiff = func(s *PrepSubsystem, ctx context.Context, org, 
 // diff, source, err := s.pipelineTrainingReadGitDiff(ctx, "core", "go-io", meta)
 var pipelineTrainingReadGitDiff = func(s *PrepSubsystem, ctx context.Context, org, repo string, meta PipelinePRMeta) (string, string, error) {
 	repoDir := s.localRepoDir(org, repo)
-	if repoDir == "" || !fs.Exists(repoDir) || fs.IsFile(repoDir) {
+	if repoDir == "" || !fs.Exists(repoDir).OK || fs.IsFile(repoDir).OK {
 		return "", "", core.E("pipelineTrainingReadGitDiff", "no local repo checkout and Forge diff endpoint was unavailable", nil)
 	}
 

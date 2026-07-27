@@ -75,7 +75,7 @@ func TestDeps_CloneWorkspaceDeps_Bad_NoGoMod(t *testing.T) {
 		t.Fatalf("clone workspace deps: %v", err)
 	}
 
-	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
+	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")).OK)
 }
 
 func TestDeps_CloneWorkspaceDeps_Ugly_NoDirectCoreDeps(t *testing.T) {
@@ -102,5 +102,5 @@ require (
 		t.Fatalf("clone workspace deps: %v", err)
 	}
 
-	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")))
+	core.AssertFalse(t, fs.IsFile(core.JoinPath(wsDir, "go.work")).OK)
 }

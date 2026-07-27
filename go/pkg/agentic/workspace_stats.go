@@ -84,8 +84,8 @@ func (s *PrepSubsystem) closeWorkspaceStatsStore() {
 		return
 	}
 	if ref.instance != nil {
-		if err := ref.instance.Close(); err != nil {
-			core.Warn("agentic.workspaceStats: failed to close workspace stats store", `path`, workspaceStatsPath(), "reason", err)
+		if result := ref.instance.Close(); !result.OK {
+			core.Warn("agentic.workspaceStats: failed to close workspace stats store", `path`, workspaceStatsPath(), "reason", resultErrorValue("agentic.workspaceStats", result))
 		}
 		ref.instance = nil
 	}
@@ -109,11 +109,11 @@ var openWorkspaceStatsStore = func() (*store.Store, error) {
 		}
 		return nil, core.E("agentic.workspaceStats", "prepare workspace stats directory", nil)
 	}
-	storeInstance, err := store.New(path)
-	if err != nil {
-		return nil, core.E("agentic.workspaceStats", "open workspace stats store", err)
+	result := store.New(path)
+	if !result.OK {
+		return nil, core.E("agentic.workspaceStats", "open workspace stats store", resultErrorValue("agentic.workspaceStats", result))
 	}
-	return storeInstance, nil
+	return result.Value.(*store.Store), nil
 }
 
 // workspaceStatsRecord is the shape persisted for each dispatch cycle. The
@@ -183,8 +183,8 @@ func (s *PrepSubsystem) recordWorkspaceStats(workspaceDir string, workspaceStatu
 	if payload == "" {
 		return
 	}
-	if err := statsStore.Set(stateWorkspaceStatsGroup, record.Workspace, payload); err != nil {
-		core.Warn("agentic.workspaceStats: failed to persist workspace stats", "workspace", record.Workspace, "reason", err)
+	if result := statsStore.Set(stateWorkspaceStatsGroup, record.Workspace, payload); !result.OK {
+		core.Warn("agentic.workspaceStats: failed to persist workspace stats", "workspace", record.Workspace, "reason", resultErrorValue("agentic.workspaceStats", result))
 	}
 }
 

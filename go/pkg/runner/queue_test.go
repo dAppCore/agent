@@ -4,6 +4,7 @@ package runner
 
 import (
 	"testing"
+	"time"
 
 	core "dappco.re/go"
 	"gopkg.in/yaml.v3"
@@ -138,6 +139,34 @@ func TestQueue_CanDispatchAgent_Ugly_ZeroLimit(t *testing.T) {
 	core.AssertTrue(t, can)
 }
 
+func TestQueue_CanDispatchAgent_Good_ConfiguredTotalLimitCountsPendingPID(t *testing.T) {
+	c := core.New()
+	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
+		"codex": {Total: 1},
+	})
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+	svc.TrackWorkspace("pending/go-io", &WorkspaceStatus{Status: "running", Agent: "codex", PID: -1})
+
+	can, reason := svc.canDispatchAgent("codex")
+	core.AssertFalse(t, can)
+	core.AssertEqual(t, "total 1/1", reason)
+}
+
+func TestQueue_CanDispatchAgent_Bad_ConfiguredModelLimitCountsPendingPID(t *testing.T) {
+	c := core.New()
+	c.Config().Set("agents.concurrency", map[string]ConcurrencyLimit{
+		"codex": {Total: 3, Models: map[string]int{"gpt-5.4": 1}},
+	})
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+	svc.TrackWorkspace("pending/go-io", &WorkspaceStatus{Status: "running", Agent: "codex:gpt-5.4", PID: -1})
+
+	can, reason := svc.canDispatchAgent("codex:gpt-5.4")
+	core.AssertFalse(t, can)
+	core.AssertEqual(t, "model gpt-5.4 1/1", reason)
+}
+
 // --- countRunningByAgent ---
 
 func TestQueue_CountRunningByAgent_Good_Empty(t *testing.T) {
@@ -192,6 +221,24 @@ func TestQueue_CountRunningByModel_Ugly_ExactMatch(t *testing.T) {
 	})
 	// PID is dead so count is 0
 	core.AssertEqual(t, 0, svc.countRunningByModel("codex:gpt-5.4"))
+}
+
+// --- delayForAgent ---
+
+func TestQueue_DelayForAgent_Good_ConfiguredSustainedDelay(t *testing.T) {
+	c := core.New()
+	c.Config().Set("agents.rates", map[string]RateConfig{
+		"codex": {ResetUTC: "invalid", SustainedDelay: 7},
+	})
+	svc := New()
+	svc.ServiceRuntime = core.NewServiceRuntime(c, Options{})
+
+	core.AssertEqual(t, 7*time.Second, svc.delayForAgent("codex:gpt-5.4"))
+}
+
+func TestQueue_DelayForAgent_Bad_NoRateConfig(t *testing.T) {
+	svc := New()
+	core.AssertEqual(t, time.Duration(0), svc.delayForAgent("unknown-agent"))
 }
 
 // --- drainQueue ---

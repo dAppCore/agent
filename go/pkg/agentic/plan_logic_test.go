@@ -147,7 +147,7 @@ func TestPlan_WritePlan_Good_CreatesNestedDir(t *testing.T) {
 	path, err := writePlan(nested, plan)
 	core.RequireNoError(t, err)
 	core.AssertEqual(t, core.JoinPath(nested, "deep-plan-xyz.json"), path)
-	core.AssertTrue(t, fs.IsFile(path))
+	core.AssertTrue(t, fs.IsFile(path).OK)
 }
 
 func TestPlan_WritePlan_Good_OverwriteExistingLogic(t *testing.T) {

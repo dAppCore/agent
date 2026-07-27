@@ -37,7 +37,7 @@ func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {
 
 	result := subsystem.restorePersistedState(context.Background())
 	core.RequireTrue(t, result.OK)
-	core.AssertTrue(t, fs.IsFile(core.JoinPath(root, "db.duckdb")))
+	core.AssertTrue(t, fs.IsFile(core.JoinPath(root, "db.duckdb")).OK)
 
 	registryResult := subsystem.Workspaces().Get(workspaceName)
 	core.RequireTrue(t, registryResult.OK)
@@ -176,7 +176,9 @@ func TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload(t *testing.T) {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	core.RequireNoError(t, storeInstance.Set(stateRegistryGroup, "broken", "{"))
+	if result := storeInstance.Set(stateRegistryGroup, "broken", "{"); !result.OK {
+		t.Fatalf("seed broken registry payload: %v", resultErrorValue("TestPersist_OnStartup_Bad_IgnoresInvalidStorePayload", result))
+	}
 	subsystem.stateStoreSet(stateQueueGroup, validWorkspace, queueEntry{
 		Repo:     "go-io",
 		Org:      "core",
@@ -231,7 +233,7 @@ func TestPersist_OnStartup_Ugly_CleansCompletedOrphanedWorkspace(t *testing.T) {
 
 	result := subsystem.restorePersistedState(context.Background())
 	core.RequireTrue(t, result.OK)
-	core.AssertFalse(t, fs.IsDir(workspaceDir))
+	core.AssertFalse(t, fs.IsDir(workspaceDir).OK)
 }
 
 func setPersistTestWorkspace(t *testing.T, root string) {

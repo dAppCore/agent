@@ -1,11 +1,11 @@
 {
-  "core": {
-    "type": "stdio",
-    "command": "core",
-    "args": ["mcp", "serve"],
-    "env": {
-      "MONITOR_INTERVAL": "10s",
-      "CORE_AGENT_DISPATCH": "1"
+  "mcpServers": {
+    "core": {
+      "type": "http",
+      "url": "http://127.0.0.1:9202/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
+      }
     }
   }
 }

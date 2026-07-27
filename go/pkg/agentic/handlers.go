@@ -36,6 +36,9 @@ func RegisterHandlers(c *core.Core, s *PrepSubsystem) {
 		func(coreApp *core.Core, msg core.Message) core.Result {
 			return handleCompletionPoke(coreApp, msg)
 		},
+		func(coreApp *core.Core, msg core.Message) core.Result {
+			return handleHarvestAutoPR(coreApp, msg)
+		},
 	)
 }
 
@@ -172,6 +175,24 @@ func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
 	return core.Result{OK: true}
 }
 
+// handleHarvestAutoPR re-dispatches a completed harvest into the closeout
+// pipeline: the harvested branch's workspace runs agentic.auto-pr — the same
+// entry the QA→PR flow uses — so a harvest joins the normal PR path instead of
+// stopping at the harvest step. The runner notifies on harvest.status from the
+// same broadcast (H3). Unknown messages pass through OK.
+func handleHarvestAutoPR(c *core.Core, msg core.Message) core.Result {
+	ev, ok := msg.(messages.HarvestComplete)
+	if !ok {
+		return core.Result{OK: true}
+	}
+	workspaceDir := findWorkspaceByPR(ev.Repo, ev.Branch)
+	if workspaceDir == "" {
+		return core.Result{OK: true}
+	}
+	performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir))
+	return core.Result{OK: true}
+}
+
 func workspaceActionOptions(workspaceDir string) core.Options {
 	return core.NewOptions(core.Option{Key: "workspace", Value: workspaceDir})
 }
@@ -200,7 +221,7 @@ func (s *PrepSubsystem) SpawnFromQueue(agent, prompt, workspaceDir string) core.
 func resolveWorkspace(name string) string {
 	workspaceRoot := WorkspaceRoot()
 	path := core.JoinPath(workspaceRoot, name)
-	if fs.IsDir(path) {
+	if fs.IsDir(path).OK {
 		return path
 	}
 	return ""

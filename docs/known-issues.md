@@ -1,36 +1,21 @@
+<!-- SPDX-License-Identifier: EUPL-1.2 -->
+
 # Known Issues — core/agent
 
-Accepted issues from 7 rounds of Codex review. These are acknowledged
-trade-offs or enhancement requests, not bugs.
+Accepted trade-offs and by-design behaviours that can surprise a caller. These are not bugs; they are documented so nobody re-reports them.
 
-## API Enhancements (brain/direct.go)
+## By design
 
-- `direct.go:134` — `remember` drops `confidence`, `supersedes`, `expires_in` from `RememberInput`. Standalone clients can't set persistence metadata.
-- `direct.go:153` — `recall` never forwards `filter.min_confidence`. Direct-mode recall can't apply confidence cutoff.
-- `direct.go:177` — `recall` drops API-returned tags, only synthesises `source:*`. Callers lose real memory tags.
-- `provider.go:303` — `list` forwards `limit` as query-string value instead of integer. REST path diverges from MCP contract.
+- **Bridge-mode recall/list return empty synchronously.** `pkg/brain/provider.go`'s HTTP recall and list handlers forward to the IDE bridge and return an empty result body; the real results arrive asynchronously over WebSocket. This only affects bridge-mode clients — the `DirectSubsystem` path (`pkg/brain/direct.go`) returns results inline.
+- **`defaultBranch` fallback.** Auto-PR targets `dev` and falls back to `main` / `master` when `origin/HEAD` is unavailable. This covers effectively all repos in the ecosystem.
 
-## Test Coverage Gaps
+## Conventions to be aware of
 
-- `pkg/lib` has no dedicated tests for template extraction or embedded prompt/task loading.
-- `dispatch`/`review_queue`/`spawnAgent` have no integration tests. Need test infrastructure for process mocking.
-- `drainQueue` complex logic has no unit tests with filesystem scaffolding.
+- **`CODE_PATH` is interpreted in two ways.** `prep.go` treats `CODE_PATH` as the parent code directory (defaulting to `~/Code`), while some Forge tooling treats it as a repo root. Set it deliberately when overriding.
+- **`core.Env("DIR_HOME")` is static at process init.** For test overrides use `CORE_HOME` rather than expecting `DIR_HOME` to change at runtime.
+- **Monitor path helpers normalise separators.** API/glob output needs separator normalisation for cross-platform correctness — keep that in mind when adding new path-producing code in `pkg/monitor`.
 
-## Conventions
+## Test-infrastructure gaps
 
-- `defaultBranch` falls back to `main`/`master` when `origin/HEAD` unavailable. Acceptable — covers 99% of repos.
-- `CODE_PATH` interpreted differently by `syncRepos` (repo root) vs rest of tooling (`CODE_PATH/core`). Known inconsistency.
-
-## Async Bridge Returns (brain/provider.go)
-
-- `provider.go:247` — recall HTTP handler forwards to bridge but returns empty `RecallOutput`. Results arrive async via WebSocket — by design for the IDE bridge path.
-- `provider.go:297` — list HTTP handler same pattern. Only affects bridge-mode clients, not DirectSubsystem.
-
-## Compile Issues
-
-- `pkg/setup` doesn't compile — calls `lib.RenderFile`, `lib.ListDirTemplates`, `lib.ExtractDir` which don't exist yet. Package is not imported by anything.
-
-## Changelog
-
-- 2026-03-21: Created from 7 rounds of Codex static review
-- 2026-03-21: Updated after 9 total rounds (77+ findings, 73+ fixed, 4 false positives)
+- `dispatch` / `review_queue` / `spawnAgent` have unit coverage but no full integration tests against a live runner — that needs process-mocking infrastructure.
+- `drainQueue`'s more complex branches would benefit from tests with filesystem scaffolding.

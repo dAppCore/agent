@@ -66,3 +66,46 @@ func TestCommandsCore_CliRoute_Bad_AuditPlaceholder(t *testing.T) {
 	core.AssertContains(t, output, "status: not yet implemented")
 	core.AssertContains(t, output, "docs/flow/RFC.flow-audit-issues.md")
 }
+
+// TestCommandsCore_PipelineRouters_HelpAndUnknown — each pipeline router prints
+// help + returns OK on an empty/help action, and an "unknown command" error on
+// an unrecognised action.
+func TestCommandsCore_PipelineRouters_HelpAndUnknown(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	routers := []func(core.Options) core.Result{
+		s.cmdCorePipeline,
+		s.cmdCorePipelineEpic,
+		s.cmdCorePipelineFix,
+		s.cmdCorePipelineBudget,
+		s.cmdCorePipelineTraining,
+	}
+	captureStdout(t, func() {
+		for _, fn := range routers {
+			core.AssertTrue(t, fn(core.NewOptions()).OK)
+			core.AssertFalse(t, fn(core.NewOptions(core.Option{Key: "action", Value: "bogus"})).OK)
+		}
+	})
+}
+
+// TestCommandsCore_PipelinePlaceholders_NotImplemented — every leaf pipeline
+// command is a placeholder that returns a not-yet-implemented error.
+func TestCommandsCore_PipelinePlaceholders_NotImplemented(t *testing.T) {
+	s, _ := testPrepWithCore(t, nil)
+	placeholders := []func(core.Options) core.Result{
+		s.cmdCorePipelineAudit,
+		s.cmdCorePipelineEpicCreate, s.cmdCorePipelineEpicRun,
+		s.cmdCorePipelineEpicStatus, s.cmdCorePipelineEpicSync,
+		s.cmdCorePipelineMonitor,
+		s.cmdCorePipelineFixReviews, s.cmdCorePipelineFixConflicts,
+		s.cmdCorePipelineFixFormat, s.cmdCorePipelineFixThreads,
+		s.cmdCorePipelineOnboard,
+		s.cmdCorePipelineBudgetPlan, s.cmdCorePipelineBudgetLog,
+		s.cmdCorePipelineTrainingCapture, s.cmdCorePipelineTrainingStats,
+		s.cmdCorePipelineTrainingExport,
+	}
+	captureStdout(t, func() {
+		for _, fn := range placeholders {
+			core.AssertFalse(t, fn(core.NewOptions()).OK)
+		}
+	})
+}

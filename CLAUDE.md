@@ -4,13 +4,15 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Session Context
 
-Running on **Claude Max20 plan** with **1M context window** (Opus 4.6).
+Running on **Claude Max20 plan** with **1M context window** (Opus 4.8).
 
 ## Overview
 
 **core-agent** is the AI agent orchestration platform for the Core ecosystem. Single Go binary (`core-agent`) that runs as an MCP server — either via stdio (Claude Code integration) or HTTP daemon (cross-agent communication).
 
 **Module:** `dappco.re/go/agent`
+
+**Source of truth:** the RFC specs live in the plans tree at `plans/code/core/agent/` (`RFC.md`, `RFC.pipeline.md`, `RFC.topology.md`, `RFC.serve.md`, `flow/`, `plugins/`) — the present-tense contract for every subsystem. `docs/` in this repo holds literal feature documentation only — `architecture.md`, `known-issues.md`, a `development/` guide, and a folder per feature (each a URL: `dispatch/`, `pipeline/`, `plans/`, `brain/`, `inference/`, `providers/`, …) whose `README.md` is a concise SEO index linking to detail pages. This file is the operational quick-reference; when docs and code disagree, the code wins.
 
 ## Build & Test
 
@@ -30,19 +32,30 @@ GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o core-agent-linux ./cmd/core-ag
 ## Architecture
 
 ```
-cmd/core-agent/main.go          Entry point (mcp + serve commands)
-pkg/agentic/                     MCP tools — dispatch, verify, remote, mirror, review queue
-pkg/brain/                       OpenBrain — recall, remember, messaging
-pkg/monitor/                     Background monitoring + repo sync
-pkg/prompts/                     Embedded templates + personas (go:embed)
+cmd/core-agent/main.go           Entry point — core.New + services + CLI run
+pkg/agentic/                     MCP dispatch tools, IPC pipeline, plans/phases/sessions, fleet/platform sync
+pkg/brain/                        OpenBrain — recall, remember, forget, list, messaging
+pkg/lemma/                        Local lthn-mlx client — chat sessions + /v1/admin control
+pkg/chathistory/                  Per-user portable DuckDB chat archive
+pkg/monitor/                      Background monitoring + repo sync
+pkg/runner/                       Local + container runners + dispatch queue
+pkg/setup/                        Project detection + .core/ scaffolding
+pkg/lib/                          Embedded personas, prompt + flow + workspace templates (go:embed)
+pkg/messages/                     Typed IPC message definitions
 ```
+
+> Also `pkg/opencode/` — the sandboxed opencode host (Service Start/Stop/Generate, profiles, reverse-proxy, hub control + audit): the AUI surface (RFC.md §6).
 
 ### Binary Modes
 
-- `core-agent mcp` — stdio MCP server for Claude Code
-- `core-agent serve` — HTTP daemon (Charon, CI, cross-agent). PID file, health check, registry.
+- `core-agent mcp` — stdio MCP server for Claude Code (registered by the `dappco.re/go/mcp` service)
+- `core-agent serve` — HTTP MCP daemon (Charon, CI, cross-agent)
+- `core-agent hub` — loopback control plane: `--http 127.0.0.1:9201` (bearer) + `--mcp-http 127.0.0.1:9202` (fail-closed MCP), fronting the opencode control/proxy groups + brain with a non-optional audit edge (RFC.md §2/§6)
+- `core-agent chat --user=<id>` — REPL against the local lthn-mlx engine, auto-captured to the user's archive
+- `core-agent serve-status` / `serve-reload` / `serve-profiles` — inspect / hot-swap the local model engine
+- `core-agent models-download` / `models-job` — queue + poll Hugging Face model downloads
 
-### MCP Tools (33)
+### MCP Tools (common subset — full action surface in `RFC.md`)
 
 | Category | Tools |
 |----------|-------|
@@ -68,6 +81,8 @@ pkg/prompts/                     Embedded templates + personas (go:embed)
 | `codex` | Codex CLI | Autonomous coding |
 | `codex:review` | Codex review | Deep security analysis |
 | `coderabbit` | CodeRabbit CLI | Code quality review |
+| `opencode` | `opencode run` | Sandboxed agent routed to local/free-compute model profiles (RFC.md §6) |
+| `local` | Codex + ollama bridge | Local OSS model via host `ollama` |
 
 ### Dispatch Flow
 
@@ -77,19 +92,13 @@ dispatch → agent works → closeout sequence (review → fix → simplify → 
     → push to GitHub → CodeRabbit reviews → merge or dispatch fix agent
 ```
 
-### Personas (pkg/prompts/lib/personas/)
+### Personas (pkg/lib/persona/)
 
-116 personas across 16 domains. Path = context, filename = lens.
+Personas across many domains (ads, blockchain, code, design, devops, plan, product, sales, secops, smm, spatial, support, testing). Path = context, filename = lens.
 
-```
-prompts.Persona("engineering/security-developer")   # code-level security review
-prompts.Persona("smm/security-secops")              # social media incident response
-prompts.Persona("devops/senior")                     # infrastructure architecture
-```
+### Templates (pkg/lib/prompt/, pkg/lib/task/, pkg/lib/flow/)
 
-### Templates (pkg/prompts/lib/templates/)
-
-Prompt templates for different task types: `coding`, `conventions`, `security`, `verify`, plus YAML plan templates (`bug-fix`, `code-review`, `new-feature`, `refactor`, etc.)
+Prompt + task templates for different task types (`coding`, `conventions`, `security`, `verify`, code review, simplifier), plus per-language flow definitions in `pkg/lib/flow/` and YAML upgrade flows in `pkg/lib/flow/upgrade/`.
 
 ## Key Patterns
 
@@ -114,14 +123,12 @@ All paths use `CORE_WORKSPACE` env var, fallback `~/Code/.core`:
 
 Always check `err != nil` BEFORE accessing `resp.StatusCode`. Split into two checks.
 
-## Plugin (claude/core/)
+## Plugin Providers (provider/)
 
-The Claude Code plugin provides:
-- **MCP server** via `mcp.json` (auto-registers core-agent)
-- **Hooks** via `hooks.json` (PostToolUse inbox notifications, auto-format, debug warnings)
-- **Agents**: `agent-task-code-review`, `agent-task-code-simplifier`
-- **Commands**: dispatch, status, review, recall, remember, scan, etc.
-- **Skills**: security review, architecture review, test analysis, etc.
+core-agent ships its capabilities to a coding-agent host through two providers, one capability set (RFC.md §7):
+
+- **`provider/claude/`** — Claude Code plugin: MCP server (`mcp.json`, auto-registers core-agent), hooks (`hooks.json` — inbox notifications, auto-format, debug warnings), agents (`agent-task-code-review`, `agent-task-code-simplifier`), commands (dispatch, status, review, recall, remember, scan…), skills (security / architecture / test review…).
+- **`provider/opencode/`** — opencode plugin (`@opencode-ai/plugin`): capabilities as custom `tool()` exports (dispatch, status, scan, brain_recall…); `session.*` event hooks feeding the report-home loop; the ctx `client` SDK drives the running session. Personas ≡ opencode agent-defs (markdown frontmatter); skills ≡ `SKILL.md`; dispatch is two-layer (opencode `Task` subagents + core-agent's cross-host fleet), or attach the hub MCP plane via `POST /mcp`.
 
 ## Testing Conventions
 

@@ -215,7 +215,7 @@ func (s *PrepSubsystem) findReviewCandidates(basePath string) []string {
 
 	var candidates []string
 	for _, p := range paths {
-		if !fs.IsDir(p) {
+		if !fs.IsDir(p).OK {
 			continue
 		}
 		name := core.PathBase(p)
@@ -315,13 +315,13 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 var pushAndMerge = func(s *PrepSubsystem, ctx context.Context, repoDir, repo string) error {
 	process := s.Core().Process()
 	if r := process.RunIn(ctx, repoDir, "git", "push", "github", "HEAD:refs/heads/dev", "--force"); !r.OK {
-		return core.E("pushAndMerge", core.Concat("push failed: ", r.Value.(string)), nil)
+		return core.E("pushAndMerge", core.Concat("push failed: ", r.Error()), nil)
 	}
 
 	process.RunIn(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
 
 	if r := process.RunIn(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
-		return core.E("pushAndMerge", core.Concat("merge failed: ", r.Value.(string)), nil)
+		return core.E("pushAndMerge", core.Concat("merge failed: ", r.Error()), nil)
 	}
 
 	return nil

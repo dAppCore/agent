@@ -194,7 +194,7 @@ func TestRemotesyncqueue_FileQueue_Good_PersistsAcrossRestart(t *testing.T) {
 		Dispatches: []map[string]any{{"workspace": "core/go-io/task-5", "status": "completed"}},
 	}})
 
-	core.AssertTrue(t, fs.Exists(syncQueuePath()))
+	core.AssertTrue(t, fs.Exists(syncQueuePath()).OK)
 
 	restarted := readSyncQueue()
 	core.AssertLen(t, restarted, 1)

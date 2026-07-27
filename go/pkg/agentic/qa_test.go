@@ -83,7 +83,7 @@ func TestQa_WriteDispatchReport_Good_Case(t *testing.T) {
 	writeDispatchReport(wsDir, report)
 
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
-	core.AssertTrue(t, fs.IsFile(reportPath))
+	core.AssertTrue(t, fs.IsFile(reportPath).OK)
 
 	readResult := fs.Read(reportPath)
 	core.AssertTrue(t, readResult.OK)
@@ -113,7 +113,7 @@ func TestQa_WriteDispatchReport_Ugly_Case(t *testing.T) {
 	writeDispatchReport(wsDir, report)
 
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
-	core.AssertTrue(t, fs.IsFile(reportPath))
+	core.AssertTrue(t, fs.IsFile(reportPath).OK)
 }
 
 // --- recordBuildResult ---
@@ -178,7 +178,7 @@ func TestQa_RunQAWithReport_Good_Case(t *testing.T) {
 
 	// Report file should exist when the state store is available.
 	reportPath := core.JoinPath(WorkspaceMetaDir(wsDir), "report.json")
-	if fs.IsFile(reportPath) {
+	if fs.IsFile(reportPath).OK {
 		readResult := fs.Read(reportPath)
 		core.AssertTrue(t, readResult.OK)
 		var report DispatchReport
@@ -355,8 +355,11 @@ func TestQa_DiffFindingsAgainstJournal_Ugly_Case(t *testing.T) {
 func TestQa_PublishDispatchReport_Good_Case(t *testing.T) {
 	// A published dispatch report should round-trip through the journal so the
 	// next cycle can diff against its findings.
-	storeInstance, err := store.New(":memory:")
-	core.RequireNoError(t, err)
+	result := store.New(":memory:")
+	if !result.OK {
+		t.Fatalf("open store: %v", resultErrorValue("TestQa_PublishDispatchReport_Good_Case", result))
+	}
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspaceName := "core/go-io/task-1"
@@ -384,8 +387,11 @@ func TestQa_PublishDispatchReport_Bad_Case(t *testing.T) {
 	// Nil store and empty workspace name are no-ops — never panic.
 	publishDispatchReport(nil, "any", DispatchReport{})
 
-	storeInstance, err := store.New(":memory:")
-	core.RequireNoError(t, err)
+	result := store.New(":memory:")
+	if !result.OK {
+		t.Fatalf("open store: %v", resultErrorValue("TestQa_PublishDispatchReport_Bad_Case", result))
+	}
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 	publishDispatchReport(storeInstance, "", DispatchReport{Findings: []QAFinding{{Tool: "gosec"}}})
 
@@ -397,8 +403,11 @@ func TestQa_PublishDispatchReport_Bad_Case(t *testing.T) {
 func TestQa_PublishDispatchReport_Ugly_Case(t *testing.T) {
 	// After N pushes the reader should return at most `limit` cycles ordered
 	// oldest→newest, so persistent detection sees cycles in the right order.
-	storeInstance, err := store.New(":memory:")
-	core.RequireNoError(t, err)
+	result := store.New(":memory:")
+	if !result.OK {
+		t.Fatalf("open store: %v", resultErrorValue("TestQa_PublishDispatchReport_Ugly_Case", result))
+	}
+	storeInstance := result.Value.(*store.Store)
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspaceName := "core/go-io/task-2"

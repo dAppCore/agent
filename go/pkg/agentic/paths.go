@@ -27,30 +27,50 @@ var fs = (&core.Fs{}).NewUnrestricted()
 
 var workspaceRootOverride string
 
-// setWorkspaceRootOverride("/srv/.core/workspace")  // absolute — used as-is
-// setWorkspaceRootOverride(".core/workspace")      // relative — resolved to $HOME/Code/.core/workspace
-// setWorkspaceRootOverride("")                     // unset — WorkspaceRoot() falls back to CoreRoot()+"/workspace"
+// setWorkspaceRootOverride("/srv/lethean/workspace")  // absolute — used as-is
+// setWorkspaceRootOverride("workspace")               // relative — resolved to ~/Lethean/workspace
+// setWorkspaceRootOverride("")                        // unset — WorkspaceRoot() falls back to ~/Lethean/workspace
 func setWorkspaceRootOverride(root string) {
 	root = core.Trim(root)
 	if root != "" && !core.PathIsAbs(root) {
-		// Resolve relative paths against $HOME/Code — the convention.
-		// Without this, workspaces resolve against the binary's cwd which
-		// varies by launch context (MCP stdio vs CLI vs dispatch worker).
-		root = core.JoinPath(HomeDir(), "Code", root)
+		// Resolve relative paths against ~/Lethean — the agentic home. Without
+		// this, workspaces resolve against the binary's cwd which varies by launch
+		// context (MCP stdio vs CLI vs dispatch worker).
+		root = core.JoinPath(LetheanHome(), root)
 	}
 	workspaceRootOverride = root
 }
+
+// SetWorkspaceRootOverride sets the dispatch workspace-root override that
+// WorkspaceRoot() returns ahead of CORE_WORKSPACE and the ~/Lethean/workspace
+// default — the programmatic equivalent of agents.yaml dispatch.workspace_root.
+// Pass "" to clear it. Consumers' tests call it with "" to isolate workspace
+// resolution from a global left set by an earlier full-core construction
+// (newCoreAgent → loadAgentsConfig); the agentic package's own tests do the
+// same internally via the unexported form.
+//
+//	agentic.SetWorkspaceRootOverride("/srv/lethean/workspace") // absolute — used as-is
+//	agentic.SetWorkspaceRootOverride("workspace")              // relative — resolved to ~/Lethean/workspace
+//	agentic.SetWorkspaceRootOverride("")                       // clear
+func SetWorkspaceRootOverride(root string) { setWorkspaceRootOverride(root) }
 
 // f := agentic.LocalFs()
 // r := f.Read("/tmp/agent-status.json")
 func LocalFs() *core.Fs { return fs }
 
 // workspaceDir := core.JoinPath(agentic.WorkspaceRoot(), "core", "go-io", "task-42")
+// WorkspaceRoot defaults to ~/Lethean/workspace (a top-level sibling of
+// conf/data/log, NOT under data). CORE_WORKSPACE relocates it (multi-tenant:
+// CORE_WORKSPACE=/srv/tenant-a → /srv/tenant-a/workspace); an explicit dispatch
+// override wins over both.
 func WorkspaceRoot() string {
 	if root := core.Trim(workspaceRootOverride); root != "" {
 		return root
 	}
-	return core.JoinPath(CoreRoot(), "workspace")
+	if root := core.Env("CORE_WORKSPACE"); root != "" {
+		return core.JoinPath(root, "workspace")
+	}
+	return core.JoinPath(LetheanHome(), "workspace")
 }
 
 // paths := agentic.WorkspaceStatusPaths()
@@ -74,12 +94,38 @@ func WorkspaceName(workspaceDir string) string {
 	return name
 }
 
-// root := agentic.CoreRoot()
+// LetheanHome is lthn-agent's root for conf/data/log. CoreGo keeps its own
+// `.core/` convention; the agent binary lives under ~/Lethean (override with
+// LETHEAN_HOME). The newer subsystems (serve, lemma, chat) already write under
+// ~/Lethean/data — these helpers extend that to the agentic/runner paths.
+//
+//	home := agentic.LetheanHome() // "~/Lethean"
+func LetheanHome() string {
+	if home := core.Getenv("LETHEAN_HOME"); home != "" {
+		return home
+	}
+	return core.JoinPath(HomeDir(), "Lethean")
+}
+
+// dir := agentic.ConfDir() // "~/Lethean/conf" — agents.yaml + operator config
+func ConfDir() string { return core.JoinPath(LetheanHome(), "conf") }
+
+// dir := agentic.DataDir() // "~/Lethean/data" — workspace, hub, runtime, db, plans
+func DataDir() string { return core.JoinPath(LetheanHome(), "data") }
+
+// dir := agentic.LogDir() // "~/Lethean/log" — lthn-agent logs
+func LogDir() string { return core.JoinPath(LetheanHome(), "log") }
+
+// path := agentic.AgentsConfigPath() // "~/Lethean/conf/agents.yaml"
+func AgentsConfigPath() string { return core.JoinPath(ConfDir(), "agents.yaml") }
+
+// root := agentic.CoreRoot() // "~/Lethean/data" — the agent's runtime data root
+// (legacy name; workspace/hub/plans derive from it). CORE_WORKSPACE still overrides.
 func CoreRoot() string {
 	if root := core.Env("CORE_WORKSPACE"); root != "" {
 		return root
 	}
-	return core.JoinPath(HomeDir(), "Code", ".core")
+	return DataDir()
 }
 
 // home := agentic.HomeDir()
@@ -109,8 +155,8 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 		}
 
 		statusPath := core.JoinPath(dir, "status.json")
-		if fs.IsFile(statusPath) {
-			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")) && fs.IsDir(core.JoinPath(dir, ".meta"))) {
+		if fs.IsFile(statusPath).OK {
+			if depth == 1 || depth == 3 || (fs.IsDir(core.JoinPath(dir, "repo")).OK && fs.IsDir(core.JoinPath(dir, ".meta")).OK) {
 				if !seen[statusPath] {
 					seen[statusPath] = true
 					paths = append(paths, statusPath)
@@ -121,7 +167,7 @@ func workspaceStatusPaths(workspaceRoot string) []string {
 
 		for _, name := range listDirNames(r) {
 			child := core.JoinPath(dir, name)
-			if fs.IsDir(child) {
+			if fs.IsDir(child).OK {
 				walk(child, depth+1)
 			}
 		}

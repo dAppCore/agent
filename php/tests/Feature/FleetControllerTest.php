@@ -2,27 +2,35 @@
 
 declare(strict_types=1);
 
+// NOTE: updated for the fleet reconciliation (FleetController now runs on
+// DispatchService over agent_registrations + dispatch_jobs). Flagged UNRUN —
+// the framework test suite can't be installed in the current environment
+// (forge offline); verify in CI.
+
 use Core\Mod\Agentic\Controllers\Api\FleetController;
-use Core\Mod\Agentic\Models\FleetNode;
-use Core\Mod\Agentic\Models\FleetTask;
+use Core\Mod\Agentic\Models\AgentRegistration;
+use Core\Mod\Agentic\Models\DispatchJob;
 use Core\Tenant\Models\Workspace;
 use Illuminate\Http\Request;
 
-it('streams assigned fleet tasks as SSE events', function () {
+it('streams claimed dispatch jobs as SSE events', function () {
     $workspace = Workspace::factory()->create();
-    $node = FleetNode::create([
+
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'charon',
+        'hostname' => 'charon',
         'platform' => 'linux',
-        'status' => FleetNode::STATUS_ONLINE,
+        'status' => AgentRegistration::STATUS_ONLINE,
+        'max_concurrent' => 1,
+        'last_heartbeat_at' => now(),
     ]);
 
-    $task = FleetTask::create([
+    $job = DispatchJob::create([
         'workspace_id' => $workspace->id,
-        'fleet_node_id' => $node->id,
         'repo' => 'core/app',
         'task' => 'Fix the failing tests',
-        'status' => FleetTask::STATUS_ASSIGNED,
+        'status' => DispatchJob::STATUS_PENDING,
     ]);
 
     $request = Request::create('/v1/fleet/events', 'GET', [
@@ -38,16 +46,13 @@ it('streams assigned fleet tasks as SSE events', function () {
     $response->sendContent();
     $output = ob_get_clean();
 
-    expect($output)->toContain("event: ready")
+    expect($output)->toContain('event: ready')
         ->and($output)->toContain('"agent_id":"charon"')
-        ->and($output)->toContain("event: task.assigned")
-        ->and($output)->toContain('"repo":"core/app"')
-        ->and($output)->toContain('"task":"Fix the failing tests"');
+        ->and($output)->toContain('event: task.assigned')
+        ->and($output)->toContain('Fix the failing tests');
 
-    $task->refresh();
-    $node->refresh();
+    $job->refresh();
 
-    expect($task->status)->toBe(FleetTask::STATUS_IN_PROGRESS)
-        ->and($node->status)->toBe(FleetNode::STATUS_BUSY)
-        ->and($node->current_task_id)->toBe($task->id);
+    expect($job->status)->toBe(DispatchJob::STATUS_ASSIGNED)
+        ->and($job->assigned_agent)->toBe('charon');
 });

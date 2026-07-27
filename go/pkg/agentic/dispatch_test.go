@@ -368,7 +368,7 @@ func TestDispatch_AgentCompletionMonitor_Ugly_Case(t *testing.T) {
 	updated := mustReadStatus(t, wsDir)
 	core.AssertEqual(t, "blocked", updated.Status)
 	core.AssertEqual(t, "Need credentials", updated.Question)
-	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")).OK)
 }
 
 // --- onAgentComplete ---
@@ -442,7 +442,7 @@ func TestDispatch_OnAgentComplete_Ugly_Case(t *testing.T) {
 	core.AssertEqual(t, "Need credentials", updated.Question)
 
 	// Empty output should NOT create log file
-	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(metaDir, "agent-codex.log")).OK)
 }
 
 func TestDispatch_Run_Bad_Timeout(t *testing.T) {
@@ -511,7 +511,7 @@ func TestDispatch_Run_Bad_Timeout(t *testing.T) {
 	core.AssertEqual(t, "failed", registryStatus.Status)
 	core.AssertEqual(t, dispatchTimeoutReason(timeout), registryStatus.Question)
 
-	core.AssertFalse(t, fs.Exists(workspaceTimeoutPath(wsDir)))
+	core.AssertFalse(t, fs.Exists(workspaceTimeoutPath(wsDir)).OK)
 }
 
 // --- runQA ---

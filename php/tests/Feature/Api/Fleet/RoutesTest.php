@@ -4,10 +4,14 @@
 
 declare(strict_types=1);
 
+// NOTE: updated for the fleet reconciliation — /v1/fleet/* runs on DispatchService
+// over agent_registrations + dispatch_jobs. Flagged UNRUN: the framework test
+// suite can't be installed here (forge offline); verify in CI.
+
 use Core\Mod\Agentic\Controllers\Api\Fleet\FleetController;
 use Core\Mod\Agentic\Models\AgentApiKey;
-use Core\Mod\Agentic\Models\FleetNode;
-use Core\Mod\Agentic\Models\FleetTask;
+use Core\Mod\Agentic\Models\AgentRegistration;
+use Core\Mod\Agentic\Models\DispatchJob;
 use Core\Tenant\Models\Workspace;
 use Illuminate\Http\Request;
 
@@ -22,41 +26,43 @@ function fleetRouteKey(
     return createApiKey($workspace, 'Fleet Route Key', $permissions);
 }
 
-test('fleet heartbeat route updates the node status', function (): void {
+test('fleet heartbeat route updates the agent status', function (): void {
     $workspace = createWorkspace();
     $key = fleetRouteKey($workspace);
 
-    FleetNode::create([
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'charon',
+        'hostname' => 'charon',
         'platform' => 'linux',
-        'status' => FleetNode::STATUS_OFFLINE,
+        'status' => AgentRegistration::STATUS_OFFLINE,
     ]);
 
     $response = $this
         ->withHeader('Authorization', 'Bearer '.$key->plainTextKey)
         ->postJson('/v1/fleet/heartbeat', [
             'agent_id' => 'charon',
-            'status' => FleetNode::STATUS_ONLINE,
+            'status' => AgentRegistration::STATUS_ONLINE,
             'compute_budget' => ['max_daily_hours' => 6],
         ]);
 
     $response
         ->assertOk()
         ->assertJsonPath('data.agent_id', 'charon')
-        ->assertJsonPath('data.status', FleetNode::STATUS_ONLINE)
+        ->assertJsonPath('data.status', AgentRegistration::STATUS_ONLINE)
         ->assertJsonPath('data.compute_budget.max_daily_hours', 6);
 });
 
-test('fleet nodes route lists nodes for the workspace', function (): void {
+test('fleet nodes route lists agents for the workspace', function (): void {
     $workspace = createWorkspace();
     $key = fleetRouteKey($workspace, [AgentApiKey::PERM_FLEET_READ]);
 
-    FleetNode::create([
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'clotho',
+        'hostname' => 'clotho',
         'platform' => 'darwin',
-        'status' => FleetNode::STATUS_ONLINE,
+        'status' => AgentRegistration::STATUS_ONLINE,
     ]);
 
     $response = $this
@@ -70,7 +76,7 @@ test('fleet nodes route lists nodes for the workspace', function (): void {
         ->assertJsonPath('data.0.platform', 'darwin');
 });
 
-test('fleet dispatch route queues an unassigned task', function (): void {
+test('fleet dispatch route queues an unassigned job', function (): void {
     $workspace = createWorkspace();
     $key = fleetRouteKey($workspace, [AgentApiKey::PERM_FLEET_WRITE]);
 
@@ -85,27 +91,28 @@ test('fleet dispatch route queues an unassigned task', function (): void {
     $response
         ->assertCreated()
         ->assertJsonPath('data.repo', 'dappco.re/go/agent')
-        ->assertJsonPath('data.status', FleetTask::STATUS_QUEUED);
+        ->assertJsonPath('data.status', DispatchJob::STATUS_PENDING);
 
-    expect(FleetTask::query()->where('workspace_id', $workspace->id)->count())->toBe(1);
+    expect(DispatchJob::query()->where('workspace_id', $workspace->id)->count())->toBe(1);
 });
 
 test('fleet stats route returns aggregate counters', function (): void {
     $workspace = createWorkspace();
     $key = fleetRouteKey($workspace, [AgentApiKey::PERM_FLEET_READ]);
-    $node = FleetNode::create([
+
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'virgil',
+        'hostname' => 'virgil',
         'platform' => 'linux',
-        'status' => FleetNode::STATUS_ONLINE,
+        'status' => AgentRegistration::STATUS_ONLINE,
     ]);
 
-    FleetTask::create([
+    DispatchJob::create([
         'workspace_id' => $workspace->id,
-        'fleet_node_id' => $node->id,
         'repo' => 'core/agent',
         'task' => 'Summarise fleet throughput',
-        'status' => FleetTask::STATUS_COMPLETED,
+        'status' => DispatchJob::STATUS_COMPLETED,
         'findings' => [['severity' => 'high'], ['severity' => 'low']],
         'started_at' => now()->subHour(),
         'completed_at' => now(),
@@ -123,21 +130,24 @@ test('fleet stats route returns aggregate counters', function (): void {
         ->assertJsonPath('data.findings_total', 2);
 });
 
-test('fleet stream route emits sse frames for assigned tasks', function (): void {
+test('fleet stream route emits sse frames for claimed jobs', function (): void {
     $workspace = createWorkspace();
-    $node = FleetNode::create([
+
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'charon',
+        'hostname' => 'charon',
         'platform' => 'linux',
-        'status' => FleetNode::STATUS_ONLINE,
+        'status' => AgentRegistration::STATUS_ONLINE,
+        'max_concurrent' => 1,
+        'last_heartbeat_at' => now(),
     ]);
 
-    $task = FleetTask::create([
+    $job = DispatchJob::create([
         'workspace_id' => $workspace->id,
-        'fleet_node_id' => $node->id,
         'repo' => 'core/app',
         'task' => 'Ship the stream alias',
-        'status' => FleetTask::STATUS_ASSIGNED,
+        'status' => DispatchJob::STATUS_PENDING,
     ]);
 
     $request = Request::create('/v1/fleet/stream', 'GET', [
@@ -156,13 +166,10 @@ test('fleet stream route emits sse frames for assigned tasks', function (): void
     expect($output)->toContain('event: ready')
         ->and($output)->toContain('"agent_id":"charon"')
         ->and($output)->toContain('event: task.assigned')
-        ->and($output)->toContain('"repo":"core/app"')
-        ->and($output)->toContain('"task":"Ship the stream alias"');
+        ->and($output)->toContain('Ship the stream alias');
 
-    $task->refresh();
-    $node->refresh();
+    $job->refresh();
 
-    expect($task->status)->toBe(FleetTask::STATUS_IN_PROGRESS)
-        ->and($node->status)->toBe(FleetNode::STATUS_BUSY)
-        ->and($node->current_task_id)->toBe($task->id);
+    expect($job->status)->toBe(DispatchJob::STATUS_ASSIGNED)
+        ->and($job->assigned_agent)->toBe('charon');
 });

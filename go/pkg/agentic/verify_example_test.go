@@ -7,7 +7,7 @@ import (
 )
 
 func Example_fileExists() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	(&core.Fs{}).NewUnrestricted().Write(core.JoinPath(dir, "go.mod"), "module test")

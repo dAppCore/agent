@@ -67,7 +67,7 @@ func isNativeAgent(agent string) bool {
 	if parts := core.SplitN(agent, ":", 2); len(parts) > 0 {
 		base = parts[0]
 	}
-	return base == "claude" || base == "coderabbit"
+	return base == "claude" || base == "coderabbit" || base == "opencode"
 }
 
 // command, args, err := agentCommand("codex:review", "Review the last 2 commits via git diff HEAD~2")
@@ -159,6 +159,15 @@ func agentCommandResult(agent, prompt string) core.Result {
 		}
 		script := localAgentCommandScript(localModel, prompt)
 		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
+	case "opencode":
+		opencodeProfile := model
+		if opencodeProfile == "" {
+			// Default to a host-config free model (OpenCode Zen) — opencode uses
+			// the operator's own auth, so no local inference server is required.
+			opencodeProfile = "opencode/deepseek-v4-flash-free"
+		}
+		script := opencodeAgentCommandScript(opencodeProfile, prompt)
+		return core.Result{Value: agentCommandResultValue{command: "sh", args: []string{"-c", script}}, OK: true}
 	default:
 		return core.Result{Value: core.E("agentCommand", core.Concat("unknown agent: ", agent), nil), OK: false}
 	}
@@ -211,6 +220,10 @@ const (
 	// RuntimeApple uses Apple Containers (macOS 26+, Virtualisation.framework).
 	//   resolved := resolveContainerRuntime("apple")  // → "apple" if /usr/bin/container or `container` in PATH
 	RuntimeApple = "apple"
+	// RuntimeVZ uses go-container's in-process VZProvider (Apple
+	// Virtualization.framework, no daemon). Boot path lands in SP2; until
+	// vzDispatchEnabled() is true, resolveContainerRuntime never returns it.
+	RuntimeVZ = "vz"
 	// RuntimeDocker uses Docker Engine (Docker Desktop on macOS, dockerd on Linux).
 	//   resolved := resolveContainerRuntime("docker")  // → "docker" if `docker` in PATH
 	RuntimeDocker = "docker"
@@ -240,26 +253,18 @@ func containerRuntimeBinary(runtime string) string {
 // dependency on the `runtime` package themselves.
 var goosIsDarwin = core.Lower(core.Trim(envOr("GOOS", core.Env("OS")))) == "darwin"
 
-// runtimeAvailable reports whether the runtime's binary is available on PATH
-// or via known absolute paths. Apple Container additionally requires macOS as
-// the host operating system because the binary is a thin wrapper over
-// Virtualisation.framework.
+// runtimeAvailable reports whether a runtime is usable for dispatch on this
+// host. Apple Containers additionally require macOS; every runtime's presence
+// is otherwise determined by go-container's detection seam
+// (containerRuntimeAvailable), not a direct PATH probe.
 //
-//	runtimeAvailable("docker")  // true if `docker` binary on PATH
-//	runtimeAvailable("apple")   // true on macOS when `container` binary on PATH
+//	runtimeAvailable("docker")  // true if go-container detects docker
+//	runtimeAvailable("apple")   // true only on macOS with Apple Containers present
 func runtimeAvailable(name string) bool {
-	switch name {
-	case RuntimeApple:
-		if !goosIsDarwin {
-			return false
-		}
-	case RuntimeDocker, RuntimePodman:
-		// supported on every platform that ships the binary
-	default:
+	if name == RuntimeApple && !goosIsDarwin {
 		return false
 	}
-	program := process.Program{Name: containerRuntimeBinary(name)}
-	return program.Find().OK
+	return containerRuntimeAvailable(name)
 }
 
 // resolveContainerRuntime returns the concrete runtime identifier for the
@@ -273,13 +278,21 @@ func runtimeAvailable(name string) bool {
 //	resolveContainerRuntime("apple")   // → "apple" if available, else "docker"
 //	resolveContainerRuntime("podman")  // → "podman" if available, else "docker"
 func resolveContainerRuntime(preferred string) string {
+	if preferred == RuntimeVZ && !vzDispatchEnabled() {
+		preferred = RuntimeAuto // fork not ready — fall through to OCI
+	}
 	switch preferred {
-	case RuntimeApple, RuntimeDocker, RuntimePodman:
+	case RuntimeApple, RuntimeVZ, RuntimeDocker, RuntimePodman:
 		if runtimeAvailable(preferred) {
 			return preferred
 		}
 	}
-	for _, candidate := range []string{RuntimeApple, RuntimeDocker, RuntimePodman} {
+	order := []string{RuntimeApple}
+	if vzDispatchEnabled() {
+		order = append(order, RuntimeVZ)
+	}
+	order = append(order, RuntimeDocker, RuntimePodman)
+	for _, candidate := range order {
 		if runtimeAvailable(candidate) {
 			return candidate
 		}
@@ -387,7 +400,7 @@ func dispatchTimeoutReasonFromWorkspace(workspaceDir string) string {
 
 func clearDispatchTimeoutReason(workspaceDir string) {
 	deleteResult := fs.Delete(workspaceTimeoutPath(workspaceDir))
-	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)) {
+	if !deleteResult.OK && fs.Exists(workspaceTimeoutPath(workspaceDir)).OK {
 		core.Warn("agentic: failed to remove timeout marker", `path`, workspaceTimeoutPath(workspaceDir), "reason", deleteResult.Value)
 	}
 }
@@ -701,6 +714,18 @@ var spawnAgent = func(s *PrepSubsystem, agent, prompt, workspaceDir string) (int
 
 	if !isNativeAgent(agent) {
 		runtimeName := resolveContainerRuntime(s.dispatchRuntime())
+		// VZ fork (SP2): the in-process Virtualization.framework provider boots
+		// the agent rather than spawning an OCI `run --rm` process. On a Run-time
+		// fallback (framework/image unavailable) spawnAgentVZ records the
+		// downgrade and returns fellBack=true; control then falls through to the
+		// unchanged OCI argv path below, re-resolving the runtime down to OCI.
+		if runtimeUsesProvider(runtimeName) {
+			pid, processID, vzOutputFile, fellBack, err := s.spawnAgentVZ(agent, command, args, workspaceDir, metaDir, outputFile)
+			if !fellBack {
+				return pid, processID, vzOutputFile, err
+			}
+			runtimeName = resolveOCIRuntime()
+		}
 		command, args = containerCommandFor(runtimeName, s.dispatchImage(), s.dispatchGPU(), command, args, workspaceDir, metaDir)
 	}
 
@@ -899,6 +924,7 @@ var dispatch = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.Call
 		StartedAt: time.Now(),
 		Runs:      1,
 	}
+	preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
 	writeStatusResult(workspaceDir, workspaceStatus)
 	if s.ServiceRuntime != nil {
 		if runnerResult := s.Core().Service("runner"); runnerResult.OK {

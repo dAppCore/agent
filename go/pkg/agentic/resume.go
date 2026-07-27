@@ -43,7 +43,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, input ResumeInput) core.Resu
 	workspaceDir := core.JoinPath(WorkspaceRoot(), input.Workspace)
 	repoDir := WorkspaceRepoDir(workspaceDir)
 
-	if !fs.IsDir(core.JoinPath(repoDir, ".git")) {
+	if !fs.IsDir(core.JoinPath(repoDir, ".git")).OK {
 		return core.Fail(core.E("resume", core.Concat("workspace not found: ", input.Workspace), nil))
 	}
 
@@ -97,6 +97,7 @@ func (s *PrepSubsystem) resume(ctx context.Context, input ResumeInput) core.Resu
 	workspaceStatus.ProcessID = processID
 	workspaceStatus.Runs++
 	workspaceStatus.Question = ""
+	preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
 	writeStatusResult(workspaceDir, workspaceStatus)
 
 	return core.Ok(ResumeOutput{

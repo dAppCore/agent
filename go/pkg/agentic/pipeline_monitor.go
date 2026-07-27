@@ -17,6 +17,30 @@ type MetaReader struct {
 	GetEpicMeta         func(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error)
 	GetIssueState       func(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error)
 	GetCommentReactions func(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error)
+	// ClassifyIssue derives epic / audit / parent signals from the structural
+	// fields of an issue record (labels + native sub-issue links + pull_request)
+	// rather than regexping the markdown body. This mirrors the PHP
+	// ForgejoMetaReader structural-read approach so the Go audit path stays in
+	// parity with PHP. Consumers hold a decoded record already (the issue list
+	// scan), so the classifier takes the record directly and performs no I/O.
+	//
+	//	signal := reader.ClassifyIssue(issue)
+	//	if signal.IsEpic { ... }
+	ClassifyIssue func(issue pipelineIssueRecord) PipelineIssueSignal
+}
+
+// PipelineIssueSignal is the structural classification of an issue. Every field
+// is derived from typed API fields (labels, sub-issue links, pull_request),
+// never from parsing the body prose. ParentNumber is 0 when the issue has no
+// structurally-linked parent epic.
+type PipelineIssueSignal struct {
+	Number       int      `json:"number"`
+	IsAudit      bool     `json:"is_audit"`
+	IsEpic       bool     `json:"is_epic"`
+	IsPR         bool     `json:"is_pr"`
+	HasParent    bool     `json:"has_parent"`
+	ParentNumber int      `json:"parent_number,omitempty"`
+	Labels       []string `json:"labels,omitempty"`
 }
 
 type PipelineCheckMeta struct {
@@ -264,6 +288,7 @@ var pipelineListPullRequests = func(s *PrepSubsystem, ctx context.Context, org, 
 
 var newPipelineForgeMetaReader = func(s *PrepSubsystem, org string) *MetaReader {
 	reader := &MetaReader{}
+	reader.ClassifyIssue = pipelineClassifyIssueStructural
 	reader.GetPRMeta = func(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error) {
 		url := core.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d", s.forgeURL, org, repo, prNumber)
 		result := HTTPGet(ctx, url, s.forgeToken, "token")
@@ -458,6 +483,62 @@ var newPipelineForgeMetaReader = func(s *PrepSubsystem, org string) *MetaReader 
 		return aggregated, nil
 	}
 	return reader
+}
+
+// pipelineClassifyIssueStructural derives epic / audit / PR / parent signals
+// from the typed fields of an issue record. It mirrors PHP's ForgejoMetaReader,
+// which classifies from structured API data (labels, native sub-issue links,
+// pull_request) and explicitly leaves body prose-parsing out of scope. An issue
+// is an epic when it carries the structural `epic` label or has native
+// sub-issue children; it is a parent's child when it appears in a sub-issue
+// link that names its own parent. No regexp touches the body here.
+//
+//	signal := pipelineClassifyIssueStructural(issue)
+//	if signal.IsEpic { ... }
+func pipelineClassifyIssueStructural(issue pipelineIssueRecord) PipelineIssueSignal {
+	labels := pipelineIssueLabelNames(issue)
+	children := pipelineIssueStructuralChildren(issue)
+
+	signal := PipelineIssueSignal{
+		Number:  issue.Number,
+		IsAudit: pipelineLabelsContain(labels, "audit"),
+		IsEpic:  pipelineLabelsContain(labels, "epic") || len(children) > 0,
+		IsPR:    len(issue.PullRequest) > 0,
+		Labels:  labels,
+	}
+	return signal
+}
+
+// pipelineIssueStructuralChildren returns the structurally-linked child issue
+// numbers of an epic, reading the native sub-issue arrays (subtasks first, then
+// sub_issues) the same way PHP ForgejoMetaReader::extractEpicChildren does.
+// Absence of both arrays yields an empty slice — it is not an error.
+func pipelineIssueStructuralChildren(issue pipelineIssueRecord) []int {
+	records := issue.SubTasks
+	if len(records) == 0 {
+		records = issue.SubIssues
+	}
+
+	numbers := make([]int, 0, len(records))
+	for _, record := range records {
+		number := record.IssueID
+		if number == 0 {
+			number = record.Number
+		}
+		if number > 0 {
+			numbers = append(numbers, number)
+		}
+	}
+	return numbers
+}
+
+func pipelineLabelsContain(labels []string, want string) bool {
+	for _, name := range labels {
+		if core.Lower(name) == core.Lower(want) {
+			return true
+		}
+	}
+	return false
 }
 
 func pipelineCheckConclusion(rawState string) string {

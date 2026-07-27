@@ -178,7 +178,7 @@ func brainSeedMemoryScanPath(path string) string {
 	if trimmed == "" {
 		return brainSeedMemoryExpandHome(brainSeedMemoryDefaultPath)
 	}
-	if fs.IsFile(trimmed) {
+	if fs.IsFile(trimmed).OK {
 		return trimmed
 	}
 	return trimmed
@@ -213,14 +213,14 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 	var walk func(string)
 
 	walk = func(dir string) {
-		if fs.IsFile(dir) {
+		if fs.IsFile(dir).OK {
 			if brainSeedMemoryFile(dir, memoryFilesOnly) {
 				add(dir)
 			}
 			return
 		}
 
-		if !fs.IsDir(dir) {
+		if !fs.IsDir(dir).OK {
 			return
 		}
 
@@ -241,7 +241,7 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 		}
 	}
 
-	if fs.IsFile(scanPath) {
+	if fs.IsFile(scanPath).OK {
 		if brainSeedMemoryFile(scanPath, memoryFilesOnly) {
 			add(scanPath)
 		}
@@ -251,7 +251,7 @@ func brainSeedMemoryFiles(scanPath string, memoryFilesOnly bool) []string {
 
 	if brainSeedMemoryHasGlobMeta(scanPath) {
 		for _, path := range core.PathGlob(scanPath) {
-			if fs.IsFile(path) {
+			if fs.IsFile(path).OK {
 				if brainSeedMemoryFile(path, memoryFilesOnly) {
 					add(path)
 				}

@@ -28,6 +28,7 @@ func runnerWorkspaceStatusFromAgentic(status *agentic.WorkspaceStatus) *Workspac
 		PRURL:     status.PRURL,
 		StartedAt: status.StartedAt,
 		Runs:      status.Runs,
+		Runtime:   status.Runtime,
 	}
 }
 
@@ -47,19 +48,25 @@ func agenticWorkspaceStatusFromRunner(status *WorkspaceStatus) *agentic.Workspac
 		PRURL:     status.PRURL,
 		StartedAt: status.StartedAt,
 		Runs:      status.Runs,
+		Runtime:   status.Runtime,
 	}
 }
 
 // root := runner.WorkspaceRoot()
-// core.Println(root) // "~/Code/.core/workspace"
+// core.Println(root) // "~/Lethean/workspace"
 func WorkspaceRoot() string {
 	return agentic.WorkspaceRoot()
 }
 
 // root := runner.CoreRoot()
-// core.Println(root) // "~/Code/.core"
+// core.Println(root) // "~/Lethean/data"
 func CoreRoot() string {
 	return agentic.CoreRoot()
+}
+
+// path := runner.AgentsConfigPath() // "~/Lethean/conf/agents.yaml"
+func AgentsConfigPath() string {
+	return agentic.AgentsConfigPath()
 }
 
 // result := ReadStatusResult("/srv/core/workspace/core/go-io/task-5")

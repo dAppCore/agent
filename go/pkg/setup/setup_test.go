@@ -48,7 +48,7 @@ func TestMissingTemplate_Service_Run_Bad(t *testing.T) {
 	result := newSetupService().Run(Options{Path: dir, Template: "missing-template"})
 	core.AssertFalse(t, result.OK)
 	core.AssertError(t, result.Value.(error))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")).OK)
 }
 
 func TestDryRun_Service_Run_Ugly(t *testing.T) {
@@ -57,8 +57,8 @@ func TestDryRun_Service_Run_Ugly(t *testing.T) {
 
 	result := newSetupService().Run(Options{Path: dir, Template: "agent", DryRun: true})
 	core.RequireTrue(t, result.OK)
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")).OK)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")).OK)
 }
 
 func TestSetup_ResolveTemplateName_Good_Auto(t *testing.T) {
@@ -186,7 +186,7 @@ func TestSetup_Service_Run_Bad(t *testing.T) {
 	result := newSetupService().Run(Options{Path: dir, Template: "missing-template"})
 	core.AssertFalse(t, result.OK)
 	core.AssertError(t, result.Value.(error))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")).OK)
 }
 
 func TestSetup_Service_Run_Ugly(t *testing.T) {
@@ -195,6 +195,6 @@ func TestSetup_Service_Run_Ugly(t *testing.T) {
 
 	result := newSetupService().Run(Options{Path: dir, Template: "agent", DryRun: true})
 	core.RequireTrue(t, result.OK)
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")))
-	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, ".core")).OK)
+	core.AssertFalse(t, fs.Exists(core.JoinPath(dir, "PROMPT.md")).OK)
 }

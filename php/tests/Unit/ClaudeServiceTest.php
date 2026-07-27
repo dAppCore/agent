@@ -24,19 +24,19 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
 describe('provider configuration', function () {
     it('returns claude as the provider name', function () {
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
 
         expect($service->name())->toBe('claude');
     });
 
     it('returns configured model as default model', function () {
-        $service = new ClaudeService('test-api-key', 'claude-opus-4-20250514');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret', 'claude-opus-4-20250514');
 
         expect($service->defaultModel())->toBe('claude-opus-4-20250514');
     });
 
     it('uses sonnet as default model when not specified', function () {
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
 
         expect($service->defaultModel())->toBe('claude-sonnet-4-20250514');
     });
@@ -48,7 +48,7 @@ describe('provider configuration', function () {
 
 describe('API key management', function () {
     it('reports available when API key is provided', function () {
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
 
         expect($service->isAvailable())->toBeTrue();
     });
@@ -93,7 +93,7 @@ describe('request handling', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $service->generate('System prompt', 'User prompt');
 
         Http::assertSent(function ($request) {
@@ -117,7 +117,7 @@ describe('request handling', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $service->generate('System', 'User', [
             'model' => 'claude-opus-4-20250514',
             'max_tokens' => 8192,
@@ -138,7 +138,7 @@ describe('request handling', function () {
             CLAUDE_API_URL => Http::response('', 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         iterator_to_array($service->stream('System', 'User'));
 
         Http::assertSent(function ($request) {
@@ -170,7 +170,7 @@ describe('response handling', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('You are helpful.', 'Say hello');
 
         expect($response)
@@ -191,7 +191,7 @@ describe('response handling', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->durationMs)
@@ -211,7 +211,7 @@ describe('response handling', function () {
             CLAUDE_API_URL => Http::response($rawResponse, 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->raw['id'])->toBe('msg_123');
@@ -226,7 +226,7 @@ describe('response handling', function () {
             CLAUDE_API_URL => Http::response($stream, 200, ['Content-Type' => 'text/event-stream']),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $generator = $service->stream('System', 'User');
 
         expect($generator)->toBeInstanceOf(Generator::class);
@@ -247,7 +247,7 @@ describe('edge cases', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->content)->toBe('');
@@ -261,7 +261,7 @@ describe('edge cases', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->inputTokens)->toBe(0)
@@ -277,7 +277,7 @@ describe('edge cases', function () {
             ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->stopReason)->toBeNull();
@@ -313,7 +313,7 @@ describe('error handling', function () {
                 ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->content)->toBe('Success after retry');
@@ -330,7 +330,7 @@ describe('error handling', function () {
                 ], 200),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $response = $service->generate('System', 'User');
 
         expect($response->content)->toBe('Success after retry');
@@ -341,7 +341,7 @@ describe('error handling', function () {
             CLAUDE_API_URL => Http::response(['error' => ['message' => 'Server error']], 500),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
 
         expect(fn () => $service->generate('System', 'User'))
             ->toThrow(RuntimeException::class);
@@ -358,7 +358,7 @@ describe('stream error handling', function () {
             throw new ConnectionException('Connection refused');
         });
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $results = iterator_to_array($service->stream('System', 'User'));
 
         expect($results)->toHaveCount(1)
@@ -372,7 +372,7 @@ describe('stream error handling', function () {
             throw new RuntimeException('Unexpected failure');
         });
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $results = iterator_to_array($service->stream('System', 'User'));
 
         expect($results)->toHaveCount(1)
@@ -385,7 +385,7 @@ describe('stream error handling', function () {
             throw new RuntimeException('Stream broke');
         });
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $event = iterator_to_array($service->stream('System', 'User'))[0];
 
         expect($event)->toHaveKeys(['type', 'message'])
@@ -399,7 +399,7 @@ describe('stream error handling', function () {
             throw new RuntimeException('Logging test error');
         });
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         iterator_to_array($service->stream('System', 'User'));
 
         Log::shouldHaveReceived('error')
@@ -416,7 +416,7 @@ describe('stream error handling', function () {
             CLAUDE_API_URL => Http::response($stream, 200, ['Content-Type' => 'text/event-stream']),
         ]);
 
-        $service = new ClaudeService('test-api-key');
+        $service = new ClaudeService('pest-fixture-token-not-a-real-secret');
         $results = iterator_to_array($service->stream('System', 'User'));
 
         expect($results)->toBe(['Hello', ' world']);

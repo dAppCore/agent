@@ -212,8 +212,10 @@ func TestWorkspacestats_RecordWorkspaceStats_Good_WritesToStore(t *testing.T) {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-5")
-	core.AssertNoError(t, err)
+	value, result := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-5")
+	if !result.OK {
+		t.Fatalf("read workspace stats: %v", resultErrorValue("TestWorkspacestats_RecordWorkspaceStats_Good_WritesToStore", result))
+	}
 	core.AssertContains(t, value, "core/go-io/task-5")
 	core.AssertContains(t, value, "go-io")
 }

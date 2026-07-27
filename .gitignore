@@ -35,3 +35,20 @@ build/
 *.test
 coverage.out
 *.coverprofile
+.lintdeps/
+.scannerwork/
+node_modules.bak/
+coverage/
+htmlcov/
+.coverage
+
+# Stray go-build output — `go build ./cmd/core-agent` without -o drops a
+# binary at the repo root and under go/. The bundled binary is bin/lthn-agent.
+/core-agent
+/go/core-agent
+
+# superpowers design/plan scratch — not committed (shipped work lives in code)
+docs/superpowers/
+
+# PHP — installed dependencies are regenerated from composer.json/lock
+php/vendor/

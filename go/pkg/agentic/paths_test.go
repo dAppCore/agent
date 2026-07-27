@@ -21,13 +21,13 @@ func TestPaths_CoreRoot_Good_EnvVar(t *testing.T) {
 func TestPaths_CoreRoot_Good_Fallback(t *testing.T) {
 	setTestWorkspace(t, "")
 	home := HomeDir()
-	core.AssertEqual(t, home+"/Code/.core", CoreRoot())
+	core.AssertEqual(t, home+"/Lethean/data", CoreRoot())
 }
 
 func TestPaths_CoreRoot_Good_CoreHome(t *testing.T) {
 	setTestWorkspace(t, "")
 	t.Setenv("CORE_HOME", "/tmp/core-home")
-	core.AssertEqual(t, "/tmp/core-home/Code/.core", CoreRoot())
+	core.AssertEqual(t, "/tmp/core-home/Lethean/data", CoreRoot())
 }
 
 func TestPaths_HomeDir_Good_CoreHome(t *testing.T) {
@@ -185,8 +185,8 @@ func TestPaths_LocalFs_Ugly_EmptyPath(t *testing.T) {
 func TestPaths_WorkspaceRoot_Bad_EmptyEnv(t *testing.T) {
 	setTestWorkspace(t, "")
 	home := HomeDir()
-	// Should fall back to ~/Code/.core/workspace
-	core.AssertEqual(t, home+"/Code/.core/workspace", WorkspaceRoot())
+	// Should fall back to ~/Lethean/workspace
+	core.AssertEqual(t, home+"/Lethean/workspace", WorkspaceRoot())
 }
 
 func TestPaths_WorkspaceHelpers_Bad_Case(t *testing.T) {
@@ -250,7 +250,7 @@ func TestPaths_CoreRoot_Ugly_UnicodeEnv(t *testing.T) {
 func TestPaths_PlansRoot_Bad_EmptyEnv(t *testing.T) {
 	setTestWorkspace(t, "")
 	home := HomeDir()
-	core.AssertEqual(t, home+"/Code/.core/plans", PlansRoot())
+	core.AssertEqual(t, home+"/Lethean/data/plans", PlansRoot())
 }
 
 func TestPaths_PlansRoot_Ugly_NestedPath(t *testing.T) {
@@ -391,8 +391,8 @@ func TestPaths_LocalFs_Ugly(t *testing.T) {
 func TestPaths_WorkspaceRoot_Bad(t *testing.T) {
 	setTestWorkspace(t, "")
 	home := HomeDir()
-	// Should fall back to ~/Code/.core/workspace
-	core.AssertEqual(t, home+"/Code/.core/workspace", WorkspaceRoot())
+	// Should fall back to ~/Lethean/workspace
+	core.AssertEqual(t, home+"/Lethean/workspace", WorkspaceRoot())
 }
 
 func TestPaths_WorkspaceRoot_Ugly(t *testing.T) {
@@ -642,7 +642,7 @@ func TestPaths_WorkspaceLogFiles_Ugly(t *testing.T) {
 func TestPaths_PlansRoot_Bad(t *testing.T) {
 	setTestWorkspace(t, "")
 	home := HomeDir()
-	core.AssertEqual(t, home+"/Code/.core/plans", PlansRoot())
+	core.AssertEqual(t, home+"/Lethean/data/plans", PlansRoot())
 }
 
 func TestPaths_PlansRoot_Ugly(t *testing.T) {

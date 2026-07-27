@@ -20,8 +20,9 @@ type DispatchConfig struct {
 	DefaultAgent    string `yaml:"default_agent"`
 	DefaultTemplate string `yaml:"default_template"`
 	WorkspaceRoot   string `yaml:"workspace_root"`
-	// Runtime selects the container runtime — auto | apple | docker | podman.
-	// auto detects in preference order: Apple Container -> Docker -> Podman.
+	// Runtime selects the container runtime — auto | apple | vz | docker | podman.
+	// auto detects in preference order: Apple Container -> VZ (when enabled) ->
+	// Docker -> Podman. vz uses the in-process Virtualization.framework provider.
 	Runtime string `yaml:"runtime"`
 	// Image is the default container image for non-native agent dispatch.
 	Image string `yaml:"image"`
@@ -74,7 +75,7 @@ type AgentsConfig struct {
 // core.Println(config.Dispatch.DefaultAgent)
 func (s *Service) loadAgentsConfig() *AgentsConfig {
 	paths := []string{
-		core.JoinPath(CoreRoot(), "agents.yaml"),
+		AgentsConfigPath(),
 	}
 	for _, path := range paths {
 		readResult := fs.Read(path)

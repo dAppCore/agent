@@ -10,48 +10,50 @@ import (
 
 func (s *PrepSubsystem) registerWorkspaceCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}},
+		{"agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}},
+		{"workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}},
+		{"agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}},
+		{"workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}},
+		{"agentic:workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}},
+		{"workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}},
+		{"agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}},
+		{"workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"agentic:workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
+		{"agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}},
 	}
-	if r := c.Command("agentic:workspace/list", core.Command{Description: "List all agent workspaces with status", Action: s.cmdWorkspaceList}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/clean", core.Command{Description: "Remove completed/failed/blocked workspaces", Action: s.cmdWorkspaceClean}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/stats", core.Command{Description: "List permanent dispatch stats from .core/workspace/db.duckdb", Action: s.cmdWorkspaceStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/dispatch", core.Command{Description: "Dispatch an agent to work on a repo task", Action: s.cmdWorkspaceDispatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:workspace/watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:watch", core.Command{Description: "Watch workspaces until they complete", Action: s.cmdWorkspaceWatch}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }
 
-func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
+// workspaceListItem is the JSON shape of `workspace/list --json` — one row
+// per tracked workspace, what the desktop CLI adapter parses.
+type workspaceListItem struct {
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	Agent    string `json:"agent"`
+	Repo     string `json:"repo"`
+	Org      string `json:"org,omitempty"`
+	Task     string `json:"task,omitempty"`
+	Branch   string `json:"branch,omitempty"`
+	Issue    int    `json:"issue,omitempty"`
+	Question string `json:"question,omitempty"`
+	Runs     int    `json:"runs"`
+	PRURL    string `json:"pr_url,omitempty"`
+}
+
+func (s *PrepSubsystem) cmdWorkspaceList(options core.Options) core.Result {
 	statusFiles := WorkspaceStatusPaths()
-	count := 0
+	items := make([]workspaceListItem, 0, len(statusFiles))
 	for _, sf := range statusFiles {
 		workspaceDir := core.PathDir(sf)
 		workspaceName := WorkspaceName(workspaceDir)
@@ -60,10 +62,29 @@ func (s *PrepSubsystem) cmdWorkspaceList(_ core.Options) core.Result {
 		if !ok {
 			continue
 		}
-		core.Print(nil, "  %-8s %-8s %-10s %s", workspaceStatus.Status, workspaceStatus.Agent, workspaceStatus.Repo, workspaceName)
-		count++
+		items = append(items, workspaceListItem{
+			Name:     workspaceName,
+			Status:   workspaceStatus.Status,
+			Agent:    workspaceStatus.Agent,
+			Repo:     workspaceStatus.Repo,
+			Org:      workspaceStatus.Org,
+			Task:     workspaceStatus.Task,
+			Branch:   workspaceStatus.Branch,
+			Issue:    workspaceStatus.Issue,
+			Question: workspaceStatus.Question,
+			Runs:     workspaceStatus.Runs,
+			PRURL:    workspaceStatus.PRURL,
+		})
 	}
-	if count == 0 {
+
+	if emitCommandJSON(options, items) {
+		return core.Result{OK: true}
+	}
+
+	for _, it := range items {
+		core.Print(nil, "  %-8s %-8s %-10s %s", it.Status, it.Agent, it.Repo, it.Name)
+	}
+	if len(items) == 0 {
 		core.Print(nil, "  no workspaces")
 	}
 	return core.Result{OK: true}
@@ -196,6 +217,11 @@ func (s *PrepSubsystem) cmdWorkspaceDispatch(options core.Options) core.Result {
 		core.Print(nil, "dispatch failed: %s", err.Error())
 		return core.Result{Value: err, OK: false}
 	}
+
+	if emitCommandJSON(options, out) {
+		return core.Result{Value: out, OK: true}
+	}
+
 	agent := out.Agent
 	if agent == "" {
 		agent = "codex"
@@ -223,6 +249,10 @@ func (s *PrepSubsystem) cmdWorkspaceWatch(options core.Options) core.Result {
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
+	}
+
+	if emitCommandJSON(options, output) {
+		return core.Result{Value: output, OK: output.Success}
 	}
 
 	core.Print(nil, "completed: %d", len(output.Completed))

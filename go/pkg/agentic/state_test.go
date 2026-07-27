@@ -175,7 +175,7 @@ func TestState_HandleStateDelete_Good_Case(t *testing.T) {
 		core.Option{Key: "plan_slug", Value: "ax-follow-up"},
 		core.Option{Key: "key", Value: "risk"},
 	)).OK)
-	core.AssertFalse(t, fs.Exists(statePath("ax-follow-up")))
+	core.AssertFalse(t, fs.Exists(statePath("ax-follow-up")).OK)
 }
 
 func TestState_HandleStateDelete_Bad_Case(t *testing.T) {

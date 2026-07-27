@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: EUPL-1.2
+{
+  "name": "@lthn/core-agent-vibe",
+  "version": "0.1.0",
+  "description": "Mistral Vibe provider plugin that bridges Vibe CLI to the core-agent hub — dispatch/status/scan/brain tools + report-home lifecycle hooks",
+  "type": "module",
+  "license": "EUPL-1.2",
+  "author": "Lethean",
+  "homepage": "https://github.com/host-uk/core-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/host-uk/core-agent.git",
+    "directory": "provider/vibe"
+  },
+  "keywords": [
+    "vibe",
+    "mistral",
+    "mistral-vibe",
+    "vibe-plugin",
+    "core-agent",
+    "lethean",
+    "agentic",
+    "mcp"
+  ],
+  "main": "src/plugin.ts",
+  "exports": {
+    ".": "./src/plugin.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/plugin.ts --outdir dist",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "@mistralai/mistral-vibe": "^1.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

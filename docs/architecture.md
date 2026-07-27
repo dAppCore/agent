@@ -1,506 +1,128 @@
 ---
 title: Architecture
-description: Internal architecture of core/agent — task lifecycle, dispatch pipeline, agent loop, orchestration, and the PHP backend.
+description: Internal architecture of core/agent — the Go binary's dispatch pipeline, runner, monitor, OpenBrain, local-model lanes, and the PHP backend that backs the hosted service.
 ---
 
 # Architecture
 
-Core Agent spans two runtimes (Go and PHP) that collaborate through a REST API. The Go side handles agent-side execution, CLI commands, and the autonomous agent loop. The PHP side provides the backend API, persistent storage, multi-provider AI services, and the admin panel.
+Core Agent is a single Go binary (`dappco.re/go/agent`, built from `go/cmd/core-agent`) that runs as an MCP server and CLI. A separate PHP/Laravel package (`Core\Mod\Agentic\*`) provides the hosted-service backend at `lthn.ai` — REST API, persistent storage, multi-provider AI services, and the admin panel. The two collaborate through `/v1/*` HTTP endpoints.
 
-```
-                    Forgejo
-                      |
-             [ForgejoSource polls]
-                      |
-                      v
-    +-- jobrunner Poller --+      +-- PHP Backend --+
-    | ForgejoSource        |      | AgentApiController|
-    | DispatchHandler  ----|----->| /v1/plans         |
-    | CompletionHandler    |      | /v1/sessions      |
-    | ResolveThreadsHandler|      | /v1/plans/*/phases|
-    +----------------------+      +---------+---------+
-                                            |
-                                    [database models]
-                                    AgentPlan, AgentPhase,
-                                    AgentSession, BrainMemory
-```
-
-
-## Go: Task Lifecycle (`pkg/lifecycle/`)
-
-The lifecycle package is the core domain layer. It defines the data types and orchestration logic for task management.
-
-### Key Types
-
-**Task** represents a unit of work:
-
-```go
-type Task struct {
-    ID           string       `json:"id"`
-    Title        string       `json:"title"`
-    Description  string       `json:"description"`
-    Priority     TaskPriority `json:"priority"`     // critical, high, medium, low
-    Status       TaskStatus   `json:"status"`        // pending, in_progress, completed, blocked, failed
-    Labels       []string     `json:"labels,omitempty"`
-    Files        []string     `json:"files,omitempty"`
-    Dependencies []string     `json:"dependencies,omitempty"`
-    MaxRetries   int          `json:"max_retries,omitempty"`
-    RetryCount   int          `json:"retry_count,omitempty"`
-    // ...timestamps, claimed_by, etc.
-}
-```
-
-**AgentInfo** describes a registered agent:
-
-```go
-type AgentInfo struct {
-    ID            string      `json:"id"`
-    Name          string      `json:"name"`
-    Capabilities  []string    `json:"capabilities,omitempty"`
-    Status        AgentStatus `json:"status"`  // available, busy, offline
-    LastHeartbeat time.Time   `json:"last_heartbeat"`
-    CurrentLoad   int         `json:"current_load"`
-    MaxLoad       int         `json:"max_load"`
-}
-```
-
-### Agent Registry
-
-The `AgentRegistry` interface tracks agent availability with heartbeats and reaping:
-
-```go
-type AgentRegistry interface {
-    Register(agent AgentInfo) error
-    Deregister(id string) error
-    Get(id string) (AgentInfo, error)
-    List() []AgentInfo
-    All() iter.Seq[AgentInfo]
-    Heartbeat(id string) error
-    Reap(ttl time.Duration) []string
-}
-```
-
-Three backends are provided:
-- `MemoryRegistry` -- in-process, mutex-guarded, copy-on-read
-- `SQLiteRegistry` -- persistent, single-file database
-- `RedisRegistry` -- distributed, suitable for multi-node deployments
-
-Backend selection is driven by `RegistryConfig`:
-
-```go
-registry, err := NewAgentRegistryFromConfig(RegistryConfig{
-    RegistryBackend: "sqlite",  // "memory", "sqlite", or "redis"
-    RegistryPath:    "/path/to/registry.db",
-})
-```
-
-### Task Router
-
-The `TaskRouter` interface selects agents for tasks. The `DefaultRouter` implements capability matching and load-based scoring:
-
-1. **Filter** -- only agents that are `Available` (or `Busy` with capacity) and possess all required capabilities (matched via task labels).
-2. **Critical tasks** -- pick the least-loaded agent directly.
-3. **Other tasks** -- score by availability ratio (`1.0 - currentLoad/maxLoad`) and pick the highest-scored agent. Ties are broken alphabetically for determinism.
-
-### Allowance System
-
-The allowance system enforces quota limits to prevent runaway costs. It operates at two levels:
-
-**Per-agent quotas** (`AgentAllowance`):
-- Daily token limit
-- Daily job limit
-- Concurrent job limit
-- Maximum job duration
-- Model allowlist
-
-**Per-model quotas** (`ModelQuota`):
-- Daily token budget (global across all agents)
-- Hourly rate limit (reserved, not yet enforced)
-- Cost ceiling (reserved, not yet enforced)
-
-The `AllowanceService` provides:
-- `Check(agentID, model)` -- pre-dispatch gate that returns `QuotaCheckResult`
-- `RecordUsage(report)` -- updates counters based on `QuotaEvent` (started/completed/failed/cancelled)
-
-Quota recovery: failed jobs return 50% of tokens; cancelled jobs return 100%.
-
-Three storage backends mirror the registry: `MemoryStore`, `SQLiteStore`, `RedisStore`.
-
-### Dispatcher
-
-The `Dispatcher` orchestrates the full dispatch cycle:
-
-```
-1. List available agents  (AgentRegistry)
-2. Route task to agent    (TaskRouter)
-3. Check allowance        (AllowanceService)
-4. Claim task via API     (Client)
-5. Record usage           (AllowanceService)
-6. Emit events            (EventEmitter)
-```
-
-`DispatchLoop` polls for pending tasks at a configurable interval, sorts by priority (critical first, oldest first as tie-breaker), and dispatches each one. Failed dispatches are retried with exponential backoff (5s, 10s, 20s, ...). Tasks exceeding their retry limit are dead-lettered with `StatusFailed`.
-
-### Event System
-
-Lifecycle events are published through the `EventEmitter` interface:
-
-| Event | When |
-|-------|------|
-| `task_dispatched` | Task successfully routed and claimed |
-| `task_claimed` | API claim succeeded |
-| `dispatch_failed_no_agent` | No eligible agent available |
-| `dispatch_failed_quota` | Agent quota exceeded |
-| `task_dead_lettered` | Task exceeded retry limit |
-| `quota_warning` | Agent at 80%+ usage |
-| `quota_exceeded` | Agent over quota |
-| `usage_recorded` | Usage counters updated |
-
-Two emitter implementations:
-- `ChannelEmitter` -- buffered channel, drops events when full (non-blocking)
-- `MultiEmitter` -- fans out to multiple emitters
-
-### API Client
-
-`Client` communicates with the PHP backend over HTTP:
-
-```go
-client := NewClient("https://api.lthn.sh", "your-token")
-client.AgentID = "cladius"
-
-tasks, _ := client.ListTasks(ctx, ListOptions{Status: StatusPending})
-task, _ := client.ClaimTask(ctx, taskID)
-_ = client.CompleteTask(ctx, taskID, TaskResult{Success: true})
-```
-
-Additional endpoints for plans, sessions, phases, and brain (OpenBrain) are available.
-
-### Context Gathering
-
-`BuildTaskContext` assembles rich context for AI consumption:
-
-1. Reads files explicitly mentioned in the task
-2. Runs `git status` and `git log`
-3. Searches for related code using keyword extraction + `git grep`
-4. Formats everything into a markdown document via `FormatContext()`
-
-### Service (Core DI Integration)
-
-The `Service` struct integrates with the Core DI container. It registers task handlers for `TaskCommit` and `TaskPrompt` messages, executing Claude via subprocess:
+The binary is built on the `dappco.re/go` DI container. `main.go` constructs a `core.New(...)` with a set of services and lets the CLI framework dispatch commands:
 
 ```go
 core.New(
-    core.WithService(lifecycle.NewService(lifecycle.ServiceOptions{
-        DefaultTools: []string{"Bash", "Read", "Glob", "Grep"},
-        AllowEdit:    false,
-    })),
+    core.WithOption("name", "core-agent"),
+    core.WithService(agentic.ProcessRegister),
+    core.WithService(agentic.Register),     // dispatch tools + IPC pipeline
+    core.WithService(runner.Register),       // agent execution
+    core.WithService(monitor.Register),      // monitoring + repo sync
+    core.WithService(brain.Register),        // OpenBrain memory + messaging
+    core.WithService(setup.Register),        // workspace scaffolding
+    core.WithService(registerLemmaSubsystem),// local-model MCP tool
+    core.WithService(coremcp.Register),      // mcp + serve commands, tool harness
 )
 ```
 
-### Embedded Prompts
+`coremcp.Register` (from `dappco.re/go/mcp`) is what supplies the `mcp` (stdio) and `serve` (HTTP) commands; the agentic, brain, and lemma subsystems register their MCP tools into that service.
 
-Prompt templates are embedded at compile time from `prompts/*.md` and accessed via `Prompt(name)`.
+## Go: Orchestration (`pkg/agentic/`)
 
-
-## Go: Agent Loop (`pkg/loop/`)
-
-The loop package implements an autonomous agent loop that drives any `inference.TextModel`:
+`agentic` is the orchestration core. It registers the dispatch MCP tools and, via `RegisterHandlers`, wires the closeout IPC pipeline. On registration it loads `agents.yaml` and enables the pipeline stages by default:
 
 ```go
-engine := loop.New(
-    loop.WithModel(myTextModel),
-    loop.WithTools(myTools...),
-    loop.WithMaxTurns(10),
-)
-
-result, err := engine.Run(ctx, "Fix the failing test in pkg/foo")
+c.Config().Enable("auto-qa")     // run QA after the agent completes
+c.Config().Enable("auto-pr")     // open a PR when QA passes
+c.Config().Enable("auto-merge")  // verify + merge the PR
+c.Config().Enable("auto-ingest") // file issues from findings
 ```
 
-### How It Works
+### Dispatch
 
-1. Build a system prompt describing available tools
-2. Send the user message to the model
-3. Parse the response for `\`\`\`tool` fenced blocks
-4. Execute matched tool handlers
-5. Append tool results to the conversation history
-6. Loop until the model responds without tool blocks, or `maxTurns` is reached
+`agentic_dispatch` takes a `DispatchInput` (repo, task, agent, template, persona, issue/PR, branch/tag, dry-run) and:
 
-### Tool Definition
+1. Preps a sandboxed workspace for the task.
+2. Resolves the runner command from the agent string (`agentCommand`). Native agents (`claude`, `coderabbit`, `opencode`) run on the host; others (`codex`, `gemini`) run inside Docker.
+3. Spawns the agent process and returns a `DispatchOutput` (workspace dir, PID, output file).
 
-```go
-loop.Tool{
-    Name:        "read_file",
-    Description: "Read a file from disk",
-    Parameters:  map[string]any{"type": "object", ...},
-    Handler: func(ctx context.Context, args map[string]any) (string, error) {
-        path := args["path"].(string)
-        return os.ReadFile(path)
-    },
-}
-```
+Agent strings carry an optional model after a colon — `codex:gpt-5.4-mini`, `claude:opus`, `opencode:gemma4-mlx-agentic`. For the local OpenCode lanes see [`inference/local-inference.md`](inference/local-inference.md) and [`inference/typologies.md`](inference/typologies.md).
 
-### Built-in Tool Adapters
+### Closeout pipeline
 
-- `LoadMCPTools(svc)` -- converts go-ai MCP tools into loop tools
-- `EaaSTools(baseURL)` -- wraps the EaaS scoring API (score, imprint, atlas similar)
-
-
-## Go: Job Runner (`pkg/jobrunner/`)
-
-The jobrunner implements a poll-dispatch engine for CI/CD-style agent automation.
-
-### Core Interfaces
-
-```go
-type JobSource interface {
-    Name() string
-    Poll(ctx context.Context) ([]*PipelineSignal, error)
-    Report(ctx context.Context, result *ActionResult) error
-}
-
-type JobHandler interface {
-    Name() string
-    Match(signal *PipelineSignal) bool
-    Execute(ctx context.Context, signal *PipelineSignal) (*ActionResult, error)
-}
-```
-
-### Poller
-
-The `Poller` ties sources and handlers together. On each cycle it:
-
-1. Polls all sources for `PipelineSignal` values
-2. Finds the first matching handler for each signal
-3. Executes the handler (or logs in dry-run mode)
-4. Records results in the `Journal` (JSONL audit log)
-5. Reports back to the source
-
-### Forgejo Source (`forgejo/`)
-
-Polls Forgejo for epic issues (issues labelled `epic`), parses their body for linked child issues, and checks each child for a linked PR. Produces signals for:
-
-- Children with PRs (includes PR state, check status, merge status, review threads)
-- Children without PRs but with agent assignees (`NeedsCoding: true`)
-
-### Handlers (`handlers/`)
-
-| Handler | Matches | Action |
-|---------|---------|--------|
-| `DispatchHandler` | `NeedsCoding` + known agent assignee | Creates ticket JSON, transfers via SSH to agent queue |
-| `CompletionHandler` | Agent completion signals | Updates Forgejo issue labels, ticks parent epic |
-| `EnableAutoMergeHandler` | All checks passing, no unresolved threads | Enables auto-merge on the PR |
-| `PublishDraftHandler` | Draft PRs with passing checks | Marks the PR as ready for review |
-| `ResolveThreadsHandler` | PRs with unresolved threads | Resolves outdated review threads |
-| `SendFixCommandHandler` | PRs with failing checks | Comments with fix instructions |
-| `TickParentHandler` | Merged PRs | Checks off the child in the parent epic |
-
-### Journal
-
-The `Journal` writes date-partitioned JSONL files to `{baseDir}/{owner}/{repo}/{date}.jsonl`. Path components are sanitised to prevent traversal attacks.
-
-
-## Go: Orchestrator (`pkg/orchestrator/`)
-
-### Clotho Protocol
-
-The orchestrator implements the "Clotho Protocol" for dual-run verification. When enabled, a task is executed twice with different models and the outputs are compared:
-
-```go
-spinner := orchestrator.NewSpinner(clothoConfig, agents)
-mode := spinner.DeterminePlan(signal, agentName)
-// mode is either ModeStandard or ModeDual
-```
-
-Dual-run is triggered when:
-- The global strategy is `clotho-verified`
-- The agent has `dual_run: true` in its config
-- The repository is deemed critical (name is "core" or contains "security")
-
-### Agent Configuration
-
-```yaml
-agentci:
-  agents:
-    cladius:
-      host: user@192.168.1.100
-      queue_dir: /home/claude/ai-work/queue
-      forgejo_user: virgil
-      model: sonnet
-      runner: claude          # claude, codex, or gemini
-      dual_run: false
-      active: true
-  clotho:
-    strategy: direct          # direct or clotho-verified
-    validation_threshold: 0.85
-```
-
-### Security
-
-- `SanitizePath` -- validates filenames against `^[a-zA-Z0-9\-\_\.]+$` and rejects traversal
-- `EscapeShellArg` -- single-quote wrapping for safe shell insertion
-- `SecureSSHCommandContext` -- strict host key checking, batch mode, 10-second connect timeout
-- `MaskToken` -- redacts tokens for safe logging
-
-
-## Go: Dispatch (`cmd/dispatch/`)
-
-The dispatch command runs **on the agent machine** and processes work from the PHP API:
-
-### `core ai dispatch watch`
-
-1. Connects to the PHP agentic API (`/v1/health` ping)
-2. Lists active plans (`/v1/plans?status=active`)
-3. Finds the first workable phase (in-progress or pending with `can_start`)
-4. Starts a session via the API
-5. Clones/updates the repository
-6. Builds a prompt from the phase description
-7. Invokes the runner (`claude`, `codex`, or `gemini`)
-8. Reports success/failure back to the API and Forgejo
-
-**Rate limiting**: if an agent exits in under 30 seconds (fast failure), the poller backs off exponentially (2x, 4x, 8x the base interval, capped at 8x).
-
-### `core ai dispatch run`
-
-Processes a single ticket from the local file queue (`~/ai-work/queue/ticket-*.json`). Uses file-based locking to prevent concurrent execution.
-
-
-## Go: Workspace (`cmd/workspace/`)
-
-### Task Workspaces
-
-Each task gets an isolated workspace at `.core/workspace/p{epic}/i{issue}/` containing git worktrees:
+Once the agent finishes, completion is detected and the typed IPC pipeline (`pkg/messages/`) runs the stages:
 
 ```
-.core/workspace/
-  p42/
-    i123/
-      core-php/        # git worktree on branch issue/123
-      core-tenant/     # git worktree on branch issue/123
-      agents/
-        claude-opus/implementor/
-          memory.md
-          artifacts/
+AgentCompleted → QA → AutoPR → Verify → Merge
 ```
 
-Safety checks prevent removal of workspaces with uncommitted changes or unpushed branches.
+Each stage is gated by its `auto-*` config flag, so an operator can disable any stage. Findings can be ingested back into the tracker as issues.
 
-### Agent Context
+### Remote dispatch
 
-Agents get persistent directories within task workspaces. Each agent has a `memory.md` file that persists across invocations, allowing QA agents to accumulate findings and implementors to record decisions.
+`agentic_dispatch_remote` and `agentic_status_remote` proxy a dispatch to another `core-agent` instance over its HTTP MCP endpoint (the homelab fleet path). `agentic_dispatch_start` / `agentic_dispatch_shutdown` control the dispatch queue lifecycle — run `dispatch_start` after a restart to unfreeze the queue.
 
+### Plans, phases, sessions
 
-## Go: MCP Server (`cmd/mcp/`)
+The package also exposes the structured-work surface as both MCP tools and CLI commands (with `agentic:` aliases): `plan/*`, `phase/*`, and `session/*`. Plans hold ordered phases; sessions track an agent's work with a log, artefacts, and handoff notes for the next agent. These are persisted via the PHP `/v1/plans`, `/v1/plans/{slug}/phases`, and `/v1/sessions` endpoints.
 
-A standalone MCP server (stdio transport via mcp-go) exposing four tools:
+### Fleet + platform sync
 
-| Tool | Purpose |
-|------|---------|
-| `marketplace_list` | Lists available Claude Code plugins from `marketplace.json` |
-| `marketplace_plugin_info` | Returns metadata, commands, and skills for a plugin |
-| `core_cli` | Runs approved `core` CLI commands (dev, go, php, build only) |
-| `ethics_check` | Returns the Axioms of Life ethics modal and kernel |
+`agentic` registers fleet machines and syncs repos against `agents.yaml`. Fleet registration posts to `/v1/fleet/register` through a TLS-validating shared HTTP client (`transport.go`'s `defaultClient`).
 
+## Go: Runner (`pkg/runner/`)
 
-## PHP: Backend API
+`runner` executes dispatched agents and tracks their workspaces. It holds a `core.Registry[*WorkspaceStatus]`, a dispatch lock, a drain lock, and per-agent backoff/fail counters. It uses `c.Lock(name)` for named mutexes when the Core container is present, falling back to channel locks for standalone use. The queue (`queue.go`) drains pending work; `paths.go` centralises workspace path resolution.
 
-### Service Provider (`Boot.php`)
+## Go: Monitor (`pkg/monitor/`)
 
-The module registers via Laravel's event-driven lifecycle:
+`monitor` runs background monitoring: it harvests completion signals (`harvest.go`), exposes a monitor API (`monitor.go`), and keeps ecosystem repos in sync (`sync.go`).
 
-| Event | Handler | Purpose |
-|-------|---------|---------|
-| `ApiRoutesRegistering` | `onApiRoutes` | REST API endpoints at `/v1/*` |
-| `AdminPanelBooting` | `onAdminPanel` | Livewire admin components |
-| `ConsoleBooting` | `onConsole` | Artisan commands |
-| `McpToolsRegistering` | `onMcpTools` | Brain MCP tools |
+## Go: OpenBrain (`pkg/brain/`)
 
-Scheduled commands:
-- `agentic:plan-cleanup` -- daily plan retention
-- `agentic:scan` -- every 5 minutes (Forgejo pipeline scan)
-- `agentic:dispatch` -- every 2 minutes (agent dispatch)
-- `agentic:pr-manage` -- every 5 minutes (PR lifecycle management)
+`brain` is the OpenBrain client — durable memory plus cross-agent messaging. It exposes MCP tools (`brain_remember`, `brain_recall`, `brain_forget`, `brain_list`) and the messaging tools (`agent_send`, `agent_inbox`, `agent_conversation`). Two transport modes exist:
 
-### REST API Routes
+- **Direct** (`direct.go`) — calls `/v1/brain/*` on the API through the shared `dappco.re/go/mcp/.../brain/client`, with Bearer auth, default-org injection, `~/.claude/brain.key` (`0600`) handling, absolute-URL rejection, retry with jitter, and a circuit breaker.
+- **Bridge** (`provider.go`) — forwards to the IDE bridge over WebSocket; recall/list return empty synchronously and deliver results async (by design for the bridge path).
 
-All authenticated routes use `AgentApiAuth` middleware with Bearer tokens and scope-based permissions.
+The canonical map of every Brain call site, its protections, and its request/response shapes lives in [`brain/callers.md`](brain/callers.md).
 
-**Plans** (`/v1/plans`):
-- `GET /v1/plans` -- list plans (filterable by status)
-- `GET /v1/plans/{slug}` -- get plan with phases
-- `POST /v1/plans` -- create plan
-- `PATCH /v1/plans/{slug}` -- update plan
-- `DELETE /v1/plans/{slug}` -- archive plan
+## Go: Local model (`pkg/lemma/` + `pkg/chathistory/`)
 
-**Phases** (`/v1/plans/{slug}/phases/{phase}`):
-- `GET` -- get phase details
-- `PATCH` -- update phase status
-- `POST .../checkpoint` -- add checkpoint
-- `PATCH .../tasks/{idx}` -- update task
-- `POST .../tasks/{idx}/toggle` -- toggle task completion
+`lemma` is the client for the local `lthn-mlx` model engine. It provides chat sessions, the `/v1/admin/*` control surface (`admin.go` — status, reload, profiles, model downloads), and is exposed two ways:
 
-**Sessions** (`/v1/sessions`):
-- `GET /v1/sessions` -- list sessions
-- `GET /v1/sessions/{id}` -- get session
-- `POST /v1/sessions` -- start session
-- `POST /v1/sessions/{id}/end` -- end session
-- `POST /v1/sessions/{id}/continue` -- continue session
+- The `chat` CLI command opens a REPL against the engine.
+- The `lemma_send` MCP tool lets a calling agent send a message and get a reply.
 
-### Data Model
+Both auto-capture every turn into the caller's portable archive via `chathistory`, a per-user DuckDB file at `~/Lethean/data/users/<id>/chats.duckdb`. The file is the user's property (continuity rights): a model or provider change can never take the chat history away. `export.go` handles export; `migrations/` carries the schema.
 
-**AgentPlan** -- a structured work plan with phases, multi-tenant via `BelongsToWorkspace`:
-- Status: draft -> active -> completed/archived
-- Phases: ordered list of `AgentPhase` records
-- Sessions: linked `AgentSession` records
-- State: key-value `WorkspaceState` records
+## Go: Setup (`pkg/setup/`)
 
-**AgentSession** -- tracks an agent's work session for handoff:
-- Status: active -> paused -> completed/failed
-- Work log: timestamped entries (info, warning, error, checkpoint, decision)
-- Artifacts: files created/modified/deleted
-- Handoff notes: summary, next steps, blockers, context for next agent
-- Replay: `createReplaySession()` spawns a continuation session with inherited context
+`setup` detects a project's type (Go, Wails, PHP, Node, …) and scaffolds a `.core/` directory with `build.yaml` + `test.yaml`, optionally extracting a workspace template from `pkg/lib`.
 
-**BrainMemory** -- persistent knowledge stored in both MariaDB and Qdrant:
-- Types: fact, decision, pattern, context, procedure
-- Semantic search via Ollama embeddings + Qdrant vector similarity
-- Supersession: new memories can replace old ones (soft delete + vector removal)
+## Go: Library (`pkg/lib/`)
 
-### AI Provider Management (`AgenticManager`)
+`lib` holds embedded assets and the helpers that extract them: `persona/` (domain personas), `prompt/` (prompt templates), `task/` (task templates including code review + simplifier), `flow/` (per-language flow definitions plus the `upgrade/` YAML flows), and `workspace/` (workspace scaffolds — `default`, `review`, `security`). `ExtractWorkspace` and `ListWorkspaces` are the entry points used by `setup`.
 
-Three providers are registered at boot:
+## PHP: Backend (`php/`)
 
-| Provider | Service | Default Model |
-|----------|---------|---------------|
-| Claude | `ClaudeService` | `claude-sonnet-4-20250514` |
-| Gemini | `GeminiService` | `gemini-2.0-flash` |
-| OpenAI | `OpenAIService` | `gpt-4o-mini` |
+The PHP package backs the hosted service. It registers via Laravel's event-driven module lifecycle (`Boot`) and is organised into:
 
-Each implements `AgenticProviderInterface`. Missing API keys are logged as warnings at boot time.
+- `Actions/` — single-purpose business logic, grouped by domain (Auth, Brain, Credits, Fleet, Forge, Issue, Phase, Plan, Session, Sprint, Subscription, Sync, Task).
+- `Controllers/Api/` — REST controllers behind `AgentApiAuth` (Bearer tokens, scope-based permissions, workspace binding).
+- `Models/` — Eloquent models (AgentPlan, AgentPhase, AgentSession, BrainMemory, …), multi-tenant via `BelongsToWorkspace`.
+- `Services/` — provider services (Claude, Gemini, OpenAI) behind a manager, plus `BrainService`.
+- `Mcp/` — server-side MCP tool implementations.
+- `View/` — Livewire admin components.
+- `Migrations/` — schema.
 
 ### BrainService (OpenBrain)
 
-The `BrainService` provides semantic memory using Ollama for embeddings and Qdrant for vector storage:
-
-```
-remember() -> embed(content) -> DB::transaction {
-    BrainMemory::create() + qdrantUpsert()
-    if supersedes_id: soft-delete old + qdrantDelete()
-}
-
-recall(query) -> embed(query) -> qdrantSearch() -> BrainMemory::whereIn(ids)
-```
-
-Default embedding model: `embeddinggemma` (768-dimensional vectors, cosine distance).
-
+`BrainService` is the canonical PHP write/read path behind the controller, MCP tools, console commands, and the Livewire explorer. It writes to MariaDB first and queues async indexing (`EmbedMemory`) into Qdrant + Elasticsearch; recall embeds the query, searches Qdrant, then hydrates rows from MariaDB. Memories are workspace-scoped, with `org` and `project` filters. Qdrant access is authenticated via an `api-key` header.
 
 ## Data Flow: End-to-End Dispatch
 
-1. **PHP** `agentic:scan` scans Forgejo for issues labelled `agent-ready`
-2. **PHP** `agentic:dispatch` creates plans with phases from issues
-3. **Go** `core ai dispatch watch` polls `GET /v1/plans?status=active`
-4. **Go** finds first workable phase, starts a session via `POST /v1/sessions`
-5. **Go** clones the repository, builds a prompt, invokes the runner
-6. **Runner** (Claude/Codex/Gemini) makes changes, commits, pushes
-7. **Go** reports phase status via `PATCH /v1/plans/{slug}/phases/{phase}`
-8. **Go** ends the session via `POST /v1/sessions/{id}/end`
-9. **Go** comments on the Forgejo issue with the result
+1. A tracked issue is scanned (`agentic_scan`) or a dispatch is requested directly.
+2. `agentic_dispatch` preps an isolated workspace and resolves the runner.
+3. The runner (Claude / Codex / Gemini / OpenCode) makes changes, commits, and pushes.
+4. Completion is detected; the IPC pipeline runs QA → auto-PR → verify → merge, each gated by its `auto-*` flag.
+5. Findings can be ingested back into the tracker as issues.
+6. For cross-machine work, the dispatch is proxied to a remote `core-agent` over HTTP MCP, and status is polled with `agentic_status_remote`.

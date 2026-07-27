@@ -1,0 +1,22 @@
+# SPDX-Licence-Identifier: EUPL-1.2
+#
+# Build wrapper for the lthn-agent crew binary. core/agent's source is
+# untouched — this only exposes `task build:lthn`, the uniform verb the
+# lthn/desktop pre-build calls to stage each crew member (mirrors
+# go-mlx's `task build:lthn` → bin/lthn-mlx). Additive only.
+version: '3'
+
+tasks:
+  build:lthn:
+    desc: "Build lthn-agent (from cmd/core-agent) to bin/ — the crew's agentic-dispatch member"
+    dir: go
+    cmds:
+      - mkdir -p ../bin
+      - go build -trimpath -o ../bin/lthn-agent ./cmd/core-agent/
+      - echo "  lthn-agent → bin/lthn-agent"
+  cov:
+    desc: "Module coverage — writes go/coverage.out (the path codecov + SonarCloud read) and prints the total. `task cov` then open go/coverage.out, or pipe to `go tool cover -html`."
+    dir: go
+    cmds:
+      - go test -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -func=coverage.out | tail -1

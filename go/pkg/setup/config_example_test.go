@@ -7,7 +7,7 @@ import (
 )
 
 func ExampleGenerateBuildConfig() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	config := GenerateBuildConfig(dir, TypeGo)

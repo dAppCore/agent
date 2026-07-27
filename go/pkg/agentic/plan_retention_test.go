@@ -52,9 +52,9 @@ func TestPlanRetention_PlanCleanup_Good_DeletesExpiredArchivedPlans(t *testing.T
 	core.AssertTrue(t, output.Success)
 	core.AssertEqual(t, 1, output.Deleted)
 	core.AssertEqual(t, 1, output.Matched)
-	core.AssertFalse(t, fs.Exists(core.JoinPath(PlansRoot(), "old-plan-abc123.json")))
-	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "recent-plan-abc123.json")))
-	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "active-plan-abc123.json")))
+	core.AssertFalse(t, fs.Exists(core.JoinPath(PlansRoot(), "old-plan-abc123.json")).OK)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "recent-plan-abc123.json")).OK)
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "active-plan-abc123.json")).OK)
 }
 
 func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing.T) {
@@ -88,7 +88,7 @@ func TestPlanRetention_PlanCleanup_Good_ArchivesExpiredCompletedPlans(t *testing
 	core.RequireNoError(t, err)
 	core.AssertEqual(t, "archived", updated.Status)
 	core.AssertFalse(t, updated.ArchivedAt.IsZero())
-	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "completed-plan-abc123.json")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "completed-plan-abc123.json")).OK)
 }
 
 func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
@@ -120,7 +120,7 @@ func TestPlanRetention_PlanCleanup_Bad_DryRunKeepsFiles(t *testing.T) {
 	core.AssertTrue(t, output.DryRun)
 	core.AssertEqual(t, 1, output.Matched)
 	core.AssertEqual(t, 0, output.Deleted)
-	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "dry-run-plan-abc123.json")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "dry-run-plan-abc123.json")).OK)
 }
 
 func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) {
@@ -148,7 +148,7 @@ func TestPlanRetention_PlanCleanup_Ugly_DisabledCleanupKeepsFiles(t *testing.T) 
 	core.AssertTrue(t, output.Success)
 	core.AssertTrue(t, output.Disabled)
 	core.AssertEqual(t, 0, output.Deleted)
-	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "disabled-plan-abc123.json")))
+	core.AssertTrue(t, fs.Exists(core.JoinPath(PlansRoot(), "disabled-plan-abc123.json")).OK)
 }
 
 func TestPlanRetention_PlanArchivedAt_Good_FallsBackToFileModifiedTime(t *testing.T) {
@@ -201,7 +201,7 @@ func TestPlanRetention_RunPlanCleanupLoop_Good_DeletesExpiredPlans(t *testing.T)
 	}()
 
 	requireEventually(t, func() bool {
-		return !fs.Exists(core.JoinPath(PlansRoot(), "scheduled-plan-abc123.json"))
+		return !fs.Exists(core.JoinPath(PlansRoot(), "scheduled-plan-abc123.json")).OK
 	}, time.Second, 5*time.Millisecond)
 
 	cancel()

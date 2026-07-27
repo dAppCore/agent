@@ -45,7 +45,7 @@ func TestPlan_WritePlan_Good_Case(t *testing.T) {
 	core.AssertEqual(t, core.JoinPath(dir, "test-plan-abc123.json"), path)
 
 	// Verify file exists
-	core.AssertTrue(t, fs.IsFile(path))
+	core.AssertTrue(t, fs.IsFile(path).OK)
 }
 
 func TestPlan_WritePlan_Good_CreatesDirectory(t *testing.T) {

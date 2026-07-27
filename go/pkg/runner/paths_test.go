@@ -31,7 +31,7 @@ func TestPaths_CoreRoot_Good(t *testing.T) {
 func TestPaths_CoreRoot_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
 	home := core.Env("DIR_HOME")
-	core.AssertEqual(t, home+"/Code/.core", CoreRoot())
+	core.AssertEqual(t, home+"/Lethean/data", CoreRoot())
 }
 
 func TestPaths_CoreRoot_Ugly(t *testing.T) {
@@ -51,7 +51,7 @@ func TestPaths_WorkspaceRoot_Good(t *testing.T) {
 func TestPaths_WorkspaceRoot_Bad(t *testing.T) {
 	t.Setenv("CORE_WORKSPACE", "")
 	home := core.Env("DIR_HOME")
-	core.AssertEqual(t, home+"/Code/.core/workspace", WorkspaceRoot())
+	core.AssertEqual(t, home+"/Lethean/workspace", WorkspaceRoot())
 }
 
 func TestPaths_WorkspaceRoot_Ugly(t *testing.T) {

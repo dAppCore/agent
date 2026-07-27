@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Actions\Sync;
 
 use Core\Actions\Action;
-use Core\Mod\Agentic\Models\FleetNode;
+use Core\Mod\Agentic\Models\AgentRegistration;
 use Core\Mod\Agentic\Models\SyncRecord;
 
 class GetAgentSyncStatus
@@ -19,23 +19,25 @@ class GetAgentSyncStatus
      */
     public function handle(int $workspaceId, string $agentId): array
     {
-        $node = FleetNode::query()
+        $node = AgentRegistration::query()
             ->where('workspace_id', $workspaceId)
             ->where('agent_id', $agentId)
             ->first();
 
         if (! $node) {
-            throw new \InvalidArgumentException('Fleet node not found');
+            throw new \InvalidArgumentException('Agent not registered');
         }
 
         $lastPush = SyncRecord::query()
-            ->where('fleet_node_id', $node->id)
+            ->where('workspace_id', $workspaceId)
+            ->where('agent_id', $agentId)
             ->where('direction', 'push')
             ->latest('synced_at')
             ->first();
 
         $lastPull = SyncRecord::query()
-            ->where('fleet_node_id', $node->id)
+            ->where('workspace_id', $workspaceId)
+            ->where('agent_id', $agentId)
             ->where('direction', 'pull')
             ->latest('synced_at')
             ->first();

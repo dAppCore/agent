@@ -10,6 +10,7 @@ import (
 
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
+	"dappco.re/go/agent/pkg/lib/flow"
 	"gopkg.in/yaml.v3"
 )
 
@@ -124,6 +125,18 @@ func (s *PrepSubsystem) registerCommands(ctx context.Context) core.Result {
 		return r
 	}
 	if r := c.Command("agentic:scan", core.Command{Description: "Scan Forge repos for actionable issues", Action: s.cmdScan}); !r.OK {
+		return r
+	}
+	if r := c.Command("personas", core.Command{Description: "List the persona roster — dispatch path plus frontmatter card", Action: s.cmdPersonas}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:personas", core.Command{Description: "List the persona roster — dispatch path plus frontmatter card", Action: s.cmdPersonas}); !r.OK {
+		return r
+	}
+	if r := c.Command("tasks", core.Command{Description: "List the plan/task templates — slug plus name, description, category", Action: s.cmdTasks}); !r.OK {
+		return r
+	}
+	if r := c.Command("agentic:tasks", core.Command{Description: "List the plan/task templates — slug plus name, description, category", Action: s.cmdTasks}); !r.OK {
 		return r
 	}
 	if r := c.Command("mirror", core.Command{Description: "Mirror Forge repos to GitHub", Action: s.cmdMirror}); !r.OK {
@@ -340,9 +353,10 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	task := options.String("task")
 	issueValue := options.String("issue")
 	org := options.String("org")
+	branch := options.String("branch")
 
 	if repo == "" || task == "" {
-		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex [--issue=N] [--org=core]", commandLabel)
+		core.Print(nil, "usage: core-agent %s --repo=<repo> --task=\"...\" --agent=codex (--issue=N | --branch=<name>) [--org=core] [--no-pr]", commandLabel)
 		return core.Result{Value: core.E(errorName, "repo and task are required", nil), OK: false}
 	}
 	if agent == "" {
@@ -353,6 +367,13 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	}
 
 	issue := parseIntString(issueValue)
+	// prep names the workspace from one of issue/pr/branch/tag — the sync path
+	// exposes issue + branch, so require one for an ad-hoc (no-Mantis) dispatch.
+	if issue <= 0 && branch == "" {
+		core.Print(nil, "%s: name the workspace with --issue=N or --branch=<name>", commandLabel)
+		return core.Result{Value: core.E(errorName, "one of --issue or --branch is required", nil), OK: false}
+	}
+	localOnly := s.applyDispatchLocalMode(options)
 
 	core.Print(nil, "core-agent %s", commandLabel)
 	core.Print(nil, "  repo:  %s/%s", org, repo)
@@ -360,11 +381,17 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 	if issue > 0 {
 		core.Print(nil, "  issue: #%d", issue)
 	}
+	if branch != "" {
+		core.Print(nil, "  branch: %s", branch)
+	}
 	core.Print(nil, "  task:  %s", task)
+	if localOnly {
+		core.Print(nil, "  mode:  local-only (auto-pr/merge/ingest disabled — review + push the branch yourself)")
+	}
 	core.Print(nil, "")
 
 	result := s.DispatchSync(ctx, DispatchSyncInput{
-		Org: org, Repo: repo, Agent: agent, Task: task, Issue: issue,
+		Org: org, Repo: repo, Agent: agent, Task: task, Issue: issue, Branch: branch,
 	})
 
 	if !result.OK {
@@ -381,6 +408,26 @@ func (s *PrepSubsystem) runDispatchSync(ctx context.Context, options core.Option
 		core.Print(nil, "  PR: %s", result.PRURL)
 	}
 	return core.Result{OK: true}
+}
+
+// applyDispatchLocalMode disables the outward completion actions (auto-pr,
+// auto-merge, auto-ingest) for a single CLI dispatch when --no-pr is set, so the
+// run produces only a local branch the operator reviews + pushes themselves.
+// The completion handlers self-gate on these config flags
+// (handleAutoPR/handleAutoMerge), so disabling them here reliably suppresses the
+// push/PR/merge chain that fires when the agent completes. Returns whether
+// local-only mode was applied. auto-qa stays on — it validates the work locally
+// without any outward action.
+//
+//	if s.applyDispatchLocalMode(options) { core.Print(nil, "local-only") }
+func (s *PrepSubsystem) applyDispatchLocalMode(options core.Options) bool {
+	if s == nil || s.ServiceRuntime == nil || !options.Bool("no-pr") {
+		return false
+	}
+	s.Config().Disable("auto-pr")
+	s.Config().Disable("auto-merge")
+	s.Config().Disable("auto-ingest")
+	return true
 }
 
 func (s *PrepSubsystem) cmdOrchestrator(_ core.Options) core.Result {
@@ -451,6 +498,19 @@ func (s *PrepSubsystem) runDispatchLoop(label string) core.Result {
 	return core.Result{OK: true}
 }
 
+// emitCommandJSON prints v as JSON when --json is set, returning true if it
+// did (the caller then returns without its human-formatted output). The
+// agentic verbs serve two callers: a human at the terminal (default, formatted)
+// and the desktop CLI adapter (--json, machine-parseable) — the same split
+// pkg/calibrate relies on for lthn-mlx.
+func emitCommandJSON(options core.Options, v any) bool {
+	if !optionBoolValue(options, "json") {
+		return false
+	}
+	core.Print(nil, "%s", core.JSONMarshalString(v))
+	return true
+}
+
 func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	repo := options.String("_arg")
 	if repo == "" {
@@ -469,6 +529,10 @@ func (s *PrepSubsystem) cmdPrep(options core.Options) core.Result {
 	if err != nil {
 		core.Print(nil, "error: %v", err)
 		return core.Result{Value: err, OK: false}
+	}
+
+	if emitCommandJSON(options, prepOutput) {
+		return core.Result{Value: prepOutput, OK: true}
 	}
 
 	core.Print(nil, "workspace: %s", prepOutput.WorkspaceDir)
@@ -506,6 +570,10 @@ func (s *PrepSubsystem) cmdResume(options core.Options) core.Result {
 		return result
 	}
 	output, _ := result.Value.(ResumeOutput)
+
+	if emitCommandJSON(options, output) {
+		return core.Result{Value: output, OK: true}
+	}
 
 	core.Print(nil, "workspace:  %s", output.Workspace)
 	core.Print(nil, "agent:      %s", output.Agent)
@@ -647,6 +715,10 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 		return core.Result{Value: err, OK: false}
 	}
 
+	if emitCommandJSON(options, output) {
+		return core.Result{Value: output, OK: true}
+	}
+
 	core.Print(nil, "count: %d", output.Count)
 	for _, issue := range output.Issues {
 		if len(issue.Labels) > 0 {
@@ -656,6 +728,42 @@ func (s *PrepSubsystem) cmdScan(options core.Options) core.Result {
 		core.Print(nil, "  %s#%d %s", issue.Repo, issue.Number, issue.Title)
 	}
 	return core.Result{Value: output, OK: true}
+}
+
+// cmdPersonas lists the persona roster — each persona's dispatch path plus
+// the frontmatter card (name, emoji, vibe). With --json (the GUI lane) it
+// prints the cards array the dispatch view's picker consumes; otherwise a
+// human list.
+//
+//	core-agent personas --json
+func (s *PrepSubsystem) cmdPersonas(options core.Options) core.Result {
+	cards := lib.PersonaCards()
+	if emitCommandJSON(options, cards) {
+		return core.Result{Value: cards, OK: true}
+	}
+	core.Print(nil, "personas: %d", len(cards))
+	for _, card := range cards {
+		core.Print(nil, "  %s  %-28s %s", card.Emoji, card.Path, card.Name)
+	}
+	return core.Result{Value: cards, OK: true}
+}
+
+// cmdTasks lists the plan/task templates — each template's --plan-template
+// slug plus name, description, and category. With --json (the GUI lane) it
+// prints the cards array the dispatch view's premade-task picker consumes;
+// otherwise a human list.
+//
+//	core-agent tasks --json
+func (s *PrepSubsystem) cmdTasks(options core.Options) core.Result {
+	cards := lib.TaskCards()
+	if emitCommandJSON(options, cards) {
+		return core.Result{Value: cards, OK: true}
+	}
+	core.Print(nil, "tasks: %d", len(cards))
+	for _, card := range cards {
+		core.Print(nil, "  %-20s %s", card.Slug, card.Name)
+	}
+	return core.Result{Value: cards, OK: true}
 }
 
 func (s *PrepSubsystem) cmdMirror(options core.Options) core.Result {
@@ -1053,7 +1161,7 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	}
 	target := options.String("target")
 
-	if sourcePath == "" && fs.Exists(templateName) && fs.IsFile(templateName) {
+	if sourcePath == "" && fs.Exists(templateName).OK && fs.IsFile(templateName).OK {
 		sourcePath = templateName
 		templateName = ""
 	}
@@ -1117,7 +1225,7 @@ func (s *PrepSubsystem) cmdExtract(options core.Options) core.Result {
 	for _, p := range paths {
 		name := core.PathBase(p)
 		marker := " "
-		if filesystem.IsDir(p) {
+		if filesystem.IsDir(p).OK {
 			marker = "/"
 		}
 		core.Print(nil, "  %s%s", name, marker)
@@ -1190,6 +1298,7 @@ type FlowRunOutput struct {
 type flowDefinition struct {
 	Name        string               `yaml:"name"`
 	Description string               `yaml:"description"`
+	Inputs      []flow.Input         `yaml:"inputs"`
 	Steps       []flowDefinitionStep `yaml:"steps"`
 }
 
@@ -1199,6 +1308,7 @@ type flowDefinitionStep struct {
 	Args            []string             `yaml:"args"`
 	Run             string               `yaml:"run"`
 	Flow            string               `yaml:"flow"`
+	With            map[string]string    `yaml:"with"`
 	Agent           string               `yaml:"agent"`
 	Prompt          string               `yaml:"prompt"`
 	Template        string               `yaml:"template"`

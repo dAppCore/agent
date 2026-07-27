@@ -13,6 +13,11 @@ import (
 // newTestCore creates a minimal Core with application commands registered.
 func newTestCore(t *testing.T) *core.Core {
 	t.Helper()
+	// Isolate workspace resolution: an earlier test that built a full core
+	// (newCoreAgent → loadAgentsConfig) leaves agentic's global workspace-root
+	// override set from agents.yaml, which otherwise wins over this test's
+	// CORE_WORKSPACE. Clear it so each test starts from a known state.
+	agentic.SetWorkspaceRootOverride("")
 	c := core.New(core.WithOption("name", "core-agent"))
 	c.App().Version = "test"
 	registerApplicationCommands(c)

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Actions\Sync;
 
 use Core\Actions\Action;
+use Core\Mod\Agentic\Models\AgentRegistration;
 use Core\Mod\Agentic\Models\BrainMemory;
-use Core\Mod\Agentic\Models\FleetNode;
 use Core\Mod\Agentic\Models\SyncRecord;
 use Illuminate\Support\Carbon;
 
@@ -36,14 +36,15 @@ class PullFleetContext
 
         $items = $query->limit(25)->get();
 
-        $node = FleetNode::query()
+        $node = AgentRegistration::query()
             ->where('workspace_id', $workspaceId)
             ->where('agent_id', $agentId)
             ->first();
 
         if ($node) {
             SyncRecord::create([
-                'fleet_node_id' => $node->id,
+                'workspace_id' => $workspaceId,
+                'agent_id' => $agentId,
                 'direction' => 'pull',
                 'payload_size' => strlen((string) json_encode($items->toArray())),
                 'items_count' => $items->count(),

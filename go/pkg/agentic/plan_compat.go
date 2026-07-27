@@ -385,7 +385,7 @@ var deletePlanResult = func(input PlanDeleteInput, missingMessage, op string) (*
 
 	if plan.Slug != "" {
 		stateFile := statePath(plan.Slug)
-		if fs.Exists(stateFile) {
+		if fs.Exists(stateFile).OK {
 			if deleteResult := fs.Delete(stateFile); !deleteResult.OK {
 				deleteErr, _ := deleteResult.Value.(error)
 				return nil, core.E(op, "failed to delete plan state", deleteErr)

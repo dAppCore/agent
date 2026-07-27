@@ -13,11 +13,17 @@ import (
 
 func (s *PrepSubsystem) registerSetupCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}},
+		{"agentic:setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}},
 	}
-	if r := c.Command("agentic:setup", core.Command{Description: "Scaffold a workspace with .core config files and optional templates", Action: s.cmdSetup}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }

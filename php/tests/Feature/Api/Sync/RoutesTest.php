@@ -4,9 +4,14 @@
 
 declare(strict_types=1);
 
+// NOTE: updated for the fleet reconciliation — the sync actions resolve agent
+// identity via AgentRegistration (sync_records re-keyed to workspace_id +
+// agent_id). Flagged UNRUN: framework test suite can't be installed here (forge
+// offline); verify in CI.
+
 use Core\Mod\Agentic\Models\AgentApiKey;
+use Core\Mod\Agentic\Models\AgentRegistration;
 use Core\Mod\Agentic\Models\BrainMemory;
-use Core\Mod\Agentic\Models\FleetNode;
 use Core\Tenant\Models\Workspace;
 
 beforeEach(function (): void {
@@ -40,18 +45,24 @@ test('agent sync push route stores dispatch history', function (): void {
         ->assertCreated()
         ->assertJsonPath('data.synced', 1);
 
-    expect(FleetNode::query()->where('agent_id', 'charon')->exists())->toBeTrue();
+    expect(
+        AgentRegistration::query()
+            ->where('workspace_id', $workspace->id)
+            ->where('agent_id', 'charon')
+            ->exists()
+    )->toBeTrue();
 });
 
 test('agent sync pull route returns shared context', function (): void {
     $workspace = createWorkspace();
     $key = syncRouteKey($workspace, [AgentApiKey::PERM_SYNC_READ]);
 
-    FleetNode::create([
+    AgentRegistration::create([
         'workspace_id' => $workspace->id,
         'agent_id' => 'charon',
+        'hostname' => 'charon',
         'platform' => 'linux',
-        'status' => FleetNode::STATUS_ONLINE,
+        'status' => AgentRegistration::STATUS_ONLINE,
     ]);
 
     BrainMemory::create([

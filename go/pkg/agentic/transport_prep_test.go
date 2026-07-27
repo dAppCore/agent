@@ -384,7 +384,7 @@ func TestQueuedAgent_PrepSubsystem_SpawnFromQueue_Good(t *testing.T) {
 	}
 
 	outputPath := agentOutputFile(workspaceDir, "claude")
-	requireEventually(t, func() bool { return fs.IsFile(outputPath) }, 5*time.Second, 10*time.Millisecond)
+	requireEventually(t, func() bool { return fs.IsFile(outputPath).OK }, 5*time.Second, 10*time.Millisecond)
 	outputResult := fs.Read(outputPath)
 	core.RequireTrue(t, outputResult.OK)
 	output := core.Trim(outputResult.Value.(string))

@@ -6,11 +6,17 @@ import core "dappco.re/go"
 
 func (s *PrepSubsystem) registerCommitCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}},
+		{"agentic:commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}},
 	}
-	if r := c.Command("agentic:commit", core.Command{Description: "Write the final dispatch record to the workspace journal", Action: s.cmdCommit}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }

@@ -37,7 +37,7 @@ func TestMessage_MessageSend_Good_PersistsAndReadsBack(t *testing.T) {
 	core.AssertNotEmpty(t, output.Message.CreatedAt)
 
 	messageStorePath := messagePath("core/go-io/task-5")
-	core.AssertTrue(t, fs.Exists(messageStorePath))
+	core.AssertTrue(t, fs.Exists(messageStorePath).OK)
 
 	inboxResult := s.cmdMessageInbox(core.NewOptions(
 		core.Option{Key: "_arg", Value: "core/go-io/task-5"},

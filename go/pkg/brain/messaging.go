@@ -103,7 +103,13 @@ var sendMessage = func(s *DirectSubsystem, ctx context.Context, _ *mcp.CallToolR
 func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
 	// "self" target: push via notifications/claude/channel directly.
 	// Claude Code expects: { content: string, meta: Record<string, string> }
-	if s.Core() == nil {
+	//
+	// Guard ServiceRuntime BEFORE calling s.Core(): Core() is a method
+	// on the embedded *core.ServiceRuntime and dereferences its receiver
+	// (returns r.core), so a nil embedded runtime — the localDirect()
+	// construction path — would panic on s.Core() before any "== nil"
+	// check could short-circuit. Mirrors the OnStartup guard in actions.go.
+	if s.ServiceRuntime == nil || s.Core() == nil {
 		return
 	}
 	mcpResult := s.Core().Service("mcp")

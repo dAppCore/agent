@@ -8,7 +8,7 @@ import (
 
 func ExampleCoreRoot() {
 	root := CoreRoot()
-	core.Println(core.HasSuffix(root, ".core"))
+	core.Println(core.HasSuffix(root, "data"))
 	// Output: true
 }
 
@@ -20,7 +20,7 @@ func ExampleWorkspaceRoot() {
 
 func ExampleReadStatusResult() {
 	fsys := (&core.Fs{}).NewUnrestricted()
-	dir := fsys.TempDir("runner-paths-result")
+	dir := core.MustCast[string](fsys.TempDir("runner-paths-result"))
 	defer fsys.DeleteAll(dir)
 
 	WriteStatus(dir, &WorkspaceStatus{
@@ -39,7 +39,7 @@ func ExampleReadStatusResult() {
 
 func ExampleWriteStatus() {
 	fsys := (&core.Fs{}).NewUnrestricted()
-	dir := fsys.TempDir("runner-paths")
+	dir := core.MustCast[string](fsys.TempDir("runner-paths"))
 	defer fsys.DeleteAll(dir)
 
 	result := WriteStatus(dir, &WorkspaceStatus{

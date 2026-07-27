@@ -38,7 +38,7 @@ func TestPlanFromIssue_PlanFromIssue_Good_Case(t *testing.T) {
 	core.AssertEqual(t, "issue-fix-auth", output.Plan.Slug)
 	core.AssertEqual(t, "Stop anonymous access to the admin route\n\n## Checklist\n- [ ] Keep CLI output stable", output.Plan.Objective)
 	core.AssertNotEmpty(t, output.Path)
-	core.AssertTrue(t, fs.Exists(output.Path))
+	core.AssertTrue(t, fs.Exists(output.Path).OK)
 
 	plan, err := readPlan(PlansRoot(), output.Plan.ID)
 	core.RequireNoError(t, err)

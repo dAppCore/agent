@@ -35,17 +35,19 @@ type LanguageListInput struct{}
 
 func (s *PrepSubsystem) registerLanguageCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}},
+		{"agentic:lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}},
+		{"lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}},
+		{"agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}},
 	}
-	if r := c.Command("agentic:lang/detect", core.Command{Description: "Detect the primary language for a workspace or repository", Action: s.cmdLangDetect}); !r.OK {
-		return r
-	}
-	if r := c.Command("lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:lang/list", core.Command{Description: "List supported language identifiers", Action: s.cmdLangList}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }

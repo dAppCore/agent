@@ -95,8 +95,8 @@ func (s *PrepSubsystem) closeStateStore() {
 		return
 	}
 	if ref.instance != nil {
-		if err := ref.instance.Close(); err != nil {
-			core.Warn("agentic.stateStore: failed to close state store", `path`, stateStorePath(), "reason", err)
+		if result := ref.instance.Close(); !result.OK {
+			core.Warn("agentic.stateStore: failed to close state store", `path`, stateStorePath(), "reason", resultErrorValue("agentic.stateStore", result))
 		}
 		ref.instance = nil
 	}
@@ -121,11 +121,11 @@ var openStateStore = func() (*store.Store, error) {
 		return nil, core.E("agentic.stateStore", "prepare state directory", nil)
 	}
 
-	storeInstance, err := store.New(path)
-	if err != nil {
-		return nil, core.E("agentic.stateStore", "open state store", err)
+	result := store.New(path)
+	if !result.OK {
+		return nil, core.E("agentic.stateStore", "open state store", resultErrorValue("agentic.stateStore", result))
 	}
-	return storeInstance, nil
+	return result.Value.(*store.Store), nil
 }
 
 // stateStoreSet writes a JSON-encoded value to the given group+key if the
@@ -138,8 +138,8 @@ func (s *PrepSubsystem) stateStoreSet(group, key string, value any) {
 		return
 	}
 	payload := core.JSONMarshalString(value)
-	if err := st.Set(group, key, payload); err != nil {
-		core.Warn("agentic.stateStore: failed to persist state", "group", group, "key", key, "reason", err)
+	if result := st.Set(group, key, payload); !result.OK {
+		core.Warn("agentic.stateStore: failed to persist state", "group", group, "key", key, "reason", resultErrorValue("agentic.stateStore", result))
 	}
 }
 
@@ -152,8 +152,8 @@ func (s *PrepSubsystem) stateStoreDelete(group, key string) {
 	if st == nil {
 		return
 	}
-	if err := st.Delete(group, key); err != nil {
-		core.Warn("agentic.stateStore: failed to delete state", "group", group, "key", key, "reason", err)
+	if result := st.Delete(group, key); !result.OK {
+		core.Warn("agentic.stateStore: failed to delete state", "group", group, "key", key, "reason", resultErrorValue("agentic.stateStore", result))
 	}
 }
 
@@ -168,8 +168,8 @@ func (s *PrepSubsystem) stateStoreGet(group, key string) (string, bool) {
 	if st == nil {
 		return "", false
 	}
-	value, err := st.Get(group, key)
-	if err != nil {
+	value, result := st.Get(group, key)
+	if !result.OK {
 		return "", false
 	}
 	if value == "" {
@@ -215,8 +215,8 @@ func (s *PrepSubsystem) stateStoreCount(group string) int {
 	if st == nil {
 		return 0
 	}
-	count, err := st.Count(group)
-	if err != nil {
+	count, result := st.Count(group)
+	if !result.OK {
 		return 0
 	}
 	return count

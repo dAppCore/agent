@@ -10,7 +10,7 @@ import (
 
 func ExamplePrepSubsystem_cmdWorkspaceClean() {
 	fsys := (&core.Fs{}).NewUnrestricted()
-	root := fsys.TempDir("agentic-workspace-clean-example")
+	root := core.MustCast[string](fsys.TempDir("agentic-workspace-clean-example"))
 	defer fsys.DeleteAll(root)
 
 	previous, hadPrevious := syscall.Getenv("CORE_WORKSPACE")

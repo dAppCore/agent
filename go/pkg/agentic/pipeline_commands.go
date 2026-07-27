@@ -13,131 +13,57 @@ var pipelineNumberPattern = regexp.MustCompile(`^[0-9]+$`)
 
 func (s *PrepSubsystem) registerPipelineCommands() core.Result {
 	c := s.Core()
-	if r := c.Command("pipeline", core.Command{Description: "Run the agent pipeline command tree", Action: s.cmdPipeline}); !r.OK {
-		return r
+	entries := []struct {
+		name string
+		cmd  core.Command
+	}{
+		{"pipeline", core.Command{Description: "Run the agent pipeline command tree", Action: s.cmdPipeline}},
+		{"agentic:pipeline", core.Command{Description: "Run the agent pipeline command tree", Action: s.cmdPipeline}},
+		{"pipeline/audit", core.Command{Description: "Stage 1: audit issues into implementation work", Action: s.cmdPipelineAudit}},
+		{"agentic:pipeline/audit", core.Command{Description: "Stage 1: audit issues into implementation work", Action: s.cmdPipelineAudit}},
+		{"pipeline/epic", core.Command{Description: "Stage 2 and 3 epic orchestration commands", Action: s.cmdPipelineEpic}},
+		{"agentic:pipeline/epic", core.Command{Description: "Stage 2 and 3 epic orchestration commands", Action: s.cmdPipelineEpic}},
+		{"pipeline/epic/create", core.Command{Description: "Group implementation issues into epics", Action: s.cmdPipelineEpicCreate}},
+		{"agentic:pipeline/epic/create", core.Command{Description: "Group implementation issues into epics", Action: s.cmdPipelineEpicCreate}},
+		{"pipeline/epic/run", core.Command{Description: "Dispatch and monitor an epic", Action: s.cmdPipelineEpicRun}},
+		{"agentic:pipeline/epic/run", core.Command{Description: "Dispatch and monitor an epic", Action: s.cmdPipelineEpicRun}},
+		{"pipeline/epic/status", core.Command{Description: "Show epic progress", Action: s.cmdPipelineEpicStatus}},
+		{"agentic:pipeline/epic/status", core.Command{Description: "Show epic progress", Action: s.cmdPipelineEpicStatus}},
+		{"pipeline/epic/sync", core.Command{Description: "Sync epic checklist state from child issues", Action: s.cmdPipelineEpicSync}},
+		{"agentic:pipeline/epic/sync", core.Command{Description: "Sync epic checklist state from child issues", Action: s.cmdPipelineEpicSync}},
+		{"pipeline/monitor", core.Command{Description: "Watch open PRs and auto-intervene", Action: s.cmdPipelineMonitor}},
+		{"agentic:pipeline/monitor", core.Command{Description: "Watch open PRs and auto-intervene", Action: s.cmdPipelineMonitor}},
+		{"pipeline/fix", core.Command{Description: "Pipeline fix-up commands", Action: s.cmdPipelineFix}},
+		{"agentic:pipeline/fix", core.Command{Description: "Pipeline fix-up commands", Action: s.cmdPipelineFix}},
+		{"pipeline/fix/reviews", core.Command{Description: "Ask the agent to fix code reviews on a pull request", Action: s.cmdPipelineFixReviews}},
+		{"agentic:pipeline/fix/reviews", core.Command{Description: "Ask the agent to fix code reviews on a pull request", Action: s.cmdPipelineFixReviews}},
+		{"pipeline/fix/conflicts", core.Command{Description: "Ask the agent to fix a merge conflict on a pull request", Action: s.cmdPipelineFixConflicts}},
+		{"agentic:pipeline/fix/conflicts", core.Command{Description: "Ask the agent to fix a merge conflict on a pull request", Action: s.cmdPipelineFixConflicts}},
+		{"pipeline/fix/format", core.Command{Description: "Apply formatting-only fixes in a workspace or repo checkout", Action: s.cmdPipelineFixFormat}},
+		{"agentic:pipeline/fix/format", core.Command{Description: "Apply formatting-only fixes in a workspace or repo checkout", Action: s.cmdPipelineFixFormat}},
+		{"pipeline/fix/threads", core.Command{Description: "Handle review-thread follow-up for a pull request", Action: s.cmdPipelineFixThreads}},
+		{"agentic:pipeline/fix/threads", core.Command{Description: "Handle review-thread follow-up for a pull request", Action: s.cmdPipelineFixThreads}},
+		{"pipeline/onboard", core.Command{Description: "Run audit, epic creation, and dispatch onboarding for a repo", Action: s.cmdPipelineOnboard}},
+		{"agentic:pipeline/onboard", core.Command{Description: "Run audit, epic creation, and dispatch onboarding for a repo", Action: s.cmdPipelineOnboard}},
+		{"pipeline/budget", core.Command{Description: "Budget planning commands", Action: s.cmdPipelineBudget}},
+		{"agentic:pipeline/budget", core.Command{Description: "Budget planning commands", Action: s.cmdPipelineBudget}},
+		{"pipeline/budget/plan", core.Command{Description: "Show daily dispatch budget planning", Action: s.cmdPipelineBudgetPlan}},
+		{"agentic:pipeline/budget/plan", core.Command{Description: "Show daily dispatch budget planning", Action: s.cmdPipelineBudgetPlan}},
+		{"pipeline/budget/log", core.Command{Description: "Append a dispatch event to the budget journal", Action: s.cmdPipelineBudgetLog}},
+		{"agentic:pipeline/budget/log", core.Command{Description: "Append a dispatch event to the budget journal", Action: s.cmdPipelineBudgetLog}},
+		{"pipeline/training", core.Command{Description: "Training journal commands", Action: s.cmdPipelineTraining}},
+		{"agentic:pipeline/training", core.Command{Description: "Training journal commands", Action: s.cmdPipelineTraining}},
+		{"pipeline/training/capture", core.Command{Description: "Capture a merged pull request for training", Action: s.cmdPipelineTrainingCapture}},
+		{"agentic:pipeline/training/capture", core.Command{Description: "Capture a merged pull request for training", Action: s.cmdPipelineTrainingCapture}},
+		{"pipeline/training/stats", core.Command{Description: "Summarise training journal data", Action: s.cmdPipelineTrainingStats}},
+		{"agentic:pipeline/training/stats", core.Command{Description: "Summarise training journal data", Action: s.cmdPipelineTrainingStats}},
+		{"pipeline/training/export", core.Command{Description: "Export training journal data", Action: s.cmdPipelineTrainingExport}},
+		{"agentic:pipeline/training/export", core.Command{Description: "Export training journal data", Action: s.cmdPipelineTrainingExport}},
 	}
-	if r := c.Command("agentic:pipeline", core.Command{Description: "Run the agent pipeline command tree", Action: s.cmdPipeline}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/audit", core.Command{Description: "Stage 1: audit issues into implementation work", Action: s.cmdPipelineAudit}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/audit", core.Command{Description: "Stage 1: audit issues into implementation work", Action: s.cmdPipelineAudit}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/epic", core.Command{Description: "Stage 2 and 3 epic orchestration commands", Action: s.cmdPipelineEpic}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/epic", core.Command{Description: "Stage 2 and 3 epic orchestration commands", Action: s.cmdPipelineEpic}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/epic/create", core.Command{Description: "Group implementation issues into epics", Action: s.cmdPipelineEpicCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/epic/create", core.Command{Description: "Group implementation issues into epics", Action: s.cmdPipelineEpicCreate}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/epic/run", core.Command{Description: "Dispatch and monitor an epic", Action: s.cmdPipelineEpicRun}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/epic/run", core.Command{Description: "Dispatch and monitor an epic", Action: s.cmdPipelineEpicRun}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/epic/status", core.Command{Description: "Show epic progress", Action: s.cmdPipelineEpicStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/epic/status", core.Command{Description: "Show epic progress", Action: s.cmdPipelineEpicStatus}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/epic/sync", core.Command{Description: "Sync epic checklist state from child issues", Action: s.cmdPipelineEpicSync}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/epic/sync", core.Command{Description: "Sync epic checklist state from child issues", Action: s.cmdPipelineEpicSync}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/monitor", core.Command{Description: "Watch open PRs and auto-intervene", Action: s.cmdPipelineMonitor}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/monitor", core.Command{Description: "Watch open PRs and auto-intervene", Action: s.cmdPipelineMonitor}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/fix", core.Command{Description: "Pipeline fix-up commands", Action: s.cmdPipelineFix}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/fix", core.Command{Description: "Pipeline fix-up commands", Action: s.cmdPipelineFix}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/fix/reviews", core.Command{Description: "Ask the agent to fix code reviews on a pull request", Action: s.cmdPipelineFixReviews}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/fix/reviews", core.Command{Description: "Ask the agent to fix code reviews on a pull request", Action: s.cmdPipelineFixReviews}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/fix/conflicts", core.Command{Description: "Ask the agent to fix a merge conflict on a pull request", Action: s.cmdPipelineFixConflicts}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/fix/conflicts", core.Command{Description: "Ask the agent to fix a merge conflict on a pull request", Action: s.cmdPipelineFixConflicts}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/fix/format", core.Command{Description: "Apply formatting-only fixes in a workspace or repo checkout", Action: s.cmdPipelineFixFormat}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/fix/format", core.Command{Description: "Apply formatting-only fixes in a workspace or repo checkout", Action: s.cmdPipelineFixFormat}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/fix/threads", core.Command{Description: "Handle review-thread follow-up for a pull request", Action: s.cmdPipelineFixThreads}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/fix/threads", core.Command{Description: "Handle review-thread follow-up for a pull request", Action: s.cmdPipelineFixThreads}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/onboard", core.Command{Description: "Run audit, epic creation, and dispatch onboarding for a repo", Action: s.cmdPipelineOnboard}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/onboard", core.Command{Description: "Run audit, epic creation, and dispatch onboarding for a repo", Action: s.cmdPipelineOnboard}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/budget", core.Command{Description: "Budget planning commands", Action: s.cmdPipelineBudget}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/budget", core.Command{Description: "Budget planning commands", Action: s.cmdPipelineBudget}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/budget/plan", core.Command{Description: "Show daily dispatch budget planning", Action: s.cmdPipelineBudgetPlan}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/budget/plan", core.Command{Description: "Show daily dispatch budget planning", Action: s.cmdPipelineBudgetPlan}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/budget/log", core.Command{Description: "Append a dispatch event to the budget journal", Action: s.cmdPipelineBudgetLog}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/budget/log", core.Command{Description: "Append a dispatch event to the budget journal", Action: s.cmdPipelineBudgetLog}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/training", core.Command{Description: "Training journal commands", Action: s.cmdPipelineTraining}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/training", core.Command{Description: "Training journal commands", Action: s.cmdPipelineTraining}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/training/capture", core.Command{Description: "Capture a merged pull request for training", Action: s.cmdPipelineTrainingCapture}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/training/capture", core.Command{Description: "Capture a merged pull request for training", Action: s.cmdPipelineTrainingCapture}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/training/stats", core.Command{Description: "Summarise training journal data", Action: s.cmdPipelineTrainingStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/training/stats", core.Command{Description: "Summarise training journal data", Action: s.cmdPipelineTrainingStats}); !r.OK {
-		return r
-	}
-	if r := c.Command("pipeline/training/export", core.Command{Description: "Export training journal data", Action: s.cmdPipelineTrainingExport}); !r.OK {
-		return r
-	}
-	if r := c.Command("agentic:pipeline/training/export", core.Command{Description: "Export training journal data", Action: s.cmdPipelineTrainingExport}); !r.OK {
-		return r
+	for _, entry := range entries {
+		if r := c.Command(entry.name, entry.cmd); !r.OK {
+			return r
+		}
 	}
 	return core.Ok(nil)
 }

@@ -147,7 +147,7 @@ func writeConfig(path, content string, options Options) core.Result {
 		return core.Result{Value: path, OK: true}
 	}
 
-	if !options.Force && fs.Exists(path) {
+	if !options.Force && fs.Exists(path).OK {
 		core.Print(nil, "  skip %s (exists, use --force to overwrite)", core.PathBase(path))
 		return core.Result{Value: path, OK: true}
 	}

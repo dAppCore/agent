@@ -285,5 +285,5 @@ func extractPullRequestNumber(pullRequestURL string) int {
 }
 
 func fileExists(path string) bool {
-	return fs.IsFile(path)
+	return fs.IsFile(path).OK
 }

@@ -5,22 +5,25 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Controllers\Api;
 
 use Core\Front\Controller;
-use Core\Mod\Agentic\Actions\Fleet\AssignTask;
-use Core\Mod\Agentic\Actions\Fleet\CompleteTask;
-use Core\Mod\Agentic\Actions\Fleet\DeregisterNode;
-use Core\Mod\Agentic\Actions\Fleet\GetFleetStats;
-use Core\Mod\Agentic\Actions\Fleet\GetNextTask;
-use Core\Mod\Agentic\Actions\Fleet\ListNodes;
-use Core\Mod\Agentic\Actions\Fleet\NodeHeartbeat;
-use Core\Mod\Agentic\Actions\Fleet\RegisterNode;
-use Core\Mod\Agentic\Models\FleetNode;
-use Core\Mod\Agentic\Models\FleetTask;
+use Core\Mod\Agentic\Models\AgentRegistration;
+use Core\Mod\Agentic\Models\DispatchJob;
+use Core\Mod\Agentic\Services\DispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Fleet endpoints (/v1/fleet/*) over the unified DispatchService — agents land
+ * in agent_registrations and tasks in dispatch_jobs, the same queue the console
+ * and the MCP dispatch tool use. Response shapes are preserved for the Go
+ * core-agent (task ids are now uuids rather than integers).
+ */
 class FleetController extends Controller
 {
+    public function __construct(
+        private DispatchService $dispatch,
+    ) {}
+
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -31,13 +34,12 @@ class FleetController extends Controller
             'capabilities' => 'nullable|array',
         ]);
 
-        $node = RegisterNode::run(
-            (int) $request->attributes->get('workspace_id'),
-            $validated['agent_id'],
-            $validated['platform'],
-            $validated['models'] ?? [],
-            $validated['capabilities'] ?? [],
-        );
+        $node = $this->dispatch->register((int) $request->attributes->get('workspace_id'), [
+            'agent_id' => $validated['agent_id'],
+            'platform' => $validated['platform'],
+            'models' => $validated['models'] ?? [],
+            'capabilities' => $validated['capabilities'] ?? [],
+        ]);
 
         return response()->json(['data' => $this->formatNode($node)], 201);
     }
@@ -50,12 +52,16 @@ class FleetController extends Controller
             'compute_budget' => 'nullable|array',
         ]);
 
-        $node = NodeHeartbeat::run(
+        $node = $this->dispatch->heartbeat(
             (int) $request->attributes->get('workspace_id'),
             $validated['agent_id'],
             $validated['status'],
             $validated['compute_budget'] ?? [],
         );
+
+        if (! $node instanceof AgentRegistration) {
+            return response()->json(['error' => 'not_registered', 'message' => 'Agent is not registered.'], 404);
+        }
 
         return response()->json(['data' => $this->formatNode($node)]);
     }
@@ -66,7 +72,7 @@ class FleetController extends Controller
             'agent_id' => 'required|string|max:255',
         ]);
 
-        DeregisterNode::run((int) $request->attributes->get('workspace_id'), $validated['agent_id']);
+        $this->dispatch->deregister((int) $request->attributes->get('workspace_id'), $validated['agent_id']);
 
         return response()->json(['data' => ['agent_id' => $validated['agent_id'], 'deregistered' => true]]);
     }
@@ -78,14 +84,14 @@ class FleetController extends Controller
             'platform' => 'nullable|string|max:64',
         ]);
 
-        $nodes = ListNodes::run(
+        $nodes = $this->dispatch->listAgents(
             (int) $request->attributes->get('workspace_id'),
             $validated['status'] ?? null,
             $validated['platform'] ?? null,
         );
 
         return response()->json([
-            'data' => $nodes->map(fn (FleetNode $node) => $this->formatNode($node))->values()->all(),
+            'data' => $nodes->map(fn (AgentRegistration $node) => $this->formatNode($node))->values()->all(),
             'total' => $nodes->count(),
         ]);
     }
@@ -101,41 +107,49 @@ class FleetController extends Controller
             'agent_model' => 'nullable|string|max:255',
         ]);
 
-        $fleetTask = AssignTask::run(
-            (int) $request->attributes->get('workspace_id'),
-            $validated['agent_id'],
-            $validated['task'],
-            $validated['repo'],
-            $validated['template'] ?? null,
-            $validated['branch'] ?? null,
-            $validated['agent_model'] ?? null,
-        );
+        $job = $this->dispatch->enqueue((int) $request->attributes->get('workspace_id'), [
+            'repo' => $validated['repo'],
+            'branch' => $validated['branch'] ?? null,
+            'task' => $validated['task'],
+            'template' => $validated['template'] ?? null,
+            'agent_type' => $validated['agent_model'] ?? null,
+            'assigned_agent' => $validated['agent_id'],
+            'created_by' => $validated['agent_id'],
+        ]);
 
-        return response()->json(['data' => $this->formatTask($fleetTask)], 201);
+        return response()->json(['data' => $this->formatTask($job)], 201);
     }
 
     public function completeTask(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'agent_id' => 'required|string|max:255',
-            'task_id' => 'required|integer',
+            'task_id' => 'required|string|max:64',
+            'status' => 'nullable|string|in:completed,failed',
             'result' => 'nullable|array',
             'findings' => 'nullable|array',
             'changes' => 'nullable|array',
             'report' => 'nullable|array',
         ]);
 
-        $fleetTask = CompleteTask::run(
+        $job = $this->dispatch->complete(
             (int) $request->attributes->get('workspace_id'),
             $validated['agent_id'],
-            (int) $validated['task_id'],
-            $validated['result'] ?? [],
-            $validated['findings'] ?? [],
-            $validated['changes'] ?? [],
-            $validated['report'] ?? [],
+            $validated['task_id'],
+            [
+                'status' => $validated['status'] ?? DispatchJob::STATUS_COMPLETED,
+                'result' => $validated['result'] ?? [],
+                'findings' => $validated['findings'] ?? [],
+                'changes' => $validated['changes'] ?? [],
+                'report' => $validated['report'] ?? [],
+            ],
         );
 
-        return response()->json(['data' => $this->formatTask($fleetTask)]);
+        if (! $job instanceof DispatchJob) {
+            return response()->json(['error' => 'not_found', 'message' => 'No matching job assigned to this agent.'], 404);
+        }
+
+        return response()->json(['data' => $this->formatTask($job)]);
     }
 
     public function nextTask(Request $request): JsonResponse
@@ -145,13 +159,13 @@ class FleetController extends Controller
             'capabilities' => 'nullable|array',
         ]);
 
-        $fleetTask = GetNextTask::run(
+        $job = $this->dispatch->nextTask(
             (int) $request->attributes->get('workspace_id'),
             $validated['agent_id'],
             $validated['capabilities'] ?? [],
         );
 
-        return response()->json(['data' => $fleetTask ? $this->formatTask($fleetTask) : null]);
+        return response()->json(['data' => $job instanceof DispatchJob ? $this->formatTask($job) : null]);
     }
 
     public function events(Request $request): StreamedResponse
@@ -176,9 +190,9 @@ class FleetController extends Controller
             $this->streamFleetEvent('ready', ['agent_id' => $agentId]);
 
             while (! connection_aborted()) {
-                $fleetTask = GetNextTask::run($workspaceId, $agentId, []);
-                if ($fleetTask instanceof FleetTask) {
-                    $this->streamFleetEvent('task.assigned', $this->formatTask($fleetTask));
+                $job = $this->dispatch->nextTask($workspaceId, $agentId, []);
+                if ($job instanceof DispatchJob) {
+                    $this->streamFleetEvent('task.assigned', $this->formatTask($job));
                     $emitted++;
 
                     if ($limit > 0 && $emitted >= $limit) {
@@ -212,7 +226,7 @@ class FleetController extends Controller
 
     public function stats(Request $request): JsonResponse
     {
-        $stats = GetFleetStats::run((int) $request->attributes->get('workspace_id'));
+        $stats = $this->dispatch->stats((int) $request->attributes->get('workspace_id'));
 
         return response()->json(['data' => $stats]);
     }
@@ -220,7 +234,7 @@ class FleetController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatNode(FleetNode $node): array
+    private function formatNode(AgentRegistration $node): array
     {
         return [
             'id' => $node->id,
@@ -232,29 +246,29 @@ class FleetController extends Controller
             'compute_budget' => $node->compute_budget ?? [],
             'current_task_id' => $node->current_task_id,
             'last_heartbeat_at' => $node->last_heartbeat_at?->toIso8601String(),
-            'registered_at' => $node->registered_at?->toIso8601String(),
+            'registered_at' => $node->connected_at?->toIso8601String(),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function formatTask(FleetTask $fleetTask): array
+    private function formatTask(DispatchJob $job): array
     {
         return [
-            'id' => $fleetTask->id,
-            'repo' => $fleetTask->repo,
-            'branch' => $fleetTask->branch,
-            'task' => $fleetTask->task,
-            'template' => $fleetTask->template,
-            'agent_model' => $fleetTask->agent_model,
-            'status' => $fleetTask->status,
-            'result' => $fleetTask->result ?? [],
-            'findings' => $fleetTask->findings ?? [],
-            'changes' => $fleetTask->changes ?? [],
-            'report' => $fleetTask->report ?? [],
-            'started_at' => $fleetTask->started_at?->toIso8601String(),
-            'completed_at' => $fleetTask->completed_at?->toIso8601String(),
+            'id' => $job->id,
+            'repo' => $job->repo,
+            'branch' => $job->branch,
+            'task' => $job->task,
+            'template' => $job->template,
+            'agent_model' => $job->agent_type,
+            'status' => $job->status,
+            'result' => $job->result ?? [],
+            'findings' => $job->findings ?? [],
+            'changes' => $job->changes ?? [],
+            'report' => $job->report ?? [],
+            'started_at' => $job->started_at?->toIso8601String(),
+            'completed_at' => $job->completed_at?->toIso8601String(),
         ];
     }
 }

@@ -139,7 +139,7 @@ func TestCommandsState_CmdStateDelete_Good_Case(t *testing.T) {
 	deleteOutput, ok := result.Value.(StateDeleteOutput)
 	core.RequireTrue(t, ok)
 	core.AssertEqual(t, "pattern", deleteOutput.Deleted.Key)
-	core.AssertFalse(t, fs.Exists(statePath("ax-follow-up")))
+	core.AssertFalse(t, fs.Exists(statePath("ax-follow-up")).OK)
 }
 
 func TestCommandsState_CmdStateDelete_Bad_MissingKey(t *testing.T) {

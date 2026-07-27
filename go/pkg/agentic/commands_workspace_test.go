@@ -106,7 +106,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Bad_UnknownFilterLeavesEverything(t
 
 	// All workspaces should still exist
 	for _, name := range []string{"ws-done", "ws-fail", "ws-run"} {
-		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)).OK, "workspace %s should still exist", name)
 	}
 }
 
@@ -141,11 +141,11 @@ func TestCommandsworkspace_CmdWorkspaceClean_Ugly_MixedStatuses(t *testing.T) {
 
 	// merged, ready-for-review, blocked should be removed
 	for _, name := range []string{"ws-merged", "ws-review", "ws-blocked"} {
-		core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, name)), "workspace %s should be removed", name)
+		core.AssertFalse(t, fs.Exists(core.JoinPath(wsRoot, name)).OK, "workspace %s should be removed", name)
 	}
 	// running and queued should remain
 	for _, name := range []string{"ws-running", "ws-queued"} {
-		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)), "workspace %s should still exist", name)
+		core.AssertTrue(t, fs.IsDir(core.JoinPath(wsRoot, name)).OK, "workspace %s should still exist", name)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	wsRoot := core.JoinPath(root, "workspace")
 
 	// A completed workspace with a .meta/report.json sidecar — per RFC §15.5
-	// the stats row must be persisted to `.core/workspace/db.duckdb` BEFORE
+	// the stats row must be persisted to `~/Lethean/workspace/db.duckdb` BEFORE
 	// the workspace directory is deleted.
 	workspaceDir := core.JoinPath(wsRoot, "core", "go-io", "task-stats")
 	fs.EnsureDir(workspaceDir)
@@ -187,16 +187,18 @@ func TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete(t *t
 	core.AssertTrue(t, r.OK)
 
 	// Workspace directory is gone.
-	core.AssertFalse(t, fs.Exists(workspaceDir))
+	core.AssertFalse(t, fs.Exists(workspaceDir).OK)
 
-	// Stats row survives in `.core/workspace/db.duckdb`.
+	// Stats row survives in `~/Lethean/workspace/db.duckdb`.
 	statsStore := s.workspaceStatsInstance()
 	if statsStore == nil {
 		t.Skip("go-store unavailable on this platform — RFC §15.6 graceful degradation")
 	}
 
-	value, err := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
-	core.AssertNoError(t, err)
+	value, result := statsStore.Get(stateWorkspaceStatsGroup, "core/go-io/task-stats")
+	if !result.OK {
+		t.Fatalf("read workspace stats: %v", resultErrorValue("TestCommandsworkspace_CmdWorkspaceClean_Good_CapturesStatsBeforeDelete", result))
+	}
 	core.AssertContains(t, value, "core/go-io/task-stats")
 	core.AssertContains(t, value, "\"build_passed\":true")
 }

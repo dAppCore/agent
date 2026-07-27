@@ -211,7 +211,7 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 		return
 	}
 	for _, finding := range report.Findings {
-		if err := workspace.Put("finding", map[string]any{
+		if result := workspace.Put("finding", map[string]any{
 			"tool":     finding.Tool,
 			"file":     finding.File,
 			"line":     finding.Line,
@@ -222,19 +222,19 @@ func (s *PrepSubsystem) recordLintFindings(workspace *store.Workspace, report QA
 			"category": finding.Category,
 			"rule_id":  finding.RuleID,
 			"title":    finding.Title,
-		}); err != nil {
-			core.Warn("agentic: failed to persist lint finding", "workspace", workspace.Name(), "reason", err)
+		}); !result.OK {
+			core.Warn("agentic: failed to persist lint finding", "workspace", workspace.Name(), "reason", resultErrorValue("recordLintFindings", result))
 		}
 	}
 	for _, tool := range report.Tools {
-		if err := workspace.Put("tool_run", map[string]any{
+		if result := workspace.Put("tool_run", map[string]any{
 			"name":     tool.Name,
 			"version":  tool.Version,
 			"status":   tool.Status,
 			"duration": tool.Duration,
 			"findings": tool.Findings,
-		}); err != nil {
-			core.Warn("agentic: failed to persist tool run", "workspace", workspace.Name(), "reason", err)
+		}); !result.OK {
+			core.Warn("agentic: failed to persist tool run", "workspace", workspace.Name(), "reason", resultErrorValue("recordLintFindings", result))
 		}
 	}
 }
@@ -247,11 +247,11 @@ func (s *PrepSubsystem) recordBuildResult(workspace *store.Workspace, kind strin
 	if workspace == nil || kind == "" {
 		return
 	}
-	if err := workspace.Put(kind, map[string]any{
+	if result := workspace.Put(kind, map[string]any{
 		"passed": passed,
 		"output": output,
-	}); err != nil {
-		core.Warn("agentic: failed to persist build result", "workspace", workspace.Name(), "kind", kind, "reason", err)
+	}); !result.OK {
+		core.Warn("agentic: failed to persist build result", "workspace", workspace.Name(), "kind", kind, "reason", resultErrorValue("recordBuildResult", result))
 	}
 }
 
@@ -269,7 +269,7 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 	}
 
 	repoDir := WorkspaceRepoDir(workspaceDir)
-	if !fs.IsDir(repoDir) {
+	if !fs.IsDir(repoDir).OK {
 		return s.runQALegacy(ctx, workspaceDir)
 	}
 
@@ -278,8 +278,8 @@ func (s *PrepSubsystem) runQAWithReport(ctx context.Context, workspaceDir string
 		return s.runQALegacy(ctx, workspaceDir)
 	}
 
-	workspace, err := storeInstance.NewWorkspace(qaWorkspaceName(workspaceDir))
-	if err != nil {
+	workspace, result := storeInstance.NewWorkspace(qaWorkspaceName(workspaceDir))
+	if !result.OK {
 		return s.runQALegacy(ctx, workspaceDir)
 	}
 
@@ -372,7 +372,7 @@ func (s *PrepSubsystem) runBuildAndTest(ctx context.Context, workspace *store.Wo
 	process := s.Core().Process()
 
 	switch {
-	case fs.IsFile(core.JoinPath(repoDir, "go.mod")):
+	case fs.IsFile(core.JoinPath(repoDir, "go.mod")).OK:
 		buildResult := process.RunIn(ctx, repoDir, "go", "build", "./...")
 		s.recordBuildResult(workspace, "build", buildResult.OK, stringOutput(buildResult))
 		if !buildResult.OK {
@@ -386,7 +386,7 @@ func (s *PrepSubsystem) runBuildAndTest(ctx context.Context, workspace *store.Wo
 		testResult := process.RunIn(ctx, repoDir, "go", "test", "./...", "-count=1", "-timeout", "120s")
 		s.recordBuildResult(workspace, "test", testResult.OK, stringOutput(testResult))
 		return true, testResult.OK
-	case fs.IsFile(core.JoinPath(repoDir, "composer.json")):
+	case fs.IsFile(core.JoinPath(repoDir, "composer.json")).OK:
 		installResult := process.RunIn(ctx, repoDir, "composer", "install", "--no-interaction")
 		s.recordBuildResult(workspace, "build", installResult.OK, stringOutput(installResult))
 		if !installResult.OK {
@@ -395,7 +395,7 @@ func (s *PrepSubsystem) runBuildAndTest(ctx context.Context, workspace *store.Wo
 		testResult := process.RunIn(ctx, repoDir, "composer", "test")
 		s.recordBuildResult(workspace, "test", testResult.OK, stringOutput(testResult))
 		return true, testResult.OK
-	case fs.IsFile(core.JoinPath(repoDir, "package.json")):
+	case fs.IsFile(core.JoinPath(repoDir, "package.json")).OK:
 		installResult := process.RunIn(ctx, repoDir, "npm", "install")
 		s.recordBuildResult(workspace, "build", installResult.OK, stringOutput(installResult))
 		if !installResult.OK {
@@ -422,7 +422,7 @@ func (s *PrepSubsystem) runQALegacy(ctx context.Context, workspaceDir string) bo
 	repoDir := WorkspaceRepoDir(workspaceDir)
 	process := s.Core().Process()
 
-	if fs.IsFile(core.JoinPath(repoDir, "go.mod")) {
+	if fs.IsFile(core.JoinPath(repoDir, "go.mod")).OK {
 		for _, args := range [][]string{
 			{"go", "build", "./..."},
 			{"go", "vet", "./..."},
@@ -436,14 +436,14 @@ func (s *PrepSubsystem) runQALegacy(ctx context.Context, workspaceDir string) bo
 		return true
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "composer.json")) {
+	if fs.IsFile(core.JoinPath(repoDir, "composer.json")).OK {
 		if !process.RunIn(ctx, repoDir, "composer", "install", "--no-interaction").OK {
 			return false
 		}
 		return process.RunIn(ctx, repoDir, "composer", "test").OK
 	}
 
-	if fs.IsFile(core.JoinPath(repoDir, "package.json")) {
+	if fs.IsFile(core.JoinPath(repoDir, "package.json")).OK {
 		if !process.RunIn(ctx, repoDir, "npm", "install").OK {
 			return false
 		}

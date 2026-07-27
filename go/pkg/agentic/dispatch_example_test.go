@@ -7,7 +7,7 @@ import (
 )
 
 func Example_detectFinalStatus() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example-ws"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	// Exit code 0 → completed
@@ -17,7 +17,7 @@ func Example_detectFinalStatus() {
 }
 
 func Example_detectFinalStatus_failed() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example-ws")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example-ws"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	// Non-zero exit → failed

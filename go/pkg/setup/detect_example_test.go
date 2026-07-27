@@ -7,7 +7,7 @@ import (
 )
 
 func ExampleDetect_go() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	(&core.Fs{}).NewUnrestricted().Write(core.JoinPath(dir, "go.mod"), "module test")
@@ -16,7 +16,7 @@ func ExampleDetect_go() {
 }
 
 func ExampleDetect_php() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	(&core.Fs{}).NewUnrestricted().Write(core.JoinPath(dir, "composer.json"), "{}")
@@ -25,7 +25,7 @@ func ExampleDetect_php() {
 }
 
 func ExampleDetect_node() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	(&core.Fs{}).NewUnrestricted().Write(core.JoinPath(dir, "package.json"), "{}")
@@ -34,7 +34,7 @@ func ExampleDetect_node() {
 }
 
 func ExampleDetectAll_polyglot() {
-	dir := (&core.Fs{}).NewUnrestricted().TempDir("example")
+	dir := core.MustCast[string]((&core.Fs{}).NewUnrestricted().TempDir("example"))
 	defer (&core.Fs{}).NewUnrestricted().DeleteAll(dir)
 
 	f := (&core.Fs{}).NewUnrestricted()
