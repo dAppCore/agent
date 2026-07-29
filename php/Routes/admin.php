@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Mod\Developer\Middleware\RequireHades;
+use Core\Developer\Middleware\RequireHades;
 
 /*
 |--------------------------------------------------------------------------
