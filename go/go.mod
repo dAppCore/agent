@@ -3,13 +3,13 @@ module dappco.re/go/agent
 go 1.26.2
 
 require (
-	dappco.re/go v0.11.0
+	dappco.re/go v0.12.0
 	dappco.re/go/api v0.19.0
-	dappco.re/go/cli v0.11.1
-	dappco.re/go/container v0.11.0
-	dappco.re/go/io v0.15.1
+	dappco.re/go/cli v0.13.0
+	dappco.re/go/container v0.12.0
+	dappco.re/go/io v0.15.3
 	dappco.re/go/mcp v0.19.1
-	dappco.re/go/orm v0.1.1
+	dappco.re/go/orm v0.1.2
 	dappco.re/go/process v0.16.1
 	dappco.re/go/store v0.14.1
 	dappco.re/go/ws v0.7.1
@@ -38,6 +38,7 @@ require (
 )
 
 require (
+	dappco.re/go/i18n v0.12.1 // indirect
 	dappco.re/go/log v0.13.1 // indirect
 	dappco.re/go/rag v0.15.1 // indirect
 	github.com/99designs/gqlgen v0.17.88 // indirect
