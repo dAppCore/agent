@@ -443,7 +443,7 @@ func TestMetaReader_ForgeMetaReader_GetPRMeta_Good(t *testing.T) {
 		Number:                12,
 		Title:                 "Stabilise pipeline",
 		State:                 "open",
-		Mergeable:             boolPtr(true),
+		Mergeable:             new(true),
 		MergeableState:        "clean",
 		HeadRef:               "agent/stabilise-pipeline",
 		HeadSHA:               "sha-12",

@@ -3,6 +3,8 @@
 package setup
 
 import (
+	"slices"
+
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/lib"
 )
@@ -189,12 +191,7 @@ func resolveTemplateName(name string, projectType ProjectType) core.Result {
 }
 
 func templateExists(name string) bool {
-	for _, tmpl := range lib.ListWorkspaces() {
-		if tmpl == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(lib.ListWorkspaces(), name)
 }
 
 func defaultBuildCommand(projectType ProjectType) string {

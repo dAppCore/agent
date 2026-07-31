@@ -398,7 +398,7 @@ func TestCommandsFlow_CmdRunFlow_Bad_RejectsDepthExceeded(t *testing.T) {
 	// Build a non-cyclic chain longer than maxFlowNestingDepth so the depth
 	// guard fires before the cycle guard would.
 	chain := maxFlowNestingDepth + 2
-	for level := 0; level < chain; level++ {
+	for level := range chain {
 		body := core.Concat("name: Flow ", core.Itoa(level), "\nsteps:\n")
 		if level < chain-1 {
 			body = core.Concat(body, "  - name: deeper\n    flow: level-", core.Itoa(level+1), ".yaml\n")

@@ -3,7 +3,8 @@
 package agentic
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"time"
 
 	core "dappco.re/go"
@@ -116,11 +117,7 @@ func (s *PrepSubsystem) pipelineBudgetPlanRows(now time.Time) []pipelineBudgetPl
 		return nil
 	}
 
-	names := make([]string, 0, len(pools))
-	for pool := range pools {
-		names = append(names, pool)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(pools))
 
 	entries := s.pipelineBudgetEntries()
 	rows := make([]pipelineBudgetPlanRow, 0, len(names))
@@ -153,10 +150,7 @@ func (s *PrepSubsystem) pipelineBudgetPlanRows(now time.Time) []pipelineBudgetPl
 		}
 		if rate.DailyLimit > 0 {
 			row.DailyLimit = core.Sprint(rate.DailyLimit)
-			remaining := rate.DailyLimit - used
-			if remaining < 0 {
-				remaining = 0
-			}
+			remaining := max(rate.DailyLimit-used, 0)
 			row.Remaining = core.Sprint(remaining)
 		}
 		rows = append(rows, row)

@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"time"
 
@@ -919,9 +920,7 @@ func (s *PrepSubsystem) eventPayloadValue(body string) map[string]any {
 	if dataBody != "" {
 		var dataPayload map[string]any
 		if parseResult := core.JSONUnmarshalString(dataBody, &dataPayload); parseResult.OK {
-			for key, value := range dataPayload {
-				payload[key] = value
-			}
+			maps.Copy(payload, dataPayload)
 			return payload
 		}
 		payload["data"] = dataBody

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -30,9 +31,9 @@ func fakeChatServer(t *testing.T) *httptest.Server {
 			return
 		}
 		var lastUser string
-		for i := len(req.Messages) - 1; i >= 0; i-- {
-			if req.Messages[i].Role == "user" {
-				lastUser = req.Messages[i].Content
+		for _, v := range slices.Backward(req.Messages) {
+			if v.Role == "user" {
+				lastUser = v.Content
 				break
 			}
 		}

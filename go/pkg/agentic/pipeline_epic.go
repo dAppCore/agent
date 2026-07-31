@@ -3,8 +3,9 @@
 package agentic
 
 import (
+	"cmp"
 	"context"
-	"sort"
+	"slices"
 
 	core "dappco.re/go"
 )
@@ -222,8 +223,8 @@ var pipelineEpicCreate = func(s *PrepSubsystem, ctx context.Context, input Pipel
 		}
 	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].Number < candidates[j].Number
+	slices.SortFunc(candidates, func(a, b PipelineIssueRef) int {
+		return cmp.Compare(a.Number, b.Number)
 	})
 
 	output := PipelineEpicCreateOutput{
@@ -263,7 +264,7 @@ var pipelineEpicCreate = func(s *PrepSubsystem, ctx context.Context, input Pipel
 			groupNames = append(groupNames, theme)
 		}
 	}
-	sort.Strings(groupNames)
+	slices.Sort(groupNames)
 
 	reader := newPipelineForgeMetaReader(s, input.Org)
 	for _, theme := range groupNames {

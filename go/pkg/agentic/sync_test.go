@@ -530,8 +530,7 @@ func TestSync_RunSyncFlushLoop_Good_DrainsQueuedPushes(t *testing.T) {
 		brainURL:       server.URL,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go subsystem.runSyncFlushLoop(ctx, 10*time.Millisecond)
 
 	deadline := time.Now().Add(5 * time.Second)

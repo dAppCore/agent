@@ -1367,8 +1367,7 @@ func TestCommands_CmdExtract_Bad_NoExtractableContent(t *testing.T) {
 
 func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions())
 	core.AssertFalse(t, r.OK)
@@ -1376,8 +1375,7 @@ func TestCommands_CmdRunTask_Bad_MissingArgs(t *testing.T) {
 
 func TestCommands_CmdDispatchSync_Bad_MissingArgs(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	s.startupContext = ctx
 	r := s.cmdDispatchSync(core.NewOptions())
 	core.AssertFalse(t, r.OK)
@@ -1385,8 +1383,7 @@ func TestCommands_CmdDispatchSync_Bad_MissingArgs(t *testing.T) {
 
 func TestCommands_CmdRunTask_Bad_MissingTask(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	s.startupContext = ctx
 	r := s.cmdRunTask(core.NewOptions(core.Option{Key: "repo", Value: "go-io"}))
 	core.AssertFalse(t, r.OK)
@@ -1490,8 +1487,7 @@ func TestCommands_ParseIntStr_Good_Case(t *testing.T) {
 
 func TestCommands_RegisterCommands_Good_AllRegistered(t *testing.T) {
 	s, c := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	s.registerCommands(ctx)
 
 	cmds := c.Commands()
@@ -1736,8 +1732,7 @@ func TestCommands_CmdRunTask_Ugly_MixedIssueString(t *testing.T) {
 
 func TestCommands_CommandContext_Good_StoredStartupContext(t *testing.T) {
 	s, _ := testPrepWithCore(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	s.registerCommands(ctx)
 	core.AssertSame(t, ctx, s.commandContext())
 }

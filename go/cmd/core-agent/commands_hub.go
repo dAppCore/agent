@@ -21,9 +21,9 @@ import (
 	"dappco.re/go/agent/pkg/audit"
 	"dappco.re/go/agent/pkg/brain"
 	"dappco.re/go/agent/pkg/opencode"
+	coreapi "dappco.re/go/api"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
 	"dappco.re/go/mcp/pkg/mcp/ide"
-	coreapi "dappco.re/go/api"
 	"dappco.re/go/ws"
 )
 
@@ -128,7 +128,7 @@ func (commands applicationCommandSet) hub(opts core.Options) core.Result {
 	}
 
 	// Block until the first server returns (a bind error or ctx cancel).
-	for i := 0; i < started; i++ {
+	for range started {
 		if err := <-errCh; err != nil {
 			return core.Fail(err)
 		}

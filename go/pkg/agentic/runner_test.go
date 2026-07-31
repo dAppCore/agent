@@ -126,7 +126,7 @@ func TestRunner_PrepSubsystem_Poke_Ugly(t *testing.T) {
 	s.pokeCh = make(chan struct{}, 1)
 
 	// Rapid-fire pokes — should all be safe
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		core.AssertNotPanics(t, func() { s.Poke() })
 	}
 	// Channel should have at most 1 signal

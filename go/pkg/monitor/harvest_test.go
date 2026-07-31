@@ -238,7 +238,7 @@ func TestHarvest_HarvestCompleted_Good_MultipleWorkspaces(t *testing.T) {
 	wsRoot := t.TempDir()
 	t.Setenv("CORE_WORKSPACE", wsRoot)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		name := core.Sprintf("ws-%d", i)
 		wsDir := core.JoinPath(wsRoot, "workspace", name)
 

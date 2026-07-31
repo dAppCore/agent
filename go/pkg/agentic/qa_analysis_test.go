@@ -52,7 +52,7 @@ func TestAnalyseWorkspace_Good_FiveClusters(t *testing.T) {
 	t.Cleanup(workspace.Discard)
 
 	repeated := QAFinding{Tool: "gosec", Severity: "error", Category: "security-secret", Code: "G101", File: "secret.go", Line: 10, Message: "hardcoded secret"}
-	for cycle := 0; cycle < persistentThreshold-1; cycle++ {
+	for range persistentThreshold - 1 {
 		publishDispatchReport(subsystem.stateStoreInstance(), workspaceName, DispatchReport{
 			Workspace:   workspaceName,
 			Findings:    []QAFinding{repeated},

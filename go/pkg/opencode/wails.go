@@ -201,11 +201,11 @@ func maskProviderKey(key string) string {
 	if len(key) <= head+tail {
 		return ""
 	}
+	// The bullet run is capped at 12 so a long key does not render as an
+	// unreadable wall of dots; core.Repeat replaces the += accumulation
+	// loop, which reallocated the string on every iteration.
 	mid := len(key) - head - tail
-	bullets := ""
-	for i := 0; i < mid && i < 12; i++ { // cap bullet run at 12 for readability
-		bullets += "•"
-	}
+	bullets := core.Repeat("•", min(mid, 12))
 	return key[:head] + bullets + key[len(key)-tail:]
 }
 

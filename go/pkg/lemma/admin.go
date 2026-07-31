@@ -134,11 +134,11 @@ type ServeStatusConfig struct {
 // MachineInfo mirrors cmd/mlx adminMachineInfo. The pairing handshake
 // target (RFC §3.1.2) — Mod\Pairing on lthn.ai hits exactly this.
 type MachineInfo struct {
-	Hash      string                 `json:"hash"`
-	Hostname  string                 `json:"hostname,omitempty"`
-	Runtime   string                 `json:"runtime"`
-	GoVersion string                 `json:"go_version,omitempty"`
-	Extra     map[string]interface{} `json:"extra,omitempty"`
+	Hash      string         `json:"hash"`
+	Hostname  string         `json:"hostname,omitempty"`
+	Runtime   string         `json:"runtime"`
+	GoVersion string         `json:"go_version,omitempty"`
+	Extra     map[string]any `json:"extra,omitempty"`
 }
 
 // ProfilesList mirrors cmd/mlx adminProfilesList. Lists tuning
@@ -286,7 +286,7 @@ func (a *Admin) DownloadJob(ctx context.Context, jobID string) (DownloadJobStatu
 // adds Bearer header + Accept JSON, parses response into out when
 // non-nil. 4xx/5xx returns an error carrying the upstream body so
 // the caller (CLI or UI) can surface the user-visible reason.
-func (a *Admin) doJSON(ctx context.Context, method, path string, body, out interface{}) error {
+func (a *Admin) doJSON(ctx context.Context, method, path string, body, out any) error {
 	var reqBody io.Reader
 	if body != nil {
 		buf, err := json.Marshal(body)

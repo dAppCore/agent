@@ -31,7 +31,6 @@ func TestRegisterApplicationCommands_Bad_ConflictPropagates(t *testing.T) {
 		"models-download", "models-job", "opencode-models",
 	}
 	for _, name := range names {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			c := core.New(core.WithOption("name", "core-agent"))
 			// Seed a conflicting executable command so the matching

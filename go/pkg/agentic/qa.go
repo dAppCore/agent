@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	core "dappco.re/go"
@@ -599,8 +600,8 @@ func readPreviousJournalCycles(storeInstance *store.Store, workspaceName string,
 	}
 
 	cycles := make([][]map[string]any, 0, len(rows))
-	for i := len(rows) - 1; i >= 0; i-- {
-		raw := stringValue(rows[i]["fields_json"])
+	for _, row := range slices.Backward(rows) {
+		raw := stringValue(row["fields_json"])
 		if raw == "" {
 			continue
 		}

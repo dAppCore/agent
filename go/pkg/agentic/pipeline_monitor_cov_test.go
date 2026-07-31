@@ -61,7 +61,7 @@ func TestPipelineMonitorCov_CmdMonitor_Good_RepoScopePrintsActions(t *testing.T)
 		Number:         1,
 		Title:          "Conflicting PR",
 		State:          "open",
-		Mergeable:      boolPtr(false),
+		Mergeable:      new(false),
 		MergeableState: "dirty",
 		HeadRef:        "agent/conflict",
 		HeadSHA:        "sha-conflict",

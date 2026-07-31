@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"slices"
 
 	core "dappco.re/go"
 	coremcp "dappco.re/go/mcp/pkg/mcp"
@@ -66,13 +67,7 @@ var createEpic = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.Ca
 	}
 
 	labels := input.Labels
-	hasAgentic := false
-	for _, l := range labels {
-		if l == "agentic" {
-			hasAgentic = true
-			break
-		}
-	}
+	hasAgentic := slices.Contains(labels, "agentic")
 	if !hasAgentic {
 		labels = append(labels, "agentic")
 	}
@@ -153,9 +148,9 @@ var createIssue = func(s *PrepSubsystem, ctx context.Context, org, repo, title, 
 		Number  int    `json:"number"`
 		HTMLURL string `json:"html_url"`
 	}
-		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue); !parseResult.OK {
-			return ChildRef{}, core.E("createIssue", "parse issue response failed", forgeResultError(parseResult))
-		}
+	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdIssue); !parseResult.OK {
+		return ChildRef{}, core.E("createIssue", "parse issue response failed", forgeResultError(parseResult))
+	}
 
 	return ChildRef{
 		Number: createdIssue.Number,
@@ -180,9 +175,9 @@ func (s *PrepSubsystem) resolveLabelIDs(ctx context.Context, org, repo string, n
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	}
-		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &existing); !parseResult.OK {
-			return nil
-		}
+	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &existing); !parseResult.OK {
+		return nil
+	}
 
 	nameToID := make(map[string]int64)
 	for _, l := range existing {
@@ -231,8 +226,8 @@ func (s *PrepSubsystem) createLabel(ctx context.Context, org, repo, name string)
 	var createdLabel struct {
 		ID int64 `json:"id"`
 	}
-		if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel); !parseResult.OK {
-			return 0
-		}
+	if parseResult := core.JSONUnmarshalString(httpResult.Value.(string), &createdLabel); !parseResult.OK {
+		return 0
+	}
 	return createdLabel.ID
 }

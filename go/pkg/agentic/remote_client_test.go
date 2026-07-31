@@ -277,7 +277,7 @@ func TestRemoteclient_DrainSSE_Bad_EmptyBody(t *testing.T) {
 func TestRemoteclient_DrainSSE_Ugly_VeryLargeResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Write many SSE lines
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			_ = core.WriteString(w, core.Sprintf("data: line-%d padding-text-to-make-it-bigger-and-test-scanner-handling\n", i))
 		}
 		_ = core.WriteString(w, "\n")

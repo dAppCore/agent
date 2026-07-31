@@ -4,6 +4,7 @@ package lib
 
 import (
 	"embed"
+	"slices"
 	"testing"
 
 	core "dappco.re/go"
@@ -472,13 +473,7 @@ func TestLib_ListTasks_Good(t *testing.T) {
 	if len(tasks) == 0 {
 		t.Fatal("ListTasks() returned empty")
 	}
-	found := false
-	for _, s := range tasks {
-		if s == "code/review" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(tasks, "code/review")
 	if !found {
 		t.Error("ListTasks() missing nested path 'code/review'")
 	}
@@ -630,7 +625,6 @@ func TestLib_ExtractWorkspace_Good(t *testing.T) {
 	}
 }
 
-
 func TestLib_ExtractWorkspaceTemplate_Good_Case(t *testing.T) {
 	dir := t.TempDir()
 	data := &WorkspaceData{Repo: "my-repo", Task: "fix the bug"}
@@ -693,7 +687,6 @@ func TestLib_ExtractWorkspace_Good_AXConventions(t *testing.T) {
 		}
 	}
 }
-
 
 func TestLib_MountEmbed_Bad_Case(t *testing.T) {
 	result := mountEmbed(promptFiles, "missing-dir")
