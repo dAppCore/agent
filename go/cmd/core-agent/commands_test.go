@@ -18,7 +18,9 @@ func newTestCore(t *testing.T) *core.Core {
 	// override set from agents.yaml, which otherwise wins over this test's
 	// CORE_WORKSPACE. Clear it so each test starts from a known state.
 	agentic.SetWorkspaceRootOverride("")
-	c := core.New(core.WithOption("name", "core-agent"))
+	// core v0.12.0 stopped auto-registering the CLI, so c.Cli() is nil
+	// unless the Core opts in.
+	c := core.New(core.WithOption("name", "core-agent"), core.WithCli())
 	c.App().Version = "test"
 	registerApplicationCommands(c)
 	c.Cli().SetOutput(core.NewBuffer())

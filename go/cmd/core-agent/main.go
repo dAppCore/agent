@@ -58,7 +58,13 @@ func newCoreAgent() *core.Core {
 func newCoreAgentResult() (*core.Core, core.Result) {
 	coreApp := core.New(
 		core.WithOption("name", "core-agent"),
-		core.WithService(cli.Register),
+		// cli.Register stands up the *core.Cli primitive under the name
+		// "cli" itself, then hands back its own *cli.Service. WithService
+		// would derive that service's name from its package path — also
+		// "cli" — and collide with the primitive, failing core.New and
+		// silently abandoning every option after this one. Name the
+		// service explicitly so both live in the registry.
+		core.WithName("cliservice", cli.Register),
 		core.WithService(agentic.ProcessRegister),
 		core.WithService(agentic.Register),
 		core.WithService(runner.Register),

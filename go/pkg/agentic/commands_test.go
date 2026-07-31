@@ -18,7 +18,9 @@ func testPrepWithCore(t *testing.T, srv *httptest.Server) (*PrepSubsystem, *core
 	root := t.TempDir()
 	setTestWorkspace(t, root)
 
-	c := core.New()
+	// core v0.12.0 stopped auto-registering the CLI, so c.Cli() is nil
+	// unless the Core opts in.
+	c := core.New(core.WithCli())
 
 	var f *forgeClient
 	if srv != nil {
