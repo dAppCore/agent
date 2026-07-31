@@ -79,7 +79,6 @@ agent/
 ├── vm/docker/                   Containerised dev stack (Dockerfile + compose)
 ├── .core/                       Runtime workspace seed (agents.yaml + workspace.yaml)
 ├── docs/                        RFCs, onboarding, audits
-├── go.work + external/          Dev workspace mode (see CLAUDE.md)
 ├── Taskfile.yaml                Build orchestration (module-graph refresh, etc.)
 └── module-graph.json            Authoritative dappco.re/go/* dep snapshot
 ```

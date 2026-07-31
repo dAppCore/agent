@@ -1,15 +1,16 @@
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
 # Building
 
-## Go workspace
+## Go module
 
-The module is `dappco.re/go/agent`, rooted at `go/`. It participates in a Go workspace
-(`go.work`) that resolves all `dappco.re/go/*` dependencies locally via the submodules
-under `external/`. Run Go tooling from `go/`:
+The module is `dappco.re/go/agent`, rooted at `go/`. Every `dappco.re/go/*` dependency
+resolves from its published module tag — there is no workspace and no `replace`
+directive, so a checkout builds the same way everywhere. Run Go tooling from `go/`:
 
 - Development / default: `cd go && go build ./...`, `cd go && go test ./...`
 - CI / reproducibility: add `GOWORK=off` (and optionally `GOFLAGS=-mod=mod`) when running
-  `go test`, `go vet`, and `go mod tidy` from `go/`.
+  `go test`, `go vet`, and `go mod tidy` from `go/`. `GOWORK=off` proves resolution comes
+  from the tags alone, even if a stray `go.work` exists higher up the tree.
 
 ## PHP dependencies
 
