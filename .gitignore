@@ -50,5 +50,8 @@ htmlcov/
 # superpowers design/plan scratch — not committed (shipped work lives in code)
 docs/superpowers/
 
-# PHP — installed dependencies are regenerated from composer.json/lock
+# PHP — installed dependencies are regenerated from composer.json/lock.
+# Both paths: php/vendor/ was correct while composer.json lived in php/, and
+# /vendor/ is where it installs now that composer.json is at the repo root.
 php/vendor/
+/vendor/
