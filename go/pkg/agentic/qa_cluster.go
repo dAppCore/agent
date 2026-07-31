@@ -8,7 +8,7 @@ import (
 	"unicode"
 
 	core "dappco.re/go"
-	poindexter "forge.lthn.ai/Snider/Poindexter"
+	poindexter "github.com/Snider/Poindexter"
 )
 
 const (

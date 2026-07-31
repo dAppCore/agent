@@ -9,7 +9,7 @@ import (
 
 	core "dappco.re/go"
 	store "dappco.re/go/store"
-	poindexter "forge.lthn.ai/Snider/Poindexter"
+	poindexter "github.com/Snider/Poindexter"
 )
 
 const qaAnalysisClusterDistance = 0.15

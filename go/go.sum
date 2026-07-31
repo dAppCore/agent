@@ -28,8 +28,6 @@ forge.lthn.ai/Snider/Borg v0.3.1 h1:gfC1ZTpLoZai07oOWJiVeQ8+qJYK8A795tgVGJHbVL8=
 forge.lthn.ai/Snider/Borg v0.3.1/go.mod h1:Z7DJD0yHXsxSyM7Mjl6/g4gH1NBsIz44Bf5AFlV76Wg=
 forge.lthn.ai/Snider/Enchantrix v0.0.4 h1:biwpix/bdedfyc0iVeK15awhhJKH6TEMYOTXzHXx5TI=
 forge.lthn.ai/Snider/Enchantrix v0.0.4/go.mod h1:OGCwuVeZPq3OPe2h6TX/ZbgEjHU6B7owpIBeXQGbSe0=
-forge.lthn.ai/Snider/Poindexter v0.0.0-20260223032814-5ab751f16d06 h1:qaoYtu+8J4Z4eg5u3d0Nkp/UzMXR42x6PPg+0+GyXys=
-forge.lthn.ai/Snider/Poindexter v0.0.0-20260223032814-5ab751f16d06/go.mod h1:ddzGia98k3HKkR0gl58IDzqz+MmgW2cQJOCNLfuWPpo=
 github.com/99designs/gqlgen v0.17.94 h1:+3EUDVgX/8gDyDL+7NUqCo4cy2ylylwW0GvR1dGiEsA=
 github.com/99designs/gqlgen v0.17.94/go.mod h1:o+XaAMpPA/AX4rqeiK03tZUb/5T+WCgpRDD4aujgdas=
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=
@@ -37,6 +35,8 @@ github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6Xge
 github.com/ProtonMail/go-crypto v1.3.0 h1:ILq8+Sf5If5DCpHQp4PbZdS1J7HDFRXz/+xKBiRGFrw=
 github.com/ProtonMail/go-crypto v1.3.0/go.mod h1:9whxjD8Rbs29b4XWbB8irEcE8KHMqaR2e7GWU1R+/PE=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
+github.com/Snider/Poindexter v0.1.0 h1:lZ94xfjiFcBK2zaEQWhyW8HKZ2KS9xTRiVfVCERj9w8=
+github.com/Snider/Poindexter v0.1.0/go.mod h1:nhgkbg4zWA4AS2Ga3RmcvdsyiI9TdxvSqe5EVBSb3Hk=
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=
 github.com/agnivade/levenshtein v1.2.1/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
 github.com/andybalholm/brotli v1.2.2 h1:HzTuoo2ErYQqf5qvcJInB8uvqSVxRttzkFexPWtnceM=

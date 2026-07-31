@@ -13,7 +13,7 @@ require (
 	dappco.re/go/process v0.16.1
 	dappco.re/go/store v0.14.1
 	dappco.re/go/ws v0.7.1
-	forge.lthn.ai/Snider/Poindexter v0.0.0-20260223032814-5ab751f16d06
+	github.com/Snider/Poindexter v0.1.0
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
