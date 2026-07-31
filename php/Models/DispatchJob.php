@@ -66,6 +66,15 @@ class DispatchJob extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    /**
+     * Taken back before it finished.
+     *
+     * Distinct from failed on purpose: a failure says the work was attempted
+     * and did not succeed, which is worth investigating. A cancellation says
+     * nobody wanted it any more, which is not.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
+
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);

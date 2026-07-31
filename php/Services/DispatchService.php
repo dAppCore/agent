@@ -197,6 +197,113 @@ class DispatchService
     }
 
     /**
+     * Record that an agent tried a job and could not finish it.
+     *
+     * A job could be completed but never failed, so an agent that hit an error
+     * had two options: lie and call it complete, or say nothing and leave the
+     * job assigned forever. The reason is required because a failure nobody can
+     * read is the same as one nobody reported.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function fail(int $workspaceId, string $agentId, string $jobId, string $reason, array $data = []): ?DispatchJob
+    {
+        $job = $this->claimedJob($workspaceId, $agentId, $jobId);
+
+        if (! $job instanceof DispatchJob) {
+            return null;
+        }
+
+        $metadata = $job->metadata ?? [];
+        $metadata['failure_reason'] = $reason;
+        $metadata['failed_by'] = $agentId;
+
+        $job->forceFill([
+            'status' => DispatchJob::STATUS_FAILED,
+            'result' => $data['result'] ?? $job->result,
+            'findings' => $data['findings'] ?? $job->findings,
+            'report' => $data['report'] ?? $job->report,
+            'metadata' => $metadata,
+            'completed_at' => now(),
+        ])->save();
+
+        $this->releaseAgent($workspaceId, $agentId, $jobId);
+
+        return $job->fresh();
+    }
+
+    /**
+     * Take a job back, whether or not anyone has picked it up.
+     *
+     * Unlike completing or failing, cancelling is the workspace's decision
+     * rather than the agent's, so this does not require the job to be assigned
+     * to the caller — the work is simply no longer wanted. Whoever held it is
+     * released either way, so a cancelled job cannot leave an agent looking
+     * permanently busy.
+     */
+    public function cancel(int $workspaceId, string $jobId, ?string $reason = null): ?DispatchJob
+    {
+        $job = DispatchJob::query()
+            ->where('workspace_id', $workspaceId)
+            ->whereKey($jobId)
+            ->first();
+
+        if (! $job instanceof DispatchJob) {
+            return null;
+        }
+
+        // Finished work stays finished. Cancelling after the fact would rewrite
+        // the record of what happened.
+        if (in_array($job->status, [DispatchJob::STATUS_COMPLETED, DispatchJob::STATUS_FAILED], true)) {
+            return $job;
+        }
+
+        $metadata = $job->metadata ?? [];
+
+        if ($reason !== null) {
+            $metadata['cancel_reason'] = $reason;
+        }
+
+        $heldBy = $job->assigned_agent;
+
+        $job->forceFill([
+            'status' => DispatchJob::STATUS_CANCELLED,
+            'metadata' => $metadata,
+            'completed_at' => now(),
+        ])->save();
+
+        if (is_string($heldBy) && $heldBy !== '') {
+            $this->releaseAgent($workspaceId, $heldBy, $jobId);
+        }
+
+        return $job->fresh();
+    }
+
+    /**
+     * The job this agent is allowed to report on: its own, in its workspace.
+     */
+    private function claimedJob(int $workspaceId, string $agentId, string $jobId): ?DispatchJob
+    {
+        return DispatchJob::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('assigned_agent', $agentId)
+            ->whereKey($jobId)
+            ->first();
+    }
+
+    /**
+     * Clear an agent's current task, so it is free to be given another.
+     */
+    private function releaseAgent(int $workspaceId, string $agentId, string $jobId): void
+    {
+        AgentRegistration::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('agent_id', $agentId)
+            ->where('current_task_id', $jobId)
+            ->update(['current_task_id' => null]);
+    }
+
+    /**
      * @return array{registration: AgentRegistration|null, jobs: Collection<int, DispatchJob>}
      */
     public function checkIn(int $workspaceId, string $agentId): array
