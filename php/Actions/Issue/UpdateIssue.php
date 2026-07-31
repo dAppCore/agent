@@ -45,6 +45,20 @@ class UpdateIssue
             }
 
             if ($data['status'] === Issue::STATUS_CLOSED) {
+                // Route through the model so closing by status update is held
+                // to the same rule as Issue::close() — an epic does not close
+                // out from under its unfinished children.
+                $open = $issue->openChildren();
+
+                if ($open->isNotEmpty()) {
+                    throw new \RuntimeException(sprintf(
+                        "Cannot close issue '%s': %d child issue(s) still open (%s). Close them first, or archive.",
+                        $issue->slug,
+                        $open->count(),
+                        $open->pluck('slug')->implode(', ')
+                    ));
+                }
+
                 $data['closed_at'] = now();
             } elseif ($issue->status === Issue::STATUS_CLOSED) {
                 $data['closed_at'] = null;
@@ -61,7 +75,7 @@ class UpdateIssue
         }
 
         if (isset($data['type'])) {
-            $valid = [Issue::TYPE_BUG, Issue::TYPE_FEATURE, Issue::TYPE_TASK, Issue::TYPE_IMPROVEMENT];
+            $valid = [Issue::TYPE_BUG, Issue::TYPE_FEATURE, Issue::TYPE_TASK, Issue::TYPE_IMPROVEMENT, Issue::TYPE_EPIC];
             if (! in_array($data['type'], $valid, true)) {
                 throw new \InvalidArgumentException(
                     sprintf('type must be one of: %s', implode(', ', $valid))
@@ -69,8 +83,14 @@ class UpdateIssue
             }
         }
 
+        if (isset($data['discipline']) && ! in_array($data['discipline'], Issue::disciplines(), true)) {
+            throw new \InvalidArgumentException(
+                sprintf('discipline must be one of: %s', implode(', ', Issue::disciplines()))
+            );
+        }
+
         $issue->update($data);
 
-        return $issue->fresh()->load('sprint');
+        return $issue->fresh()->load('sprint', 'parent');
     }
 }

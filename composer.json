@@ -10,15 +10,16 @@
     "license": "EUPL-1.2",
     "require": {
         "php": "^8.2",
-        "dappcore/php": "*"
+        "dappcore/php": "*",
+        "spatie/laravel-activitylog": "^4.8"
     },
     "require-dev": {
+        "dappcore/php-tenant": "^0.1",
         "laravel/pint": "^1.18",
         "livewire/livewire": "^3.0",
         "orchestra/testbench": "^9.0|^10.0",
         "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-livewire": "^3.0",
-        "pestphp/pest-plugin-coverage": "^3.0"
+        "pestphp/pest-plugin-livewire": "^3.0"
     },
     "autoload": {
         "psr-4": {
@@ -42,7 +43,7 @@
     },
     "scripts": {
         "lint": "pint",
-        "test": "pest"
+        "test": "pest --test-directory=php/tests"
     },
     "config": {
         "sort-packages": true,
