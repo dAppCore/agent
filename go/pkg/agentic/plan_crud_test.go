@@ -437,7 +437,7 @@ func TestPlan_PlanList_Good_DefaultLimit(t *testing.T) {
 	setTestWorkspace(t, dir)
 
 	s := newTestPrep(t)
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		_, _, err := s.planCreate(context.Background(), nil, PlanCreateInput{
 			Title:     core.Sprintf("Plan %d", i+1),
 			Objective: "Test default list limit",

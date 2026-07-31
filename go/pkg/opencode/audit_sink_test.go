@@ -111,25 +111,21 @@ func TestAuditSink_Concurrent_Good(t *testing.T) {
 	const iterations = 100
 
 	// Concurrent dispatchers.
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range iterations {
 				dispatchAudit("e", "s", "ok", "r", nil)
 			}
-		}()
+		})
 	}
 
 	// Concurrent setter.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for j := 0; j < iterations; j++ {
+	wg.Go(func() {
+		for range iterations {
 			SetAuditSink(nil)
 			SetAuditSink(func(event, scope, outcome, requestID string, meta map[string]any) {})
 		}
-	}()
+	})
 
 	wg.Wait()
 }
@@ -142,14 +138,12 @@ func TestAuditSink_NilSinkConcurrent_Good(t *testing.T) {
 	var wg sync.WaitGroup
 	const goroutines = 50
 
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 50; j++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range 50 {
 				dispatchAudit("e", "s", "ok", "r", nil)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

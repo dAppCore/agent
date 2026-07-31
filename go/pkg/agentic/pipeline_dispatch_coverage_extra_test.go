@@ -38,7 +38,6 @@ func TestPipeline_Dispatchers_UnknownAction(t *testing.T) {
 	}
 
 	for name, fn := range dispatchers {
-		fn := fn
 		t.Run(name, func(t *testing.T) {
 			var r core.Result
 			captureStdout(t, func() {

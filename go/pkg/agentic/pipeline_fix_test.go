@@ -41,7 +41,7 @@ func TestPipelineFix_Ugly_ThreadsNoopWhenAlreadyResolved(t *testing.T) {
 		Number:                5,
 		Title:                 "Already clean",
 		State:                 "open",
-		Mergeable:             boolPtr(true),
+		Mergeable:             new(true),
 		HeadRef:               "agent/clean",
 		HeadSHA:               "sha-clean",
 		BaseRef:               "dev",

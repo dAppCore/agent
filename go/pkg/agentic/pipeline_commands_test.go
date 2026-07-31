@@ -5,7 +5,7 @@ package agentic
 import (
 	"net/http"
 	"net/http/httptest"
-	"sort"
+	"slices"
 	"testing"
 
 	core "dappco.re/go"
@@ -145,7 +145,7 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 			for name := range repos {
 				names = append(names, name)
 			}
-			sort.Strings(names)
+			slices.Sort(names)
 			out := []map[string]any{}
 			for _, name := range names {
 				repo := repos[name]
@@ -189,7 +189,7 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				for name := range repo.Labels {
 					names = append(names, name)
 				}
-				sort.Strings(names)
+				slices.Sort(names)
 				out := []map[string]any{}
 				for _, name := range names {
 					out = append(out, map[string]any{"id": repo.Labels[name], "name": name})
@@ -217,7 +217,7 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				for number := range repo.Issues {
 					numbers = append(numbers, number)
 				}
-				sort.Ints(numbers)
+				slices.Sort(numbers)
 				out := []map[string]any{}
 				for _, number := range numbers {
 					issue := repo.Issues[number]
@@ -312,7 +312,7 @@ func newPipelineTestServer(t *testing.T, repos map[string]*pipelineTestRepo) *ht
 				for number := range repo.Pulls {
 					numbers = append(numbers, number)
 				}
-				sort.Ints(numbers)
+				slices.Sort(numbers)
 				out := []map[string]any{}
 				for _, number := range numbers {
 					pullRequest := repo.Pulls[number]
@@ -445,6 +445,7 @@ func pipelinePRPayload(repoName string, pullRequest *pipelineTestPR) map[string]
 	return payload
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }

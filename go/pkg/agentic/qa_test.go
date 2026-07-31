@@ -411,7 +411,7 @@ func TestQa_PublishDispatchReport_Ugly_Case(t *testing.T) {
 	t.Cleanup(func() { _ = storeInstance.Close() })
 
 	workspaceName := "core/go-io/task-2"
-	for cycle := 0; cycle < persistentThreshold+2; cycle++ {
+	for cycle := range persistentThreshold + 2 {
 		publishDispatchReport(storeInstance, workspaceName, DispatchReport{
 			Workspace: workspaceName,
 			Findings: []QAFinding{{

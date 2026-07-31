@@ -74,7 +74,7 @@ func TestUnfrozen_Service_IsFrozen_Bad(t *testing.T) {
 
 func TestRapidToggle_Service_IsFrozen_Ugly(t *testing.T) {
 	svc := New()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		svc.frozen = i%2 == 0
 	}
 	// i=99 → 99%2==1 → false. Last write wins.
@@ -547,7 +547,7 @@ func TestRunner_Service_IsFrozen_Bad(t *testing.T) {
 
 func TestRunner_Service_IsFrozen_Ugly(t *testing.T) {
 	svc := New()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		svc.frozen = i%2 == 0
 	}
 	// i=99 → 99%2==1 → false. Last write wins.

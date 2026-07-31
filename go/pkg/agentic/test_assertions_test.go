@@ -104,7 +104,7 @@ func captureStdout(t *testing.T, run func()) string {
 
 func repeatString(part string, count int) string {
 	builder := core.NewBuilder()
-	for i := 0; i < count; i++ {
+	for range count {
 		_, _ = builder.WriteString(part)
 	}
 	return builder.String()

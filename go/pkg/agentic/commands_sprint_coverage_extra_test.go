@@ -56,7 +56,6 @@ func TestCommandsSprint_CmdSprint_DispatchesByAction(t *testing.T) {
 	s := testPrepWithPlatformServer(t, srv, "secret-token")
 
 	for _, action := range []string{"create", "get", "show", "list", "update", "archive", "delete"} {
-		action := action
 		t.Run(action, func(t *testing.T) {
 			opts := core.NewOptions(
 				core.Option{Key: "action", Value: action},

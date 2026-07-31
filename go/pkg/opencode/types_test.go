@@ -32,7 +32,7 @@ func TestContainerName_ReturnsPrefixPlusID_Good(t *testing.T) {
 // TestContainerName_Deterministic_Good — same input always produces
 // same output.
 func TestContainerName_Deterministic_Good(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if ContainerName("test-id") != "lthn-opencode-test-id" {
 			t.Fatalf("ContainerName not deterministic on iteration %d", i)
 		}

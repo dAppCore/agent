@@ -390,9 +390,9 @@ func brainSeedMemoryProject(path string) string {
 			continue
 		}
 		chunks := core.Split(projectSegment, "-")
-		for j := len(chunks) - 1; j >= 0; j-- {
-			if chunks[j] != "" {
-				return chunks[j]
+		for _, chunk := range slices.Backward(chunks) {
+			if chunk != "" {
+				return chunk
 			}
 		}
 	}

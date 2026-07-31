@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"time"
 
@@ -82,9 +83,7 @@ func newContentProvider(name, defaultModel string, available bool, generate Prov
 		delay := providerRetryBaseDelay
 		for attempt := 1; attempt <= providerRetryAttempts; attempt++ {
 			optionsCopy := map[string]any{}
-			for key, value := range options {
-				optionsCopy[key] = value
-			}
+			maps.Copy(optionsCopy, options)
 			if optionsCopy["provider"] == nil {
 				optionsCopy["provider"] = name
 			}

@@ -7,6 +7,7 @@
 package opencode
 
 import (
+	"maps"
 	"net/http/httptest"
 	"testing"
 
@@ -70,9 +71,7 @@ type auditCapture struct {
 
 func (a *auditCapture) fn(event, scope, outcome, requestID string, meta map[string]any) {
 	rec := map[string]any{"event": event, "scope": scope, "outcome": outcome}
-	for k, v := range meta {
-		rec[k] = v
-	}
+	maps.Copy(rec, meta)
 	a.events = append(a.events, rec)
 }
 

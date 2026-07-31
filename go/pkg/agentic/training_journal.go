@@ -3,7 +3,8 @@
 package agentic
 
 import (
-	"sort"
+	"maps"
+	"slices"
 
 	core "dappco.re/go"
 )
@@ -179,10 +180,5 @@ func sortedTrainingRepos(values map[string]int) []string {
 	if len(values) == 0 {
 		return nil
 	}
-	names := make([]string, 0, len(values))
-	for name := range values {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(values))
 }

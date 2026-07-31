@@ -29,6 +29,8 @@
 package opencode
 
 import (
+	"maps"
+
 	core "dappco.re/go"
 	"dappco.re/go/agent/pkg/opencode/internal/paths"
 )
@@ -149,9 +151,7 @@ func (s *Service) MergeHostConfig(opts MergeHostConfigOptions) core.Result {
 	// configured (e.g. their own OpenAI / Anthropic keys); writing
 	// `model` would change their default. T1 is purely "add the
 	// lthn provider so opencode can find it" — nothing more.
-	for k, v := range profile.Provider {
-		existingProvider[k] = v
-	}
+	maps.Copy(existingProvider, profile.Provider)
 	existing["provider"] = existingProvider
 
 	// Ensure parent dir + write.

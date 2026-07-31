@@ -495,10 +495,7 @@ func fleetBackoffDelay(failures int) time.Duration {
 		return 30 * time.Second
 	}
 
-	index := failures - 1
-	if index < 0 {
-		index = 0
-	}
+	index := max(failures-1, 0)
 	if index >= len(fleetBackoffSchedule) {
 		index = len(fleetBackoffSchedule) - 1
 	}

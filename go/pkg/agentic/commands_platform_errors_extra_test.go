@@ -79,7 +79,6 @@ func TestCmdPlatform_ErrorPaths_BackendDown(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			var r core.Result
 			captureStdout(t, func() { r = tc.call() })

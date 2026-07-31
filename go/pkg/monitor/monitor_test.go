@@ -459,7 +459,7 @@ func TestMonitor_CheckCompletions_Good_NewCompletions(t *testing.T) {
 	mon.ServiceRuntime = core.NewServiceRuntime(c, Options{})
 	core.AssertEqual(t, "", mon.checkCompletions())
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		writeWorkspaceStatus(t, wsRoot, core.Sprintf("ws-%d", i), map[string]any{
 			"status": "completed",
 			"repo":   core.Sprintf("repo-%d", i),

@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"maps"
 	"time"
 
 	core "dappco.re/go"
@@ -34,16 +35,12 @@ func (s *PrepSubsystem) loadRuntimeState() {
 		case "backoff":
 			backoff := map[string]time.Time{}
 			if result := core.JSONUnmarshalString(value, &backoff); result.OK {
-				for pool, deadline := range backoff {
-					state.Backoff[pool] = deadline
-				}
+				maps.Copy(state.Backoff, backoff)
 			}
 		case "fail_count":
 			failCount := map[string]int{}
 			if result := core.JSONUnmarshalString(value, &failCount); result.OK {
-				for pool, count := range failCount {
-					state.FailCount[pool] = count
-				}
+				maps.Copy(state.FailCount, failCount)
 			}
 		}
 		return true
@@ -69,16 +66,12 @@ func (s *PrepSubsystem) loadRuntimeState() {
 	if s.backoff == nil {
 		s.backoff = make(map[string]time.Time)
 	}
-	for pool, value := range state.Backoff {
-		s.backoff[pool] = value
-	}
+	maps.Copy(s.backoff, state.Backoff)
 
 	if s.failCount == nil {
 		s.failCount = make(map[string]int)
 	}
-	for pool, count := range state.FailCount {
-		s.failCount[pool] = count
-	}
+	maps.Copy(s.failCount, state.FailCount)
 }
 
 func (s *PrepSubsystem) persistRuntimeState() {

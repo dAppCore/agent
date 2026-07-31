@@ -22,8 +22,8 @@ import (
 // — an unentitled run surfaces the framework's entitlement error from Run and
 // the test skips rather than failing, per the fallback contract.
 //
-// Run with: CONTAINER_VZ_LIVE=1 CORE_AGENT_VZ_IMAGE=/path/to/image \
-//           go test ./pkg/agentic/ -tags vz -run TestDispatchVZ_LiveBoot -count=1
+//	Run with: CONTAINER_VZ_LIVE=1 CORE_AGENT_VZ_IMAGE=/path/to/image \
+//	          go test ./pkg/agentic/ -tags vz -run TestDispatchVZ_LiveBoot -count=1
 func TestDispatchVZ_LiveBoot_Good_Case(t *testing.T) {
 	if core.Env("CONTAINER_VZ_LIVE") != "1" {
 		t.Skip("CONTAINER_VZ_LIVE != 1 — live VZ boot test skipped")

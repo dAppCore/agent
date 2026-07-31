@@ -117,7 +117,7 @@ func TestMirror_CommitsAhead_Good_ThreeAhead(t *testing.T) {
 
 	run("git", "branch", "base")
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		name := core.JoinPath(dir, "file"+string(rune('a'+i))+".txt")
 		core.RequireTrue(t, fs.Write(name, "content").OK)
 		run("git", "add", ".")

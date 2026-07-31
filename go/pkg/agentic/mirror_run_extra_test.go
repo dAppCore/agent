@@ -54,7 +54,7 @@ func initRepoWithBareGithub(t *testing.T, repoDir string, extraCommits int) {
 	mirrorGit(t, repoDir, "git", "push", "github", "main")
 
 	// Diverge local main ahead of github/main.
-	for i := 0; i < extraCommits; i++ {
+	for i := range extraCommits {
 		name := core.Concat("file", string(rune('a'+i)), ".txt")
 		core.RequireTrue(t, fs.Write(core.JoinPath(repoDir, name), "data").OK)
 		mirrorGit(t, repoDir, "git", "add", ".")

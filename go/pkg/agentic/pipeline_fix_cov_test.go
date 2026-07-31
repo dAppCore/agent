@@ -126,7 +126,7 @@ func TestPipelineFixCov_CmdThreads_Good_PrintsCommentForUnresolved(t *testing.T)
 		Number:                5,
 		Title:                 "Needs follow-up",
 		State:                 "open",
-		Mergeable:             boolPtr(true),
+		Mergeable:             new(true),
 		HeadRef:               "agent/threads",
 		HeadSHA:               "sha-threads",
 		BaseRef:               "dev",

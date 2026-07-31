@@ -89,12 +89,12 @@ type NewConversation struct {
 // (the result of a tool call), set ToolResults. Tokens fields are
 // optional but useful for training cost attribution.
 type NewTurn struct {
-	Role         string
-	Content      string
-	ToolCalls    []byte // JSON
-	ToolResults  []byte // JSON
-	TokensIn     int
-	TokensOut    int
+	Role        string
+	Content     string
+	ToolCalls   []byte // JSON
+	ToolResults []byte // JSON
+	TokensIn    int
+	TokensOut   int
 }
 
 // Open returns a History handle for the user, creating the file +

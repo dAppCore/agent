@@ -4,6 +4,7 @@ package agentic
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -188,8 +189,8 @@ func vzImageFor(dir string) *container.Image {
 // element. Returns "" when every line is blank.
 func vzLastNonEmptyLine(output string) string {
 	lines := core.Split(output, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		if line := core.Trim(lines[i]); line != "" {
+	for _, line := range slices.Backward(lines) {
+		if line := core.Trim(line); line != "" {
 			return line
 		}
 	}

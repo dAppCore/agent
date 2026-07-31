@@ -122,7 +122,7 @@ func TestQueue_CanDispatchAgent_Good_UnknownAgent(t *testing.T) {
 func TestQueue_CanDispatchAgent_Bad_AtLimit(t *testing.T) {
 	svc := New()
 	// Simulate 5 running codex workspaces
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		svc.TrackWorkspace("ws-"+string(rune('a'+i)), &WorkspaceStatus{
 			Status: "running", Agent: "codex", PID: 99999, // PID won't be alive
 		})

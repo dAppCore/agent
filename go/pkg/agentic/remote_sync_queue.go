@@ -57,10 +57,7 @@ func remoteSyncQueueBackoff(attempts int) time.Duration {
 		return 0
 	}
 
-	shift := attempts - 1
-	if shift > 5 {
-		shift = 5
-	}
+	shift := min(attempts-1, 5)
 
 	delay := remoteSyncQueueMinBackoff * time.Duration(1<<shift)
 	if delay > remoteSyncQueueMaxBackoff {
