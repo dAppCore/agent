@@ -28,7 +28,18 @@ use Tests\TestCase;
 |
 */
 
-uses(TestCase::class)->in('Feature', 'Unit', 'UseCase');
+// __DIR__, not bare names: Pest resolves a bare 'Feature' against its default
+// test path (./tests), but this suite lives at php/tests. Unanchored, nothing
+// matched, so no TestCase was bound, no Testbench app booted, and every test
+// died on a null Eloquent connection resolver.
+//
+// Feature/Agentic/Livewire is excluded in phpunit.xml rather than bound here:
+// those three files each declare uses(LivewireTestCase::class) at file level,
+// and although LivewireTestCase extends this same TestCase, Pest compares the
+// bound class by name rather than by inheritance and rejects the overlap either
+// way round. Untangling that is a change to the Livewire suite, not to this
+// binding, so it is left alone and called out in phpunit.xml.
+uses(TestCase::class)->in(__DIR__.'/Feature', __DIR__.'/Unit', __DIR__.'/UseCase');
 
 /*
 |--------------------------------------------------------------------------
@@ -40,7 +51,7 @@ uses(TestCase::class)->in('Feature', 'Unit', 'UseCase');
 |
 */
 
-uses(RefreshDatabase::class)->in('Feature');
+uses(RefreshDatabase::class)->in(__DIR__.'/Feature');
 
 /*
 |--------------------------------------------------------------------------
