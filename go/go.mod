@@ -63,7 +63,7 @@ require (
 	github.com/duckdb/duckdb-go-bindings/lib/linux-arm64 v0.10505.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.10505.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.11.0-alpha.8 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
 	github.com/gin-contrib/authz v1.0.7 // indirect
 	github.com/gin-contrib/cors v1.7.7 // indirect
@@ -126,7 +126,7 @@ require (
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/gin-swagger v1.6.1 // indirect
 	github.com/swaggo/swag v1.16.6 // indirect
-	github.com/tmc/apple v0.6.16 // indirect
+	github.com/tmc/apple v0.6.12 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.36 // indirect
