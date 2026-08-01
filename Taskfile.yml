@@ -1,22 +1,104 @@
-# SPDX-Licence-Identifier: EUPL-1.2
+# SPDX-License-Identifier: EUPL-1.2
 #
-# Build wrapper for the lthn-agent crew binary. core/agent's source is
-# untouched — this only exposes `task build:lthn`, the uniform verb the
-# lthn/desktop pre-build calls to stage each crew member (mirrors
-# go-mlx's `task build:lthn` → bin/lthn-mlx). Additive only.
+# The repo's task verbs. go-task resolves Taskfile.yml before Taskfile.yaml,
+# so there is deliberately only one file here — a second one is invisible.
+#
+#   build                the binary, at bin/core-agent
+#   build:lthn           the same binary under its crew alias, bin/lthn-agent
+#   test / vet / check   the Go gates, as CI runs them (GOWORK=off)
+#   cov                  coverage, at the path codecov + SonarCloud read
+#   module-graph:refresh regenerate module-graph.json after dappco.re/go/* bumps
+#
+# Everything Go runs with GOWORK=off: the module must build from go.mod alone,
+# because that is what CI does and what a consumer gets. There is no external/
+# checkout to fall back on.
 version: '3'
 
+env:
+  GOWORK: 'off'
+
 tasks:
+  default:
+    desc: "List the available tasks"
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: "Build core-agent to bin/core-agent"
+    dir: go
+    cmds:
+      - mkdir -p ../bin
+      - go build -trimpath -o ../bin/core-agent ./cmd/core-agent/
+      - ../bin/core-agent version
+      - echo "  core-agent → bin/core-agent"
+
   build:lthn:
-    desc: "Build lthn-agent (from cmd/core-agent) to bin/ — the crew's agentic-dispatch member"
+    desc: "Build the same binary as bin/lthn-agent — the crew alias lthn/desktop's pre-build stages (mirrors go-mlx's build:lthn → bin/lthn-mlx)"
     dir: go
     cmds:
       - mkdir -p ../bin
       - go build -trimpath -o ../bin/lthn-agent ./cmd/core-agent/
       - echo "  lthn-agent → bin/lthn-agent"
+
+  test:
+    desc: "Run the Go suite the way CI does"
+    dir: go
+    cmds:
+      - go test ./... -count=1 -timeout 900s
+
+  vet:
+    desc: "go vet the module"
+    dir: go
+    cmds:
+      - go vet ./...
+
   cov:
     desc: "Module coverage — writes go/coverage.out (the path codecov + SonarCloud read) and prints the total. `task cov` then open go/coverage.out, or pipe to `go tool cover -html`."
     dir: go
     cmds:
       - go test -coverprofile=coverage.out -covermode=atomic ./...
       - go tool cover -func=coverage.out | tail -1
+
+  cov:html:
+    desc: "Coverage as a browsable HTML report (runs cov first)"
+    dir: go
+    deps: [cov]
+    cmds:
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "  → go/coverage.html"
+
+  check:
+    desc: "Everything CI gates on: build, vet, test"
+    cmds:
+      - task: build
+      - task: vet
+      - task: test
+
+  module-graph:refresh:
+    desc: Regenerate module-graph.json from go/go.mod (run after dappco.re/go/* dep bumps)
+    cmds:
+      - |
+        TODAY="$(date +%Y-%m-%d)" awk '
+          BEGIN {
+            print "{"
+            print "  \"module\": \"dappco.re/go/agent\","
+            printf "  \"generated_at\": \"%s\",\n", ENVIRON["TODAY"]
+            print "  \"source\": \"go/go.mod\","
+            print "  \"dependencies\": {"
+          }
+          /^[[:space:]]+dappco\.re\// {
+            mod=$1; ver=$2
+            entries[++n]=sprintf("    \"%s\": \"%s\"", mod, ver)
+          }
+          END {
+            for (i=1; i<=n; i++) {
+              sep=(i<n)?",":""
+              print entries[i] sep
+            }
+            print "  }"
+            print "}"
+          }
+        ' go/go.mod > module-graph.json
+      - jq . module-graph.json > /dev/null
+      - echo "module-graph.json refreshed"

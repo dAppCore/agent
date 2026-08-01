@@ -49,8 +49,8 @@ It owns:
 agent/
 ├── go/                          Go module — module path: dappco.re/go/agent
 │   ├── cmd/core-agent/          Binary entry point (mcp + serve) —
-│   │                              builds `core-agent` or `lthn-agent`
-│   │                              via `go build -o lthn-agent ./cmd/core-agent/`
+│   │                              `task build` → bin/core-agent,
+│   │                              `task build:lthn` → bin/lthn-agent
 │   ├── pkg/agentic/             Dispatch, prep, verify, scan, remote, mirror, plans/phases/sessions
 │   ├── pkg/brain/               OpenBrain client (recall, remember, forget, list, messaging)
 │   ├── pkg/lemma/               Local lthn-mlx client — chat sessions + /v1/admin control

@@ -24,7 +24,22 @@ development.
 
 ## The binary
 
-A single binary builds from `go/cmd/core-agent`:
+`task` is the shortest path, from the repo root:
+
+```bash
+task build         # → bin/core-agent (and prints its version to prove it runs)
+task build:lthn    # → bin/lthn-agent, the crew alias lthn/desktop stages
+task check         # build + vet + test, the CI gates
+task cov           # coverage → go/coverage.out, prints the total
+task --list        # everything available
+```
+
+Every Go task runs with `GOWORK=off`, deliberately: the module must build from
+`go.mod` alone, because that is what CI does and what a consumer gets. The
+sibling `dappco.re/*` modules are dependencies, never a local checkout — see
+the `no-vendored-ecosystem` CI job.
+
+Directly, from `go/`:
 
 ```bash
 cd go
