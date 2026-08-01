@@ -1,8 +1,15 @@
 # Codecov gate for dappco.re/go/agent — the "start using it" ratchet.
 #
-# project: a PR may not drop total coverage below the base commit's level
-#   (target: auto), allowing a small noise threshold. Coverage climbs and
-#   never regresses — the ratchet.
+# There is one config file, deliberately: Codecov accepts both codecov.yml and
+# .codecov.yml, and this repo carried both with different targets (90% vs 95%),
+# so which gate applied depended on Codecov's lookup order rather than on
+# anything anyone had decided.
+#
+# project: target: auto — a PR may not drop total coverage below the base
+#   commit's level, allowing a small noise threshold. Coverage climbs and never
+#   regresses. This is the ratchet the file always described; the literal 95%
+#   that used to sit here was above the module's actual coverage (86.7% as of
+#   2026-08-01), so the project gate failed on every PR including green ones.
 # patch: new / changed lines should be reasonably covered, which pulls the
 #   project number upward as files are touched (the agreed strategy: tractable
 #   wins now, raise the rest opportunistically as code is edited).
@@ -15,7 +22,7 @@ coverage:
   status:
     project:
       default:
-        target: 95%
+        target: auto
         threshold: 1%
         informational: false
     patch:
@@ -28,8 +35,12 @@ comment:
   layout: "reach, diff, files"
   require_changes: true
 
-# go/ is the only module; tests and the vendored externals are not product code.
+# Tests are not product code, and php/vendor/ is installed dependencies. The
+# old "go/external/**" entry is gone with the tree it named — the sibling
+# dappco.re modules are resolved from go.mod, never checked out in here.
 ignore:
   - "**/*_test.go"
-  - "go/external/**"
   - "**/*_example_test.go"
+  - "php/tests/**"
+  - "php/vendor/**"
+  - "**/*Test.php"

@@ -43,7 +43,9 @@ htmlcov/
 .coverage
 
 # Stray go-build output — `go build ./cmd/core-agent` without -o drops a
-# binary at the repo root and under go/. The bundled binary is bin/lthn-agent.
+# binary at the repo root and under go/. The built binaries live in bin/
+# (`task build` → bin/core-agent, `task build:lthn` → bin/lthn-agent), and
+# bin/ is ignored above.
 /core-agent
 /go/core-agent
 
@@ -55,3 +57,14 @@ docs/superpowers/
 # /vendor/ is where it installs now that composer.json is at the repo root.
 php/vendor/
 /vendor/
+
+# external/ is deliberately NOT ignored, and must not exist.
+#
+# It used to hold submodule checkouts of the sibling dappco.re modules. Having
+# the ecosystem sitting in the workspace meant agents edited it — the files
+# looked local and editable, the build resolved dappco.re/* from the module
+# proxy regardless, and the "fix" never shipped. Dependencies come from
+# go.mod and nowhere else.
+#
+# No ignore rule here on purpose: if external/ ever reappears it should show
+# up loudly in `git status` rather than be silently tolerated.

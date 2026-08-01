@@ -66,31 +66,31 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          # pcov, not the default none: --coverage silently produces nothing
+          # without a coverage driver installed.
+          coverage: pcov
+      # composer.json is at the repo root — it moved out of php/ and these
+      # steps kept pointing at the old location, so every `[ -f composer.json ]`
+      # guard was false and the whole PHP job passed by doing nothing.
       - name: Install dependencies
-        working-directory: php
-        run: |
-          if [ -f composer.json ]; then
-            composer install --no-progress --prefer-dist
-          fi
+        run: composer install --no-progress --prefer-dist --no-interaction
       - name: Run Pest tests with coverage
-        working-directory: php
-        # AX: This repo uses Pest testing framework, not PHPUnit
-        # Pest coverage requires pest-plugin/coverage or XDEBUG
-        run: |
-          if [ -f composer.json ]; then
-            if command -v ./vendor/bin/pest &> /dev/null; then
-              ./vendor/bin/pest --coverage --coverage-clover=coverage.xml
-            else
-              echo "Pest not found, skipping PHP tests"
-            fi
-          else
-            echo "No composer.json found, skipping PHP tests"
-          fi
+        # --test-directory=php/tests is required, not cosmetic: Pest looks for
+        # its Pest.php (the TestCase binding and the createWorkspace helpers)
+        # in the default ./tests, which in this repo holds unrelated CLI
+        # fixtures. Without it nothing is bound and every test errors.
+        #
+        # continue-on-error while the suite is brought up: as of 2026-08-01 it
+        # runs 1302 tests, 993 passing and 303 failing — the failures are real
+        # and tracked (Livewire view stubs, the missing Core\Mcp dependency
+        # trait), not flakes. Drop this flag once the count reaches zero.
+        continue-on-error: true
+        run: ./vendor/bin/pest --test-directory=php/tests --coverage --coverage-clover=coverage.xml
       - name: Upload PHP coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: php/coverage.xml
+          files: coverage.xml
           flags: php-unittests
           fail_ci_if_error: false
           name: php-coverage
@@ -110,6 +110,37 @@ jobs:
           # AX: Skip test files (covered by test-go job), timeout for large codebase
           args: --timeout=5m --tests=false
 
+  # Guards the one rule that has silently cost delivered features: the sibling
+  # dappco.re/* modules are dependencies, not workspace files.
+  #
+  # When external/ existed, an agent would "fix" a bug by editing
+  # external/go/... — the file was right there and looked local. The build
+  # resolves dappco.re/go from go.mod regardless, so the edit changed nothing,
+  # the tests still passed, and the feature shipped broken. A submodule tree,
+  # a go.work that reaches outside this repo, or a replace directive all
+  # recreate that trap, so all three fail the build here.
+  no-vendored-ecosystem:
+    name: No vendored ecosystem
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Assert dappco.re/* resolves from go.mod only
+        run: |
+          fail=0
+          for path in external .gitmodules go.work go/go.work; do
+            if [ -e "$path" ]; then
+              echo "::error file=$path::$path must not exist — dappco.re/* modules come from go.mod, not from a checkout in this repo"
+              fail=1
+            fi
+          done
+          if grep -qE '^\s*replace\s+dappco\.re/' go/go.mod; then
+            echo "::error file=go/go.mod::replace directive for a dappco.re module — release a tag upstream instead"
+            grep -nE '^\s*replace\s+dappco\.re/' go/go.mod
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] && echo "clean: no vendored ecosystem, no replace directives"
+          exit "$fail"
+
   # Quality analysis - runs after tests pass
   # AX Principle: Composition - SonarCloud consumes test results from previous jobs
   sonarcloud:
@@ -127,50 +158,55 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          coverage: pcov
+      # Same correction as test-php: composer.json is at the repo root, and
+      # Pest needs to be pointed at php/tests to find its Pest.php.
       - name: Install PHP dependencies
-        working-directory: php
-        run: |
-          if [ -f composer.json ]; then
-            composer install --no-progress --prefer-dist
-          fi
+        run: composer install --no-progress --prefer-dist --no-interaction
       - name: Test Go for coverage
         working-directory: go
         run: go test -coverprofile=coverage.out -covermode=atomic -count=1 ./...
       - name: Test PHP for coverage
-        working-directory: php
-        # AX: Run Pest tests with coverage for SonarCloud
-        run: |
-          if command -v ./vendor/bin/pest &> /dev/null; then
-            ./vendor/bin/pest --coverage --coverage-clover=coverage.xml
-          fi
+        continue-on-error: true
+        run: ./vendor/bin/pest --test-directory=php/tests --coverage --coverage-clover=coverage.xml
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        # Exclusions mirror the ignore list in codecov.yml.
+        #
+        # No `#` lines inside the block below: `>` is a folded scalar, so a
+        # comment there is not a comment — it was being folded into the string
+        # and handed to sonar-scanner as arguments.
         with:
           args: >
             -Dsonar.organization=dappcore
             -Dsonar.projectKey=dappcore_agent
             -Dsonar.sources=go,php
-            # AX: Explicit exclusions following ignore patterns from .codecov.yml
             -Dsonar.exclusions=**/vendor/**,**/third_party/**,**/.tmp/**,**/*_test.go,**/php/tests/**,**/php/vendor/**
             -Dsonar.tests=go,php
             -Dsonar.test.inclusions=**/*_test.go,**/*Test.php
             -Dsonar.go.coverage.reportPaths=go/coverage.out
-            -Dsonar.php.coverage.reportPaths=php/coverage.xml
+            -Dsonar.php.coverage.reportPaths=coverage.xml
 
-  # Final coverage aggregation job
-  # AX Principle: Composition - combines results from all test jobs
+  # Final coverage aggregation job.
+  #
+  # NOTE: this job runs on its own fresh runner with no checkout and no
+  # artifact download, so the files it names have never existed in its
+  # workspace — it has always been a no-op that only looked like a gate
+  # (fail_ci_if_error: false hid it). The real uploads happen in test-go and
+  # test-php. Either wire it to actions/upload-artifact/download-artifact or
+  # delete it; it is left here, honestly labelled, rather than silently
+  # changing what CI reports.
   finalize-coverage:
     name: Finalize Coverage
     runs-on: ubuntu-latest
     needs: [test-go, test-php]
-    # AX: Explicit dependencies ensure all tests complete before finalization
     steps:
       - name: Finalize Codecov upload
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: go/coverage.out,php/coverage.xml
+          files: go/coverage.out,coverage.xml
           fail_ci_if_error: false
           name: combined-coverage
