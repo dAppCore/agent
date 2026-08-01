@@ -20,7 +20,36 @@ var applicationPrint = func(format string, args ...any) {
 // args := startupArgs()
 // result := c.Cli().Run("version")
 func startupArgs() []string {
-	return applyLogLevel(core.FilterArgs(startupArgv()[1:]))
+	return routeHelp(applyLogLevel(core.FilterArgs(startupArgv()[1:])))
+}
+
+// routeHelp sends every bare help request to the `help` command.
+//
+// Two things used to go wrong here. The CLI had no `help` command, so
+// `help` / `-h` / `--help` fell down the unknown-command path — printing the
+// listing and *then* exiting 1. And a bare invocation printed that same
+// listing via Cli.PrintHelp, which is one flat wall of ~355 entries because
+// every action is projected onto the CLI twice (see commands_help.go).
+// Routing all of them to `help` fixes both: exit 0, and grouped output.
+//
+// Only a lone help token is rewritten; `core-agent serve --help` still
+// reaches the serve command, which owns its own help.
+//
+//	routeHelp(nil)                        // ["help"]
+//	routeHelp([]string{"--help"})         // ["help"]
+//	routeHelp([]string{"serve", "-h"})    // ["serve", "-h"]
+func routeHelp(args []string) []string {
+	if len(args) == 0 {
+		return []string{"help"}
+	}
+	if len(args) != 1 {
+		return args
+	}
+	switch args[0] {
+	case "help", "-h", "--help":
+		return []string{"help"}
+	}
+	return args
 }
 
 // args := applyLogLevel([]string{"version", "-q"})
@@ -53,6 +82,7 @@ func registerApplicationCommands(c *core.Core) core.Result {
 		name string
 		cmd  core.Command
 	}{
+		{"help", core.Command{Description: "Show the grouped command listing — `help <group>` for one group", Action: commands.help}},
 		{"version", core.Command{Description: "Print version and build info", Action: commands.version}},
 		{"check", core.Command{Description: "Verify workspace, deps, and config", Action: commands.check}},
 		{"env", core.Command{Description: "Show all core.Env() keys and values", Action: commands.env}},

@@ -133,8 +133,23 @@ var runApp = func(coreApp *core.Core, cliArgs []string) error {
 	}
 
 	if cli := coreApp.Cli(); cli != nil {
+		// Cli.Run refetches os.Args when handed an empty slice, so an
+		// argument list we deliberately emptied (startupArgs consuming a
+		// bare --help, or --quiet on its own) would come straight back as
+		// the raw argv. A single "" is dropped by the CLI's own FilterArgs,
+		// which reaches the no-command path without that refetch.
+		if len(cliArgs) == 0 {
+			cliArgs = []string{""}
+		}
 		result = cli.Run(cliArgs...)
-		if !result.OK {
+		// "cli.noop" is the CLI's benign sentinel — the banner or help was
+		// printed and there was nothing to run. Without this check
+		// `core-agent` and `core-agent --help` both exited 1, which breaks
+		// any script or healthcheck that shells out to them. Core.RunResult
+		// makes the same exemption; we cannot delegate to it wholesale
+		// because it calls cli.Run() with no arguments, dropping the
+		// --quiet/--debug handling startupArgs() performs.
+		if !result.OK && result.Code() != "cli.noop" {
 			return resultError("main.runApp", "cli failed", result)
 		}
 	}
