@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// handleHarvestAutoPR (H3 in PLAN-cli-square-up.md): a completed harvest
+// handleHarvestAutoPR: a completed harvest
 // re-dispatches the harvested branch's workspace into agentic.auto-pr — the same
 // closeout entry the QA→PR flow uses — so a harvest joins the normal PR path.
 // Mirrors the completion-pipeline harness (setTestWorkspace + writeStatus +
