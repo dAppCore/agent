@@ -12,7 +12,10 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Resource;
 
-final class DatabaseSchema extends Resource
+// Not final: tables() / describeTable() are protected seams the suite substitutes
+// to describe a schema without a live connection.
+// `final` contradicted that and made DatabaseSchemaTest a fatal error.
+class DatabaseSchema extends Resource
 {
     protected string $description = 'Database schema information for Host Hub';
 

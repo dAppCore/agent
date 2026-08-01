@@ -16,7 +16,10 @@ use Symfony\Component\Yaml\Yaml;
  * $service = new McpHealthService();
  * $status = $service->check('host-hub');
  */
-final class McpHealthService
+// Not final: loadServerConfig() / executeProcess() are protected seams the suite
+// substitutes to health-check without spawning real MCP servers.
+// `final` contradicted that and made McpHealthServiceTest a fatal error.
+class McpHealthService
 {
     public const STATUS_ONLINE = 'online';
 

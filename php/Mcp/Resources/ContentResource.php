@@ -13,7 +13,11 @@ use Laravel\Mcp\Server\Resource;
 use Mod\Content\Models\ContentItem;
 use Symfony\Component\Yaml\Yaml;
 
-final class ContentResource extends Resource
+// Not final: resolveWorkspace / resolveContentItem / listResources are
+// deliberate protected seams — the whole point is that a caller (and the
+// test suite) substitutes them to run this resource without a database.
+// `final` contradicted that and made ContentResourceTest a fatal error.
+class ContentResource extends Resource
 {
     protected string $description = 'Content items from the CMS - returns markdown for AI context';
 
@@ -80,7 +84,10 @@ final class ContentResource extends Resource
         return count($parts) === 2 ? $parts : null;
     }
 
-    protected function resolveWorkspace(string $identifier): ?Workspace
+    // ?object, matching resolveContentItem: Workspace lives in the tenant
+    // package, which is optional here (see the class_exists guard), so the
+    // seam cannot narrow to a type that may not be loaded.
+    protected function resolveWorkspace(string $identifier): ?object
     {
         if (! class_exists(Workspace::class)) {
             return null;

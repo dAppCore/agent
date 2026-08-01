@@ -6,6 +6,7 @@ namespace Tests;
 
 use Core\Mod\Agentic\Boot as AgenticBoot;
 use Core\Tenant\Boot as TenantBoot;
+use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Spatie\Activitylog\ActivitylogServiceProvider;
 
@@ -24,6 +25,12 @@ abstract class TestCase extends BaseTestCase
             // reads activitylog config at construction — without the provider
             // that config is absent and every save fails inside the trait.
             ActivitylogServiceProvider::class,
+            // Livewire is a require-dev dependency and this package ships
+            // Livewire components; Testbench does not auto-discover it, so
+            // without the provider the `livewire` container binding is absent
+            // and every component render dies on "Target class [livewire]
+            // does not exist" rather than on the behaviour under test.
+            LivewireServiceProvider::class,
             TenantBoot::class,
             AgenticBoot::class,
         ];
@@ -41,6 +48,15 @@ abstract class TestCase extends BaseTestCase
     protected function defineEnvironment($app): void
     {
         $app['config']->set('activitylog.enabled', false);
+
+        // Testbench boots a bare app with no APP_KEY, and the encrypter is
+        // reached through the session middleware every rendered view runs
+        // through — so without a key the failure surfaced as a ViewException
+        // ("No application encryption key has been specified") on any test
+        // that rendered anything. A fixed key, not a random one: it keeps runs
+        // reproducible and nothing here encrypts data that outlives the test.
+        // Exactly 32 bytes — AES-256-CBC rejects any other length.
+        $app['config']->set('app.key', 'base64:'.base64_encode('core-agent-testing-key-32bytes!!'));
     }
 
     /**

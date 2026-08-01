@@ -19,6 +19,13 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Index first, in its own statement: SQLite refuses to drop a column
+        // an index still references, so dropping 'source' while
+        // brain_memories_source_index existed aborted the rollback.
+        Schema::connection('brain')->table('brain_memories', function (Blueprint $table) {
+            $table->dropIndex(['source']);
+        });
+
         Schema::connection('brain')->table('brain_memories', function (Blueprint $table) {
             $table->dropColumn('source');
         });

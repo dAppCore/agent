@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use ReflectionMethod;
 
-final class McpWebhookDispatcher
+// Not final: endpointModelClass() / deliveryModelClass() are protected seams the
+// suite substitutes to dispatch without the Eloquent models.
+// `final` contradicted that and made McpWebhookDispatcherTest a fatal error.
+class McpWebhookDispatcher
 {
     public function dispatchToolExecuted(
         int $workspaceId,

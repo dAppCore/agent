@@ -33,6 +33,14 @@ return new class extends Migration
             return;
         }
 
+        // The index goes first. up() created brain_memories_indexed_at_index
+        // alongside the column; SQLite refuses to drop a column an index still
+        // references ("1 error in index ... after drop column"), which took the
+        // whole rollback — and with it every RefreshDatabase test — down.
+        $schema->table('brain_memories', function (Blueprint $table): void {
+            $table->dropIndex(['indexed_at']);
+        });
+
         $schema->table('brain_memories', function (Blueprint $table): void {
             $table->dropColumn('indexed_at');
         });
