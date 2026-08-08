@@ -100,7 +100,7 @@ func TestImportedProject_SchemaReturnsOrmDefinition_Good(t *testing.T) {
 	if schema.Name != "imported_projects" {
 		t.Errorf("schema.Name = %q; want 'imported_projects'", schema.Name)
 	}
-	if schema.PK == nil || len(schema.PK) == 0 {
+	if len(schema.PK) == 0 {
 		t.Error("schema.PK must not be empty")
 	}
 }
@@ -213,7 +213,7 @@ func TestImportedProvider_SchemaReturnsOrmDefinition_Good(t *testing.T) {
 	if schema.Name != "imported_providers" {
 		t.Errorf("schema.Name = %q; want 'imported_providers'", schema.Name)
 	}
-	if schema.PK == nil || len(schema.PK) == 0 {
+	if len(schema.PK) == 0 {
 		t.Error("schema.PK must not be empty")
 	}
 }

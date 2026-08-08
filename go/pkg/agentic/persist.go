@@ -50,12 +50,16 @@ func (s *PrepSubsystem) restorePersistedState(_ context.Context) core.Result {
 		changed := s.normaliseRestoredWorkspace(workspaceStatus)
 
 		if workspaceStatus.Status == "completed" && fs.IsDir(workspaceDir).OK {
-			fs.DeleteAll(workspaceDir)
+			_ = fs.DeleteAll(workspaceDir) // best-effort cleanup; may already be gone
 		} else if fs.IsDir(workspaceDir).OK && (changed || !fs.IsFile(WorkspaceStatusPath(workspaceDir)).OK) {
 			s.writePersistedWorkspaceStatus(workspaceDir, workspaceStatus)
 		}
 
-		s.workspaces.Set(name, cloneWorkspaceStatus(workspaceStatus))
+		// Reported: Set only fails on a locked or sealed registry, so a
+		// failure here means this workspace silently stops being tracked.
+		if r := s.workspaces.Set(name, cloneWorkspaceStatus(workspaceStatus)); !r.OK {
+			core.Warn("agentic: failed to track workspace", "reason", r.Value)
+		}
 		s.stateStoreSet(stateRegistryGroup, name, workspaceStatus)
 
 		if workspaceStatus.Status == "queued" {

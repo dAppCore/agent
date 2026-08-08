@@ -325,7 +325,7 @@ func TestStatus_Status_Ugly(t *testing.T) {
 		failCount:      make(map[string]int),
 	}
 
-	_, out, err := s.status(nil, nil, StatusInput{})
+	_, out, err := s.status(context.TODO(), nil, StatusInput{})
 	core.RequireNoError(t, err)
 	core.AssertEqual(t, 3, out.Total)
 

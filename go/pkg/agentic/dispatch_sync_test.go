@@ -8,7 +8,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -40,7 +39,7 @@ func TestDispatchsync_HandleDispatchSync_Good_Completed(t *testing.T) {
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-7")
 	s := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
 
-	s.dispatchSyncPrep = func(ctx context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(ctx context.Context, _ *mcpsdk.CallToolRequest, input PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		core.AssertEqual(t, "core", input.Org)
 		core.AssertEqual(t, "go-io", input.Repo)
 		core.AssertEqual(t, "codex", input.Agent)
@@ -85,7 +84,7 @@ func TestDispatchsync_HandleDispatchSync_Good_Completed(t *testing.T) {
 
 func TestDispatchsync_HandleDispatchSync_Bad_PrepFailure(t *testing.T) {
 	s := &PrepSubsystem{}
-	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(context.Context, *mcpsdk.CallToolRequest, PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		return nil, PrepOutput{}, core.E("prepWorkspace", "boom", nil)
 	}
 
@@ -101,7 +100,7 @@ func TestDispatchsync_HandleDispatchSync_Bad_PrepFailure(t *testing.T) {
 
 func TestDispatchsync_HandleDispatchSync_Bad_PrepIncomplete(t *testing.T) {
 	s := &PrepSubsystem{}
-	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(context.Context, *mcpsdk.CallToolRequest, PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		return nil, PrepOutput{
 			Success: false,
 		}, nil
@@ -124,7 +123,7 @@ func TestDispatchsync_HandleDispatchSync_Ugly_SpawnFailure(t *testing.T) {
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-7")
 	s := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
 
-	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(context.Context, *mcpsdk.CallToolRequest, PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
 		core.RequireTrue(t, fs.Write(core.JoinPath(workspaceDir, "status.json"), core.JSONMarshalString(&WorkspaceStatus{
 			Status: "running",
@@ -196,7 +195,7 @@ func TestDispatchSync_PrepSubsystem_DispatchSync_Ugly_WritesInitialStatusWhenPre
 	// Real-like prep: creates the workspace but does NOT pre-write status.json
 	// (the actual prepWorkspace doesn't — the async dispatch() writes it after
 	// spawn, which the sync path used to skip → "status not found" crash).
-	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(context.Context, *mcpsdk.CallToolRequest, PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
 		return nil, PrepOutput{Success: true, WorkspaceDir: workspaceDir, Branch: "agent/x", Prompt: "prompt"}, nil
 	}
@@ -221,7 +220,7 @@ func TestDispatchSync_PrepSubsystem_DispatchSync_Good(t *testing.T) {
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-9")
 	subsystem := &PrepSubsystem{dispatchSyncTick: 10 * time.Millisecond}
 
-	subsystem.dispatchSyncPrep = func(_ context.Context, _ *mcp.CallToolRequest, input PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	subsystem.dispatchSyncPrep = func(_ context.Context, _ *mcpsdk.CallToolRequest, input PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		core.AssertEqual(t, "core", input.Org)
 		core.AssertEqual(t, "go-io", input.Repo)
 		core.AssertEqual(t, "codex", input.Agent)
@@ -321,7 +320,7 @@ func TestDispatchSync_PrepSubsystem_DispatchSync_Ugly_VZFillsFullStatus(t *testi
 	workspaceDir := core.JoinPath(WorkspaceRoot(), "core", "go-io", "task-vz")
 	s := &PrepSubsystem{dispatchSyncTick: 5 * time.Millisecond}
 
-	s.dispatchSyncPrep = func(context.Context, *mcp.CallToolRequest, PrepInput) (*mcp.CallToolResult, PrepOutput, error) {
+	s.dispatchSyncPrep = func(context.Context, *mcpsdk.CallToolRequest, PrepInput) (*mcpsdk.CallToolResult, PrepOutput, error) {
 		core.RequireTrue(t, fs.EnsureDir(workspaceDir).OK)
 		return nil, PrepOutput{Success: true, WorkspaceDir: workspaceDir, Branch: "agent/vz", Prompt: "prompt"}, nil
 	}

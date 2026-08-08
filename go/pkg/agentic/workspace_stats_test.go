@@ -3,6 +3,7 @@
 package agentic
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -335,7 +336,7 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_ReturnsEmptyWhenNoRows(t *test
 	}
 	t.Cleanup(s.closeWorkspaceStatsStore)
 
-	result := s.handleWorkspaceStats(nil, core.NewOptions())
+	result := s.handleWorkspaceStats(context.TODO(), core.NewOptions())
 	core.AssertTrue(t, result.OK)
 	out, ok := result.Value.(WorkspaceStatsOutput)
 	core.AssertTrue(t, ok)
@@ -374,7 +375,7 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
 	}
 
 	// Filter by repo only.
-	result := s.handleWorkspaceStats(nil, core.NewOptions(
+	result := s.handleWorkspaceStats(context.TODO(), core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 	))
 	core.AssertTrue(t, result.OK)
@@ -382,7 +383,7 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
 	core.AssertEqual(t, 2, out.Count)
 
 	// Filter by repo + status.
-	result = s.handleWorkspaceStats(nil, core.NewOptions(
+	result = s.handleWorkspaceStats(context.TODO(), core.NewOptions(
 		core.Option{Key: "repo", Value: "go-io"},
 		core.Option{Key: "status", Value: "completed"},
 	))
@@ -390,7 +391,7 @@ func TestWorkspacestats_HandleWorkspaceStats_Good_AppliesFilters(t *testing.T) {
 	core.AssertEqual(t, 1, out.Count)
 
 	// Limit trims the result set.
-	result = s.handleWorkspaceStats(nil, core.NewOptions(
+	result = s.handleWorkspaceStats(context.TODO(), core.NewOptions(
 		core.Option{Key: "limit", Value: 1},
 	))
 	out = result.Value.(WorkspaceStatsOutput)

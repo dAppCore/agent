@@ -120,7 +120,8 @@ var watch = func(s *PrepSubsystem, ctx context.Context, request *mcp.CallToolReq
 				progressCount++
 
 				if request != nil && progressToken != nil && request.Session != nil {
-					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+					// Best-effort: a listener that has gone away must not fail this.
+					_ = request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
@@ -141,7 +142,8 @@ var watch = func(s *PrepSubsystem, ctx context.Context, request *mcp.CallToolReq
 				progressCount++
 
 				if request != nil && progressToken != nil && request.Session != nil {
-					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+					// Best-effort: a listener that has gone away must not fail this.
+					_ = request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,
@@ -161,7 +163,8 @@ var watch = func(s *PrepSubsystem, ctx context.Context, request *mcp.CallToolReq
 				progressCount++
 
 				if request != nil && progressToken != nil && request.Session != nil {
-					request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+					// Best-effort: a listener that has gone away must not fail this.
+					_ = request.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 						ProgressToken: progressToken,
 						Progress:      progressCount,
 						Total:         total,

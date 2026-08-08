@@ -444,8 +444,3 @@ func pipelinePRPayload(repoName string, pullRequest *pipelineTestPR) map[string]
 	}
 	return payload
 }
-
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
-}

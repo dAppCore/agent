@@ -294,7 +294,9 @@ func (s *PrepSubsystem) reviewRepo(ctx context.Context, repoDir, repo, reviewer 
 		}
 
 		findingsFile := core.JoinPath(repoDir, ".core", "coderabbit-findings.txt")
-		fs.Write(findingsFile, output)
+		if r := fs.Write(findingsFile, output); !r.OK {
+			core.Warn("agentic: failed to write review findings", "path", findingsFile, "reason", r.Value)
+		}
 
 		task := core.Sprintf(
 			"Fix CodeRabbit findings. The review output is in .core/coderabbit-findings.txt. Read it, verify each finding against the code, fix what's valid. Run tests. Commit: fix(coderabbit): address review findings\n\nFindings summary (%d issues):\n%s",
@@ -318,7 +320,10 @@ var pushAndMerge = func(s *PrepSubsystem, ctx context.Context, repoDir, repo str
 		return core.E("pushAndMerge", core.Concat("push failed: ", r.Error()), nil)
 	}
 
-	process.RunIn(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo))
+	// Reported: leaving a PR in draft silently stalls the review pipeline.
+	if r := process.RunIn(ctx, repoDir, "gh", "pr", "ready", "--repo", core.Concat(GitHubOrg(), "/", repo)); !r.OK {
+		core.Warn("agentic: failed to mark PR ready for review", "reason", r.Value)
+	}
 
 	if r := process.RunIn(ctx, repoDir, "gh", "pr", "merge", "--merge", "--delete-branch"); !r.OK {
 		return core.E("pushAndMerge", core.Concat("merge failed: ", r.Error()), nil)

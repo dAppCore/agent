@@ -82,7 +82,10 @@ func (s *PrepSubsystem) runPlanCleanupLoop(ctx context.Context, interval time.Du
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.planCleanup(core.NewOptions())
+			// Reported: retention that silently stops running grows unbounded.
+			if r := s.planCleanup(core.NewOptions()); !r.OK {
+				core.Warn("agentic: scheduled plan cleanup failed", "reason", r.Value)
+			}
 		}
 	}
 }

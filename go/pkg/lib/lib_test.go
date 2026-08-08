@@ -697,15 +697,3 @@ func TestLib_MountEmbed_Bad_Case(t *testing.T) {
 		t.Fatal("mountEmbed should return an error value")
 	}
 }
-
-func assertSPDXHeader(t *testing.T, path string) {
-	t.Helper()
-
-	r := testFs.Read(path)
-	if !r.OK {
-		t.Fatalf("failed to read %s", path)
-	}
-	if !core.HasPrefix(r.Value.(string), "// SPDX-License-Identifier: EUPL-1.2") {
-		t.Fatalf("%s missing SPDX header", path)
-	}
-}

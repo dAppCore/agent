@@ -120,7 +120,7 @@ func httpDo(ctx context.Context, method, url, body, token, authScheme string) co
 	if requestErr != nil {
 		return core.Result{Value: core.E("httpDo", "request failed", requestErr), OK: false}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }() // read side of the response
 
 	readResult := core.ReadAll(response.Body)
 	if !readResult.OK {
@@ -174,7 +174,7 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	if err != nil {
 		return core.Result{Value: core.E("mcpInitialize", "request failed", err), OK: false}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }() // read side of the response
 
 	if response.StatusCode != 200 {
 		return core.Result{Value: core.E("mcpInitialize", core.Sprintf("HTTP %d", response.StatusCode), nil), OK: false}
@@ -198,7 +198,8 @@ func mcpInitializeResult(ctx context.Context, url, token string) core.Result {
 	mcpHeaders(notificationRequest, token, sessionID)
 	notificationResponse, err := defaultClient.Do(notificationRequest)
 	if err == nil {
-		notificationResponse.Body.Close()
+		// Read side of the response.
+		_ = notificationResponse.Body.Close()
 	}
 
 	return core.Result{Value: sessionID, OK: true}
@@ -231,7 +232,7 @@ func mcpCallResult(ctx context.Context, url, token, sessionID string, body []byt
 	if err != nil {
 		return core.Result{Value: core.E("mcpCall", "request failed", err), OK: false}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }() // read side of the response
 
 	if response.StatusCode != 200 {
 		return core.Result{Value: core.E("mcpCall", core.Sprintf("HTTP %d", response.StatusCode), nil), OK: false}
@@ -282,5 +283,7 @@ func mcpHeaders(request *http.Request, token, sessionID string) {
 }
 
 func drainSSE(response *http.Response) {
-	core.ReadAll(response.Body)
+	// Drained purely so the connection can be reused — the body is unwanted and
+	// a read failure here changes nothing.
+	_ = core.ReadAll(response.Body)
 }

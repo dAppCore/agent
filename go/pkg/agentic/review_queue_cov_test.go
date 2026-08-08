@@ -309,7 +309,7 @@ func TestReviewqueue_RunPRManageLoop_Bad_GuardsInvalidArgs(t *testing.T) {
 	s := newPrepWithProcess()
 	// Nil context and non-positive interval both return immediately.
 	core.AssertNotPanics(t, func() {
-		s.runPRManageLoop(nil, time.Hour)
+		s.runPRManageLoop(context.TODO(), time.Hour)
 		s.runPRManageLoop(context.Background(), 0)
 	})
 }

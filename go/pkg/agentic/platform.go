@@ -599,7 +599,7 @@ func (s *PrepSubsystem) platformEventPayload(ctx context.Context, action, path s
 	if err != nil {
 		return core.Result{Value: core.E(action, "request failed", err), OK: false}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }() // read side of the response
 
 	if response.StatusCode >= 400 {
 		readResult := core.ReadAll(response.Body)

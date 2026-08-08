@@ -440,7 +440,11 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 				status.Question = "Agent process died during restart"
 			}
 		}
-		s.workspaces.Set(key, &status)
+		// Reported: Set only fails on a locked or sealed registry, so a
+		// failure here means this workspace silently stops being tracked.
+		if r := s.workspaces.Set(key, &status); !r.OK {
+			core.Warn("agentic: failed to track workspace", "reason", r.Value)
+		}
 		return true
 	})
 
@@ -461,9 +465,17 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 			if st.Question == "" {
 				st.Question = "Agent process died during restart"
 			}
-			writeStatusResult(workspaceDir, st)
+			// Reported: the status file is what the monitor polls, so a silent write
+			// failure leaves the workspace looking stuck indefinitely.
+			if r := writeStatusResult(workspaceDir, st); !r.OK {
+				core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+			}
 		}
-		s.workspaces.Set(WorkspaceName(workspaceDir), st)
+		// Reported: Set only fails on a locked or sealed registry, so a
+		// failure here means this workspace silently stops being tracked.
+		if r := s.workspaces.Set(WorkspaceName(workspaceDir), st); !r.OK {
+			core.Warn("agentic: failed to track workspace", "reason", r.Value)
+		}
 	}
 }
 
@@ -476,9 +488,13 @@ func (s *PrepSubsystem) hydrateWorkspaces() {
 func (s *PrepSubsystem) TrackWorkspace(name string, st *WorkspaceStatus) {
 	if s.workspaces != nil {
 		if st == nil {
-			s.workspaces.Delete(name)
+			_ = s.workspaces.Delete(name) // best-effort: the key may already be gone
 		} else {
-			s.workspaces.Set(name, st)
+			// Reported: Set only fails on a locked or sealed registry, so a
+			// failure here means this workspace silently stops being tracked.
+			if r := s.workspaces.Set(name, st); !r.OK {
+				core.Warn("agentic: failed to track workspace", "reason", r.Value)
+			}
 		}
 	}
 	if st == nil {
@@ -814,11 +830,15 @@ var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolR
 			currentBranch = defaultBranch
 		}
 		if currentBranch != "" {
-			process.RunIn(ctx, repoDir, "git", "checkout", currentBranch)
+			// Best-effort repo hygiene: a checkout, pull or fetch that fails
+			// here (diverged branch, offline remote) must not stop the
+			// workspace being prepared. The ls-remote between them is checked
+			// precisely because its answer changes what happens next.
+			_ = process.RunIn(ctx, repoDir, "git", "checkout", currentBranch)
 			if process.RunIn(ctx, repoDir, "git", "ls-remote", "--exit-code", "--heads", "origin", currentBranch).OK {
-				process.RunIn(ctx, repoDir, "git", "pull", "--ff-only", "origin", currentBranch)
+				_ = process.RunIn(ctx, repoDir, "git", "pull", "--ff-only", "origin", currentBranch)
 			} else if defaultBranch != "" {
-				process.RunIn(ctx, repoDir, "git", "fetch", "origin", defaultBranch)
+				_ = process.RunIn(ctx, repoDir, "git", "fetch", "origin", defaultBranch)
 			}
 		}
 	}
@@ -890,7 +910,8 @@ var prepWorkspace = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolR
 	if !fs.IsDir(docsDir).OK {
 		docsRepo := core.JoinPath(s.codePath, input.Org, "docs")
 		if fs.IsDir(core.JoinPath(docsRepo, ".git")).OK {
-			process.RunIn(ctx, ".", "git", "clone", "--depth", "1", docsRepo, docsDir)
+			// Optional enrichment: a workspace without the docs checkout is still usable.
+			_ = process.RunIn(ctx, ".", "git", "clone", "--depth", "1", docsRepo, docsDir)
 		}
 	}
 

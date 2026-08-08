@@ -35,7 +35,7 @@ func TestRepoSyncCov_HandleRepoSyncIPC_Ugly_WarnsOnFailedSync(t *testing.T) {
 // TestRepoSyncCov_RepoSyncContext_Good_NilFallsBackToBackground — a nil context
 // is replaced with context.Background(); a live context passes through.
 func TestRepoSyncCov_RepoSyncContext_Good_NilFallsBackToBackground(t *testing.T) {
-	core.AssertNotNil(t, repoSyncContext(nil))
+	core.AssertNotNil(t, repoSyncContext(context.TODO()))
 
 	ctx := context.Background()
 	core.AssertEqual(t, ctx, repoSyncContext(ctx))

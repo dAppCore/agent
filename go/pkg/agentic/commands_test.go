@@ -163,13 +163,13 @@ func TestCommandsforge_CmdIssueCreate_Good_WithLabelsAndMilestone(t *testing.T) 
 	callPaths := []string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callPaths = append(callPaths, r.URL.Path)
-		switch {
-		case r.URL.Path == "/api/v1/repos/core/go-io/milestones":
+		switch r.URL.Path {
+		case "/api/v1/repos/core/go-io/milestones":
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"id": 1, "title": "v0.8.0"},
 				{"id": 2, "title": "v0.9.0"},
 			})))
-		case r.URL.Path == "/api/v1/repos/core/go-io/labels":
+		case "/api/v1/repos/core/go-io/labels":
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"id": 10, "name": "agentic"},
 				{"id": 11, "name": "bug"},
@@ -1187,8 +1187,8 @@ func TestCommands_CmdScan_Bad_NoForgeToken(t *testing.T) {
 
 func TestCommands_CmdScan_Ugly_EmptyResults(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/v1/orgs/core/repos":
+		switch r.URL.Path {
+		case "/api/v1/orgs/core/repos":
 			_, _ = w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"name": "go-io"},
 			})))

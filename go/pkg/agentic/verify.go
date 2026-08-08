@@ -35,7 +35,11 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 				return
 			}
 			st2.Status = "merged"
-			writeStatusResult(workspaceDir, st2)
+			// Reported: the status file is what the monitor polls, so a silent write
+			// failure leaves the workspace looking stuck indefinitely.
+			if r := writeStatusResult(workspaceDir, st2); !r.OK {
+				core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+			}
 		}
 	}
 
@@ -62,7 +66,11 @@ func (s *PrepSubsystem) autoVerifyAndMerge(workspaceDir string) {
 			return
 		}
 		workspaceStatusUpdate.Question = "Flagged for review — auto-merge failed after retry"
-		writeStatusResult(workspaceDir, workspaceStatusUpdate)
+		// Reported: the status file is what the monitor polls, so a silent write
+		// failure leaves the workspace looking stuck indefinitely.
+		if r := writeStatusResult(workspaceDir, workspaceStatusUpdate); !r.OK {
+			core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+		}
 	}
 }
 
@@ -112,7 +120,8 @@ func (s *PrepSubsystem) rebaseBranch(repoDir, branch string) bool {
 	}
 
 	if !process.RunIn(ctx, repoDir, "git", "rebase", core.Concat("origin/", base)).OK {
-		process.RunIn(ctx, repoDir, "git", "rebase", "--abort")
+		// Best-effort: there may be no rebase in progress to abort.
+		_ = process.RunIn(ctx, repoDir, "git", "rebase", "--abort")
 		return false
 	}
 
@@ -141,7 +150,11 @@ func (s *PrepSubsystem) flagForReview(org, repo string, pullRequestNumber int, m
 		"labels": []int{s.getLabelID(ctx, org, repo, "needs-review")},
 	})
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/labels", s.forgeURL, org, repo, pullRequestNumber)
-	HTTPPost(ctx, url, payload, s.forgeToken, "token")
+	// Reported: a label that fails to apply silently drops the PR out of the
+	// review queue that selects on it.
+	if r := HTTPPost(ctx, url, payload, s.forgeToken, "token"); !r.OK {
+		core.Warn("agentic: failed to apply PR label", "url", url, "reason", r.Value)
+	}
 
 	reason := "Tests failed after rebase"
 	if mergeOutcome == mergeConflict {
@@ -158,7 +171,11 @@ func (s *PrepSubsystem) ensureLabel(ctx context.Context, org, repo, name, colour
 		"color": core.Concat("#", colour),
 	})
 	url := core.Sprintf("%s/api/v1/repos/%s/%s/labels", s.forgeURL, org, repo)
-	HTTPPost(ctx, url, payload, s.forgeToken, "token")
+	// Reported: a label that fails to apply silently drops the PR out of the
+	// review queue that selects on it.
+	if r := HTTPPost(ctx, url, payload, s.forgeToken, "token"); !r.OK {
+		core.Warn("agentic: failed to apply PR label", "url", url, "reason", r.Value)
+	}
 }
 
 // s.getLabelID(context.Background(), "core", "go-io", "needs-review")
@@ -173,7 +190,11 @@ func (s *PrepSubsystem) getLabelID(ctx context.Context, org, repo, name string) 
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	}
-	core.JSONUnmarshalString(getResult.Value.(string), &labels)
+	// Reported: unparsable labels means getLabelID returns nothing and the
+	// caller silently applies no label at all.
+	if r := core.JSONUnmarshalString(getResult.Value.(string), &labels); !r.OK {
+		core.Warn("agentic: failed to parse repo labels", "reason", r.Value)
+	}
 	for _, l := range labels {
 		if l.Name == name {
 			return l.ID

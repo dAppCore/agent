@@ -107,7 +107,11 @@ func (s *PrepSubsystem) DispatchSync(ctx context.Context, input DispatchSyncInpu
 	if existing, ok := workspaceStatusValue(ReadStatusResult(workspaceDir)); ok {
 		fillMissingDispatchStatus(dispatched, existing)
 	}
-	writeStatusResult(workspaceDir, dispatched)
+	// Reported: the status file is what the monitor polls, so a silent write
+	// failure leaves the workspace looking stuck indefinitely.
+	if r := writeStatusResult(workspaceDir, dispatched); !r.OK {
+		core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+	}
 
 	core.Print(nil, "  pid:       %d", pid)
 	core.Print(nil, "  waiting for completion...")

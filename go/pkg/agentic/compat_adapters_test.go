@@ -9,20 +9,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func (s *PrepSubsystem) dispatch(ctx context.Context, request *mcp.CallToolRequest, input DispatchInput) (*mcp.CallToolResult, DispatchOutput, error) {
-	return dispatch(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) watch(ctx context.Context, request *mcp.CallToolRequest, input WatchInput) (*mcp.CallToolResult, WatchOutput, error) {
-	return watch(s, ctx, request, input)
-}
-
 func (s *PrepSubsystem) status(ctx context.Context, request *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, StatusOutput, error) {
 	return status(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) createEpic(ctx context.Context, request *mcp.CallToolRequest, input EpicInput) (*mcp.CallToolResult, EpicOutput, error) {
-	return createEpic(s, ctx, request, input)
 }
 
 func (s *PrepSubsystem) createPR(ctx context.Context, request *mcp.CallToolRequest, input CreatePRInput) (*mcp.CallToolResult, CreatePROutput, error) {
@@ -65,26 +53,6 @@ func (s *PrepSubsystem) runWorkspaceLanguagePrep(ctx context.Context, workspaceD
 	return runWorkspaceLanguagePrep(s, ctx, workspaceDir, repoDir)
 }
 
-func (s *PrepSubsystem) templateCreatePlan(ctx context.Context, request *mcp.CallToolRequest, input TemplateCreatePlanInput) (*mcp.CallToolResult, TemplateCreatePlanOutput, error) {
-	return templateCreatePlan(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) planFromIssue(ctx context.Context, request *mcp.CallToolRequest, input PlanFromIssueInput) (*mcp.CallToolResult, PlanFromIssueOutput, error) {
-	return planFromIssue(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) dispatchStart(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	return dispatchStart(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) shutdownGraceful(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	return shutdownGraceful(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) shutdownNow(ctx context.Context, request *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
-	return shutdownNow(s, ctx, request, input)
-}
-
 func (s *PrepSubsystem) pipelineEpicCreate(ctx context.Context, input PipelineEpicCreateInput) (PipelineEpicCreateOutput, error) {
 	return pipelineEpicCreate(s, ctx, input)
 }
@@ -117,10 +85,6 @@ func (s *PrepSubsystem) pipelineFixReviews(ctx context.Context, input PipelineFi
 	return pipelineFixReviews(s, ctx, input)
 }
 
-func (s *PrepSubsystem) pipelineFixConflicts(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
-	return pipelineFixConflicts(s, ctx, input)
-}
-
 func (s *PrepSubsystem) pipelineFixFormat(ctx context.Context, input PipelineFixInput) (PipelineFixOutput, error) {
 	return pipelineFixFormat(s, ctx, input)
 }
@@ -133,24 +97,8 @@ func (s *PrepSubsystem) pipelineOnboard(ctx context.Context, input PipelineOnboa
 	return pipelineOnboard(s, ctx, input)
 }
 
-func (s *PrepSubsystem) pipelineOnboardDispatchDirect(ctx context.Context, input PipelineOnboardInput, issues []PipelineIssueRef) ([]PipelineIssueRef, error) {
-	return pipelineOnboardDispatchDirect(s, ctx, input, issues)
-}
-
 func (s *PrepSubsystem) pipelineTrainingCapture(ctx context.Context, input PipelineTrainingCaptureInput) (PipelineTrainingCaptureOutput, error) {
 	return pipelineTrainingCapture(s, ctx, input)
-}
-
-func (s *PrepSubsystem) pipelineTrainingReadDiff(ctx context.Context, org, repo string, number int, meta PipelinePRMeta) (string, string, error) {
-	return pipelineTrainingReadDiff(s, ctx, org, repo, number, meta)
-}
-
-func (s *PrepSubsystem) pipelineTrainingReadGitDiff(ctx context.Context, org, repo string, meta PipelinePRMeta) (string, string, error) {
-	return pipelineTrainingReadGitDiff(s, ctx, org, repo, meta)
-}
-
-func (s *PrepSubsystem) pipelineMonitorWithReader(ctx context.Context, input PipelineMonitorInput, reader *MetaReader) (PipelineMonitorOutput, error) {
-	return pipelineMonitorWithReader(s, ctx, input, reader)
 }
 
 func (s *PrepSubsystem) phaseGet(ctx context.Context, request *mcp.CallToolRequest, input PhaseGetInput) (*mcp.CallToolResult, PhaseOutput, error) {
@@ -209,10 +157,6 @@ func (s *PrepSubsystem) prGet(ctx context.Context, request *mcp.CallToolRequest,
 	return prGet(s, ctx, request, input)
 }
 
-func (s *PrepSubsystem) prList(ctx context.Context, request *mcp.CallToolRequest, input ListPRsInput) (*mcp.CallToolResult, ListPRsOutput, error) {
-	return prList(s, ctx, request, input)
-}
-
 func (s *PrepSubsystem) prMerge(ctx context.Context, request *mcp.CallToolRequest, input PRMergeInput) (*mcp.CallToolResult, PRMergeOutput, error) {
 	return prMerge(s, ctx, request, input)
 }
@@ -239,14 +183,6 @@ func (s *PrepSubsystem) listPRs(ctx context.Context, request *mcp.CallToolReques
 
 func (s *PrepSubsystem) listRepoPRs(ctx context.Context, org, repo, state string) ([]PRInfo, error) {
 	return listRepoPRs(s, ctx, org, repo, state)
-}
-
-func (s *PrepSubsystem) templateList(ctx context.Context, request *mcp.CallToolRequest, input TemplateListInput) (*mcp.CallToolResult, TemplateListOutput, error) {
-	return templateList(s, ctx, request, input)
-}
-
-func (s *PrepSubsystem) templatePreview(ctx context.Context, request *mcp.CallToolRequest, input TemplatePreviewInput) (*mcp.CallToolResult, TemplatePreviewOutput, error) {
-	return templatePreview(s, ctx, request, input)
 }
 
 func (s *PrepSubsystem) taskCreate(ctx context.Context, request *mcp.CallToolRequest, input TaskCreateInput) (*mcp.CallToolResult, TaskCreateOutput, error) {
@@ -277,10 +213,6 @@ func (s *PrepSubsystem) HandleGooglebotVisit(ctx context.Context, pageID, userAg
 	return HandleGooglebotVisit(s, ctx, pageID, userAgent)
 }
 
-func (s *PrepSubsystem) contentSEOStore() (*store.Store, error) {
-	return contentSEOStore(s)
-}
-
 func (s *PrepSubsystem) contentSEORevisionRecords(storeInstance *store.Store, pageID string, pendingOnly bool) ([]seoRevisionRecord, error) {
 	return contentSEORevisionRecords(s, storeInstance, pageID, pendingOnly)
 }
@@ -301,31 +233,10 @@ func (s *PrepSubsystem) syncPullInput(ctx context.Context, input SyncPullInput) 
 	return syncPullInput(s, ctx, input)
 }
 
-type pipelineForgeMetaReader struct {
-	subsystem *PrepSubsystem
-	org       string
-}
-
 func (c RemoteClient) Initialize(ctx context.Context) (string, error) {
 	return InitializeRemoteClient(c, ctx)
 }
 
 func (c RemoteClient) Call(ctx context.Context, sessionID string, body []byte) ([]byte, error) {
 	return CallRemoteClient(c, ctx, sessionID, body)
-}
-
-func (r *pipelineForgeMetaReader) GetPRMeta(ctx context.Context, repo string, prNumber int) (PipelinePRMeta, error) {
-	return newPipelineForgeMetaReader(r.subsystem, r.org).GetPRMeta(ctx, repo, prNumber)
-}
-
-func (r *pipelineForgeMetaReader) GetEpicMeta(ctx context.Context, repo string, issueNumber int) (PipelineEpicMeta, error) {
-	return newPipelineForgeMetaReader(r.subsystem, r.org).GetEpicMeta(ctx, repo, issueNumber)
-}
-
-func (r *pipelineForgeMetaReader) GetIssueState(ctx context.Context, repo string, issueNumber int) (PipelineIssueState, error) {
-	return newPipelineForgeMetaReader(r.subsystem, r.org).GetIssueState(ctx, repo, issueNumber)
-}
-
-func (r *pipelineForgeMetaReader) GetCommentReactions(ctx context.Context, repo string, commentID int64) ([]PipelineReactionMeta, error) {
-	return newPipelineForgeMetaReader(r.subsystem, r.org).GetCommentReactions(ctx, repo, commentID)
 }

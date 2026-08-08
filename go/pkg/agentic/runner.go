@@ -30,5 +30,8 @@ func (s *PrepSubsystem) runRunnerAction(name string) {
 		return
 	}
 
-	action.Run(context.Background(), core.NewOptions())
+	// Reported: the caller has no other signal that this did not run.
+	if r := action.Run(context.Background(), core.NewOptions()); !r.OK {
+		core.Warn("agentic: runner action failed", "reason", r.Value)
+	}
 }

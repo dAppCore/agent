@@ -71,7 +71,10 @@ func (s *PrepSubsystem) handleDispatchShutdownNow(ctx context.Context, _ core.Op
 
 var dispatchStart = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
-		s.Core().Action("runner.start").Run(ctx, core.NewOptions())
+		// Reported: a lifecycle transition that fails silently leaves the
+		if r := s.Core().Action("runner.start").Run(ctx, core.NewOptions()); !r.OK {
+			core.Warn("agentic: runner.start action failed", "reason", r.Value)
+		}
 	}
 	return nil, ShutdownOutput{
 		Success: true,
@@ -81,7 +84,10 @@ var dispatchStart = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolR
 
 var shutdownGraceful = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
-		s.Core().Action("runner.stop").Run(ctx, core.NewOptions())
+		// Reported: a lifecycle transition that fails silently leaves the
+		if r := s.Core().Action("runner.stop").Run(ctx, core.NewOptions()); !r.OK {
+			core.Warn("agentic: runner.stop action failed", "reason", r.Value)
+		}
 	}
 	return nil, ShutdownOutput{
 		Success: true,
@@ -91,7 +97,10 @@ var shutdownGraceful = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallTo
 
 var shutdownNow = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolRequest, input ShutdownInput) (*mcp.CallToolResult, ShutdownOutput, error) {
 	if s.ServiceRuntime != nil {
-		s.Core().Action("runner.kill").Run(ctx, core.NewOptions())
+		// Reported: a lifecycle transition that fails silently leaves the
+		if r := s.Core().Action("runner.kill").Run(ctx, core.NewOptions()); !r.OK {
+			core.Warn("agentic: runner.kill action failed", "reason", r.Value)
+		}
 	}
 	return nil, ShutdownOutput{
 		Success: true,
