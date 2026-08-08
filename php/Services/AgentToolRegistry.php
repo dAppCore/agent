@@ -7,6 +7,7 @@ namespace Core\Mod\Agentic\Services;
 use Core\Api\Models\ApiKey;
 use Core\Mcp\Dependencies\HasDependencies;
 use Core\Mcp\Services\ToolDependencyService;
+use Core\Mod\Agentic\Mcp\Data\ToolMetadata;
 use Core\Mod\Agentic\Mcp\Tools\Agent\Contracts\AgentToolInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -361,5 +362,82 @@ class AgentToolRegistry
                 "Rate limit exceeded: API key cannot execute tool '{$toolName}' right now"
             );
         }
+    }
+
+    /**
+     * Every registered tool as MCP metadata.
+     *
+     * Absorbed from Mcp\Services\ToolRegistry, which the stdio agent server
+     * read while Boot filled this registry instead — so the server listed
+     * nothing. One registry now, so there is one answer to "what tools exist".
+     *
+     * @return array<int, ToolMetadata>
+     *
+     * @example
+     * $registry->listTools();
+     */
+    public function listTools(): array
+    {
+        return array_values(array_map(
+            static fn (AgentToolInterface $tool): ToolMetadata => ToolMetadata::from($tool),
+            $this->tools,
+        ));
+    }
+
+    /**
+     * Resolve one tool as MCP metadata, or null when it is not registered.
+     *
+     * @example
+     * $registry->resolve('plan_create');
+     */
+    public function resolve(string $name): ?ToolMetadata
+    {
+        $tool = $this->tools[$name] ?? null;
+
+        return $tool === null ? null : ToolMetadata::from($tool);
+    }
+
+    /**
+     * Map each tool name to the identifiers it declares as dependencies.
+     *
+     * @return array<string, array<int, string>>
+     *
+     * @example
+     * $registry->buildDependencyGraph();
+     */
+    public function buildDependencyGraph(): array
+    {
+        $graph = [];
+
+        foreach ($this->tools as $name => $tool) {
+            $graph[$name] = ToolMetadata::from($tool)->dependencyIdentifiers();
+        }
+
+        return $graph;
+    }
+
+    /**
+     * Invoke a tool directly, without the permission and dependency checks
+     * execute() applies.
+     *
+     * Kept distinct from execute() rather than merged into it: the stdio
+     * transport has no API key to check scopes against and runs its own quota
+     * and audit passes around this call, whereas execute() is the governed
+     * path used where an ApiKey is present.
+     *
+     * @throws \InvalidArgumentException If the tool is not registered
+     *
+     * @example
+     * $registry->call('plan_list', [], ['workspace_id' => 'ws-1']);
+     */
+    public function call(string $name, array $arguments = [], array $context = []): mixed
+    {
+        $tool = $this->get($name);
+
+        if (! $tool) {
+            throw new \InvalidArgumentException(sprintf('Unknown tool [%s].', $name));
+        }
+
+        return $tool->handle($arguments, $context);
     }
 }
