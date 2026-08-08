@@ -115,6 +115,23 @@ class Boot extends ServiceProvider
                 ]),
         );
 
+        // Alias the registry under dappcore/mcp's AgentResourceProvider name so
+        // that package's HTTP plans:// and sessions:// endpoints resolve it.
+        //
+        // A string, not ::class: this package keeps its own copy of Core\Mcp
+        // rather than depending on dappcore/mcp, so the interface cannot be
+        // named here — referencing it would resolve against this repo's own
+        // Core\Mcp tree, where it does not exist. mcp accepts a provider
+        // structurally for exactly this reason; the registry already satisfies
+        // its one method, read().
+        //
+        // Harmless when mcp is absent: nothing resolves the alias, and binding
+        // a container key costs nothing.
+        $this->app->alias(
+            AgentResourceRegistry::class,
+            'Core\\Mcp\\Resources\\Contracts\\AgentResourceProvider',
+        );
+
         $this->app->singleton(ForgejoService::class, function ($app) {
             return new ForgejoService(
                 baseUrl: (string) config('agentic.forge_url', 'https://forge.lthn.ai'),
