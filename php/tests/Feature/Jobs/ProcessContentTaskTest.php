@@ -11,10 +11,16 @@ declare(strict_types=1);
  */
 
 use Core\Mod\Agentic\Jobs\ProcessContentTask;
+use Core\Mod\Agentic\Models\Prompt;
 use Core\Mod\Agentic\Services\AgenticManager;
 use Core\Mod\Agentic\Services\AgenticProviderInterface;
 use Core\Mod\Agentic\Services\AgenticResponse;
+use Core\Mod\Content\Models\ContentTask;
+use Core\Tenant\Models\UsageRecord;
+use Core\Tenant\Services\EntitlementResult;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Queue;
+use Mockery\MockInterface;
 
 // =========================================================================
 // Helpers
@@ -25,16 +31,16 @@ use Illuminate\Support\Facades\Queue;
  *
  * @param  array<string, mixed>  $overrides
  */
-function mockContentTask(array $overrides = []): \Mockery\MockInterface
+function mockContentTask(array $overrides = []): MockInterface
 {
-    $prompt = Mockery::mock('Mod\Content\Models\ContentPrompt');
+    $prompt = Mockery::mock(Prompt::class)->makePartial();
     $prompt->model = $overrides['prompt_model'] ?? 'claude';
     $prompt->user_template = $overrides['user_template'] ?? 'Hello {{name}}';
     $prompt->system_prompt = $overrides['system_prompt'] ?? 'You are helpful.';
     $prompt->model_config = $overrides['model_config'] ?? [];
     $prompt->id = $overrides['prompt_id'] ?? 1;
 
-    $task = Mockery::mock('Mod\Content\Models\ContentTask');
+    $task = Mockery::mock(ContentTask::class)->makePartial();
     $task->id = $overrides['task_id'] ?? 1;
     $task->prompt = array_key_exists('prompt', $overrides) ? $overrides['prompt'] : $prompt;
     $task->workspace = $overrides['workspace'] ?? null;
@@ -67,22 +73,19 @@ function mockAgenticResponse(array $overrides = []): AgenticResponse
 }
 
 /**
- * Build a mock EntitlementResult.
+ * Build an EntitlementResult.
+ *
+ * The real class, not a look-alike: EntitlementService::can() declares
+ * EntitlementResult as its return type, so a stand-in with the same two methods
+ * fails the return check the moment the service is mocked against its real
+ * signature. The old stand-in also published a public $message, which is what
+ * let ProcessContentTask read a property EntitlementResult does not have.
  */
-function mockEntitlementResult(bool $denied = false, string $message = ''): object
+function mockEntitlementResult(bool $denied = false, string $message = ''): EntitlementResult
 {
-    return new class($denied, $message)
-    {
-        public function __construct(
-            private readonly bool $denied,
-            public readonly string $message,
-        ) {}
-
-        public function isDenied(): bool
-        {
-            return $this->denied;
-        }
-    };
+    return $denied
+        ? EntitlementResult::denied($message, featureCode: 'ai.credits')
+        : EntitlementResult::allowed(featureCode: 'ai.credits');
 }
 
 // =========================================================================
@@ -124,7 +127,7 @@ describe('job configuration', function () {
         $task = mockContentTask();
         $job = new ProcessContentTask($task);
 
-        expect($job)->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class);
+        expect($job)->toBeInstanceOf(ShouldQueue::class);
     });
 
     it('stores the task on the job', function () {
@@ -147,7 +150,7 @@ describe('failed handler', function () {
             ->with('Something went wrong');
 
         $job = new ProcessContentTask($task);
-        $job->failed(new \RuntimeException('Something went wrong'));
+        $job->failed(new RuntimeException('Something went wrong'));
     });
 
     it('marks the task as failed with any throwable message', function () {
@@ -157,7 +160,7 @@ describe('failed handler', function () {
             ->with('Database connection lost');
 
         $job = new ProcessContentTask($task);
-        $job->failed(new \Exception('Database connection lost'));
+        $job->failed(new Exception('Database connection lost'));
     });
 
     it('uses the exception message verbatim', function () {
@@ -171,7 +174,7 @@ describe('failed handler', function () {
             });
 
         $job = new ProcessContentTask($task);
-        $job->failed(new \RuntimeException('Detailed error: code 503'));
+        $job->failed(new RuntimeException('Detailed error: code 503'));
 
         expect($capturedMessage)->toBe('Detailed error: code 503');
     });
@@ -191,11 +194,10 @@ describe('handle with missing prompt', function () {
             ->with('Prompt not found');
 
         $ai = Mockery::mock(AgenticManager::class);
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('does not call the AI provider when prompt is missing', function () {
@@ -206,11 +208,10 @@ describe('handle with missing prompt', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldNotReceive('provider');
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 });
 
@@ -229,7 +230,6 @@ describe('handle with denied entitlement', function () {
             ->with('Entitlement denied: Insufficient credits');
 
         $ai = Mockery::mock(AgenticManager::class);
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
 
         $result = mockEntitlementResult(denied: true, message: 'Insufficient credits');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
@@ -239,7 +239,7 @@ describe('handle with denied entitlement', function () {
             ->andReturn($result);
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('does not invoke the AI provider when entitlement is denied', function () {
@@ -252,14 +252,12 @@ describe('handle with denied entitlement', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldNotReceive('provider');
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
-
         $result = mockEntitlementResult(denied: true, message: 'Out of credits');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
         $entitlements->shouldReceive('can')->andReturn($result);
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('skips entitlement check when task has no workspace', function () {
@@ -273,8 +271,6 @@ describe('handle with denied entitlement', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
-
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
         $entitlements->shouldNotReceive('can');
 
@@ -283,7 +279,7 @@ describe('handle with denied entitlement', function () {
             ->with(Mockery::pattern('/is not configured/'));
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 });
 
@@ -305,11 +301,10 @@ describe('handle with unavailable provider', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->with('claude')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('includes the provider name in the failure message', function () {
@@ -325,11 +320,10 @@ describe('handle with unavailable provider', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->with('gemini')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 });
 
@@ -360,11 +354,10 @@ describe('handle with successful generation (no workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->with('claude')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('passes interpolated user prompt to the provider', function () {
@@ -393,11 +386,10 @@ describe('handle with successful generation (no workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('passes system prompt to the provider', function () {
@@ -421,11 +413,10 @@ describe('handle with successful generation (no workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('includes token and cost metadata when marking completed', function () {
@@ -453,11 +444,10 @@ describe('handle with successful generation (no workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
 
         expect($capturedMeta)
             ->toHaveKey('tokens_input', 120)
@@ -479,13 +469,11 @@ describe('handle with successful generation (no workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
-
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
         $entitlements->shouldNotReceive('recordUsage');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 });
 
@@ -511,8 +499,6 @@ describe('handle with successful generation (with workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
-
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
         $entitlements->shouldReceive('can')
             ->once()
@@ -520,15 +506,17 @@ describe('handle with successful generation (with workspace)', function () {
             ->andReturn($allowedResult);
         $entitlements->shouldReceive('recordUsage')
             ->once()
-            ->with(
-                $workspace,
-                'ai.credits',
-                quantity: 1,
-                metadata: Mockery::type('array'),
-            );
+            // Positional, matching recordUsage($workspace, $featureCode,
+            // $quantity, $user, $metadata): the call arrives with all five slots
+            // filled, so a named-argument expectation has no entry for $user and
+            // Mockery fails looking up argument 3.
+            ->with($workspace, 'ai.credits', 1, null, Mockery::type('array'))
+            // recordUsage() returns a non-nullable UsageRecord, so an
+            // expectation without andReturn() fails the return type check.
+            ->andReturn(Mockery::mock(UsageRecord::class));
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('includes task and prompt metadata in usage recording', function () {
@@ -551,19 +539,22 @@ describe('handle with successful generation (with workspace)', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
-
         $capturedMeta = null;
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
         $entitlements->shouldReceive('can')->andReturn($allowedResult);
         $entitlements->shouldReceive('recordUsage')
             ->once()
-            ->andReturnUsing(function ($ws, $key, $quantity, $metadata) use (&$capturedMeta) {
+            // Five parameters, matching recordUsage(): the job passes quantity
+            // and metadata as named arguments and skips $user, so $user still
+            // arrives positionally as null between them.
+            ->andReturnUsing(function ($ws, $key, $quantity, $user, $metadata) use (&$capturedMeta) {
                 $capturedMeta = $metadata;
+
+                return Mockery::mock(UsageRecord::class);
             });
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
 
         expect($capturedMeta)
             ->toHaveKey('task_id', 99)
@@ -592,13 +583,12 @@ describe('processOutput stub', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
 
         // Should complete without exception
-        expect(fn () => $job->handle($ai, $processor, $entitlements))->not->toThrow(\Exception::class);
+        expect(fn () => $job->handle($ai, $entitlements))->not->toThrow(Exception::class);
     });
 
     it('completes without error when task has a target but no matching model (stub behaviour)', function () {
@@ -620,12 +610,11 @@ describe('processOutput stub', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
 
-        expect(fn () => $job->handle($ai, $processor, $entitlements))->not->toThrow(\Exception::class);
+        expect(fn () => $job->handle($ai, $entitlements))->not->toThrow(Exception::class);
     });
 
     it('calls processOutput when both target_type and target_id are set', function () {
@@ -647,13 +636,11 @@ describe('processOutput stub', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        // ContentProcessingService is passed but the stub does not call it
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
 
-        expect(fn () => $job->handle($ai, $processor, $entitlements))->not->toThrow(\Exception::class);
+        expect(fn () => $job->handle($ai, $entitlements))->not->toThrow(Exception::class);
     });
 });
 
@@ -681,11 +668,10 @@ describe('variable interpolation', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('leaves unmatched placeholders unchanged', function () {
@@ -707,11 +693,10 @@ describe('variable interpolation', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('serialises array values as JSON in placeholders', function () {
@@ -733,11 +718,10 @@ describe('variable interpolation', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 
     it('handles empty input_data without error', function () {
@@ -759,11 +743,10 @@ describe('variable interpolation', function () {
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $job = new ProcessContentTask($task);
-        $job->handle($ai, $processor, $entitlements);
+        $job->handle($ai, $entitlements);
     });
 });
 
@@ -790,12 +773,11 @@ describe('retry logic', function () {
         $provider = Mockery::mock(AgenticProviderInterface::class);
         $provider->shouldReceive('isAvailable')->andReturn(true);
         $provider->shouldReceive('generate')
-            ->andThrow(new \RuntimeException('API timeout'));
+            ->andThrow(new RuntimeException('API timeout'));
 
         $ai = Mockery::mock(AgenticManager::class);
         $ai->shouldReceive('provider')->andReturn($provider);
 
-        $processor = Mockery::mock('Mod\Content\Services\ContentProcessingService');
         $entitlements = Mockery::mock('Core\Tenant\Services\EntitlementService');
 
         $task->shouldReceive('markFailed')
@@ -805,8 +787,8 @@ describe('retry logic', function () {
         $job = new ProcessContentTask($task);
 
         try {
-            $job->handle($ai, $processor, $entitlements);
-        } catch (\Throwable $e) {
+            $job->handle($ai, $entitlements);
+        } catch (Throwable $e) {
             $job->failed($e);
         }
     });

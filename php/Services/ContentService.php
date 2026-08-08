@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Mod\Agentic\Services;
 
+use Core\Mod\Content\Models\ContentItem;
 use Illuminate\Support\Facades\File;
-use Mod\Content\Models\ContentItem;
 use Symfony\Component\Yaml\Yaml;
 
 class ContentService

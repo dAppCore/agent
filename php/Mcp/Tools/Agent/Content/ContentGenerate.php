@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Mcp\Tools\Agent\Content;
 
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
-use Mod\Content\Jobs\GenerateContentJob;
-use Mod\Content\Models\ContentBrief;
-use Mod\Content\Services\AIGatewayService;
+use Core\Mod\Content\Jobs\GenerateContentJob;
+use Core\Mod\Content\Models\ContentBrief;
+use Core\Mod\Content\Services\AIGatewayService;
 
 /**
  * Generate content for a brief using AI pipeline.

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Mcp\Tools\Agent\Content;
 
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
-use Mod\Content\Models\AIUsage;
+use Core\Mod\Content\Models\AIUsage;
 
 /**
  * Get AI usage statistics for content generation.
