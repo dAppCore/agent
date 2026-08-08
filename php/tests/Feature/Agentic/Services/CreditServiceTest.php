@@ -9,24 +9,9 @@ use Core\Mod\Agentic\Models\CreditEntry;
 use Core\Mod\Agentic\Models\FleetNode;
 use Core\Mod\Agentic\Services\CreditService;
 
-use function Pest\Laravel\assertDatabaseHas;
-
-if (! function_exists('loadAgenticPhpClass')) {
-    function loadAgenticPhpClass(string $relativePath): void
-    {
-        $phpRoot = dirname(__DIR__, 4);
-        require_once $phpRoot.'/'.$relativePath;
-    }
-}
-
-beforeEach(function (): void {
-    loadAgenticPhpClass('Agentic/Data/CreditTransaction.php');
-    loadAgenticPhpClass('Agentic/Services/CreditService.php');
-});
-
 test('CreditService_refundAndDeduct_Good_tracks_workspace_balance_and_ledger_entries', function (): void {
     $workspace = createWorkspace();
-    $service = new CreditService();
+    $service = new CreditService;
 
     $refund = $service->refund($workspace->id, 7, 'Initial workspace credit');
     $deduction = $service->deduct($workspace->id, 2, 'Dispatch overrun');
@@ -41,7 +26,7 @@ test('CreditService_refundAndDeduct_Good_tracks_workspace_balance_and_ledger_ent
         ->and($ledger)->toHaveCount(2)
         ->and($ledger->first()->taskType)->toBe('manual-deduction');
 
-    assertDatabaseHas('credit_entries', [
+    test()->assertDatabaseHas('credit_entries', [
         'workspace_id' => $workspace->id,
         'fleet_node_id' => null,
         'task_type' => 'manual-refund',
@@ -49,7 +34,7 @@ test('CreditService_refundAndDeduct_Good_tracks_workspace_balance_and_ledger_ent
         'balance_after' => 7,
     ]);
 
-    assertDatabaseHas('credit_entries', [
+    test()->assertDatabaseHas('credit_entries', [
         'workspace_id' => $workspace->id,
         'fleet_node_id' => null,
         'task_type' => 'manual-deduction',
@@ -60,7 +45,7 @@ test('CreditService_refundAndDeduct_Good_tracks_workspace_balance_and_ledger_ent
 
 test('CreditService_deduct_Bad_rejects_zero_amounts_and_blank_reasons', function (): void {
     $workspace = createWorkspace();
-    $service = new CreditService();
+    $service = new CreditService;
 
     expect(fn () => $service->deduct($workspace->id, 0, 'No-op'))
         ->toThrow(InvalidArgumentException::class, 'amount must be greater than zero');
@@ -89,7 +74,7 @@ test('CreditService_balance_Ugly_aggregates_existing_node_entries_with_workspace
         'description' => 'Legacy per-node award',
     ]);
 
-    $service = new CreditService();
+    $service = new CreditService;
     $service->refund($workspace->id, 4, 'Workspace top-up');
 
     $balance = $service->balance($workspace->id);

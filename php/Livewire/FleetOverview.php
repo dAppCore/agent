@@ -299,6 +299,6 @@ class FleetOverview extends HubComponent
      */
     protected function viewPath(): string
     {
-        return __DIR__.'/../../resources/views/livewire/agentic/fleet-overview.blade.php';
+        return __DIR__.'/../resources/views/livewire/agentic/fleet-overview.blade.php';
     }
 }
