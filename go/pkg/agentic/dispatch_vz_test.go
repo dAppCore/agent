@@ -153,7 +153,7 @@ func TestDispatchVZ_CompletionProcess_Good_ExecStop(t *testing.T) {
 	// drives only the structured ExecResult→Stop tail.
 	fake := &fakeVZDispatcher{
 		available:  true,
-		execResult: core.Ok(vzExec{Stdout: "agent stdout", Exit: 0}),
+		execResult: core.Ok(container.ExecResult{Stdout: "agent stdout", Exit: 0}),
 		stopResult: core.Ok(nil),
 	}
 	proc := &vzCompletionProcess{
@@ -209,7 +209,7 @@ func TestDispatchVZ_CompletionProcess_Ugly_NonZeroExitPreserved(t *testing.T) {
 	// vzExitFailed) and fold stderr into the output for the monitor.
 	fake := &fakeVZDispatcher{
 		available:  true,
-		execResult: core.Ok(vzExec{Stdout: "partial", Stderr: "boom", Exit: 2}),
+		execResult: core.Ok(container.ExecResult{Stdout: "partial", Stderr: "boom", Exit: 2}),
 		stopResult: core.Ok(nil),
 	}
 	proc := &vzCompletionProcess{id: "vz-test", containerID: "vzfake01", command: "false", startedAt: time.Now(), done: make(chan struct{})}
@@ -242,7 +242,7 @@ func TestDispatchVZ_CompletionDrivesOnAgentComplete_Good_Case(t *testing.T) {
 
 	// A real vzCompletionProcess driven by a fake provider — proving the adapter
 	// satisfies completionProcess AND that the existing monitor consumes it.
-	fake := &fakeVZDispatcher{available: true, execResult: core.Ok(vzExec{Stdout: "vz output", Exit: 0}), stopResult: core.Ok(nil)}
+	fake := &fakeVZDispatcher{available: true, execResult: core.Ok(container.ExecResult{Stdout: "vz output", Exit: 0}), stopResult: core.Ok(nil)}
 	proc := &vzCompletionProcess{id: "vz-ws", containerID: "vzfake01", command: "true", startedAt: time.Now(), done: make(chan struct{})}
 	proc.run(fake)
 

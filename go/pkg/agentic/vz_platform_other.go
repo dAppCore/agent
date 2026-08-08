@@ -25,20 +25,6 @@ func vzHostAvailable() bool { return false }
 //	provider := newVZProviderImpl()
 func newVZProviderImpl() vzDispatcher { return vzUnsupportedProvider{} }
 
-// vzDecodeExec normalises an ExecResult verb payload into vzExec.
-//
-// Only the injected form is decodable off darwin: container.ExecResult is
-// declared inside go-container's darwin-tagged vz.go and cannot be named here.
-// Production never reaches this — vzUnsupportedProvider fails before exec — but
-// the unit tests script the fake dispatcher with vzExec and do run on Linux.
-//
-//	exec, ok := vzDecodeExec(core.Ok(vzExec{Stdout: "hi"}))
-func vzDecodeExec(result core.Result) (vzExec, bool) {
-	exec, ok := result.Value.(vzExec)
-
-	return exec, ok
-}
-
 // vzUnsupportedProvider satisfies vzDispatcher on hosts with no
 // Virtualization.framework, failing every verb rather than pretending.
 type vzUnsupportedProvider struct{}
