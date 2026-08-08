@@ -5,13 +5,14 @@
 declare(strict_types=1);
 
 use Core\Mod\Agentic\Mcp\Services\ToolDependencyService;
-use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
+use Core\Mod\Agentic\Mcp\Tools\Agent\Contracts\AgentToolInterface;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Core\Mod\Agentic\Website\Mcp\Middleware\ValidateToolDependencies;
 use Illuminate\Http\Request;
 
 function mcpMiddlewareToolFixture(string $name, array $dependencies = []): object
 {
-    return new class($name, $dependencies)
+    return new class($name, $dependencies) implements AgentToolInterface
     {
         public function __construct(
             private readonly string $toolName,
@@ -46,11 +47,21 @@ function mcpMiddlewareToolFixture(string $name, array $dependencies = []): objec
                 'tool' => $this->toolName,
             ];
         }
+
+        public function requiredScopes(): array
+        {
+            return ['read'];
+        }
+
+        public function category(): string
+        {
+            return 'testing';
+        }
     };
 }
 
 test('ValidateToolDependencies_handle_Good_validates_json_rpc_tool_calls_and_records_successful_execution', function (): void {
-    $registry = new ToolRegistry;
+    $registry = new AgentToolRegistry;
     $registry->register(mcpMiddlewareToolFixture('session_start'));
     $registry->register(mcpMiddlewareToolFixture('report_generate', [
         ['type' => 'tool', 'tool' => 'session_start', 'message' => 'Start session first.'],
@@ -80,7 +91,7 @@ test('ValidateToolDependencies_handle_Good_validates_json_rpc_tool_calls_and_rec
 });
 
 test('ValidateToolDependencies_handle_Bad_returns_conflict_when_required_dependencies_are_missing', function (): void {
-    $registry = new ToolRegistry;
+    $registry = new AgentToolRegistry;
     $registry->register(mcpMiddlewareToolFixture('plan_list', [
         ['type' => 'context_exists', 'key' => 'workspace_id', 'message' => 'Workspace context required.'],
     ]));
@@ -101,7 +112,7 @@ test('ValidateToolDependencies_handle_Bad_returns_conflict_when_required_depende
 });
 
 test('ValidateToolDependencies_handle_Ugly_converts_circular_dependency_failures_into_conflict_responses', function (): void {
-    $registry = new ToolRegistry;
+    $registry = new AgentToolRegistry;
     $registry->register(mcpMiddlewareToolFixture('tool_alpha', [
         ['type' => 'tool', 'tool' => 'tool_bravo', 'message' => 'tool_bravo is required.'],
     ]));

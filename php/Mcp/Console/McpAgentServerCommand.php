@@ -8,8 +8,8 @@ namespace Core\Mod\Agentic\Mcp\Console;
 
 use Core\Mod\Agentic\Mcp\Services\McpQuotaService;
 use Core\Mod\Agentic\Mcp\Services\QueryAuditService;
-use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
 use Core\Mod\Agentic\Services\AgentResourceRegistry;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use JsonException;
@@ -35,7 +35,7 @@ class McpAgentServerCommand extends Command
      * $exitCode = $this->handle($toolRegistry, $quotaService, $queryAuditService);
      */
     public function handle(
-        ToolRegistry $toolRegistry,
+        AgentToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
         AgentResourceRegistry $resourceRegistry,
@@ -118,7 +118,7 @@ class McpAgentServerCommand extends Command
      */
     private function processPayload(
         string $payload,
-        ToolRegistry $toolRegistry,
+        AgentToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
         AgentResourceRegistry $resourceRegistry,
@@ -174,7 +174,7 @@ class McpAgentServerCommand extends Command
      */
     private function processRequest(
         array $request,
-        ToolRegistry $toolRegistry,
+        AgentToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
         AgentResourceRegistry $resourceRegistry,
@@ -262,7 +262,7 @@ class McpAgentServerCommand extends Command
     private function handleToolCall(
         array $params,
         mixed $id,
-        ToolRegistry $toolRegistry,
+        AgentToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
     ): array {

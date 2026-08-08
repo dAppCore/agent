@@ -8,6 +8,7 @@ namespace Core\Mod\Agentic\Mcp\Services;
 
 use Carbon\CarbonImmutable;
 use Core\Mcp\Dependencies\ToolDependency;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Illuminate\Container\Container;
 use InvalidArgumentException;
 use RuntimeException;
@@ -25,7 +26,7 @@ final class ToolDependencyService
     private array $toolCalls = [];
 
     public function __construct(
-        private ?ToolRegistry $registry = null,
+        private ?AgentToolRegistry $registry = null,
         private readonly ?Container $container = null,
     ) {
         $this->registry ??= $this->resolveRegistry();
@@ -105,15 +106,15 @@ final class ToolDependencyService
         return array_keys($this->toolCalls[$sessionId] ?? []);
     }
 
-    private function resolveRegistry(): ?ToolRegistry
+    private function resolveRegistry(): ?AgentToolRegistry
     {
         $container = $this->container ?? Container::getInstance();
 
-        if (! $container instanceof Container || ! $container->bound(ToolRegistry::class)) {
+        if (! $container instanceof Container || ! $container->bound(AgentToolRegistry::class)) {
             return null;
         }
 
-        return $container->make(ToolRegistry::class);
+        return $container->make(AgentToolRegistry::class);
     }
 
     /**

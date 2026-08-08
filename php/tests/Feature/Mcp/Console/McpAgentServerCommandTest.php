@@ -6,8 +6,9 @@ declare(strict_types=1);
 
 use Core\Mod\Agentic\Mcp\Console\McpAgentServerCommand;
 use Core\Mod\Agentic\Mcp\Services\McpQuotaService;
-use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
+use Core\Mod\Agentic\Mcp\Tools\Agent\Contracts\AgentToolInterface;
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -19,7 +20,7 @@ beforeEach(function (): void {
         $this->app->make(McpAgentServerCommand::class),
     );
 
-    ToolRegistry::registerSingleton($this->app)->register(new class
+    $this->app->make(AgentToolRegistry::class)->register(new class implements AgentToolInterface
     {
         public function name(): string
         {
@@ -43,6 +44,16 @@ beforeEach(function (): void {
                 'context' => $context,
                 'value' => $arguments['value'] ?? null,
             ];
+        }
+
+        public function requiredScopes(): array
+        {
+            return ['read'];
+        }
+
+        public function category(): string
+        {
+            return 'testing';
         }
     });
 

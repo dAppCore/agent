@@ -9,7 +9,6 @@ namespace Core\Mod\Agentic;
 use Core\Events\AdminPanelBooting;
 use Core\Events\ApiRoutesRegistering;
 use Core\Events\ConsoleBooting;
-use Core\Events\McpToolsRegistering;
 use Core\Mod\Agentic\Services\AgenticManager;
 use Core\Mod\Agentic\Services\AgentResourceRegistry;
 use Core\Mod\Agentic\Services\AgentToolRegistry;
@@ -34,7 +33,6 @@ class Boot extends ServiceProvider
         AdminPanelBooting::class => 'onAdminPanel',
         ApiRoutesRegistering::class => 'onApiRoutes',
         ConsoleBooting::class => 'onConsole',
-        McpToolsRegistering::class => 'onMcpTools',
     ];
 
     public function boot(): void
@@ -97,6 +95,8 @@ class Boot extends ServiceProvider
 
         $this->app->singleton(AgenticManager::class);
         $this->app->singleton(AgentToolRegistry::class);
+
+        $this->registerAgentTools();
 
         // Resources are bound here rather than hung off an event the way tools
         // are. There is no McpResourcesRegistering to listen for, and $listens
@@ -232,15 +232,29 @@ class Boot extends ServiceProvider
     }
 
     /**
-     * Handle MCP tools registration event.
+     * Fill the tool registry.
      *
-     * Note: Agent tools (plan_create, session_start, etc.) are implemented in
-     * the Mcp module at Mod\Mcp\Tools\Agent\* and registered via AgentToolRegistry.
-     * Brain tools are registered here as they belong to the Agentic module.
+     * Called from register(), not from the McpToolsRegistering event this used
+     * to listen for. $listens is populated by ModuleScanner scanning
+     * app/Core|Mod|Website only, so it is dead once this package is installed
+     * under vendor/: the event never fired and the registry stayed empty, which
+     * is half of why the stdio server advertised no tools. The other half was
+     * that it read a different registry entirely — see listTools() on the class
+     * this fills.
+     *
+     * @example
+     * $this->registerAgentTools();
      */
-    public function onMcpTools(McpToolsRegistering $event): void
+    private function registerAgentTools(): void
     {
         $registry = $this->app->make(AgentToolRegistry::class);
+
+        // Idempotent: register() runs once per application, but a host that
+        // still delivers the event must not double-register and trip the
+        // duplicate-name guard.
+        if ($registry->all()->isNotEmpty()) {
+            return;
+        }
 
         $toolClasses = [
             Mcp\Tools\Agent\Brain\BrainRemember::class,

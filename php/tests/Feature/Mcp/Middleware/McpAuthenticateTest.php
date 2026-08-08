@@ -6,8 +6,8 @@ declare(strict_types=1);
 
 use Core\Mod\Agentic\Mcp\Services\McpQuotaService;
 use Core\Mod\Agentic\Mcp\Services\ToolDependencyService;
-use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
 use Core\Mod\Agentic\Services\AgentApiKeyService;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Core\Mod\Agentic\Website\Mcp\Middleware\CheckMcpQuota;
 use Core\Mod\Agentic\Website\Mcp\Middleware\McpApiKeyAuth;
 use Core\Mod\Agentic\Website\Mcp\Middleware\McpAuthenticate;
@@ -15,6 +15,7 @@ use Core\Mod\Agentic\Website\Mcp\Middleware\ValidateToolDependencies;
 use Core\Mod\Agentic\Website\Mcp\Middleware\ValidateWorkspaceContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function (): void {
     Cache::flush();
@@ -26,7 +27,7 @@ test('McpAuthenticate_handle_Good_chains_auth_quota_workspace_and_dependency_val
     $workspace = createWorkspace();
     $apiKey = createApiKey($workspace, 'Combined Auth Key');
 
-    $registry = new ToolRegistry;
+    $registry = new AgentToolRegistry;
     $registry->register(mcpMiddlewareToolFixture('plan_list', [
         ['type' => 'context_exists', 'key' => 'workspace_id', 'message' => 'Workspace context required.'],
     ]));
@@ -72,7 +73,7 @@ test('McpAuthenticate_handle_Bad_stops_the_pipeline_when_workspace_quota_is_exha
         new McpApiKeyAuth(app(AgentApiKeyService::class)),
         new CheckMcpQuota($quotaService),
         new ValidateWorkspaceContext,
-        new ValidateToolDependencies(new ToolDependencyService(new ToolRegistry, $this->app)),
+        new ValidateToolDependencies(new ToolDependencyService(new AgentToolRegistry, $this->app)),
     );
 
     $request = Request::create('/api/v1/mcp/tools/call', 'POST', [
@@ -93,7 +94,7 @@ test('McpAuthenticate_handle_Bad_stops_the_pipeline_when_workspace_quota_is_exha
 test('McpAuthenticate_handle_Ugly_bubbles_missing_workspace_context_failures_from_the_validation_stage', function (): void {
     $brokenAuth = new class(app(AgentApiKeyService::class)) extends McpApiKeyAuth
     {
-        public function handle(Request $request, Closure $next): \Symfony\Component\HttpFoundation\Response
+        public function handle(Request $request, Closure $next): Response
         {
             return $next($request);
         }
@@ -103,7 +104,7 @@ test('McpAuthenticate_handle_Ugly_bubbles_missing_workspace_context_failures_fro
         $brokenAuth,
         new CheckMcpQuota(new McpQuotaService),
         new ValidateWorkspaceContext,
-        new ValidateToolDependencies(new ToolDependencyService(new ToolRegistry, $this->app)),
+        new ValidateToolDependencies(new ToolDependencyService(new AgentToolRegistry, $this->app)),
     );
 
     $request = Request::create('/api/v1/mcp/tools/call', 'POST', [
