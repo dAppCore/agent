@@ -56,5 +56,5 @@ func resolveOCIRuntime() string {
 //
 //	vzDispatchEnabled() // true on an Apple-silicon host with CONTAINER_VZ_LIVE=1
 func vzDispatchEnabled() bool {
-	return container.IsVZAvailable() && core.Env("CONTAINER_VZ_LIVE") == "1"
+	return vzHostAvailable() && core.Env("CONTAINER_VZ_LIVE") == "1"
 }
