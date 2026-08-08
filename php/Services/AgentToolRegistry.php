@@ -38,6 +38,16 @@ class AgentToolRegistry
      */
     public function register(AgentToolInterface $tool): self
     {
+        // Absorbed from the registry this replaced: two tools claiming one name
+        // is a wiring mistake, and silently keeping the last one registered
+        // means the MCP surface serves whichever file happened to load second.
+        if (isset($this->tools[$tool->name()])) {
+            throw new \InvalidArgumentException(sprintf(
+                'Tool [%s] is already registered.',
+                $tool->name(),
+            ));
+        }
+
         $this->tools[$tool->name()] = $tool;
 
         // Auto-register dependencies if tool declares them
