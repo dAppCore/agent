@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-//go:build vz
+//go:build vz && darwin
 
 package agentic
 
