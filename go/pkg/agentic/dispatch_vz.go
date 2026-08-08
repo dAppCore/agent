@@ -88,10 +88,9 @@ type vzDispatcher interface {
 	// Run boots a guest image and returns the running *container.Container.
 	Run(image *container.Image, opts ...container.RunOption) core.Result
 	// ExecResult runs a command in the guest over vsock and returns its full
-	// outcome — Value is a container.ExecResult{Stdout, Stderr, Exit}, which
-	// vzDecodeExec normalises into vzExec. A command that ran and exited
-	// non-zero is OK at the verb level (the exit code is preserved); only
-	// verb-level failures Fail.
+	// outcome — Value is a container.ExecResult{Stdout, Stderr, Exit}. A command
+	// that ran and exited non-zero is OK at the verb level (the exit code is
+	// preserved); only verb-level failures Fail.
 	ExecResult(id, command string, args ...string) core.Result
 	// Stop gracefully stops a running guest.
 	Stop(id string) core.Result
@@ -100,15 +99,6 @@ type vzDispatcher interface {
 // newVZProvider builds the dispatcher used by the fork. Overridden in tests to
 // inject a fake; production returns the concrete in-process provider.
 var newVZProvider = func() vzDispatcher { return newVZProviderImpl() }
-
-// vzExec is the platform-neutral form of an exec outcome. go-container declares
-// ExecResult inside its darwin-tagged vz.go, so naming that type here would
-// stop the package building on Linux; vzDecodeExec converts into this instead.
-type vzExec struct {
-	Stdout string
-	Stderr string
-	Exit   int
-}
 
 // vzResolveExec runs the go-build image resolver and returns its core.Result —
 // Value is the captured stdout string on success. It is a package var (a seam)
@@ -277,7 +267,7 @@ func (v *vzCompletionProcess) run(provider vzDispatcher) {
 		v.finish(vzExitFailed, process.StatusFailed, vzResultMessage(execResult))
 		return
 	}
-	result, ok := vzDecodeExec(execResult)
+	result, ok := execResult.Value.(container.ExecResult)
 	if !ok {
 		v.finish(vzExitFailed, process.StatusFailed, "vz exec returned unexpected result type")
 		return
@@ -295,7 +285,7 @@ func (v *vzCompletionProcess) run(provider vzDispatcher) {
 // the completionProcess/monitor contract carries. stdout is the agent's
 // captured output; stderr is appended (labelled) only when present so a failed
 // run surfaces why without masking the stdout of a successful one.
-func vzExecOutput(result vzExec) string {
+func vzExecOutput(result container.ExecResult) string {
 	if result.Stderr == "" {
 		return result.Stdout
 	}
