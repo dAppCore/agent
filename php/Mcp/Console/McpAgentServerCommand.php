@@ -9,6 +9,7 @@ namespace Core\Mod\Agentic\Mcp\Console;
 use Core\Mod\Agentic\Mcp\Services\McpQuotaService;
 use Core\Mod\Agentic\Mcp\Services\QueryAuditService;
 use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
+use Core\Mod\Agentic\Services\AgentResourceRegistry;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use JsonException;
@@ -37,6 +38,7 @@ class McpAgentServerCommand extends Command
         ToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
+        AgentResourceRegistry $resourceRegistry,
     ): int {
         $inputPath = $this->streamPath('MCP_AGENT_SERVER_INPUT', 'php://stdin');
         $outputPath = $this->streamPath('MCP_AGENT_SERVER_OUTPUT', 'php://stdout');
@@ -64,6 +66,7 @@ class McpAgentServerCommand extends Command
                     $toolRegistry,
                     $quotaService,
                     $queryAuditService,
+                    $resourceRegistry,
                 );
 
                 if ($response === null) {
@@ -118,7 +121,8 @@ class McpAgentServerCommand extends Command
         ToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
-    ): array|null {
+        AgentResourceRegistry $resourceRegistry,
+    ): ?array {
         try {
             $request = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
@@ -142,6 +146,7 @@ class McpAgentServerCommand extends Command
                     $toolRegistry,
                     $quotaService,
                     $queryAuditService,
+                    $resourceRegistry,
                 );
 
                 if ($response !== null) {
@@ -157,6 +162,7 @@ class McpAgentServerCommand extends Command
             $toolRegistry,
             $quotaService,
             $queryAuditService,
+            $resourceRegistry,
         );
     }
 
@@ -171,7 +177,8 @@ class McpAgentServerCommand extends Command
         ToolRegistry $toolRegistry,
         McpQuotaService $quotaService,
         QueryAuditService $queryAuditService,
-    ): array|null {
+        AgentResourceRegistry $resourceRegistry,
+    ): ?array {
         $id = $request['id'] ?? null;
 
         if (($request['jsonrpc'] ?? null) !== '2.0') {
@@ -199,6 +206,16 @@ class McpAgentServerCommand extends Command
                         'list' => true,
                         'call' => true,
                     ],
+                    // Advertised, not just implemented: a client that is not
+                    // told the server has resources never issues resources/list,
+                    // so an unadvertised surface is undiscoverable and might as
+                    // well not exist.
+                    'resources' => [
+                        'list' => true,
+                        'read' => true,
+                        'subscribe' => false,
+                        'listChanged' => true,
+                    ],
                 ],
             ], $id),
             'ping' => $this->successResponse(['ok' => true], $id),
@@ -221,7 +238,11 @@ class McpAgentServerCommand extends Command
                 $quotaService,
                 $queryAuditService,
             ),
-            'resources/list' => $this->successResponse(['resources' => []], $id),
+            'resources/list' => $this->successResponse(
+                ['resources' => $resourceRegistry->entries()],
+                $id,
+            ),
+            'resources/read' => $this->handleResourceRead($params, $id, $resourceRegistry),
             default => $this->errorResponse(-32601, 'Method not found', $id),
         };
 
@@ -341,12 +362,44 @@ class McpAgentServerCommand extends Command
     }
 
     /**
+     * Serve a resources/read request.
+     *
+     * A URI that no resource claims, and one whose shape matches but whose
+     * target does not exist, both answer -32602 rather than a body reading
+     * "Plan not found" — that string was previously returned as the resource
+     * content, so a client could not tell a missing plan from a plan whose
+     * document happens to say that.
+     *
+     * @example
+     * $response = $this->handleResourceRead(['uri' => 'plans://all'], 1, $resourceRegistry);
+     */
+    private function handleResourceRead(
+        array $params,
+        mixed $id,
+        AgentResourceRegistry $resourceRegistry,
+    ): array {
+        $uri = $params['uri'] ?? null;
+
+        if (! is_string($uri) || $uri === '') {
+            return $this->errorResponse(-32602, 'Invalid params', $id);
+        }
+
+        $contents = $resourceRegistry->read($uri);
+
+        if ($contents === null) {
+            return $this->errorResponse(-32602, "Resource not found: {$uri}", $id);
+        }
+
+        return $this->successResponse(['contents' => [$contents]], $id);
+    }
+
+    /**
      * Resolve the requested tool name from supported JSON-RPC parameter keys.
      *
      * @example
      * $toolName = $this->resolveToolName(['tool' => 'brain_list']);
      */
-    private function resolveToolName(array $params): string|null
+    private function resolveToolName(array $params): ?string
     {
         $value = $params['name'] ?? $params['tool'] ?? null;
 
@@ -376,7 +429,7 @@ class McpAgentServerCommand extends Command
      * @example
      * $query = $this->toolQuery(['query' => 'select * from memories']);
      */
-    private function toolQuery(array $arguments): string|null
+    private function toolQuery(array $arguments): ?string
     {
         $query = $arguments['query'] ?? null;
 

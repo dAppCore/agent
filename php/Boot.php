@@ -10,6 +10,11 @@ use Core\Events\AdminPanelBooting;
 use Core\Events\ApiRoutesRegistering;
 use Core\Events\ConsoleBooting;
 use Core\Events\McpToolsRegistering;
+use Core\Mod\Agentic\Services\AgenticManager;
+use Core\Mod\Agentic\Services\AgentResourceRegistry;
+use Core\Mod\Agentic\Services\AgentToolRegistry;
+use Core\Mod\Agentic\Services\BrainService;
+use Core\Mod\Agentic\Services\ForgejoService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
@@ -90,17 +95,34 @@ class Boot extends ServiceProvider
             config(['database.connections.brain' => $brainDb]);
         }
 
-        $this->app->singleton(\Core\Mod\Agentic\Services\AgenticManager::class);
-        $this->app->singleton(\Core\Mod\Agentic\Services\AgentToolRegistry::class);
+        $this->app->singleton(AgenticManager::class);
+        $this->app->singleton(AgentToolRegistry::class);
 
-        $this->app->singleton(\Core\Mod\Agentic\Services\ForgejoService::class, function ($app) {
-            return new \Core\Mod\Agentic\Services\ForgejoService(
+        // Resources are bound here rather than hung off an event the way tools
+        // are. There is no McpResourcesRegistering to listen for, and $listens
+        // is populated by ModuleScanner from app/Core|Mod|Website only — dead
+        // once this package is installed under vendor/ — so a container binding
+        // is what actually resolves in a host application.
+        $this->app->singleton(
+            AgentResourceRegistry::class,
+            static fn (): AgentResourceRegistry => (new AgentResourceRegistry)
+                ->registerMany([
+                    new Mcp\Resources\Agent\AllPlansResource,
+                    new Mcp\Resources\Agent\PlanDocumentResource,
+                    new Mcp\Resources\Agent\PhaseChecklistResource,
+                    new Mcp\Resources\Agent\StateValueResource,
+                    new Mcp\Resources\Agent\SessionContextResource,
+                ]),
+        );
+
+        $this->app->singleton(ForgejoService::class, function ($app) {
+            return new ForgejoService(
                 baseUrl: (string) config('agentic.forge_url', 'https://forge.lthn.ai'),
                 token: (string) config('agentic.forge_token', ''),
             );
         });
 
-        $this->app->singleton(\Core\Mod\Agentic\Services\BrainService::class, function ($app) {
+        $this->app->singleton(BrainService::class, function ($app) {
             $ollamaUrl = config('mcp.brain.ollama_url', 'http://localhost:11434');
             $qdrantUrl = config('mcp.brain.qdrant_url', 'http://localhost:6334');
 
@@ -111,7 +133,7 @@ class Boot extends ServiceProvider
             );
             $verifySsl = ! ($hasLocalTld($ollamaUrl) || $hasLocalTld($qdrantUrl));
 
-            return new \Core\Mod\Agentic\Services\BrainService(
+            return new BrainService(
                 ollamaUrl: $ollamaUrl,
                 qdrantUrl: $qdrantUrl,
                 collection: config('mcp.brain.collection', 'openbrain'),
@@ -201,7 +223,7 @@ class Boot extends ServiceProvider
      */
     public function onMcpTools(McpToolsRegistering $event): void
     {
-        $registry = $this->app->make(Services\AgentToolRegistry::class);
+        $registry = $this->app->make(AgentToolRegistry::class);
 
         $toolClasses = [
             Mcp\Tools\Agent\Brain\BrainRemember::class,
@@ -247,7 +269,7 @@ class Boot extends ServiceProvider
         ];
 
         $registry->registerMany(array_map(
-            static fn (string $toolClass) => new $toolClass(),
+            static fn (string $toolClass) => new $toolClass,
             $toolClasses,
         ));
     }
