@@ -7,6 +7,7 @@ declare(strict_types=1);
 use Core\Mod\Agentic\Mcp\Console\McpAgentServerCommand;
 use Core\Mod\Agentic\Mcp\Services\McpQuotaService;
 use Core\Mod\Agentic\Mcp\Services\ToolRegistry;
+use Core\Mod\Agentic\Models\AgentPlan;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -149,4 +150,68 @@ test('McpAgentServerCommand_handle_Ugly_rejects_tool_calls_after_quota_is_exhaus
         ->and($result['responses'])->toHaveCount(1)
         ->and($result['responses'][0]['error']['code'])->toBe(-32001)
         ->and($result['responses'][0]['error']['message'])->toBe('MCP quota exceeded.');
+});
+
+test('McpAgentServerCommand_initialize_Good_advertises_the_resources_capability', function (): void {
+    // A client that is not told the server has resources never calls
+    // resources/list, so an unadvertised surface is undiscoverable.
+    $result = mcpAgentServerRun(json_encode([
+        'jsonrpc' => '2.0',
+        'id' => 1,
+        'method' => 'initialize',
+    ]).PHP_EOL);
+
+    $capabilities = $result['responses'][0]['result']['capabilities'];
+
+    expect($capabilities)->toHaveKey('resources');
+    expect($capabilities['resources']['list'])->toBeTrue();
+    expect($capabilities['resources']['read'])->toBeTrue();
+    expect($capabilities['tools']['call'])->toBeTrue();
+});
+
+test('McpAgentServerCommand_resourcesList_Good_returns_the_agent_resource_surface', function (): void {
+    AgentPlan::factory()->create(['slug' => 'listed-plan', 'title' => 'Listed Plan']);
+
+    $result = mcpAgentServerRun(json_encode([
+        'jsonrpc' => '2.0',
+        'id' => 2,
+        'method' => 'resources/list',
+    ]).PHP_EOL);
+
+    $uris = array_column($result['responses'][0]['result']['resources'], 'uri');
+
+    // Previously this answered a hardcoded empty array.
+    expect($uris)->toContain('plans://all');
+    expect($uris)->toContain('plans://listed-plan');
+});
+
+test('McpAgentServerCommand_resourcesRead_Good_returns_plan_contents', function (): void {
+    AgentPlan::factory()->create(['slug' => 'readable-plan', 'title' => 'Readable Plan']);
+
+    $result = mcpAgentServerRun(json_encode([
+        'jsonrpc' => '2.0',
+        'id' => 3,
+        'method' => 'resources/read',
+        'params' => ['uri' => 'plans://all'],
+    ]).PHP_EOL);
+
+    $contents = $result['responses'][0]['result']['contents'][0];
+
+    expect($contents['uri'])->toBe('plans://all');
+    expect($contents['mimeType'])->toBe('text/markdown');
+    expect($contents['text'])->toContain('readable-plan');
+});
+
+test('McpAgentServerCommand_resourcesRead_Bad_errors_for_an_unknown_uri', function (): void {
+    $result = mcpAgentServerRun(json_encode([
+        'jsonrpc' => '2.0',
+        'id' => 4,
+        'method' => 'resources/read',
+        'params' => ['uri' => 'plans://does-not-exist'],
+    ]).PHP_EOL);
+
+    // An error, not a body reading "Plan not found" — a client can tell the
+    // difference between a missing plan and a plan whose text says that.
+    expect($result['responses'][0])->toHaveKey('error');
+    expect($result['responses'][0]['error']['code'])->toBe(-32602);
 });
