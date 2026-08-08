@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Mcp\Services;
 
 use Carbon\CarbonImmutable;
+use Core\Mcp\Dependencies\ToolDependency;
 use Core\Mod\Agentic\Services\AgentToolRegistry;
 use Illuminate\Container\Container;
 use InvalidArgumentException;
@@ -271,6 +272,21 @@ final class ToolDependencyService
                     ], static fn (mixed $value): bool => $value !== null),
                 ),
             ];
+        }
+
+        if ($dependency instanceof ToolDependency) {
+            // toArray(), not get_object_vars(): the object holds $type as a
+            // DependencyType enum and names its text $description. The array
+            // branch below casts type to string — which fatals on an enum — and
+            // looks for 'message', so a raw property dump both breaks and
+            // silently loses the description.
+            $fields = $dependency->toArray();
+            $fields['message'] = $fields['description'] ?? null;
+
+            return $this->normaliseDependency(array_filter(
+                $fields,
+                static fn (mixed $value): bool => $value !== null,
+            ));
         }
 
         if (is_object($dependency)) {
