@@ -8,21 +8,9 @@ use Core\Mod\Agentic\Models\AgentSession;
 use Core\Mod\Agentic\Services\SessionService;
 use Illuminate\Support\Facades\Event;
 
-if (! function_exists('loadAgenticPhpClass')) {
-    function loadAgenticPhpClass(string $relativePath): void
-    {
-        $phpRoot = dirname(__DIR__, 4);
-        require_once $phpRoot.'/'.$relativePath;
-    }
-}
-
-beforeEach(function (): void {
-    loadAgenticPhpClass('Agentic/Services/SessionService.php');
-});
-
 test('SessionService_create_Good_creates_active_sessions_and_emits_sse_frames', function (): void {
     $workspace = createWorkspace();
-    $service = new SessionService();
+    $service = new SessionService;
     $captured = [];
 
     Event::listen(SessionService::SSE_EVENT, function (array $payload) use (&$captured): void {
@@ -52,7 +40,7 @@ test('SessionService_create_Good_creates_active_sessions_and_emits_sse_frames', 
 
 test('SessionService_updateState_Bad_rejects_invalid_terminal_state_transitions', function (): void {
     $workspace = createWorkspace();
-    $service = new SessionService();
+    $service = new SessionService;
     $session = $service->create($workspace->id, ['agent_type' => 'sonnet']);
 
     $completed = $service->updateState($session, 'closed');
@@ -65,7 +53,7 @@ test('SessionService_updateState_Bad_rejects_invalid_terminal_state_transitions'
 
 test('SessionService_updateState_Ugly_allows_handoff_reactivation_by_session_id', function (): void {
     $workspace = createWorkspace();
-    $service = new SessionService();
+    $service = new SessionService;
     $session = $service->create($workspace->id, [
         'agent_type' => 'haiku',
         'handoff_notes' => ['summary' => 'Ready for follow-up'],

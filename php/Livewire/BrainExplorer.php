@@ -300,6 +300,6 @@ class BrainExplorer extends HubComponent
      */
     protected function viewPath(): string
     {
-        return __DIR__.'/../../resources/views/livewire/agentic/brain-explorer.blade.php';
+        return __DIR__.'/../resources/views/livewire/agentic/brain-explorer.blade.php';
     }
 }

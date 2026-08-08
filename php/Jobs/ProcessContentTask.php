@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Jobs;
 
 use Core\Mod\Agentic\Services\AgenticManager;
+use Core\Mod\Content\Models\ContentTask;
 use Core\Tenant\Services\EntitlementService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Mod\Content\Models\ContentTask;
 use Throwable;
 
 class ProcessContentTask implements ShouldQueue
@@ -51,7 +51,12 @@ class ProcessContentTask implements ShouldQueue
             $result = $entitlements->can($workspace, 'ai.credits');
 
             if ($result->isDenied()) {
-                $this->task->markFailed("Entitlement denied: {$result->message}");
+                // getMessage(), not ->message: EntitlementResult carries the text
+                // as a readonly $reason and exposes it through getMessage(). There
+                // is no $message property and no __get, so this interpolated an
+                // undefined property and every denial was recorded with an empty
+                // reason.
+                $this->task->markFailed("Entitlement denied: {$result->getMessage()}");
 
                 return;
             }
@@ -111,7 +116,10 @@ class ProcessContentTask implements ShouldQueue
     private function interpolateVariables(string $template, array $data): string
     {
         foreach ($data as $key => $value) {
-            $placeholder = '{{{'.$key.'}}}';
+            // Two braces, not three. Every prompt template in the package writes
+            // {{name}}, so the three-brace placeholder never matched anything and
+            // user templates reached the provider with their variables intact.
+            $placeholder = '{{'.$key.'}}';
 
             if (is_string($value)) {
                 $template = str_replace($placeholder, $value, $template);

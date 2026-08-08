@@ -17,14 +17,6 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>php/tests/Feature</directory>
-            <!--
-                Excluded, not fixed: these three files bind LivewireTestCase at
-                file level, which Pest treats as conflicting with the folder-wide
-                TestCase binding in Pest.php even though LivewireTestCase extends
-                it. Resolving that means restructuring the Livewire suite; until
-                then it stays out so the other 200-odd tests can run.
-            -->
-            <exclude>php/tests/Feature/Agentic/Livewire</exclude>
         </testsuite>
         <testsuite name="UseCase">
             <directory>php/tests/UseCase</directory>

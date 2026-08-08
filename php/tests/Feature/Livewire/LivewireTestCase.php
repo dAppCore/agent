@@ -67,16 +67,13 @@ abstract class LivewireTestCase extends TestCase
     }
 
     /**
-     * Load a Livewire component class from the module under test.
+     * Name a Livewire component class from the module under test.
      *
      * Example:
      *   $component = $this->livewireComponent('FleetOverview');
      */
     protected function livewireComponent(string $component): string
     {
-        $phpRoot = dirname(__DIR__, 3);
-        require_once $phpRoot."/Agentic/Livewire/{$component}.php";
-
         return "Core\\Mod\\Agentic\\Livewire\\{$component}";
     }
 
@@ -96,7 +93,7 @@ abstract class LivewireTestCase extends TestCase
         array $bladeNeedles,
     ): void {
         $phpRoot = dirname(__DIR__, 3);
-        $componentSource = file_get_contents($phpRoot."/Agentic/Livewire/{$component}.php");
+        $componentSource = file_get_contents($phpRoot."/Livewire/{$component}.php");
         $bladeSource = file_get_contents(
             $phpRoot."/resources/views/livewire/agentic/{$bladeName}.blade.php",
         );

@@ -6,11 +6,11 @@ declare(strict_types=1);
 
 namespace Core\Mcp\Resources;
 
+use Core\Mod\Content\Models\ContentItem;
 use Core\Tenant\Models\Workspace;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Resource;
-use Mod\Content\Models\ContentItem;
 use Symfony\Component\Yaml\Yaml;
 
 // Not final: resolveWorkspace / resolveContentItem / listResources are

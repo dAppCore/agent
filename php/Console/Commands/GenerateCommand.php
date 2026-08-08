@@ -7,10 +7,12 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Console\Commands;
 
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Content\Jobs\GenerateContentJob;
+use Core\Mod\Content\Models\AIUsage;
+use Core\Mod\Content\Models\ContentBrief;
+use Core\Mod\Content\Services\AIGatewayService;
 use Illuminate\Console\Command;
-use Mod\Content\Jobs\GenerateContentJob;
-use Mod\Content\Models\ContentBrief;
-use Mod\Content\Services\AIGatewayService;
+use Illuminate\Support\Str;
 
 class GenerateCommand extends Command
 {
@@ -104,7 +106,7 @@ class GenerateCommand extends Command
         // Create brief
         $brief = ContentBrief::create([
             'title' => $title,
-            'slug' => \Illuminate\Support\Str::slug($title),
+            'slug' => Str::slug($title),
             'content_type' => $this->option('type'),
             'service' => $this->option('service'),
             'keywords' => $this->option('keywords')
@@ -268,7 +270,7 @@ class GenerateCommand extends Command
                 // Create brief from task
                 $brief = ContentBrief::create([
                     'title' => $taskName,
-                    'slug' => \Illuminate\Support\Str::slug($taskName).'-'.time(),
+                    'slug' => Str::slug($taskName).'-'.time(),
                     'content_type' => $this->option('type'),
                     'service' => $this->option('service') ?? ($plan->metadata['service'] ?? null),
                     'target_word_count' => (int) $this->option('words'),
@@ -333,7 +335,7 @@ class GenerateCommand extends Command
         $this->newLine();
         $this->line(' <comment>AI Usage (This Month):</comment>');
 
-        $usage = \Mod\Content\Models\AIUsage::thisMonth()
+        $usage = AIUsage::thisMonth()
             ->selectRaw('provider, SUM(input_tokens) as input, SUM(output_tokens) as output, SUM(cost_estimate) as cost')
             ->groupBy('provider')
             ->get();
