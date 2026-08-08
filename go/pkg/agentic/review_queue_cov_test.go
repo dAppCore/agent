@@ -309,7 +309,10 @@ func TestReviewqueue_RunPRManageLoop_Bad_GuardsInvalidArgs(t *testing.T) {
 	s := newPrepWithProcess()
 	// Nil context and non-positive interval both return immediately.
 	core.AssertNotPanics(t, func() {
-		s.runPRManageLoop(context.TODO(), time.Hour)
+		//nolint:staticcheck // SA1012: the nil Context IS the input under test.
+		// runPRManageLoop guards `ctx == nil` and returns; a real Context falls
+		// through to a select that waits an hour for a tick, which is a hang.
+		s.runPRManageLoop(nil, time.Hour)
 		s.runPRManageLoop(context.Background(), 0)
 	})
 }

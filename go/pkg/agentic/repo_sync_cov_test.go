@@ -35,7 +35,10 @@ func TestRepoSyncCov_HandleRepoSyncIPC_Ugly_WarnsOnFailedSync(t *testing.T) {
 // TestRepoSyncCov_RepoSyncContext_Good_NilFallsBackToBackground — a nil context
 // is replaced with context.Background(); a live context passes through.
 func TestRepoSyncCov_RepoSyncContext_Good_NilFallsBackToBackground(t *testing.T) {
-	core.AssertNotNil(t, repoSyncContext(context.TODO()))
+	//nolint:staticcheck // SA1012: the nil Context IS the input under test —
+	// the nil branch is the only reason repoSyncContext exists, and a real
+	// Context here just repeats the passthrough case asserted below.
+	core.AssertNotNil(t, repoSyncContext(nil))
 
 	ctx := context.Background()
 	core.AssertEqual(t, ctx, repoSyncContext(ctx))
