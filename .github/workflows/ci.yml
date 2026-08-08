@@ -65,7 +65,19 @@ jobs:
           fetch-depth: 0
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          # 8.4, not 8.3: composer.lock pins symfony/clock, symfony/string,
+          # symfony/translation, symfony/css-selector and symfony/event-dispatcher
+          # at v8.1.x, all of which require php >=8.4.1. On 8.3 the install step
+          # aborted with "Your lock file does not contain a compatible set of
+          # packages" before a single test ran, so this job has been failing at
+          # install — not at the suite — on every push since the lock was written.
+          #
+          # composer.json still declares php ^8.2. That floor is now untested and
+          # unreachable with this lock; reconciling the two means either pinning
+          # config.platform.php and resolving the tree back down, or raising the
+          # declared minimum. Tracked separately — this change only gets the
+          # suite running again.
+          php-version: '8.4'
           # pcov, not the default none: --coverage silently produces nothing
           # without a coverage driver installed.
           coverage: pcov
