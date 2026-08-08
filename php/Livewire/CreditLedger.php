@@ -286,6 +286,6 @@ class CreditLedger extends HubComponent
      */
     protected function viewPath(): string
     {
-        return __DIR__.'/../../resources/views/livewire/agentic/credit-ledger.blade.php';
+        return __DIR__.'/../resources/views/livewire/agentic/credit-ledger.blade.php';
     }
 }

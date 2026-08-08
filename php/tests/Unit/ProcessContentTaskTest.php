@@ -14,8 +14,9 @@ use Core\Mod\Agentic\Jobs\ProcessContentTask;
 use Core\Mod\Agentic\Services\AgenticManager;
 use Core\Mod\Agentic\Services\AgenticProviderInterface;
 use Core\Mod\Agentic\Services\AgenticResponse;
+use Core\Mod\Content\Models\ContentTask;
+use Core\Tenant\Services\EntitlementResult;
 use Core\Tenant\Services\EntitlementService;
-use Mod\Content\Models\ContentTask;
 
 // =========================================================================
 // Helpers
@@ -28,7 +29,7 @@ use Mod\Content\Models\ContentTask;
  */
 function makeTask(array $attributes = []): ContentTask
 {
-    $task = Mockery::mock(ContentTask::class);
+    $task = Mockery::mock(ContentTask::class)->makePartial();
     $task->shouldReceive('markProcessing')->byDefault();
     $task->shouldReceive('markCompleted')->byDefault();
     $task->shouldReceive('markFailed')->byDefault();
@@ -111,9 +112,9 @@ describe('handle — prompt validation', function () {
 describe('handle — entitlement checks', function () {
     it('marks task as failed when entitlement is denied', function () {
         $workspace = Mockery::mock('Core\Tenant\Models\Workspace');
-        $entitlementResult = Mockery::mock();
-        $entitlementResult->shouldReceive('isDenied')->andReturn(true);
-        $entitlementResult->message = 'No AI credits remaining';
+        // The real result object: EntitlementService::can() is typed to return
+        // EntitlementResult, so a bare Mockery double fails the return check.
+        $entitlementResult = EntitlementResult::denied('No AI credits remaining', featureCode: 'ai.credits');
 
         $task = makeTask([
             'prompt' => makePrompt(),
@@ -238,8 +239,7 @@ describe('handle — successful completion', function () {
 
     it('records AI usage when workspace is present', function () {
         $workspace = Mockery::mock('Core\Tenant\Models\Workspace');
-        $entitlementResult = Mockery::mock();
-        $entitlementResult->shouldReceive('isDenied')->andReturn(false);
+        $entitlementResult = EntitlementResult::allowed(featureCode: 'ai.credits');
 
         $response = makeResponse();
         $provider = Mockery::mock(AgenticProviderInterface::class);
@@ -276,7 +276,7 @@ describe('handle — successful completion', function () {
 
 describe('handle — template variable interpolation', function () {
     it('replaces string placeholders in user template', function () {
-        $prompt = makePrompt('claude-sonnet-4-20250514', 'Write about {{{topic}}}.');
+        $prompt = makePrompt('claude-sonnet-4-20250514', 'Write about {{topic}}.');
         $response = makeResponse();
 
         $provider = Mockery::mock(AgenticProviderInterface::class);
@@ -304,7 +304,7 @@ describe('handle — template variable interpolation', function () {
     });
 
     it('JSON-encodes array values in template', function () {
-        $prompt = makePrompt('claude-sonnet-4-20250514', 'Tags: {{{tags}}}.');
+        $prompt = makePrompt('claude-sonnet-4-20250514', 'Tags: {{tags}}.');
         $response = makeResponse();
         $tags = ['php', 'laravel'];
 
@@ -333,7 +333,7 @@ describe('handle — template variable interpolation', function () {
     });
 
     it('leaves unknown placeholders untouched', function () {
-        $prompt = makePrompt('claude-sonnet-4-20250514', 'Hello {{{name}}}, see {{{unknown}}}.');
+        $prompt = makePrompt('claude-sonnet-4-20250514', 'Hello {{name}}, see {{unknown}}.');
         $response = makeResponse();
 
         $provider = Mockery::mock(AgenticProviderInterface::class);
@@ -341,7 +341,7 @@ describe('handle — template variable interpolation', function () {
         $provider->shouldReceive('generate')
             ->with(
                 $prompt->system_prompt,
-                'Hello World, see {{{unknown}}}.',
+                'Hello World, see {{unknown}}.',
                 Mockery::any(),
             )
             ->once()

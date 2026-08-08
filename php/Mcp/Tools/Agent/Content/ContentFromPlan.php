@@ -6,10 +6,10 @@ namespace Core\Mod\Agentic\Mcp\Tools\Agent\Content;
 
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
 use Core\Mod\Agentic\Models\AgentPlan;
+use Core\Mod\Content\Enums\BriefContentType;
+use Core\Mod\Content\Jobs\GenerateContentJob;
+use Core\Mod\Content\Models\ContentBrief;
 use Illuminate\Support\Str;
-use Mod\Content\Enums\BriefContentType;
-use Mod\Content\Jobs\GenerateContentJob;
-use Mod\Content\Models\ContentBrief;
 
 /**
  * Create content briefs from plan tasks and queue for generation.

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Mcp\Tools\Agent\Content;
 
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
-use Mod\Content\Enums\BriefContentType;
-use Mod\Content\Models\ContentBrief;
+use Core\Mod\Content\Enums\BriefContentType;
+use Core\Mod\Content\Models\ContentBrief;
 
 /**
  * Get details of a specific content brief including generated content.

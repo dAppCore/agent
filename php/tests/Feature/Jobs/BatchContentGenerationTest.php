@@ -6,14 +6,18 @@ declare(strict_types=1);
  * Tests for the BatchContentGeneration queue job.
  *
  * Covers job configuration, queue assignment, tag generation, and dispatch behaviour.
- * The handle() integration requires ContentTask from host-uk/core and is tested
- * via queue dispatch assertions and alias mocking where the table is unavailable.
+ * ContentTask comes from dappcore/php-content; the empty-batch path runs against
+ * a real content_tasks table created for that test.
  */
 
 use Core\Mod\Agentic\Jobs\BatchContentGeneration;
 use Core\Mod\Agentic\Jobs\ProcessContentTask;
+use Core\Mod\Content\Models\ContentTask;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 
 // =========================================================================
 // Job Configuration Tests
@@ -60,7 +64,7 @@ describe('job configuration', function () {
     it('implements ShouldQueue', function () {
         $job = new BatchContentGeneration;
 
-        expect($job)->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class);
+        expect($job)->toBeInstanceOf(ShouldQueue::class);
     });
 });
 
@@ -159,7 +163,7 @@ describe('job chaining', function () {
 
         // Simulate what handle() does when tasks are found:
         // dispatch a ProcessContentTask for each task
-        $mockTask = Mockery::mock('Mod\Content\Models\ContentTask');
+        $mockTask = Mockery::mock(ContentTask::class)->makePartial();
 
         ProcessContentTask::dispatch($mockTask);
 
@@ -169,7 +173,7 @@ describe('job chaining', function () {
     it('ProcessContentTask is dispatched to the ai queue', function () {
         Queue::fake();
 
-        $mockTask = Mockery::mock('Mod\Content\Models\ContentTask');
+        $mockTask = Mockery::mock(ContentTask::class)->makePartial();
 
         ProcessContentTask::dispatch($mockTask);
 
@@ -180,9 +184,9 @@ describe('job chaining', function () {
         Queue::fake();
 
         $tasks = [
-            Mockery::mock('Mod\Content\Models\ContentTask'),
-            Mockery::mock('Mod\Content\Models\ContentTask'),
-            Mockery::mock('Mod\Content\Models\ContentTask'),
+            Mockery::mock(ContentTask::class)->makePartial(),
+            Mockery::mock(ContentTask::class)->makePartial(),
+            Mockery::mock(ContentTask::class)->makePartial(),
         ];
 
         foreach ($tasks as $task) {
@@ -199,27 +203,37 @@ describe('job chaining', function () {
 
 describe('handle with no matching tasks', function () {
     it('logs an info message when no tasks are found', function () {
+        // A real table, not an alias mock. Mockery alias mocks replace the class
+        // for the whole PHP process, which is why this needed process isolation
+        // and was skipped instead. dappcore/php-content owns the schema, but
+        // loading its migrations suite-wide would also recreate prompts with
+        // stricter columns than this package's own migration, so only the one
+        // table under test is created here.
+        Schema::create('content_tasks', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('workspace_id');
+            $table->unsignedBigInteger('prompt_id');
+            $table->string('status')->default('pending');
+            $table->string('priority')->default('normal');
+            $table->json('input_data');
+            $table->longText('output')->nullable();
+            $table->json('metadata')->nullable();
+            $table->string('target_type')->nullable();
+            $table->unsignedBigInteger('target_id')->nullable();
+            $table->timestamp('scheduled_for')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->text('error_message')->nullable();
+            $table->timestamps();
+        });
+
         Log::shouldReceive('info')
             ->once()
             ->with('BatchContentGeneration: No normal priority tasks to process');
 
-        // Build an empty collection for the query result
-        $emptyCollection = collect([]);
-
-        $builder = Mockery::mock(\Illuminate\Database\Eloquent\Builder::class);
-        $builder->shouldReceive('where')->andReturnSelf();
-        $builder->shouldReceive('orWhere')->andReturnSelf();
-        $builder->shouldReceive('orderBy')->andReturnSelf();
-        $builder->shouldReceive('limit')->andReturnSelf();
-        $builder->shouldReceive('get')->andReturn($emptyCollection);
-
-        // Alias mock for the static query() call
-        $taskMock = Mockery::mock('alias:Mod\Content\Models\ContentTask');
-        $taskMock->shouldReceive('query')->andReturn($builder);
-
         $job = new BatchContentGeneration('normal', 10);
         $job->handle();
-    })->skip('Alias mocking requires process isolation; covered by integration tests.');
+    });
 
     it('does not dispatch any ProcessContentTask when collection is empty', function () {
         Queue::fake();
@@ -250,8 +264,8 @@ describe('handle with matching tasks', function () {
         Queue::fake();
 
         $tasks = collect([
-            Mockery::mock('Mod\Content\Models\ContentTask'),
-            Mockery::mock('Mod\Content\Models\ContentTask'),
+            Mockery::mock(ContentTask::class)->makePartial(),
+            Mockery::mock(ContentTask::class)->makePartial(),
         ]);
 
         // Simulate handle() dispatch loop

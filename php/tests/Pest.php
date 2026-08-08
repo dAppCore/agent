@@ -33,12 +33,12 @@ use Tests\TestCase;
 // matched, so no TestCase was bound, no Testbench app booted, and every test
 // died on a null Eloquent connection resolver.
 //
-// Feature/Agentic/Livewire is excluded in phpunit.xml rather than bound here:
-// those three files each declare uses(LivewireTestCase::class) at file level,
-// and although LivewireTestCase extends this same TestCase, Pest compares the
-// bound class by name rather than by inheritance and rejects the overlap either
-// way round. Untangling that is a change to the Livewire suite, not to this
-// binding, so it is left alone and called out in phpunit.xml.
+// This binding covers Feature wholesale, so a Pest file underneath it can never
+// declare its own uses(SomeOtherTestCase::class) — Pest raises
+// TestCaseAlreadyInUse for the second binding on a file, and does so by class
+// name, so a subclass of this TestCase is rejected just the same. Tests needing
+// a richer base (the Livewire ones) are written as PHPUnit classes extending it
+// instead; class-style tests are not matched by uses()->in() at all.
 uses(TestCase::class)->in(__DIR__.'/Feature', __DIR__.'/Unit', __DIR__.'/UseCase');
 
 /*

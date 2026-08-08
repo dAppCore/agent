@@ -9,11 +9,12 @@
     ],
     "license": "EUPL-1.2",
     "require": {
-        "php": "^8.2",
+        "php": "^8.4",
         "dappcore/php": "*",
         "spatie/laravel-activitylog": "^4.8"
     },
     "require-dev": {
+        "dappcore/php-content": "^0.1",
         "dappcore/php-tenant": "^0.1",
         "laravel/pint": "^1.18",
         "livewire/livewire": "^3.0",

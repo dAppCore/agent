@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Core\Mod\Agentic\Mcp\Tools\Agent\Content;
 
 use Core\Mod\Agentic\Mcp\Tools\Agent\AgentTool;
-use Mod\Content\Jobs\GenerateContentJob;
-use Mod\Content\Models\ContentBrief;
+use Core\Mod\Content\Jobs\GenerateContentJob;
+use Core\Mod\Content\Models\ContentBrief;
 
 /**
  * Queue multiple briefs for batch content generation.
