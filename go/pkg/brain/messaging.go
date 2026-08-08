@@ -121,7 +121,9 @@ func (s *DirectSubsystem) notifySelf(ctx context.Context, input SendInput) {
 		return
 	}
 	for session := range mcpSvc.Sessions() {
-		coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
+		// Best-effort per session: one unreachable listener must not stop
+		// the loop notifying the rest.
+		_ = coremcp.NotifySession(ctx, session, "notifications/claude/channel", map[string]any{
 			"content": input.Content,
 			"meta": map[string]string{
 				"from":    agentic.AgentName(),

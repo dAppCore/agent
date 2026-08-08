@@ -308,7 +308,7 @@ func (a *Admin) doJSON(ctx context.Context, method, path string, body, out any) 
 	if err != nil {
 		return core.E("lemma.Admin.doJSON", "transport", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }() // read side of the response
 
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 400 {

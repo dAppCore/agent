@@ -93,7 +93,9 @@ func (s *PrepSubsystem) autoCreatePR(workspaceDir string) {
 			return
 		}
 		workspaceStatusUpdate.PRURL = pullRequestURL
-		writeStatusResult(workspaceDir, workspaceStatusUpdate)
+		if r := writeStatusResult(workspaceDir, workspaceStatusUpdate); !r.OK {
+			core.Warn("agentic: failed to record PR URL on status", "workspace", workspaceDir, "reason", r.Value)
+		}
 	}
 }
 

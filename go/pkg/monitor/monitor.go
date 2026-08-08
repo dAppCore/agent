@@ -245,7 +245,9 @@ func (m *Subsystem) checkIdleAfterDelay() {
 
 	running, queued := m.countLiveWorkspaces()
 	if running == 0 && queued == 0 {
-		m.Core().ACTION(messages.QueueDrained{Completed: 0})
+		// Best-effort: a listener that has gone away must not stop the
+		// monitor noticing the queue drained.
+		_ = m.Core().ACTION(messages.QueueDrained{Completed: 0})
 	}
 }
 
@@ -333,7 +335,9 @@ func (m *Subsystem) check(ctx context.Context) {
 	m.notify(ctx, combinedMessage)
 
 	if m.svc != nil {
-		m.svc.Server().ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
+		// Best-effort: a subscriber that cannot be notified must not
+		// stop the status update itself.
+		_ = m.svc.Server().ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{
 			URI: "status://agents",
 		})
 	}
@@ -403,7 +407,9 @@ func (m *Subsystem) checkCompletions() string {
 
 	liveRunning, liveQueued := m.countLiveWorkspaces()
 	if m.ServiceRuntime != nil && liveRunning == 0 && liveQueued == 0 {
-		m.Core().ACTION(messages.QueueDrained{Completed: len(newlyCompleted)})
+		// Best-effort: a listener that has gone away must not stop the
+		// monitor noticing the queue drained.
+		_ = m.Core().ACTION(messages.QueueDrained{Completed: len(newlyCompleted)})
 	}
 
 	msg := core.Sprintf("%d agent(s) completed", len(newlyCompleted))
@@ -505,7 +511,9 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 	}
 
 	for session := range m.svc.Server().Sessions() {
-		session.Log(ctx, &mcp.LoggingMessageParams{
+		// Best-effort: one unreachable session must not stop the loop
+		// logging to the others.
+		_ = session.Log(ctx, &mcp.LoggingMessageParams{
 			Level:  "info",
 			Logger: "monitor",
 			Data:   message,

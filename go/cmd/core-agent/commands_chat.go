@@ -53,7 +53,13 @@ func (commands applicationCommandSet) chat(opts core.Options) core.Result {
 		applicationPrint("chat: open archive: %v", err)
 		return core.Result{}
 	}
-	defer hist.Close()
+	defer func() {
+		// Reported, not dropped: this handle is written to, so a failed
+		// close can mean the last turns never reached the archive.
+		if err := hist.Close(); err != nil {
+			core.Warn("chat: failed to close history archive", "reason", err)
+		}
+	}()
 
 	svc := lemma.New(lemma.Config{
 		BaseURL: baseURL,
@@ -78,7 +84,9 @@ func (commands applicationCommandSet) chat(opts core.Options) core.Result {
 	scanner := bufio.NewScanner(core.Stdin())
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // allow long prompts
 	for {
-		core.WriteString(stdout, "you: ")
+		// Prompt only: a failed terminal write is cosmetic and there is
+		// nowhere to return an error to inside the loop.
+		_ = core.WriteString(stdout, "you: ")
 		if !scanner.Scan() {
 			break
 		}

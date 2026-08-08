@@ -124,8 +124,13 @@ jobs:
         with:
           version: latest
           working-directory: go
-          # AX: Skip test files (covered by test-go job), timeout for large codebase
-          args: --timeout=5m --tests=false
+          # Tests are linted, not skipped. --tests=false was hiding two things
+          # at once: it reported 21 production symbols as unused because the
+          # only callers are in _test.go files — every one of them a
+          # test-injection seam like syncPull, mcpInitialize or newCoreAgent —
+          # while never reporting the dead scaffolding actually in the test
+          # files. Linting tests swaps 21 false positives for 28 real ones.
+          args: --timeout=5m
 
   # Guards the one rule that has silently cost delivered features: the sibling
   # dappco.re/* modules are dependencies, not workspace files.
