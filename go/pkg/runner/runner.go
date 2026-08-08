@@ -337,12 +337,16 @@ func (s *Service) actionDispatch(_ context.Context, options core.Options) core.R
 	}
 
 	workspaceName := core.Concat("pending/", repo)
-	s.workspaces.Set(workspaceName, &WorkspaceStatus{
+	// Reported: Set only fails on a locked or sealed registry, so a
+	// failure here means this workspace silently stops being tracked.
+	if r := s.workspaces.Set(workspaceName, &WorkspaceStatus{
 		Status: "running",
 		Agent:  agent,
 		Repo:   repo,
 		PID:    -1,
-	})
+	}); !r.OK {
+		core.Warn("runner: failed to track workspace", "reason", r.Value)
+	}
 
 	return core.Result{OK: true}
 }
@@ -408,7 +412,11 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 				core.Warn("runner.actionKill: failed to write failed status", "workspace", agentic.WorkspaceName(workspaceDir), "reason", writeResult.Value)
 			}
 			if s.workspaces != nil {
-				s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
+				// Reported: Set only fails on a locked or sealed registry, so a
+				// failure here means this workspace silently stops being tracked.
+				if r := s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus); !r.OK {
+					core.Warn("runner: failed to track workspace", "reason", r.Value)
+				}
 			}
 		case "queued":
 			workspaceName := agentic.WorkspaceName(workspaceDir)
@@ -422,7 +430,7 @@ func (s *Service) actionKill(_ context.Context, _ core.Options) core.Result {
 			}
 			cleared++
 			if s.workspaces != nil {
-				s.workspaces.Delete(workspaceName)
+				_ = s.workspaces.Delete(workspaceName) // best-effort: the key may already be gone
 			}
 		}
 	}
@@ -467,7 +475,8 @@ func (s *Service) runLoop() {
 func (s *Service) drainQueueAndNotify(coreApp *core.Core) {
 	completed := s.drainQueue()
 	if coreApp != nil {
-		coreApp.ACTION(messages.QueueDrained{Completed: completed})
+		// Best-effort: a listener that has gone away must not fail this.
+		_ = coreApp.ACTION(messages.QueueDrained{Completed: completed})
 	}
 }
 
@@ -488,7 +497,11 @@ func (s *Service) hydrateWorkspaces() {
 		if workspaceStatus.Status == "running" {
 			workspaceStatus.Status = "queued"
 		}
-		s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus)
+		// Reported: Set only fails on a locked or sealed registry, so a
+		// failure here means this workspace silently stops being tracked.
+		if r := s.workspaces.Set(agentic.WorkspaceName(workspaceDir), workspaceStatus); !r.OK {
+			core.Warn("runner: failed to track workspace", "reason", r.Value)
+		}
 	}
 }
 

@@ -668,7 +668,9 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 
 func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, exitCode int, processStatus, output string) {
 	if output != "" {
-		fs.Write(outputFile, output)
+		if r := fs.Write(outputFile, output); !r.OK {
+			core.Warn("agentic: failed to write agent output", "path", outputFile, "reason", r.Value)
+		}
 	}
 
 	repoDir := WorkspaceRepoDir(workspaceDir)
@@ -930,7 +932,11 @@ var dispatch = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.Call
 		Runs:      1,
 	}
 	preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
-	writeStatusResult(workspaceDir, workspaceStatus)
+	// Reported: the status file is what the monitor polls, so a silent write
+	// failure leaves the workspace looking stuck indefinitely.
+	if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+		core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+	}
 	if s.ServiceRuntime != nil {
 		if runnerResult := s.Core().Service("runner"); runnerResult.OK {
 			if runnerSvc, ok := runnerResult.Value.(workspaceTracker); ok {

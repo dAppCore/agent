@@ -148,7 +148,11 @@ var createPR = func(s *PrepSubsystem, ctx context.Context, _ *mcp.CallToolReques
 	}
 
 	workspaceStatus.PRURL = pullRequestURL
-	writeStatusResult(workspaceDir, workspaceStatus)
+	// Reported: the status file is what the monitor polls, so a silent write
+	// failure leaves the workspace looking stuck indefinitely.
+	if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+		core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+	}
 	cleanupResult := s.cleanupBranch(ctx, cleanupRepoRef(workspaceStatus.Org, workspaceStatus.Repo), workspaceStatus.Branch)
 	if !cleanupResult.OK {
 		core.Warn("createPR: branch cleanup failed", "repo", workspaceStatus.Repo, "branch", workspaceStatus.Branch, "reason", cleanupResult.Value)

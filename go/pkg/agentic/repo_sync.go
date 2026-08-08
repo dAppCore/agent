@@ -167,7 +167,9 @@ func (s *PrepSubsystem) cmdRepoSyncLocal(options core.Options) core.Result {
 }
 
 func (s *PrepSubsystem) runRepoSync(ctx context.Context, target fetchRepoRef, branch string, reset bool) core.Result {
-	s.registerRepoSyncSupport()
+	// Idempotent registration; a failure here surfaces as the sync verbs being
+	// absent on the very next call.
+	_ = s.registerRepoSyncSupport()
 
 	repoDir, err := repoSyncRepoDir(s, target)
 	if err != nil {

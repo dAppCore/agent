@@ -476,7 +476,11 @@ func (s *PrepSubsystem) drainOne() bool {
 		workspaceStatus.ProcessID = processID
 		workspaceStatus.Runs++
 		preserveStatusNote(workspaceDir, workspaceStatus) // keep VZ→OCI downgrade note (SP2.4)
-		writeStatusResult(workspaceDir, workspaceStatus)
+		// Reported: the status file is what the monitor polls, so a silent write
+		// failure leaves the workspace looking stuck indefinitely.
+		if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+			core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+		}
 		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
 		return true

@@ -25,21 +25,6 @@ func assertIsType(t *testing.T, want, got any, msg ...string) {
 	core.AssertEqual(t, reflect.TypeOf(want), reflect.TypeOf(got), msg...)
 }
 
-func assertNotSame(t *testing.T, want, got any, msg ...string) {
-	t.Helper()
-
-	wantValue := reflect.ValueOf(want)
-	gotValue := reflect.ValueOf(got)
-	if !wantValue.IsValid() || !gotValue.IsValid() {
-		t.Fatalf("assertNotSame requires non-nil values")
-	}
-	if wantValue.Kind() != reflect.Pointer || gotValue.Kind() != reflect.Pointer {
-		t.Fatalf("assertNotSame requires pointer values")
-	}
-
-	core.AssertFalse(t, wantValue.Pointer() == gotValue.Pointer(), msg...)
-}
-
 func assertZero(t *testing.T, got any, msg ...string) {
 	t.Helper()
 	if got == nil {

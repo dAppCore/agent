@@ -63,7 +63,11 @@ func (s *PrepSubsystem) HandleIPCEvents(c *core.Core, msg core.Message) core.Res
 			}
 			workspaceStatus.PID = pid
 			workspaceStatus.ProcessID = processID
-			writeStatusResult(workspaceDir, workspaceStatus)
+			// Reported: the status file is what the monitor polls, so a silent write
+			// failure leaves the workspace looking stuck indefinitely.
+			if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+				core.Warn("agentic: failed to write workspace status", "reason", r.Value)
+			}
 			if runnerResult := c.Service("runner"); runnerResult.OK {
 				if runnerSvc, ok := runnerResult.Value.(workspaceTracker); ok {
 					runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
@@ -86,7 +90,11 @@ func handleCompletionQA(c *core.Core, msg core.Message) core.Result {
 		return core.Result{OK: true}
 	}
 
-	performAsyncIfRegistered(c, "agentic.qa", workspaceActionOptions(workspaceDir))
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.qa", workspaceActionOptions(workspaceDir)); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 
@@ -101,7 +109,11 @@ func handleCompletionAutoPR(c *core.Core, msg core.Message) core.Result {
 		return core.Result{OK: true}
 	}
 
-	performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir))
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir)); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 
@@ -116,7 +128,11 @@ func handleCompletionVerify(c *core.Core, msg core.Message) core.Result {
 		return core.Result{OK: true}
 	}
 
-	performAsyncIfRegistered(c, "agentic.verify", workspaceActionOptions(workspaceDir))
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.verify", workspaceActionOptions(workspaceDir)); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 
@@ -156,7 +172,11 @@ func handleCompletionIngest(c *core.Core, msg core.Message) core.Result {
 		return core.Result{OK: true}
 	}
 
-	performAsyncIfRegistered(c, "agentic.ingest", workspaceActionOptions(workspaceDir))
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.ingest", workspaceActionOptions(workspaceDir)); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 
@@ -171,7 +191,11 @@ func handleCompletionPoke(c *core.Core, msg core.Message) core.Result {
 		}
 		return core.Result{OK: true}
 	}
-	performAsyncIfRegistered(c, "agentic.poke", core.NewOptions())
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.poke", core.NewOptions()); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 
@@ -189,7 +213,11 @@ func handleHarvestAutoPR(c *core.Core, msg core.Message) core.Result {
 	if workspaceDir == "" {
 		return core.Result{OK: true}
 	}
-	performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir))
+	// Reported: a follow-up that fails to dispatch silently skips a pipeline
+	// stage, and nothing downstream notices it never ran.
+	if r := performAsyncIfRegistered(c, "agentic.auto-pr", workspaceActionOptions(workspaceDir)); !r.OK {
+		core.Warn("agentic: async follow-up did not dispatch", "reason", r.Value)
+	}
 	return core.Result{OK: true}
 }
 

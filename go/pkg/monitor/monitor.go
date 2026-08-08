@@ -496,7 +496,8 @@ func (m *Subsystem) checkInbox() string {
 	}
 
 	if m.ServiceRuntime != nil {
-		m.Core().ACTION(messages.InboxMessage{
+		// Best-effort: a listener that has gone away must not fail this.
+		_ = m.Core().ACTION(messages.InboxMessage{
 			New:   len(inboxMessages),
 			Total: unread,
 		})
@@ -513,6 +514,20 @@ func (m *Subsystem) notify(ctx context.Context, message string) {
 	for session := range m.svc.Server().Sessions() {
 		// Best-effort: one unreachable session must not stop the loop
 		// logging to the others.
+		//
+		// session.Log is deprecated as of MCP protocol 2026-07-28 (SEP-2577),
+		// which retires the logging feature outright rather than replacing it —
+		// there is no successor call to migrate to, so this cannot be a
+		// mechanical swap. The deprecation window is at least twelve months
+		// from that date, so this must move before ~2027-07-28.
+		//
+		// What replaces it is a decision, not a rename: these are human-facing
+		// progress lines, and the candidates are a server notification or
+		// folding them into the status:// resource this file already publishes
+		// through ResourceUpdated. Left working and marked rather than guessed
+		// at, because picking wrong silently loses operator visibility.
+		//
+		//nolint:staticcheck // SA1019: no replacement exists; see SEP-2577.
 		_ = session.Log(ctx, &mcp.LoggingMessageParams{
 			Level:  "info",
 			Logger: "monitor",

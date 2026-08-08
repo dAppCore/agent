@@ -360,7 +360,9 @@ func publishDispatchReport(storeInstance *store.Store, workspaceName string, dis
 	}
 	tags := map[string]string{"workspace": workspaceName}
 
-	storeInstance.CommitToJournal(workspaceName, fields, tags)
+	if r := storeInstance.CommitToJournal(workspaceName, fields, tags); !r.OK {
+		core.Warn("agentic: failed to commit QA findings to the journal", "workspace", workspaceName, "reason", r.Value)
+	}
 }
 
 // runBuildAndTest executes the language-specific build/test cycle, recording

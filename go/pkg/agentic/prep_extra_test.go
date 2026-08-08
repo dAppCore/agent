@@ -310,19 +310,19 @@ func TestPrep_RunWorkspaceLanguagePrep_Ugly_CommandFailure(t *testing.T) {
 
 func TestPrep_PullWikiContent_Good_WithPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
+		switch r.URL.Path {
+		case "/api/v1/repos/core/go-io/wiki/pages":
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"title": "Home", "sub_url": "Home"},
 				{"title": "Architecture", "sub_url": "Architecture"},
 			})))
-		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/Home":
+		case "/api/v1/repos/core/go-io/wiki/page/Home":
 			// "Hello World" base64
 			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "Home",
 				"content_base64": "SGVsbG8gV29ybGQ=",
 			})))
-		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/Architecture":
+		case "/api/v1/repos/core/go-io/wiki/page/Architecture":
 			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "Architecture",
 				"content_base64": "TGF5ZXJlZA==",
@@ -680,12 +680,12 @@ func TestPrep_PullWikiContent_Bad_Case(t *testing.T) {
 func TestPrep_PullWikiContent_Ugly_Case(t *testing.T) {
 	// Forge returns pages with empty content
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/pages":
+		switch r.URL.Path {
+		case "/api/v1/repos/core/go-io/wiki/pages":
 			w.Write([]byte(core.JSONMarshalString([]map[string]any{
 				{"title": "EmptyPage", "sub_url": "EmptyPage"},
 			})))
-		case r.URL.Path == "/api/v1/repos/core/go-io/wiki/page/EmptyPage":
+		case "/api/v1/repos/core/go-io/wiki/page/EmptyPage":
 			w.Write([]byte(core.JSONMarshalString(map[string]any{
 				"title":          "EmptyPage",
 				"content_base64": "",

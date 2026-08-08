@@ -181,47 +181,10 @@ func waitForFetchLoopCalls(t *testing.T, state *fetchLoopCallState, repo string,
 	core.AssertGreaterOrEqual(t, state.count(repo), want)
 }
 
-func fetchLoopWriteGitScript(t *testing.T, logPath, badRepo string) {
-	t.Helper()
-
-	binDir := t.TempDir()
-	gitPath := core.JoinPath(binDir, "git")
-	script := core.Concat(
-		"#!/bin/sh\n",
-		"repo=$(basename \"$(pwd)\")\n",
-		"printf '%s|%s\\n' \"$repo\" \"$*\" >> ", logPath, "\n",
-		"if [ \"$1\" = \"symbolic-ref\" ]; then\n",
-		"  printf 'origin/dev\\n'\n",
-		"  exit 0\n",
-		"fi\n",
-		"if [ \"$1\" = \"fetch\" ] && [ \"$repo\" = \"", badRepo, "\" ]; then\n",
-		"  exit 1\n",
-		"fi\n",
-		"exit 0\n",
-	)
-	core.RequireTrue(t, fs.Write(gitPath, script).OK)
-	core.RequireTrue(t, testCore.Process().RunIn(context.Background(), binDir, "chmod", "+x", gitPath).OK)
-	t.Setenv("PATH", core.Concat(binDir, ":", core.Env("PATH")))
-}
-
 func fetchLoopCreateRepo(t *testing.T, codePath, org, repo string) {
 	t.Helper()
 	repoDir := core.JoinPath(codePath, org, repo)
 	core.RequireTrue(t, fs.EnsureDir(core.JoinPath(repoDir, ".git")).OK)
-}
-
-func fetchLoopWaitForCount(t *testing.T, logPath, repo, snippet string, want int, timeout time.Duration) {
-	t.Helper()
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if fetchLoopLogCount(logPath, repo, snippet) >= want {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-
-	core.AssertGreaterOrEqual(t, fetchLoopLogCount(logPath, repo, snippet), want)
 }
 
 func fetchLoopWaitForDone(t *testing.T, done <-chan struct{}) {
@@ -232,29 +195,4 @@ func fetchLoopWaitForDone(t *testing.T, done <-chan struct{}) {
 	case <-time.After(250 * time.Millisecond):
 		t.Fatal("fetch loop did not stop after cancellation")
 	}
-}
-
-func fetchLoopLogCount(logPath, repo, snippet string) int {
-	readResult := fs.Read(logPath)
-	if !readResult.OK {
-		return 0
-	}
-
-	content := core.Trim(readResult.Value.(string))
-	if content == "" {
-		return 0
-	}
-
-	count := 0
-	for _, line := range core.Split(content, "\n") {
-		if repo != "" && !core.HasPrefix(line, core.Concat(repo, "|")) {
-			continue
-		}
-		if snippet != "" && !core.Contains(line, snippet) {
-			continue
-		}
-		count++
-	}
-
-	return count
 }

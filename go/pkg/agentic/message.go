@@ -95,7 +95,8 @@ func (s *PrepSubsystem) handleMessageInbox(ctx context.Context, options core.Opt
 	}
 	output, _ := result.Value.(MessageListOutput)
 	if s.Core() != nil {
-		s.Core().ACTION(messages.InboxMessage{
+		// Best-effort: a listener that has gone away must not fail this.
+		_ = s.Core().ACTION(messages.InboxMessage{
 			New:   output.New,
 			Total: output.Count,
 		})
@@ -162,7 +163,8 @@ func (s *PrepSubsystem) messageSend(_ context.Context, input MessageSendInput) c
 			CreatedAt: time.Now().Format(time.RFC3339),
 		}
 		if s.ServiceRuntime != nil {
-			s.Core().ACTION(coremcp.ChannelPush{
+			// Best-effort: a listener that has gone away must not fail this.
+			_ = s.Core().ACTION(coremcp.ChannelPush{
 				Channel: coremcp.ChannelInboxMessage,
 				Data: map[string]any{
 					"id":      msg.ID,

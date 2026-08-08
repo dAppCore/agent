@@ -2,11 +2,15 @@
 
 package agentic
 
-import core "dappco.re/go"
+import (
+	"context"
+
+	core "dappco.re/go"
+)
 
 func ExamplePrepSubsystem_Shutdown_process() {
 	s := newPrepWithProcess()
-	err := s.Shutdown(nil)
+	err := s.Shutdown(context.TODO())
 	core.Println(err == nil)
 	// Output: true
 }

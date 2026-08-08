@@ -91,5 +91,8 @@ func (s *PrepSubsystem) createIssueViaAPI(title, description, issueType, priorit
 		"reporter":    "cladius",
 	})
 
-	HTTPPost(context.Background(), core.Concat(s.brainURL, "/v1/issues"), issuePayload, apiKey, "Bearer")
+	// Reported: a dropped post means this issue silently never reaches the brain.
+	if r := HTTPPost(context.Background(), core.Concat(s.brainURL, "/v1/issues"), issuePayload, apiKey, "Bearer"); !r.OK {
+		core.Warn("agentic: failed to post issue to the brain", "reason", r.Value)
+	}
 }

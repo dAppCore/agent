@@ -173,7 +173,10 @@ func (s *PrepSubsystem) createGitHubPR(ctx context.Context, repoDir, repo string
 }
 
 func (s *PrepSubsystem) ensureDevBranch(repoDir string) {
-	s.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "github", "HEAD:refs/heads/dev")
+	// Reported: a failed mirror push means GitHub silently falls behind.
+	if r := s.Core().Process().RunIn(context.Background(), repoDir, "git", "push", "github", "HEAD:refs/heads/dev"); !r.OK {
+		core.Warn("agentic: mirror push to GitHub failed", "reason", r.Value)
+	}
 }
 
 func (s *PrepSubsystem) hasRemote(repoDir, name string) bool {

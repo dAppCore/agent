@@ -80,12 +80,20 @@ func (g *SandboxProxyGroup) Set(id, targetURL, authHeader string) {
 	// when downstream Writer implements core.Flusher, which gin's
 	// ResponseWriter does). No customisation needed for SSE today.
 	if authHeader != "" {
-		// Wrap the default Director so the upstream-rewrite logic
-		// (Host, X-Forwarded-*) still runs, then inject auth.
-		defaultDir := rp.Director
-		rp.Director = func(req *core.Request) {
-			defaultDir(req)
-			req.Header.Set("Authorization", authHeader)
+		// Rewrite, not Director: Director is deprecated as of Go 1.26 and
+		// superseded since 1.20. Rewrite is also the safer of the two — it
+		// hands the hook both the inbound and outbound request, so headers
+		// arriving from the client cannot be forwarded upstream by accident,
+		// which is the hazard Director was replaced for.
+		//
+		// SetURL reproduces what NewSingleHostReverseProxy's own Director did
+		// (scheme, host, path join), and SetXForwarded restores the
+		// X-Forwarded-* handling that came with it.
+		rp.Rewrite = func(pr *httputil.ProxyRequest) {
+			pr.SetURL(u)
+			pr.Out.Host = pr.In.Host
+			pr.SetXForwarded()
+			pr.Out.Header.Set("Authorization", authHeader)
 		}
 	}
 	g.mu.Lock()
