@@ -125,7 +125,14 @@ var runApp = func(coreApp *core.Core, cliArgs []string) error {
 		return core.E("main.runApp", "core is required", nil)
 	}
 
-	defer coreApp.ServiceShutdown(context.Background())
+	defer func() {
+		// Reported on the way out: a shutdown that fails can leave a
+		// socket or database handle behind, and this is the last chance
+		// anything gets to say so.
+		if r := coreApp.ServiceShutdown(context.Background()); !r.OK {
+			core.Warn("core-agent: service shutdown failed", "reason", r.Value)
+		}
+	}()
 
 	result := coreApp.ServiceStartup(coreApp.Context(), nil)
 	if !result.OK {

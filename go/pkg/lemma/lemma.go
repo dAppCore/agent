@@ -287,7 +287,7 @@ func (s *Service) callChatCompletions(ctx context.Context, messages []chatMessag
 	if err != nil {
 		return "", 0, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }() // read side of the response
 
 	rawBody, err := io.ReadAll(resp.Body)
 	if err != nil {

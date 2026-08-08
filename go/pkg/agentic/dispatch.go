@@ -654,8 +654,9 @@ func (s *PrepSubsystem) broadcastComplete(agent, workspaceDir, finalStatus strin
 		}); !result.OK {
 			core.Warn("agentic.broadcastComplete: notification failed", "reason", result.Error())
 		}
-		// Push to MCP channel so Claude Code receives the notification
-		s.Core().ACTION(coremcp.ChannelPush{
+		// Push to MCP channel so Claude Code receives the notification.
+		// Best-effort: a listener that is gone must not fail the dispatch.
+		_ = s.Core().ACTION(coremcp.ChannelPush{
 			Channel: coremcp.ChannelAgentComplete,
 			Data: map[string]any{
 				"agent": agent, "repo": repo,
@@ -686,7 +687,9 @@ func (s *PrepSubsystem) onAgentComplete(agent, workspaceDir, outputFile string, 
 		workspaceStatus.Status = finalStatus
 		workspaceStatus.PID = 0
 		workspaceStatus.Question = question
-		writeStatusResult(workspaceDir, workspaceStatus)
+		if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+			core.Warn("agentic: failed to write blocked status", "workspace", workspaceDir, "reason", r.Value)
+		}
 		s.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)
 
 		s.trackFailureRate(agent, finalStatus, workspaceStatus.StartedAt)
@@ -891,7 +894,9 @@ var dispatch = func(s *PrepSubsystem, ctx context.Context, callRequest *mcp.Call
 				StartedAt: time.Now(),
 				Runs:      0,
 			}
-			writeStatusResult(workspaceDir, workspaceStatus)
+			if r := writeStatusResult(workspaceDir, workspaceStatus); !r.OK {
+				core.Warn("agentic: failed to write requeued status", "workspace", workspaceDir, "reason", r.Value)
+			}
 			if runnerResult := s.Core().Service("runner"); runnerResult.OK {
 				if runnerSvc, ok := runnerResult.Value.(workspaceTracker); ok {
 					runnerSvc.TrackWorkspace(WorkspaceName(workspaceDir), workspaceStatus)

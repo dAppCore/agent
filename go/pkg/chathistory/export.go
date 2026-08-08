@@ -35,7 +35,7 @@ func (h *History) CopyTo(dest string) error {
 		return core.E("chathistory.CopyTo", "open source", srcResult.Value.(error))
 	}
 	src := srcResult.Value.(*core.OSFile)
-	defer src.Close()
+	defer func() { _ = src.Close() }() // read handle: nothing to lose on close
 	if dir := core.PathDir(dest); dir != "" {
 		if r := core.MkdirAll(dir, 0o755); !r.OK {
 			return core.E("chathistory.CopyTo", "mkdir dest parent", r.Value.(error))
@@ -46,9 +46,16 @@ func (h *History) CopyTo(dest string) error {
 		return core.E("chathistory.CopyTo", "create dest", dstResult.Value.(error))
 	}
 	dst := dstResult.Value.(*core.OSFile)
-	defer dst.Close()
+	// Net for the error paths below; the success path closes explicitly.
+	defer func() { _ = dst.Close() }()
 	if _, err := io.Copy(dst, src); err != nil {
 		return core.E("chathistory.CopyTo", "copy bytes", err)
+	}
+	// Checked, not deferred-and-forgotten: a write handle that fails to close
+	// may never have flushed, and returning nil there reports a copy that did
+	// not fully happen.
+	if err := dst.Close(); err != nil {
+		return core.E("chathistory.CopyTo", "close dest", err)
 	}
 	return nil
 }
@@ -107,7 +114,8 @@ func (h *History) ExportJSONL(dest string) error {
 		return core.E("chathistory.ExportJSONL", "create dest", fResult.Value.(error))
 	}
 	f := fResult.Value.(*core.OSFile)
-	defer f.Close()
+	// Net for the error paths below; the success path closes explicitly.
+	defer func() { _ = f.Close() }()
 
 	convRows, err := h.db.Query(
 		`SELECT id, user_id, title, started_at, ended_at, model_id, base_model,
@@ -118,7 +126,7 @@ func (h *History) ExportJSONL(dest string) error {
 	if err != nil {
 		return core.E("chathistory.ExportJSONL", "query conversations", err)
 	}
-	defer convRows.Close()
+	defer func() { _ = convRows.Close() }() // read cursor
 
 	for convRows.Next() {
 		var c JSONLConversation
@@ -163,7 +171,7 @@ func (h *History) ExportJSONL(dest string) error {
 				&toolCalls, &toolResults, &t.CreatedAt,
 				&tokensIn, &tokensOut, &signal,
 			); err != nil {
-				turnRows.Close()
+				_ = turnRows.Close() // read cursor; the scan error is what matters
 				return core.E("chathistory.ExportJSONL", "scan turn", err)
 			}
 			if toolCalls.Valid {
@@ -181,7 +189,7 @@ func (h *History) ExportJSONL(dest string) error {
 			t.Signal = signal.String
 			c.Turns = append(c.Turns, t)
 		}
-		turnRows.Close()
+		_ = turnRows.Close() // read cursor
 
 		marshalled := core.JSONMarshal(c)
 		if !marshalled.OK {
@@ -195,5 +203,13 @@ func (h *History) ExportJSONL(dest string) error {
 			return core.E("chathistory.ExportJSONL", "write newline", err)
 		}
 	}
+
+	// Checked, not deferred-and-forgotten: every line above can be written
+	// successfully and still be lost if the final flush fails, which would
+	// report a complete export of a truncated file.
+	if err := f.Close(); err != nil {
+		return core.E("chathistory.ExportJSONL", "close dest", err)
+	}
+
 	return nil
 }

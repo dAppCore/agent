@@ -1,0 +1,35 @@
+# golangci-lint configuration.
+#
+# Policy lived in a CI argument (--tests=false) until now, which is why it was
+# both wrong and invisible. Two problems it caused:
+#
+#   * Skipping test files made `unused` report 21 production symbols as dead
+#     because their only callers are in _test.go — every one a deliberate
+#     test-injection seam (syncPull, mcpInitialize, mcpCall, readSSEData,
+#     newCoreAgent, pokeCh and friends). The linter cannot see a caller it has
+#     been told not to read.
+#   * It simultaneously hid the dead scaffolding actually inside the test
+#     files, which is where all 28 genuine `unused` findings turn out to live.
+#
+# So tests are linted. errcheck is excluded for them instead, which is the
+# narrower and honest cut: an unchecked Close() in test setup is noise, while
+# an unchecked write-close in production can silently lose data — as two did in
+# pkg/chathistory before this sweep.
+version: "2"
+
+linters:
+  exclusions:
+    rules:
+      # Unchecked errors in tests are conventional and not worth the churn;
+      # everything else still applies to them, which is the point.
+      - path: '_test\.go'
+        linters:
+          - errcheck
+
+issues:
+  # Report everything. The defaults are max-issues-per-linter: 50 and
+  # max-same-issues: 3, which silently truncate — the debt in this repo read as
+  # "90 issues" for exactly as long as nobody passed these, and is really 839.
+  # A capped number is not a measurement.
+  max-issues-per-linter: 0
+  max-same-issues: 0

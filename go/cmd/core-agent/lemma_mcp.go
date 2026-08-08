@@ -113,7 +113,13 @@ func (s *lemmaSubsystem) handleSend(ctx context.Context, input LemmaSendInput) (
 	if err != nil {
 		return nil, LemmaSendOutput{}, err
 	}
-	defer hist.Close()
+	defer func() {
+		// Reported, not dropped: this handle is written to, so a failed
+		// close can mean the last turns never reached the archive.
+		if err := hist.Close(); err != nil {
+			core.Warn("chat: failed to close history archive", "reason", err)
+		}
+	}()
 
 	cfg := s.cfg
 	cfg.History = hist

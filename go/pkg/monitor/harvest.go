@@ -43,12 +43,15 @@ func (m *Subsystem) harvestCompleted() string {
 		if h.rejected != "" {
 			parts = append(parts, core.Sprintf("%s: REJECTED (%s)", h.repo, h.rejected))
 			if m.ServiceRuntime != nil {
-				m.Core().ACTION(messages.HarvestRejected{Repo: h.repo, Branch: h.branch, Reason: h.rejected})
+				// Best-effort notification: a failed dispatch must not
+				// abort the harvest that produced it.
+				_ = m.Core().ACTION(messages.HarvestRejected{Repo: h.repo, Branch: h.branch, Reason: h.rejected})
 			}
 		} else {
 			parts = append(parts, core.Sprintf("%s: ready-for-review %s (%d files)", h.repo, h.branch, h.files))
 			if m.ServiceRuntime != nil {
-				m.Core().ACTION(messages.HarvestComplete{Repo: h.repo, Branch: h.branch, Files: h.files})
+				// Best-effort notification, as above.
+				_ = m.Core().ACTION(messages.HarvestComplete{Repo: h.repo, Branch: h.branch, Files: h.files})
 			}
 		}
 	}

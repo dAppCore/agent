@@ -284,8 +284,10 @@ func (s *Service) TrackWorkspace(name string, status any) {
 	if workspaceStatus == nil {
 		return
 	}
-	s.workspaces.Set(name, workspaceStatus)
-	s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo))
+	if r := s.workspaces.Set(name, workspaceStatus); !r.OK {
+		core.Warn("runner: failed to track workspace", "workspace", name, "reason", r.Value)
+	}
+	_ = s.workspaces.Delete(core.Concat("pending/", workspaceStatus.Repo)) // best-effort: the pending marker may already be gone
 }
 
 // s.Workspaces().Each(func(name string, workspaceStatus *WorkspaceStatus) { core.Println(name, workspaceStatus.Status) })

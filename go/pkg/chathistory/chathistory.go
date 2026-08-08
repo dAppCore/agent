@@ -288,7 +288,7 @@ func (h *History) LoadTurns(conversationID string) ([]Turn, error) {
 	if err != nil {
 		return nil, core.E("chathistory.LoadTurns", "query", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }() // read cursor
 	var out []Turn
 	for rows.Next() {
 		var t Turn
