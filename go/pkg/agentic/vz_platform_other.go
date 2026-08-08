@@ -61,5 +61,5 @@ func (vzUnsupportedProvider) Stop(_ string) core.Result { return vzUnsupportedRe
 
 // vzUnsupportedResult is the single failure every verb returns here.
 func vzUnsupportedResult() core.Result {
-	return core.Fail("virtualization.framework is only available on darwin")
+	return core.Fail(core.E("agentic.vz", "virtualization.framework is only available on darwin", nil))
 }
