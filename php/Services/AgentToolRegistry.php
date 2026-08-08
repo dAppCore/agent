@@ -6,7 +6,8 @@ namespace Core\Mod\Agentic\Services;
 
 use Core\Api\Models\ApiKey;
 use Core\Mcp\Dependencies\HasDependencies;
-use Core\Mcp\Services\ToolDependencyService;
+use Core\Mcp\Exceptions\MissingDependencyException;
+use Core\Mod\Agentic\Mcp\Services\ToolDependencyService;
 use Core\Mod\Agentic\Mcp\Tools\Agent\Contracts\AgentToolInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -181,7 +182,7 @@ class AgentToolRegistry
      *
      * @throws \InvalidArgumentException If tool not found
      * @throws \RuntimeException If permission denied
-     * @throws \Core\Mcp\Exceptions\MissingDependencyException If dependencies not met
+     * @throws MissingDependencyException If dependencies not met
      */
     public function execute(
         string $name,
