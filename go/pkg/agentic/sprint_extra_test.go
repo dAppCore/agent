@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestSprint_sprintUpdate_Bad_RequiresIdentifier — sprint update without an id

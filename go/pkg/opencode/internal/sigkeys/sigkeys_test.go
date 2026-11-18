@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // — Verify ——————————————————————————————————————————————————————————

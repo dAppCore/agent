@@ -7,7 +7,7 @@ import (
 	// Note: AX-6 — this wrapper owns the direct Forge HTTP boundary so it can preserve response status semantics.
 	"net/http"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 type forgeClient struct {

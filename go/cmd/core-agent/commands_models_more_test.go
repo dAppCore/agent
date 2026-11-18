@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // modelsStubServer answers the /v1/admin/models/download route (POST kicks a

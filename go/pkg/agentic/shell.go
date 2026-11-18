@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	command "dappco.re/go/process/exec"
+	core "github.com/dappcore/go"
+	command "github.com/dappcore/go-process/go/exec"
 )
 
 // defaultShell is the in-container shell ContainerShell execs when the caller

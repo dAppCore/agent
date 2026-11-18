@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestFleetConnect_fleetTaskFromEvent_Good — the event→task mapper copies the

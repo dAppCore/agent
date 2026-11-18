@@ -8,9 +8,9 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/lib"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 // result := c.Action("agentic.dispatch").Run(ctx, core.NewOptions(

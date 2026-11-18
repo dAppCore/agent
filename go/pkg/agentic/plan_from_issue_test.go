@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPlanFromIssue_PlanFromIssue_Good_Case(t *testing.T) {

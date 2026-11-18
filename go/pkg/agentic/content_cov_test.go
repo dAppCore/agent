@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestContentCov_HandleContentBatchGenerate_Good_DryRun — the batch generate

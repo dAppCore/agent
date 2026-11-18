@@ -12,7 +12,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestProviders_callOpenCode_Good — a 200 returns (body, 200, nil) and the

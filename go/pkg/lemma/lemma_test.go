@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"dappco.re/go/agent/pkg/chathistory"
+	"github.com/dappcore/agent/go/pkg/chathistory"
 )
 
 // fakeChatServer answers /chat/completions with a canned assistant

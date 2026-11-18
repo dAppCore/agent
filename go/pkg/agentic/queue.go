@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	core "dappco.re/go"
-	agentcompat "dappco.re/go/agent/pkg/agentcompat"
+	agentcompat "github.com/dappcore/agent/go/pkg/agentcompat"
+	core "github.com/dappcore/go"
 	"gopkg.in/yaml.v3"
 )
 

@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestCommandsState_RegisterStateCommands_Good_Case(t *testing.T) {

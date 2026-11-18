@@ -5,7 +5,7 @@ package chathistory
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestChatHistory_PathUserID_Good — the path + user-id getters return the

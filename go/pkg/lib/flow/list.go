@@ -5,7 +5,7 @@ package flow
 import (
 	iofs "io/fs"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // ListEmbedded returns every embedded flow that parses into a valid Flow,

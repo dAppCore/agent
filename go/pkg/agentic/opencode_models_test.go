@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestOpencodeParseModels_Good_FreeAndGoTiers(t *testing.T) {

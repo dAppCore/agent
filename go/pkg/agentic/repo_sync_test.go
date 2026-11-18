@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 func TestRepoSync_OnWorkspacePushed_Good_Case(t *testing.T) {

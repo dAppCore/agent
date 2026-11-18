@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleBrainSeedMemoryInput() {
 	input := BrainSeedMemoryInput{AgentID: "codex", Path: "notes.md"}

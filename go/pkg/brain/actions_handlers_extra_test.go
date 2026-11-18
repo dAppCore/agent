@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestBrainActions_Handlers_Guards — remember/forget/send reject empty options

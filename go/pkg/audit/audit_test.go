@@ -5,7 +5,7 @@ package audit
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestAudit_Sanitise_Good — non-credential keys survive unchanged.

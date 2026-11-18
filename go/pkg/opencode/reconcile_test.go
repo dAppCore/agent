@@ -3,7 +3,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // In the desktop original this file also verified the adoption /

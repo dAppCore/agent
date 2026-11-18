@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleAPIError_Error() {
 	err := &forgeAPIError{StatusCode: 404, Path: "/api/v1/repos/core/agent", Message: "not found"}

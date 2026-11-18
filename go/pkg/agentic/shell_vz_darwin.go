@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	core "dappco.re/go"
-	"dappco.re/go/container"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
 
 	"golang.org/x/term"
 )

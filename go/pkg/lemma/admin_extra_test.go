@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestNewAdmin_DefaultHomeTokenPath_Good — empty TokenPath resolves to

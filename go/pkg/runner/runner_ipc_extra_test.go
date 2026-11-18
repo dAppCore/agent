@@ -5,8 +5,8 @@ package runner
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 // TestRunner_HandleIPCEvents_AgentStarted — the AgentStarted branch builds

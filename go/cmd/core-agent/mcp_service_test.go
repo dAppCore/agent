@@ -5,11 +5,11 @@ package main
 import (
 	"testing"
 
-	"dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/brain"
-	"dappco.re/go/agent/pkg/monitor"
-	"dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/brain"
+	"github.com/dappcore/agent/go/pkg/monitor"
+	"github.com/dappcore/go"
+	"github.com/dappcore/mcp/go/pkg/mcp"
 )
 
 func TestMCP_Register_Good(t *testing.T) {

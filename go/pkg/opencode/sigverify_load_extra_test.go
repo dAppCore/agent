@@ -13,8 +13,8 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/opencode/internal/sigkeys"
+	"github.com/dappcore/agent/go/pkg/opencode/internal/sigkeys"
+	core "github.com/dappcore/go"
 )
 
 // writeTrustedPublishers points HOME at a temp dir and writes raw bytes to

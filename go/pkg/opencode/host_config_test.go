@@ -17,7 +17,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestHostConfigMerge_WireResponse_NoApiKeyLeak_Bad — the wire response

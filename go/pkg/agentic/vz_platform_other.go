@@ -5,8 +5,8 @@
 package agentic
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/container"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
 )
 
 // The non-darwin half of the VZ seam. Virtualization.framework is Apple-only,

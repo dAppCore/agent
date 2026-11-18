@@ -13,8 +13,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 	"github.com/gin-gonic/gin"
 )
 

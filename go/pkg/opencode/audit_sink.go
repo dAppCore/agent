@@ -3,7 +3,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // AuditFunc is the hub-installable audit edge for this control surface.

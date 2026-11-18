@@ -5,7 +5,7 @@ package lemma
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestLemma_ResumeAndConversationID_Good — Resume builds a session bound to the

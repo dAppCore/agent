@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"unicode"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var pipelineNumberPattern = regexp.MustCompile(`^[0-9]+$`)

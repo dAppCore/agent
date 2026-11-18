@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // A failed process Result carries a *core.Err in .Value (not a string).

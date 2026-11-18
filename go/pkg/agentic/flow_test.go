@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestFlow_FlowRunStepOutput_Good(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // covTaskPlan seeds a plan with a single phase + task and returns the prep and

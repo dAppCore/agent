@@ -3,7 +3,7 @@
 package runner
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 	"gopkg.in/yaml.v3"
 )
 

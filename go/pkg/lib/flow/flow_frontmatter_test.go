@@ -5,7 +5,7 @@ package flow
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestFlow_MarkdownFrontMatter_Good — a fenced front-matter block returns its

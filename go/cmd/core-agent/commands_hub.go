@@ -16,15 +16,15 @@ import (
 	"context"
 	"net"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/audit"
-	"dappco.re/go/agent/pkg/brain"
-	"dappco.re/go/agent/pkg/opencode"
-	coreapi "dappco.re/go/api"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	"dappco.re/go/mcp/pkg/mcp/ide"
-	"dappco.re/go/ws"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/audit"
+	"github.com/dappcore/agent/go/pkg/brain"
+	"github.com/dappcore/agent/go/pkg/opencode"
+	coreapi "github.com/dappcore/api/go"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-ws/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
+	"github.com/dappcore/mcp/go/pkg/mcp/ide"
 )
 
 const (

@@ -4,7 +4,7 @@
 package setup
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // projectType := setup.Detect("/srv/repos/agent")

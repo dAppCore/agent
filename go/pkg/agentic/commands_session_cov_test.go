@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // covSessionErrServer fails every request with 500 so the session command

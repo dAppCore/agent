@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 // initTestRepo creates a bare git repo and a workspace clone with a branch.

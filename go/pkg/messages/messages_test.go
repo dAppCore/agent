@@ -5,7 +5,7 @@ package messages
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestMessages_AllSatisfyMessage_Good_Case verifies every message type can be

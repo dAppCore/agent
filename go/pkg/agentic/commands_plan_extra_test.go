@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestCommandsPlan_cmdPlanShow_Bad_RequiresSlug — plan show without a slug

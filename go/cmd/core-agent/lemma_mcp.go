@@ -5,10 +5,10 @@ package main
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/chathistory"
-	"dappco.re/go/agent/pkg/lemma"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/chathistory"
+	"github.com/dappcore/agent/go/pkg/lemma"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	brainclient "dappco.re/go/mcp/pkg/mcp/brain/client"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
+	brainclient "github.com/dappcore/mcp/go/pkg/mcp/brain/client"
 )
 
 // newTestDirect returns a DirectSubsystem wired to the given test server.

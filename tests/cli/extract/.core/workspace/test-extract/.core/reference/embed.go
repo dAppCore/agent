@@ -25,12 +25,12 @@ package core
 
 import (
 	"compress/gzip"
-	corebytes "dappco.re/go"
-	corefilepath "dappco.re/go"
-	corefmt "dappco.re/go"
-	coreos "dappco.re/go"
 	"embed"
 	"encoding/base64"
+	corebytes "github.com/dappcore/go"
+	corefilepath "github.com/dappcore/go"
+	corefmt "github.com/dappcore/go"
+	coreos "github.com/dappcore/go"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -226,7 +226,7 @@ func GeneratePack(pkg ScannedPackage) Result {
 		return Result{b.String(), true}
 	}
 
-	b.WriteString("import \"dappco.re/go\"\n\n")
+	b.WriteString("import \"github.com/dappcore/go\"\n\n")
 	b.WriteString("func init() {\n")
 
 	// Pack groups (entire directories)

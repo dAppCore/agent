@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // newTestPrep creates a PrepSubsystem for testing with testCore wired in.

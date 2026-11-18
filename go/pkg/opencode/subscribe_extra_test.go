@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestService_Subscribe — subscribe rejects empty ids + nil receivers;

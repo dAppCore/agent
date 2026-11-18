@@ -6,9 +6,9 @@ import (
 	"bufio"
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/chathistory"
-	"dappco.re/go/agent/pkg/lemma"
+	"github.com/dappcore/agent/go/pkg/chathistory"
+	"github.com/dappcore/agent/go/pkg/lemma"
+	core "github.com/dappcore/go"
 )
 
 // chat is the user-facing REPL command. Opens (or creates) the user's

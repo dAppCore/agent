@@ -11,7 +11,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestImportHost_ListImports_NilReceiver_Bad — a nil *Service.ListImports

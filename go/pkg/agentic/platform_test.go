@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func testDefaultClientWithTrustedServerCert(t *testing.T, srv *httptest.Server) *http.Client {

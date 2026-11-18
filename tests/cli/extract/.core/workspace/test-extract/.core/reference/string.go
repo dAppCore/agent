@@ -7,8 +7,8 @@
 package core
 
 import (
-	corefmt "dappco.re/go"
-	corestrings "dappco.re/go"
+	corefmt "github.com/dappcore/go"
+	corestrings "github.com/dappcore/go"
 	"unicode/utf8"
 )
 

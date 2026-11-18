@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestCommands_cmdPromptVersion_Bad_RequiresWorkspace — prompt version without

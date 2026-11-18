@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // --- stateValueString (commands_state.go) ----------------------------

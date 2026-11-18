@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // entry := PipelineTrainingEntry{Repo: "go-io", PRNumber: 42, CodeRabbitFindings: 0}

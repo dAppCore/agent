@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleFlowRunStepOutput() {
 	step := FlowRunStepOutput{Name: "build", Success: true}

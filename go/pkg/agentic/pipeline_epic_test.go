@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPipelineEpic_Good_CreateGroupsIssuesIntoEpic(t *testing.T) {

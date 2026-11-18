@@ -3,8 +3,8 @@
 package agentic
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 func Example_resolveWorkspace() {

@@ -3,7 +3,7 @@
 package main
 
 import (
-	"dappco.re/go"
+	"github.com/dappcore/go"
 )
 
 func Example_registerApplicationCommands() {

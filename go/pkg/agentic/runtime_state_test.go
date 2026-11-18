@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestRuntimeState_PersistLoad_Good_RoundTrip(t *testing.T) {

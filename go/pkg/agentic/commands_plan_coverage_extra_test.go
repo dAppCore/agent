@@ -13,7 +13,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // seedPlan creates a plan in the test workspace and returns the subsystem +

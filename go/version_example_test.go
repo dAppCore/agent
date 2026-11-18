@@ -3,7 +3,7 @@
 package agent
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func ExampleVersion() {

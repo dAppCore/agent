@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestActions_OnStartup_Good_Case(t *testing.T) {

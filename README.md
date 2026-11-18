@@ -12,7 +12,7 @@
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=dappcore_agent)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=code_smells)](https://sonarcloud.io/dashboard?id=dappcore_agent)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=dappcore_agent&metric=ncloc)](https://sonarcloud.io/dashboard?id=dappcore_agent)
-[![Go Reference](https://pkg.go.dev/badge/dappco.re/go/agent.svg)](https://pkg.go.dev/dappco.re/go/agent)
+[![Go Reference](https://pkg.go.dev/badge/github.com/dappcore/agent/go.svg)](https://pkg.go.dev/github.com/dappcore/agent/go)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](https://eupl.eu/1.2/en/)
 
 ## What it is
@@ -47,7 +47,7 @@ It owns:
 
 ```
 agent/
-├── go/                          Go module — module path: dappco.re/go/agent
+├── go/                          Go module — module path: github.com/dappcore/agent/go
 │   ├── cmd/core-agent/          Binary entry point (mcp + serve) —
 │   │                              `task build` → bin/core-agent,
 │   │                              `task build:lthn` → bin/lthn-agent
@@ -80,7 +80,7 @@ agent/
 ├── .core/                       Runtime workspace seed (agents.yaml + workspace.yaml)
 ├── docs/                        RFCs, onboarding, audits
 ├── Taskfile.yaml                Build orchestration (module-graph refresh, etc.)
-└── module-graph.json            Authoritative dappco.re/go/* dep snapshot
+└── module-graph.json            Authoritative github.com/dappcore/* dep snapshot
 ```
 
 ## Quickstart
@@ -88,7 +88,7 @@ agent/
 ### As a Go module
 
 ```bash
-go get dappco.re/go/agent@latest
+go get github.com/dappcore/agent/go@latest
 ```
 
 ### As a binary
@@ -127,7 +127,7 @@ cd go
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o core-agent-linux ./cmd/core-agent/
 ```
 
-`module-graph.json` at repo root is the authoritative `dappco.re/go/*` dep
+`module-graph.json` at repo root is the authoritative `github.com/dappcore/*` dep
 snapshot — regenerate via `task module-graph:refresh` after dep bumps.
 
 ## Configuration

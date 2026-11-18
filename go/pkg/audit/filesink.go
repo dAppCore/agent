@@ -3,7 +3,7 @@
 package audit
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // FileSink appends one JSON object per line (JSONL) to a file through

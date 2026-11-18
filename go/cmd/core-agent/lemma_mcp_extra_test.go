@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestLemmaSubsystem_Shutdown_Good — shutdown is a clean no-op (the subsystem

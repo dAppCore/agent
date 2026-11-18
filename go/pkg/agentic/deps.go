@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // s.cloneWorkspaceDeps(ctx, workspaceDir, repoDir, "core")
@@ -67,7 +67,7 @@ var cloneWorkspaceDeps = func(s *PrepSubsystem, ctx context.Context, workspaceDi
 	return nil
 }
 
-// dep := coreDep{module: "dappco.re/go", repo: "go", dir: "core-go"}
+// dep := coreDep{module: "github.com/dappcore/go", repo: "go", dir: "core-go"}
 type coreDep struct {
 	module string
 	repo   string
@@ -93,7 +93,8 @@ func parseCoreDeps(gomod string) []coreDep {
 		}
 
 		mod := normaliseCoreDepModule(parts[0])
-		if mod != "dappco.re/go" && !core.HasPrefix(mod, "dappco.re/go/") {
+		repo := coreDepRepoOf(mod)
+		if repo == "" {
 			continue
 		}
 		if seen[mod] {
@@ -101,8 +102,6 @@ func parseCoreDeps(gomod string) []coreDep {
 		}
 		seen[mod] = true
 
-		suffix := core.TrimPrefix(core.TrimPrefix(mod, "dappco.re/go"), "/")
-		repo := coreDepRepo(suffix)
 		dir := core.Concat("core-", core.Replace(repo, "/", "-"))
 		deps = append(deps, coreDep{module: mod, repo: repo, dir: dir})
 	}
@@ -111,6 +110,29 @@ func parseCoreDeps(gomod string) []coreDep {
 }
 
 func normaliseCoreDepModule(mod string) string { return mod }
+
+// coreDepOrgPrefix is where every Core module lives:
+// github.com/dappcore/<repo>[/go[/...]].
+const coreDepOrgPrefix = "github.com/dappcore/"
+
+// legacyCoreDepRoot is the retired dappco.re vanity root, still accepted for
+// repos that haven't migrated. Built with Concat so path rewrites leave it alone.
+var legacyCoreDepRoot = core.Concat("dappco", ".re/go")
+
+// coreDepRepoOf names the repo a Core module lives in, or "" for a non-Core module.
+//
+//	coreDepRepoOf("github.com/dappcore/go-process/go") // "go-process"
+//	coreDepRepoOf("github.com/dappcore/go")            // "go"
+//	coreDepRepoOf("example.com/app")                   // ""
+func coreDepRepoOf(mod string) string {
+	if core.HasPrefix(mod, coreDepOrgPrefix) {
+		return core.Lower(core.Split(core.TrimPrefix(mod, coreDepOrgPrefix), "/")[0])
+	}
+	if mod == legacyCoreDepRoot || core.HasPrefix(mod, core.Concat(legacyCoreDepRoot, "/")) {
+		return coreDepRepo(core.TrimPrefix(core.TrimPrefix(mod, legacyCoreDepRoot), "/"))
+	}
+	return ""
+}
 
 func coreDepRepo(suffix string) string {
 	switch suffix {

@@ -5,8 +5,8 @@ package setup
 import (
 	"slices"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib"
+	"github.com/dappcore/agent/go/pkg/lib"
+	core "github.com/dappcore/go"
 )
 
 // result := service.Run(setup.Options{Path: ".", Template: "auto", Force: true})

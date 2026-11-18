@@ -5,7 +5,7 @@ package opencode
 import (
 	"encoding/json"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestMaskProviderKey — covers the bullet-mask helper for arbitrary

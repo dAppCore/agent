@@ -9,7 +9,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 	"github.com/gin-gonic/gin"
 )
 

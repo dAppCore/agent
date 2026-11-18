@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPipelineAudit_Good_CreatesImplementationIssuesAndClosesAudit(t *testing.T) {

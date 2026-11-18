@@ -6,7 +6,7 @@ import (
 	"maps"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 type runtimeState struct {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // testPrepWithCore creates a PrepSubsystem backed by a real Core + Forge mock.

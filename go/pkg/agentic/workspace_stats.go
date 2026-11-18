@@ -5,8 +5,8 @@ package agentic
 import (
 	"time"
 
-	core "dappco.re/go"
-	store "dappco.re/go/store"
+	core "github.com/dappcore/go"
+	store "github.com/dappcore/go-store/go"
 )
 
 // stateWorkspaceStatsGroup is the group key inside the parent workspace store

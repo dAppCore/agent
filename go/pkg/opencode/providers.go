@@ -16,7 +16,7 @@ package opencode
 import (
 	goio "io"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // ProviderList returns opencode-serve's /provider response for the

@@ -5,8 +5,8 @@ package main
 import (
 	"testing"
 
-	core "dappco.re/go"
-	agentpkg "dappco.re/go/agent"
+	agentpkg "github.com/dappcore/agent/go"
+	core "github.com/dappcore/go"
 )
 
 func TestUpdate_UpdateChannel_Good_Case(t *testing.T) {

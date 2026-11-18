@@ -5,7 +5,7 @@ package runner
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // --- runnerWorkspaceStatusFromAgentic / agenticWorkspaceStatusFromRunner: nil ---

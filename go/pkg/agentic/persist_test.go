@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPersist_OnStartup_Good_RestoresQueue(t *testing.T) {

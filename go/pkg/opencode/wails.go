@@ -13,7 +13,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // WailsService is the binding namespace exposed to JS.

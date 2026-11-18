@@ -4,7 +4,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 // vzInteractiveShell is darwin-only: the in-process Virtualization.framework
 // provider exists only on Apple silicon, so a vz interactive shell cannot be

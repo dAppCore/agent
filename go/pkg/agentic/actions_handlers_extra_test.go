@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestActions_ForgeHandlers_GuardOnEmptyOptions — each forge action handler

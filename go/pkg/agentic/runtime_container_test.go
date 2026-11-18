@@ -5,8 +5,8 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/container"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
 )
 
 // Detect always returns a runtime record (RuntimeNone when nothing is found)

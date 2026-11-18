@@ -6,7 +6,7 @@ import (
 	goio "io"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // fakeCall records the requests routed through callOpenCodeFn and

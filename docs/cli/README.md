@@ -33,7 +33,7 @@ admin-token prefixes.
 | `core-agent serve` | MCP over **HTTP** | cross-agent comms, CI, the fleet |
 | `core-agent hub` | loopback HTTP + MCP HTTP/SSE | the agent control plane (opencode + brain) |
 
-`mcp`/`serve` come from the shared `dappco.re/go/mcp` service; everything else is
+`mcp`/`serve` come from the shared `github.com/dappcore/mcp/go` service; everything else is
 registered by `cmd/core-agent` (`commands.go`).
 
 ## Configuration

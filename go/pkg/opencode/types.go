@@ -6,9 +6,9 @@
 // to clients via the reverse-proxy mount at
 // /v1/api/sandbox/<id>/* on coreapi.Engine.
 //
-// Discipline: container lifecycle goes through dappco.re/go/process
+// Discipline: container lifecycle goes through github.com/dappcore/go-process/go
 // (long-running daemons get Start, not Run). Persistence consumes
-// dappco.re/go/orm as a library (stateless intent bridge) — callers
+// github.com/dappcore/orm/go as a library (stateless intent bridge) — callers
 // declare a Schema() on the record type and use orm.Of[T](c) at call
 // sites; orm is not registered as a Core service. Reverse-proxy
 // mirrors the pkg/plugin pattern — one RouteGroup registered at boot,
@@ -24,8 +24,8 @@
 package opencode
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // Sandbox is the record for one running opencode-serve container.

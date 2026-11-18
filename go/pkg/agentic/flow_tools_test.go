@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib/flow"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/lib/flow"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

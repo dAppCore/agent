@@ -3,8 +3,8 @@
 package agentic
 
 import (
-	core "dappco.re/go"
-	store "dappco.re/go/store"
+	core "github.com/dappcore/go"
+	store "github.com/dappcore/go-store/go"
 )
 
 // Usage example: `groupName := queueGroup` // "queue"

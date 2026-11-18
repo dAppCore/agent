@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func (s *PrepSubsystem) registerWorkspaceCommands() core.Result {

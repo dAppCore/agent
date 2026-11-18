@@ -5,7 +5,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestEnable_IsEnabled_Bad_DefaultsFalse — a fresh install has no persisted

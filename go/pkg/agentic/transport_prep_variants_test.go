@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )

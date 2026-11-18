@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	store "dappco.re/go/store"
+	core "github.com/dappcore/go"
+	store "github.com/dappcore/go-store/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	"github.com/gin-gonic/gin"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

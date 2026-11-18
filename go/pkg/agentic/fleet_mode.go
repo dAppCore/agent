@@ -6,7 +6,7 @@ import (
 	"context"
 	"net/http"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func (s *PrepSubsystem) registerFleetCommands() core.Result {

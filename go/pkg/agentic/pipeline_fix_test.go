@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPipelineFix_Good_ReviewsPostsComment(t *testing.T) {

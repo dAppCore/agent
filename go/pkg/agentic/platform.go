@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // node := agentic.FleetNode{AgentID: "charon", Platform: "linux", Status: "online"}

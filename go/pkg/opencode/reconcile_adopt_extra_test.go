@@ -5,9 +5,9 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
+	"github.com/dappcore/orm/go"
 )
 
 // TestReconcile_adoptFromOutput_NoAdoptVerdicts — output containing only

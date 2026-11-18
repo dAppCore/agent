@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // CopyTo copies the live DuckDB file to dest. The user-friendly export

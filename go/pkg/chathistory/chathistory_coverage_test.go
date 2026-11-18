@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // openTemp returns a History over a fresh temp-dir archive, registering

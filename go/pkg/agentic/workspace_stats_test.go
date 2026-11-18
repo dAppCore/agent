@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestWorkspacestats_ExtractModelFromAgent_Good_Case(t *testing.T) {

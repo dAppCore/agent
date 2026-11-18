@@ -5,7 +5,7 @@ package main
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestChat_defaultUserChatsPath_Good — the per-user archive path follows the

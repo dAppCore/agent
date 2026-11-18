@@ -5,7 +5,7 @@ package agentic
 import (
 	"context"
 
-	store "dappco.re/go/store"
+	store "github.com/dappcore/go-store/go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

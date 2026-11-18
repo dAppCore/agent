@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func newForgeMockSubsystem(t *testing.T, hits *int) *PrepSubsystem {

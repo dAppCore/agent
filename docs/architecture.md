@@ -5,9 +5,9 @@ description: Internal architecture of core/agent — the Go binary's dispatch pi
 
 # Architecture
 
-Core Agent is a single Go binary (`dappco.re/go/agent`, built from `go/cmd/core-agent`) that runs as an MCP server and CLI. A separate PHP/Laravel package (`Core\Mod\Agentic\*`) provides the hosted-service backend at `lthn.ai` — REST API, persistent storage, multi-provider AI services, and the admin panel. The two collaborate through `/v1/*` HTTP endpoints.
+Core Agent is a single Go binary (`github.com/dappcore/agent/go`, built from `go/cmd/core-agent`) that runs as an MCP server and CLI. A separate PHP/Laravel package (`Core\Mod\Agentic\*`) provides the hosted-service backend at `lthn.ai` — REST API, persistent storage, multi-provider AI services, and the admin panel. The two collaborate through `/v1/*` HTTP endpoints.
 
-The binary is built on the `dappco.re/go` DI container. `main.go` constructs a `core.New(...)` with a set of services and lets the CLI framework dispatch commands:
+The binary is built on the `github.com/dappcore/go` DI container. `main.go` constructs a `core.New(...)` with a set of services and lets the CLI framework dispatch commands:
 
 ```go
 core.New(
@@ -23,7 +23,7 @@ core.New(
 )
 ```
 
-`coremcp.Register` (from `dappco.re/go/mcp`) is what supplies the `mcp` (stdio) and `serve` (HTTP) commands; the agentic, brain, and lemma subsystems register their MCP tools into that service.
+`coremcp.Register` (from `github.com/dappcore/mcp/go`) is what supplies the `mcp` (stdio) and `serve` (HTTP) commands; the agentic, brain, and lemma subsystems register their MCP tools into that service.
 
 ## Go: Orchestration (`pkg/agentic/`)
 

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestCommandsPhase_RegisterPhaseCommands_Good_AllRegistered(t *testing.T) {

@@ -5,8 +5,8 @@ package monitor
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 func TestRegister_Register_Good_ReturnsSubsystem(t *testing.T) {

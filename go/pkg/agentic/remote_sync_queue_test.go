@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestRemotesyncqueue_DrainReady_Good_EnqueueAndDrain(t *testing.T) {

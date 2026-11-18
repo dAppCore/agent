@@ -7,9 +7,9 @@ import (
 	"maps"
 	"time"
 
-	core "dappco.re/go"
-	store "dappco.re/go/store"
 	poindexter "github.com/Snider/Poindexter"
+	core "github.com/dappcore/go"
+	store "github.com/dappcore/go-store/go"
 )
 
 const qaAnalysisClusterDistance = 0.15

@@ -5,7 +5,7 @@ package brain
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestBrainActions_IntFromAny_Good — every numeric and string-numeric branch

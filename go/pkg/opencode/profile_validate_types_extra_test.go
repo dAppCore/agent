@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // assertSchemaReject is the shared expectation: err is non-nil, coded

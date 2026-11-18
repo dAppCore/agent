@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExamplePrompt() {
 	prompt := Prompt{Name: "review", Model: "gpt-5.4"}

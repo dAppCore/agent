@@ -1,6 +1,6 @@
 ---
 name: update-deps
-description: This skill should be used when the user asks to "update deps", "bump core", "update go.mod", "upgrade dependencies", or needs to update dappco.re/go/core or other Go module dependencies in a core ecosystem repo. Uses go get properly — never manual go.mod editing.
+description: This skill should be used when the user asks to "update deps", "bump core", "update go.mod", "upgrade dependencies", or needs to update github.com/dappcore/go or other Go module dependencies in a core ecosystem repo. Uses go get properly — never manual go.mod editing.
 argument-hint: [repo-name] [module@version]
 allowed-tools: ["Bash"]
 ---
@@ -24,13 +24,13 @@ Properly update dependencies in a Core ecosystem Go module.
 3. Update the dependency using `go get`. Examples:
    ```bash
    # Update core to latest
-   GONOSUMDB='dappco.re/*' GONOSUMCHECK='dappco.re/*' GOPROXY=direct go get dappco.re/go/core@latest
+   GONOSUMDB='github.com/dappcore/*' GONOSUMCHECK='github.com/dappcore/*' GOPROXY=direct go get github.com/dappcore/go@latest
 
    # Update to specific version
-   GONOSUMDB='dappco.re/*' GONOSUMCHECK='dappco.re/*' GOPROXY=direct go get dappco.re/go/core@v0.6.0
+   GONOSUMDB='github.com/dappcore/*' GONOSUMCHECK='github.com/dappcore/*' GOPROXY=direct go get github.com/dappcore/go@v0.6.0
 
    # Update all dappco.re deps
-   GONOSUMDB='dappco.re/*' GONOSUMCHECK='dappco.re/*' GOPROXY=direct go get -u dappco.re/...
+   GONOSUMDB='github.com/dappcore/*' GONOSUMCHECK='github.com/dappcore/*' GOPROXY=direct go get -u dappco.re/...
    ```
 
 4. Tidy:

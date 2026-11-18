@@ -5,8 +5,8 @@ package agentic
 import (
 	"syscall"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib/flow"
+	"github.com/dappcore/agent/go/pkg/lib/flow"
+	core "github.com/dappcore/go"
 )
 
 // maxFlowNestingDepth bounds how deeply a flow may compose other flows at

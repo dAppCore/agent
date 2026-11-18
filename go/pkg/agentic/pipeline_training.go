@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // input := PipelineTrainingCaptureInput{Org: "core", Repo: "go-io", Number: 42}

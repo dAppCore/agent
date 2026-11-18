@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestCommandsPlan_CmdPlanCheck_Good_CompletePlan(t *testing.T) {

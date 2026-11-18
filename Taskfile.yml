@@ -7,7 +7,7 @@
 #   build:lthn           the same binary under its crew alias, bin/lthn-agent
 #   test / vet / check   the Go gates, as CI runs them (GOWORK=off)
 #   cov                  coverage, at the path codecov + SonarCloud read
-#   module-graph:refresh regenerate module-graph.json after dappco.re/go/* bumps
+#   module-graph:refresh regenerate module-graph.json after github.com/dappcore/* bumps
 #
 # Everything Go runs with GOWORK=off: the module must build from go.mod alone,
 # because that is what CI does and what a consumer gets. There is no external/
@@ -76,13 +76,13 @@ tasks:
       - task: test
 
   module-graph:refresh:
-    desc: Regenerate module-graph.json from go/go.mod (run after dappco.re/go/* dep bumps)
+    desc: Regenerate module-graph.json from go/go.mod (run after github.com/dappcore/* dep bumps)
     cmds:
       - |
         TODAY="$(date +%Y-%m-%d)" awk '
           BEGIN {
             print "{"
-            print "  \"module\": \"dappco.re/go/agent\","
+            print "  \"module\": \"github.com/dappcore/agent/go\","
             printf "  \"generated_at\": \"%s\",\n", ENVIRON["TODAY"]
             print "  \"source\": \"go/go.mod\","
             print "  \"dependencies\": {"

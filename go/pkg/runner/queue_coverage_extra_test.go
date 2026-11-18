@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/process"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
 )
 
 // liveProcessCore builds a Core with a started go-process service so

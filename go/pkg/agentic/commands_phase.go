@@ -3,7 +3,7 @@
 package agentic
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func (s *PrepSubsystem) registerPhaseCommands() core.Result {

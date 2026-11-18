@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // --- Shutdown ---
@@ -53,9 +53,9 @@ use (
 		path    string
 		content string
 	}{
-		{"core/go", "module dappco.re/go\n\ngo 1.22\n"},
-		{"core/agent", "module dappco.re/go/agent\n\nrequire dappco.re/go v0.7.0\n"},
-		{"core/mcp", "module dappco.re/go/mcp\n\nrequire dappco.re/go v0.7.0\n"},
+		{"core/go", "module github.com/dappcore/go\n\ngo 1.22\n"},
+		{"core/agent", "module github.com/dappcore/agent/go\n\nrequire github.com/dappcore/go v0.7.0\n"},
+		{"core/mcp", "module github.com/dappcore/mcp/go\n\nrequire github.com/dappcore/go v0.7.0\n"},
 	} {
 		modDir := core.JoinPath(dir, mod.path)
 		fs.EnsureDir(modDir)

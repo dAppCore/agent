@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPlanCompatCov_HandlePlanCheck_Bad_UnknownSlug — the plan.check action

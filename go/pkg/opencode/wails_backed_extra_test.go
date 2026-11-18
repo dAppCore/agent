@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestWSaveProfile_Good_RoundTrips — WSaveProfile on a bound service

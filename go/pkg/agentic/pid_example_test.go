@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
 )
 
 func ExampleProcessAlive() {

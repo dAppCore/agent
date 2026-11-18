@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestCommandsSession_RegisterSessionCommands_Good_Case(t *testing.T) {

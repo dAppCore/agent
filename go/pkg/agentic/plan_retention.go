@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 const planRetentionDefaultDays = 90

@@ -1,4 +1,4 @@
-# Codecov gate for dappco.re/go/agent — the "start using it" ratchet.
+# Codecov gate for github.com/dappcore/agent/go — the "start using it" ratchet.
 #
 # There is one config file, deliberately: Codecov accepts both codecov.yml and
 # .codecov.yml, and this repo carried both with different targets (90% vs 95%),

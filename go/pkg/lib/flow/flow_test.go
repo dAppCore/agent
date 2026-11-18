@@ -5,7 +5,7 @@ package flow
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var testFS = (&core.Fs{}).NewUnrestricted()

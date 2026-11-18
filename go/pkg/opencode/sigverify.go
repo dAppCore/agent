@@ -54,9 +54,9 @@ package opencode
 import (
 	"crypto/ed25519"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 
-	"dappco.re/go/agent/pkg/opencode/internal/sigkeys"
+	"github.com/dappcore/agent/go/pkg/opencode/internal/sigkeys"
 )
 
 const (

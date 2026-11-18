@@ -2,7 +2,7 @@
 
 package brain
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleRouteDescription() {
 	route := RouteDescription{Method: "GET", Path: "/status", Summary: "Status"}

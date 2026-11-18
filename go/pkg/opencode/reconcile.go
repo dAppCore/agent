@@ -27,8 +27,8 @@
 package opencode
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // EventOpencodeSandboxAdopted is the audit event emitted once per

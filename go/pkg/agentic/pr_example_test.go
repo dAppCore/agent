@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleCreatePRInput() {
 	input := CreatePRInput{Workspace: "core/go-io/task-5"}

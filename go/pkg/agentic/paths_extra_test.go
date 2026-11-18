@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPaths_SetWorkspaceRootOverride_Good_AbsoluteAndRelative — absolute roots

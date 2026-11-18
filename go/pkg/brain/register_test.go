@@ -5,7 +5,7 @@ package brain
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestRegister_Register_Good(t *testing.T) {

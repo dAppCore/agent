@@ -3,8 +3,8 @@
 package agentic
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/container"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
 )
 
 // containerRuntimeAvailable reports whether a runtime is usable on this host,

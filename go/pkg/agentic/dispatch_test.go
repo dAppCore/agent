@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
-	"dappco.re/go/process"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
 )
 
 type fakeCompletionProcess struct {

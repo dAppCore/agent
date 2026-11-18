@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // withTempTrustedPublishers writes a trusted_publishers.json file

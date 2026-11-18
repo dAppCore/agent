@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPipelineCommands_RegisterPipelineCommands_Good_Case(t *testing.T) {

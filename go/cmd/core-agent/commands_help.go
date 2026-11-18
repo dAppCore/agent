@@ -6,7 +6,7 @@ import (
 	"cmp"
 	"slices"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // Actions are projected onto three planes — CLI, API and MCP — so the command

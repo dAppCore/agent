@@ -5,7 +5,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestWails_Lifecycle — the Wails service-lifecycle hooks + namespace

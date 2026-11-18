@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPlanCov_PhaseCriteriaList_Good_MergesAndDeduplicates — when both Criteria

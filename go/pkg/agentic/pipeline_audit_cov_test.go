@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPipelineAuditCov_Findings_Good_BulletAndNumberedLines — bullet (-,*) and

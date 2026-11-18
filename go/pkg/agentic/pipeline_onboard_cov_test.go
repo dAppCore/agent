@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPipelineOnboardCov_CmdOnboard_Good_ChainsAndPrintsSummary — the onboard

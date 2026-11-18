@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleCommitInput() {
 	input := CommitInput{Workspace: "core/go-io/task-5"}

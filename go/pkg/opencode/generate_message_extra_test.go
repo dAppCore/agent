@@ -12,7 +12,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestGenerate_sendMessage_AgentBranch_Good — a non-empty Agent populates

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func mustReadStatus(t *testing.T, dir string) *WorkspaceStatus {

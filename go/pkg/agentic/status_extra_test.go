@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // coreWithRunnerActions builds a Core with stub runner.start/stop/kill Actions

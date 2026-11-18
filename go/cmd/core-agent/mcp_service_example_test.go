@@ -3,8 +3,8 @@
 package main
 
 import (
-	"dappco.re/go"
-	"dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/go"
+	"github.com/dappcore/mcp/go/pkg/mcp"
 )
 
 func Example_mcpRegister() {

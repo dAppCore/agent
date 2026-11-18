@@ -29,8 +29,8 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/opencode/internal/paths"
+	"github.com/dappcore/agent/go/pkg/opencode/internal/paths"
+	core "github.com/dappcore/go"
 )
 
 // TestHostConfig_FileMode_0600_Good — when MergeHostConfig's tail

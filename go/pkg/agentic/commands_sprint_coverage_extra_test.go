@@ -14,7 +14,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // --- cmdSprint: action dispatcher ------------------------------------

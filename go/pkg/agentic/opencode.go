@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/opencode"
+	"github.com/dappcore/agent/go/pkg/opencode"
+	core "github.com/dappcore/go"
 )
 
 // opencodeServiceName is the Core registration name pkg/opencode binds

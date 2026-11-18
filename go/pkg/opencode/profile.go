@@ -15,8 +15,8 @@
 package opencode
 
 import (
-	core "dappco.re/go"
-	goiostore "dappco.re/go/io/store"
+	core "github.com/dappcore/go"
+	goiostore "github.com/dappcore/go-io/go/store"
 )
 
 // Profile names the canonical default profile + the store group.
@@ -266,7 +266,7 @@ func DefaultLthnProfile() Profile {
 
 // profileKVPath is the DuckDB file used for profile storage. Lives
 // under the visible ~/Lethean/data/ layout per design_no_hidden_user_bloat.
-// Backed by dappco.re/go/io/store (DuckDB-driven KeyValueStore).
+// Backed by github.com/dappcore/go-io/go/store (DuckDB-driven KeyValueStore).
 const profileKVPath = "Lethean/data/opencode.duckdb"
 
 // kvOnce + kvStore are lazily initialised on first profile access.

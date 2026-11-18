@@ -10,9 +10,9 @@ import (
 	"encoding/hex"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/lib"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -1211,8 +1211,8 @@ var runWorkspaceLanguagePrep = func(s *PrepSubsystem, ctx context.Context, works
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=url.https://forge.lthn.ai/.insteadOf",
 		"GIT_CONFIG_VALUE_0=ssh://git@forge.lthn.ai:2223/",
-		"GONOSUMCHECK=forge.lthn.ai/*,dappco.re/*",
-		"GOPRIVATE=forge.lthn.ai/*,dappco.re/*",
+		"GONOSUMCHECK=forge.lthn.ai/*,github.com/dappcore/*",
+		"GOPRIVATE=forge.lthn.ai/*,github.com/dappcore/*",
 		"GOFLAGS=-mod=mod",
 	}
 
@@ -1343,7 +1343,7 @@ func (s *PrepSubsystem) findConsumersList(repo string) (string, int) {
 
 func consumerModulePaths(repo string) []string {
 	if repo == "go" {
-		return []string{"dappco.re/go"}
+		return []string{"github.com/dappcore/go"}
 	}
 	return []string{
 		core.Concat("dappco.re/go/", repo),

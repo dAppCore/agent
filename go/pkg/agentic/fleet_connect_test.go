@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestBackoffOnFailure_PrepSubsystem_Connect_Good(t *testing.T) {

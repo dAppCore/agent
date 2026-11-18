@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestAgentic_handleAutoPR_DisabledGate — auto-pr returns OK without acting when

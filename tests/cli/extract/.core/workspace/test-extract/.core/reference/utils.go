@@ -7,9 +7,9 @@ package core
 
 import (
 	crand "crypto/rand"
-	corefmt "dappco.re/go"
-	coreos "dappco.re/go"
 	"encoding/hex"
+	corefmt "github.com/dappcore/go"
+	coreos "github.com/dappcore/go"
 	"io"
 	"strconv"
 	"sync/atomic"

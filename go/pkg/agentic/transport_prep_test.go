@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )

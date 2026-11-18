@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestFleetModeCov_CmdFleet_Good_RoutesToNodes — "fleet nodes" (action via the

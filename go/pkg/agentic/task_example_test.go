@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleTaskUpdateInput() {
 	input := TaskUpdateInput{PlanSlug: "release", PhaseOrder: 1, Status: "done"}

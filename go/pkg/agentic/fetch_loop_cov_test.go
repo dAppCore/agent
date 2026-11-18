@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestFetchLoopCov_CollectConfigRepoRefs_Good_AgentsBlock — the per-agent

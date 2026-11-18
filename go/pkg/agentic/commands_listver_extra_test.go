@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestAgentic_ListVersionCleanup_Good — plan-list, lang-list, and plan-cleanup

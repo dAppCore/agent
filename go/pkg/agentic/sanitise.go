@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func validateName(text string) (string, bool) {
 	name := core.Trim(text)

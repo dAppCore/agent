@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	"dappco.re/go/mcp/pkg/mcp/ide"
-	providerws "dappco.re/go/ws"
+	core "github.com/dappcore/go"
+	providerws "github.com/dappcore/go-ws/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
+	"github.com/dappcore/mcp/go/pkg/mcp/ide"
 	"github.com/gorilla/websocket"
 )
 
