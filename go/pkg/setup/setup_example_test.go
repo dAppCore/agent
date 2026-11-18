@@ -2,7 +2,7 @@
 
 package setup
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func Example_defaultBuildCommand() {
 	core.Println(defaultBuildCommand(TypeGo))

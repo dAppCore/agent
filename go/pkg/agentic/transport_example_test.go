@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func ExampleRegisterHTTPTransport() {

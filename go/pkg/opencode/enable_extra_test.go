@@ -12,8 +12,8 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // TestEnable_Enable_Good_AlreadyRunning — Enable with a sandbox already

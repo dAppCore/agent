@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 )
 
 // localDirect returns a DirectSubsystem that never hits the network.

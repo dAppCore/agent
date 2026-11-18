@@ -7,7 +7,7 @@
 
 Create a directory under `go/pkg/`. Follow the convention — one test file per source file,
 `*_example_test.go` doubling as runnable examples. Import as
-`dappco.re/go/agent/pkg/<name>`.
+`github.com/dappcore/agent/go/pkg/<name>`.
 
 ### New CLI command
 
@@ -26,7 +26,7 @@ c.Command("my-command", core.Command{
 
 ### New MCP tool
 
-Tools register into the shared `dappco.re/go/mcp` service via `coremcp.AddToolRecorded`:
+Tools register into the shared `github.com/dappcore/mcp/go` service via `coremcp.AddToolRecorded`:
 
 ```go
 coremcp.AddToolRecorded(svc, svc.Server(), "<subsystem>", &mcp.Tool{

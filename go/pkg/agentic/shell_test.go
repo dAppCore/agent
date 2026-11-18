@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // interactiveShellArgs yields the TTY-allocating OCI exec argv every runtime shares.

@@ -6,10 +6,10 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	"dappco.re/go/process"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -485,7 +485,7 @@ func containerCommandFor(containerRuntime, image string, gpu bool, command strin
 		"-e", "CI=true",
 		"-e", "GIT_USER_NAME=Virgil",
 		"-e", "GIT_USER_EMAIL=virgil@lethean.io",
-		"-e", "GONOSUMCHECK=dappco.re/*,forge.lthn.ai/*",
+		"-e", "GONOSUMCHECK=github.com/dappcore/*,forge.lthn.ai/*",
 		"-e", "GOFLAGS=-mod=mod",
 	)
 

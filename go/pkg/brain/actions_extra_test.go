@@ -5,7 +5,7 @@ package brain
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestBrainActions_ValueExtractors_Good — the float + string-slice option

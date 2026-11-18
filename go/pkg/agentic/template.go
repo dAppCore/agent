@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"slices"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/lib"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )

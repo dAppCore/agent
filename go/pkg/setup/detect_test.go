@@ -5,7 +5,7 @@ package setup
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestGo_Detect_Good(t *testing.T) {

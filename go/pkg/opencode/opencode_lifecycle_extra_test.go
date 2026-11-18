@@ -23,9 +23,9 @@ import (
 	"net/url"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
+	"github.com/dappcore/orm/go"
 )
 
 // procBackedService is newBackedService + a real process.Service

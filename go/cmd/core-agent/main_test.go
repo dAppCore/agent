@@ -5,14 +5,14 @@ package main
 import (
 	"testing"
 
-	"dappco.re/go"
-	agentpkg "dappco.re/go/agent"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/brain"
-	"dappco.re/go/agent/pkg/monitor"
-	"dappco.re/go/agent/pkg/runner"
-	"dappco.re/go/agent/pkg/setup"
-	"dappco.re/go/mcp/pkg/mcp"
+	agentpkg "github.com/dappcore/agent/go"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/brain"
+	"github.com/dappcore/agent/go/pkg/monitor"
+	"github.com/dappcore/agent/go/pkg/runner"
+	"github.com/dappcore/agent/go/pkg/setup"
+	"github.com/dappcore/go"
+	"github.com/dappcore/mcp/go/pkg/mcp"
 )
 
 func withVersion(t *testing.T, value string) {

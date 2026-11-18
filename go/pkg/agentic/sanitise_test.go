@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestSanitise_SanitiseBranchSlug_Good_Basic(t *testing.T) {

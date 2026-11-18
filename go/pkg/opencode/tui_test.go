@@ -3,7 +3,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestShellQuote_HappyPath_Good — alphanumeric input is wrapped in

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestOpencodeProvider_NewProviderManager_Good_RegistersOpencode(t *testing.T) {

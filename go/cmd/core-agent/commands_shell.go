@@ -3,9 +3,9 @@
 package main
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
 )
 
 // shell drops the current terminal into an interactive shell inside a running

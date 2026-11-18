@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var fleetBackoffSchedule = []time.Duration{

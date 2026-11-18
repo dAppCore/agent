@@ -3,7 +3,7 @@
 package brain
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // c := core.New(core.WithService(brain.Register))

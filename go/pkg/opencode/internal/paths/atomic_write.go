@@ -30,7 +30,7 @@
 package paths
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // File mode for new + replaced files. 0o600 matches the

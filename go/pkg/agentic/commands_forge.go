@@ -6,7 +6,7 @@ import (
 	"context"
 	"strconv"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 type issueView struct {

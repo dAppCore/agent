@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // platformCmdMux answers every platform endpoint the cmd* wrappers reach

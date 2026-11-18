@@ -57,7 +57,7 @@
 package opencode
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // UpgradeInput governs a single Upgrade call. v0 carried the user-

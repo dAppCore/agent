@@ -16,8 +16,8 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // TestGenerate_ensureSandbox_ExplicitRunningID — an explicit sandboxID

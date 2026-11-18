@@ -7,7 +7,7 @@
 
 **core-agent** is the AI agent orchestration platform for the Core ecosystem. Single Go binary that runs as an MCP server — stdio (IDE integration) or HTTP daemon (cross-agent communication).
 
-**Module:** `dappco.re/go/agent`
+**Module:** `github.com/dappcore/agent/go`
 
 ## Build & Test
 

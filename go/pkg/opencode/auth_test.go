@@ -5,7 +5,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // newTestService builds a fully-initialised opencode Service against an

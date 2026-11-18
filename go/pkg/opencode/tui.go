@@ -34,7 +34,7 @@ package opencode
 import (
 	goruntime "runtime"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // OpenTUI launches `<runtime> exec -it <container> opencode` inside

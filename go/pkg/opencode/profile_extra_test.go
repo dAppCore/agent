@@ -5,7 +5,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestProfile_GetProfile_Bad_EmptyName — an empty name is rejected before the

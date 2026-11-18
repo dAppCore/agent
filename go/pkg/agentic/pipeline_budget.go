@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 const pipelineBudgetStoreGroup = "pipeline_budget_dispatch"

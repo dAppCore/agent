@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/container"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
+	"github.com/dappcore/go-process/go"
 )
 
 // fakeVZDispatcher is an injectable stand-in for *container.VZProvider so the

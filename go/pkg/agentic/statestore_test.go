@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // withStateStoreTempDir redirects CORE_WORKSPACE to a fresh temporary

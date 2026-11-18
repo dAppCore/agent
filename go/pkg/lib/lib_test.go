@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var testFs = (&core.Fs{}).NewUnrestricted()

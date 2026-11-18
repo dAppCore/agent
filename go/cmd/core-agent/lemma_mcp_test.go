@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"dappco.re/go/agent/pkg/chathistory"
-	"dappco.re/go/agent/pkg/lemma"
+	"github.com/dappcore/agent/go/pkg/chathistory"
+	"github.com/dappcore/agent/go/pkg/lemma"
 )
 
 // fakeLemmaServer returns an httptest server that echoes user turns

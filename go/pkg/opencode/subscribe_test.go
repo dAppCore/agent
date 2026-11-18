@@ -5,7 +5,7 @@ package opencode
 import (
 	"net/http/httptest"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestSubscribe_streamEvents_Good — happy path: emitter receives every

@@ -8,7 +8,7 @@
 package core
 
 import (
-	coreos "dappco.re/go"
+	coreos "github.com/dappcore/go"
 	"io"
 )
 

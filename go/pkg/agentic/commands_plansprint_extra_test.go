@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestAgentic_PlanSprintIssue_Guards — plan read/get/update, sprint update/

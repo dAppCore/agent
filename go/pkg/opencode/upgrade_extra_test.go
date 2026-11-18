@@ -5,7 +5,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestUpgrade_parsePullDigest_GoodBad — the digest is pulled from the "Digest:"

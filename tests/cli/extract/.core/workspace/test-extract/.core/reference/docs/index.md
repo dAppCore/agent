@@ -7,7 +7,7 @@ description: AX-first documentation for the CoreGO framework.
 
 CoreGO is the foundation layer for the Core ecosystem. It gives you one container, one command tree, one message bus, and a small set of shared primitives that repeat across the whole framework.
 
-The current module path is `dappco.re/go/core`.
+The current module path is `github.com/dappcore/go`.
 
 ## AX View
 
@@ -38,7 +38,7 @@ import (
 	"context"
 	"fmt"
 
-	"dappco.re/go/core"
+	"github.com/dappcore/go"
 )
 
 type flushCacheTask struct {

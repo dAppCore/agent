@@ -5,7 +5,7 @@ package main
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // A bare help request routes to the `help` command, which is what makes the

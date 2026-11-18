@@ -7,7 +7,7 @@ import (
 	"context"
 	"slices"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 type PipelineEpicCreateInput struct {

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestShutdown_Handlers_Good — dispatch shutdown + shutdown-now succeed when no

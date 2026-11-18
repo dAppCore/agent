@@ -7,10 +7,10 @@ package brain
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
-	"dappco.re/go/mcp/pkg/mcp/ide"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	core "github.com/dappcore/go"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
+	"github.com/dappcore/mcp/go/pkg/mcp/ide"
 )
 
 // keyPath := core.JoinPath(home, ".claude", "brain.key")

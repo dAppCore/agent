@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // provider := agentic.NewProviderManager(nil).Provider("claude")

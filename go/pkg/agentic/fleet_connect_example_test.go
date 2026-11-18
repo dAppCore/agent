@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func fleetExampleSubsystem(serverURL, token string) *PrepSubsystem {

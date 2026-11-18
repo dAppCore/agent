@@ -23,7 +23,7 @@
 package audit
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // Event is one audited decision on the hub's privilege-bearing surface.

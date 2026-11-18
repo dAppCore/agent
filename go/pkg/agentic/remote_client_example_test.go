@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"syscall"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func ExampleDispatchInput_remote() {

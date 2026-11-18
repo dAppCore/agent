@@ -19,8 +19,8 @@
 package opencode
 
 import (
-	core "dappco.re/go"
-	goiostore "dappco.re/go/io/store"
+	core "github.com/dappcore/go"
+	goiostore "github.com/dappcore/go-io/go/store"
 )
 
 const (

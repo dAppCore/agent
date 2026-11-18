@@ -3,9 +3,9 @@
 package agentic_test
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
 )
 
 // ExampleContainerShell attaches the current terminal to a running container by

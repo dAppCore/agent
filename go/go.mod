@@ -1,19 +1,19 @@
-module dappco.re/go/agent
+module github.com/dappcore/agent/go
 
 go 1.26.2
 
 require (
-	dappco.re/go v0.12.0
-	dappco.re/go/api v0.19.0
-	dappco.re/go/cli v0.13.0
-	dappco.re/go/container v0.13.0
-	dappco.re/go/io v0.15.3
-	dappco.re/go/mcp v0.19.1
-	dappco.re/go/orm v0.1.2
-	dappco.re/go/process v0.16.1
-	dappco.re/go/store v0.14.1
-	dappco.re/go/ws v0.7.1
 	github.com/Snider/Poindexter v0.1.0
+	github.com/dappcore/api/go v0.20.0
+	github.com/dappcore/cli/go v0.14.0
+	github.com/dappcore/go v0.14.0
+	github.com/dappcore/go-container/go v0.14.0
+	github.com/dappcore/go-io/go v0.16.0
+	github.com/dappcore/go-process/go v0.17.0
+	github.com/dappcore/go-store/go v0.15.0
+	github.com/dappcore/go-ws/go v0.8.0
+	github.com/dappcore/mcp/go v0.20.0
+	github.com/dappcore/orm/go v0.2.0
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
@@ -36,16 +36,11 @@ require (
 )
 
 require (
-	dappco.re/go/i18n v0.12.1 // indirect
-	dappco.re/go/log v0.13.1 // indirect
-	dappco.re/go/rag v0.15.1 // indirect
 	github.com/99designs/gqlgen v0.17.94 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
-	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
-	github.com/buger/jsonparser v1.6.1 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.2 // indirect
 	github.com/bytedance/sonic/loader v0.5.2 // indirect
@@ -56,6 +51,8 @@ require (
 	github.com/cloudwego/base64x v0.1.7 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/coreos/go-oidc/v3 v3.20.0 // indirect
+	github.com/dappcore/go-i18n/go v0.13.0 // indirect
+	github.com/dappcore/go-log/go v0.14.0 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.10505.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.10505.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-arm64 v0.10505.0 // indirect
@@ -105,17 +102,13 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
-	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
-	github.com/mailru/easyjson v0.9.2 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.27 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
-	github.com/ollama/ollama v0.32.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
-	github.com/qdrant/go-client v1.18.3 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.61.0 // indirect
 	github.com/redis/go-redis/v9 v9.21.0 // indirect
@@ -130,7 +123,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.36 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -151,8 +143,6 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260729162451-8efbd57d26e0 // indirect
-	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

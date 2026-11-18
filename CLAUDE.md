@@ -10,7 +10,7 @@ Running on **Claude Max20 plan** with **1M context window** (Opus 4.8).
 
 **core-agent** is the AI agent orchestration platform for the Core ecosystem. Single Go binary (`core-agent`) that runs as an MCP server — either via stdio (Claude Code integration) or HTTP daemon (cross-agent communication).
 
-**Module:** `dappco.re/go/agent`
+**Module:** `github.com/dappcore/agent/go`
 
 **Source of truth:** the RFC specs live in the plans tree at `plans/code/core/agent/` (`RFC.md`, `RFC.pipeline.md`, `RFC.topology.md`, `RFC.serve.md`, `flow/`, `plugins/`) — the present-tense contract for every subsystem. `docs/` in this repo holds literal feature documentation only — `architecture.md`, `known-issues.md`, a `development/` guide, and a folder per feature (each a URL: `dispatch/`, `pipeline/`, `plans/`, `brain/`, `inference/`, `providers/`, …) whose `README.md` is a concise SEO index linking to detail pages. This file is the operational quick-reference; when docs and code disagree, the code wins.
 
@@ -48,7 +48,7 @@ pkg/messages/                     Typed IPC message definitions
 
 ### Binary Modes
 
-- `core-agent mcp` — stdio MCP server for Claude Code (registered by the `dappco.re/go/mcp` service)
+- `core-agent mcp` — stdio MCP server for Claude Code (registered by the `github.com/dappcore/mcp/go` service)
 - `core-agent serve` — HTTP MCP daemon (Charon, CI, cross-agent)
 - `core-agent hub` — loopback control plane: `--http 127.0.0.1:9201` (bearer) + `--mcp-http 127.0.0.1:9202` (fail-closed MCP), fronting the opencode control/proxy groups + brain with a non-optional audit edge (RFC.md §2/§6)
 - `core-agent chat --user=<id>` — REPL against the local lthn-mlx engine, auto-captured to the user's archive
@@ -176,7 +176,7 @@ Plans drive the entire dispatch→verify→merge flow:
 
 ```
 core/agent/
-├── go/                               ← Go module root (module dappco.re/go/agent)
+├── go/                               ← Go module root (module github.com/dappcore/agent/go)
 │   ├── go.mod, go.sum
 │   ├── cmd/                          ← Go binaries and entrypoints
 │   ├── pkg/                          ← Go runtime packages

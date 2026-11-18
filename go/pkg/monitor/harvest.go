@@ -9,9 +9,9 @@ import (
 	"context"
 	"strconv"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 type harvestResult struct {

@@ -18,8 +18,8 @@ package runner
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	core "github.com/dappcore/go"
 )
 
 // fakeSpawner is a stand-in agentic service exposing only the SpawnFromQueue

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/setup"
+	"github.com/dappcore/agent/go/pkg/setup"
+	core "github.com/dappcore/go"
 )
 
 func TestCommandsSetup_CmdSetup_Good_WritesCoreConfigs(t *testing.T) {

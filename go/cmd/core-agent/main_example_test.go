@@ -3,8 +3,8 @@
 package main
 
 import (
-	core "dappco.re/go"
-	agentpkg "dappco.re/go/agent"
+	agentpkg "github.com/dappcore/agent/go"
+	core "github.com/dappcore/go"
 )
 
 func Example_newCoreAgent() {

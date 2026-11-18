@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleRepoSyncOutput() {
 	output := RepoSyncOutput{Repo: "core/go-io", Branch: "dev"}

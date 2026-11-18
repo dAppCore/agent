@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestAgentic_PipelineCmd_Guards — the pipeline epic/fix/monitor command

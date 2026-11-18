@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestLoadAgentsConfig_Good_LoadsRepoCoreConfig(t *testing.T) {

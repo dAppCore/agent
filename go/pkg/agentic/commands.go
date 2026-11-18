@@ -8,9 +8,9 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lib"
-	"dappco.re/go/agent/pkg/lib/flow"
+	"github.com/dappcore/agent/go/pkg/lib"
+	"github.com/dappcore/agent/go/pkg/lib/flow"
+	core "github.com/dappcore/go"
 	"gopkg.in/yaml.v3"
 )
 

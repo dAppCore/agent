@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestMessaging_SendMessage_Self_NoMCP — a "self"-targeted send routes to

@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPipelineEpicCov_CmdStatus_Good_PrintsEpicAndChildren — the epic-status

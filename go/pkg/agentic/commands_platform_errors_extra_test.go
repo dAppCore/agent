@@ -15,7 +15,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // platformFailServer answers every route with 500 so each wrapper's

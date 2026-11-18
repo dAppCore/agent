@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestImportHost_readHostAuthJSON_GoodBad — a missing auth.json yields an empty

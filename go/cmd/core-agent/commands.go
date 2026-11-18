@@ -3,8 +3,8 @@
 package main
 
 import (
-	"dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/go"
 )
 
 type applicationCommandSet struct {

@@ -7,7 +7,7 @@ package core
 
 import (
 	"context"
-	coreos "dappco.re/go"
+	coreos "github.com/dappcore/go"
 	"sync"
 	"sync/atomic"
 )

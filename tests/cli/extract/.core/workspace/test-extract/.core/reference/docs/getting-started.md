@@ -10,7 +10,7 @@ This page shows the shortest path to a useful CoreGO application using the API t
 ## Install
 
 ```bash
-go get dappco.re/go/core
+go get github.com/dappcore/go
 ```
 
 ## Create a Core
@@ -20,7 +20,7 @@ go get dappco.re/go/core
 ```go
 package main
 
-import "dappco.re/go/core"
+import "github.com/dappcore/go"
 
 func main() {
 	c := core.New(core.Options{
@@ -134,7 +134,7 @@ import (
 	"context"
 	"fmt"
 
-	"dappco.re/go/core"
+	"github.com/dappcore/go"
 )
 
 type workspaceCountQuery struct{}

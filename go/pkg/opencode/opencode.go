@@ -6,9 +6,9 @@ import (
 	goio "io"
 	"net"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
+	"github.com/dappcore/orm/go"
 )
 
 const (

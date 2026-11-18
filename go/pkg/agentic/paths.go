@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // fsEntry matches the fs.DirEntry methods used by workspace scanning.

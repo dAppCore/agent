@@ -5,9 +5,9 @@ package main
 import (
 	"testing"
 
-	"dappco.re/go"
-	agentpkg "dappco.re/go/agent"
-	"dappco.re/go/agent/pkg/agentic"
+	agentpkg "github.com/dappcore/agent/go"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/go"
 )
 
 // newTestCore creates a minimal Core with application commands registered.

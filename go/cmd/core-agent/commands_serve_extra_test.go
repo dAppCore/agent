@@ -5,8 +5,8 @@ package main
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lemma"
+	"github.com/dappcore/agent/go/pkg/lemma"
+	core "github.com/dappcore/go"
 )
 
 // TestServe_buildAdmin_Good — a base-url + token builds an admin client.

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPrepCov_WritePromptSnapshot_Good_NoopOnBlankInput — a blank workspace dir

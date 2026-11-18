@@ -43,12 +43,12 @@ import (
 	_ "embed"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 	"github.com/google/uuid"
 
 	// duckdb driver registers itself with database/sql via init(), under
 	// the same "duckdb" driver name as the legacy marcboeker package.
-	// Using the duckdb-org fork to align with dappco.re/go/orm, go-store,
+	// Using the duckdb-org fork to align with github.com/dappcore/orm/go, go-store,
 	// and go-io's transitive pin — prevents CGo duplicate-symbol link
 	// errors from two generations of DuckDB C bindings (marcboeker's
 	// legacy v2 vs. the upstream-adopted duckdb/duckdb-go/v2) both

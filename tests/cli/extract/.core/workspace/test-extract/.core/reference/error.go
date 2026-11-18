@@ -11,10 +11,10 @@
 package core
 
 import (
-	coreerrors "dappco.re/go"
-	corefilepath "dappco.re/go"
-	corejson "dappco.re/go"
-	coreos "dappco.re/go"
+	coreerrors "github.com/dappcore/go"
+	corefilepath "github.com/dappcore/go"
+	corejson "github.com/dappcore/go"
+	coreos "github.com/dappcore/go"
 	"iter"
 	"maps"
 	"runtime"

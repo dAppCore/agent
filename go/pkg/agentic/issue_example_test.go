@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleIssue() {
 	issue := Issue{Title: "Fix tests", Status: "open"}

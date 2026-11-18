@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestBrainSeedMemoryCov_BrainSeedMemory_Bad_NoKey — with no brain API key the

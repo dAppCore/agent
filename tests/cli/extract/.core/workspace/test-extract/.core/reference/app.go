@@ -5,8 +5,8 @@
 package core
 
 import (
-	corefilepath "dappco.re/go"
-	coreos "dappco.re/go"
+	corefilepath "github.com/dappcore/go"
+	coreos "github.com/dappcore/go"
 )
 
 // App holds the application identity and optional GUI runtime.

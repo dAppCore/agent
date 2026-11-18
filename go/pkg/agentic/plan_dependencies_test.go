@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPlanDependencies_PlanCreate_Good_PreservesPhaseDependencies(t *testing.T) {

@@ -28,9 +28,9 @@ package opencode
 import (
 	goio "io"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
+	"github.com/dappcore/orm/go"
 )
 
 // ImportSummary is the result shape returned to callers.

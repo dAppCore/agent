@@ -38,7 +38,7 @@ package opencode
 import (
 	"net/url"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // WebAuthScheme is the credential scheme an opencode-web caller must

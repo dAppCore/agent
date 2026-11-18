@@ -5,7 +5,7 @@ package agentic
 import (
 	"syscall"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func ExamplePrepSubsystem_cmdWorkspaceClean() {

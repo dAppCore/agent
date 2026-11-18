@@ -144,11 +144,11 @@ jobs:
           args: --timeout=5m
 
   # Guards the one rule that has silently cost delivered features: the sibling
-  # dappco.re/* modules are dependencies, not workspace files.
+  # github.com/dappcore/* modules are dependencies, not workspace files.
   #
   # When external/ existed, an agent would "fix" a bug by editing
   # external/go/... — the file was right there and looked local. The build
-  # resolves dappco.re/go from go.mod regardless, so the edit changed nothing,
+  # resolves github.com/dappcore/go from go.mod regardless, so the edit changed nothing,
   # the tests still passed, and the feature shipped broken. A submodule tree,
   # a go.work that reaches outside this repo, or a replace directive all
   # recreate that trap, so all three fail the build here.
@@ -157,12 +157,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Assert dappco.re/* resolves from go.mod only
+      - name: Assert github.com/dappcore/* resolves from go.mod only
         run: |
           fail=0
           for path in external .gitmodules go.work go/go.work; do
             if [ -e "$path" ]; then
-              echo "::error file=$path::$path must not exist — dappco.re/* modules come from go.mod, not from a checkout in this repo"
+              echo "::error file=$path::$path must not exist — github.com/dappcore/* modules come from go.mod, not from a checkout in this repo"
               fail=1
             fi
           done

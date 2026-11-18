@@ -11,7 +11,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPipeline_Dispatchers_UsageBudgetTraining — the budget + training

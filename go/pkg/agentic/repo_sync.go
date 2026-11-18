@@ -5,8 +5,8 @@ package agentic
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/messages"
+	"github.com/dappcore/agent/go/pkg/messages"
+	core "github.com/dappcore/go"
 )
 
 // Repo sync closes the RFC §7 loop from a pushed workspace back to the local

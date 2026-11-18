@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func (s *PrepSubsystem) cmdMessageSend(options core.Options) core.Result {
 	workspace := optionStringValue(options, "workspace", "_arg")

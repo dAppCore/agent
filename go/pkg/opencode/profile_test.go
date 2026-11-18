@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // --- validateProfileSchema (Mantis #1603 HIGH) --------------------

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPromptVersion_ReadPromptSnapshot_Good_Case(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"context"
 	"regexp"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var pipelineBulletPattern = regexp.MustCompile(`^\s*(?:[-*]|\d+\.)\s+(.*)$`)

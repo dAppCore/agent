@@ -31,8 +31,8 @@ package opencode
 import (
 	"maps"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/opencode/internal/paths"
+	"github.com/dappcore/agent/go/pkg/opencode/internal/paths"
+	core "github.com/dappcore/go"
 )
 
 // hostConfigSubpath is opencode's canonical global config path,

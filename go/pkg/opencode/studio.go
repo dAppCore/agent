@@ -23,7 +23,7 @@ import (
 	"context"
 	goruntime "runtime"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // studioMacPath is the canonical install location for OpenCode's

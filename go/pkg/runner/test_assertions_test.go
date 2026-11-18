@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func assertNotSame(t *testing.T, want, got any, msg ...string) {

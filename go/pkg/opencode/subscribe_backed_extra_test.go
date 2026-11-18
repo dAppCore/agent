@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // sseServer returns an httptest server that emits one SSE data line then

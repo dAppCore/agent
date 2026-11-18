@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPipelineAudit_pipelineIssueIsAudit_GoodBad — the [Audit]/audit: title

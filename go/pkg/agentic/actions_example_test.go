@@ -5,9 +5,9 @@ package agentic_test
 import (
 	"context"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
 )
 
 func ExampleRegister() {

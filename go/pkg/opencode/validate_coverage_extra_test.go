@@ -12,7 +12,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestValidate_validateProfileAnyValue_AllArms — each value shape is walked:

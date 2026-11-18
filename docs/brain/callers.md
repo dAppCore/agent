@@ -47,7 +47,7 @@ Future Brain call sites should be added here in the same change that introduces 
 
 ### Shared Go client
 
-The canonical Go client lives in module `dappco.re/go/mcp/pkg/mcp/brain/client`, which resolves to `../mcp/pkg/mcp/brain/client/client.go` in this workspace via `go.mod`.
+The canonical Go client lives in module `github.com/dappcore/mcp/go/pkg/mcp/brain/client`, which resolves to `../mcp/pkg/mcp/brain/client/client.go` in this workspace via `go.mod`.
 
 - Typed inputs:
   `RememberInput`, `RecallInput`, `ForgetInput`, `ListInput`

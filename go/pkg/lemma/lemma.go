@@ -44,8 +44,8 @@ import (
 	"net/http"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/chathistory"
+	"github.com/dappcore/agent/go/pkg/chathistory"
+	core "github.com/dappcore/go"
 )
 
 const (

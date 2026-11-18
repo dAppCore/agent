@@ -5,7 +5,7 @@ package monitor
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestHarvest_DefaultBranch_Good_Case — the default branch resolves via

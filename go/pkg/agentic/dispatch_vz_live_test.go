@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/container"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-container/go"
 )
 
 // TestDispatchVZ_LiveBoot_Good_Case boots a real VZ guest, execs a trivial

@@ -19,7 +19,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestVerifySignature_PolicyOffNoSig_Accept — require_signature=false and

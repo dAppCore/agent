@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExamplePipelineEpicCreateInput() {
 	input := PipelineEpicCreateInput{Repo: "core/go-io", Theme: "stability"}

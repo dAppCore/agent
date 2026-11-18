@@ -6,7 +6,7 @@ template: coding
 steps:
   - name: audit-deps
     description: Check go.mod for core dependency version
-    check: "grep dappco.re/go/core go.mod"
+    check: "grep github.com/dappcore/go go.mod"
 
   - name: audit-imports
     description: Find all banned stdlib imports with file:line

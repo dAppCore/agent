@@ -23,7 +23,7 @@
 package core
 
 import (
-	corefilepath "dappco.re/go"
+	corefilepath "github.com/dappcore/go"
 	"io/fs"
 )
 

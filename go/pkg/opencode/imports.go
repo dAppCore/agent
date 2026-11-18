@@ -18,8 +18,8 @@
 package opencode
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/orm"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/orm/go"
 )
 
 // Source enumerates the upstream clients lthn can import from.

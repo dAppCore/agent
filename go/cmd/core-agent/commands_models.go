@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lemma"
+	"github.com/dappcore/agent/go/pkg/lemma"
+	core "github.com/dappcore/go"
 )
 
 // CLI surface for managing model downloads on the local lthn-mlx

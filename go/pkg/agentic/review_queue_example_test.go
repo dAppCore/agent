@@ -2,7 +2,7 @@
 
 package agentic
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleReviewQueueInput() {
 	input := ReviewQueueInput{Limit: 4, Reviewer: "coderabbit"}

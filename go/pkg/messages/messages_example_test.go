@@ -2,7 +2,7 @@
 
 package messages
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func ExampleAgentCompleted() {
 	ev := AgentCompleted{

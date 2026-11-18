@@ -12,7 +12,7 @@ package opencode
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestEnable_readEnabledFlag_PresentTrueFalse_Good — after setEnabled the

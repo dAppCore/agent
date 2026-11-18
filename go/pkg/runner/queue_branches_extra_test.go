@@ -13,8 +13,8 @@ package runner
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	core "github.com/dappcore/go"
 )
 
 // --- canDispatchAgent: model-limit present but UNDER limit (queue.go:142) ---

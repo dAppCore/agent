@@ -5,17 +5,17 @@ package main
 import (
 	"context"
 
-	"dappco.re/go"
-	agentpkg "dappco.re/go/agent"
+	agentpkg "github.com/dappcore/agent/go"
+	"github.com/dappcore/go"
 
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/brain"
-	"dappco.re/go/agent/pkg/monitor"
-	"dappco.re/go/agent/pkg/opencode"
-	"dappco.re/go/agent/pkg/runner"
-	"dappco.re/go/agent/pkg/setup"
-	"dappco.re/go/cli/pkg/cli"
-	coremcp "dappco.re/go/mcp/pkg/mcp"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/brain"
+	"github.com/dappcore/agent/go/pkg/monitor"
+	"github.com/dappcore/agent/go/pkg/opencode"
+	"github.com/dappcore/agent/go/pkg/runner"
+	"github.com/dappcore/agent/go/pkg/setup"
+	"github.com/dappcore/cli/go/pkg/cli"
+	coremcp "github.com/dappcore/mcp/go/pkg/mcp"
 )
 
 func main() {

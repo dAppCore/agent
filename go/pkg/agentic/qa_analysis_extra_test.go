@@ -5,7 +5,7 @@ package agentic
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestQAAnalysis_qaAnalysisCompatible_Bad_DifferentCategory — findings with

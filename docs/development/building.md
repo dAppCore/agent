@@ -3,7 +3,7 @@
 
 ## Go module
 
-The module is `dappco.re/go/agent`, rooted at `go/`. Every `dappco.re/go/*` dependency
+The module is `github.com/dappcore/agent/go`, rooted at `go/`. Every `github.com/dappcore/*` dependency
 resolves from its published module tag — there is no workspace and no `replace`
 directive, so a checkout builds the same way everywhere. Run Go tooling from `go/`:
 
@@ -36,7 +36,7 @@ task --list        # everything available
 
 Every Go task runs with `GOWORK=off`, deliberately: the module must build from
 `go.mod` alone, because that is what CI does and what a consumer gets. The
-sibling `dappco.re/*` modules are dependencies, never a local checkout — see
+sibling `github.com/dappcore/*` modules are dependencies, never a local checkout — see
 the `no-vendored-ecosystem` CI job.
 
 Directly, from `go/`:
@@ -59,7 +59,7 @@ go build -o lthn-agent ./cmd/core-agent/
 ## MCP + serve modes
 
 The binary *is* the MCP server. The `mcp` (stdio) and `serve` (HTTP) commands are
-registered by the shared `dappco.re/go/mcp` service the binary mounts:
+registered by the shared `github.com/dappcore/mcp/go` service the binary mounts:
 
 ```bash
 core-agent mcp        # MCP server over stdio — what an IDE connects to

@@ -2,6 +2,6 @@
 
 package agent
 
-// go build -ldflags "-X 'dappco.re/go/agent.Version=0.15.0'" ./cmd/core-agent/
+// go build -ldflags "-X 'github.com/dappcore/agent/go.Version=0.15.0'" ./cmd/core-agent/
 // core.Println(Version) // "0.15.0"
 var Version string

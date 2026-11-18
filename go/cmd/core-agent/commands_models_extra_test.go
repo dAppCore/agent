@@ -5,8 +5,8 @@ package main
 import (
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/lemma"
+	"github.com/dappcore/agent/go/pkg/lemma"
+	core "github.com/dappcore/go"
 )
 
 // TestModels_printDownloadJob_Good — the download-job printer renders all

@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
-	core "dappco.re/go"
-	"dappco.re/go/agent/pkg/agentic"
-	"dappco.re/go/agent/pkg/setup"
+	"github.com/dappcore/agent/go/pkg/agentic"
+	"github.com/dappcore/agent/go/pkg/setup"
+	core "github.com/dappcore/go"
 )
 
 func TestGitOrigin_Service_DetectGitRemote_Good(t *testing.T) {

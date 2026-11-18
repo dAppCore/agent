@@ -25,7 +25,7 @@ package opencode
 import (
 	"bufio"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // EventEmitter is the bridge to the host application's event bus.

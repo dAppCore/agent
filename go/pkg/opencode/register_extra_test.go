@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestOpencode_RegisterAndApplyAuth — Register builds + registers the service;

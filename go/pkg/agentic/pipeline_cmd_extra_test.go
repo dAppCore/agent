@@ -15,7 +15,7 @@ import (
 	"errors"
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func pipelinePR(repo string, number int) core.Options {

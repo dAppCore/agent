@@ -3,8 +3,8 @@
 package agentic
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/process"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-process/go"
 )
 
 // alive := agentic.ProcessAlive(c, proc.ID, proc.Info().PID)

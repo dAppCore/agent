@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestFleetConnect_EventStream_Success_Good — a 200 SSE stream carrying one event

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func cleanupGatePrep(t *testing.T) *PrepSubsystem {
